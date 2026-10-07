@@ -46,11 +46,16 @@ Responde a 5 preguntas clave:
 - *"Al abrir Ego, el usuario debe recibir una representación viva del estado de su proyecto."*
 
 ## Elementos permanentes de la interfaz
-La interfaz se basa en Chat + Dynamic Workspace + superficies contextuales. La cantidad de paneles no forma parte de la identidad del producto (se descartan los modelos rígidos de 3 o 4 áreas fijas). Los elementos principales actuales son:
+La interfaz se basa en Chat + Dynamic Workspace + Ego Activity Widget + superficies contextuales. La cantidad de paneles no forma parte de la identidad del producto (se descartan los modelos rígidos de 3 o 4 áreas fijas). Los elementos principales permanentes son:
 
-- **Chat (Conversation River):** El canal universal de comunicación basado en la librería `@assistant-ui/react` (Thread, Composer, Message, Tool-UI). El usuario habla sobre cualquier tema y Ego enruta las peticiones internamente. El texto se renderiza fluidamente usando markdown vía `@assistant-ui/react-streamdown`.
-- **Canvas:** El área de trabajo principal y dinámica. Aquí, los Sub-Egos construyen interfaces en tiempo real según sea necesario. Puede mostrar: datos interactivos, acciones a realizar, aprobaciones pendientes, informes complejos, herramientas específicas o visualizaciones avanzadas.
-- **Background Activity & Proactivity:** La forma concreta (tray, notificaciones, activity center, daily state) es una decisión de diseño, no de arquitectura. Sirve para mostrar el trabajo persistente en segundo plano y la actividad proactiva de los Sub-Egos sin interrumpir el flujo principal.
+- **Chat (Conversation River):** El canal universal de comunicación e intención del usuario basado en la librería `@assistant-ui/react` (Thread, Composer, Message, Tool-UI). El usuario expresa objetivos y Ego enruta las peticiones internamente. El texto se renderiza fluidamente usando markdown vía `@assistant-ui/react-streamdown`. Rige la **Regla de Estabilidad Visual**: el avatar del Sub-Ego solo se renderiza en el primer mensaje de una intervención o ante un cambio explícito de orador, evitando saturación cinética.
+- **Canvas (Dynamic Workspace):** El área de trabajo principal y reactiva. Aquí los Sub-Egos proyectan interfaces interactivas en tiempo real según la tarea: datos interactivos, acciones a realizar, informes complejos, herramientas específicas o editores de código. Acompañado opcionalmente por la presencia del especialista en escala de trabajo (48–120px).
+- **Ego Activity Widget (Ejecución, Atención y Aprobaciones HITL):** Componente permanente de observación y control ubicado en el marco superior/dock de la ventana. Desarrollado a partir de la doctrina de atención de Coucou, **no es un chat, sino la superficie viva de telemetría de ejecución**. Modos operativos:
+  - *Reposo (Idle):* Mínimo e imperceptible (`[ ● ]`) en el chrome del marco; cero invasión de foco.
+  - *En Trabajo:* Despliega al especialista activo con microanimaciones procedurales reactivas a tools (`scan-horizontal` para archivos, `pulse-breath` para terminal, etc.) y porcentaje de avance.
+  - *Aprobaciones HITL:* Se expande suavemente ante acciones sensibles retenidas para presentar opciones inmediatas (`[ ✓ Aprobar ]`, `[ ✗ Rechazar ]`, `[ 📄 Inspeccionar Diff ]`) con atajos de teclado rápidos (`Enter`, `Esc`).
+  - *Concurrencia Multi-Agente / Pipelines:* Muestra clusters compactos (`[Dev] [Fin] [Mkt] +2`) para pipelines en ejecución paralela (Modo Narrativo).
+- **Background Activity & Proactivity:** Coordinada a través del Activity Widget y el Daily State. Sirve para mostrar el trabajo persistente en segundo plano y la actividad proactiva de los Sub-Egos sin interrumpir el flujo principal del usuario.
 
 ## Explicabilidad contextual (Decisión P11)
 La explicabilidad no es un panel fijo de 320px ni un componente estático de la interfaz (descartado Canvas Causal R0 permanente en P0). Es una **capacidad transversal del sistema** integrada de forma contextual dentro del workspace:

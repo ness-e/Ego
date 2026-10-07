@@ -12,9 +12,10 @@ El usuario nunca debería preguntarse "¿a qué sección debo entrar para hacer 
 Ego utiliza una interfaz dinámica y componible. El usuario dispone de un espacio de trabajo central (workspace) y la interacción principal se realiza mediante conversación. El sistema se adapta y construye la superficie visual necesaria en función del contexto, la tarea, los datos y el resultado requerido.
 
 ## Elementos permanentes
-Solo existen 2 elementos permanentes en la interfaz (no existe un panel lateral permanente de 320px ni Canvas Causal fijo en P0):
-- **Chat:** La interfaz universal. El usuario habla sobre cualquier tema y Ego lo enruta internamente.
-- **Canvas / Panel:** El área de trabajo principal donde los Sub-Egos activos construyen la interfaz dinámicamente (tablas, formularios, dashboards, editores, listas, diagramas, vistas de datos).
+La arquitectura define 3 elementos permanentes (descartando paneles laterales rígidos de 320px o Canvas Causal fijo en P0):
+- **Chat (Conversation River):** La interfaz universal de intención. El usuario expresa objetivos y Ego enruta internamente, respetando la regla de estabilidad visual del avatar.
+- **Canvas / Dynamic Workspace:** El área de trabajo principal donde los Sub-Egos activos proyectan interfaces dinámicamente (tablas, formularios, dashboards, editores, diffs, diagramas).
+- **Ego Activity Widget:** Componente permanente en el frame superior/dock para telemetría de ejecución en tiempo real, micro-animaciones reactivas a tools y resolución interactiva de aprobaciones HITL.
 
 ## Explicabilidad contextual (no es un panel permanente)
 En concordancia con la Decisión P11, la explicabilidad en Ego opera como una **capacidad transversal del sistema** y no como un panel fijo o rígido de 320px:

@@ -24,7 +24,7 @@ schema: "10-column canonical schema (.opencode/references/backlog-format.md comp
 | **Fase 01** | Core Cognitivo | `CORE-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🔴 P0 (Inmediato) | Chat local funcional con persistencia real en VantaDB tras reinicio |
 | **Fase 02** | Acción & Tools | `ACT-01..11` | 11 | **P0-Alpha** | 2-3 semanas | 🔴 P0 | Tool Calling local controlado con aprobación humana (HITL) |
 | **Fase 03** | Sub-Egos | `SUB-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🔴 P0 | Múltiples Sub-Egos cooperan recursivamente compartiendo memoria |
-| **Fase 04** | Dynamic Workspace | `CANV-01..10` | 10 | **P0-Alpha** | 3-4 semanas | 🔴 P0 | Canvas generativo declarativo desacoplado del chat clásico |
+| **Fase 04** | Dynamic Workspace | `CANV-01..11` | 11 | **P0-Alpha** | 3-4 semanas | 🔴 P0 | Canvas generativo declarativo desacoplado del chat clásico |
 | **Fase 05** | Decision Intelligence | `DEC-01..09` | 9 | **P0-Alpha** | 2 semanas | 🔴 P0 | Ego clasifica y delega autónomamente al Sub-Ego óptimo (Golden Path Alpha) |
 | **Fase 06** | Knowledge & Data | `KB-01..10` | 10 | **P0-Beta** | 3 semanas | 🟠 P1 | Búsqueda híbrida (RRF) y GraphRAG sobre repositorios locales |
 | **Fase 07** | Tasks & Background | `TASK-01..10` | 10 | **P0-Beta** | 2-3 semanas | 🟠 P1 | Tareas persistentes en background con checkpoints de estado |
@@ -33,7 +33,7 @@ schema: "10-column canonical schema (.opencode/references/backlog-format.md comp
 | **Fase 10** | Recovery & Hardening | `REC-01..08` | 8 | **P0-Beta** | 2 semanas | 🟠 P1 | Tolerancia total a crashes, snapshots y exportación `.vdbdump` |
 | **Fase 11** | Seguridad | `SEC-01..08` | 8 | **P0-Beta** | 2 semanas | 🟠 P1 | Sandboxing riguroso, validación IPC y gestión segura de secretos |
 | **Fase 12** | Distribución | `DIST-01..08` | 8 | **P0-Beta** | 2-3 semanas | 🟠 P1 | Instaladores firmados (NSIS/DMG) con auto-updater y clean machine |
-| **TOTAL** | **12 Fases Completas** | — | **115** | **P0 Completo** | **~25–32 semanas** | — | **Golden Path Beta multi-día y multi-dominio completado** |
+| **TOTAL** | **12 Fases Completas** | — | **116** | **P0 Completo** | **~25–32 semanas** | — | **Golden Path Beta multi-día y multi-dominio completado** |
 
 > **Backlogs Complementarios de Extracción:**
 > Para acelerar la implementación de UI, runtime TypeScript, resiliencia de tools y empaquetado sin reinventar la rueda, se mantienen los backlogs de extracción especializados:
@@ -121,9 +121,11 @@ schema: "10-column canonical schema (.opencode/references/backlog-format.md comp
 | `CANV-05` | 🟡 Media | **Componentes de Sub-Ego (Report, Approval, Recommendation)** | `apps/desktop/renderer/components/canvas/agent/` | 🟡 2d | 🔴 P0 | 🆕 Pendiente | Bloques especializados de resumen ejecutivo, propuestas con justificación causal y solicitudes estructuradas de aprobación. | Ver: `docs/architecture/ui-runtime.md` §Agent | `CANV-01` |
 | `CANV-06` | 🟠 Alta | **Persistencia de estado del Canvas en VantaDB** | `packages/ui-runtime/CanvasPersistence.ts` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Los artefactos, tablas y diagramas generados en el Canvas persisten por proyecto en VantaDB (`workspace/*`) para reabrirse idénticos entre sesiones. | Ver: `docs/architecture/memoria-vantadb.md` | `CORE-06` |
 | `CANV-07` | 🟡 Media | **Explicabilidad Contextual ("¿Por qué?") bajo demanda** | `apps/desktop/renderer/components/explainability/` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Botón contextual en artefactos y decisiones que despliega la justificación causal (modelo usado, memoria consultada, regla aplicada) sin panel fijo intrusivo. | Ver: `docs/product/ux-ui.md` §P11 | `CANV-02` |
-| `CANV-08` | 🟡 Media | **Sistema de Personajes Procedural en Canvas 2D (`CharacterRuntime`)** | `apps/desktop/renderer/components/character/` | 🟡 2d | 🔴 P0 | 🆕 Pendiente | Motor procedural paramétrico en Canvas 2D / Path2D sin librerías pesadas: squircle deformable, proyección 3D de ojos con mouse-tracking, física de accesorios y render de presets basado en `CharacterDNA`. | Ver: `docs/architecture/character-system.md` | `CORE-01` |
+| `CANV-08` | 🟡 Media | **Sistema de Personajes Procedural en Canvas 2D (`CharacterRuntime`)** | `apps/desktop/renderer/components/character/` | 🟡 2d | 🔴 P0 | 🆕 Pendiente | Motor procedural paramétrico en Canvas 2D / Path2D sin librerías pesadas: squircle deformable, proyección 3D de ojos con mouse-tracking, física de accesorios, morphing en 3 fases (350–550ms) y regla de estabilidad visual (anti-fatiga en chat). | Ver: `docs/architecture/character-system.md` | `CORE-01` |
 | `CANV-09` | 🟡 Media | **Auditoría de Presupuesto UI (Semáforo 15–20% de esfuerzo)** | `docs/roadmap/metricas-okr.md:41` | 🟢 4h | 🔴 P0 | 🆕 Pendiente | Instrumentar seguimiento de horas invertidas en UI vs lógica para mantener la disciplina presupuestaria estipulada en la Decisión P22. | Ver: `docs/roadmap/metricas-okr.md` | — |
 | `CANV-10` | 🔴 Crítica | **Validación E2E del Golden Path Alpha (Pasos 15 al 20)** | `tests/e2e/canvas-interaction.test.ts` | 🟡 2d | 🔴 P0 | 🆕 Pendiente | Test E2E: Sub-Ego emite contrato JSON → Canvas renderiza tabla interactiva → Usuario edita celda → Nuevo estado persiste en VantaDB. | Ver: `docs/roadmap/roadmap.md` | `CANV-01`..`CANV-06` |
+| `CANV-11` | 🟠 Alta | **Ego Activity Widget (Ejecución, Atención y Aprobaciones HITL)** | `apps/desktop/renderer/components/activity-widget/` | 🟡 2d | 🔴 P0 | 🆕 Pendiente | Superficie viva en header/dock: telemetría de tareas activas, microanimaciones reactivas a tools (`scan-horizontal`, `pulse-breath`), resolución interactiva de aprobaciones HITL con atajos (`Enter`/`Esc`) y colas multi-agente (`[Dev] [Fin] +2`). | Ver: `docs/architecture/character-system.md` §6 | `CANV-08`, `COUC-06`, `ACT-04` |
+
 
 ---
 

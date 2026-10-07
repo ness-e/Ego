@@ -41,6 +41,8 @@ flowchart TD
 | | Approval | Solicitud de aprobación humana |
 | | Action | Acción ejecutable |
 | | Sub-Ego Collaboration | Vista de conversación/coordinación entre Sub-Egos |
+| | Character View | Proyección procedural del especialista (Canvas/Header 48–120px) |
+| | Activity Widget | Telemetría viva de ejecución, atención y aprobación HITL interactiva |
 
 ## Contrato declarativo
 Los Sub-Egos no escriben código HTML o React arbitrario, sino que emiten esquemas declarativos que representan un contrato estructurado.
