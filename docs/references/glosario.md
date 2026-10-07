@@ -32,13 +32,18 @@
 - **Decision Intelligence Layer**: Capa transversal de Ego para clasificación, evaluación, scoring, routing, extracción, validación y otras decisiones estructuradas. Puede utilizar modelos especializados (como Jev de TypeSafe), LLMs con structured output, modelos locales o reglas determinísticas.
 - **Decision Router**: Componente de enrutamiento dentro de la Decision Intelligence Layer que canaliza las decisiones hacia reglas, modelos especializados o LLMs, garantizando fallbacks automáticos.
 - **Jev**: Modelo de decisiones estructuradas de TypeSafe (System One Model). Uno de los posibles proveedores de la Decision Intelligence Layer de Ego, no una dependencia obligatoria.
-- **VantaDB**: Motor de memoria en Rust (embebido) optimizado para Ego, combinando búsqueda vectorial, grafos de conocimiento y control de caducidad (TTL).
-- **EgoMemoryAdapter**: Capa única de abstracción y comunicación sobre VantaDB.
+- **VantaDB**: Motor de memoria, conocimiento y recuperación local-first en Rust (v0.8.0). Proyecto first-party independiente utilizado por Ego como substrate de Project Memory. Combina Fjall LSM, HNSW vectorial (4 cuantizaciones), BM25 multilingüe, grafos dirigidos, GraphRAG, bitemporalidad, WAL SHA-256, IQL v4 y cifrado AES-256-GCM.
+- **NativeVantaDB**: Clase TypeScript de `"vantadb/native"` que wrappea `vantadb-node` (napi-rs). Binding correcto para Electron main process. Async, persistencia real en disco. **No confundir con `Client` de `"vantadb"` (WASM, en memoria).**
+- **vantadb-mcp**: Servidor MCP (88 herramientas) que consume `vanta-memory` internamente. Ejecutado como subprocess stdio desde Electron main. Única vía actual a las capacidades cognitivas avanzadas (L0-L3).
+- **vanta-memory**: Pipeline cognitivo Rust (L0: captura, L1: extracción/dedup, L2: escenas, L3: persona). Incluye Context Engine, Dream Consolidation, Task Checkpoints, Auto-Recall. **No expuesto a Node.js** — accesible solo via vantadb-mcp.
+- **Fast Path**: Operaciones VantaDB ejecutadas in-process via NativeVantaDB (put/get/search/graph). Baja latencia, sin serialización JSON-RPC.
+- **Cognitive Path**: Operaciones VantaDB avanzadas via vantadb-mcp subprocess (recall/context/dream/scenes). Mayor latencia por IPC, pero acceso a vanta-memory completo.
+- **EgoMemoryAdapter**: Gateway único de acceso a VantaDB. Orquesta Fast Path y Cognitive Path transparentemente.
 - **Namespace**: Prefijo de dominio o subespacio que organiza lógicamente los hechos dentro de VantaDB.
 - **Hecho Atómico**: La unidad mínima de información estructurada almacenada en un namespace de memoria.
-- **Cuarentena**: Estado en el que se encuentra un hecho pendiente de validación o aprobación por parte de un humano (gobernanza).
-- **Supersede**: Operación de reemplazo atómico y versionado de un hecho obsoleto por uno nuevo.
-- **IQL**: Lenguaje de consulta de grafos propio de VantaDB.
+- **Cuarentena**: Estado en el que se encuentra un hecho pendiente de validación o aprobación por parte de un humano (gobernanza). VantaDB implementa cuarentena nativa (ADR-046).
+- **Supersede**: Operación de reemplazo atómico y versionado de un hecho obsoleto por uno nuevo. VantaDB implementa supersesión nativa (ADR-028, soft-replace, nunca borra en caliente).
+- **IQL**: Integrated Query Language v4 de VantaDB (SELECT, JOIN, WHERE, GROUP BY, RANK BY, AS OF).
 - **SubEgoManifest**: Contrato Zod que define la configuración de un Sub-Ego.
 - **Gateway**: Punto de entrada principal en la arquitectura que normaliza y encamina todos los eventos del sistema hacia un `EgoEvent`.
 - **Proyecto Vivo**: El objeto principal y persistente sobre el que Ego opera; el estado general e historia de los esfuerzos del usuario.

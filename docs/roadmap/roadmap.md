@@ -17,10 +17,14 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 2. Model Router integrado y selección de LLMs.
 3. Streaming de respuestas.
 4. Persistencia básica de conversaciones y contexto.
-- [ ] La aplicación se abre e inicializa la base de datos local.
+5. Validación de integración nativa VantaDB.
+- [ ] La aplicación se abre e inicializa la base de datos local (NativeVantaDB en Electron main).
 - [ ] El usuario puede enviar un mensaje y recibir respuesta en streaming.
-- [ ] El historial se guarda y se recupera tras reiniciar.
-**Criterio de aceptación:** Un chat básico con IA funcionando localmente con persistencia.
+- [ ] El historial se guarda y se recupera tras reiniciar (persistencia Fjall verificada).
+- [ ] put/get/search/searchMulti funcionan contra VantaDB nativo.
+- [ ] Auto-embed genera embeddings sin intervención de TypeScript.
+- [ ] export/import funciona (snapshot de datos).
+**Criterio de aceptación:** Un chat básico con IA funcionando localmente con persistencia real sobre VantaDB nativo.
 
 ### Fase 02: Acción
 **Objetivo:** Permitir que el sistema ejecute herramientas locales y gestione errores.

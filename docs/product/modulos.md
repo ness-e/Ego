@@ -48,12 +48,21 @@ Los dominios restantes se irán activando bajo demanda, escalando orgánicamente
 
 | Capacidad | Dominio (Funcional) | Primitiva VantaDB Destacada |
 | --- | --- | --- |
-| Memoria / Conocimiento | Base de conocimiento | `hybrid search`, `quarantine`, `supersede`, `deduplication` |
+| Memoria / Conocimiento | Base de conocimiento | `hybrid search` (RRF), `quarantine`, `supersede`, `deduplication` |
+| Contexto adaptativo | Cognición | `context_assemble` (compresión multinivel), `memory_recall` (auto-recall con scopes) |
+| Consolidación cognitiva | Cognición | `dream_consolidate` (fusión/dedup/normalización durante inactividad) |
+| Tareas resilientes | Ejecución | `task_checkpoint` (reanudación tras crash, MEMG-20) |
+| Retroalimentación | Cognición | `memory_reinforce` (+0.05 si usado / -0.10 si corregido) |
+| Conocimiento de código | Ingeniería | `code_*` (callers/callees/impacto, inteligencia de código) |
+| Grafo y GraphRAG | Base de conocimiento | `graph` (BFS/DFS/PageRank), `graphrag_search` (seed→expand→weight→text) |
+| Resolución temporal | Cognición | Resolución determinista ("ayer por la tarde" → Unix-ms, español nativo) |
+| Skills versionadas | Configuración | `SkillStore` (versionado + bloqueo optimista para Sub-Egos) |
+| Escenas episódicas | Cognición | `scene_*` (agrupación L2 con heat decay) |
 | CRM / Ventas | Relacional | `graph`, `searchMulti` |
 | Fábrica de Sub-Egos | Configuración del sistema | Documentos JSON estructurados, `TTL` |
-| Gobernanza | Seguridad y Auditoría | Registros inmutables (append-only) |
+| Gobernanza | Seguridad y Auditoría | Registros inmutables (append-only), WAL SHA-256, purga criptográfica VER-02 |
 | Explicabilidad contextual | Gobernanza / Cognición | Citas a registros (`gov/audit`), referencias de namespaces, grafo causal |
-| Analíticas | Métricas | Agregación, time-series |
+| Analíticas | Métricas | Agregación, time-series, bitemporalidad (`AS OF`) |
 
 ## Principio de evolución
 Las capacidades del sistema no crecen simplemente agregando más Sub-Egos de forma desordenada. Estas evolucionan mediante la estructuración de: **dominios + capacidades transversales + Sub-Egos especializados + herramientas + flujos de trabajo + memoria compartida + automatización**.
