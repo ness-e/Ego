@@ -2,9 +2,12 @@
 | --- | --- |
 | Estado | Revisable — fuente vigente de arquitectura general |
 | Owner | ness-e |
-| Fecha | 2026-10-06 |
+| Fecha | 2026-10-07 |
+| Doctrina Rectora | [`arquitectura-unificada.md`](arquitectura-unificada.md) (Síntesis soberana de Ego, VantaDB, Hermes y OpenClaw) |
 
 # Visión General de la Arquitectura
+
+> **Doctrina Rectora:** La síntesis y separación canónica entre Ego, VantaDB (sustrato de memoria first-party), Hermes Agent (patrones desktop/skills) y OpenClaw (runtime/gobernanza) se rige por [`docs/architecture/arquitectura-unificada.md`](arquitectura-unificada.md).
 
 ## Ego como Sistema Operativo Cognitivo
 Ego es un Sistema Operativo Cognitivo (SOC). Va más allá de ser un simple chatbot o asistente; orquesta memoria persistente, capacidades especializadas, coordinación de herramientas y ejecución proactiva, actuando como el sistema operativo central para los proyectos del usuario. (Ver `../product/definicion-soc.md`).
