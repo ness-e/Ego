@@ -1,177 +1,312 @@
-# Memoria VantaDB — Arquitectura de Integración
+# Memoria VantaDB — Arquitectura de Integración (VantaDB Integration Architecture)
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Revisable — fuente vigente de integración VantaDB×Ego |
+| Estado | Canónico — fuente vigente de integración VantaDB × Ego |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| VantaDB verificado | 0.8.0 (auditoría de código completa: 4 subagentes, ~500 archivos Rust/TS) |
+| VantaDB verificado | 0.8.0 (auditoría de código completa: ~500 archivos Rust/TS, engine + bindings + MCP) |
 
-## Decisión canónica
+---
 
-> **VantaDB es el motor de memoria, conocimiento y recuperación local-first desarrollado como proyecto first-party independiente y utilizado por Ego como su principal substrate de Project Memory.**
+## 1. Role of VantaDB in Ego (Rol de VantaDB en Ego)
+
+> **Decisión Canónica:** VantaDB es el motor de memoria, conocimiento y recuperación local-first desarrollado como proyecto first-party independiente y utilizado por Ego como su principal substrate de Project Memory.
 >
 > **Ego define los contratos de memoria que necesita como Cognitive OS; VantaDB proporciona implementaciones nativas de esos contratos mediante su motor Rust y sus superficies de interoperabilidad.**
->
-> **VantaDB NO es "la base de datos de Ego". Es la infraestructura local de memoria, conocimiento y recuperación cognitiva de Ego.**
 
-## Relación entre proyectos
+VantaDB **NO** es "la base de datos local de Ego" ni un simple almacén relacional/vectorial. Es la **infraestructura local de memoria, conocimiento y recuperación cognitiva** de Ego.
 
 ```
-Ego = Cognitive Operating System
-  (orquestación, Sub-Egos, tools, modelos, UX, governance)
-
-VantaDB = Cognitive Memory/Knowledge Engine
-  (persistencia, retrieval, grafos, contexto, consolidación, embeddings)
+                    EGO (Cognitive OS)
+                     │
+              Cognitive Runtime
+                     │
+             Memory Orchestrator
+                     │
+          ┌──────────┴──────────┐
+          │                     │
+    NativeVantaDB         Cognitive Bridge
+     (Fast Path)             (stdio MCP)
+      in-process                  │
+          │                  vantadb-mcp
+   Fjall / HNSW /                 │
+   BM25 / Graph /            vanta-memory
+      IQL v4                    (L0-L3)
 ```
 
-Ego posee las capacidades como contratos. VantaDB implementa la parte de memoria y conocimiento. Ambos proyectos son independientes pero coordinados del mismo ecosistema.
+Ego y VantaDB son proyectos independientes pero coordinados del mismo creador:
+- **Ego** se enfoca en la intención del usuario, orquestación, Sub-Egos, herramientas, selección de modelos (Model Router), Decision Intelligence, Workspace y gobernanza.
+- **VantaDB** se enfoca en persistencia soberana, recuperación híbrida (RRF/MMR), grafos de relaciones, compresión de contexto, consolidación de memoria (dreams), puntos de control de tareas y embeddings locales.
 
-## Arquitectura de integración (P0)
+---
 
-```
-Electron Main Process
-├── EgoMemoryAdapter (gateway único)
-│   │
-│   ├── Fast Path: NativeVantaDB (in-process)
-│   │    └─ put/get/search/searchMulti/supersede/graph/IQL
-│   │    └─ Motor: Fjall LSM + HNSW + BM25 + WAL SHA-256
-│   │    └─ Auto-embed: multilingual-e5-small (384d, ONNX)
-│   │
-│   └── Cognitive Path: MCP Client (stdio)
-│        └─ vantadb-mcp (subprocess gestionado)
-│             └─ vanta-memory (Rust, L0→L3)
-│             └─ recall/context_assemble/dream/scenes/skills
-│
-├── Cognitive Runtime
-├── Model Router
-└── Tool Registry
-```
+## 2. Memory Abstraction (Abstracción de Memoria y Memory Orchestrator)
 
-### Fast Path (NativeVantaDB)
+Ego no se acopla directamente a los detalles internos de VantaDB; la memoria es una capacidad contractual (`EgoMemory`).
 
-Operaciones frecuentes ejecutadas in-process sin serialización:
-
-- `put` / `putBatch` — escritura con auto-embed
-- `get` / `delete` — recuperación O(1)
-- `search` / `searchMulti` — búsqueda híbrida RRF (BM25 + HNSW)
-- `supersede` — sustitución atómica (ADR-028)
-- `insertNode` / `traverse` / `graphBfs` — operaciones de grafo
-- `query` — IQL v4
-
-Características: in-process, async (Tokio pool), baja latencia, persistencia real (Fjall), sin JSON-RPC.
-
-### Cognitive Path (vantadb-mcp)
-
-Operaciones cognitivas avanzadas via subprocess MCP (88 tools):
-
-- `memory_recall` — auto-recall con scopes (session/agent/team)
-- `context_assemble` — compresión multinivel determinista bajo presupuesto de tokens
-- `dream_consolidate` — fusión de memorias durante inactividad
-- `scene_*` — escenas episódicas L2
-- `skill_*` — habilidades versionadas con bloqueo optimista
-- `code_*` — inteligencia de código (callers/callees/impact)
-- `memory_reinforce` — bucle de retroalimentación de confianza
-
-`vanta-memory` está implementado en Rust puro (0 exports a Node.js). El subprocess MCP es la única vía actual.
-
-### Evolución P1: eliminación del subprocess
+El patrón arquitectónico implementado es **Memory Orchestrator**:
 
 ```
-P1: NativeVantaDB expone fachada cognitiva via napi-rs
-    → recall/context/dream/reinforce/checkpoint directamente in-process
-    → vantadb-mcp queda solo como MCP Server de Ego hacia el exterior
+Ego Memory API (Contrato)
+       │
+       ▼
+Memory Orchestrator (EgoMemoryAdapter)
+       │
+       ├── Native Store Adapter (NativeVantaDB in-process)
+       │
+       └── Cognitive Memory Adapter (vantadb-mcp stdio subprocess)
 ```
 
-## Binding correcto
+### Contrato contractual de EgoMemory
 
 ```ts
-// ✅ CORRECTO — persistencia real, async, Fjall LSM
-import { NativeVantaDB } from "vantadb/native";
-const db = await NativeVantaDB.connect(storagePath, { read_only: false });
+export interface EgoMemory {
+  // Fast Path (In-Process)
+  put(record: MemoryInput): Promise<MemoryRecord>;
+  putBatch(records: MemoryInput[]): Promise<MemoryRecord[]>;
+  get(namespace: string, key: string): Promise<MemoryRecord | null>;
+  delete(namespace: string, key: string): Promise<boolean>;
+  search(request: EgoSearchRequest): Promise<SearchHit[]>;
+  searchMulti(namespaces: string[], query: string, options?: EgoSearchOptions): Promise<SearchHit[]>;
+  supersedeFact(oldKey: string, newItem: EgoPut): Promise<void>;
+  quarantine(item: EgoPut, reason?: string): Promise<void>;
+  promote(quarantineKey: string, targetNamespace?: string, targetKey?: string): Promise<void>;
+  graphQuery(queryStr: string): Promise<unknown>;
 
-// ❌ PROHIBIDO — WASM en memoria, sin persistencia en disco
-import { Client } from "vantadb";
-
-// ❌ PROHIBIDO — vanta-proxy está FROZEN (diseñado para interceptar CLIs externas)
-// ❌ PROHIBIDO — vantadb-server en desktop (en desktop se usa modo embebido in-process)
+  // Cognitive Path (vanta-memory vía vantadb-mcp en P0)
+  recall(params: RecallParams): Promise<RecallResult>;
+  assembleContext(messages: ChatMessage[], budget: number): Promise<AssembledContext>;
+  consolidate(sessionKey: string): Promise<ConsolidationReport>;
+  reinforce(namespace: string, key: string, outcome: "used" | "corrected"): Promise<void>;
+  checkpoint(taskId: string, step: number, state: unknown): Promise<void>;
+}
 ```
 
-## Capacidades de VantaDB que Ego consume
+Ego interactúa con el `Memory Orchestrator` sin necesidad de saber qué backend físico ejecuta cada llamada.
 
-| Capacidad Ego | Implementación VantaDB | Disponible en vantadb-node |
-|---|---|---|
-| Persistent memory | Fjall LSM + WAL | ✅ |
-| Hybrid retrieval (RRF) | BM25 + HNSW + MMR | ✅ |
-| Graph traversals | BFS/DFS/PageRank/DAG | ✅ |
-| GraphRAG | seed→expand→weight→text | ⚠️ Pendiente (DIST-15) |
-| Bitemporality | valid_at/invalid_at + AS OF | ✅ |
-| Supersession | ADR-028 (soft-replace) | ✅ |
-| Quarantine | ADR-046 (datos no verificados) | ✅ |
-| Auto-embed | ONNX Runtime + multilingual-e5-small | ✅ |
-| Context compression | 3 niveles + spill-to-disk | ❌ Solo via MCP |
-| Dream consolidation | Dedup + normalización + promoción | ❌ Solo via MCP |
-| Memory recall | Prepend/append + scopes | ❌ Solo via MCP |
-| Task checkpoints | MEMG-20 reanudable | ❌ Solo via MCP |
-| Reinforcement loop | +0.05 used / -0.10 corrected | ❌ Solo via MCP |
-| Temporal resolution | Español nativo → Unix-ms | ❌ Solo via MCP |
-| Code intelligence | callers/callees/impact | ❌ Solo via MCP |
-| SkillStore | Versionado + bloqueo optimista | ❌ Solo via MCP |
+---
 
-## Mapa de responsabilidades
+## 3. NativeVantaDB (Fast Path In-Process)
+
+El **Fast Path** atiende las operaciones de alta frecuencia y baja latencia directamente en el hilo del proceso principal de Node.js (Electron main):
+
+* **Binding:** Addon nativo compilado con `napi-rs` (`vantadb-node`) consumido a través del wrapper tipado `NativeVantaDB` de `"vantadb/native"`.
+* **Rendimiento:** Ejecución asíncrona sobre el pool de subprocesos Tokio en Rust (`spawn_blocking`), sin bloqueo del event loop de Node ni serialización JSON-RPC.
+* **Persistencia:** Motor Fjall LSM con Write-Ahead Logging (WAL) protegido por SHA-256 chain y auto-recuperación CRC32C.
+* **Binding correcto vs prohibido:**
+  ```ts
+  // ✅ CORRECTO — persistencia real en disco (Fjall LSM)
+  import { NativeVantaDB } from "vantadb/native";
+  const db = await NativeVantaDB.connect(storagePath, { read_only: false });
+
+  // ❌ PROHIBIDO — WASM volátil en memoria (sin persistencia en disco)
+  import { Client } from "vantadb";
+  ```
+
+---
+
+## 4. Cognitive Memory Bridge (Puente de Memoria Cognitiva)
+
+Las capacidades cognitivas superiores de VantaDB se canalizan a través de un puente gestionado:
+- En **P0**, opera mediante un subproceso hijo conectado por `stdio` ejecutando el binario `vantadb-mcp`.
+- El Cognitive Bridge implementa reconexión automática, aislamiento de errores de subproceso, timeouts gobernados y cola de peticiones con prioridad.
+- Las respuestas se normalizan en objetos tipados de TypeScript antes de ser entregadas al Cognitive Runtime.
+
+---
+
+## 5. vanta-memory (Pipeline Cognitivo L0-L3)
+
+`vanta-memory` es el subsistema en Rust puro que implementa la memoria cognitiva multicapa:
+
+* **L0 — Captura en bruto:** Registro de interacciones, mensajes, eventos del sistema y hechos sin procesar.
+* **L1 — Extracción y Deduplicación:** Extracción de hechos atómicos, resolución de entidades y detección de duplicados semánticos.
+* **L2 — Escenas Episódicas:** Agrupación situacional de hechos por sesión, objetivo o contexto temporal (`scene_*`) con tasa de enfriamiento (*heat decay*).
+* **L3 — Persona y Síntesis:** Consolidación de perfil, directivas estables, preferencias del usuario y aprendizaje procedimental.
+
+*Restricción técnica P0:* `vanta-memory` no expone exports directos a Node.js en `vantadb-node 0.7.0 / 0.8.0`. Por tanto, el acceso se realiza mediante `vantadb-mcp`.
+
+---
+
+## 6. MCP Internal Bridge (Puente MCP Interno vs Externo)
+
+Ego distingue formalmente dos naturalezas de uso para el protocolo MCP (Model Context Protocol):
+
+| Categoría | Propósito | Implementación | Alcance |
+|---|---|---|---|
+| **MCP Interno** | Interoperabilidad entre procesos locales para memoria cognitiva | `vantadb-mcp` (88 tools vía stdio) | Solo P0 (transitorio hacia P1) |
+| **MCP Externo** | Conexión con servicios, SaaS y herramientas externas | Servidores MCP oficiales (GitHub) y comunitarios | Permanente (Nivel B de integración) |
+| **Ego MCP Server** | Exposición soberana del contexto del Proyecto Vivo | Servidor stdio local expuesto a IDEs externos | Permanente |
+
+Esta separación previene ambigüedades arquitectónicas: el uso de MCP para VantaDB es un detalle de transporte interno, no una integración de terceros.
+
+---
+
+## 7. Memory Operation Routing (Enrutamiento de Operaciones de Memoria)
+
+El `Memory Orchestrator` distribuye cada operación de acuerdo con su perfil:
+
+```
+Operación                          Destino            Mecanismo
+──────────────────────────────────────────────────────────────────
+put / putBatch                     NativeVantaDB      Fast Path (in-process)
+get / delete / list                NativeVantaDB      Fast Path (in-process)
+search (BM25 / HNSW / RRF)         NativeVantaDB      Fast Path (in-process)
+searchMulti (federada)             NativeVantaDB      Fast Path (Promise.all)
+supersedeFact                      NativeVantaDB      Fast Path (ADR-028)
+quarantine / promote               NativeVantaDB      Fast Path (ADR-046)
+graphQuery (IQL)                   NativeVantaDB      Fast Path
+──────────────────────────────────────────────────────────────────
+memory_recall (scopes)             vantadb-mcp        Cognitive Path (stdio)
+context_assemble (compresión)      vantadb-mcp        Cognitive Path (stdio)
+dream_consolidate (inactividad)    vantadb-mcp        Cognitive Path (stdio)
+task_checkpoint (MEMG-20)          vantadb-mcp        Cognitive Path (stdio)
+memory_reinforce (+0.05/-0.10)     vantadb-mcp        Cognitive Path (stdio)
+code_* (inteligencia de código)    vantadb-mcp        Cognitive Path (stdio)
+temporal_resolve (español→ms)      vantadb-mcp        Cognitive Path (stdio)
+```
+
+---
+
+## 8. Embeddings (Auto-Embed ONNX Local)
+
+* **Generación autónoma:** VantaDB integra internamente el motor de inferencia ONNX Runtime. Al invocar `put()` sin un vector precalculado, el motor genera el embedding de forma automática.
+* **Modelo predeterminado:** `multilingual-e5-small` (384 dimensiones, ~220 MB en disco), optimizado para compresión y búsqueda semántica en español e inglés.
+* **Prohibición estricta:** **Queda terminantemente prohibido calcular o inferir embeddings en TypeScript dentro de Ego.** Toda la inferencia vectorial se delega al motor Rust nativo.
+
+---
+
+## 9. Graph / GraphRAG (Grafo de Conocimiento y Recuperación)
+
+* **Modelo de Grafo:** Nodos (`insertNode`, `getNode`) y aristas dirigidas tipadas (`addEdge`, `removeEdge`) integrados en el motor principal.
+* **Algoritmos nativos:** Recorridos BFS, DFS, ordenamiento topológico, verificación acíclica (`graphIsDag`) y cálculo de grado.
+* **Identificadores de nodo (`node_id`):** En Rust son enteros `u128`. En JavaScript y TypeScript se tratan **obligatoriamente como `string`** para evitar truncamiento por encima de `Number.MAX_SAFE_INTEGER`.
+* **Pipeline GraphRAG:** Expansión semántica `seed → expand → weight → generate context`. (Evolución prioritaria `DIST-15` en VantaDB para exponerlo en el SDK de Node).
+
+---
+
+## 10. Context Engine (Compresión y Ensamblado de Contexto)
+
+Ego no construye su propio algoritmo heurístico de poda de tokens en TypeScript; consume el **Context Engine** de VantaDB:
+- **Ensamblado determinista:** Herramienta `context_assemble` que comprime el historial y la memoria bajo un presupuesto estricto de tokens.
+- **Poda multinivel:** Nivel 1 (resumen ejecutivo), Nivel 2 (hechos clave y decisiones), Nivel 3 (mensajes crudos recientes).
+- **Mecanismo Spill-to-Disk:** Si la carga contextual excede la memoria disponible, pagina segmentos históricos a disco sin perder coherencia.
+
+---
+
+## 11. Dream Consolidation (Consolidación Onírica en Inactividad)
+
+Durante los periodos de inactividad del usuario o entre sesiones:
+- El Cognitive Runtime invoca `dream_consolidate` a través del Cognitive Bridge.
+- VantaDB ejecuta en segundo plano:
+  1. Deduplicación semántica de hechos redundantes.
+  2. Detección y resolución de contradicciones causales.
+  3. Enfriamiento de memorias episódicas transitorias.
+  4. Promoción de patrones recurrentes a directivas estables de Sub-Ego (L3).
+
+---
+
+## 12. Task Checkpoints (Puntos de Control de Tareas Resilientes)
+
+Para la ejecución de tareas complejas en segundo plano y recuperación tras reinicios:
+- El Execution Manager de Ego emite checkpoints periódicos mediante `task_checkpoint` (patrón `MEMG-20`).
+- Si la aplicación de escritorio se cierra abruptamente, al reabrirse Ego restaura el estado exacto de la tarea, variables de entorno y pasos completados desde VantaDB.
+
+---
+
+## 13. Persistence / Recovery (Fjall LSM, WAL y Recuperación)
+
+* **Almacenamiento:** Estructura basada en LSM-Tree (Fjall) con segmentos inmutables y compactación en segundo plano.
+* **Durabilidad:** Registro Write-Ahead Log (WAL) con comprobación criptográfica SHA-256 por bloque y fsync configurable.
+* **Cierre ordenado:** El método `close()` activa la barrera de durabilidad `OpGate`, esperando que todas las operaciones en vuelo finalicen antes de cerrar los descriptores de archivo.
+
+---
+
+## 14. Security / Encryption (Cifrado y Purga Criptográfica)
+
+* **Cifrado en reposo:** Compatible con cifrado de página AES-256-GCM.
+* **Purga criptográfica (VER-02):** Destrucción verificable de claves y datos sensibles en cumplimiento de políticas de privacidad.
+* **Aislamiento de credenciales:** Las claves de API y secretos **NUNCA se almacenan en VantaDB**, sino exclusivamente en el Keychain nativo del sistema operativo gestionado por el Credential Manager.
+
+---
+
+## 15. Export / Import (Snapshots .vdbdump y Portabilidad)
+
+* **Formato:** Archivos `.vdbdump` con cabecera `VDBJSON\n` conteniendo registros estructurados, metadatos y vectores.
+* **Operaciones:** Rutinas `export_all` y `bulk_import` locales sin requerir servicios externos, permitiendo backups manuales o programados dentro de la carpeta `userData` del usuario.
+
+---
+
+## 16. Version Compatibility & Governance (Compatibilidad y Gobernanza)
+
+* **Namespaces Gobernados:** Estructura canónica definida en `ego.namespaces.json` v2.
+* **Metadatos obligatorios en cada hecho:** `org_id`, `source`, `ts`, `agent_id`, `confidence`, `state`.
+* **Cuarentena (ADR-046):** Namespace `quarantine/pending` con TTL de 14 días para datos no verificados.
+* **Sustitución (ADR-028):** Reemplazo suave (*soft-replace*) con versionado histórico y aristas `SUPERSEDED_BY`.
+* **Prohibiciones de infraestructura:**
+  - `vanta-proxy` está **FROZEN** (diseñado para interceptar CLIs externas, no aplica a Ego).
+  - `vantadb-server` está **PROHIBIDO** en desktop (se usa exclusivamente modo embebido in-process).
+
+---
+
+## 17. Future Direct vanta-memory Binding (Evolución P0 → P1 → P2)
+
+La arquitectura de integración sigue una hoja de ruta evolutiva planificada:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ P0: ARQUITECTURA HÍBRIDA (ESTABLE / ACTUAL)                     │
+│                                                                 │
+│ Electron Main Process                                           │
+│  ├── NativeVantaDB (in-process vía napi-rs) → Fast Path         │
+│  └── vantadb-mcp (subprocess stdio)        → Cognitive Path     │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ P1: FACHADA COGNITIVA UNIFICADA IN-PROCESS                      │
+│                                                                 │
+│ VantaDB expone una fachada de alto nivel en vantadb-node:       │
+│  ├── Fast Path + Cognitive Path integrados en NativeVantaDB     │
+│  ├── Eliminación del subproceso stdio interno                   │
+│  └── vantadb-mcp queda exclusivamente como servidor externo      │
+│      para herramientas como Cursor, Claude Desktop o VS Code    │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ P2+: SUSTRATO MULTI-SUPERFICIE SOBERANO                         │
+│                                                                 │
+│ Motor Rust universal con tres superficies desacopladas:         │
+│  ├── 1. Native API (Node/Electron vía napi-rs)                  │
+│  ├── 2. MCP API (interoperabilidad abierta de herramientas)     │
+│  └── 3. Rust Crate API (consumo embebido directo para alto      │
+│         rendimiento en herramientas de sistema)                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Matriz de Responsabilidades (Ego vs VantaDB)
 
 | Responsabilidad | Ego | VantaDB |
-|---|---|---|
-| Product intent / Orchestration | **Sí** | No |
-| Sub-Egos / Model Router | **Sí** | No |
-| Tool Registry / Execution | **Sí** | No |
-| Permissions / Governance | **Sí** | Infra parcial |
-| Workspace / UX | **Sí** | No |
-| External integrations | **Sí** | No |
-| Memory Contract (definición) | **Sí** | No |
-| Persistent storage | Consume | **Implementa** |
-| Hybrid retrieval | Consume | **Implementa** |
-| Graph / GraphRAG | Consume | **Implementa** |
-| Context compression | Consume | **Implementa** |
-| Dream consolidation | Consume | **Implementa** |
-| Embeddings (ONNX local) | Consume | **Implementa** |
-
-## Categorización MCP
-
-| Categoría | Uso | Vida útil |
-|---|---|---|
-| **MCP Interno** | Ego → vantadb-mcp (cognitive bridge) | Solo P0 (eliminado en P1) |
-| **MCP Externo** | Ego → GitHub, Notion, Slack | Permanente |
-| **MCP Server de Ego** | Cursor/Claude → Ego → Project Memory | Permanente (puede reusar vantadb-mcp) |
-
-## Configuración de empaquetado Electron
-
-```yaml
-# electron-builder.yml
-asarUnpack:
-  - "**/*.node"  # vantadb_native.*.node no puede cargarse desde .asar
-```
-
-```ts
-// electron.vite.config.ts — no bundlear addons nativos
-external: ['vantadb-node', 'vantadb']
-```
-
-## EgoMemoryAdapter — API pública
-
-| Método | Descripción | Path |
-|---|---|---|
-| `init()` | Conexión async a VantaDB | Fast |
-| `putMulti(items)` | Escritura en lote con metadatos de auditoría | Fast |
-| `searchMulti(namespaces, query, options)` | Búsqueda híbrida federada nativa | Fast |
-| `recall(keyOrQuery, namespace)` | Recuperación exacta O(1) + fallback búsqueda | Fast |
-| `quarantine(item, reason)` | Aislamiento con TTL 14 días | Fast |
-| `promote(quarantineKey)` | Promoción atómica + auditoría | Fast |
-| `supersedeFact(oldKey, newItem)` | Sustitución con trazabilidad | Fast |
-| `registerSubEgo(manifest)` | Registro de identidad en `gov/sub_egos` | Fast |
-| `listSubEgos()` | Listado de Sub-Egos registrados | Fast |
-| `flush()` | Sincronización WAL a disco | Fast |
-| `close()` | Cierre ordenado con OpGate | Fast |
-| `listNamespaces()` | Namespaces activos | Fast |
-
-> **node_id es u128**: Tratar siempre como `string` en JavaScript (supera `Number.MAX_SAFE_INTEGER`).
+|---|:---:|:---:|
+| Intención de producto y orquestación | **Sí** | No |
+| Coordinación y ciclo de vida de Sub-Egos | **Sí** | No |
+| Enrutamiento de modelos (Model Router) | **Sí** | No |
+| Registro y ejecución de herramientas (Tool Registry) | **Sí** | No |
+| Gobernanza, permisos y aprobaciones (HITL) | **Sí** | Infraestructura parcial |
+| Definición del contrato de memoria (`EgoMemory`) | **Sí** | No |
+| Almacenamiento persistente local-first | Consume | **Implementa** |
+| Búsqueda híbrida (BM25 + HNSW + RRF) | Consume | **Implementa** |
+| Grafo de conocimiento y topología | Consume | **Implementa** |
+| GraphRAG (recuperación relacional) | Consume | **Implementa** |
+| Compresión y ensamblado de contexto | Consume | **Implementa** |
+| Consolidación onírica (*dreaming*) | Consume | **Implementa** |
+| Puntos de control de tareas (*checkpoints*) | Consume | **Implementa** |
+| Embeddings locales autónomos (ONNX) | Consume | **Implementa** |
+| Resolución temporal en lenguaje natural | Consume | **Implementa** |
+| Inteligencia de dependencias de código | Consume | **Implementa** |
+| Dynamic Workspace y renderizado de Canvas | **Sí** | No |
+| Experiencia de usuario (Chat, Shell, Mascota) | **Sí** | No |
+| Integraciones externas (GitHub, REST, etc.) | **Sí** | No |
