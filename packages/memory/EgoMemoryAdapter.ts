@@ -1,7 +1,7 @@
 // EgoMemoryAdapter — Implementación oficial de acceso único a VantaDB
 // IMPORTANTE: Usa NativeVantaDB (napi-rs in-process) para persistencia real.
 // NUNCA usar Client de "vantadb" (WASM en memoria, sin persistencia en disco).
-import { NativeVantaDB } from "vantadb/native";
+import type { NativeVantaDB } from "vantadb/native";
 import type { SearchHit, MemoryRecord } from "vantadb/types";
 import { SubEgoManifest, validateSubEgoAccess } from "./sub-egos.js";
 
@@ -36,10 +36,11 @@ export class EgoMemoryAdapter {
 
   /**
    * Inicialización asíncrona obligatoria.
-   * NativeVantaDB.connect() es async (abre el motor Fjall LSM en background threads).
+   * Carga dinámicamente NativeVantaDB (módulo ESM) y abre el motor Fjall LSM.
    */
   async init(): Promise<void> {
     if (this.isInitialized) return;
+    const { NativeVantaDB } = await import("vantadb/native");
     this.db = await NativeVantaDB.connect(this.storagePath, { read_only: false });
     this.isInitialized = true;
   }
@@ -65,28 +66,36 @@ export class EgoMemoryAdapter {
       const payloadStr =
         typeof item.payload === "string" ? item.payload : JSON.stringify(item.payload);
 
-      const metadata: Record<string, string | number | boolean | null> = {};
+      const metadata: Record<string, unknown> = {};
       if (item.metadata) {
         for (const [k, v] of Object.entries(item.metadata)) {
-          if (v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+          if (typeof v === "number") {
+            metadata[k] = { Float: v };
+          } else if (typeof v === "string") {
+            metadata[k] = { String: v };
+          } else if (typeof v === "boolean") {
+            metadata[k] = { Bool: v };
+          } else if (v === null) {
+            metadata[k] = "Null";
+          } else if (typeof v === "object" && v !== null) {
             metadata[k] = v;
           } else {
-            metadata[k] = JSON.stringify(v);
+            metadata[k] = { String: JSON.stringify(v) };
           }
         }
       }
 
-      metadata.org_id = String(item.metadata?.org_id || "org_default");
-      metadata.ts = typeof item.metadata?.ts === "number" ? item.metadata.ts : Date.now();
-      metadata.agent_id = String(item.metadata?.agent_id || "ego.nucleus");
-      metadata.confidence = typeof item.metadata?.confidence === "number" ? item.metadata.confidence : 1.0;
-      metadata.state = String(item.metadata?.state || "active");
+      metadata.org_id = { String: String(item.metadata?.org_id || "org_default") };
+      metadata.ts = { Float: typeof item.metadata?.ts === "number" ? item.metadata.ts : Date.now() };
+      metadata.agent_id = { String: String(item.metadata?.agent_id || "ego.nucleus") };
+      metadata.confidence = { Float: typeof item.metadata?.confidence === "number" ? item.metadata.confidence : 1.0 };
+      metadata.state = { String: String(item.metadata?.state || "active") };
 
       return {
         namespace: item.namespace,
         key: item.key,
         payload: payloadStr,
-        metadata,
+        metadata: metadata as Record<string, string | number | boolean | null>,
         ttl_ms: item.ttl_ms,
       };
     });
@@ -143,8 +152,33 @@ export class EgoMemoryAdapter {
     const db = this.ensureReady();
     const topK = options.topK ?? 10;
 
-    // Búsqueda federada paralela a través de los namespaces solicitados
-    const hitsPromises = namespaces.map(async (ns) => {
+    // Si algún namespace incluye comodín (*), expandir dinámicamente contra los namespaces existentes
+    let targetNamespaces = namespaces;
+    if (namespaces.some((ns) => ns.includes("*"))) {
+      try {
+        const existing = await db.listNamespaces();
+        const expanded: string[] = [];
+        for (const ns of namespaces) {
+          if (ns.includes("*")) {
+            const prefix = ns.replace(/\*.*$/, "");
+            const matches = existing.filter((e) => e.startsWith(prefix));
+            expanded.push(...matches);
+          } else {
+            expanded.push(ns);
+          }
+        }
+        targetNamespaces = [...new Set(expanded)];
+      } catch {
+        targetNamespaces = namespaces.filter((ns) => !ns.includes("*"));
+      }
+    }
+
+    if (targetNamespaces.length === 0) {
+      return [];
+    }
+
+    // Búsqueda federada paralela a través de los namespaces resueltos
+    const hitsPromises = targetNamespaces.map(async (ns) => {
       try {
         return await db.search({
           namespace: ns,

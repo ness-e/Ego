@@ -26,6 +26,9 @@ importers:
       vantadb:
         specifier: 0.8.0
         version: 0.8.0
+      vantadb-node:
+        specifier: file:../../../VantaDB/vantadb-node
+        version: file:../VantaDB/vantadb-node
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -100,6 +103,9 @@ importers:
       vantadb:
         specifier: 0.8.0
         version: 0.8.0
+      vantadb-node:
+        specifier: file:../../../VantaDB/vantadb-node
+        version: file:../VantaDB/vantadb-node
     devDependencies:
       '@types/node':
         specifier: ^22.8.0
@@ -3901,6 +3907,12 @@ packages:
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
+
+  vantadb-node@file:../VantaDB/vantadb-node:
+    resolution: {directory: ../VantaDB/vantadb-node, type: directory}
+    engines: {node: '>=18'}
+    cpu: [x64, arm64]
+    os: [win32, darwin, linux]
 
   vantadb-wasm@0.8.0:
     resolution: {integrity: sha512-3y5CCVZHnpNexylVYSvxua5KhkyOMv1NBi7jUr3GOAbtP6LW7HBT+74tKPAnP7LtSqa/aJRfs6HrNmJRRXcJ2g==}
@@ -8318,6 +8330,8 @@ snapshots:
   utf8-byte-length@1.0.5: {}
 
   util-deprecate@1.0.2: {}
+
+  vantadb-node@file:../VantaDB/vantadb-node: {}
 
   vantadb-wasm@0.8.0: {}
 

@@ -31,6 +31,7 @@ export async function createWindow(): Promise<void> {
   win = new BrowserWindow({
     width: 1440,
     height: 900,
+    show: true,
     frame: true,
     titleBarStyle: "hidden",
     titleBarOverlay: {
@@ -44,6 +45,10 @@ export async function createWindow(): Promise<void> {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+
+  win.webContents.on("did-fail-load", (_e, errorCode, errorDescription) => {
+    console.error(`[Electron Window] Error al cargar HTML: ${errorDescription} (${errorCode})`);
   });
 
   // 1. Canal de Operaciones de Memoria VantaDB (Validación estricta Zod — SEC-02)
@@ -197,8 +202,12 @@ export async function createWindow(): Promise<void> {
   if (isDev && process.env.VITE_DEV_SERVER_URL) {
     await win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    await win.loadFile(join(app.getAppPath(), "renderer/dist/index.html"));
+    const htmlPath = join(app.getAppPath(), "renderer/dist/index.html");
+    console.log(`[Ego Desktop] Cargando interfaz de usuario: ${htmlPath}`);
+    await win.loadFile(htmlPath);
   }
+  win.show();
+  win.focus();
 }
 
 void app.whenReady().then(createWindow);
