@@ -25,9 +25,26 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 - Cloud Dashboard.
 - Documentación pública.
 
-## Base de datos local
-- **VantaDB**: Base de datos principal local, conectada a través de un **binding nativo de Node (napi-rs)**, y no mediante WASM en el renderer.
-- **Regla (VantaDB primero)**: No habrá una segunda base de datos local sin una justificación explícita.
+## Base de datos local — VantaDB 0.8.0
+
+### Capa de Persistencia (in-process)
+- **VantaDB** v0.8.0: Motor embebido Rust con Fjall LSM, HNSW vectorial (4 niveles de cuantización), BM25 multilingüe (Tantivy), WAL anti-manipulación (SHA-256), bitemporalidad, IQL v4 y grafo dirigido con GraphRAG.
+- **Binding**: `NativeVantaDB` desde `"vantadb/native"` — wrapper TypeScript asíncrono sobre `vantadb-node` (napi-rs, N-API v8).
+- **NO usar**: `Client` de `"vantadb"` (WASM en memoria, sin persistencia en disco).
+- **Auto-Embed**: VantaDB genera embeddings internamente via ONNX Runtime (`multilingual-e5-small`, 384d). No calcular embeddings en TypeScript.
+- **Búsqueda**: Híbrida RRF (BM25 + HNSW + filtros bitemporales + MMR). `searchMulti` es nativo.
+- **Empaquetado Electron**: `asarUnpack: ["**/*.node"]` obligatorio en `electron-builder.yml`.
+
+### Capa Cognitiva (subprocess MCP)
+- **vantadb-mcp**: Servidor MCP (88 herramientas) ejecutado como subprocess stdio desde Electron main.
+- Consume internamente `vanta-memory` (pipeline cognitivo L0→L3: captura, dedup, escenas, persona, dream consolidation).
+- Proporciona: `context_assemble`, `memory_recall`, `dream_consolidate`, `scene_*`, `skill_*`, `code_*`.
+- `vanta-memory` está implementado en Rust puro y NO tiene bindings Node.js directos.
+
+### Reglas
+- **VantaDB primero**: No habrá una segunda base de datos local sin justificación explícita.
+- **Gateway único**: Todo acceso pasa por `EgoMemoryAdapter` en main process.
+- **node_id es u128**: Tratar siempre como `string` en JavaScript (supera `Number.MAX_SAFE_INTEGER`).
 
 ## Seguridad Electron
 - `contextIsolation = true`: Aislamiento estricto entre el proceso principal y el renderizador.

@@ -9,7 +9,7 @@
 * Framework desktop: Electron (último estable) + electron-vite
 * Frontend: React 19 + TypeScript (strict) + Vite
 * Chat UI: `@assistant-ui/react`
-* Memoria: VantaDB vía binding nativo napi-rs (solo en main process)
+* Memoria: VantaDB 0.8.0 vía `NativeVantaDB` de `"vantadb/native"` (napi-rs, solo en main process) + `vantadb-mcp` como subprocess cognitivo (88 tools, vanta-memory L0-L3)
 * Modelos: AI SDK v7 (adaptador, NO arquitectura) + Model Router propio
 * Gestor de paquetes: pnpm (workspaces)
 * Lenguaje único: TypeScript (Python solo sidecar opcional)
@@ -22,7 +22,8 @@
 Renderer (React+Vite) → Preload (IPC tipado) → Main (Node)
                                                   └─ Cognitive Runtime
                                                        ├─ Context Assembly
-                                                       ├─ Memory Adapter → VantaDB (napi-rs)
+                                                       ├─ Memory Adapter → NativeVantaDB (napi-rs in-process)
+                                                       │                 → vantadb-mcp (subprocess cognitivo L0-L3)
                                                        ├─ Model Router → Providers
                                                        ├─ Decision Intelligence Layer
                                                        ├─ Sub-Ego Runtime
@@ -122,6 +123,10 @@ Regla: Estos repos son referencia de patrones. No copiar código directamente �
 * **NO Mastra ni LangGraph** como dependencias de núcleo (adaptadores opcionales futuros)
 * **NO Jev** como componente interno (proveedor externo opcional en Decision Intelligence)
 * **NO VantaDB en renderer** — solo main process vía IPC
+* **NO `Client` de `"vantadb"`** (WASM) — usar `NativeVantaDB` de `"vantadb/native"` (napi-rs)
+* **NO `vanta-proxy`** — FROZEN, diseñado para interceptar CLIs de terceros
+* **NO `vantadb-server`** en desktop — usar modo embebido in-process
+* **NO calcular embeddings en TypeScript** — VantaDB auto-embed via ONNX Runtime
 * **NO lógica de negocio en renderer** — solo presentación
 * **NO acceso directo a VantaDB** — todo pasa por `EgoMemoryAdapter`
 * **NO "23 roles" como arquitectura** — Sub-Egos son dinámicos por dominio/capability
