@@ -64,6 +64,7 @@ schema: "10-column canonical schema (.opencode/references/backlog-format.md comp
 | `CORE-10` | 🟡 Media | **Exportación e importación básica de sesiones (.vdbdump)** | `packages/memory/EgoMemoryAdapter.ts` | 🟢 1d | 🔴 P0 | 🆕 Pendiente | Implementar rutinas de snapshot local en formato `.vdbdump` con cabecera `VDBJSON` para salvaguarda de datos. | Ver: `docs/architecture/memoria-vantadb.md` §15 | `CORE-07` |
 | `CORE-11` | 🔴 Crítica | **Validación E2E del Golden Path Alpha (Pasos 1 al 7)** | `tests/e2e/golden-path-alpha.test.ts` | 🟡 2d | 🔴 P0 | 🆕 Pendiente | Test E2E automatizado: Abrir Ego → Crear proyecto → Guardar contexto → Cerrar app → Reabrir app → Recuperar contexto intacto. | Ver: `docs/roadmap/roadmap.md` §P0-Alpha | `CORE-01`..`CORE-09` |
 | `CORE-12` | 🔴 Crítica | **Unificación de Ciclo de Vida de Memoria (Hermes + VantaDB L0-L3)** | `packages/memory/EgoMemoryLifecycle.ts` | 🟡 1-2d | 🔴 P0 | ✅ Completada | Módulo `EgoMemoryLifecycle` con 6 fases: Session admission, Pre-turn prefetch con glifo 🧠, micro-checkpoints, post-turn sync y dream consolidation. | Ver: `docs/architecture/ciclo-memoria-unificado.md` | `CORE-06`, `CORE-07` |
+| `CORE-13` | 🔴 Crítica | **Cognitive Navigation Sidebar (Dual Rail & Drawer)** | `apps/desktop/renderer/components/sidebar.tsx` | 🟡 1-2d | 🔴 P0 | ⏳ En curso | Navegación del SOC: Proyectos (Project Memory), Roster de Sub-Egos (`gov/sub_egos`), Sesiones (`session/turns`), Artifacts, Settings y modo dual (54px/260px). | Ver: `docs/architecture/navigation-sidebar.md` | `CORE-01`, `CORE-05` |
 
 ---
 
