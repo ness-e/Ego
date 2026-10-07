@@ -49,3 +49,13 @@ Cuando surja un conflicto en el diseño técnico o de producto, el equipo deber�
 2. La directriz del nivel superior prevalece de forma automática.
 3. Si la restricción inferior debe prevalecer por motivos de peso (ej. limitación técnica dura de un SDK), se debe documentar y promover una modificación explícita (RFC/ADR) de la decisión de nivel superior.
 4. Actualizar todos los documentos afectados según la nueva alineación.
+
+## Ejemplo de desagregación multinivel
+A continuación se ilustra cómo un concepto funcional como la **Gestión de Tareas (Task Management)** se desagrega a través de los diferentes niveles de la jerarquía:
+
+- **Capacidad (Nivel 3):** Ego debe poder crear, asignar, priorizar, ejecutar y rastrear tareas.
+- **Arquitectura (Nivel 4):** Task Registry + Execution Manager + EgoEvent bus + VantaDB persistence.
+- **Diseño (Nivel 5):** Lista de tareas en Canvas, estados visuales, filtros, agrupación por Sub-Ego.
+- **Dominio (Nivel 6):** En Engineering = tickets de código; en CRM = follow-ups de ventas.
+- **Implementación (Nivel 10):** TypeScript + React + Zustand + VantaDB namespaces `tasks/*`.
+

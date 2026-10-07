@@ -18,7 +18,7 @@ Este es el conjunto de capacidades esenciales que deben estar operativas para el
 - **Explicabilidad contextual:** Capacidad de justificar decisiones bajo demanda (3 niveles: usuario, avanzado, auditoría) y proactivamente antes de acciones con impacto.
 - **Workspace dinámico:** Implementación de Chat + Canvas utilizando el esquema de componentes declarativos.
 - **Estado dinámico del proyecto:** Pantalla de inicio dinámica que muestra el estado actual del proyecto, acciones pendientes y elementos que requieren atención. Generado por Ego utilizando los Sub-Egos y el sistema de componentes declarativos.
-- **Dots tray:** Visualización en tiempo real del estado de tareas y sistema.
+- **Background Activity:** Visualización en tiempo real del estado de tareas y sistema.
 - **Exportación/Importación:** Manejo de snapshots `.vdbdump` y mecanismos de restauración segura.
 - **Modo construcción básico:** Capacidad para que Ego interactúe con código, archivos y tareas fundamentales de desarrollo (software/coding).
 
@@ -27,8 +27,7 @@ Este es el conjunto de capacidades esenciales que deben estar operativas para el
 - Diario (Journal)
 - QA y Testing automatizado para desarrollo
 - Soporte al cliente
-- Integración y polling de GitHub
-- Gobernanza avanzada (Jev)
+- Gobernanza avanzada (Decision Intelligence / Jev)
 - Capacidades extendidas de ingeniería de software
 
 ## Capacidades P2 — Escalar

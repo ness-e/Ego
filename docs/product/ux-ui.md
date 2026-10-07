@@ -97,7 +97,7 @@ El avance de la experiencia de usuario se estructura en cuatro capas acumulativa
 ### 2. Fundaciones obligatorias desde el inicio
 Para que el desarrollo iterativo sea sostenible y evite deuda técnica, los siguientes elementos de infraestructura de UX deben existir desde el inicio del proyecto:
 - **Design tokens:** Variables centralizadas para paleta de colores, escalas de espaciado, radios de curvatura y sombras.
-- **Primitivas y layout base:** Contenedores universales flexbox/grid, Conversation River, Canvas container y Dots Tray.
+- **Primitivas y layout base:** Contenedores universales flexbox/grid, Conversation River, Canvas container y Background Activity (indicador contextual).
 - **Tipografía y tokens de color:** Tipografía Geist integrada y esquema dark-first con abstracción desacoplada de temas (theme abstraction).
 - **Espaciado y grillas:** Escala matemática predecible para márgenes, padding y alineaciones.
 - **Estados de interacción universales:** Todo componente debe soportar contractualmente: `default`, `hover`, `active`, `focus`, `disabled`, `loading`, `error`, `empty` y `overflow`.
@@ -121,7 +121,7 @@ Cada fase del roadmap tiene asignado un presupuesto explícito de esfuerzo dedic
 | --- | :---: | --- |
 | **Core** | 10–15% | Estructura base, primitivas, design tokens, layout global (Conversation River + Canvas). |
 | **Acción** | 10–15% | Tool-UI, aprobaciones contextuales, visualización de ejecución de herramientas. |
-| **Sub-Egos** | 15–20% | Dots Tray, indicadores de actividad, panel de gestión contextual y lazy activation. |
+| **Sub-Egos** | 15–20% | Background Activity (indicador contextual), indicadores de actividad, panel de gestión contextual y lazy activation. |
 | **Dynamic Workspace / Canvas** | 25–30% | Superficie interactiva, layout dinámico, renderizado declarativo reactivo y transformaciones de vistas. |
 | **Decision Intelligence** | 10–15% | Explicabilidad contextual (3 niveles), visualización de evidencia y scoring de confianza. |
 | **Knowledge / Data** | 15–20% | Área de datos, tablas dinámicas, explorador de entidades y esquemas de VantaDB. |
@@ -140,7 +140,7 @@ Cada fase del roadmap tiene asignado un presupuesto explícito de esfuerzo dedic
 El esfuerzo y acabado se adapta según la naturaleza del componente:
 - **L1 Funcional (Infraestructura y servicios internos):** UI mínima, orientada a diagnósticos, inspección o configuración básica. Prioriza feedback operativo y robustez sin microanimaciones.
 - **L2 Productivo (Features de cara al usuario / User-facing):** Interfaz estándar de alta usabilidad, flujos claros, manejo estricto de errores y uso riguroso del catálogo de componentes.
-- **L3 Core UX (Superficies neurálgicas del sistema):** Chat (`@assistant-ui/react`), Dynamic Canvas, Daily State y Dots Tray. Requiere máxima ergonomía cognitiva, fluidez visual instantánea, cero parpadeos y refinamiento sensorial prioritario.
+- **L3 Core UX (Superficies neurálgicas del sistema):** Chat (`@assistant-ui/react`), Dynamic Canvas, Daily State y Background Activity (indicador contextual). Requiere máxima ergonomía cognitiva, fluidez visual instantánea, cero parpadeos y refinamiento sensorial prioritario.
 
 ### 6. Progresión de calidad por etapa de madurez
 - **Prototipo:** Rudimentario. Validación de arquitectura técnica, esquemas y viabilidad.
@@ -164,7 +164,7 @@ La visibilidad de los Sub-Egos se organiza en 4 niveles de presencia:
 
 | Nivel de presencia | Definición | Comportamiento en la interfaz |
 | --- | --- | --- |
-| **Invisible / Interno** | Utilizado internamente por el orquestador de Ego para tareas de fondo, análisis o soporte. | No genera interfaz dedicada; su actividad se refleja de forma agregada en el Dots Tray o logs de auditoría. |
+| **Invisible / Interno** | Utilizado internamente por el orquestador de Ego para tareas de fondo, análisis o soporte. | No genera interfaz dedicada; su actividad se refleja de forma agregada en Background Activity (indicador contextual) o logs de auditoría. |
 | **Contextual** | Se manifiesta dinámicamente cuando su dominio es relevante para la tarea en curso. | Aparece en el canvas o chat durante la interacción y se repliega automáticamente al finalizar la tarea. |
 | **Persistente** | Posee datos continuos, herramientas activas o artefactos en monitoreo que justifican un espacio continuo. | Mantiene una vista dedicada en el canvas mientras existan procesos u objetos de trabajo activos que requieran atención. |
 | **Acceso directo (Pinned)** | Fijado explícitamente por el usuario para acceso frecuente e inmediato. | Queda anclado como acceso directo en la interfaz. Ego puede sugerir fijar Sub-Egos basándose en patrones de uso frecuente. |

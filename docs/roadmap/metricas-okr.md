@@ -62,7 +62,9 @@ Durante la ejecución de cada fase se rastrean las siguientes variables:
 - **Horas totales reales:** Tiempo invertido en todas las actividades (arquitectura, lógica, pruebas, UI).
 - **Horas UI reales:** Tiempo invertido específicamente en diseño, prototipado, tokens, maquetación, componentes declarativos y accesibilidad.
 - **UI Budget %:** Ratio real resultante vs. presupuesto meta asignado a la fase.
-- **Rework Rate (%):** Proporción de horas reinvertidas en rediseñar o refactorizar interfaces por ambigüedades tempranas o deuda técnica de UX.
+- **Rework Rate (%):** Proporción de horas reinvertidas en rediseñar o refactorizar interfaces por ambigüedades tempranas o deuda técnica de UX:  
+  $$\text{Rework Rate (\%)} = \left(\frac{\text{Horas retrabajo}}{\text{Horas UI totales}}\right) \times 100$$  
+  *(Rework Rate (%) = (Horas retrabajo / Horas UI totales) × 100)*.
 - **Desviación (Deviation %):** Porcentaje de variación entre las horas UI presupuestadas y las efectivamente consumidas.
 
 ## Métricas P0 de viabilidad

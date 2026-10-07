@@ -28,7 +28,7 @@ Varias decisiones históricas han sido reclasificadas como implementaciones o de
 | Concepto | ¿Innegociable? | Razón |
 | --- | --- | --- |
 | 23 roles fijos | NO | Eran un detalle de implementación inicial; los Sub-Egos son dinámicos y adaptables a dominios funcionales. |
-| Interfaz Dots tray | NO | Es una implementación visual específica de Background Activity/Proactivity. |
+| Interfaz Background Activity | NO | Es una implementación visual específica de Background Activity/Proactivity. |
 | Canvas Causal R0 permanente | NO | Es un patrón de UX intrusivo; la explicabilidad es necesaria, pero su forma gráfica es flexible. |
 | Offline absoluto | NO | Resulta demasiado restrictivo; se permite operación híbrida local-first con servicios en la nube para modelos pesados. |
 | Cuarentena universal de hechos | NO | Introducir revisión manual para *todo* hecho añade fricción excesiva. |
@@ -38,14 +38,28 @@ Varias decisiones históricas han sido reclasificadas como implementaciones o de
 
 ## Matriz completa
 | Concepto | ¿Innegociable? | Razón |
-| --- | --- | --- |
-| VantaDB local | SÍ | Pilar de la Memoria local persistente. |
-| Memoria de Proyecto | SÍ | Pilar del Contexto persistente. |
-| Orquestador Meta-Ego | SÍ | Pilar del Cognitive Runtime. |
-| Tools/Acciones reales | SÍ | Pilar de Capacidad de ejecutar acciones. |
-| Multi-modelo router | SÍ | Pilar de resiliencia y especialización. |
-| 23 roles | NO | Detalle de partición, no propiedad del sistema. |
-| Panel de 4 áreas/3-zonas | NO | Es sólo una disposición de UI. |
-| Dots | NO | Es UI, el principio real es Background Activity. |
-| Offline absoluto | NO | Condición técnica, no pilar de capacidad (basta con local-first y propiedad). |
-| Canvas Causal fijo | NO | UX específica, el principio es la explicabilidad. |
+|---|---|---|
+| Memoria local persistente / VantaDB | SÍ | Propiedad fundamental #1 |
+| Project Memory + Context compartido | SÍ | Propiedad fundamental #2 |
+| Cognitive Runtime propio | SÍ | Propiedad fundamental #3 |
+| Sub-Egos personalizables | SÍ | Propiedad fundamental #4 |
+| 23 roles predefinidos | NO | Detalle de catálogo / partición, no propiedad del sistema |
+| Tool Calling + Execution | SÍ | Propiedad fundamental #5 |
+| Gobernanza / permisos | SÍ | Propiedad fundamental #6 |
+| Aprobación de acciones sensibles | SÍ | Parte de gobernanza (#6) |
+| Multi-modelo | SÍ | Propiedad fundamental #7 |
+| Model Router | SÍ | Parte de multi-modelo (#7) |
+| Chat | SÍ | Propiedad fundamental #8 (canal universal) |
+| Dynamic Workspace | SÍ | Propiedad fundamental #8 (superficie de trabajo) |
+| Background Activity tray | NO | Detalle de UI; la capacidad es Background Activity & Proactivity |
+| Canvas Causal R0 | NO | Patrón UX intrusivo; la capacidad es explicabilidad contextual |
+| Explicabilidad / Auditoría | SÍ | Capacidad transversal de confianza |
+| Offline absoluto | NO | Demasiado restrictivo; se adopta Local-first + Cloud-optional |
+| Local-first / Cloud-optional | SÍ | Propiedad fundamental #9 |
+| Export / Import de datos | SÍ | Parte de propiedad de datos (#9) |
+| Cuarentena universal de hechos | NO | Fricción innecesaria; se adopta procedencia + confianza + revisión |
+| Procedencia + confianza + revisión crítica | SÍ | Reemplazo pragmático de cuarentena universal |
+| MCP como identidad | NO | MCP es protocolo de integración, no identidad del producto |
+| Integraciones extensibles | SÍ | Propiedad fundamental #10 |
+| Background execution | SÍ | Parte de operación persistente (#10) |
+| Forma concreta del tray/UI de actividad | NO | Detalle de diseño visual, no capacidad del sistema |

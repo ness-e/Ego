@@ -43,7 +43,7 @@ Este aislamiento de estado privado no restringe el acceso al conocimiento genera
 - Los namespaces bajo `egos/<id>/*` representan el estado privado exclusivo de cada Sub-Ego y no son accesibles directamente por otros especialistas salvo mediación del Orchestration Bus.
 - `gov/*`: Solo es accesible por la capacidad de gobernanza y por la capa de coordinación (Meta-Ego).
 - `system/*`: Solo accesible por la capa de coordinación (Meta-Ego).
-- La lectura transversal no prevista en el manifiesto requiere escalación formal a través de Jev o aprobación directa de un humano.
+- La lectura transversal no prevista en el manifiesto requiere escalación formal a través de la **Decision Intelligence Layer** (vía Decision Router) o aprobación directa de un humano.
 
 ## Metadata obligatoria
 Todo registro ingresado en cualquier namespace debe contener al menos:

@@ -53,6 +53,10 @@
 - **MoR (Merchant of Record)**: Proveedor que gestiona facturación, impuestos y pagos (ej: Paddle, Lemon Squeezy).
 - **MCP Client**: Capacidad de Ego para conectarse a servidores MCP externos y consumir herramientas, recursos y prompts de servicios de terceros.
 - **MCP Server**: Capacidad de Ego para exponer su contexto, memoria, conocimiento, tareas y estado como recursos accesibles para aplicaciones externas de IA.
-- **Credential Manager**: Capa de Ego para gestionar OAuth, API keys, tokens de refresco, secretos, alcances y revocación de credenciales de integraciones externas.
 - **Integration Catalog / Catálogo de Integraciones**: Registro de integraciones disponibles con metadatos de tipo, proveedor, transporte, autenticación, permisos, estado y nivel de confianza (Official, Verified, Community, Custom, Experimental).
+- **Activación Contextual / Lazy Activation**: Mecanismo por el cual las capacidades y Sub-Egos de Ego existen en un catálogo y se instancian únicamente cuando la intención del usuario lo amerita. Permite tener 0 Sub-Egos visibles en estado base.
+- **Canvas Causal**: Capacidad avanzada de observabilidad, auditoría visual y razonamiento causal profundo proyectada para post-P0 (P2). En P0 se reemplaza por Explicabilidad Contextual bajo demanda.
+- **Especialista Temporal**: Sub-Ego coordinado internamente para resolver una tarea ad-hoc, invisible por defecto al usuario. Si una combinación temporal se vuelve recurrente, Ego propone promoverla a Sub-Ego persistente.
+- **Explicabilidad Contextual**: Capacidad transversal de Ego para fundamentar sus decisiones bajo demanda (3 niveles: Usuario, Avanzado, Auditoría) y proactivamente ante acciones sensibles. Reemplaza el Canvas Causal permanente en P0.
+
 

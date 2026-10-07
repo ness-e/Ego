@@ -27,7 +27,7 @@ El sistema se organiza en las siguientes capas:
 2. **Main**: Gateway de entrada, pre-carga de IPC, Decision Intelligence Layer (clasificación, scoring, routing, extracción y validación estructurada), capa de coordinación central (Meta-Ego) y Orchestration Bus para comunicación inter-agente.
 3. **Memoria**: VantaDB (embedded) + `EgoMemoryAdapter` + esquema `ego.namespaces.json`.
 4. **Sub-Egos**: Catálogo de dominios funcionales + plantillas de especialistas + instancias dinámicas. Fábrica inteligente de Sub-Egos (conversacional, plantillas, modo avanzado) y `SubEgoManifest`. Activación bajo demanda (lazy activation).
-5. **Integraciones**: MCP local para P0; sondeo de GitHub (polling) en P1.
+5. **Integraciones**: MCP Client + MCP Server + filesystem + git + terminal + GitHub (MCP oficial) + HTTP/Webhooks en P0; Email, Calendar, Slack en P1.
 6. **IA y Modelos**: Arquitectura multi-proveedor agnóstica desde P0 basada en Ego Model Interface y Model Router por capacidades y roles funcionales; Vercel AI SDK utilizado como adaptador de integración (no arquitectura propietaria; versión agnóstica / AI SDK 7), adaptadores directos y locales (Ollama/Llama con enfoque offline-first), BYOK y endpoints compatibles con OpenAI.
 
 ## Hitos de Implementación P0

@@ -28,6 +28,8 @@ Ego evoluciona a medida que el proyecto y su creador crecen:
 
 ## Posicionamiento inicial
 
+> "El sistema operativo cognitivo para fundadores que construyen sin (o con poco) equipo."
+
 Ego comienza aportando valor de inmediato a una sola persona que construye en solitario, pero está diseñado estructuralmente para crecer junto con el proyecto y el equipo. La identidad de "creador solitario" no define el destino de Ego, sino **una de las primeras formas de adoptar y utilizar Ego.**
 
 ## Personas prioritarias iniciales

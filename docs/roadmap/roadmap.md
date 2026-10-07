@@ -36,16 +36,16 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 **Criterio de aceptación:** El modelo puede interactuar con el sistema operativo de forma controlada y persistente.
 
 ### Fase 03: Sub-Egos
-**Objetivo:** Habilitar el paradigma multi-agente recursivo.
+**Objetivo:** Habilitar el paradigma multi-Sub-Ego recursivo.
 1. Creación y ejecución de Sub-Egos.
-2. Memoria compartida (Shared Memory) entre agentes.
-3. Comunicación inter-agente y delegación de tareas.
+2. Memoria compartida (Shared Memory) entre Sub-Egos.
+3. Comunicación inter-Sub-Ego y delegación de tareas.
 4. Gestión de permisos por Sub-Ego.
 - [ ] Ego puede spawnear un Sub-Ego.
 - [ ] El Sub-Ego ejecuta una tarea independiente.
-- [ ] Los agentes comparten contexto a través de la Shared Memory.
+- [ ] Los Sub-Egos comparten contexto a través de la Shared Memory.
 - [ ] El Sub-Ego reporta el resultado de su tarea.
-**Criterio de aceptación:** Múltiples agentes cooperan para resolver una tarea sin que el usuario intervenga en la orquestación.
+**Criterio de aceptación:** Múltiples Sub-Egos cooperan para resolver una tarea sin que el usuario intervenga en la orquestación.
 
 ### Fase 04: Dynamic Workspace/Canvas
 **Objetivo:** Proveer una interfaz dinámica generativa.
@@ -55,7 +55,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 4. Selección de contexto (Selection Context) por parte del usuario.
 - [ ] Ego puede generar un artefacto UI.
 - [ ] El artefacto se renderiza interactivamente.
-- [ ] El artefacto se actualiza en tiempo real en la vista del usuario si un agente lo modifica.
+- [ ] El artefacto se actualiza en tiempo real en la vista del usuario si un Sub-Ego lo modifica.
 - [ ] El usuario puede seleccionar elementos como contexto.
 **Criterio de aceptación:** La interfaz trasciende el chat clásico hacia un entorno de manipulación de artefactos.
 
@@ -68,7 +68,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [ ] Ego clasifica automáticamente una solicitud entrante.
 - [ ] Asigna la solicitud al Sub-Ego adecuado basándose en el score.
 - [ ] Detecta ciclos infinitos y aplica fallbacks limpios.
-**Criterio de aceptación:** Ego decide de forma autónoma cómo resolver problemas complejos delegando al agente adecuado.
+**Criterio de aceptación:** Ego decide de forma autónoma cómo resolver problemas complejos delegando al Sub-Ego adecuado.
 
 ### Fase 06: Knowledge & Data
 **Objetivo:** Integrar la memoria a largo plazo e ingesta masiva de datos.
@@ -77,7 +77,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 3. Búsqueda Híbrida (Texto + Semántica).
 4. Data Views y filtros de usuario.
 - [ ] El usuario indexa un directorio de proyecto.
-- [ ] Los agentes realizan búsquedas híbridas sobre ese conocimiento.
+- [ ] Los Sub-Egos realizan búsquedas híbridas sobre ese conocimiento.
 - [ ] El usuario visualiza y filtra datos indexados en la interfaz.
 **Criterio de aceptación:** El sistema responde a consultas utilizando conocimiento específico del usuario ingerido localmente.
 
