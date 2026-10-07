@@ -63,8 +63,9 @@ export function EgoChat() {
       try {
         const r: unknown = await ego().memory("recall", [text, "kb/docs"]);
         if (r) {
-          if (typeof r === "object" && r.titulo) {
-            reply = `📖 **${r.titulo}**\n\n${r.contenido}\n\n*Estado: ${r.estado} · Fuente: VantaDB kb/docs*`;
+          if (typeof r === "object" && r !== null && "titulo" in r) {
+            const doc = r as { titulo: string; contenido?: string; estado?: string };
+            reply = `📖 **${doc.titulo}**\n\n${doc.contenido || ""}\n\n*Estado: ${doc.estado || "OK"} · Fuente: VantaDB kb/docs*`;
           } else if (Array.isArray(r) && r.length > 0) {
             const first = r[0];
             const p = typeof first.record?.payload === "string" ? JSON.parse(first.record.payload) : first.record?.payload;

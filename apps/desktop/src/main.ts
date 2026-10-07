@@ -1,8 +1,7 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
-import { EgoMemoryAdapter } from "../../packages/memory/EgoMemoryAdapter";
-import { SubEgoManifest, createSubEgoId } from "../../packages/memory/sub-egos";
-import { MemoryOpSchema, CreateSubEgoSchema, ApproveActionSchema } from "./ipc/schema";
+import { EgoMemoryAdapter, SubEgoManifest, createSubEgoId } from "@ego/memory";
+import { MemoryOpSchema, CreateSubEgoSchema, ApproveActionSchema } from "./ipc/schema.js";
 
 let adapter: EgoMemoryAdapter;
 let win: BrowserWindow | null = null;
@@ -39,8 +38,16 @@ export async function createWindow(): Promise<void> {
 
     const { op, args } = parseResult.data;
     switch (op) {
-      case "put":
-        return adapter.put(args[0]);
+      case "put": {
+        const item = args[0];
+        return adapter.put({
+          namespace: item.namespace,
+          key: item.key,
+          payload: item.payload,
+          metadata: item.metadata,
+          ttl_ms: item.ttl_ms,
+        });
+      }
       case "get":
         return adapter.get(args[0], args[1]);
       case "delete":

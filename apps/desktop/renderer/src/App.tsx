@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Sparkle, TerminalWindow, CheckCircle, Warning } from "@phosphor-icons/react";
+import { Sparkle, TerminalWindow, Warning } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Union } from "../components/union";
 
 export function App() {
-  const [activeWidgetState, setActiveWidgetState] = useState<"idle" | "working" | "approval">("idle");
+  const [activeWidgetState] = useState<"idle" | "working" | "approval">("idle");
   const [approvalPending, setApprovalPending] = useState(false);
 
   return (

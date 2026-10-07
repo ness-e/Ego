@@ -3,8 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist/EgoMemoryAdapter.js",
-  "types": "./dist/EgoMemoryAdapter.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./sub-egos": {
+      "types": "./dist/sub-egos.d.ts",
+      "import": "./dist/sub-egos.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -14,6 +24,7 @@
     "vantadb": "0.8.0"
   },
   "devDependencies": {
+    "@types/node": "^22.8.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.2"
   }

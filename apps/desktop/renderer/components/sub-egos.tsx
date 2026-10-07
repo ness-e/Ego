@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Robot, Play, Pause, ShieldCheck, Lightning } from "@phosphor-icons/react";
+import { Plus, Robot, Pause, ShieldCheck } from "@phosphor-icons/react";
 import { ego, SubEgoSummary } from "../lib/ego";
 
 export function SubEgosView() {

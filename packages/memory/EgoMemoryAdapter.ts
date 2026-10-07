@@ -102,6 +102,36 @@ export class EgoMemoryAdapter {
   }
 
   /**
+   * Escritura simple para un único ítem
+   */
+  async put(item: EgoPut): Promise<void> {
+    return this.putMulti([item]);
+  }
+
+  /**
+   * Obtiene un registro por namespace y clave
+   */
+  async get(namespace: string, key: string): Promise<unknown> {
+    const db = this.ensureReady();
+    const record = await db.get({ namespace, key });
+    if (!record) return null;
+    return this.parseRecord(record);
+  }
+
+  /**
+   * Elimina un registro por namespace y clave
+   */
+  async delete(namespace: string, key: string): Promise<boolean> {
+    const db = this.ensureReady();
+    try {
+      await db.delete({ namespace, key });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Búsqueda híbrida multi-namespace con RRF (BM25 + HNSW).
    * VantaDB soporta searchMulti nativo — no iterar manualmente.
    */
@@ -132,14 +162,14 @@ export class EgoMemoryAdapter {
 
     const results = await Promise.all(hitsPromises);
     const allHits = results.flat();
-    allHits.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    allHits.sort((a: SearchHit, b: SearchHit) => (b.score ?? 0) - (a.score ?? 0));
     return allHits.slice(0, topK);
   }
 
   /**
    * Recuperación por clave exacta con fallback a búsqueda de texto
    */
-  async recall(keyOrQuery: string, namespace: string): Promise<unknown> {
+  async recall(keyOrQuery: string, namespace: string = "kb/docs"): Promise<unknown> {
     const db = this.ensureReady();
     try {
       // 1. Intentar recuperación exacta por clave ({ namespace, key })
@@ -359,7 +389,7 @@ export class EgoMemoryAdapter {
     const db = this.ensureReady();
     try {
       const page = await db.list({ namespace: "gov/sub_egos", limit: 100 });
-      return page.records.map((r) => this.parseRecord(r) as SubEgoManifest);
+      return page.records.map((r: MemoryRecord) => this.parseRecord(r) as SubEgoManifest);
     } catch {
       return [];
     }
@@ -382,5 +412,29 @@ export class EgoMemoryAdapter {
     op: "read" | "write"
   ): boolean {
     return validateSubEgoAccess(manifest, namespace, op);
+  }
+
+  /**
+   * Registra una acción sensible en el log inmutable de auditoría (gov/audit)
+   */
+  async recordAudit(
+    action: string,
+    actor: string,
+    details: Record<string, unknown>,
+    target?: string
+  ): Promise<void> {
+    await this.putMulti([
+      {
+        namespace: "gov/audit",
+        key: `${action}:${Date.now()}`,
+        payload: {
+          action,
+          actor,
+          target,
+          details,
+          timestamp: Date.now(),
+        },
+      },
+    ]);
   }
 }
