@@ -27,6 +27,8 @@ export interface TurnRecord {
   timestamp: number;
   userPrompt: string;
   assistantReply: string;
+  userMessage?: string;
+  assistantResponse?: string;
   recalledKeys: string[];
   toolInvocations?: Array<{ toolId: string; inputDigest: string; success: boolean }>;
 }
@@ -95,10 +97,11 @@ export class EgoMemoryLifecycle {
       "session/turns",
     ];
 
-    const hits: SearchHit[] = await this.adapter.searchMulti(namespaces, prompt, {
+    const cleanPrompt = prompt.replace(/[¿?¡!.,;:()]/g, " ").trim();
+
+    const hits: SearchHit[] = await this.adapter.searchMulti(namespaces, cleanPrompt || prompt, {
       topK: 5,
       excludeSuperseded: true,
-      minConfidence: 0.65,
     });
 
     const sourcesSet = new Set<string>();
@@ -181,6 +184,8 @@ export class EgoMemoryLifecycle {
       timestamp: Date.now(),
       userPrompt,
       assistantReply,
+      userMessage: userPrompt,
+      assistantResponse: assistantReply,
       recalledKeys,
     };
 
@@ -200,6 +205,25 @@ export class EgoMemoryLifecycle {
 
     // Reiniciar temporizador de Dream Consolidation en inactividad (5 minutos)
     this.scheduleDreamConsolidation();
+  }
+
+  /**
+   * Helper estructurado para persistencia de turnos de conversación indexados
+   */
+  async syncTurnToDisk(data: {
+    sessionId: string;
+    turnIndex: number;
+    userMessage: string;
+    assistantResponse: string;
+    recalledKeys?: string[];
+  }): Promise<void> {
+    await this.syncTurn(
+      data.sessionId,
+      `turn:${data.turnIndex}`,
+      data.userMessage,
+      data.assistantResponse,
+      data.recalledKeys || []
+    );
   }
 
   /**

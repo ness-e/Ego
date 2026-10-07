@@ -1,6 +1,9 @@
 // EgoMemoryAdapter — Implementación oficial de acceso único a VantaDB
 // IMPORTANTE: Usa NativeVantaDB (napi-rs in-process) para persistencia real.
 // NUNCA usar Client de "vantadb" (WASM en memoria, sin persistencia en disco).
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
 import type { NativeVantaDB } from "vantadb/native";
 import type { SearchHit, MemoryRecord } from "vantadb/types";
 import { SubEgoManifest, validateSubEgoAccess } from "./sub-egos.js";
@@ -17,6 +20,20 @@ export interface EgoSearchOptions {
   topK?: number;
   excludeSuperseded?: boolean;
   minConfidence?: number;
+}
+
+export interface EgoDumpReport {
+  path: string;
+  recordsExported: number;
+  namespaces: string[];
+  checksum: string;
+  durationMs: number;
+}
+
+export interface EgoImportReport {
+  recordsImported: number;
+  namespaces: string[];
+  durationMs: number;
 }
 
 export class EgoMemoryAdapter {
@@ -470,5 +487,109 @@ export class EgoMemoryAdapter {
         },
       },
     ]);
+  }
+
+  /**
+   * Exporta la base de datos o namespaces seleccionados a un archivo .vdbdump
+   * Formato canónico: Cabecera "VDBJSON\n" seguida de un JSON por línea con el registro completo (ADR-046/§15).
+   */
+  async exportDump(targetFilePath?: string, targetNamespaces?: string[]): Promise<EgoDumpReport> {
+    const db = this.ensureReady();
+    const startTime = Date.now();
+
+    const dumpPath =
+      targetFilePath || path.join(this.storagePath, `ego_backup_${Date.now()}.vdbdump`);
+    const namespaces = targetNamespaces || (await this.listNamespaces());
+
+    let totalRecords = 0;
+    const lines: string[] = ["VDBJSON\n"];
+    const hash = crypto.createHash("sha256");
+    hash.update("VDBJSON\n");
+
+    for (const ns of namespaces) {
+      let cursor: number | undefined = undefined;
+      do {
+        const listOpts: { namespace: string; limit: number; cursor?: number } = {
+          namespace: ns,
+          limit: 100,
+        };
+        if (typeof cursor === "number") {
+          listOpts.cursor = cursor;
+        }
+        const page = await db.list(listOpts);
+        for (const record of page.records) {
+          totalRecords++;
+          const jsonLine = JSON.stringify(record) + "\n";
+          lines.push(jsonLine);
+          hash.update(jsonLine);
+        }
+        cursor =
+          typeof page.next_cursor === "number"
+            ? page.next_cursor
+            : typeof page.next_cursor === "string" && !isNaN(Number(page.next_cursor))
+            ? Number(page.next_cursor)
+            : undefined;
+      } while (cursor !== undefined);
+    }
+
+    await fs.mkdir(path.dirname(dumpPath), { recursive: true });
+    await fs.writeFile(dumpPath, lines.join(""), "utf8");
+
+    const checksum = hash.digest("hex");
+    return {
+      path: dumpPath,
+      recordsExported: totalRecords,
+      namespaces,
+      checksum,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * Importa y restaura registros desde un archivo .vdbdump
+   * Valida la cabecera canónica VDBJSON e inserta por lotes en NativeVantaDB.
+   */
+  async importDump(sourceFilePath: string): Promise<EgoImportReport> {
+    const startTime = Date.now();
+
+    const content = await fs.readFile(sourceFilePath, "utf8");
+    const rawLines = content.split("\n").filter((l) => l.trim().length > 0);
+
+    if (rawLines.length === 0 || rawLines[0] !== "VDBJSON") {
+      throw new Error(
+        `[EgoMemoryAdapter] Archivo de backup inválido: falta cabecera VDBJSON en ${sourceFilePath}`
+      );
+    }
+
+    const recordsToPut: EgoPut[] = [];
+    const namespacesSeen = new Set<string>();
+
+    for (let i = 1; i < rawLines.length; i++) {
+      try {
+        const parsed = JSON.parse(rawLines[i]) as MemoryRecord;
+        if (parsed.namespace && parsed.key) {
+          namespacesSeen.add(parsed.namespace);
+          recordsToPut.push({
+            namespace: parsed.namespace,
+            key: parsed.key,
+            payload: parsed.payload,
+            metadata: parsed.metadata as Record<string, unknown>,
+          });
+        }
+      } catch (e) {
+        console.warn(`[EgoMemoryAdapter] Línea ${i + 1} corrupta en ${sourceFilePath}:`, e);
+      }
+    }
+
+    if (recordsToPut.length > 0) {
+      await this.putMulti(recordsToPut);
+      await this.flush();
+    }
+
+    return {
+      recordsImported: recordsToPut.length,
+      namespaces: Array.from(namespacesSeen),
+      durationMs: Date.now() - startTime,
+    };
   }
 }
