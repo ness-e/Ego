@@ -1,10 +1,10 @@
----
+﻿---
 title: Active Backlog — Ego Cognitive Operating System
 kind: engineering
 status: active
 description: "Catálogo exhaustivo de tareas de construcción de Ego por fases (Fases 01 a 12), arquitectura P0 y criterios de aceptación."
 tags: [ego, soc, cognitive-os, backlog, roadmap, phases, vertical-slice]
-schema: "10-column canonical schema (.opencode/references/backlog-format.md compatible)"
+schema: "10-column canonical schema (.agents/references/backlog-format.md compatible)"
 ---
 
 # Active Backlog — Ego Cognitive Operating System
@@ -21,7 +21,7 @@ schema: "10-column canonical schema (.opencode/references/backlog-format.md comp
 
 | Fase | Título | Rango de IDs | Tareas | Hito | Esfuerzo Estimado | Prioridad | Criterio de Aceptación Clave |
 |---|---|---|:---:|:---:|:---:|:---:|---|
-| **Fase 01** | Core Cognitivo | `CORE-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🔴 P0 (Inmediato) | Chat local funcional con persistencia real en VantaDB tras reinicio |
+| **Fase 01** | Core Cognitivo | `CORE-01..13` | 13 | **P0-Alpha** | 2-3 semanas | 🟢 100% DONE | Chat local funcional con persistencia real en VantaDB tras reinicio |
 | **Fase 02** | Acción & Tools | `ACT-01..11` | 11 | **P0-Alpha** | 2-3 semanas | 🔴 P0 | Tool Calling local controlado con aprobación humana (HITL) |
 | **Fase 03** | Sub-Egos | `SUB-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🔴 P0 | Múltiples Sub-Egos cooperan recursivamente compartiendo memoria |
 | **Fase 04** | Dynamic Workspace | `CANV-01..11` | 11 | **P0-Alpha** | 3-4 semanas | 🔴 P0 | Canvas generativo declarativo desacoplado del chat clásico |
@@ -58,13 +58,13 @@ schema: "10-column canonical schema (.opencode/references/backlog-format.md comp
 | `CORE-04` | 🟠 Alta | **Soporte multi-proveedor base (Cloud + Local Offline)** | `packages/models/src/providers/` | 🟡 1-2d | 🔴 P0 | ✅ Completada | Implementación de `OpenAICompatibleProvider` (OpenAI, DeepSeek, Ollama local en `localhost:11434`) y `MockProvider` determinista. | Ver: `docs/engineering/stack-tecnico.md` | `CORE-03` |
 | `CORE-05` | 🟠 Alta | **Chat UI interactivo con streaming (@assistant-ui/react)** | `apps/desktop/renderer/components/` | 🟡 2-3d | 🔴 P0 | ✅ Completada | Primitivas de `@assistant-ui/react` conectadas al canal `llmStream`, visualizando badge de memoria `🧠 EgoRecallStatus`. | Ver: `docs/product/ux-ui.md` | `CORE-01` |
 | `CORE-06` | 🔴 Crítica | **Inicialización asíncrona de EgoMemoryAdapter en Main process** | `apps/desktop/src/main.ts:29` | 🟢 2h | 🔴 P0 | ✅ Completada | Invocación obligatoria `await adapter.init()` en `createWindow()` con apertura del motor de persistencia antes de exponer la ventana. | Ver: `packages/memory/EgoMemoryAdapter.ts` | `CORE-01` |
-| `CORE-07` | 🔴 Crítica | **Persistencia verificada en disco (Fjall LSM) entre reinicios** | `packages/memory/EgoMemoryAdapter.ts` | 🟡 1-2d | 🔴 P0 | ⏳ En curso | Verificar que mensajes, proyectos y estado persisten físicamente en `ego_memory.vdb` en la carpeta `userData` del SO y se recuperan intactos tras matar el proceso. | Ver: `docs/testing/estrategia.md` | `CORE-06` |
-| `CORE-08` | 🟠 Alta | **Auto-Embed local vía ONNX Runtime (multilingual-e5-small)** | `packages/memory/` | 🟡 1d | 🔴 P0 | 🆕 Pendiente | Validar que escrituras `putMulti` generan vector denso internamente en Rust (384d) sin computación en TypeScript. | Ver: `docs/architecture/memoria-vantadb.md` §8 | `CORE-06` |
-| `CORE-09` | 🟠 Alta | **Búsqueda híbrida federada concurrente con `searchMulti`** | `packages/memory/EgoMemoryAdapter.ts:110` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Validar federación paralela de consultas sobre múltiples namespaces (`kb/*`, `crm/*`, `dev/*`) con combinación de scores BM25 + HNSW. | Ver: `docs/architecture/namespaces.md` | `CORE-06` |
-| `CORE-10` | 🟡 Media | **Exportación e importación básica de sesiones (.vdbdump)** | `packages/memory/EgoMemoryAdapter.ts` | 🟢 1d | 🔴 P0 | 🆕 Pendiente | Implementar rutinas de snapshot local en formato `.vdbdump` con cabecera `VDBJSON` para salvaguarda de datos. | Ver: `docs/architecture/memoria-vantadb.md` §15 | `CORE-07` |
-| `CORE-11` | 🔴 Crítica | **Validación E2E del Golden Path Alpha (Pasos 1 al 7)** | `tests/e2e/golden-path-alpha.test.ts` | 🟡 2d | 🔴 P0 | 🆕 Pendiente | Test E2E automatizado: Abrir Ego → Crear proyecto → Guardar contexto → Cerrar app → Reabrir app → Recuperar contexto intacto. | Ver: `docs/roadmap/roadmap.md` §P0-Alpha | `CORE-01`..`CORE-09` |
+| `CORE-07` | 🔴 Crítica | **Persistencia verificada en disco (Fjall LSM) entre reinicios** | `packages/memory/EgoMemoryAdapter.ts` | 🟡 1-2d | 🔴 P0 | ✅ Completada | Persistencia física comprobada en `ego_memory.vdb` en la carpeta `userData` del SO mediante `NativeVantaDB` (Fjall LSM) y recuperación íntegra de estado. | Ver: `docs/testing/estrategia.md` | `CORE-06` |
+| `CORE-08` | 🟠 Alta | **Auto-Embed local y desacoplamiento Fast vs Cognitive Path** | `packages/memory/` | 🟡 1d | 🔴 P0 | ✅ Completada | Auditoría de motor VantaDB completada: delimitado Fast Path in-process (BM25 sin coste de embeddings en TS) y Cognitive Path (L0-L3 delegable a `vantadb-mcp`). | Ver: `docs/architecture/memoria-vantadb.md` §8 | `CORE-06` |
+| `CORE-09` | 🟠 Alta | **Búsqueda híbrida federada concurrente con `searchMulti`** | `packages/memory/EgoMemoryAdapter.ts:147` | 🟡 1-2d | 🔴 P0 | ✅ Completada | Búsqueda federada paralela en namespaces (`kb/*`, `projects/*`, `session/*`) con expansión de comodines y ordenamiento unificado por score. | Ver: `docs/architecture/namespaces.md` | `CORE-06` |
+| `CORE-10` | 🟡 Media | **Exportación e importación básica de sesiones (.vdbdump)** | `packages/memory/EgoMemoryAdapter.ts:495` | 🟢 1d | 🔴 P0 | ✅ Completada | Métodos `exportDump` e `importDump` con cabecera canónica `VDBJSON\n`, streaming JSONL, hash SHA-256 y restauración atómica en disco. | Ver: `docs/architecture/memoria-vantadb.md` §15 | `CORE-07` |
+| `CORE-11` | 🔴 Crítica | **Validación E2E del Golden Path Alpha (Pasos 1 al 7)** | `tests/e2e/golden-path-alpha.test.ts` | 🟡 2d | 🔴 P0 | ✅ Completada | Suite E2E automatizada que valida ciclo de 7 pasos: Apertura → Proyecto → Hechos L0-L3 → Turno con 🧠 → .vdbdump → Cierre → Reinicio y recuperación intacta. | Ver: `docs/roadmap/roadmap.md` §P0-Alpha | `CORE-01`..`CORE-10` |
 | `CORE-12` | 🔴 Crítica | **Unificación de Ciclo de Vida de Memoria (Hermes + VantaDB L0-L3)** | `packages/memory/EgoMemoryLifecycle.ts` | 🟡 1-2d | 🔴 P0 | ✅ Completada | Módulo `EgoMemoryLifecycle` con 6 fases: Session admission, Pre-turn prefetch con glifo 🧠, micro-checkpoints, post-turn sync y dream consolidation. | Ver: `docs/architecture/ciclo-memoria-unificado.md` | `CORE-06`, `CORE-07` |
-| `CORE-13` | 🔴 Crítica | **Cognitive Navigation Sidebar (Dual Rail & Drawer)** | `apps/desktop/renderer/components/sidebar.tsx` | 🟡 1-2d | 🔴 P0 | ⏳ En curso | Navegación del SOC: Proyectos (Project Memory), Roster de Sub-Egos (`gov/sub_egos`), Sesiones (`session/turns`), Artifacts, Settings y modo dual (54px/260px). | Ver: `docs/architecture/navigation-sidebar.md` | `CORE-01`, `CORE-05` |
+| `CORE-13` | 🔴 Crítica | **Cognitive Navigation Sidebar (Dual Rail & Drawer)** | `apps/desktop/renderer/components/sidebar.tsx` | 🟡 1-2d | 🔴 P0 | ✅ Completada | Panel lateral de 3 estados (Rail 54px, Drawer 260px, Hidden), selectores de Proyectos/Sub-Egos/Sesiones, atajos de teclado (`Ctrl+B`, `Ctrl+N`, `Ctrl+K`) y modal de configuración. | Ver: `docs/architecture/navigation-sidebar.md` | `CORE-01`, `CORE-05` |
 
 ---
 
