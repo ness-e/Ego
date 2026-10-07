@@ -45,7 +45,7 @@ Las capacidades transversales cruzan todos los dominios funcionales. No son depa
 
 | Capacidad | Descripción | Relación con dominios |
 | --- | --- | --- |
-| **Memoria/KB** | Capacidad central del sistema, sirve a todos los dominios. | Transversal a todo el sistema. |
+| **Memoria/KB** | Capacidad central del sistema implementada sobre el substrate VantaDB vía `EgoMemoryAdapter`; persiste el conocimiento y estado de todos los dominios en sus namespaces de `ego.namespaces.json`. | Transversal a todo el sistema. |
 | **Research** | Puede apoyar estrategia, producto, marketing, legal, ingeniería, etc. | Utilizable por cualquier dominio que requiera investigación. |
 | **Analytics** | Usada por prácticamente todos los dominios para extraer insights. | Transversal, orientada a datos. |
 | **Governance** | Políticas, auditoría, permisos, decisiones, control. | Transversal y de control general. |
@@ -75,7 +75,7 @@ El sistema es extensible por diseño y no exhaustivamente predefinido.
 
 ```mermaid
 flowchart TD
-    Ego["EGO\nCOGNITIVE OPERATING SYSTEM"] --> OS1["MEMORY"]
+    Ego["EGO\nCOGNITIVE OPERATING SYSTEM"] --> OS1["MEMORY\n(VantaDB)"]
     Ego --> OS2["ORCHESTRATION"]
     Ego --> OS3["CONTEXT"]
     

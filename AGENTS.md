@@ -12,7 +12,7 @@
 * Memoria: VantaDB 0.8.0 vía `NativeVantaDB` de `"vantadb/native"` (napi-rs, solo en main process) + `vantadb-mcp` como subprocess cognitivo (88 tools, vanta-memory L0-L3)
 * Modelos: AI SDK v7 (adaptador, NO arquitectura) + Model Router propio
 * Gestor de paquetes: pnpm (workspaces)
-* Lenguaje único: TypeScript (Python solo sidecar opcional)
+* Lenguaje de la aplicación: TypeScript (Node.js 22 main + React 19 renderer). Sidecar opcional: Python (ingesta masiva).
 
 ## 2. ARQUITECTURA Y CONVENCIONES
 
@@ -174,8 +174,8 @@ Vertical slice progresivo. Fases 01–05 = P0-Alpha. Fases 06–12 = P0-Beta.
 ## 7. INTEGRACIONES
 
 * MCP = protocolo estándar. Ego = MCP Client + MCP Server.
-* First-party: filesystem, git, terminal, GitHub.
-* HTTP/Webhooks para servicios sin MCP.
+* First-party nativo (Nivel A): filesystem, git local, terminal. MCP Oficial (Nivel B): GitHub.
+* HTTP/Webhooks (Nivel C) para servicios sin MCP.
 * Cognitive Runtime NUNCA contiene lógica específica de servicio.
 * Agregar una integración no debe modificar Runtime, Router, Sub-Egos ni Workspace.
 

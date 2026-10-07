@@ -94,9 +94,9 @@ Ego no solo consume herramientas; también opera como un servidor MCP local, exp
 - `knowledge_search`: Consultas directas al grafo de conocimiento estructurado de hechos y relaciones del proyecto.
 - `tasks`: Inspección, listado y reporte de estado de tareas del backlog y tareas en ejecución.
 - `project_state`: Métricas consolidadas, salud operativa y estado del runtime.
-- **Herramientas canónicas de gobernanza local:** `ego.recall` (recuperación de memoria), `ego.approve` (resolución de aprobaciones humanas) y `ego.ask` (consultas cognitivas inter-agente).
+- **Herramientas canónicas de gobernanza local:** `ego.recall` (recuperación de memoria), `ego.approve` (resolución de aprobaciones humanas) y `ego.ask` (consultas cognitivas inter-Sub-Ego).
 
-El servidor MCP de Ego opera sobre transporte `stdio` local, gobernado por las listas de control de acceso (ACL) y asociando cada llamada a un agente invocador identificado.
+El servidor MCP de Ego opera sobre transporte `stdio` local, gobernado por las listas de control de acceso (ACL) y asociando cada llamada a un Sub-Ego invocador identificado.
 
 ---
 

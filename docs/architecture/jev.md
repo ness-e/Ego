@@ -5,7 +5,7 @@
 | Fecha | 2026-10-06 |
 | Contexto arquitectónico | Subordinado a la **Decision Intelligence Layer** como proveedor externo opcional |
 | Jev real verificado | TypeSafe AI System One: https://jevai.net/ , https://typesafe.ai/blog/introducing-system-one-models-and-jev , https://docs.typesafe.ai/introduction , https://en.wikipedia.org/wiki/Jev_(AI_model) , https://www.langchain.com/blog/building-a-harness-with-jev |
-| VantaDB | Lee namespaces vía grafo + persiste veredicto en `gov/audit` |
+| VantaDB | El Cognitive Runtime consulta contexto en VantaDB vía `EgoMemoryAdapter` y persiste veredictos en `gov/audit` |
 | Principio P17 | "Jev puede desaparecer y la arquitectura de Ego no debería cambiar." Ego depende de la Decision Intelligence Layer, no de un proveedor específico. |
 
 # Jev — Proveedor Externo de la Decision Intelligence Layer
@@ -47,4 +47,4 @@ El Decision Router implementa la siguiente cascada gobernada:
 
 El runtime cognitivo propio de Ego orquesta el ciclo de decisión: clasificación tipada → selección de especialistas por grafo de capacidades → validación de permisos vs ACL + `gov/rules` → matriz de aprobación → selección de tier mínimo → despacho con registro inmutable en `gov/audit`. Turno objetivo del ciclo: 800-1.500ms.
 
-Extracto de reglas determinísticas (completa en `gov/rules`): cliente → CRM; bug → Dev + Soporte; propuesta → Ops + Ventas (aprueba envío); API → Dev + KB; queja → Soporte + Ventas; PR → Dev (aprueba merge); factura → Ops (aprueba envío); cansancio → Diario; resumen → Decision Router (`searchMulti`); publicar → Ops (aprueba).
+Extracto de reglas determinísticas (completa en `gov/rules`): cliente → CRM; bug → Dev + Soporte; propuesta → Ops + Ventas (aprueba envío); API → Dev + KB; queja → Soporte + Ventas; PR → Dev (aprueba merge); factura → Ops (aprueba envío); cansancio → Diario; resumen → `EgoMemoryAdapter` (`searchMulti`); publicar → Ops (aprueba).

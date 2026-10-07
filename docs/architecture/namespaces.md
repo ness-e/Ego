@@ -17,7 +17,7 @@ Los namespaces en VantaDB están organizados por **dominio funcional**, no por S
 | --- | --- | --- |
 | **CRM/Sales** | `crm/contacts`, `crm/deals`, `crm/timeline` | Gestión de relaciones y ciclo de ventas. |
 | **Support** | `support/tickets`, `support/kb` | Incidencias y base de conocimientos de soporte. |
-| **Knowledge** | `kb/facts`, `kb/quarantine`, `kb/docs` | Base de conocimiento estructurada y factual de Ego. |
+| **Knowledge** | `kb/facts`, `kb/docs` | Base de conocimiento estructurada y factual de Ego. |
 | **Engineering** | `dev/repos`, `dev/issues`, `dev/qa`, `dev/files`, `dev/errors`, `dev/adrs` | Artefactos técnicos, incidencias, y decisiones de arquitectura. |
 | **Journal** | `journal/entries`, `journal/convos`, `journal/goals`, `journal/signals` | Registro contextual y personal del usuario. |
 | **Governance** | `gov/audit`, `gov/policies`, `gov/sub_egos` | Auditoría, control de accesos y manifiestos de Sub-Egos. |
@@ -30,7 +30,7 @@ Los namespaces en VantaDB están organizados por **dominio funcional**, no por S
 | **System** | `system/config`, `system/snapshots` | Configuración base del sistema (Solo accesible por la capa de coordinación Meta-Ego). |
 | **Sub-Egos** | `egos/*` | Prefijo exclusivo de estado privado por cada instancia de Sub-Ego (ej: `egos/123-abc/state`). |
 | **Events** | `events/raw` | Bus de eventos histórico (TTL 30d). |
-| **Quarantine**| `quarantine/pending` | Datos no verificados o en conflicto (TTL 7-14d). |
+| **Quarantine**| `quarantine/pending` | Datos no verificados o en conflicto con aislamiento y TTL de 14d (ADR-046). |
 
 ## Namespaces dinámicos de Sub-Egos
 Cada instancia activa de Sub-Ego obtiene su propio espacio bajo el prefijo `egos/<id>/*` para su estado privado local (configuración interna, scratchpad de razonamiento y variables de sesión). 
@@ -38,12 +38,13 @@ Cada instancia activa de Sub-Ego obtiene su propio espacio bajo el prefijo `egos
 Este aislamiento de estado privado no restringe el acceso al conocimiento general del proyecto: los Sub-Egos **pueden y deben leer los namespaces compartidos del proyecto** (`kb/*`, `crm/*`, `dev/*`, etc.) conforme a los permisos asignados en su manifiesto. Además, todo Sub-Ego debe tener un manifiesto registrado en el namespace de gobernanza (`gov/sub_egos`).
 
 ## Reglas de acceso
-- El modelo operativo es de **memoria compartida con aislamiento de estado privado, permisos y capacidades**: no existe un aislamiento estricto que impida la colaboración transversal informada.
+- El modelo operativo es de **memoria compartida con aislamiento de estado privado, permisos y capacidades**: no existe un aislamiento estricto que impida la colaboración transversal informada. Toda operación es gobernada y validada en runtime por el **`EgoMemoryAdapter`**.
 - Un Sub-Ego puede acceder a los namespaces compartidos (`kb/*`, `crm/*`, `marketing/*`, etc.) que estén explícitamente autorizados en su plantilla o manifiesto.
 - Los namespaces bajo `egos/<id>/*` representan el estado privado exclusivo de cada Sub-Ego y no son accesibles directamente por otros especialistas salvo mediación del Orchestration Bus.
 - `gov/*`: Solo es accesible por la capacidad de gobernanza y por la capa de coordinación (Meta-Ego).
 - `system/*`: Solo accesible por la capa de coordinación (Meta-Ego).
 - La lectura transversal no prevista en el manifiesto requiere escalación formal a través de la **Decision Intelligence Layer** (vía Decision Router) o aprobación directa de un humano.
+- Consultas federadas a través de múltiples namespaces emplean `searchMulti` de forma concurrente sobre el backend nativo.
 
 ## Metadata obligatoria
 Todo registro ingresado en cualquier namespace debe contener al menos:
@@ -62,7 +63,7 @@ Para mantener el rendimiento y la limpieza de los datos, ciertos namespaces tien
 - `metrics/*`: 180 días.
 
 ## Grafo de relaciones
-VantaDB permite establecer aristas (edges) semánticas. Las aristas principales predefinidas son:
+VantaDB permite establecer aristas (edges) semánticas y topológicas. Los identificadores de nodo (`node_id`) en Rust son enteros sin signo de 128 bits (`u128`), por lo que en JavaScript / TypeScript deben tratarse obligatoriamente como `string` para evitar pérdida de precisión sobre `Number.MAX_SAFE_INTEGER`. Las aristas principales predefinidas son:
 - `HAS_CLIENT`
 - `WORKS_AT`
 - `ASSOCIATED_WITH`
@@ -77,4 +78,4 @@ VantaDB permite establecer aristas (edges) semánticas. Las aristas principales 
 - `DECIDED_FOR`
 
 ## Extensibilidad
-Nuevos dominios funcionales pueden introducir nuevos prefijos de namespace de manera orgánica, sin requerir modificaciones en el esquema central de la base de datos. Como se mencionó, el archivo `ego.namespaces.json` se versiona y asegura la consistencia de este modelo extensible.
+Nuevos dominios funcionales pueden introducir nuevos prefijos de namespace de manera orgánica, sin requerir modificaciones en el esquema central del substrate de memoria y conocimiento (VantaDB). Como se mencionó, el archivo `ego.namespaces.json` se versiona y asegura la consistencia de este modelo extensible.

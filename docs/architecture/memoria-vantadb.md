@@ -92,6 +92,9 @@ const db = await NativeVantaDB.connect(storagePath, { read_only: false });
 
 // ❌ PROHIBIDO — WASM en memoria, sin persistencia en disco
 import { Client } from "vantadb";
+
+// ❌ PROHIBIDO — vanta-proxy está FROZEN (diseñado para interceptar CLIs externas)
+// ❌ PROHIBIDO — vantadb-server en desktop (en desktop se usa modo embebido in-process)
 ```
 
 ## Capacidades de VantaDB que Ego consume

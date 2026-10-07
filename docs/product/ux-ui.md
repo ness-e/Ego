@@ -50,7 +50,7 @@ La interfaz se basa en Chat + Dynamic Workspace + superficies contextuales. La c
 
 - **Chat (Conversation River):** El canal universal de comunicación basado en la librería `@assistant-ui/react` (Thread, Composer, Message, Tool-UI). El usuario habla sobre cualquier tema y Ego enruta las peticiones internamente. El texto se renderiza fluidamente usando markdown vía `@assistant-ui/react-streamdown`.
 - **Canvas:** El área de trabajo principal y dinámica. Aquí, los Sub-Egos construyen interfaces en tiempo real según sea necesario. Puede mostrar: datos interactivos, acciones a realizar, aprobaciones pendientes, informes complejos, herramientas específicas o visualizaciones avanzadas.
-- **Background Activity & Proactivity (anteriormente Dots):** La forma concreta (tray, notificaciones, activity center, daily state) es una decisión de diseño, no de arquitectura. Sirve para mostrar el trabajo persistente en segundo plano y la actividad proactiva de los Sub-Egos sin interrumpir el flujo principal.
+- **Background Activity & Proactivity:** La forma concreta (tray, notificaciones, activity center, daily state) es una decisión de diseño, no de arquitectura. Sirve para mostrar el trabajo persistente en segundo plano y la actividad proactiva de los Sub-Egos sin interrumpir el flujo principal.
 
 ## Explicabilidad contextual (Decisión P11)
 La explicabilidad no es un panel fijo de 320px ni un componente estático de la interfaz (descartado Canvas Causal R0 permanente en P0). Es una **capacidad transversal del sistema** integrada de forma contextual dentro del workspace:

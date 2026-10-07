@@ -113,36 +113,27 @@ export class EgoMemoryAdapter {
     const db = this.ensureReady();
     const topK = options.topK ?? 10;
 
-    try {
-      // searchMulti es nativo en vantadb-node — búsqueda federada concurrente
-      const hits = await db.searchMulti(namespaces, {
-        text_query: query,
-        top_k: topK,
-        exclude_superseded: options.excludeSuperseded ?? true,
-        min_confidence: options.minConfidence,
-      });
-      return hits.slice(0, topK);
-    } catch (err) {
-      console.warn("[EgoMemoryAdapter] Error en searchMulti, fallback a búsqueda secuencial:", err);
-      // Fallback: búsqueda secuencial por namespace
-      const allHits: SearchHit[] = [];
-      for (const ns of namespaces) {
-        try {
-          const hits = await db.search({
-            namespace: ns,
-            text_query: query,
-            top_k: topK,
-            exclude_superseded: options.excludeSuperseded ?? true,
-            min_confidence: options.minConfidence,
-          });
-          allHits.push(...hits);
-        } catch (nsErr) {
-          console.warn(`[EgoMemoryAdapter] Error en búsqueda de namespace ${ns}:`, nsErr);
-        }
+    // Búsqueda federada paralela a través de los namespaces solicitados
+    const hitsPromises = namespaces.map(async (ns) => {
+      try {
+        return await db.search({
+          namespace: ns,
+          text_query: query,
+          query_vector: [],
+          top_k: topK,
+          exclude_superseded: options.excludeSuperseded ?? true,
+          min_confidence: options.minConfidence,
+        });
+      } catch (nsErr) {
+        console.warn(`[EgoMemoryAdapter] Error en búsqueda de namespace ${ns}:`, nsErr);
+        return [];
       }
-      allHits.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-      return allHits.slice(0, topK);
-    }
+    });
+
+    const results = await Promise.all(hitsPromises);
+    const allHits = results.flat();
+    allHits.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    return allHits.slice(0, topK);
   }
 
   /**
@@ -151,8 +142,8 @@ export class EgoMemoryAdapter {
   async recall(keyOrQuery: string, namespace: string): Promise<unknown> {
     const db = this.ensureReady();
     try {
-      // 1. Intentar recuperación exacta por clave
-      const exact = await db.get(namespace, keyOrQuery);
+      // 1. Intentar recuperación exacta por clave ({ namespace, key })
+      const exact = await db.get({ namespace, key: keyOrQuery });
       if (exact) {
         return this.parseRecord(exact);
       }
@@ -161,6 +152,7 @@ export class EgoMemoryAdapter {
       const hits = await db.search({
         namespace,
         text_query: keyOrQuery,
+        query_vector: [],
         top_k: 1,
         exclude_superseded: true,
       });
@@ -209,7 +201,7 @@ export class EgoMemoryAdapter {
     targetKey?: string
   ): Promise<void> {
     const db = this.ensureReady();
-    const quarantined = await db.get("quarantine/pending", quarantineKey);
+    const quarantined = await db.get({ namespace: "quarantine/pending", key: quarantineKey });
 
     if (!quarantined) {
       throw new Error(`Hecho no encontrado en cuarentena: ${quarantineKey}`);
@@ -233,8 +225,8 @@ export class EgoMemoryAdapter {
       },
     ]);
 
-    // 2. Eliminar de cuarentena
-    await db.delete("quarantine/pending", quarantineKey);
+    // 2. Eliminar de cuarentena ({ namespace, key })
+    await db.delete({ namespace: "quarantine/pending", key: quarantineKey });
 
     // 3. Registrar auditoría inmutable
     await this.putMulti([
@@ -261,11 +253,27 @@ export class EgoMemoryAdapter {
     // 1. Guardar nuevo hecho
     await this.putMulti([newItem]);
 
-    // 2. Notificar a VantaDB la sustitución atómica
+    // 2. Marcar hecho previo como 'superseded' conservando trazabilidad causal
     try {
-      await db.supersede(newItem.namespace, oldKey, newItem.key);
+      const existing = await db.get({ namespace: newItem.namespace, key: oldKey });
+      if (existing) {
+        const prevMeta = (existing.metadata || {}) as Record<string, unknown>;
+        await this.putMulti([
+          {
+            namespace: newItem.namespace,
+            key: oldKey,
+            payload: existing.payload,
+            metadata: {
+              ...prevMeta,
+              state: "superseded",
+              superseded_by: newItem.key,
+              superseded_at: Date.now(),
+            },
+          },
+        ]);
+      }
     } catch (e) {
-      console.warn("[EgoMemoryAdapter] VantaDB supersede call warning:", e);
+      console.warn("[EgoMemoryAdapter] VantaDB supersede versioning warning:", e);
     }
 
     // 3. Registrar auditoría
@@ -290,7 +298,10 @@ export class EgoMemoryAdapter {
   async graphQuery(queryStr: string): Promise<unknown> {
     const db = this.ensureReady();
     try {
-      return await db.query(queryStr);
+      if (typeof (db as unknown as { query?: (q: string) => Promise<unknown> }).query === "function") {
+        return await (db as unknown as { query: (q: string) => Promise<unknown> }).query(queryStr);
+      }
+      return { ok: false, error: "IQL query engine not exposed on NativeVantaDB binding yet" };
     } catch (err) {
       console.warn("[EgoMemoryAdapter] Error ejecutando graphQuery:", err);
       return { ok: false, error: String(err) };
@@ -347,7 +358,7 @@ export class EgoMemoryAdapter {
   async listSubEgos(): Promise<SubEgoManifest[]> {
     const db = this.ensureReady();
     try {
-      const page = await db.list("gov/sub_egos", { limit: 100 });
+      const page = await db.list({ namespace: "gov/sub_egos", limit: 100 });
       return page.records.map((r) => this.parseRecord(r) as SubEgoManifest);
     } catch {
       return [];

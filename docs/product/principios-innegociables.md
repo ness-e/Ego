@@ -14,7 +14,7 @@ Las decisiones innegociables representan **propiedades del sistema**, no *featur
 1. **Memoria local persistente**: Toda la historia, conocimiento y decisiones se almacenan localmente (VantaDB).
 2. **Contexto persistente y compartido del proyecto (Project Memory)**: La IA siempre tiene presente el estado global y los objetivos del proyecto.
 3. **Cognitive Runtime central**: Un orquestador central coordina capacidades, contexto y herramientas, no son scripts aislados.
-4. **Sub-Egos especializados y personalizables**: Capacidades particionadas en agentes especialistas (roles) definidos dinámicamente.
+4. **Sub-Egos especializados y personalizables**: Capacidades particionadas en Sub-Egos especialistas (roles) definidos dinámicamente.
 5. **Capacidad de ejecutar acciones mediante tools**: Ego tiene impacto real en el sistema del usuario (crear archivos, ejecutar comandos).
 6. **Gobernanza, permisos y aprobación de acciones sensibles**: Controles estrictos para cualquier acción destructiva, irreversible o de alto impacto.
 7. **Multi-modelo + Model Router**: Independencia de proveedores, eligiendo el modelo más adecuado según latencia, coste y capacidad necesaria.
@@ -39,7 +39,7 @@ Varias decisiones históricas han sido reclasificadas como implementaciones o de
 ## Matriz completa
 | Concepto | ¿Innegociable? | Razón |
 |---|---|---|
-| Memoria local persistente / VantaDB | SÍ | Propiedad fundamental #1 |
+| Memoria local persistente (Project Memory sobre substrate VantaDB) | SÍ | Propiedad fundamental #1 |
 | Project Memory + Context compartido | SÍ | Propiedad fundamental #2 |
 | Cognitive Runtime propio | SÍ | Propiedad fundamental #3 |
 | Sub-Egos personalizables | SÍ | Propiedad fundamental #4 |

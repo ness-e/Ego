@@ -100,9 +100,9 @@ export function Shell() {
           {area === "gob" && <Gov />}
         </main>
 
-        {/* Bandeja de Tareas Vivas (OpenAI Dots Pattern) */}
+        {/* Bandeja de Background Activity & Proactivity */}
         <footer className="flex h-10 shrink-0 items-center gap-4 border-t border-hairline bg-panel px-4 font-mono text-[11px]">
-          <span className="text-dim">DOTS ACTIVOS:</span>
+          <span className="text-dim">ACTIVIDAD EN SEGUNDO PLANO:</span>
           <div className="flex items-center gap-3">
             {activeDots.map((dot) => (
               <div

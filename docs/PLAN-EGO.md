@@ -23,9 +23,9 @@ La estructura del sistema pasa de estar centrada en roles fijos a un entorno din
 
 ## Arquitectura P0 Actualizada
 El sistema se organiza en las siguientes capas:
-1. **Presentación**: Dynamic Workspace (Chat + Canvas con Declarative UI Runtime usando `@assistant-ui/react`). Bandeja de indicadores visuales (Dots). Desarrollo iterativo de UX con presupuesto explícito por fase (ver [ux-ui.md](product/ux-ui.md) y [metricas-okr.md](roadmap/metricas-okr.md)).
-2. **Main**: Gateway de entrada, pre-carga de IPC, Decision Intelligence Layer (clasificación, scoring, routing, extracción y validación estructurada), capa de coordinación central (Meta-Ego) y Orchestration Bus para comunicación inter-agente.
-3. **Memoria**: VantaDB (embedded) + `EgoMemoryAdapter` + esquema `ego.namespaces.json`.
+1. **Presentación**: Dynamic Workspace (Chat + Canvas con Declarative UI Runtime usando `@assistant-ui/react`). Bandeja de Background Activity & Proactivity. Desarrollo iterativo de UX con presupuesto explícito por fase (ver [ux-ui.md](product/ux-ui.md) y [metricas-okr.md](roadmap/metricas-okr.md)).
+2. **Main**: Gateway de entrada, pre-carga de IPC, Decision Intelligence Layer (clasificación, scoring, routing, extracción y validación estructurada), capa de coordinación central (Meta-Ego) y Orchestration Bus para comunicación inter-Sub-Ego.
+3. **Memoria**: Substrate local-first VantaDB 0.8.0 (`NativeVantaDB` in-process + `vantadb-mcp` subprocess) + `EgoMemoryAdapter` + esquema `ego.namespaces.json`.
 4. **Sub-Egos**: Catálogo de dominios funcionales + plantillas de especialistas + instancias dinámicas. Fábrica inteligente de Sub-Egos (conversacional, plantillas, modo avanzado) y `SubEgoManifest`. Activación bajo demanda (lazy activation).
 5. **Integraciones**: MCP Client + MCP Server + filesystem + git + terminal + GitHub (MCP oficial) + HTTP/Webhooks en P0; Email, Calendar, Slack en P1.
 6. **IA y Modelos**: Arquitectura multi-proveedor agnóstica desde P0 basada en Ego Model Interface y Model Router por capacidades y roles funcionales; Vercel AI SDK utilizado como adaptador de integración (no arquitectura propietaria; versión agnóstica / AI SDK 7), adaptadores directos y locales (Ollama/Llama con enfoque offline-first), BYOK y endpoints compatibles con OpenAI.

@@ -27,6 +27,7 @@ export async function createWindow(): Promise<void> {
   const missing = checkPrereqs();
   const dbPath = join(app.getPath("userData"), "ego_memory.vdb");
   adapter = new EgoMemoryAdapter(dbPath);
+  await adapter.init();
 
   win = new BrowserWindow({
     width: 1440,

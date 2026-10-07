@@ -1,4 +1,4 @@
-﻿| Campo | Valor |
+| Campo | Valor |
 | --- | --- |
 | Estado | Revisable |
 | Owner | ness-e |
@@ -7,13 +7,13 @@
 
 # Definición de Sistema Operativo Cognitivo (SOC)
 
-Un Sistema Operativo Cognitivo (SOC) es una capa de software que organiza y coordina recursos para que la Inteligencia Artificial pueda entender, recordar, razonar, planificar y actuar sobre un proyecto de manera continua. A diferencia de un sistema operativo tradicional (que administra CPU, memoria y procesos), un SOC administra: el contexto, la memoria, el conocimiento, los agentes (que en Ego se denominan Sub-Egos), los objetivos, las tareas, las herramientas, las decisiones y las acciones.
+Un Sistema Operativo Cognitivo (SOC) es una capa de software que organiza y coordina recursos para que la Inteligencia Artificial pueda entender, recordar, razonar, planificar y actuar sobre un proyecto de manera continua. A diferencia de un sistema operativo tradicional (que administra CPU, memoria y procesos), un SOC administra: el contexto, la memoria, el conocimiento, los Sub-Egos, los objetivos, las tareas, las herramientas, las decisiones y las acciones.
 
 ## Capacidades fundamentales
 
 | Capacidad | Descripción |
 | --- | --- |
-| **Memoria** | Persistencia y recuperación del estado y contexto del proyecto. |
+| **Memoria** | Persistencia y recuperación del estado y contexto del proyecto (Project Memory sobre substrate VantaDB: híbrida RRF, grafos, context engine, dream consolidation). |
 | **Cognición** | Razonamiento, comprensión y análisis profundo. |
 | **Especialización** | Asignación de tareas a Sub-Egos o modelos específicos según sus capacidades. |
 | **Coordinación** | Orquestación eficiente entre múltiples Sub-Egos, herramientas y procesos. |
@@ -38,7 +38,7 @@ Ego **no es**:
 | --- | --- | --- |
 | Producto | Ego | El nombre comercial de la plataforma. |
 | Categoría | Sistema Operativo Cognitivo (SOC) | La clase de software a la que pertenece. |
-| Arquitectura | Multiagente con memoria compartida | El diseño técnico subyacente. |
+| Arquitectura | Arquitectura de Sub-Egos coordinados con memoria compartida | El diseño técnico subyacente (Project Memory sobre VantaDB). |
 | Unidad de trabajo | Sub-Ego | Especialista de IA persistente con rol y responsabilidades. |
 | Contexto persistente | Memoria del proyecto | El estado vivo y acumulativo del entorno. |
 | Objeto principal | Proyecto / producto / software / empresa / marca | La entidad sobre la que actúa el sistema. |
@@ -46,7 +46,7 @@ Ego **no es**:
 ## Separación obligatoria
 
 *   **Qué es (categoría):** Un Sistema Operativo Cognitivo (SOC).
-*   **Cómo funciona (arquitectura):** Multiagente con memoria compartida y enrutamiento de modelos.
+*   **Cómo funciona (arquitectura):** Arquitectura de Sub-Egos coordinados con memoria compartida y enrutamiento de modelos.
 *   **Para qué sirve (valor):** Para construir, operar y escalar un proyecto de forma integral.
 
 ## Posicionamiento

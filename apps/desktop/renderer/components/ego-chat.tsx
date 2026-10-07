@@ -61,7 +61,7 @@ export function EgoChat() {
 
       let reply = "No se encontraron registros previos en memoria para esta consulta.";
       try {
-        const r = (await ego().memory("recall", [text, "kb/docs"])) as any;
+        const r: unknown = await ego().memory("recall", [text, "kb/docs"]);
         if (r) {
           if (typeof r === "object" && r.titulo) {
             reply = `📖 **${r.titulo}**\n\n${r.contenido}\n\n*Estado: ${r.estado} · Fuente: VantaDB kb/docs*`;

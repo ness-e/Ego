@@ -23,7 +23,7 @@ Renderer como componente visual puro (`<EgoMascot area mood/>`), estado desde ma
 vía IPC (`agent_id`, área/namespace, estado). Presente en bienvenida, chat, paneles y
 aprobación. Ventana frameless transparente + alwaysOnTop + click-through.
 
-## Tabla comparativa (5 subagentes + web, oct-2026)
+## Tabla comparativa (benchmarks técnicos, oct-2026)
 
 | Tecnología | Aspecto | Rendimiento | Viabilidad | Rol asignado |
 | --- | --- | --- | --- | --- |

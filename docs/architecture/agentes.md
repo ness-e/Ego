@@ -70,8 +70,8 @@ Toda instancia de Sub-Ego se rige por un `SubEgoManifest`, un contrato declarati
 - **Responsabilidades (Responsibilities):** Objetivos primarios y secundarios claramente delimitados.
 - **Capacidades (Capabilities):** Dominios funcionales asociados y destrezas cognitivas/técnicas activas.
 - **Herramientas (Tools):** Herramientas MCP y funciones locales disponibles, junto con sus integraciones habilitadas.
-- **Memoria (Memory):** Acceso a la memoria compartida del proyecto en VantaDB más partición de memoria especializada con contexto histórico acumulado.
-- **Permisos (Permissions):** Reglas de lectura, escritura y ejecución segmentadas por namespace de VantaDB.
+- **Memoria (Memory):** Acceso a la memoria compartida del proyecto en VantaDB mediado estrictamente por `EgoMemoryAdapter` (Fast Path in-process para lecturas/búsquedas y Cognitive Path vía `vantadb-mcp` para ensamblado de contexto L0-L3), más aislamiento de estado privado (`egos/<id>/*`). VantaDB auto-integra embeddings internamente (ONNX Runtime con `multilingual-e5-small`).
+- **Permisos (Permissions):** Reglas de lectura, escritura y ejecución segmentadas por namespace de VantaDB, validadas en runtime por `EgoMemoryAdapter` (`ego.namespaces.json`).
 - **Comportamiento (Behavior):** Directivas del sistema (system prompt), políticas éticas y restricciones operativas (*constraints*).
 - **Autonomía (Autonomy):** Nivel de agencia (sugerir ideas, solicitar aprobación previa antes de ejecutar, o actuar automáticamente en tareas rutinarias). **Por defecto, el nivel de autonomía es conservador** para garantizar la seguridad y supervisión humana.
 - **Disparadores (Triggers):** Petición directa del usuario, eventos del sistema o ejecuciones programadas (*schedules*).

@@ -12,9 +12,11 @@
 ## Pirámide de Calidad Desktop P0
 
 1. **Contratos del Adapter (VantaDB):**
-   - Verificación de métodos nucleares: `putMulti`, `searchMulti`, `recall`, `quarantine`, `promote`, `supersedeFact`.
+   - Verificación de métodos nucleares: `putMulti`, `searchMulti`, `recall`, `quarantine`, `promote`, `supersedeFact`, `flush`, `close`.
    - Normalización de metadatos (`org_id`, `ts`, `agent_id`, `confidence`, `state`).
-   - Pin estricto `vantadb==0.8.0`.
+   - Pin estricto npm `"vantadb/native": "0.8.0"` (napi-rs in-process). Verificación de que `Client` de `"vantadb"` (WASM) está ausente de los bundles.
+   - Verificación de Auto-Embed interno (ONNX Runtime, `multilingual-e5-small`, 384d) sin computación de vectores en TypeScript.
+   - Verificación de comunicación con el subprocess cognitivo `vantadb-mcp` (88 tools) vía stdio.
 
 2. **Contratos de Sub-Egos y Aislamiento de Memoria:**
    - Modelo de memoria compartida de proyecto: Los Sub-Egos pueden **LEER** namespaces compartidos del proyecto (`kb/*`, `crm/*`, `dev/*`, `analytics/*`, etc.) según los permisos y capacidades definidos en su [`SubEgoManifest`](../architecture/agentes.md).
@@ -58,7 +60,7 @@ La verificación de la calidad sigue de forma vinculante los criterios de acepta
 
 | Fase | Capacidad | Criterio de Aceptación Clave |
 | --- | --- | --- |
-| **Fase 01** | Core Cognitivo | Chat con IA funcional localmente sobre Electron + VantaDB, streaming y persistencia tras reinicio. |
+| **Fase 01** | Core Cognitivo | Chat con IA funcional localmente sobre Electron + VantaDB nativo (`NativeVantaDB`), streaming, auto-embed ONNX, persistencia Fjall verificada tras reinicio y export/import. |
 | **Fase 02** | Acción | Tool Registry operativo, ejecución controlada de herramientas del SO y flujo de aprobación de usuario. |
 | **Fase 03** | Sub-Egos | Múltiples Sub-Egos cooperan recursivamente compartiendo contexto mediante Shared Memory sin orquestación manual del usuario. |
 | **Fase 04** | Dynamic Workspace / Canvas | Generación y manipulación interactiva de artefactos UI reactivos en tiempo real con selección de contexto. |

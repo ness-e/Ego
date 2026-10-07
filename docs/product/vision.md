@@ -24,7 +24,7 @@ Ego es el "yo operativo" del creador. Representa una extensión directa de su me
 | --- | --- |
 | Producto | Ego |
 | Categoría | Sistema Operativo Cognitivo (SOC) |
-| Arquitectura | Multiagente con memoria compartida |
+| Arquitectura | Arquitectura de Sub-Egos coordinados con memoria compartida (Project Memory sobre substrate VantaDB) |
 | Unidad de trabajo | Sub-Ego |
 | Contexto persistente | Memoria del proyecto |
 | Objeto principal | Proyecto / producto / software / empresa / marca |
@@ -44,5 +44,5 @@ Estos principios no son simples declaraciones retóricas, sino requisitos funcio
 
 Para comunicar Ego correctamente, se deben separar tres conceptos:
 1.  **Qué es (categoría):** Un Sistema Operativo Cognitivo (SOC).
-2.  **Cómo funciona (arquitectura):** Multiagente con memoria compartida y enrutamiento inteligente de modelos.
+2.  **Cómo funciona (arquitectura):** Arquitectura de Sub-Egos coordinados con memoria compartida (Project Memory sobre substrate VantaDB) y enrutamiento inteligente de modelos.
 3.  **Para qué sirve (valor):** Para permitir la construcción y operación integral de un proyecto, amplificando la capacidad de un individuo a la de toda una organización.

@@ -15,7 +15,7 @@ Sub-Egos y capacidades que recuperan y operan con éxito sobre la memoria del pr
 ### O1: P0-Alpha completado (Fases 01-05)
 **Objetivo:** Establecer un núcleo cognitivo funcional y estable.
 - **KR1**: El *Golden Path Alpha* (20 pasos) pasa exitosamente, incluyendo persistencia entre sesiones.
-- **KR2**: Ejecución estable del flujo completo (Agent loop, Model Router, Sub-Egos y herramientas) en el entorno Electron+VantaDB.
+- **KR2**: Ejecución estable del flujo completo (Cognitive loop, Model Router, Sub-Egos y herramientas) en el entorno Electron+VantaDB.
 - **KR3**: Zero losses de memoria confirmados tras reinicios del sistema y renderizado correcto en el Dynamic Workspace.
 
 ### O2: P0-Beta completado (Fases 06-12)

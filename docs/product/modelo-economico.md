@@ -82,7 +82,7 @@ El sistema de Ego no pregunta "¿el usuario pagó?", sino "¿qué derechos y lí
 
 ## Usuarios locales vs Cloud
 Se establecen tres modalidades principales de uso:
-- **Local/Auto-hospedado (Free)**: El usuario provee el cómputo, su propia base de datos, infraestructura y claves de IA (modelos locales o BYOK). No paga suscripción.
+- **Local/Auto-hospedado (Free)**: El usuario provee el cómputo local, infraestructura propia y claves de IA (modelos locales o BYOK), utilizando VantaDB integrado localmente sin costo de suscripción.
 - **Ego Cloud**: Entorno completamente gestionado. El usuario paga suscripción que incluye infraestructura, sincronización y créditos de IA.
 - **Híbrido**: Uso de infraestructura cloud de Ego pero delegando la inferencia en claves propias (BYOK), combinando ventajas de ambas aproximaciones.
 

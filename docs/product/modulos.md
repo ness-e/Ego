@@ -27,7 +27,7 @@ Este es el conjunto de capacidades esenciales que deben estar operativas para el
 - Diario (Journal)
 - QA y Testing automatizado para desarrollo
 - Soporte al cliente
-- Gobernanza avanzada (Decision Intelligence / Jev)
+- Gobernanza avanzada (Decision Intelligence Layer)
 - Capacidades extendidas de ingeniería de software
 
 ## Capacidades P2 — Escalar

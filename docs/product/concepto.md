@@ -10,9 +10,9 @@
 
 ## Definición canónica
 
-Ego es un Sistema Operativo Cognitivo (SOC) diseñado para creadores independientes, profesionales y organizaciones que necesitan construir y operar un proyecto completo de manera inteligente y unificada. No es una simple herramienta de chat o un conjunto inconexo de agentes de IA (que en Ego se denominan Sub-Egos); es la infraestructura cognitiva y operativa que integra diversas capacidades alrededor de un proyecto vivo. 
+Ego es un Sistema Operativo Cognitivo (SOC) diseñado para creadores independientes, profesionales y organizaciones que necesitan construir y operar un proyecto completo de manera inteligente y unificada. No es una simple herramienta de chat o un conjunto inconexo de herramientas o especialistas aislados; es la infraestructura cognitiva y operativa que integra diversas capacidades alrededor de un proyecto vivo. 
 
-A través de un entorno de memoria compartida, Ego coordina Sub-Egos especializados con responsabilidades, contexto, capacidades, herramientas y reglas de comportamiento, permitiendo a los usuarios delegar, colaborar y automatizar tareas complejas, gestionando todas las áreas operativas desde una única interfaz conectada.
+A través de un entorno de memoria compartida (Project Memory implementado sobre el substrate VantaDB), Ego coordina Sub-Egos especializados con responsabilidades, contexto, capacidades, herramientas y reglas de comportamiento, permitiendo a los usuarios delegar, colaborar y automatizar tareas complejas, gestionando todas las áreas operativas desde una única interfaz conectada.
 
 ## Definición corta
 
@@ -32,11 +32,11 @@ Ego es el gestor central de:
 
 ## Cómo funciona
 
-Ego opera como una organización virtual compuesta por Sub-Egos que comparten un contexto común a través de una arquitectura de memoria compartida. Ego proporciona un conjunto inicial de Sub-Egos especializados y permite crear y personalizar otros según las necesidades de cada proyecto; tanto los predefinidos como los personalizados son la misma entidad fundamental. Se apoya en un avanzado sistema de enrutamiento de modelos, garantizando que el modelo óptimo procese cada tarea según sus necesidades cognitivas.
+Ego opera como una organización virtual compuesta por Sub-Egos que comparten un contexto común a través de una arquitectura de memoria compartida sobre VantaDB. Ego proporciona un conjunto inicial de Sub-Egos especializados y permite crear y personalizar otros según las necesidades de cada proyecto; tanto los predefinidos como los personalizados son la misma entidad fundamental. Se apoya en un avanzado sistema de enrutamiento de modelos, garantizando que el modelo óptimo procese cada tarea según sus necesidades cognitivas.
 
 ## Comportamiento de los Sub-Egos
 
-Los agentes de IA (internamente) en Ego se denominan Sub-Egos. No son "empleados digitales", sino "Sub-Egos especializados persistentes con responsabilidades, contexto, capacidades, herramientas y reglas de comportamiento dentro del proyecto". Todo especialista inteligente dentro de Ego es un Sub-Ego.
+Los Sub-Egos no son "empleados digitales", sino "Sub-Egos especializados persistentes con responsabilidades, contexto, capacidades, herramientas y reglas de comportamiento dentro del proyecto". Todo especialista inteligente dentro de Ego es un Sub-Ego.
 
 Ellos pueden:
 *   Analizar información y recomendar acciones.
@@ -82,6 +82,6 @@ El uso de Ego no está limitado a "creadores solitarios". El criterio de adopci�
 
 ## Principio fundamental
 
-> "Ego no debe entenderse como un chatbot, una base de conocimiento, un CRM, un gestor de tareas o una colección de agentes (Sub-Egos). Es la infraestructura cognitiva y operativa que integra estas capacidades alrededor de un proyecto vivo."
+> "Ego no debe entenderse como un chatbot, una base de conocimiento, un CRM, un gestor de tareas o una colección de herramientas o Sub-Egos desarticulados. Es la infraestructura cognitiva y operativa que integra estas capacidades alrededor de un proyecto vivo."
 
 Para más detalles formales, consultar la [Definición de SOC](./definicion-soc.md).

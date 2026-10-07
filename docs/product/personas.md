@@ -44,8 +44,8 @@ Estas son las personas clave para el *beachhead market* (ICP inicial), sin ser u
 
 | Solución | Enfoque | Limitación | Ego (SOC) |
 | --- | --- | --- | --- |
-| OpenAI Dots / GPTs | Chatbots puntuales. | Sin memoria compartida estructurada ni proactividad coordinada. | Capa de software que organiza y coordina, no un chat. |
-| Mem0 | API de memoria. | Requiere que el usuario construya su propio framework. | Integra memoria y cognición con ejecución directa (arquitectura multiagente). |
+| OpenAI Custom GPTs | Chatbots puntuales. | Sin memoria compartida estructurada ni proactividad coordinada. | Capa de software que organiza y coordina, no un chat. |
+| Mem0 | API de memoria. | Requiere que el usuario construya su propio framework. | Integra memoria y cognición con ejecución directa (arquitectura de Sub-Egos coordinados). |
 | Manus / Devin | Agentes autónomos de software puro. | Foco vertical e individual; no organizan proyectos complejos completos. | Especialización amplia; coordina Sub-Egos bajo un contexto vivo. |
 
 ## Definición del público objetivo
