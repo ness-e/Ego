@@ -2,10 +2,18 @@ import { useState } from "react";
 import { Sparkle, TerminalWindow, Warning } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Union } from "../components/union";
+import { Sidebar } from "../components/sidebar";
 
 export function App() {
   const [activeWidgetState] = useState<"idle" | "working" | "approval">("idle");
   const [approvalPending, setApprovalPending] = useState(false);
+  const [activeProject, setActiveProject] = useState("default");
+  const [activeSubEgo, setActiveSubEgo] = useState("ego.nucleus");
+  const [sessionNonce, setSessionNonce] = useState(0);
+
+  const handleNewSession = () => {
+    setSessionNonce((prev) => prev + 1);
+  };
 
   return (
     <div className="flex h-screen w-screen flex-col bg-paper text-ink overflow-hidden font-sans select-none">
@@ -56,20 +64,29 @@ export function App() {
         </div>
       </header>
 
-      {/* 2. Workspace Dinámico (Chat + Canvas) */}
+      {/* 2. Workspace Dinámico con Sidebar Integrado (Cognitive OS) */}
       <main className="flex flex-1 min-h-0 min-w-0 divide-x divide-hairline">
-        {/* Panel Izquierdo: Conversation River (Chat) */}
+        {/* Panel 0: Cognitive Navigation Sidebar (Dual Rail & Drawer) */}
+        <Sidebar
+          activeProject={activeProject}
+          onSelectProject={(p) => setActiveProject(p)}
+          activeSubEgo={activeSubEgo}
+          onSelectSubEgo={(e) => setActiveSubEgo(e)}
+          onNewSession={handleNewSession}
+        />
+
+        {/* Panel 1: Conversation River (Chat) */}
         <section className="flex flex-1 flex-col min-w-[380px] max-w-[550px] bg-paper">
           <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-3 text-xs text-faint">
             <span className="font-medium text-ink">Conversation River</span>
             <span className="text-[10px] text-dim">@assistant-ui/react</span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <EgoChat />
+            <EgoChat key={sessionNonce} />
           </div>
         </section>
 
-        {/* Panel Derecho: Dynamic Canvas (Superficie de Trabajo Interactiva) */}
+        {/* Panel 2: Dynamic Canvas (Superficie de Trabajo Interactiva) */}
         <section className="flex flex-1 flex-col min-w-0 bg-panel">
           <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-4 text-xs text-faint">
             <div className="flex items-center gap-2">
