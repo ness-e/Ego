@@ -33,6 +33,7 @@
 - [`stack-tecnico.md`](engineering/stack-tecnico.md)
 - [`lenguajes.md`](engineering/lenguajes.md)
 - [`integraciones.md`](engineering/integraciones.md)
+- [`vantadb-readiness-plan.md`](engineering/vantadb-readiness-plan.md)
 
 **Operations**
 - [`despliegue.md`](operations/despliegue.md)
