@@ -1,0 +1,28 @@
+# Carpetas de herramientas de IA / configuración local
+.*
+!.gitignore
+
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Build
+dist/
+out/
+.next/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE
+*.swp
+*.swo
+
+# Archivos de base de datos local
+*.db
+!packages/**/*.db
+
+# Repos de referencia (clones de terceros, no son código de Ego)
+repos-referencia/

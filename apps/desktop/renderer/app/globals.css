@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-ink: #f4f4f5;
+  --color-paper: #0a0a0b;
+  --color-panel: #111113;
+  --color-raised: #17171a;
+  --color-hairline: #26262b;
+  --color-faint: #8e8e93;
+  --color-dim: #55555c;
+
+  --radius-card: 8px;
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--ink);
+}
+
+::selection {
+  background: #f4f4f5;
+  color: #0a0a0b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

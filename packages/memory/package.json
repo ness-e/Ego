@@ -1,0 +1,1 @@
+{"name": "@ego/memory", "version": "0.0.0", "private": true, "main": "EgoMemoryAdapter.ts", "dependencies": {"vantadb": "0.8.0"}, "devDependencies": {"typescript": "^5"}}

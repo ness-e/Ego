@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ego — Mascota 3D</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b2a52; }
+  #app { position: fixed; inset: 0; }
+  .hint {
+    position: fixed; left: 14px; bottom: 12px; margin: 0;
+    font: 12px/1.5 system-ui, sans-serif; color: #9dc3ff; opacity: .75;
+    letter-spacing: .02em; pointer-events: none;
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<p class="hint">Arrastra para orbitar · rueda para zoom</p>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b2a52);
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0.4, 1.1, 8);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.0, 0);
+controls.enableDamping = true;
+controls.minDistance = 3;
+controls.maxDistance = 16;
+
+// ---------- luces ----------
+scene.add(new THREE.HemisphereLight(0xffffff, 0x4a6fa5, 0.9));
+const key = new THREE.DirectionalLight(0xffffff, 1.5);
+key.position.set(3, 6, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.left = key.shadow.camera.bottom = -5;
+key.shadow.camera.right = key.shadow.camera.top = 5;
+scene.add(key);
+const eyeGlow = new THREE.PointLight(0x9fe8ff, 1.2, 5); // "Resaltado de Ojos (Brillo)"
+eyeGlow.position.set(0, 1.6, 1.8);
+scene.add(eyeGlow);
+
+// ---------- materiales ----------
+const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.62, metalness: 0.02 });
+const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xcdf3ff, emissiveIntensity: 1.4, roughness: 0.3 });
+const gearMat = new THREE.MeshStandardMaterial({ color: 0xd8e6ff, roughness: 0.35, metalness: 0.55, emissive: 0x1b3f75, emissiveIntensity: 0.4 });
+
+// ---------- helpers de geometría ----------
+function blob(parent, x, y, z, r, sx = 1, sy = 1, sz = 1) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), white);
+  m.position.set(x, y, z);
+  m.scale.set(sx, sy, sz);
+  m.castShadow = m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+// Tapera una cadena de esferas a lo largo de una curva (brazos y cola ondulada).
+function chain(parent, pts) {
+  const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p.v)));
+  const n = pts.length * 20; // densidad alta: tapa los escalones entre esferas
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const p = curve.getPoint(t);
+    const f = t * (pts.length - 1);
+    const i0 = Math.min(Math.floor(f), pts.length - 2);
+    const r = THREE.MathUtils.lerp(pts[i0].r, pts[i0 + 1].r, f - i0);
+    blob(parent, p.x, p.y, p.z, r);
+  }
+}
+
+function gearGeometry({ teeth = 8, rOut = 0.4, rIn = 0.29, hole = 0.15, depth = 0.14 } = {}) {
+  const s = new THREE.Shape();
+  const step = (Math.PI * 2) / teeth;
+  for (let i = 0; i < teeth; i++) {
+    const a = i * step;
+    const pts = [
+      [a, rIn], [a + step * 0.16, rOut], [a + step * 0.42, rOut], [a + step * 0.58, rIn],
+    ];
+    for (const [ang, rad] of pts) {
+      const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+      i === 0 && ang === a ? s.moveTo(x, y) : s.lineTo(x, y);
+    }
+  }
+  s.closePath();
+  s.holes.push(new THREE.Path().absarc(0, 0, hole, 0, Math.PI * 2, true));
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2, curveSegments: 16 });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+
+// ---------- personaje ----------
+const ego = new THREE.Group();
+scene.add(ego);
+
+// Cuerpo de sombra maleable: cabeza en nube
+const head = new THREE.Group();
+ego.add(head);
+[
+  [0, 1.55, 0, 0.70, 1, 0.95, 0.9],
+  [0, 2.15, -0.02, 0.46, 1, 1, 1],
+  [-0.6, 1.95, 0, 0.42], [0.6, 1.95, 0, 0.44],
+  [-0.78, 1.5, 0, 0.40], [0.78, 1.45, 0, 0.42],
+  [-0.5, 1.05, 0.05, 0.38], [0.5, 1.0, 0.05, 0.40],
+  [0, 1.5, 0.35, 0.62, 1.05, 1, 0.75], // cara lisa por delante
+].forEach(([x, y, z, r, sx, sy, sz]) => blob(head, x, y, z, r, sx, sy, sz));
+
+// Rostro
+const eyeGeo = new THREE.SphereGeometry(0.16, 24, 18);
+for (const side of [-1, 1]) {
+  const eye = new THREE.Mesh(eyeGeo, eyeMat);
+  eye.position.set(side * 0.3, 1.6, 0.75);
+  eye.scale.set(1, 1.4, 0.55);
+  head.add(eye);
+
+  const brow = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.028, 8, 24, Math.PI * 0.85), white);
+  brow.position.set(side * 0.3, 1.94, 0.72);
+  brow.rotation.z = side < 0 ? 0.25 : Math.PI - 0.25;
+  head.add(brow);
+}
+
+// Cola ondulada con gancho
+chain(ego, [
+  { v: [0.15, 0.95, 0], r: 0.50 },
+  { v: [0.25, 0.45, 0], r: 0.45 },
+  { v: [0.10, 0.00, 0.05], r: 0.38 },
+  { v: [-0.35, -0.42, 0.05], r: 0.30 },
+  { v: [-0.72, -0.68, 0], r: 0.22 },
+  { v: [-0.98, -0.50, 0], r: 0.15 },
+  { v: [-0.92, -0.24, 0], r: 0.09 },
+]);
+
+// Brazo izquierdo (pendiente, con punta en gancho)
+chain(ego, [
+  { v: [-0.55, 1.05, 0], r: 0.26 },
+  { v: [-1.00, 0.80, 0.05], r: 0.21 },
+  { v: [-1.35, 0.48, 0.05], r: 0.17 },
+  { v: [-1.50, 0.14, 0], r: 0.13 },
+  { v: [-1.38, -0.06, 0], r: 0.10 },
+  { v: [-1.22, 0.04, 0], r: 0.07 },
+]);
+
+// Brazo derecho que sostiene el núcleo de asistencia
+chain(ego, [
+  { v: [0.55, 1.05, 0], r: 0.26 },
+  { v: [1.00, 1.15, 0.05], r: 0.22 },
+  { v: [1.40, 1.30, 0.10], r: 0.18 },
+  { v: [1.65, 1.50, 0.10], r: 0.15 },
+]);
+
+// Núcleo de asistencia (engranaje)
+const gear = new THREE.Mesh(gearGeometry(), gearMat);
+gear.position.set(1.78, 1.80, 0.12);
+gear.castShadow = true;
+ego.add(gear);
+
+// Esferas flotantes
+const orbs = [
+  blob(scene, -1.55, 2.25, 0.15, 0.13),
+  blob(scene, -0.95, -1.05, 0.15, 0.11),
+];
+
+// ---------- entorno ----------
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.35 }));
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -1.35;
+ground.receiveShadow = true;
+scene.add(ground);
+scene.add(new THREE.GridHelper(24, 48, 0x2b5fa8, 0x16386b).translateY(-1.34));
+
+// ---------- animación ----------
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime();
+  ego.position.y = Math.sin(t * 1.1) * 0.09;          // flotación
+  ego.rotation.y = Math.sin(t * 0.5) * 0.10;          // balanceo
+  ego.rotation.z = Math.sin(t * 0.7) * 0.03;
+  head.rotation.z = Math.sin(t * 0.8) * 0.04;
+  gear.rotation.z = t * 0.9;                          // núcleo girando
+  orbs[0].position.y = 2.25 + Math.sin(t * 1.4 + 1) * 0.10;
+  orbs[1].position.y = -1.05 + Math.sin(t * 1.6) * 0.08;
+  eyeGlow.intensity = 1.1 + Math.sin(t * 2.2) * 0.25; // parpadeo de brillo
+  controls.update();
+  renderer.render(scene, camera);
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

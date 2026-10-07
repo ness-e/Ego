@@ -1,0 +1,47 @@
+{
+  "format": "ego-namespaces/1",
+  "version": 2,
+  "namespaces": [
+    "org/root",
+    "crm/clients",
+    "crm/companies",
+    "crm/deals",
+    "support/tickets",
+    "support/kb",
+    "kb/docs",
+    "journal/convos",
+    "journal/goals",
+    "journal/signals",
+    "dev/files",
+    "dev/errors",
+    "dev/adrs",
+    "ecom/orders",
+    "ecom/prefs",
+    "research/docs",
+    "research/findings",
+    "ops/proposals",
+    "ops/finance",
+    "gov/rules",
+    "gov/audit",
+    "gov/sub_egos",
+    "egos/*",
+    "quarantine/pending",
+    "metrics/all",
+    "events/raw"
+  ],
+  "ttl": {
+    "quarantine/pending": "7-14d",
+    "journal/convos": "90d",
+    "journal/signals": "30d",
+    "events/raw": "30d",
+    "metrics/all": "180d"
+  },
+  "meta": [
+    "org_id",
+    "source",
+    "ts",
+    "agent_id",
+    "confidence",
+    "state"
+  ]
+}

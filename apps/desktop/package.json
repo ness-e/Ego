@@ -1,0 +1,22 @@
+{
+  "name": "ego-desktop",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/apps/desktop/src/main.js",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "electron .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "vantadb": "0.8.0",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "*",
+    "typescript": "^5",
+    "vitest": "*",
+    "eslint": "*"
+  }
+}
