@@ -20,6 +20,7 @@
 - [`modelo-economico.md`](product/modelo-economico.md)
 
 **Architecture**
+- [`arquitectura-unificada.md`](architecture/arquitectura-unificada.md) ⭐ **Doctrina Rectora** (Ego, VantaDB, Hermes, OpenClaw)
 - [`vision-general.md`](architecture/vision-general.md)
 - [`dominios-funcionales.md`](architecture/dominios-funcionales.md)
 - [`agentes.md`](architecture/agentes.md)
@@ -28,6 +29,9 @@
 - [`jev.md`](architecture/jev.md)
 - [`ui-runtime.md`](architecture/ui-runtime.md)
 - [`workspace-dinamico.md`](architecture/workspace-dinamico.md)
+- [`ciclo-memoria-unificado.md`](architecture/ciclo-memoria-unificado.md)
+- [`subego-soul.md`](architecture/subego-soul.md)
+- [`character-system.md`](architecture/character-system.md)
 
 **Engineering**
 - [`stack-tecnico.md`](engineering/stack-tecnico.md)
@@ -44,6 +48,7 @@
 
 **Roadmap**
 - [`roadmap.md`](roadmap/roadmap.md)
+- [`Backlog.md`](roadmap/Backlog.md)
 - [`metricas-okr.md`](roadmap/metricas-okr.md)
 
 **References**
@@ -56,6 +61,25 @@
 **Plan y Gobernanza**
 - [`jerarquia-canonica.md`](jerarquia-canonica.md)
 - [`PLAN-EGO.md`](PLAN-EGO.md)
+- [`plan/README.md`](plan/README.md)
+
+**Review & Auditoría**
+- [`review/README.md`](review/README.md)
+- [`review/backlog-hermes.md`](review/backlog-hermes.md)
+- [`review/backlog-openclaw.md`](review/backlog-openclaw.md)
+- [`review/backlog-coucou.md`](review/backlog-coucou.md)
+
+**Research**
+- [`research/README.md`](research/README.md)
+- [`hermes-agent-deep-dive.md`](research/hermes-agent-deep-dive.md)
+- [`openclaw-deep-dive.md`](research/openclaw-deep-dive.md)
+- [`coucou-deep-dive.md`](research/coucou-deep-dive.md)
+
+**Extracciones de Repositorios**
+- [`extractions/README.md`](extractions/README.md)
+- [`extractions/hermes-agent.md`](extractions/hermes-agent.md)
+- [`extractions/openclaw.md`](extractions/openclaw.md)
+- [`extractions/coucou.md`](extractions/coucou.md)
 
 ## Regla de gobierno de documentos
 1. La **jerarquía canónica** ([`jerarquia-canonica.md`](jerarquia-canonica.md)) establece la precedencia entre decisiones de producto, capacidades, arquitectura, diseño e implementación.

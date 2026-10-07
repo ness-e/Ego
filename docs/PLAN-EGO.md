@@ -33,7 +33,7 @@ El sistema se organiza en las siguientes capas:
 ## Hitos de Implementación P0
 La implementación sigue una estrategia de "Vertical Slice" dividida en **12 Fases**, estructurada en dos grandes hitos (Alpha y Beta) enfocados en probar caminos funcionales completos (Golden Paths).
 
-Para ver el detalle completo de cada fase, criterios de aceptación y los pasos exactos de los Golden Paths, consulta: [roadmap/roadmap.md](./roadmap/roadmap.md).
+Para ver el detalle completo de cada fase, criterios de aceptación y los pasos exactos de los Golden Paths, consulta: [roadmap/roadmap.md](./roadmap/roadmap.md) y el inventario exhaustivo de 115 tareas canónicas en [roadmap/Backlog.md](./roadmap/Backlog.md).
 
 - **P0-Alpha (Fases 01 a 05)**: Enfocado en el núcleo fundacional. El sistema puede recibir una intención, recuperar contexto, razonar, utilizar Sub-Egos, ejecutar herramientas y presentar resultados. Validado a través del *Golden Path Alpha* (20 pasos).
 - **P0-Beta (Fases 06 a 12)**: Enfocado en producto, estabilización y distribución. El sistema permite gestionar un proyecto real con dominios funcionales. Validado a través del *Golden Path Beta* (uso intensivo multi-día y multi-dominio).
