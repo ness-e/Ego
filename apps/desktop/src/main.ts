@@ -1,30 +1,13 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
-import { EgoMemoryAdapter } from "../../../packages/memory/EgoMemoryAdapter";
-import { SubEgoManifest, createSubEgoId } from "../../../packages/memory/sub-egos";
+import { EgoMemoryAdapter } from "../../packages/memory/EgoMemoryAdapter";
+import { SubEgoManifest, createSubEgoId } from "../../packages/memory/sub-egos";
+import { MemoryOpSchema, CreateSubEgoSchema, ApproveActionSchema } from "./ipc/schema";
 
 let adapter: EgoMemoryAdapter;
 let win: BrowserWindow | null = null;
 
-function checkPrereqs(): string[] {
-  const missing: string[] = [];
-  for (const cmd of ["python", "python3"]) {
-    try {
-      execFileSync(cmd, ["--version"], { stdio: "ignore" });
-      return missing;
-    } catch {
-      /* probar siguiente */
-    }
-  }
-  missing.push("python");
-  return missing;
-}
-
-type EgoOp = { op: string; args: unknown[] };
-
 export async function createWindow(): Promise<void> {
-  const missing = checkPrereqs();
   const dbPath = join(app.getPath("userData"), "ego_memory.vdb");
   adapter = new EgoMemoryAdapter(dbPath);
   await adapter.init();
@@ -43,22 +26,52 @@ export async function createWindow(): Promise<void> {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
-  // 1. Canal de Operaciones de Memoria VantaDB
-  ipcMain.handle("ipc.memory", async (_e, { op, args }: EgoOp) => {
-    const fn = (adapter as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>)[op];
-    if (typeof fn !== "function") throw new Error(`op desconocida: ${op}`);
-    return fn.apply(adapter, args);
+  // 1. Canal de Operaciones de Memoria VantaDB (Validación estricta Zod — SEC-02)
+  ipcMain.handle("ipc.memory", async (_e, rawPayload: unknown) => {
+    const parseResult = MemoryOpSchema.safeParse(rawPayload);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Payload de memoria inválido: ${parseResult.error.message}`);
+    }
+
+    const { op, args } = parseResult.data;
+    switch (op) {
+      case "put":
+        return adapter.put(args[0]);
+      case "get":
+        return adapter.get(args[0], args[1]);
+      case "delete":
+        return adapter.delete(args[0], args[1]);
+      case "searchMulti":
+        return adapter.searchMulti(args[0], args[1], args[2]);
+      case "listNamespaces":
+        return adapter.listNamespaces();
+      case "recall":
+        return adapter.recall(args[0]);
+      case "recordAudit":
+        return adapter.recordAudit(args[0], args[1], args[2], args[3]);
+      default: {
+        const _exhaustive: never = op;
+        throw new Error(`Operación no implementada: ${_exhaustive}`);
+      }
+    }
   });
 
-  // 2. Canales de Sub-Egos
+  // 2. Canales de Sub-Egos con validación Zod
   ipcMain.handle("ipc.subegos.list", async () => {
     return adapter.listSubEgos();
   });
 
-  ipcMain.handle("ipc.subegos.create", async (_e, req: { name: string; role: string; instructions: string; tools?: string[] }) => {
+  ipcMain.handle("ipc.subegos.create", async (_e, rawReq: unknown) => {
+    const parseResult = CreateSubEgoSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Solicitud de creación inválida: ${parseResult.error.message}`);
+    }
+
+    const req = parseResult.data;
     const subEgoId = createSubEgoId(req.name);
     const manifest: SubEgoManifest = {
       id: subEgoId,
@@ -86,25 +99,42 @@ export async function createWindow(): Promise<void> {
     return manifest;
   });
 
-  // 3. Gobernanza y Snapshots
-  ipcMain.handle("ipc.llm.stream", async () => {
-    return { ok: true, message: "Stream conectado vía gateway local" };
+  // 3. Gobernanza HITL con validación Zod
+  ipcMain.handle("ipc.gov.approve", async (_e, rawReq: unknown) => {
+    const parseResult = ApproveActionSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Solicitud de aprobación inválida: ${parseResult.error.message}`);
+    }
+
+    const { actionId, confirmed } = parseResult.data;
+    if (confirmed) {
+      await adapter.promote(actionId);
+    }
+    return { ok: true, actionId, confirmed, timestamp: Date.now() };
   });
 
-  ipcMain.handle("ipc.gov.approve", async (_e, actionId: string) => {
-    await adapter.promote(actionId);
-    return { ok: true, actionId, approvedAt: Date.now() };
+  ipcMain.handle("ipc.llm.stream", async () => {
+    return { ok: true, message: "Stream conectado vía Cognitive Runtime" };
   });
 
   ipcMain.handle("ipc.snapshots", async () => ({
     ok: true,
-    missing,
     dbPath,
     operational: adapter.ready,
   }));
 
-  await win.loadFile(join(app.getAppPath(), "renderer/out/index.html"));
+  // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)
+  const isDev = !app.isPackaged && process.env.NODE_ENV !== "production";
+  if (isDev && process.env.VITE_DEV_SERVER_URL) {
+    await win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    await win.loadFile(join(app.getAppPath(), "renderer/dist/index.html"));
+  }
 }
 
 void app.whenReady().then(createWindow);
-app.on("window-all-closed", () => app.quit());
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});

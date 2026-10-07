@@ -1,1 +1,20 @@
-{"name": "@ego/memory", "version": "0.0.0", "private": true, "main": "EgoMemoryAdapter.ts", "dependencies": {"vantadb": "0.8.0"}, "devDependencies": {"typescript": "^5"}}
+{
+  "name": "@ego/memory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/EgoMemoryAdapter.js",
+  "types": "./dist/EgoMemoryAdapter.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "vantadb": "0.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
+  }
+}

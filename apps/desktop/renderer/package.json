@@ -1,1 +1,31 @@
-{"name":"ego-renderer","version":"0.0.0","private":true,"scripts":{"dev":"next dev","build":"next build","export":"next build"},"dependencies":{"@assistant-ui/react":"0.15.23","@phosphor-icons/react":"^2.1.10","@tailwindcss/postcss":"^4.3.3","geist":"^1.7.2","next":"16.3.8","postcss":"^8.5.29","react":"19.3.0","react-dom":"19.3.0","tailwindcss":"^4.3.3"},"devDependencies":{"@types/react":"19.3.0","typescript":"^5"}}
+{
+  "name": "@ego/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@assistant-ui/react": "0.15.23",
+    "@assistant-ui/react-streamdown": "0.15.23",
+    "@phosphor-icons/react": "^2.1.10",
+    "clsx": "^2.1.1",
+    "geist": "^1.7.2",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0-beta.8",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.0.0-beta.8",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

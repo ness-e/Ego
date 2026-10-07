@@ -1,0 +1,21 @@
+{
+  "name": "ego-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ego — Sistema Operativo Cognitivo (SOC)",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @ego/desktop dev",
+    "build": "pnpm --filter @ego/desktop build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
