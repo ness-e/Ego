@@ -9,13 +9,28 @@ export interface SubEgoSummary {
   state: "active" | "paused" | "archived";
 }
 
+export interface RecallBadgeInfo {
+  count: number;
+  glyph: string;
+  sources: string[];
+  tokensEstimate: number;
+}
+
 export interface EgoBridge {
   memory: (op: string, args: unknown[]) => Promise<unknown>;
-  llmStream: (args: unknown) => Promise<unknown>;
-  approve: (args: unknown) => Promise<unknown>;
+  llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string }) => Promise<{
+    ok: boolean;
+    turnId: string;
+    text: string;
+    recallStatus: RecallBadgeInfo;
+    usage?: unknown;
+  }>;
+  approve: (req: { actionId: string; confirmed: boolean; notes?: string }) => Promise<unknown>;
   snapshots: () => Promise<unknown>;
   listSubEgos: () => Promise<SubEgoSummary[]>;
-  createSubEgo: (req: { name: string; role: string; instructions: string }) => Promise<SubEgoSummary>;
+  createSubEgo: (req: { name: string; role: string; instructions: string; tools?: string[] }) => Promise<SubEgoSummary>;
+  onChatDelta?: (callback: (chunk: { type: string; delta?: string }) => void) => () => void;
+  onRecallStatus?: (callback: (status: RecallBadgeInfo) => void) => () => void;
 }
 
 const mockSubEgos: SubEgoSummary[] = [
@@ -55,26 +70,40 @@ const mock: EgoBridge = {
     }
     return { ok: true, mock: true, op, args };
   },
-  llmStream: async () => ({ ok: true, mock: true }),
-  approve: async (args: unknown) => ({ ok: true, mock: true, args }),
+  llmStream: async (req) => ({
+    ok: true,
+    turnId: `mock_turn_${Date.now()}`,
+    text: `[Respuesta Mock Local]: Procesada instrucción "${req.prompt.slice(0, 40)}..."`,
+    recallStatus: {
+      count: 2,
+      glyph: "🧠",
+      sources: ["kb/docs", "kb/facts"],
+      tokensEstimate: 140,
+    },
+  }),
+  approve: async (args) => ({ ok: true, mock: true, args }),
   snapshots: async () => ({ ok: true, mock: true, missing: [] }),
   listSubEgos: async () => mockSubEgos,
   createSubEgo: async (req) => {
-    const created: SubEgoSummary = {
-      id: `ego.${req.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    const nuevo: SubEgoSummary = {
+      id: `ego.${req.name.toLowerCase().replace(/\s+/g, "-")}`,
       name: req.name,
       role: req.role,
       description: req.instructions,
       state: "active",
     };
-    mockSubEgos.push(created);
-    return created;
+    mockSubEgos.push(nuevo);
+    return nuevo;
   },
 };
 
 export function ego(): EgoBridge {
   if (typeof window !== "undefined" && (window as unknown as { ego?: EgoBridge }).ego) {
-    return (window as unknown as { ego: EgoBridge }).ego;
+    const rawEgo = (window as unknown as { ego: EgoBridge }).ego;
+    return {
+      ...rawEgo,
+      memory: (op, args) => rawEgo.memory(op as unknown as string, args),
+    };
   }
   return mock;
 }

@@ -1,15 +1,32 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
-import { EgoMemoryAdapter, SubEgoManifest, createSubEgoId } from "@ego/memory";
-import { MemoryOpSchema, CreateSubEgoSchema, ApproveActionSchema } from "./ipc/schema.js";
+import {
+  EgoMemoryAdapter,
+  EgoMemoryLifecycle,
+  SubEgoManifest,
+  createSubEgoId,
+} from "@ego/memory";
+import { ModelRouter, ModelMessage } from "@ego/models";
+import {
+  MemoryOpSchema,
+  CreateSubEgoSchema,
+  ApproveActionSchema,
+} from "./ipc/schema.js";
 
 let adapter: EgoMemoryAdapter;
+let lifecycle: EgoMemoryLifecycle;
+let modelRouter: ModelRouter;
 let win: BrowserWindow | null = null;
 
 export async function createWindow(): Promise<void> {
   const dbPath = join(app.getPath("userData"), "ego_memory.vdb");
   adapter = new EgoMemoryAdapter(dbPath);
   await adapter.init();
+
+  lifecycle = new EgoMemoryLifecycle(adapter);
+  await lifecycle.startSession("session_init", "default");
+
+  modelRouter = new ModelRouter();
 
   win = new BrowserWindow({
     width: 1440,
@@ -120,9 +137,54 @@ export async function createWindow(): Promise<void> {
     return { ok: true, actionId, confirmed, timestamp: Date.now() };
   });
 
-  ipcMain.handle("ipc.llm.stream", async () => {
-    return { ok: true, message: "Stream conectado vía Cognitive Runtime" };
-  });
+  // 4. Ciclo de Streaming Conversacional + Memoria Unificada (CORE-03, CORE-04, CORE-12)
+  ipcMain.handle(
+    "ipc.llm.stream",
+    async (_e, req: { prompt: string; sessionId?: string; systemPrompt?: string }) => {
+      const sessionId = req.sessionId || lifecycle.currentSessionId || "default_session";
+      const turnId = `turn_${Date.now()}`;
+
+      // FASE 2: Pre-Turn Context Assembly & Recall (Prefetch + Glifo 🧠)
+      const { contextText, recallStatus } = await lifecycle.assemblePreTurn(req.prompt);
+
+      // Informar a la UI del estado de memoria inyectada
+      win?.webContents.send("ipc.chat.recall_status", recallStatus);
+
+      // Ensamblar mensajes para el modelo
+      const messages: ModelMessage[] = [];
+      const systemInstruction = [
+        "Eres Ego, un Sistema Operativo Cognitivo de élite, riguroso, analítico y local-first.",
+        req.systemPrompt || "",
+        contextText,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      messages.push({ role: "system", content: systemInstruction });
+      messages.push({ role: "user", content: req.prompt });
+
+      // Ejecutar streaming a través del ModelRouter
+      const streamResult = await modelRouter.streamText(
+        "general-chat",
+        { messages },
+        (chunk) => {
+          win?.webContents.send("ipc.chat.delta", chunk);
+        }
+      );
+
+      // FASE 4: Post-Turn Synchronization (Persistencia inmutable L1 en VantaDB)
+      const recalledKeys = recallStatus.hits.map((h) => `${h.namespace}:${h.key}`);
+      await lifecycle.syncTurn(sessionId, turnId, req.prompt, streamResult.text, recalledKeys);
+
+      return {
+        ok: true,
+        turnId,
+        text: streamResult.text,
+        recallStatus,
+        usage: streamResult.usage,
+      };
+    }
+  );
 
   ipcMain.handle("ipc.snapshots", async () => ({
     ok: true,
