@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from html import escape
 import datetime
 
@@ -340,7 +340,7 @@ for s_dir in SCOPE_DIRS:
     for p in sorted(d_path.rglob("*")):
         if p.is_dir():
             continue
-        if any(part in {".git", ".opencode", "node_modules", "__pycache__", "out", ".next"} for part in p.parts):
+        if any(part in {".git", ".agents", "node_modules", "__pycache__", "out", ".next"} for part in p.parts):
             continue
         if p.suffix.lower() in SKIP_SUFFIX:
             continue

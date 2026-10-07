@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 
-root = Path(__file__).resolve().parents[1] / ".opencode"
+root = Path(__file__).resolve().parents[1] / ".agents"
 patterns = [
     ("VantaDB", "Ego"),
     ("vantadb", "Ego"),

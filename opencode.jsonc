@@ -46,14 +46,14 @@
       ],
       "disabled": false
     },
-    "campaign": {
+    "agent-workflow": {
       "command": [
-        "bun",
-        ".opencode/task-system/mcp/campaign-server.mjs"
+        "node",
+        ".agents/task-system/mcp/workflow-server.mjs"
       ],
       "disabled": false,
       "type": "local",
-      "description": "Plan de campaña: get_next_task, update_task_state, verify_cmd."
+      "description": "Universal Workflow & Task MCP Server (.agents) — Workflows, Tasks C0, Catálogo y Memoria."
     },
     "vantadb": {
       "command": [
@@ -93,7 +93,7 @@
       "type": "local",
       "command": [
         "node",
-        ".opencode/mcp/ai-media-server.mjs"
+        ".agents/mcp/ai-media-server.mjs"
       ],
       "disabled": false,
       "timeout": 600000,
@@ -116,7 +116,7 @@
         "mcp"
       ],
       "disabled": true,
-      "description": "Semgrep MCP — SAST directo para vanta-audit (L7, FIND-149). Deshabilitado por default; activar por perfil. Reglas versionadas: .opencode/configs/semgrep-vanta.yml."
+      "description": "Semgrep MCP — SAST directo para vanta-audit (L7, FIND-149). Deshabilitado por default; activar por perfil. Reglas versionadas: .agents/configs/semgrep-ego.yml."
     }
     }
   }

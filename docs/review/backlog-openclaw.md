@@ -1,10 +1,10 @@
----
+﻿---
 title: OpenClaw Review & Extraction Backlog — Ego SOC
 kind: review
 status: active
 description: "Backlog especializado para la revisión, extracción de patrones y adaptación técnica de OpenClaw (TypeScript monorepo) hacia Ego."
 tags: [ego, openclaw, extraction, review, typescript, gateway, runtime, tools]
-schema: "10-column canonical schema (.opencode/references/backlog-format.md compatible)"
+schema: "10-column canonical schema (.agents/references/backlog-format.md compatible)"
 ---
 
 # OpenClaw Review & Extraction Backlog — Ego SOC

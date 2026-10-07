@@ -1,11 +1,11 @@
-# Skills de diseño — inventario vigente
+﻿# Skills de diseño — inventario vigente
 
 | Campo | Valor |
 | --- | --- |
 | Estado | Revisable — inventario de skills frontend/UI |
 | Owner | ness-e |
 | Fecha | 2026-10-05 |
-| Fuente | `.opencode/skills/` (198 dirs, proyecto) + `C:\Users\Eros\.agents\skills` (~320; global). `.claude/skills` no existe. |
+| Fuente | `.agents/skills/` (198 dirs, proyecto) + `C:\Users\Eros\.agents\skills` (~320; global). `.claude/skills` no existe. |
 | Regla | Preferir copia del proyecto; no cargar `taste-skill` + `design-taste-frontend` a la vez (duplicadas) |
 
 ## Top 8 para Ego (Electron oscura monocroma + assistant-ui)

@@ -1,10 +1,10 @@
----
+﻿---
 title: Hermes Agent Review & Extraction Backlog — Ego SOC
 kind: review
 status: active
 description: "Backlog especializado para la revisión, extracción de patrones y adaptación técnica de hermes-agent hacia Ego."
 tags: [ego, hermes-agent, extraction, review, desktop, assistant-ui, electron]
-schema: "10-column canonical schema (.opencode/references/backlog-format.md compatible)"
+schema: "10-column canonical schema (.agents/references/backlog-format.md compatible)"
 ---
 
 # Hermes Agent Review & Extraction Backlog — Ego SOC

@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 
@@ -26,7 +26,7 @@ files = {
     "docs/architecture/namespaces.md": "# Namespaces\n\nVer docs/prd/09-8-esquema-de-datos-namespaces-grafo-y-ttl.md\n",
     "docs/architecture/jev.md": "# Jev\n\nVer docs/prd/10-9-jev-motor-de-decisiones-estructuradas.md\n",
     "docs/architecture/agentes.md": "# Agentes\n\nVer docs/prd/11-10-modelo-multi-agente-departamental.md\n",
-    "docs/testing/estrategia.md": "# Estrategia de tests\n\nDefinida en .opencode/agents/ego-review.md + docs/prd/18-17-roadmap-con-hitos-y-criterios-de-salida.md\n",
+    "docs/testing/estrategia.md": "# Estrategia de tests\n\nDefinida en .agents/agents/ego-review.md + docs/prd/18-17-roadmap-con-hitos-y-criterios-de-salida.md\n",
     "docs/roadmap/roadmap.md": "# Roadmap\n\nVer docs/prd/18-17-roadmap-con-hitos-y-criterios-de-salida.md\n",
     "docs/roadmap/metricas-okr.md": "# Métricas\n\nVer docs/prd/19-18-m-tricas-north-star-y-okrs.md\n",
     "docs/references/fuentes.md": "# Fuentes\n\nVer docs/prd/28-26-fuentes-citadas.md\n",
