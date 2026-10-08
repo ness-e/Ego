@@ -1,28 +1,28 @@
 {
-  "name": "@ego/desktop",
+  "name": "@ego/runtime",
   "version": "0.1.0",
   "private": true,
-  "main": "dist/src/main.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "build:main": "tsc -p tsconfig.json",
     "build": "tsc -p tsconfig.json",
-    "dev": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@ego/memory": "workspace:*",
     "@ego/models": "workspace:*",
-    "@ego/runtime": "workspace:*",
     "@ego/tools": "workspace:*",
-    "vantadb": "0.8.0",
-    "vantadb-node": "file:../../../VantaDB/vantadb-node",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
     "typescript": "^5.6.3",
     "vitest": "^2.1.2"
   }

@@ -28,11 +28,18 @@ export interface ModelDescriptor {
   isLocal: boolean;                // true si corre local (Ollama / offline)
 }
 
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
 export interface ModelMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
   name?: string;
   toolCallId?: string;
+  toolCalls?: ToolCall[];
 }
 
 export interface ModelGenerateOptions {
@@ -42,6 +49,12 @@ export interface ModelGenerateOptions {
   systemPrompt?: string;
   responseFormat?: "text" | "json";
   abortSignal?: AbortSignal;
+  tools?: Array<{
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  }>;
+  toolChoice?: "auto" | "none" | "required" | { name: string };
 }
 
 export interface ModelStreamChunk {
@@ -58,6 +71,7 @@ export interface ModelStreamChunk {
 export interface ModelGenerateResult {
   text: string;
   finishReason: string;
+  toolCalls?: ToolCall[];
   usage: {
     promptTokens: number;
     completionTokens: number;

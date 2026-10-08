@@ -270,8 +270,13 @@ export class ToolRegistry {
     if (!tool.description || typeof tool.description !== "string" || tool.description.trim().length === 0) {
       throw new Error(`[ToolRegistry] La herramienta "${tool.name}" debe tener una descripción válida.`);
     }
-    if (!tool.inputSchema || !(tool.inputSchema instanceof z.ZodType)) {
-      throw new Error(`[ToolRegistry] La herramienta "${tool.name}" debe tener un inputSchema de tipo Zod.`);
+    if (
+      !tool.inputSchema ||
+      typeof tool.inputSchema !== "object" ||
+      !("safeParse" in tool.inputSchema) ||
+      typeof (tool.inputSchema as any).safeParse !== "function"
+    ) {
+      throw new Error(`[ToolRegistry] La herramienta "${tool.name}" debe tener un inputSchema válido (ZodType o compatible con safeParse).`);
     }
     if (typeof tool.execute !== "function") {
       throw new Error(`[ToolRegistry] La herramienta "${tool.name}" debe proporcionar un handler ejecutable.`);
