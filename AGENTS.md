@@ -113,7 +113,7 @@ Regla: Estos repos son referencia de patrones. No copiar código directamente �
 * Lint: `pnpm lint`
 * Dev: `pnpm --filter @ego/desktop dev`
 
-> El agente NO ejecuta automáticamente comandos de test/runtime. Mostrar el comando para que el usuario lo ejecute manualmente. Excepción: instrucción explícita "ejecuta lo que quieras".
+> **Excepción de ejecución autorizada (Repositorio Ego):** El usuario ha autorizado explícitamente al agente para ejecutar de manera autónoma comandos de instalación, compilación, typecheck y pruebas unitarias/E2E en este repositorio (`pnpm install`, `pnpm build`, `pnpm test`, `pnpm typecheck`, `tsc`). No se requiere confirmación manual para cada ciclo de verificación en el flujo de desarrollo de Ego.
 
 ## 4. RESTRICCIONES DURAS (GUARDRAILS)
 
