@@ -1,34 +1,29 @@
-# JS Ecosystem (WASM / TS / Node) — Reglas
+# JavaScript & TypeScript Ecosystem — Reglas (Ego)
 
-> **Scope:** `Ego-wasm/` (`src/lib.rs`, `idb.rs`, `opfs.rs`, `worker.rs`, `opfs_bridge.js`), `Ego-ts/` (SDK TS npm `Ego`), `Ego-node/` (napi-rs)
-> **No tocar aquí:** bindings Python (`python-bindings.md`), server/MCP (`server-mcp.md`), API pública del core (`api-contract.md`)
+> **Scope:** Raíz, monorepo pnpm (`packages/*`, `apps/*`), configuraciones de TypeScript, Node.js 22 y dependencias.
 > **Status:** 🟢 Vigente
-> **Fuentes:** auditoría WASM/TS/Node 2026-08-04, DOC3 (DESKTOP-01b)
+> **Derivado de:** AGENTS.md §1 (Stack tecnológico y versiones) y §4 (Restricciones duras).
 
 ## Reglas
 
-### R-1: WASM — persistencia IDB/OPFS solo vía backends explícitos
+### R-1: Versiones de Runtime y Gestor de Paquetes
+- **Must:** Operar estrictamente sobre Node.js 22 LTS (Main process) y pnpm workspaces.
+- **Must:** Mantener `pnpm-lock.yaml` sincronizado e instalar exclusivamente con `pnpm install --frozen-lockfile`.
+- **Must not:** Introducir npm o yarn como gestores alternativos ni commitear `package-lock.json` o `yarn.lock`.
+- **Por qué:** Asegura reproducibilidad exacta de dependencias y aislamiento limpio entre paquetes del monorepo (`packages/memory`, `packages/models`, `packages/runtime`, etc.).
 
-- **Must:** documentar `Ego-wasm` con sus backends reales: `InMemory` (default) y persistencia `connect_persistent`/`connect_idb`/`connect_worker` con save/load a IndexedDB/OPFS (implementados 2026-08-23, CORE-02: `graph_state.json`, `save_idb`/`load_idb`). Toda doc que prometa persistencia debe nombrar el método de conexión que la habilita.
-- **Must not:** afirmar persistencia para `connect()`/`new()` en memoria, ni prometer WAL en WASM (sigue deshabilitado en `init.rs`).
-- **Por qué:** la regla anterior ("siempre InMemory") quedó obsoleta cuando se implementó la capa de persistencia IDB/OPFS; documentar menos de lo que existe también es falla de diagnóstico.
+### R-2: TypeScript Strict sin excepciones
+- **Must:** Compilar con `strict: true` en todas las configuraciones `tsconfig.json`.
+- **Must not:** Usar `any` en código nuevo sin justificación arquitectónica explícita y comentada. Preferir `unknown` con discriminadores de tipo o schemas Zod.
+- **Por qué:** La orquestación multi-modelo y el Cognitive Runtime requieren garantías estáticas para prevenir fallos en tiempo de ejecución.
 
-### R-2: `pkg/` y artefactos de build no se commitean
+### R-3: Integración de VantaDB vía binding nativo (`NativeVantaDB`)
+- **Must:** Toda integración con la base de datos de memoria usa `NativeVantaDB` importado desde `"vantadb/native"` (napi-rs in-process).
+- **Must not:** Importar `Client` de `"vantadb"` (WASM) en ningún entorno de Ego.
+- **Must not:** Levantar `vantadb-server` local para el desktop; la memoria in-process debe correr embebida vía NAPI.
+- **Por qué:** Restricción dura de AGENTS.md §4. El binding NAPI-rs provee máximo rendimiento sin la sobrecarga ni limitaciones de memoria del runtime WebAssembly.
 
-- **Must:** considerar `Ego-wasm/pkg/` (y `dist/` de `Ego-ts`) artefactos de build regenerables; NO referenciarlos como fuente en docs de investigación.
-- **Must not:** citar `Ego-wasm/pkg/` como estructura existente del repo (no está commiteado) ni documentar contenido de `pkg/` que no se puede verificar.
-- **Por qué:** la auditoría DOC3 citó `pkg/` con `connect_worker`/`opfs_bridge` como existente; el directorio no existe en el repo (artefacto no commiteado).
-
-### R-3: Crates standalone (napi-rs) fuera del workspace son intencionales
-
-- **Must:** mantener `Ego-node` (y crates de providers standalone) con `[workspace]` vacío y el comentario de por qué (MSVC linker crash con cdylib); documentarlo como decisión, no como omisión.
-- **Must not:** "corregir" un `[workspace]` vacío sin leer el comentario de exclusión intencional del root Cargo.toml.
-- **Por qué:** DOC1 (Ego-28-07-2026) reportó como error lo que es una exclusión deliberada documentada (cdylib + workspace heredado rompe el linker MSVC).
-
-### R-4: Lifecycle de bindings: op-gate + drenaje en close
-
-- **Must:** todo binding (Python/WASM/Node) que exponga ops async sobre el engine: (1) enrutar la op con `spawn_blocking`, (2) guardar cada op con un op-gate que rechace `database is closing`, (3) en `close()` llamar `drain()` del gate antes de cerrar el engine.
-- **Must not:** permitir un `put` fire-and-forget cuyo `spawn_blocking` no ha corrido cuando `close()` retorna — el write se pierde silenciosamente en exit.
-- **Por qué:** los 3 bindings (node `lib.rs:201-287`, python `op_gate`/`enter()`, wasm `try_enter`/`enter`) implementan `OpGate` + drenaje desde COMP-029/AUD-011 (2026-08-05); esta regla exige mantenerlo en cualquier binding nuevo.
-
-<!-- Referencias cruzadas: → ver api-contract.md, release-ci.md, concurrency-async.md -->
+### R-4: Monorepo y dependencias internas (`workspace:*`)
+- **Must:** Las dependencias entre paquetes internos (`packages/*`) deben declararse usando el protocolo `workspace:*`.
+- **Must not:** Publicar dependencias internas a npm ni hardcodear rutas relativas profundas (`../../packages/...`) en `package.json`.
+- **Por qué:** Permite resolución limpia por pnpm y compilación modular independiente con `pnpm build`.

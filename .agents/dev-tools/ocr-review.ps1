@@ -1,7 +1,7 @@
 # dev-tools/ocr-review.ps1 — OpenCodeReview delegation spec (sin LLM, sin API key).
 #
 # Genera el spec determinista de OCR (file selection + rules) para que el
-# host agent (OpenCode/vanta-*) ejecute la revisión cognitiva con su propio LLM.
+# host agent (OpenCode/ego-*) ejecute la revisión cognitiva con su propio LLM.
 # Advisory por defecto: exit 0 si el spec se generó, 1 solo si falla la herramienta.
 # Canónico: .agents/references/ocr-review.md
 

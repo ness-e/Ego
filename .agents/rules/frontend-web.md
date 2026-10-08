@@ -1,53 +1,32 @@
-# Frontend Web — Reglas
+# Frontend Desktop & Web — Reglas (Ego)
 
-> **Scope:** `web/` completo — Next.js 16 + React 19, `src/app/` (todas "use client"), `src/components/vanta/`, `src/components/ui/` (shadcn), `src/hooks/`, `src/lib/` (i18n ~880 claves ES/EN), `globals.css` (Tailwind v4 `@theme inline`)
-> **No tocar aquí:** bindings/Rust (`python-bindings.md`, `js-ecosystem.md`, `server-mcp.md`), API pública (`api-contract.md`)
+> **Scope:** `apps/desktop/renderer/`, `@assistant-ui/react`, Vite + React 19, componentes de UI y fronteras de presentación.
 > **Status:** 🟢 Vigente
-> **Fuentes:** INV-005, INV-013, INV-014, INV-015, INV-016
+> **Derivado de:** AGENTS.md §2 (Modelo conceptual), §4 (Restricciones duras) y Principio 8 (Chat + Dynamic Workspace).
 
 ## Reglas
 
-### R-FE-1: Manejo de errores con `error.tsx` nativo, no librerías externas
+### R-FE-1: Desacoplamiento total del Renderer (Presentación Pura)
+- **Must:** El Renderer (`apps/desktop/renderer/`) debe funcionar exclusivamente como capa de presentación. Toda la lógica de negocio, ejecución de herramientas, enrutamiento cognitivo y almacenamiento reside en el Main Process (`apps/desktop/src/main/`).
+- **Must not:** Importar paquetes de Node.js (`fs`, `child_process`, `path`, etc.) ni bindings nativos (`NativeVantaDB`) en el Renderer.
+- **Por qué:** Cumplimiento de `contextIsolation=true`, `sandbox=true` y `nodeIntegration=false`. Violaciones introducen vulnerabilidades de inyección y rompen la portabilidad.
 
-- **Must:** usar `src/app/error.tsx` (error boundary nativo de Next.js App Router) para el manejo de errores de página.
-- **Must not:** instalar `react-error-boundary` ni otras librerías de error boundary; si aparece como dependencia transitiva, no importarla directamente.
-- **Por qué:** `react-error-boundary` llegó solo como dep transitiva de `@lexical/react` vía `@mdxeditor/editor` (package-lock.json:2034); es peso muerto no usado. Next.js App Router ya provee `error.tsx`/`global-error.tsx` sin dependencias (INV-005).
+### R-FE-2: Stack de Interfaz: React 19 + `@assistant-ui/react`
+- **Must:** La experiencia de chat conversacional se construye sobre `@assistant-ui/react`, integrando flujos reactivos de streaming e interacción con el usuario.
+- **Must not:** Reimplementar loops de streaming de chat desde cero cuando `@assistant-ui/react` ya provee gestión de turnos, estado de composer e hilos conversacionales.
+- **Por qué:** Estandarización del stack acordada en Q1–Q25. Acelera el desarrollo de P0 manteniendo la UI robusta y alineada con la especificación.
 
-### R-FE-2: Eliminar dependencias muertas detectadas en auditorías
+### R-FE-3: Prohibición absoluta de Next.js en la aplicación Desktop
+- **Must:** Ego Desktop corre sobre Electron + Vite + React 19. Next.js está estrictamente reservado para servicios web externos (landing, billing, auth en Ego Web).
+- **Must not:** Introducir Next.js, App Router o SSR en el entorno de escritorio de Ego.
+- **Por qué:** Regla dura innegociable de AGENTS.md §4. Next.js en Electron agrega complejidad innecesaria, problemas de bundling estático y overhead de memoria.
 
-- **Must:** remover del `package.json` toda dependencia sin imports directos verificados (ej. `@mdxeditor/editor` — 0 imports en `web/src/`, package.json:16) en el mismo cambio que la auditoría la detecta o en una tarea de cleanup dedicada.
-- **Must not:** mantener dependencias transitivas huérfanas solo porque "algún día" se usen.
-- **Por qué:** el bundle del web es estático por diseño; cada dep muerta infla `npm install` y el árbol de auditoría de dependencias (INV-005).
+### R-FE-4: Presupuesto de UI (UI Budget: 15–20% en P0)
+- **Must:** Priorizar funcionalidad y robustez del runtime: "Funcional primero. Usable siempre. Perfecto después."
+- **Must not:** Consumir ciclos de ingeniería en animaciones decorativas complejas, micro-interacciones pesadas o micro-optimizaciones cosméticas que degraden el framerate o retrasen el roadmap funcional.
+- **Por qué:** Criterio estricto de ingeniería en P0-Alpha (Fases 01–05). El valor central de Ego radica en su capacidad cognitiva, memoria persistente y ejecución de herramientas.
 
-### R-FE-3: JSON-LD se emite manualmente en Server Component — Metadata API NO lo genera
-
-- **Must:** emitir `<script type="application/ld+json">` explícitamente en el JSX de un Server Component (ej. en `layout.tsx` raíz) cuando se implemente structured data.
-- **Must not:** asumir que `export const metadata` o `generateMetadata` de Next.js 16 genera JSON-LD — la Metadata API solo emite tags `<head>` (title, description, OG, Twitter); no existe campo `jsonLd`.
-- **Por qué:** el sitio tiene cero `<script type="application/ld+json">` (INV-013); el JSON-LD debe marcarse a mano o no existe. La nota del registry legacy (`docs/dev/avance/historial/fuentes/README.md`, congelado) que afirmaba JSON-LD implementado era falsa (WEB-13 fue sobre Pages Router, ya migrado).
-
-### R-FE-4: Light-only por diseño — no reactivar dark mode
-
-- **Must:** mantener el sitio en paleta light (cream `#FBF9F5`, ink `#000000`, neon `#FF5500`); `globals.css` define solo tokens light en `@theme inline` + `:root`.
-- **Must not:** reintroducir dark mode, clases `.dark`, `prefers-color-scheme`, ni variables `--*dark*` — contradice la estética manga/linocut decidida.
-- **Must not:** dejar componentes de plomería dark muertos (`theme-provider.tsx`, `theme-toggle.tsx`, dep `next-themes`) — eliminarlos cuando se limpie.
-- **Por qué:** INV-014 verificó que NO existe CSS light muerto (premisa invertida): el sitio es light-only deliberado; `ThemeProvider`/`next-themes` son wiring inerte.
-
-### R-FE-5: Touch targets accesibles — mínimo 44px en móvil
-
-- **Must:** todo elemento interactivo (botones, icon-buttons, links) tener hit area ≥44×44px en viewports táctiles; mínimo absoluto 24px solo para controles inline secundarios.
-- **Must not:** dejar icon-buttons de 14px (ni ningún target <24px) en el sitio.
-- **Por qué:** auditoría INV-015 encontró ~24 componentes <44px (2 icon-buttons de 14px) que no cumplen WCAG 2.2 / buenas prácticas móviles.
-
-### R-FE-6: Tokens de motion — sin easing/durations hardcodeados
-
-- **Must:** definir duraciones y easings como tokens en `globals.css` (`@theme inline` — ej. `--duration-fast/normal/slow`, `--ease-default`) y referenciarlos desde componentes, CSS y JS de animación.
-- **Must not:** hardcodear `cubic-bezier(0.2,0.8,0.2,1)` en más lugares (hoy está en ~15: `reveal.tsx`, `faq-section.tsx`, `page-transition.tsx`, `latency-comparator.tsx`, `benchmark-race.tsx` + ~10 utilities/keyframes de `globals.css`).
-- **Por qué:** sin tokens centralizados, cambiar el lenguaje de motion exige editar ~15 sitios y el sistema se desincroniza (INV-016).
-
-### R-FE-7: Utilities custom con `prefijo--modificador` solo en familias con variantes
-
-- **Must:** usar `--modificador` solo en familias con variantes (`press--lg/--neon`, `glow--neon`, `glow-box--neon`, `animate-*` sobre keyframes `ego-*`); singletons conservan nombre plano.
-- **Must not:** BEM total en Tailwind ni renombrar `ego-*` (detalle interno de `animate-*`); clases huérfanas (0 usos en `web/src`) se eliminan, no se renombran.
-- **Por qué:** `glow--neon` (texto) vs `glow-box--neon` (caja) son ejes distintos; la convención ligera evita churn en ~50 `className` (C2A2).
-
-<!-- Referencias cruzadas: → ver release-ci.md, api-contract.md -->
+### R-FE-5: Manejo robusto de errores con Error Boundaries
+- **Must:** Aislar los componentes del Canvas dinámico y widgets interactivos dentro de React Error Boundaries independientes.
+- **Must not:** Permitir que una excepción en un widget de workspace bloquee o rompa el hilo principal del chat.
+- **Por qué:** Resiliencia de la interfaz: el usuario debe poder continuar interactuando con Ego aunque un componente visual falle en renderizar.

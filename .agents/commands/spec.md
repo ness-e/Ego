@@ -13,7 +13,7 @@ Si los requisitos son ambiguos o están incompletos, invocá la skill `interview
 
 ---
 
-### Paso 1 — Extracción de Contexto y Guardrails (Grounding)
+### Paso 1 — Extracción de Contexto, Guardrails y Viabilidad
 
 Antes de realizar cualquier pregunta al usuario, derivá la información del repositorio para evitar redundancias:
 
@@ -27,10 +27,14 @@ Antes de realizar cualquier pregunta al usuario, derivá la información del rep
 3. **Validación Externa:**
    - Si la especificación involucra una nueva dependencia o API externa, validá compatibilidad contra documentación oficial (`websearch` o `webfetch`) ANTES de sugerirla.
 4. **Guardrails Específicos de Ego:**
-   - Context Isolation: Renderer no accede a Node/VantaDB.
-   - Memoria: Solo en Main Process vía `NativeVantaDB` (`"vantadb/native"`).
-   - IPC fuertemente tipado.
-   - UI Budget: No sobreingeniería en presentación sin funcionalidad probada.
+   - **Context Isolation:** Renderer no accede a Node ni VantaDB directo.
+   - **Memoria:** Solo en Main Process vía `NativeVantaDB` (`"vantadb/native"`, fast path BM25) y subproceso `vantadb-mcp` (L0-L3 + ONNX).
+   - **IPC fuertemente tipado:** Todos los canales en `apps/desktop/src/preload/`.
+   - **UI Budget:** 15–20% en P0. Cero sobreingeniería en presentación.
+5. **Compuerta de Descarte Justificado:**
+   - Si tras evaluar una propuesta, patrón o feature de un repositorio de referencia se detecta que viola los 10 principios innegociables (ej. requiere SQLite, backend Python local en P0 o frameworks externos no autorizados), debe emitirse el veredicto formal:
+     `🚫 Descartada: <Fundamento técnico>`
+   - Queda estrictamente prohibido forzar implementaciones incompatibles o dejarlas en limbo permanente.
 
 Todo dato derivable del repositorio se incorpora directamente a la especificación como **decisión tomada por evidencia** citando el archivo y línea (`ref: archivo:línea`).
 
@@ -53,7 +57,7 @@ Identificá exclusivamente las decisiones que requieren definición de negocio, 
 Si existen decisiones abiertas en el Paso 2:
 - Utilizá la herramienta `ask_question` (o `question` según el harness) en una **única ronda agrupada (batch)**.
 - Formato: opciones claras, descriptivas y con el `(Recomendado)` en la primera posición.
-- Si no hay herramientas de pregunta interactivas disponibles, detenete y presenta la tabla al usuario solicitando confirmación antes de escribir el archivo de especificación.
+- Si no hay herramientas de pregunta interactivas disponibles, detenete y presentá la tabla al usuario solicitando confirmación antes de escribir el archivo de especificación.
 
 ---
 
@@ -61,14 +65,14 @@ Si existen decisiones abiertas en el Paso 2:
 
 Escribí la especificación formal en:
 - `docs/architecture/specs/<FEATURE_NAME>.md` (especificación de feature/módulo)
-- O en `SPEC.md` (si es la especificación general del proyecto o hito mayor).
+- O en `SPEC.md` en la raíz (si es la especificación general del proyecto o hito mayor).
 
 #### Estructura Canónica del Spec
 
 ```markdown
 # Spec: [Nombre del Proyecto o Feature]
 
-> Estado: 🟢 APROBADA | 🟡 EN REVISIÓN | ⚪ BORRADOR
+> Estado: 🟢 APROBADA | 🟡 EN REVISIÓN | ⚪ BORRADOR | 🚫 DESCARTADA
 > Fecha: YYYY-MM-DD
 > Autor / Sub-Ego: [ego-lead | coder | architect]
 > Referencias: docs/architecture/adr/NNN_*.md, docs/roadmap/Backlog.md
@@ -94,7 +98,8 @@ Escribí la especificación formal en:
 ## 4. Criterios de Aceptación (DoD Verificable)
 - [ ] **AC-1:** [Comportamiento observable verificable mecánicamente]
 - [ ] **AC-2:** [Comportamiento bajo condición de borde o error]
-- [ ] **AC-3:** `pwsh .agents/dev-tools/verify.ps1` pasa sin regresiones ni errores de tipos.
+- [ ] **AC-3:** `pnpm typecheck` pasa con 0 errores en todos los paquetes.
+- [ ] **AC-4:** `pwsh .agents/dev-tools/verify.ps1` pasa sin regresiones.
 
 ## 5. Guardrails y Restricciones Arquitectónicas
 - **Siempre:** [Patrones obligatorios, tipado estricto, manejo seguro de errores]
@@ -102,21 +107,30 @@ Escribí la especificación formal en:
 - **Impacto de seguridad:** [Análisis de permisos o superficies expuestas]
 
 ## 6. Desglose de Tareas para el Backlog
-Candidatas a registrar en `docs/roadmap/Backlog.md`:
-| ID Propuesto | Título de la Tarea | Esfuerzo | Prio | Dependencias |
-|--------------|-------------------|----------|------|--------------|
-| `FEAT-01`    | Implementar contrato e IPC | 🟢 1d | 🔴 P0 | — |
-| `FEAT-02`    | Integrar en UI / Canvas    | 🟡 2d | 🔴 P0 | `FEAT-01` |
+Candidatas a registrar en `docs/roadmap/Backlog.md` (formato canónico de 10 columnas):
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `FEAT-01` | 🟡 Media | Definir contratos e IPC | `packages/runtime/src/types.ts` | 🟢 1d | 🔴 P0 | 🆕 Pendiente | Implementar contratos tipados | — | — |
+| `FEAT-02` | 🟡 Media | Integrar en UI / Canvas | `apps/desktop/renderer/` | 🟡 2d | 🔴 P0 | 🆕 Pendiente | Conectar componentes visuales | — | `FEAT-01` |
 ```
 
 ---
 
-### Paso 5 — Sincronización y Registro en Memoria
+### Paso 5 — Sincronización, Registro en Memoria y Ejecución
 
-Una vez escrita la especificación:
-1. Registrá la decisión en el sistema de memoria MCP:
+Una vez escrita y aprobada la especificación:
+1. **Registro en Memoria MCP:**
    - Invocá `memory_record_decision(entry="Spec: <NOMBRE> aprobada con contratos definidos en docs/architecture/specs/<NOMBRE>.md")`.
-2. Si la especificación define un cambio arquitectónico estructural costoso de revertir, proponé o generá el ADR correspondiente en `docs/architecture/adr/`.
-3. Ofrecé el siguiente paso operativo:
-   - `/pipeline plan <NOMBRE>` para convertir el spec en un plan de ejecución por oleadas.
-   - O incorporar las tareas desglosadas en `docs/roadmap/Backlog.md`.
+2. **Si hay decisiones arquitectónicas estructurales:**
+   - Generá o proponé el ADR correspondiente en `docs/architecture/adr/`.
+3. **Incorporación al Backlog y Sincronización:**
+   - Incorporá las tareas desglosadas en `docs/roadmap/Backlog.md` usando la estructura de 10 columnas.
+   - Si una tarea se concluye como inviable durante la especificación, registrala como `🚫 Descartada: <Fundamento técnico>`.
+4. **Próximo Paso Operativo:**
+   - Ofrecé al usuario iniciar la ejecución con `task_get_next` o el pipeline correspondiente.
+   - Al completar cada tarea durante la ejecución, utilizar `task_update_state` para mantener sincronizados atómicamente:
+     - Task file (`docs/agent-ops/tasks/<ID>.md`)
+     - Plan activo (`docs/agent-ops/plans/<PLAN>.md`)
+     - Estado JSON (`docs/agent-ops/state/pipeline-state.json`)
+     - Backlog maestro (`docs/roadmap/Backlog.md`)
+     - Roadmap estratégico (`docs/roadmap/roadmap.md`)

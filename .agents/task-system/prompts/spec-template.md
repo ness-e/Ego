@@ -1,51 +1,55 @@
-> **PLANTILLA — Mini-Spec (spec-driven guiado, fuente única)**
-> Cuándo: toda tarea **feature-add o lógica nueva** (Gate P/Gate D de
+> **PLANTILLA — Mini-Spec (spec-driven guiado, fuente única — Ego)**
+> Cuándo: toda tarea **feature-add, lógica nueva o evaluación de patrón** (Gate P/Gate D de
 > `question-gates.md`) ANTES de aprobar DO y ANTES del task file.
 > Las decisiones abiertas (⚠️) se resuelven con el usuario vía `question` tool —
 > una ronda, opciones concretas + default recomendado. Sin spec completa → no hay ACT.
 
 # Spec: <ID> — <título>
 
-- **Tipo:** feature-add | lógica nueva | refactor-comportamental
-- **Origen:** backlog | usuario | discovery
-- **Fecha:**
+- **Tipo:** feature-add | lógica nueva | refactor-comportamental | evaluación-patrón
+- **Origen:** backlog | usuario | discovery | repo-referencia
+- **Fecha:** YYYY-MM-DD
+- **Veredicto Preliminar:** 🟢 Factible para Ego | 🚫 Descarte Justificado
 
 ## 1. Problema
-Qué problema real resuelve, en ≤5 líneas. Evidencia (issue, queja, benchmark, caso de uso).
+Qué problema real resuelve, en ≤5 líneas. Evidencia (issue, caso de uso, requerimiento arquitectónico).
 
-## 2. Criterio de aceptación
-Comandos/comportamientos observables que prueban que está resuelto (se convierten en el `Contrato` del task file):
-1. `<comando mecánico>` pasa
-2. <comportamiento específico verificable>
+## 2. Evaluación de Viabilidad vs Principios Innegociables (AGENTS.md)
+- ¿Respeta la arquitectura Desktop (Electron + Vite + React 19)?: Sí / No
+- ¿Acceso a memoria pasa por EgoMemoryAdapter y NativeVantaDB in-process?: Sí / No
+- ¿Evita dependencias prohibidas (Next.js en desktop, SQLite, Mastra, LangGraph)?: Sí / No
+*Si colisiona con algún principio innegociable, marcar inmediatamente:*
+`Estado: 🚫 Descartada: <Fundamento técnico>` y registrar en Backlog sin avanzar a código.
 
-## 3. Alcance
+## 3. Criterio de Aceptación (DoD Mecánico)
+Comandos y comportamientos observables que certifican que está resuelto:
+1. `pnpm typecheck` pasa con 0 errores en todos los paquetes.
+2. `<comando específico de test o verificación>` pasa exitosamente.
+3. Comportamiento observable verificado en runtime.
+
+## 4. Alcance
 - **Incluye:** ...
-- **NO incluye:** ... (explícito — el anti-scope-creep se define acá)
+- **NO incluye:** ... (explícito — barrera anti-scope-creep)
 
-## 4. Diseño propuesto
-≤10 líneas: archivos a tocar, firmas nuevas/cambios de firma, flujo de datos.
+## 5. Diseño Propuesto
+≤10 líneas: paquetes o módulos afectados (`packages/*`, `apps/desktop/`), interfaces Zod, canales IPC y flujo de datos.
 
-## 5. Decisiones abiertas (⚠️ → question al usuario)
+## 6. Decisiones Abiertas (⚠️ → question al usuario)
 
 > **Profundidad mínima por fila:** ≥2 alternativas **REALES** (enfoques
 > materialmente distintos, no variantes cosméticas) + costo/tradeoff de una
-> línea por opción. Si solo existe un camino viable, NO inventar opciones de
-> relleno: registrar el camino único con su evidencia (`ref: archivo:línea`
-> o doc oficial) y marcarlo ✅ decidido-por-evidencia.
+> línea por opción. Si solo existe un camino viable, registrarlo con su
+> evidencia (`ref: archivo:línea` o doc oficial) y marcarlo ✅ decidido-por-evidencia.
 
-| # | Decisión | Opciones (+tradeoff) | Default recomendado |
-|---|----------|----------------------|---------------------|
-| 1 | ej: API sync o async | sync (simple, bloquea caller) / async (throughput, complejidad) | sync |
+| # | Decisión | Opciones (+tradeoff) | Default recomendado | Resuelto |
+|---|----------|----------------------|---------------------|----------|
+| 1 | ej: Canal IPC | Invoke síncrono / EventBus asíncrono | Invoke síncrono | — |
 
-> Cada fila se pregunta con `question` antes de cerrar la spec. La respuesta
-> queda registrada acá (columna **Resuelto**) y en la recitation.
-
-## 6. Riesgos y blast radius esperado
-Top 3 riesgos (alimentan el Risk Register del plan) + archivos estimados.
+## 7. Riesgos y Blast Radius Esperado
+Top 3 riesgos (seguridad, IPC, memoria) + lista de archivos afectados.
 
 ---
-**Estado de la spec:** ⬜ borrador → 🔄 preguntas enviadas → ✅ confirmada por el usuario
+**Estado de la spec:** ⬜ borrador → 🔄 preguntas enviadas → ✅ confirmada por el usuario | 🚫 descartada
 
-Al confirmarse: la spec se pega en la sección `## Spec` del task file y el
-`Contrato` se copia de §2. Gate mecánico: un task file feature-add sin `## Spec`
-llena NO pasa a ACT (ver pipeline-full.md §Discovery).
+Al confirmarse: la spec se traslada a la sección `## Spec` del task file y el `Contrato` se copia de §3.
+Al completarse o descartarse: se invoca `task_update_state` para sincronizar atómicamente el Backlog maestro (`Backlog.md`), Roadmap (`roadmap.md`), Task file y estado JSON.
