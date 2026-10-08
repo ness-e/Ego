@@ -21,7 +21,7 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 
 | Fase | Título | Rango de IDs | Tareas | Hito | Esfuerzo Estimado | Prioridad | Criterio de Aceptación Clave |
 |---|---|---|:---:|:---:|:---:|:---:|---|
-| **Fase 01** | Core Cognitivo | `CORE-01..15` | 15 | **P0-Alpha** | 2-3 semanas | 🟡 En curso (13/15) | Chat local funcional con persistencia real en VantaDB tras reinicio |
+| **Fase 01** | Core Cognitivo | `CORE-01..15` | 15 | **P0-Alpha** | 2-3 semanas | ✅ Completada (15/15) | Chat local funcional con persistencia real en VantaDB tras reinicio |
 | **Fase 02** | Acción & Tools | `ACT-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🟡 En curso (5/12) | Tool Calling local controlado con aprobación humana (HITL) |
 | **Fase 03** | Sub-Egos | `SUB-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🔴 P0 | Múltiples Sub-Egos cooperan recursivamente compartiendo memoria |
 | **Fase 04** | Dynamic Workspace | `CANV-01..12` | 12 | **P0-Alpha** | 3-4 semanas | 🔴 P0 | Canvas generativo declarativo desacoplado del chat clásico |
@@ -91,7 +91,7 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 | `CORE-12` | 🔴 Crítica | **Unificación de Ciclo de Vida de Memoria (Hermes + VantaDB L0-L3)** | `packages/memory/EgoMemoryLifecycle.ts` | 🟡 1-2d | 🔴 P0 | ✅ Completada | Módulo `EgoMemoryLifecycle` con 6 fases: Session admission, Pre-turn prefetch con glifo 🧠, micro-checkpoints, post-turn sync y dream consolidation. | Ver: `docs/architecture/ciclo-memoria-unificado.md` · Compuerta: `KHOJ-04` | `CORE-06`, `CORE-07` |
 | `CORE-13` | 🔴 Crítica | **Cognitive Navigation Sidebar (Dual Rail & Drawer)** | `apps/desktop/renderer/components/sidebar.tsx` | 🟡 1-2d | 🔴 P0 | ✅ Completada | Panel lateral de 3 estados (Rail 54px, Drawer 260px, Hidden), selectores de Proyectos/Sub-Egos/Sesiones, atajos de teclado (`Ctrl+B`, `Ctrl+N`, `Ctrl+K`) y modal de configuración. | Ver: `docs/architecture/navigation-sidebar.md` | `CORE-01`, `CORE-05` |
 | `CORE-14` | 🟠 Alta | **Manejo visible de errores de turno en Chat UI (`ipc.chat.error`)** | `apps/desktop/src/preload.ts` · `apps/desktop/renderer/components/ego-chat.tsx` | 🟢 1d | 🔴 P0 | ✅ Completada | Listener `onChatError` expuesto en preload, tarjeta visual de error reactiva con botón de reintento (`Retry`) sin perder el prompt y banner de alerta en `@assistant-ui/react`. | Ver: `CORE-05` | Dep: `CORE-05` |
-| `CORE-15` | 🔴 Crítica | **Suite de contrato EgoMemoryAdapter ↔ NativeVantaDB (lado Ego de MEMG-24)** | `packages/memory/` · `apps/desktop/package.json` | 🟡 2-3d | 🔴 P0 | 🆕 Pendiente | Pinean firmas y comportamiento (put/get/searchMulti/cursor/wildcard/escalares) contra el commit pineado de VantaDB; fallan ante breaking changes del binding. Contrapartida de VantaDB `MEMG-24`. | Origen: VantaDB `MEMG-24` + `DIST-19` | Dep: `CORE-06` |
+| `CORE-15` | 🔴 Crítica | **Suite de contrato EgoMemoryAdapter ↔ NativeVantaDB (lado Ego de MEMG-24)** | `packages/memory/test/contract-vantadb.test.ts` | 🟡 2-3d | 🔴 P0 | ✅ Completada | Pinean firmas y comportamiento (put/get/searchMulti/cursor/wildcard/escalares) contra el commit pineado de VantaDB; fallan ante breaking changes del binding. Contrapartida de VantaDB `MEMG-24`. | Origen: VantaDB `MEMG-24` + `DIST-19` | Dep: `CORE-06` |
 
 ---
 
