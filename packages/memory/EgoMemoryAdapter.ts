@@ -330,11 +330,21 @@ export class EgoMemoryAdapter {
    */
   async supersedeFact(oldKey: string, newItem: EgoPut): Promise<void> {
     const db = this.ensureReady();
+    const now = Date.now();
 
-    // 1. Guardar nuevo hecho
-    await this.putMulti([newItem]);
+    // 1. Guardar nuevo hecho marcando is_latest: true y enlace causal hacia el hecho sustituido
+    const newRecord: EgoPut = {
+      ...newItem,
+      metadata: {
+        ...(newItem.metadata || {}),
+        is_latest: true,
+        supersedes: oldKey,
+        superseded_at: now,
+      },
+    };
+    await this.putMulti([newRecord]);
 
-    // 2. Marcar hecho previo como 'superseded' conservando trazabilidad causal
+    // 2. Marcar hecho previo como superseded con is_latest: false conservando trazabilidad causal inmutable
     try {
       const existing = await db.get({ namespace: newItem.namespace, key: oldKey });
       if (existing) {
@@ -346,9 +356,10 @@ export class EgoMemoryAdapter {
             payload: existing.payload,
             metadata: {
               ...prevMeta,
+              is_latest: false,
               state: "superseded",
               superseded_by: newItem.key,
-              superseded_at: Date.now(),
+              superseded_at: now,
             },
           },
         ]);

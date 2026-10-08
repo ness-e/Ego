@@ -151,9 +151,9 @@ Operación                          Destino            Mecanismo
 ──────────────────────────────────────────────────────────────────
 put / putBatch                     NativeVantaDB      Fast Path (in-process)
 get / delete / list                NativeVantaDB      Fast Path (in-process)
-search (BM25 / HNSW / RRF)         NativeVantaDB      Fast Path (in-process)
-searchMulti (federada)             NativeVantaDB      Fast Path (Promise.all)
-supersedeFact                      NativeVantaDB      Fast Path (ADR-028)
+search (BM25 léxico puro)         NativeVantaDB      Fast Path (<2ms, query_vector=[])
+searchMulti (federada BM25)       NativeVantaDB      Fast Path (Promise.all paralelo)
+supersedeFact                      NativeVantaDB      Fast Path (ADR-028, inmutable)
 quarantine / promote               NativeVantaDB      Fast Path (ADR-046)
 graphQuery (IQL)                   NativeVantaDB      Fast Path
 ──────────────────────────────────────────────────────────────────
@@ -168,11 +168,12 @@ temporal_resolve (español→ms)      vantadb-mcp        Cognitive Path (stdio)
 
 ---
 
-## 8. Embeddings (Auto-Embed ONNX Local)
+## 8. Embeddings y Estrategia de Vectorización (Auto-Embed ONNX)
 
-* **Generación autónoma:** VantaDB integra internamente el motor de inferencia ONNX Runtime. Al invocar `put()` sin un vector precalculado, el motor genera el embedding de forma automática.
-* **Modelo predeterminado:** `multilingual-e5-small` (384 dimensiones, ~220 MB en disco), optimizado para compresión y búsqueda semántica en español e inglés.
-* **Prohibición estricta:** **Queda terminantemente prohibido calcular o inferir embeddings en TypeScript dentro de Ego.** Toda la inferencia vectorial se delega al motor Rust nativo.
+* **Capacidad Arquitectónica de VantaDB:** VantaDB posee capacidad nativa de embeddings locales mediante ONNX Runtime (`multilingual-e5-small`, 384 dimensiones, ~220 MB en disco) en su subsistema cognitivo `vanta-memory` y en el subproceso `vantadb-mcp`.
+* **Realidad del Fast-Path In-Process (`NativeVantaDB` en Ego P0):** La ruta NAPI-RS in-process utilizada por Ego (`Embedded::put_one`) opera actualmente optimizada para persistencia inmediata de ultrabaja latencia (<2ms) y búsqueda léxica BM25 pura (`query_vector: []`), prescindiendo de dependencias dinámicas pesadas de ONNX Runtime en el proceso principal de Electron (ver `docs/VANTADB-FEEDBACK-Y-MEJORAS.md` §VDB-INC-01).
+* **Consumo de Inferencia Semántica:** Cuando Ego requiere indexación vectorial densa o auto-embedding de hechos, la operación se canaliza a través del Cognitive Path (`vantadb-mcp`). Ego no debe asumir auto-embedding transparente en `put()` del fast-path in-process hasta que la feature `embed-on-put` esté disponible en los binarios NAPI-RS y respaldada por tests de contrato.
+* **Prohibición estricta:** **Queda terminantemente prohibido calcular o inferir embeddings en TypeScript dentro de Ego.** Toda la inferencia vectorial es patrimonio exclusivo del ecosistema nativo de VantaDB.
 
 ---
 
@@ -182,6 +183,7 @@ temporal_resolve (español→ms)      vantadb-mcp        Cognitive Path (stdio)
 * **Algoritmos nativos:** Recorridos BFS, DFS, ordenamiento topológico, verificación acíclica (`graphIsDag`) y cálculo de grado.
 * **Identificadores de nodo (`node_id`):** En Rust son enteros `u128`. En JavaScript y TypeScript se tratan **obligatoriamente como `string`** para evitar truncamiento por encima de `Number.MAX_SAFE_INTEGER`.
 * **Pipeline GraphRAG:** Expansión semántica `seed → expand → weight → generate context`. (Evolución prioritaria `DIST-15` en VantaDB para exponerlo en el SDK de Node).
+* **Estado de Integración:** `SPECIFIED`. Ego interactúa con el grafo básico NAPI-RS; el pipeline GraphRAG completo es una capacidad cognitiva de VantaDB disponible a través del Cognitive Path (`vantadb-mcp`).
 
 ---
 
@@ -195,6 +197,8 @@ Ego no construye su propio algoritmo heurístico de poda de tokens en TypeScript
 ---
 
 ## 11. Dream Consolidation (Consolidación Onírica en Inactividad)
+
+* **Estado de Integración:** `SPECIFIED`. En Ego P0 `EgoMemoryLifecycle` gestiona localmente los temporizadores de inactividad y el auto-refuerzo Hebbiano de llaves (`pendingReinforcements`); la síntesis profunda de escenas L1-L3 reside en el Cognitive Path (`vantadb-mcp`).
 
 Durante los periodos de inactividad del usuario o entre sesiones:
 - El Cognitive Runtime invoca `dream_consolidate` a través del Cognitive Bridge.
