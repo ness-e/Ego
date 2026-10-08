@@ -1,6 +1,9 @@
 # Carpetas de herramientas de IA / configuración local
 .*
 !.gitignore
+!.agents/
+.agents/node_modules/
+.agents/**/node_modules/
 
 # Dependencias
 node_modules/
@@ -10,6 +13,7 @@ node_modules/
 dist/
 out/
 .next/
+*.tsbuildinfo
 
 # OS
 Thumbs.db

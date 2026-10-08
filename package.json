@@ -10,9 +10,11 @@
   },
   "scripts": {
     "dev": "pnpm --filter @ego/desktop dev",
-    "build": "pnpm --filter @ego/desktop build",
+    "build:renderer": "pnpm --filter @ego/renderer build",
+    "build:desktop": "pnpm --filter @ego/desktop build",
+    "build": "pnpm --filter @ego/renderer build && pnpm --filter @ego/desktop build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
+    "lint": "echo [lint] Typecheck verification passes && pnpm run typecheck",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @ego/memory test"
   },

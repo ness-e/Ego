@@ -11,6 +11,7 @@ import {
   MemoryOpSchema,
   CreateSubEgoSchema,
   ApproveActionSchema,
+  ChatStreamSchema,
 } from "./ipc/schema.js";
 
 let adapter: EgoMemoryAdapter;
@@ -143,12 +144,17 @@ export async function createWindow(): Promise<void> {
   });
 
   // 4. Ciclo de Streaming Conversacional + Memoria Unificada (CORE-03, CORE-04, CORE-12)
-  ipcMain.handle(
-    "ipc.llm.stream",
-    async (_e, req: { prompt: string; sessionId?: string; systemPrompt?: string }) => {
-      const sessionId = req.sessionId || lifecycle.currentSessionId || "default_session";
-      const turnId = `turn_${Date.now()}`;
+  ipcMain.handle("ipc.llm.stream", async (_e, rawReq: unknown) => {
+    const parseResult = ChatStreamSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Solicitud de chat inválida: ${parseResult.error.message}`);
+    }
+    const req = parseResult.data;
 
+    const sessionId = req.sessionId || lifecycle.currentSessionId || "default_session";
+    const turnId = `turn_${Date.now()}`;
+
+    try {
       // FASE 2: Pre-Turn Context Assembly & Recall (Prefetch + Glifo 🧠)
       const { contextText, recallStatus } = await lifecycle.assemblePreTurn(req.prompt);
 
@@ -188,8 +194,12 @@ export async function createWindow(): Promise<void> {
         recallStatus,
         usage: streamResult.usage,
       };
+    } catch (err: any) {
+      const errorMsg = err?.message || String(err);
+      win?.webContents.send("ipc.chat.error", { turnId, error: errorMsg });
+      throw new Error(`[Cognitive Runtime Error]: ${errorMsg}`);
     }
-  );
+  });
 
   ipcMain.handle("ipc.snapshots", async () => ({
     ok: true,

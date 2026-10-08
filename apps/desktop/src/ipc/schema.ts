@@ -80,3 +80,14 @@ export const ApproveActionSchema = z.object({
 });
 
 export type ApproveActionRequest = z.infer<typeof ApproveActionSchema>;
+
+/**
+ * Esquema de validación para solicitudes de streaming conversacional LLM
+ */
+export const ChatStreamSchema = z.object({
+  prompt: z.string().min(1, "El prompt no puede estar vacío"),
+  sessionId: z.string().optional(),
+  systemPrompt: z.string().optional(),
+});
+
+export type ChatStreamRequest = z.infer<typeof ChatStreamSchema>;
