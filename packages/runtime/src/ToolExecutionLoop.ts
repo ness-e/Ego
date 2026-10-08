@@ -1,6 +1,7 @@
 import type { ModelMessage, ModelRole } from "@ego/models";
 import { ModelRouter } from "@ego/models";
 import { ToolRegistry } from "@ego/tools";
+import { ExecutionManager } from "@ego/execution";
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -18,13 +19,14 @@ import type {
  * 2. Detección e intercepción de llamadas a herramientas (`tool_calls`).
  * 3. Validación estricta de parámetros en tiempo de ejecución con Zod.
  * 4. Gobernanza Human-in-the-Loop (HITL): suspensión o despacho a handlers de aprobación.
- * 5. Ejecución segura con contexto e inyección causal del resultado como rol `tool`.
+ * 5. Ejecución supervisada mediante ExecutionManager (timeouts, cuotas y cancelación).
  * 6. Manejo resiliente de fallos para autocorrección guiada por el modelo.
  * 7. Control de cuota y límite de iteraciones (anti-bucles infinitos).
  */
 export class ToolExecutionLoop {
   private readonly router: ModelRouter;
   private readonly registry: ToolRegistry;
+  private readonly executionManager: ExecutionManager;
   private readonly config: ToolExecutionLoopConfig;
 
   constructor(
@@ -34,6 +36,7 @@ export class ToolExecutionLoop {
   ) {
     this.router = router;
     this.registry = registry;
+    this.executionManager = config.executionManager ?? new ExecutionManager();
     this.config = {
       maxSteps: 10,
       defaultRole: "reasoning-heavy",
@@ -209,51 +212,45 @@ export class ToolExecutionLoop {
             }
           }
 
-          // Ejecución material de la herramienta
-          const startTime = Date.now();
+          // Ejecución material supervisada mediante ExecutionManager (ACT-03)
           this.config.onStep?.({
             step,
             action: "tool_executing",
             details: { toolName: tool.name, callId: call.id }
           });
 
-          let executionResult: ToolExecutionResult;
-          try {
-            const output = await tool.execute(finalArgs, options.context);
-            const durationMs = Date.now() - startTime;
-            executionResult = {
-              callId: call.id,
-              toolName: tool.name,
-              success: true,
-              output,
-              durationMs
-            };
+          const execManager = options.executionManager ?? this.executionManager;
+          const execRes = await execManager.execute(tool, finalArgs, options.context, {
+            abortSignal: options.abortSignal
+          });
 
+          const executionResult: ToolExecutionResult = {
+            callId: call.id,
+            toolName: tool.name,
+            success: execRes.status === "success",
+            output: execRes.output,
+            error: execRes.error,
+            durationMs: execRes.durationMs
+          };
+
+          if (execRes.status === "success") {
             messages.push({
               role: "tool",
               toolCallId: call.id,
               name: tool.name,
-              content: typeof output === "string" ? output : JSON.stringify(output)
+              content:
+                typeof execRes.output === "string"
+                  ? execRes.output
+                  : JSON.stringify(execRes.output)
             });
-          } catch (err) {
-            const durationMs = Date.now() - startTime;
-            const errorMsg = err instanceof Error ? err.message : String(err);
-            executionResult = {
-              callId: call.id,
-              toolName: tool.name,
-              success: false,
-              error: errorMsg,
-              durationMs
-            };
-
-            // Inyección causal del error para permitir autocorrección del modelo
+          } else {
             messages.push({
               role: "tool",
               toolCallId: call.id,
               name: tool.name,
               content: JSON.stringify({
-                status: "error",
-                message: `Fallo durante la ejecución de "${tool.name}": ${errorMsg}`
+                status: execRes.status,
+                message: `Fallo durante la ejecución de "${tool.name}": ${execRes.error}`
               })
             });
           }
@@ -324,22 +321,29 @@ export class ToolExecutionLoop {
       });
     } else if (tool) {
       const argsToExecute = decision.modifiedArguments || pendingApproval.arguments;
-      try {
-        const output = await tool.execute(argsToExecute, options.context);
+      const execManager = options.executionManager ?? this.executionManager;
+      const execRes = await execManager.execute(tool, argsToExecute, options.context, {
+        abortSignal: options.abortSignal
+      });
+
+      if (execRes.status === "success") {
         messages.push({
           role: "tool",
           toolCallId: pendingApproval.callId,
           name: tool.name,
-          content: typeof output === "string" ? output : JSON.stringify(output)
+          content:
+            typeof execRes.output === "string"
+              ? execRes.output
+              : JSON.stringify(execRes.output)
         });
-      } catch (err) {
+      } else {
         messages.push({
           role: "tool",
           toolCallId: pendingApproval.callId,
           name: tool.name,
           content: JSON.stringify({
-            status: "error",
-            message: `Error al reanudar herramienta: ${err instanceof Error ? err.message : String(err)}`
+            status: execRes.status,
+            message: `Error al reanudar herramienta: ${execRes.error}`
           })
         });
       }

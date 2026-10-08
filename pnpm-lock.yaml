@@ -17,6 +17,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@ego/execution':
+        specifier: workspace:*
+        version: link:../../packages/execution
       '@ego/memory':
         specifier: workspace:*
         version: link:../../packages/memory
@@ -104,6 +107,22 @@ importers:
         specifier: ^6.0.0
         version: 6.4.4(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)
 
+  packages/execution:
+    dependencies:
+      '@ego/tools':
+        specifier: workspace:*
+        version: link:../tools
+    devDependencies:
+      '@types/node':
+        specifier: ^22.8.0
+        version: 22.20.5
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.2
+        version: 2.1.9(@types/node@22.20.5)(lightningcss@1.32.0)
+
   packages/memory:
     dependencies:
       vantadb:
@@ -141,6 +160,9 @@ importers:
 
   packages/runtime:
     dependencies:
+      '@ego/execution':
+        specifier: workspace:*
+        version: link:../execution
       '@ego/models':
         specifier: workspace:*
         version: link:../models

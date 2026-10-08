@@ -1,5 +1,5 @@
 {
-  "name": "@ego/runtime",
+  "name": "@ego/execution",
   "version": "0.1.0",
   "private": true,
   "main": "./dist/index.js",
@@ -17,10 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ego/execution": "workspace:*",
-    "@ego/models": "workspace:*",
-    "@ego/tools": "workspace:*",
-    "zod": "^3.23.8"
+    "@ego/tools": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",
