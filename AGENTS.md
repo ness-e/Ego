@@ -96,6 +96,7 @@ Ego/
 
 | Repo | Naturaleza | Qué extraer para Ego |
 |---|---|---|
+| coucou | Swift/macOS + Tauri 2/Rust/TS | Ingress de eventos en el borde, attention/presence FSM, HITL con ACK interactivo, ChangeSet atómico, SafeConfigMutation |
 | hermes-agent | Gemelo de stack: Electron+React+assistant-ui | Gateway JSON-RPC, preload/lifecycle, chat/composer, ABC memoria, sesiones SQLite |
 | khoj | IA personal open-source | Embeddings locales (gte-small), búsqueda coseno+umbral, chunking, extract_facts |
 | openclaw | Gateway local + agentes WS | Runtime context, agent harness, memoria Markdown+SQLite, UI optimista |
@@ -104,6 +105,13 @@ Ego/
 | deepseek-harness | Sesiones versionadas | IDs opacos, migraciones sin borrado, patrón supersede |
 
 Regla: Estos repos son referencia de patrones. No copiar código directamente — extraer patterns y adaptar.
+
+### Protocolo de Compuertas de Extracción e Inspección Previa (Opción B)
+
+Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestro (`docs/roadmap/Backlog.md`), es mandatorio ejecutar la **Matriz de Compuertas de Extracción e Inspección Previa** de dicha fase:
+1. **Inspección de Capacidades y Herramientas:** Consultar la ficha canónica en `docs/extractions/<repo>.md` y el backlog de revisión en `docs/review/backlog-<repo>.md`. No limitarse a algoritmos abstractos: inspeccionar features, complementos, herramientas, flujos UX y patrones de resiliencia del repo fuente.
+2. **Evaluación de Factibilidad vs Guardrails:** Determinar si la capacidad se adapta a TypeScript/React 19/VantaDB o si colisiona con los 10 principios innegociables.
+3. **Decisión Formal (Asimilar, Adaptar o Descartar):** Cada hallazgo debe transicionar a `✅ Completada` (adaptado e integrado) o `🚫 Descartada (con justificación)`.
 
 ## 3. COMANDOS OPERATIVOS
 
@@ -131,6 +139,11 @@ Regla: Estos repos son referencia de patrones. No copiar código directamente �
 * **NO acceso directo a VantaDB** — todo pasa por `EgoMemoryAdapter`
 * **NO "23 roles" como arquitectura** — Sub-Egos son dinámicos por dominio/capability
 * **NO Dots como concepto arquitectónico** — es "Background Activity & Proactivity"
+* **NO contaminación de dominios ajenos:** Los repositorios de referencia contienen modelos de negocio ajenos al alcance de Ego (ej. pipelines ATS/empleos de `career-ops`, scrapers web o modelos de voz externos de `khoj`). Está terminantemente prohibido importar schemas, entidades de negocio o dependencias de dominios que no pertenezcan al alcance de Ego (Sistema Operativo Cognitivo). Solo se extraen patrones de ingeniería de sistemas, arquitectura de runtime, interfaces UI y herramientas de sistema.
+
+### Estado formal de descarte técnico
+
+* **Estado canónico `🚫 Descartada (con justificación)`:** Si durante la inspección de una compuerta o tarea se concluye que un patrón, herramienta o feature es redundante, incompatible con los 10 principios de Ego o introduce sobreingeniería, la tarea debe marcarse explícitamente como `🚫 Descartada (con justificación)`. Se debe asentar en la ficha técnica y en el backlog correspondiente la evidencia técnica del descarte (trade-offs, FMEA o incompatibilidad arquitectónica). Prohibido dejar tareas en el limbo o borrarlas silenciosamente.
 
 ### Seguridad
 
