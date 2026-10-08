@@ -37,7 +37,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [x] El modelo ejecuta correctamente una herramienta — Cumplido en ACT-02 (`ToolExecutionLoop` multi-turno con AI SDK v7).
 - [x] Las herramientas que requieren aprobación detienen la ejecución hasta la respuesta — Cumplido en ACT-02/ACT-03 (suspensión/reanudación HITL y supervisor de aborts).
 - [x] Los fallos devuelven contexto para reintento — Cumplido en ACT-02/ACT-03 (inyección causal en rol tool y aislamiento de fallos).
-> **Estado actual:** 3 de 11 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`). Siguiente hito en curso: Conectores nativos Nivel A (`ACT-04`).
+> **Estado actual:** 5 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`). Siguiente hito en curso: Sistema de Aprobación de Acciones Sensibles (HITL / Approval) (`ACT-06`).
 **Criterio de aceptación:** El modelo puede interactuar con el sistema operativo de forma controlada y persistente.
 
 ### Fase 03: Sub-Egos

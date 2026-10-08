@@ -1,14 +1,14 @@
 ---
-title: "Cognitive Navigation Sidebar — Arquitectura y Especificación de UX"
-kind: architecture
+title: "Cognitive Navigation Sidebar — Especificación de Diseño de UX"
+kind: design
 status: canonical
 owner: ness-e
 date: 2026-10-07
-description: "Especificación formal del panel lateral de navegación, roster de Sub-Egos, proyectos y superficies de control para Ego Cognitive OS."
-tags: [ego, soc, sidebar, navigation-rail, ui-runtime, projects, sub-egos]
+description: "Especificación formal de diseño del panel lateral de navegación, roster de Sub-Egos, proyectos y superficies de control para Ego Cognitive OS."
+tags: [ego, soc, sidebar, navigation-rail, design, ux, ui, projects, sub-egos]
 ---
 
-# Cognitive Navigation Sidebar — Especificación Arquitectónica
+# Cognitive Navigation Sidebar — Especificación de Diseño de UX
 
 > **Principio de Interfaz:** *"La navegación no aprisiona el espacio de trabajo; lo organiza bajo demanda."*  
 > El Navigation Sidebar de Ego no es un panel estático rígido de 320px que asfixia el Canvas ni un menú web pasivo. Es una **superficie contextual de control de estado y gobierno cognitivo** con arquitectura dual: **Navigation Rail (54px)** y **Expanded Sidebar (260px)**.

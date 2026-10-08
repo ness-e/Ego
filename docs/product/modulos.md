@@ -14,6 +14,7 @@ Este es el conjunto de capacidades esenciales que deben estar operativas para el
 - **Memoria y Conocimiento (KB):** Búsqueda híbrida, hechos atómicos (atomic facts), cuarentena de datos, supersede (reemplazo) y deduplicación. Todo impulsado por VantaDB a través del EgoMemoryAdapter.
 - **CRM/Ventas mínimo:** Gestión de contactos, oportunidades (deals), relaciones y línea de tiempo (timeline). Basado fuertemente en el motor de grafos.
 - **Fábrica de Sub-Egos:** Sistema inteligente de diseño, configuración y ciclo de vida de especialistas (no un simple CRUD). Soporta tres métodos de creación: conversacional (Ego interpreta la intención y diseña la configuración), plantillas predefinidas y configuración manual avanzada. Define cada instancia mediante un `SubEgoManifest` estructurado sujeto a revisión y aprobación explícita del usuario previa a su instanciación. Gestiona la distinción entre Sub-Egos persistentes (con memoria, estado y evolución continua en VantaDB) y especialistas temporales internos (coordinados transparentemente por Ego para tareas puntuales). Integra capacidad de evolución post-creación (sugerencias proactivas de ampliación de capacidades, permisos, división o fusión según patrones de uso), control de acceso (ACL) y aislamiento de estado privado por namespace (con memoria compartida del proyecto accesible según permisos). En P0 rige un límite técnico provisional de hasta 3 Sub-Egos concurrentes simultáneos (restricción transitoria de ingeniería para estabilidad inicial, no una propiedad permanente del producto). A partir de P1+, este mecanismo evoluciona hacia concurrencia dinámica gobernada por el Execution Manager (*resource-aware scheduling*).
+- **Decision Intelligence (básica P0):** Enrutamiento por reglas deterministas, clasificación tipada de intenciones, scoring de riesgo y precondiciones para aprobación HITL.
 - **Gobernanza:** Aprobación humana para acciones sensibles, pista de auditoría inmutable y políticas de seguridad básicas.
 - **Explicabilidad contextual:** Capacidad de justificar decisiones bajo demanda (3 niveles: usuario, avanzado, auditoría) y proactivamente antes de acciones con impacto.
 - **Workspace dinámico:** Implementación de Chat + Canvas utilizando el esquema de componentes declarativos.
@@ -27,7 +28,7 @@ Este es el conjunto de capacidades esenciales que deben estar operativas para el
 - Diario (Journal)
 - QA y Testing automatizado para desarrollo
 - Soporte al cliente
-- Gobernanza avanzada (Decision Intelligence Layer)
+- Gobernanza avanzada y Decision Intelligence (avanzada P1): Enrutamiento multi-dimensional, arbitraje adaptativo de costos/latencia y optimización de proveedores.
 - Capacidades extendidas de ingeniería de software
 
 ## Capacidades P2 — Escalar

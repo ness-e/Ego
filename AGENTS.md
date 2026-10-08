@@ -75,10 +75,15 @@ Regla: Capability = QUÉ. Architecture = CÓMO funciona. Design = CÓMO se exper
 ```
 Ego/
 ├── AGENTS.md                 ← este archivo
-├── apps/                     ← aplicaciones (desktop)
-├── packages/                 ← código fuente (monorepo pnpm)
-│   └── memory/               ← EgoMemoryAdapter (gateway único a VantaDB)
-├── docs/                     ← documentación canónica (33 archivos)
+├── apps/                     ← aplicaciones (desktop main + renderer)
+├── packages/                 ← código fuente modular (monorepo pnpm)
+│   ├── memory/               ← EgoMemoryAdapter (gateway único a VantaDB)
+│   ├── models/               ← ModelRouter y adaptadores de inferencia
+│   ├── runtime/              ← ToolExecutionLoop y Cognitive Runtime
+│   ├── execution/            ← ExecutionManager (timeouts, cuotas, abort)
+│   ├── tools/                ← ToolRegistry y conectores Nivel A nativos
+│   └── events/               ← EventBus, EventNormalizer y StructuredLogger
+├── docs/                     ← documentación canónica estructurada (64 archivos)
 │   ├── product/              ← visión, concepto, UX, modelo económico, principios
 │   ├── architecture/         ← vision-general, agentes, namespaces, dominios, workspace
 │   ├── engineering/          ← stack-tecnico, lenguajes, integraciones
@@ -116,10 +121,11 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 ## 3. COMANDOS OPERATIVOS
 
 * Instalación: `pnpm install --frozen-lockfile`
-* Build desktop: `pnpm --filter @ego/desktop build`
-* Type check: `npx tsc --noEmit -p apps/desktop`
+* Build completo: `pnpm build` (compila `@ego/renderer` con Vite y `@ego/desktop` con TypeScript)
+* Type check: `pnpm typecheck` (o `npx tsc --noEmit -p apps/desktop`)
+* Tests: `pnpm test`
 * Lint: `pnpm lint`
-* Dev: `pnpm --filter @ego/desktop dev`
+* Dev: `pnpm dev`
 
 > **Excepción de ejecución autorizada (Repositorio Ego):** El usuario ha autorizado explícitamente al agente para ejecutar de manera autónoma comandos de instalación, compilación, typecheck y pruebas unitarias/E2E en este repositorio (`pnpm install`, `pnpm build`, `pnpm test`, `pnpm typecheck`, `tsc`). No se requiere confirmación manual para cada ciclo de verificación en el flujo de desarrollo de Ego.
 
@@ -134,7 +140,7 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 * **NO `Client` de `"vantadb"`** (WASM) — usar `NativeVantaDB` de `"vantadb/native"` (napi-rs)
 * **NO `vanta-proxy`** — FROZEN, diseñado para interceptar CLIs de terceros
 * **NO `vantadb-server`** en desktop — usar modo embebido in-process
-* **NO calcular embeddings en TypeScript** — VantaDB auto-embed via ONNX Runtime
+* **NO calcular embeddings en TypeScript en fast path** — El binding in-process NativeVantaDB opera en modo léxico BM25 puro; la inferencia densa ONNX y capas L0-L3 residen exclusivamente en el subproceso vantadb-mcp.
 * **NO lógica de negocio en renderer** — solo presentación
 * **NO acceso directo a VantaDB** — todo pasa por `EgoMemoryAdapter`
 * **NO "23 roles" como arquitectura** — Sub-Egos son dinámicos por dominio/capability
@@ -151,8 +157,13 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 * Acciones sensibles (filesystem, código, servicios, finanzas, comunicación): requieren aprobación configurable.
 * IPC: validar y tipar todo. El renderer es untrusted.
 
-### Calidad
+### Calidad y Ciclo de Madurez de Capacidades
 
+* **Matriz de Estados de Capacidad (Taxonomía Canónica):**
+  - `SPECIFIED`: Arquitectura, contratos y esquemas formalmente acordados en documentación canónica.
+  - `IMPLEMENTED`: Código fuente implementado en módulos o paquetes (`packages/*`).
+  - `INTEGRATED`: Capacidad conectada activamente al flujo del Cognitive Runtime y Desktop Main.
+  - `VERIFIED`: Validación automatizada con pruebas unitarias, de error, persistencia y E2E sin regresiones.
 * Tipado estricto TypeScript. `any` prohibido salvo justificación explícita.
 * Toda feature = Implementado + Integrado + Prueba funcional + Prueba de error + Persistencia + Sin regresiones.
 * UI budget: 15-20% del esfuerzo de P0. "Funcional primero. Usable siempre. Perfecto después."

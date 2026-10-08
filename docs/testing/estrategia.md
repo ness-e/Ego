@@ -60,7 +60,7 @@ La verificación de la calidad sigue de forma vinculante los criterios de acepta
 
 | Fase | Capacidad | Criterio de Aceptación Clave |
 | --- | --- | --- |
-| **Fase 01** | Core Cognitivo | Chat con IA funcional localmente sobre Electron + VantaDB nativo (`NativeVantaDB`), streaming, auto-embed ONNX, persistencia Fjall verificada tras reinicio y export/import. |
+| **Fase 01** | Core Cognitivo | Chat con IA funcional localmente sobre Electron + VantaDB nativo (`NativeVantaDB`), streaming, búsqueda léxica BM25 en fast-path (<2ms), persistencia Fjall verificada tras reinicio y export/import (.vdbdump). |
 | **Fase 02** | Acción | Tool Registry operativo, ejecución controlada de herramientas del SO y flujo de aprobación de usuario. |
 | **Fase 03** | Sub-Egos | Múltiples Sub-Egos cooperan recursivamente compartiendo contexto mediante Shared Memory sin orquestación manual del usuario. |
 | **Fase 04** | Dynamic Workspace / Canvas | Generación y manipulación interactiva de artefactos UI reactivos en tiempo real con selección de contexto. |

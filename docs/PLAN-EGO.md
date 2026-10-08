@@ -12,7 +12,7 @@ No es un chatbot, no es un CRM, no es una plataforma multiagente genérica, y lo
 Consulta las referencias de producto: [docs/product/definicion-soc.md](product/definicion-soc.md) y [docs/product/concepto.md](product/concepto.md).
 **Modelo económico**: Open Source (Apache 2.0) + SaaS por suscripción + consumo de IA separado. Ver [docs/product/modelo-economico.md](product/modelo-economico.md).
 
-*Nota (Decisión P25): La documentación actual se someterá a una reescritura completa y reestructuración para reflejar las decisiones P24 ([Principios Innegociables](product/principios-innegociables.md)) y P25 ([Jerarquía Canónica](../jerarquia-canonica.md)). Esta versión es un puente temporal.*
+*Alineación Canónica (Decisiones P24/P25): Plan maestro alineado con los [Principios Innegociables](product/principios-innegociables.md) y la [Jerarquía Canónica](jerarquia-canonica.md). La hoja de ruta operativa se ejecuta a través de [roadmap/roadmap.md](roadmap/roadmap.md) y el inventario canónico de tareas en [roadmap/Backlog.md](roadmap/Backlog.md).*
 
 ## Estructura P0
 La estructura del sistema pasa de estar centrada en roles fijos a un entorno dinámico y un catálogo extensible de capacidades:
