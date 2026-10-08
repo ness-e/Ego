@@ -1,4 +1,4 @@
-﻿---
+---
 title: OpenClaw Review & Extraction Backlog — Ego SOC
 kind: review
 status: active
@@ -34,7 +34,7 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 | ID | Severidad | Hallazgo | Archivo OpenClaw | Esfuerzo | Prioridad | Estado | Descripción & Adaptación en Ego | Relaciones Ego | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
 | `OCLW-01` | 🔴 Crítica | **Contexto inmutable de admisión `admitted-run-context.ts`** | `src/agents/admitted-run-context.ts` | 🟢 1d | 🔴 P0 | 🆕 Pendiente | Extraer la arquitectura de tokens de admisión inmutables (`AdmittedRunContext`, `OperationalRunInstanceRef`) para trazar `runId`, `instanceId` y auditoría en cada turno del Cognitive Runtime. | Ego: `ACT-01`, `ACT-03` · Extracción: `docs/extractions/openclaw.md` §Bloque A | — |
-| `OCLW-02` | 🔴 Crítica | **Propagación de autoridad y `AbortSignal` en ejecuciones** | `src/agents/admitted-run-context.ts:43-60` | 🟢 0.5d | 🔴 P0 | 🆕 Pendiente | Extraer el patrón de propagación de `AbortSignal` en `AdmittedRunOperatorAuthority` para cancelar en cascada llamadas al LLM, consultas VantaDB y procesos CLI cuando el usuario cancela en la UI. | Ego: `CORE-02`, `ACT-03` | `OCLW-01` |
+| `OCLW-02` | 🔴 Crítica | **Propagación de autoridad y `AbortSignal` en ejecuciones** | `src/agents/admitted-run-context.ts:43-60` | 🟢 0.5d | 🔴 P0 | ✅ Completada | Extraer el patrón de propagación de `AbortSignal` en cancelaciones operativas implementado en `ExecutionManager.ts` con cancelación cooperativa y límites de tiempo. | Ego: `CORE-02`, `ACT-03` | `OCLW-01` |
 | `OCLW-03` | 🔴 Crítica | **Motor de auto-reparación de Tool Calls (`tool-call-repair`)** | `packages/tool-call-repair/` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Extraer el paquete de auto-reparación de llamadas a herramientas malformadas producidas por modelos LLM (JSON truncado, comillas rotas, parámetros mal convertidos) sin quemar turnos extra. | Ego: `ACT-01`, `ACT-09` (RFC-OCLW-01) | — |
 | `OCLW-04` | 🟠 Alta | **Heurísticas de normalización de argumentos de herramientas** | `packages/tool-call-repair/src/` | 🟢 1d | 🔴 P0 | 🆕 Pendiente | Extraer normalizadores deterministas que corrigen esquemas de argumentos (ej. convertir strings numéricos a enteros, arrays unielemento) antes de ejecutar el validador Zod. | Ego: `ACT-01` | `OCLW-03` |
 | `OCLW-05` | 🟠 Alta | **Locks atómicos por sesión `session-lifecycle-locks.ts`** | `src/sessions/session-lifecycle-locks.ts` | 🟢 0.5d | 🔴 P0 | 🆕 Pendiente | Extraer la exclusión mutua de sesión para evitar que eventos asíncronos concurrentes (background task + input usuario) muten la secuencia de turnos en VantaDB al mismo tiempo. | Ego: `CORE-07`, `REC-01` | — |

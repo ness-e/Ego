@@ -46,14 +46,14 @@
       ],
       "disabled": false
     },
-    "agent-workflow": {
+    "agent-system": {
       "command": [
         "node",
-        ".agents/task-system/mcp/workflow-server.mjs"
+        ".agents/task-system/mcp/agent-system-server.mjs"
       ],
       "disabled": false,
       "type": "local",
-      "description": "Universal Workflow & Task MCP Server (.agents) — Workflows, Tasks C0, Catálogo y Memoria."
+      "description": "Universal Agent System MCP Server (.agents) — Workflows, Tasks C0, Catálogo, Memoria y DevTools."
     },
     "vantadb": {
       "command": [

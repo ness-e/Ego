@@ -18,13 +18,13 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 3. Streaming de respuestas.
 4. Persistencia básica de conversaciones y contexto.
 5. Validación de integración nativa VantaDB.
-- [ ] La aplicación se abre e inicializa la base de datos local (NativeVantaDB en Electron main).
-- [ ] El usuario puede enviar un mensaje y recibir respuesta en streaming.
-- [ ] El historial se guarda y se recupera tras reiniciar (persistencia Fjall verificada).
-- [ ] put/get/search/searchMulti funcionan contra VantaDB nativo.
-- [ ] Auto-embed genera embeddings sin intervención de TypeScript.
-- [ ] export/import funciona (snapshot de datos).
-**Criterio de aceptación:** Un chat básico con IA funcionando localmente con persistencia real sobre VantaDB nativo.
+- [x] La aplicación se abre e inicializa la base de datos local (NativeVantaDB en Electron main).
+- [x] El usuario puede enviar un mensaje y recibir respuesta en streaming.
+- [x] El historial se guarda y se recupera tras reiniciar (persistencia Fjall verificada).
+- [x] put/get/search/searchMulti funcionan contra VantaDB nativo.
+- [x] Auto-embed genera embeddings sin intervención de TypeScript (Fast Path BM25 + Cognitive Path MCP delimitados).
+- [x] export/import funciona (snapshot de datos en formato .vdbdump con cabecera VDBJSON).
+**Criterio de aceptación:** Un chat básico con IA funcionando localmente con persistencia real sobre VantaDB nativo. — **100% COMPLETADO (CORE-01..13)**.
 
 ### Fase 02: Acción
 **Objetivo:** Permitir que el sistema ejecute herramientas locales y gestione errores.
@@ -33,10 +33,11 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 3. Execution Manager (lanzamiento y monitoreo).
 4. Sistema de eventos (ejecución, logs).
 5. Manejo de errores y flujo de aprobación de usuario.
-- [ ] Se pueden registrar herramientas (ej. leer archivo).
-- [ ] El modelo ejecuta correctamente una herramienta.
-- [ ] Las herramientas que requieren aprobación detienen la ejecución hasta la respuesta.
-- [ ] Los fallos devuelven contexto para reintento.
+- [x] Se pueden registrar herramientas (ej. leer archivo) — Cumplido en ACT-01 (`ToolRegistry` con Zod).
+- [x] El modelo ejecuta correctamente una herramienta — Cumplido en ACT-02 (`ToolExecutionLoop` multi-turno con AI SDK v7).
+- [x] Las herramientas que requieren aprobación detienen la ejecución hasta la respuesta — Cumplido en ACT-02/ACT-03 (suspensión/reanudación HITL y supervisor de aborts).
+- [x] Los fallos devuelven contexto para reintento — Cumplido en ACT-02/ACT-03 (inyección causal en rol tool y aislamiento de fallos).
+> **Estado actual:** 3 de 11 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`). Siguiente hito en curso: Conectores nativos Nivel A (`ACT-04`).
 **Criterio de aceptación:** El modelo puede interactuar con el sistema operativo de forma controlada y persistente.
 
 ### Fase 03: Sub-Egos

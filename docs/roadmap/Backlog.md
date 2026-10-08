@@ -22,7 +22,7 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 | Fase | Título | Rango de IDs | Tareas | Hito | Esfuerzo Estimado | Prioridad | Criterio de Aceptación Clave |
 |---|---|---|:---:|:---:|:---:|:---:|---|
 | **Fase 01** | Core Cognitivo | `CORE-01..13` | 13 | **P0-Alpha** | 2-3 semanas | 🟢 100% DONE | Chat local funcional con persistencia real en VantaDB tras reinicio |
-| **Fase 02** | Acción & Tools | `ACT-01..11` | 11 | **P0-Alpha** | 2-3 semanas | 🔴 P0 | Tool Calling local controlado con aprobación humana (HITL) |
+| **Fase 02** | Acción & Tools | `ACT-01..11` | 11 | **P0-Alpha** | 2-3 semanas | 🟡 En curso (3/11) | Tool Calling local controlado con aprobación humana (HITL) |
 | **Fase 03** | Sub-Egos | `SUB-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🔴 P0 | Múltiples Sub-Egos cooperan recursivamente compartiendo memoria |
 | **Fase 04** | Dynamic Workspace | `CANV-01..11` | 11 | **P0-Alpha** | 3-4 semanas | 🔴 P0 | Canvas generativo declarativo desacoplado del chat clásico |
 | **Fase 05** | Decision Intelligence | `DEC-01..09` | 9 | **P0-Alpha** | 2 semanas | 🔴 P0 | Ego clasifica y delega autónomamente al Sub-Ego óptimo (Golden Path Alpha) |
