@@ -29,4 +29,11 @@ contextBridge.exposeInMainWorld("ego", {
       ipcRenderer.removeListener("ipc.chat.recall_status", sub);
     };
   },
+  onChatError: (callback: (err: { turnId?: string; error: string; timestamp?: number }) => void) => {
+    const sub = (_event: Electron.IpcRendererEvent, err: any) => callback(err);
+    ipcRenderer.on("ipc.chat.error", sub);
+    return () => {
+      ipcRenderer.removeListener("ipc.chat.error", sub);
+    };
+  },
 });

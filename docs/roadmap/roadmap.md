@@ -24,7 +24,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [x] put/get/search/searchMulti funcionan contra VantaDB nativo.
 - [x] Auto-embed genera embeddings sin intervención de TypeScript (Fast Path BM25 + Cognitive Path MCP delimitados).
 - [x] export/import funciona (snapshot de datos en formato .vdbdump con cabecera VDBJSON).
-**Criterio de aceptación:** Un chat básico con IA funcionando localmente con persistencia real sobre VantaDB nativo. — **100% COMPLETADO (CORE-01..13)**.
+**Criterio de aceptación:** Un chat básico con IA funcionando localmente con persistencia real sobre VantaDB nativo. — **100% COMPLETADO (CORE-01..14)**.
 
 ### Fase 02: Acción
 **Objetivo:** Permitir que el sistema ejecute herramientas locales y gestione errores.

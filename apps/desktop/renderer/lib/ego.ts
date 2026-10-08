@@ -16,6 +16,12 @@ export interface RecallBadgeInfo {
   tokensEstimate: number;
 }
 
+export interface ChatErrorInfo {
+  turnId?: string;
+  error: string;
+  timestamp?: number;
+}
+
 export interface EgoBridge {
   memory: (op: string, args: unknown[]) => Promise<unknown>;
   llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string }) => Promise<{
@@ -31,6 +37,7 @@ export interface EgoBridge {
   createSubEgo: (req: { name: string; role: string; instructions: string; tools?: string[] }) => Promise<SubEgoSummary>;
   onChatDelta?: (callback: (chunk: { type: string; delta?: string }) => void) => () => void;
   onRecallStatus?: (callback: (status: RecallBadgeInfo) => void) => () => void;
+  onChatError?: (callback: (err: ChatErrorInfo) => void) => () => void;
 }
 
 const mockSubEgos: SubEgoSummary[] = [

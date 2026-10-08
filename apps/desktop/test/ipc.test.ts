@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { MemoryOpSchema, CreateSubEgoSchema, ApproveActionSchema } from "../src/ipc/schema.js";
+import {
+  MemoryOpSchema,
+  CreateSubEgoSchema,
+  ApproveActionSchema,
+  ChatStreamSchema,
+} from "../src/ipc/schema.js";
 
 describe("@ego/desktop — IPC Validation Schema Suite", () => {
   it("Valida operaciones MemoryOpSchema autorizadas", () => {
@@ -54,5 +59,22 @@ describe("@ego/desktop — IPC Validation Schema Suite", () => {
       notes: "Aprobado por el usuario",
     });
     expect(validApproval.success).toBe(true);
+  });
+
+  it("Valida esquema de streaming de chat (ChatStreamSchema - CORE-14 / SEC-02)", () => {
+    const validChat = ChatStreamSchema.safeParse({
+      prompt: "Explica la arquitectura de memoria",
+      sessionId: "session_123",
+      systemPrompt: "Eres Ego",
+    });
+    expect(validChat.success).toBe(true);
+
+    const emptyPrompt = ChatStreamSchema.safeParse({
+      prompt: "",
+    });
+    expect(emptyPrompt.success).toBe(false);
+
+    const missingPrompt = ChatStreamSchema.safeParse({});
+    expect(missingPrompt.success).toBe(false);
   });
 });
