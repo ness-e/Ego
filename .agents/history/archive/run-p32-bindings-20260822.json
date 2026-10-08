@@ -1,0 +1,18 @@
+{
+  "sessionId": "run-p32-bindings-20260822",
+  "state": "DONE",
+  "context": {
+    "campaign": "P32-bindings-sdk",
+    "completed": 0,
+    "mode": "run",
+    "plan": "docs/dev/plans/archive/2026-08-22-Ego-bindings-sdk.md",
+    "total": 4,
+    "final_commit": "328c4de4",
+    "result": "CAMPAIGN_COMPLETE_4_4",
+    "suites": "TS 246, python 105"
+  },
+  "createdAt": "2026-08-22T08:14:48.802Z",
+  "updatedAt": "2026-08-22T19:18:54.532Z",
+  "iterationCount": 1,
+  "transitionCount": 0
+}

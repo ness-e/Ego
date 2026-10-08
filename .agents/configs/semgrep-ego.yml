@@ -1,0 +1,127 @@
+﻿# Semgrep ruleset versionado -- Ego Harness L7 (FIND-149)
+# NOTA: archivo 100% ASCII (semgrep en Windows lee la config con el locale
+# del sistema; UTF-8aka acentos/em-dash rompen `semgrep --validate`).
+#
+# Gate canonico (warn mode, raiz host):
+#   semgrep --config .agents/configs/semgrep-ego.yml --config p/rust --config p/python \
+#     --error --severity ERROR --metrics=off .
+# Contrato: exit 0 en main. Las reglas propias son WARNING (reportan sin
+# bloquear); `--severity ERROR` las vuelve no-bloqueantes en el gate.
+# Endurecimiento: tras 1 semana verde subir `severity: ERROR` en las 3 reglas
+# propias (dueno: ego-lead) -- desde entonces el mismo comando bloquea.
+# Prueba negativa (una regla debe fallar a proposito):
+#   semgrep --config .agents/configs/semgrep-ego.yml --error --metrics=off <scope>
+#   (sin --severity: cualquier finding -> exit 1; tras el fix -> exit 0).
+#
+# Defaults del registry: `p/rust` + `p/python` incluidos en el gate (ERROR-clean
+# en main, verificado 2026-09-24). `p/typescript` EXCLUIDO con motivo: su regla
+# ERROR `react-insecure-request` flaggea `desktop/scripts/selfcheck-web-e2e.ts:78`
+# (`fetch(${BASE}/api/v2/health)` -- healthcheck a localhost del propio dev-server,
+# FP-by-design; HTTP a loopback es correcto). Re-trial post-semana-verde con
+# subset de reglas o `nosemgrep` justificado en esa linea.
+#
+# GOTCHA (verificado 2026-09-24): el contenido de los bloques `pattern: |` /
+# `pattern-not-inside: |` debe ir a 10 espacios (mas profundo que el `- ` de
+# la secuencia: la clave queda en indent efectivo 8 y con 8 el escalar queda
+# VACIO -> YAML invalido que semgrep reporta como "0 rule(s)"; con 10+ valida).
+# Ademas `...` entre atributo y `mod` (para cubrir `#[cfg(test)]` + otros
+# atributos) NO excluye: usar `#[cfg(test)] mod $M` en una linea (cubre el caso
+# de un solo atributo) + `#[test] fn` (cubre los `unwrap` dentro de tests en
+# modulos multi-atributo). Residual documentado en el dictamen FIND-149.
+# No re-indentar los bloques de patrones sin re-correr `--validate` + scan.
+
+rules:
+  # --- Reglas propias Ego (L7) -------------------------------------
+
+  - id: ego-unwrap-in-prod
+    languages: [rust]
+    severity: WARNING
+    message: >-
+      `.unwrap()` en codigo de produccion puede panickear (DoS ante input
+      no confiable). Preferi `?` con `VantaError` contextual o `.expect()`
+      con mensaje accionable. (Los `#[cfg(test)]` estan excluidos.)
+    metadata:
+      category: correctness
+      technology: [rust]
+      confidence: HIGH
+      impact: MEDIUM
+      references:
+        - https://doc.rust-lang.org/std/result/enum.Result.html#method.unwrap
+    patterns:
+      - pattern: $X.unwrap()
+      - pattern-not-inside: |
+          #[cfg(test)] mod $M {
+            ...
+          }
+      - pattern-not-inside: |
+          #[test] fn $F(...) {
+            ...
+          }
+    paths:
+      include:
+        - '/apps/**'
+        - '/packages/**'
+      exclude:
+        - '**/tests/**'
+        - '**/benches/**'
+        - '**/examples/**'
+
+  - id: ego-unsafe-review
+    languages: [rust]
+    severity: WARNING
+    message: >-
+      Bloque `unsafe`: puntero de revision, no veredicto. El auditor debe
+      verificar `// SAFETY:` adyacente + invariantes + Miri (ego-audit 2.1).
+      (Diseno honesto: semgrep ignora comentarios al matchear, asi que la
+      precision "sin SAFETY" es imposible aqui; la precision vive en la
+      revision humana + `sg-rules/unchecked-ops.yml` de ast-grep.)
+    metadata:
+      category: security
+      technology: [rust]
+      confidence: MEDIUM
+      impact: HIGH
+      references:
+        - https://doc.rust-lang.org/std/keyword.unsafe.html
+    patterns:
+      - pattern: unsafe { ... }
+    paths:
+      include:
+        - '/apps/**'
+        - '/packages/**'
+      exclude:
+        - '**/tests/**'
+        - '**/benches/**'
+        - '**/examples/**'
+
+  - id: ego-expect-generic
+    languages: [rust]
+    severity: WARNING
+    message: >-
+      `.expect()` con mensaje generico -- el mensaje debe decir QUE invariante
+      se rompio y DONDE mirar (accionable en un panic de produccion).
+    metadata:
+      category: correctness
+      technology: [rust]
+      confidence: HIGH
+      impact: LOW
+    patterns:
+      - pattern: $X.expect($MSG)
+      - metavariable-regex:
+          metavariable: $MSG
+          regex: '(?i)^"(failed|error|must work|should work|should never fail|should not fail|unreachable|todo|fixme|xxx|oops|panic)"$'
+      - pattern-not-inside: |
+          #[cfg(test)] mod $M {
+            ...
+          }
+      - pattern-not-inside: |
+          #[test] fn $F(...) {
+            ...
+          }
+    paths:
+      include:
+        - '/apps/**'
+        - '/packages/**'
+      exclude:
+        - '**/tests/**'
+        - '**/benches/**'
+        - '**/examples/**'

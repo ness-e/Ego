@@ -1,0 +1,13 @@
+{
+  "sessionId": "pipeline-run-backlog-triage-20260823",
+  "state": "RUN-W1",
+  "context": {
+    "failMode": "parallel",
+    "plan": "docs/dev/plans/2026-08-23-backlog-triage.md",
+    "waves": "W1 bugs x7 -> W2 quick wins x7 -> W3 MCP serial x3"
+  },
+  "createdAt": "2026-08-23T19:40:23.577Z",
+  "updatedAt": "2026-08-23T19:40:23.577Z",
+  "iterationCount": 0,
+  "transitionCount": 0
+}

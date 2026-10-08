@@ -1,0 +1,18 @@
+{
+  "sessionId": "run-p33-ultima-milla-20260822",
+  "state": "DONE",
+  "context": {
+    "campaign": "P33-ultima-milla",
+    "completed": 0,
+    "mode": "run",
+    "plan": "docs/dev/plans/archive/2026-08-22-ego-ultima-milla.md",
+    "total": 10,
+    "final_commit": "a391c3a6",
+    "result": "CAMPAIGN_COMPLETE_10_10_PRODUCTO_END_TO_END",
+    "suites": "proxy 89, desktop 88, memory 472, mcp 30, TS 246, py 105"
+  },
+  "createdAt": "2026-08-22T23:23:01.993Z",
+  "updatedAt": "2026-08-23T05:13:33.780Z",
+  "iterationCount": 1,
+  "transitionCount": 0
+}

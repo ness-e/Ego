@@ -1,0 +1,29 @@
+{
+  "sessionId": "estab-20260920-run1",
+  "state": "ACT",
+  "context": {
+    "mode": "run",
+    "plan": "workflows-repair created 703916e2, 13 rows Backlog",
+    "wave": "Wave0 ready",
+    "c01": "done cdf5e9e9",
+    "c02": "done subset-empty ccc8ee4e",
+    "c07": "branches done, PR triage deferred post-182",
+    "r02": "TestPyPI verified; prod 0.6.0 skipped -> 0.6.1 train",
+    "r03": "done c128e2a2, TS 0.6.0 tsc0 tests311",
+    "incident": "develop auto-deleted on merge; recreated from main, auto-delete disabled",
+    "r01": "done cd22b55a merged to main",
+    "testpypi": "0.6.0 verified venv",
+    "npm": "wasm+ts blocked: trusted publisher missing on npmjs (owner UI)",
+    "pyproject": "dynamic from Cargo, proven wheel 0.6.0",
+    "merge202": "done bcc92693, main 3208 commits",
+    "code": "30/30 dismissed, plan COMPLETADO",
+    "commit": "21202b73 pushed",
+    "prs206207": "open, CI running",
+    "vuln": "14->5 (38 dismissed), PRs 206/207 open",
+    "waveB": "rebases fired x12, retargets x11, bumps via workers"
+  },
+  "createdAt": "2026-09-20T22:26:58.782Z",
+  "updatedAt": "2026-09-22T01:45:05.431Z",
+  "iterationCount": 5,
+  "transitionCount": 0
+}

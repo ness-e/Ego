@@ -1,0 +1,9 @@
+{
+  "mcp": {
+    "Ego": {
+      "type": "local",
+      "command": ["ego-cli", "server", "--mcp", "--db", "~/.Ego"],
+      "enabled": true
+    }
+  }
+}

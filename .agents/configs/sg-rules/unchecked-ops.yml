@@ -1,0 +1,27 @@
+# ego-unchecked-ops -- ast-grep (FIND-149, ASCII-only).
+# Operaciones UB-adyacentes que exigen Miri + SAFETY: unwrap_unchecked,
+# get_unchecked,transmute, from_raw_parts(_mut). Severidad inicial: warning
+# (warn primero; endurecer a error tras 1 semana verde, dueno: ego-lead).
+# Por que ast-grep para esto: match estructural exacto por AST (sin regex),
+# complementa a semgrep (que lleva unwrap/expect/unsafe-review).
+# Enfoques RECHAZADOS con evidencia (sesion FIND-149, no reintentar):
+#   - semgrep `pattern-not` con `// SAFETY:`: semgrep ignora comentarios al
+#     matchear -> sobre-excluye (la regla nunca dispara). Evidencia: regla
+#     `unsafe { ... }` sola dispara en scratch, con `pattern-not` de comentario
+#     da 0 en el mismo archivo.
+#   - ast-grep `follows: {kind: line_comment}`: la relacion follows/precedes no
+#     ve comentarios hermanos (positive-follows da 0 en todos lados) -> el
+#     `not:` equivale a flag-all. La precision "sin SAFETY" queda en el auditor.
+id: ego-unchecked-ops
+language: rust
+severity: warning
+message: "Op UB-adyacente: exige // SAFETY: + Miri (Tree Borrows) antes de merge."
+rule:
+  any:
+    - pattern: $X.unwrap_unchecked()
+    - pattern: $X.get_unchecked($I)
+    - pattern: $X.get_unchecked_mut($I)
+    - pattern: std::mem::transmute($X)
+    - pattern: transmute($X)
+    - pattern: <$T>::from_raw_parts($A, $B)
+    - pattern: <$T>::from_raw_parts_mut($A, $B)

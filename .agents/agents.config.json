@@ -1,0 +1,37 @@
+{
+  "$schema": "./task-system/config/schema.json",
+  "project": {
+    "name": "Ego",
+    "description": "Sistema Operativo Cognitivo (SOC) — Desktop Electron + React 19",
+    "stack": "typescript-electron-react",
+    "packageManager": "pnpm"
+  },
+  "paths": {
+    "baseOps": "docs/agent-ops",
+    "backlog": "docs/roadmap/Backlog.md",
+    "plans": "docs/agent-ops/plans",
+    "tasks": "docs/agent-ops/tasks",
+    "reviews": "docs/agent-ops/reviews",
+    "research": "docs/agent-ops/research",
+    "reports": "docs/agent-ops/reports",
+    "state": "docs/agent-ops/state",
+    "rules": ".agents/rules",
+    "references": ".agents/references",
+    "agents": ".agents/agents",
+    "skills": ".agents/skills",
+    "memory": ".agents/task-system/memory",
+    "history": ".agents/task-system/history"
+  },
+  "commands": {
+    "test": "pnpm test",
+    "lint": "pnpm lint",
+    "build": "pnpm build",
+    "typecheck": "pnpm typecheck",
+    "verify": "powershell -ExecutionPolicy Bypass -File .agents/dev-tools/verify.ps1"
+  },
+  "budget": {
+    "maxRoundsPerTask": 15,
+    "maxFilesModified": 10,
+    "maxDurationMinutes": 45
+  }
+}

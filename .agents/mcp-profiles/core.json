@@ -1,0 +1,15 @@
+{
+  "mcp": {
+    "servers": {
+      "codegraph": { "disabled": false },
+      "codebase-memory-mcp": { "disabled": true },
+      "vantadb": { "disabled": true },
+      "playwright": { "disabled": true },
+      "ai-media": { "disabled": true },
+      "seo-audit": { "disabled": true },
+      "discord": { "disabled": true },
+      "campaign": { "disabled": false },
+      "lottiefiles-creator": { "disabled": true }
+    }
+  }
+}

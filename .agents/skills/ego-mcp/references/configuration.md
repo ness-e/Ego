@@ -1,0 +1,226 @@
+# Ego Configuration Guide
+
+> Verified against `src/config.rs`. Ego is configured exclusively through **environment variables** (`VANTADB_*` / `VANTA_*`) and CLI flags — there is **no `config.json`** and no config file for the engine or the MCP server. All variables have sensible defaults; set only what you need to override.
+
+## Storage
+
+### VANTADB_STORAGE_PATH
+
+Storage directory for the database. Used by `Ego-server` (e.g. `Ego-server --mcp`) and embedded engines that load config from the environment.
+
+```bash
+export VANTADB_STORAGE_PATH=/custom/path
+```
+
+Default: `Ego_data` (relative to the working directory).
+
+> Note: the legacy name `VANTADB_PATH` does not exist. The CLI's `--db` flag (env `EGO`, default `./db`) is separate and only affects `ego-cli`.
+
+> `~` is NOT expanded: `Path::new(db_path)` is used verbatim (`src/cli_handlers/server.rs`, `Ego-mcp/src/server.rs`). In a shell `~/.Ego` expands, but MCP clients spawn the server **without a shell** — always use an **absolute path** in client JSON configs (see the `~` warning in `SKILL.md` § Quick Start and `docs/api/MCP.md` § Client configuration).
+
+### VANTA_BACKEND
+
+Key-value storage backend. Accepted values: `fjall` (default), `rocksdb`, `memory`.
+
+```bash
+export VANTA_BACKEND=fjall
+```
+
+### VANTA_PREFETCH
+
+Mmap vector page prefetch during HNSW search. Accepted: `enabled`, `disabled` (default), `auto`.
+
+```bash
+export VANTA_PREFETCH=disabled
+```
+
+## Memory & Performance
+
+### VANTADB_MEMORY_LIMIT
+
+Optional memory limit in bytes. Accepts suffixes: `KB`, `MB`, `GB` (also `KiB`, `MiB`, `GiB`), e.g. `500MB` or `2GB`.
+
+```bash
+export VANTADB_MEMORY_LIMIT=1073741824
+```
+
+### VANTADB_MAX_BLOCKING_THREADS
+
+Maximum blocking threads for the async runtime. Default: `available_parallelism() * 2`.
+
+### VANTADB_MAX_CONNECTIONS
+
+Maximum concurrent connections for the HTTP query pool. Default: `max_blocking_threads * 2`.
+
+### VANTADB_INSERT_LOCK_TIMEOUT_MS / VANTADB_FILE_LOCK_TIMEOUT_MS
+
+Insert spin-lock timeout (default 5000 ms) and process file-lock timeout (default 1000 ms).
+
+### VANTADB_WAL_SHARDS
+
+Number of WAL shards to reduce mutex contention. Default: `4`. `0` disables the WAL; `1` is single-file (legacy).
+
+### VANTADB_WAL_BUFFER_SIZE
+
+WAL buffer size in bytes. Default: 65536 (64 KB).
+
+### VANTADB_FLUSH_THRESHOLD
+
+Number of nodes before triggering an implicit WAL flush. Default: 10000.
+
+### VANTADB_BATCH_SIZE / VANTADB_BULK_COMMIT_INTERVAL
+
+Batch ingestion size (default 1000) and bulk-import commit interval in records (default 10000).
+
+### VANTADB_FLAT_THRESHOLD
+
+Use brute-force flat scan instead of HNSW when the number of index nodes is at or below this threshold. Default: 10000. `0` disables (always HNSW).
+
+## Server (HTTP / MCP)
+
+### VANTADB_HOST / VANTADB_PORT
+
+Host (default `127.0.0.1`) and port (default `8080`) for the HTTP server.
+
+### VANTADB_API_KEY
+
+Optional Bearer token for HTTP API authentication. When set, the server requires `Authorization: Bearer <token>` on protected endpoints.
+
+```bash
+export VANTADB_API_KEY=secret-token
+```
+
+### VANTADB_REQUIRE_AUTH
+
+When `true` (or `1`), the server refuses to start unless `VANTADB_API_KEY` is configured.
+
+### VANTADB_RATE_LIMIT_RPM
+
+Maximum HTTP requests per minute per remote IP. Default: 600. `0` disables rate limiting.
+
+### VANTADB_TRUSTED_PROXIES
+
+Comma-separated IPs of trusted reverse proxies whose `X-Forwarded-For` header is honored for client-IP resolution. Empty (default) means the header is ignored.
+
+### VANTADB_ALLOWED_ORIGINS
+
+Comma-separated origins allowed for CORS. Empty (default) means no CORS middleware is attached.
+
+### VANTADB_TLS_CERT / VANTADB_TLS_KEY
+
+Paths to PEM-encoded TLS certificate and private key. Requires the `tls` feature.
+
+### VANTADB_POOL_ACQUIRE_TIMEOUT_MS
+
+Pool-permit acquisition timeout in ms (default 5000).
+
+### VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD / VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS
+
+HTTP query pool circuit breaker: consecutive failures before opening (default 5) and seconds it stays open (default 30).
+
+## MCP Server (tool surface + budgeting)
+
+Verified against `Ego-mcp/src/config.rs` (`McpConfig::from_storage`).
+
+### VANTADB_MCP_PROFILE
+
+Tool surface profile for clients with tool caps (e.g. Cursor ~40 tools). Read once at server startup. Accepted values: `full` (default, 85 tools), `dev` (36: memory + graph + collections + key maintenance + axioms), `memory` (20: core CRUD + search + IQL + collections + capabilities).
+
+```bash
+export VANTADB_MCP_PROFILE=dev
+```
+
+### VANTADB_MCP_BYTE_BUDGET
+
+Target response envelope size in bytes for one-shot list/search tools (`memory_list`, `search_multi`). Default `40 * 1024` (40 KB); clamped to `[1 KB, 1 MB]`. Changing it requires a server restart. See `docs/api/MCP.md` § Output budgeting.
+
+```bash
+export VANTADB_MCP_BYTE_BUDGET=40960
+```
+
+## Logging
+
+### VANTADB_LOG_FORMAT
+
+Log output format: `compact` (default), `json`, `full`.
+
+```bash
+export VANTADB_LOG_FORMAT=json
+```
+
+### VANTADB_LOG_JSON
+
+Legacy alias: `1`/`true` forces JSON log format.
+
+## Security & Compliance
+
+### VANTADB_ENCRYPTION_KEY
+
+Optional AES-256-GCM at-rest encryption key (hex-encoded 32-byte / 64 hex chars). Requires the `encryption` feature.
+
+### VANTADB_EXPORT_BASE_DIR
+
+Base directory for export/import operations. When set, export/import paths are validated against it with canonical path resolution (including symlink protection).
+
+### VANTADB_AUDIT_LOG_PATH
+
+Optional append-only JSONL audit log of business operations (every put/delete/export/import with ISO 8601 timestamp, namespace, key, and outcome).
+
+## LLM Integration
+
+### VANTA_LLM_URL / VANTA_LLM_MODEL / VANTA_LLM_SUMMARIZE_MODEL
+
+LLM inference endpoint (default `http://localhost:11434`), embedding model (default `all-minilm`), and summarisation model (default `llama3`). Only relevant when the `remote-inference` feature is enabled.
+
+### Embedding provider selection (MCP + core)
+
+Verified against `src/config.rs:203-209,586-595,936-957` + `Ego-mcp/src/handlers/tools.rs:3374,3596` + `src/llm.rs:58-93,308-311`.
+
+| Variable | Meaning | Default / requirement |
+|----------|---------|----------------------|
+| `VANTADB_EMBEDDING_PROVIDER` | `ollama` \| `openai` \| `local` (ONNX) | `ollama` when unset |
+| `VANTADB_LOCAL_MODEL` | Absolute dir of the ONNX model (`.../embeddings/models/<id>/onnx`) | Required when provider is `local` |
+| `VANTADB_OPENAI_API_KEY` | OpenAI key (**session env only, NEVER to disk**) | Required when provider is `openai`; legacy `VANTA_OPENAI_API_KEY` deprecated |
+| `VANTADB_OPENAI_MODEL` | OpenAI embedding model id | Optional; legacy `VANTA_OPENAI_MODEL` deprecated |
+| `ORT_DYLIB_PATH` | Path to `onnxruntime` ≥ 1.27 dylib/dll | Required when provider is `local` |
+
+Without a working provider, `memory_put` stores vectorless and `embed_texts` answers `fallback:true` + `warning` (never a hard error, never silent). See `SKILL.md` § Embeddings for the full contract.
+
+## HNSW Tuning
+
+HNSW parameters (`m`, `m_max0`, `ef_construction`, `ef_search`, `ml`, `distance_metric`, `flat_threshold`, `index_type`, `auto_tune`) are engine-level (`HnswConfig` in `src/index/graph.rs`) and are **not** exposed as environment variables. They are set programmatically when constructing the engine — see `references/api-reference.md`.
+
+## CLI Flags
+
+The `ego-cli` binary accepts the global `--db` flag (env `EGO`, default `./db`) and `--memory-limit`, plus per-subcommand flags. For the MCP server:
+
+```bash
+ego-cli server --mcp --db ~/.Ego
+```
+
+## Read-Only Mode
+
+There is **no** `VANTADB_READ_ONLY` environment variable. Read-only mode is set programmatically via `VantaConfig::with_read_only(true)` (embedded SDK) or the engine's read-only construction path.
+
+## Troubleshooting
+
+### High Memory Usage
+
+Reduce `VANTADB_MEMORY_LIMIT` or lower HNSW `ef_construction`/`m` (programmatic) and implement periodic cleanup (`purge_expired`).
+
+### Slow Search
+
+Increase `VANTADB_FLAT_THRESHOLD` behavior or raise HNSW `ef_search` (programmatic); rebuild the index with higher `ef_construction`; reduce dataset size; use metadata filters.
+
+### Low Recall
+
+Increase HNSW parameters: higher `m`, `ef_construction`, and `ef_search` (programmatic).
+
+## Best Practices
+
+1. **Start with defaults** - Use default configuration initially
+2. **Benchmark before tuning** - Measure performance before changing parameters
+3. **Tune incrementally** - Change one parameter at a time
+4. **Monitor metrics** - Track operational metrics continuously
+5. **Test with real data** - Use production-like data for configuration testing
+6. **Document changes** - Keep track of configuration changes and their impact

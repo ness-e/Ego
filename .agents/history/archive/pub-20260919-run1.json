@@ -1,0 +1,17 @@
+{
+  "sessionId": "pub-20260919-run1",
+  "state": "ACT",
+  "context": {
+    "failMode": "parallel-secuencial (rate-limit: 1 worker por vez)",
+    "mode": "run",
+    "plan": "docs/plans/2026-09-19-publicacion.md",
+    "wave": "Wave0 FIND-98-retry + SHOW-02",
+    "wave0": "FIND-98-retry ✅ STOP contractual, SHOW-02 ✅ d585a37d (verify lead coverage 0 gaps)",
+    "wave1": "SHOW-03 ✅ 5ff118b5, DIST-10/14 ✅ 8bcdd0a4 (+FIND-123 creado por Gate C)",
+    "wave2": "PROV-12 ✅ a4f482e8 (dry-run; publish owner-side OIDC)"
+  },
+  "createdAt": "2026-09-18T23:32:15.313Z",
+  "updatedAt": "2026-09-19T01:46:13.618Z",
+  "iterationCount": 5,
+  "transitionCount": 0
+}

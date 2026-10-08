@@ -1,0 +1,48 @@
+{
+  "sessionId": "gov-run-20260822",
+  "state": "COMPLETADA + REVIEW P2-01 APROBADA (post-fixes 4f7bcaa4)",
+  "context": {
+    "plan": "docs/dev/plans/2026-08-22-doc-governance-plan.md",
+    "failMode": "parallel",
+    "maxConcurrent": 3,
+    "budgetCeiling": 20,
+    "subAgentsUsed": 10,
+    "commitBase": "ba52622a",
+    "nota": "cambios SDKB ajenos en worktree: no tocar docs/dev/plans/2026-08-22-Ego-bindings-sdk.md ni Ego-ts/",
+    "commits": [
+      "1c7660dc",
+      "d147df5d",
+      "06d8c619",
+      "4fc8be24",
+      "a8b21733",
+      "9ce238cd",
+      "79ae8556",
+      "465673af",
+      "08e272d8",
+      "(B5)",
+      "1655fede",
+      "07c330c9",
+      "89b0b484",
+      "67384785",
+      "17483f09"
+    ],
+    "completed": 20,
+    "cancelled": 1,
+    "pending": 9,
+    "remainingWaves": "D (6), E (1), F (2)",
+    "final": "true",
+    "retrospectiva": {
+      "accionMedible": "git ls-files ademas de Test-Path en auditorias (0 premisas falsas heredadas)",
+      "continue": "sub-agentes por dominio con Regla 0 + RESULTADO (16/16 primera intento = 100%)",
+      "start": "harness ejecutable convierte auditoria en tests (A4)",
+      "stop": "edicion PowerShell sin verificacion diff inmediata"
+    },
+    "resultado": "29/30 + 1 cancelada; ~37 commits; review adversarial aprobada post-fixes",
+    "cierre": "true",
+    "postReview": "P2-01 ego-review: 2 bloqueantes menores detectados y fijados en 4f7bcaa4 (master-index residual, skill configuration rate_limit 600 re-sync, addendum informe)"
+  },
+  "createdAt": "2026-08-22T08:54:51.378Z",
+  "updatedAt": "2026-08-23T00:30:08.946Z",
+  "iterationCount": 3,
+  "transitionCount": 0
+}

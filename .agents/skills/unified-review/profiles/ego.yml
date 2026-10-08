@@ -1,0 +1,14 @@
+# =============================================================================
+# Profile: ego
+# =============================================================================
+profile:
+  name: ego
+  description: >
+    Profile for Ego Cognitive Operating System (Electron, React 19, TypeScript,
+    Node.js 22, VantaDB Native).
+  inherits: default
+
+project:
+  type: monorepo
+  languages: [typescript, javascript]
+  web_framework: vite

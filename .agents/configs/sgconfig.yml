@@ -1,0 +1,6 @@
+﻿# ast-grep project config -- Ego Harness L7 (FIND-149, ASCII-only).
+# Reglas en ./sg-rules (versionadas). Uso (raiz host):
+#   ast-grep scan --config .agents/configs/sgconfig.yml src Ego-wasm/src desktop/src-tauri/src
+# (scope por CLI; `files:` de cada regla documenta el alcance esperado).
+ruleDirs:
+  - sg-rules

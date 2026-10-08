@@ -1,0 +1,18 @@
+{
+  "sessionId": "run-p30-proxy-knowledge-20260821",
+  "state": "DONE",
+  "context": {
+    "campaign": "P30",
+    "completed": 0,
+    "mode": "run",
+    "plan": "docs/dev/plans/archive/2026-08-21-ego-proxy-knowledge.md",
+    "total": 9,
+    "final_commit": "b316e3eb",
+    "result": "CAMPAIGN_COMPLETE_9_9_ROADMAP_TDM_DONE",
+    "suites": "proxy 52, mcp 29, memory 453, wiki 24"
+  },
+  "createdAt": "2026-08-21T19:08:07.944Z",
+  "updatedAt": "2026-08-22T01:07:32.054Z",
+  "iterationCount": 1,
+  "transitionCount": 0
+}

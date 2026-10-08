@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "servers": {
+      "codegraph": { "disabled": false },
+      "discord": { "disabled": false },
+      "campaign": { "disabled": false },
+      "lottiefiles-creator": { "disabled": false }
+    }
+  }
+}

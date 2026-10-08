@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "Ego": {
+      "command": "ego-cli",
+      "args": ["server", "--mcp", "--db", "${workspaceFolder}/.Ego"],
+      "env": {
+        "VANTADB_MEMORY_LIMIT": "512MB"
+      }
+    }
+  }
+}

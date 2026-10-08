@@ -1,0 +1,18 @@
+{
+  "sessionId": "run-p29-context-engine-20260821",
+  "state": "DONE",
+  "context": {
+    "campaign": "P29",
+    "completed": 0,
+    "mode": "run",
+    "plan": "docs/dev/plans/archive/2026-08-21-ego-context-engine.md",
+    "total": 9,
+    "final_commit": "00f18662",
+    "result": "CAMPAIGN_COMPLETE_9_9",
+    "tests": 430
+  },
+  "createdAt": "2026-08-21T05:21:24.375Z",
+  "updatedAt": "2026-08-21T16:59:59.966Z",
+  "iterationCount": 1,
+  "transitionCount": 0
+}
