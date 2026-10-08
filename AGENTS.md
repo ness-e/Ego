@@ -195,6 +195,11 @@ Vertical slice progresivo. Fases 01–05 = P0-Alpha. Fases 06–12 = P0-Beta.
 12 Distribution → installer + firma + auto-update
 ```
 
+### Regla de Progresión Estricta por Fases (Fase Completa Obligatoria)
+
+* **Orden Secuencial Innegociable:** El desarrollo debe ejecutarse estrictamente en orden secuencial de fases (Fase 01 → Fase 02 → ... → Fase 12).
+* **Cierre Total Previo a la Transición:** Queda terminantemente prohibido avanzar o codificar tareas de una fase posterior sin haber completado, integrado y verificado (`VERIFIED`) al 100% todas las tareas canónicas de la fase actual catalogadas en el Backlog Maestro (`docs/roadmap/Backlog.md`). No se permiten tareas pendientes dejadas como flecos hacia fases posteriores.
+
 ## 7. INTEGRACIONES
 
 * MCP = protocolo estándar. Ego = MCP Client + MCP Server.
