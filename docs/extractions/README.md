@@ -61,12 +61,12 @@ Cada repositorio analizado debe contar con un documento dedicado en esta carpeta
 
 ## 3. Repositorios de Referencia Mapeados
 
-| Repositorio | Naturaleza / Stack | Archivo de Extracción | Estado de Revisión | Foco Principal en Ego |
+| Repositorio | Naturaleza / Stack | Archivo de Extracción / Backlog | Estado de Revisión | Foco Principal en Ego |
 |---|---|---|:---:|---|
-| **hermes-agent** | Electron 40 + React 19 + assistant-ui + Python backend | [`hermes-agent.md`](hermes-agent.md) | 🔍 En curso (Backlog activo) | UI Chat/Composer, Artifacts, layout de ventanas, hardening Windows, packaging |
-| **khoj** | Python FastAPI + Next.js + SQLite | `khoj.md` | ⏳ Pendiente | Algoritmos de deduplicación de chunks, cosine thresholding, extracción de hechos |
-| **openclaw** | Node.js + WebSocket + SQLite Kysely | [`openclaw.md`](openclaw.md) | 🔍 En curso (Backlog activo) | Admisión de runs, auto-reparación de tools, locks de sesión, workers |
-| **coucou** | Swift/macOS + Tauri 2/Rust/TS | [`coucou.md`](coucou.md) | 🔍 En curso (Backlog activo) | Normalización en el borde, atención, HITL con ACK, ChangeSet, SafeConfigMutation |
-| **helmor** | Tauri + React + PTY | `helmor.md` | ⏳ Pendiente | Terminal output scheduler (coalescencia PTY), UI sync bridge |
-| **career-ops** | Python + Pydantic + File system | `career-ops.md` | ⏳ Pendiente | `DATA_CONTRACT.md` (User vs System), locks atómicos de cuarentena |
-| **deepseek-harness** | Python + SQLite | `deepseek-harness.md` | ⏳ Pendiente | Sesiones versionadas, IDs opacos, patrón supersede sin borrado |
+| **hermes-agent** | Electron 40 + React 19 + assistant-ui + Python backend | [`hermes-agent.md`](hermes-agent.md) / [`backlog-hermes.md`](../review/backlog-hermes.md) | 🔍 Activo (`HERM-01..19`) | UI Chat/Composer, Artifacts, layout de ventanas, hardening Windows, packaging |
+| **openclaw** | Node.js + WebSocket + SQLite Kysely | [`openclaw.md`](openclaw.md) / [`backlog-openclaw.md`](../review/backlog-openclaw.md) | 🔍 Activo (`OCLW-01..15`) | Admisión de runs, auto-reparación de tools, locks de sesión, workers |
+| **coucou** | Swift/macOS + Tauri 2/Rust/TS | [`coucou.md`](coucou.md) / [`backlog-coucou.md`](../review/backlog-coucou.md) | 🔍 Activo (`COUC-01..16`) | Normalización en el borde, atención, HITL con ACK, ChangeSet, SafeConfigMutation |
+| **khoj** | Python FastAPI + Next.js + SQLite/pgvector | [`khoj.md`](khoj.md) / [`backlog-khoj.md`](../review/backlog-khoj.md) | 🔍 Activo (`KHOJ-01..05`) | Chunking de 256 tokens con solapamiento y hash, cosine thresholding, extracción de hechos |
+| **helmor** | Tauri 2 (Rust) + React 19 + PTY | [`helmor.md`](helmor.md) / [`backlog-helmor.md`](../review/backlog-helmor.md) | 🔍 Activo (`HELM-01..04`) | Terminal output scheduler (coalescencia PTY 16KB/tick, ring-buffer 2MB), UI sync bridge |
+| **career-ops** | Node.js ESM (`.mjs`) + Filesystem | [`career-ops.md`](career-ops.md) / [`backlog-career-ops.md`](../review/backlog-career-ops.md) | 🔍 Activo (`CARP-01..04`) | `DATA_CONTRACT.md` (User vs System), locks atómicos de filesystem (`pipeline-lock.mjs`), cuarentena |
+| **deepseek-harness** | Monorepo TypeScript (pnpm) + Electron/Node | [`deepseek-harness.md`](deepseek-harness.md) / [`backlog-deepseek-harness.md`](../review/backlog-deepseek-harness.md) | 🔍 Activo (`DSEK-01..04`) | Sesiones versionadas, IDs opacos, patrón supersede sin borrado (`ADR-028`), migraciones aditivas |
