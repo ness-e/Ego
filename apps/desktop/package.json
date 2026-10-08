@@ -13,6 +13,7 @@
   "dependencies": {
     "@ego/memory": "workspace:*",
     "@ego/models": "workspace:*",
+    "@ego/tools": "workspace:*",
     "vantadb": "0.8.0",
     "vantadb-node": "file:../../../VantaDB/vantadb-node",
     "zod": "^3.23.8"
