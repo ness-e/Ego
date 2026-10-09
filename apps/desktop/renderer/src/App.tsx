@@ -82,7 +82,7 @@ export function App() {
             <span className="text-[10px] text-dim">@assistant-ui/react</span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <EgoChat key={sessionNonce} />
+            <EgoChat key={sessionNonce} projectId={activeProject} subEgoId={activeSubEgo} />
           </div>
         </section>
 

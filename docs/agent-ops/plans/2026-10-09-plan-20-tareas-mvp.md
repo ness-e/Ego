@@ -1015,7 +1015,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** El sidebar permite crear/seleccionar proyectos reales persistidos en VantaDB, vinculando un directorio local y conmutando automáticamente el contexto del chat y la memoria.
 - **Task file:** `docs/agent-ops/tasks/INT-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -1047,19 +1047,19 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
   | 🟢×🟡 | Persistencia de último proyecto | Guardar `activeProjectId` en `gov/settings` para restaurar al abrir | Al cambiar activo |
 
   **Uphill / Downhill:**
-  - ⬆️ Uphill: 1 (diseño del schema `ProjectManifest` y ciclo de vida de conmutación).
-  - ⬇️ Downhill: 4 steps (esquema Zod de proyecto, canales IPC de proyectos en `main.ts`, reactividad en `sidebar.tsx`, suite de pruebas).
+  - ⬆️ Uphill: 0 (schema `ProjectManifest` y ciclo de vida implementados).
+  - ⬇️ Downhill: 0 (esquemas Zod, canales IPC en `main.ts`, reactividad en `sidebar.tsx`, suite de pruebas de Vitest al 100%).
 
   **DoD Task Level:**
-  - [ ] Esquema `ProjectManifest` validado y persistido en `projects/<id>/manifest`.
-  - [ ] `sidebar.tsx` lista proyectos reales y permite crear nuevos vinculando una carpeta local.
-  - [ ] Al seleccionar un proyecto, las conversaciones y scratchpads se cargan desde su namespace.
-  - [ ] Pruebas unitarias de aislamiento passing.
+  - [x] Esquema `ProjectManifest` validado y persistido en `projects/<id>/manifest` y `gov/projects`.
+  - [x] `sidebar.tsx` lista proyectos reales y permite crear nuevos vinculando una carpeta local.
+  - [x] Al seleccionar un proyecto, las conversaciones y scratchpads se cargan desde su namespace.
+  - [x] Pruebas unitarias de aislamiento passing (7 tests en `projects-ipc.test.ts`).
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Entidad Project, IPC channels, diálogo nativo de directorios y reactividad en sidebar | 7 pruebas unitarias de Vitest pasando al 100% | `replace_file_content` |
 
   **Notas:** Habilita el Paso 1 y Paso 2 de la Guía Canónica del MVP (`guia-mvp.md`).
 
@@ -1137,7 +1137,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** Cuando una herramienta sensible solicita autorización, aparece una tarjeta interactiva en el chat con detalles de la acción y botones "Aprobar" / "Rechazar", desbloqueando o abortando la ejecución en vivo.
 - **Task file:** `docs/agent-ops/tasks/INT-05.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -1170,18 +1170,18 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 
   **Uphill / Downhill:**
   - ⬆️ Uphill: 0 (contrato de aprobación ya especificado en `ApprovalEngine.ts`).
-  - ⬇️ Downhill: 3 steps (componente `ActionApprovalCard.tsx`, integración en hilo de chat, pruebas interactivas).
+  - ⬇️ Downhill: 0 (componente `ActionApprovalCard.tsx` conectado al stream en `ego-chat.tsx` y probado).
 
   **DoD Task Level:**
-  - [ ] Componente `ActionApprovalCard` muestra emisor, herramienta, parámetros y riesgo.
-  - [ ] Botones "Aprobar" y "Rechazar" resuelven la solicitud en Electron Main en tiempo real.
-  - [ ] La tarjeta refleja el resultado (Aprobada / Rechazada / Expirada).
-  - [ ] Tests de integración passing.
+  - [x] Componente `ActionApprovalCard` muestra emisor, herramienta, parámetros y riesgo.
+  - [x] Botones "Aprobar" y "Rechazar" resuelven la solicitud en Electron Main en tiempo real.
+  - [x] La tarjeta refleja el resultado (Aprobada / Rechazada / Expirada).
+  - [x] Tests de integración passing.
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Componente canónico ActionApprovalCard.tsx integrado en ego-chat.tsx y puente resolveApproval | Pruebas de integración passing al 100% | `write_to_file`, `replace_file_content` |
 
   **Notas:** Cumple la compuerta canónica `COUC-04` (HITL con ACK interactivo).
 

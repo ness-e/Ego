@@ -90,9 +90,20 @@ export interface ScannedSkillInfo {
   tags: string[];
 }
 
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  rootPath: string;
+  description?: string;
+  activeSubEgoId?: string;
+  createdAtMs?: number;
+  updatedAtMs?: number;
+  badge?: string;
+}
+
 export interface EgoBridge {
   memory: (op: string, args: unknown[]) => Promise<unknown>;
-  llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string }) => Promise<{
+  llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string; projectId?: string; subEgoId?: string }) => Promise<{
     ok: boolean;
     turnId: string;
     text: string;
@@ -109,6 +120,13 @@ export interface EgoBridge {
   snapshots: () => Promise<unknown>;
   listSubEgos: () => Promise<SubEgoSummary[]>;
   createSubEgo: (req: { name: string; role: string; instructions: string; tools?: string[] }) => Promise<SubEgoSummary>;
+  projects: {
+    list: () => Promise<ProjectInfo[]>;
+    create: (req: { name: string; rootPath: string; description?: string; activeSubEgoId?: string }) => Promise<ProjectInfo>;
+    select: (id: string) => Promise<{ ok: boolean; activeProjectId: string }>;
+    getActive: () => Promise<ProjectInfo>;
+    selectFolder: () => Promise<string | null>;
+  };
   mcp: {
     listServers: () => Promise<McpServerInfo[]>;
     addServer: (req: { config: any; enabled?: boolean }) => Promise<McpServerInfo>;
@@ -123,6 +141,7 @@ export interface EgoBridge {
   onRecallStatus?: (callback: (status: RecallBadgeInfo) => void) => () => void;
   onChatError?: (callback: (err: ChatErrorInfo) => void) => () => void;
   onApprovalRequest?: (callback: (req: PendingApprovalInfo) => void) => () => void;
+  onProjectChanged?: (callback: (data: { activeProjectId: string }) => void) => () => void;
   onEvent?: (callback: (event: any) => void) => () => void;
 }
 
@@ -193,6 +212,22 @@ const mock: EgoBridge = {
     };
     mockSubEgos.push(nuevo);
     return nuevo;
+  },
+  projects: {
+    list: async () => [
+      { id: "default", name: "Ego Core", rootPath: "/", badge: "Activo" },
+      { id: "vantadb", name: "VantaDB Engine", rootPath: "/vantadb" },
+    ],
+    create: async (req) => ({
+      id: `proj_${Date.now().toString(36)}`,
+      name: req.name,
+      rootPath: req.rootPath,
+      description: req.description,
+      activeSubEgoId: req.activeSubEgoId || "ego.nucleus",
+    }),
+    select: async (id) => ({ ok: true, activeProjectId: id }),
+    getActive: async () => ({ id: "default", name: "Ego Core", rootPath: "/", badge: "Activo" }),
+    selectFolder: async () => "/mock/folder",
   },
   mcp: {
     listServers: async () => [

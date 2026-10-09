@@ -33,6 +33,21 @@ contextBridge.exposeInMainWorld("ego", {
     listLocal: (req?: { searchPaths?: string[]; projectRoot?: string }) =>
       ipcRenderer.invoke("ipc.skills.listLocal", req),
   },
+  projects: {
+    list: () => ipcRenderer.invoke("ipc.projects.list"),
+    create: (req: { name: string; rootPath: string; description?: string; activeSubEgoId?: string }) =>
+      ipcRenderer.invoke("ipc.projects.create", req),
+    select: (id: string) => ipcRenderer.invoke("ipc.projects.select", { id }),
+    getActive: () => ipcRenderer.invoke("ipc.projects.getActive"),
+    selectFolder: () => ipcRenderer.invoke("ipc.projects.selectFolder"),
+  },
+  onProjectChanged: (callback: (data: { activeProjectId: string }) => void) => {
+    const sub = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on("ipc.projects.changed", sub);
+    return () => {
+      ipcRenderer.removeListener("ipc.projects.changed", sub);
+    };
+  },
   onChatDelta: (callback: (chunk: unknown) => void) => {
     const sub = (_event: Electron.IpcRendererEvent, chunk: unknown) => callback(chunk);
     ipcRenderer.on("ipc.chat.delta", sub);

@@ -158,3 +158,34 @@ export const ScanSkillsSchema = z.object({
 
 export type ScanSkillsRequest = z.infer<typeof ScanSkillsSchema>;
 
+/**
+ * Esquema de validación y persistencia de entidad Project (INT-03).
+ */
+export const ProjectManifestSchema = z.object({
+  id: z.string().min(3).regex(/^(default|proj_[a-z0-9_-]+)$/, "ID de proyecto debe ser 'default' o comenzar con 'proj_'"),
+  name: z.string().min(1, "El nombre del proyecto no puede estar vacío").max(100),
+  rootPath: z.string().min(1, "La ruta del proyecto no puede estar vacía"),
+  description: z.string().optional(),
+  activeSubEgoId: z.string().default("ego.nucleus"),
+  createdAtMs: z.number().int().positive().default(() => Date.now()),
+  updatedAtMs: z.number().int().positive().default(() => Date.now()),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export type ProjectManifest = z.infer<typeof ProjectManifestSchema>;
+
+export const CreateProjectSchema = z.object({
+  name: z.string().min(1, "El nombre no puede estar vacío").max(100),
+  rootPath: z.string().min(1, "La ruta de la carpeta no puede estar vacía"),
+  description: z.string().optional(),
+  activeSubEgoId: z.string().optional(),
+});
+
+export type CreateProjectRequest = z.infer<typeof CreateProjectSchema>;
+
+export const SelectProjectSchema = z.object({
+  id: z.string().min(1, "El ID de proyecto no puede estar vacío"),
+});
+
+export type SelectProjectRequest = z.infer<typeof SelectProjectSchema>;
+

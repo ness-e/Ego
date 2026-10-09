@@ -52,7 +52,12 @@ interface ActiveChatError {
 let n = 0;
 const nid = () => `m${++n}`;
 
-export function EgoChat() {
+export interface EgoChatProps {
+  projectId?: string;
+  subEgoId?: string;
+}
+
+export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [latestRecall, setLatestRecall] = useState<RecallBadgeInfo | null>(null);
   const [activeError, setActiveError] = useState<ActiveChatError | null>(null);
@@ -121,7 +126,7 @@ export function EgoChat() {
     ]);
 
     try {
-      const streamRes = await ego().llmStream({ prompt: promptText });
+      const streamRes = await ego().llmStream({ prompt: promptText, projectId, subEgoId });
       if (streamRes.recallStatus) {
         setLatestRecall(streamRes.recallStatus);
       }
@@ -163,7 +168,7 @@ export function EgoChat() {
         )
       );
     }
-  }, []);
+  }, [projectId, subEgoId]);
 
   const handleRetry = useCallback(() => {
     if (!activeError?.prompt) return;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   SidebarSimple,
   Plus,
@@ -15,13 +15,16 @@ import {
   Terminal,
   X,
   CheckCircle,
+  Folder,
 } from "@phosphor-icons/react";
 import { McpManagerModal } from "./mcp/McpManagerModal";
+import { ego } from "../lib/ego";
 
 export interface ProjectScopeItem {
   id: string;
   name: string;
   badge?: string;
+  rootPath?: string;
 }
 
 export interface SubEgoRosterItem {
@@ -58,7 +61,88 @@ export function Sidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMcpOpen, setIsMcpOpen] = useState(false);
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectPath, setNewProjectPath] = useState("");
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [projectError, setProjectError] = useState<string | null>(null);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"models" | "memory" | "gov">("models");
+
+  const [projects, setProjects] = useState<ProjectScopeItem[]>([
+    { id: "default", name: "Ego Core", badge: "Activo" },
+  ]);
+
+  // Carga reactiva de proyectos desde VantaDB (INT-03)
+  const loadProjects = useCallback(async () => {
+    try {
+      const list = await ego().projects.list();
+      if (list && list.length > 0) {
+        setProjects(
+          list.map((p) => ({
+            id: p.id,
+            name: p.name,
+            rootPath: p.rootPath,
+            badge: p.id === activeProject ? "Activo" : undefined,
+          }))
+        );
+      }
+    } catch (err) {
+      console.warn("[Sidebar] Error al cargar proyectos de VantaDB:", err);
+    }
+  }, [activeProject]);
+
+  useEffect(() => {
+    loadProjects();
+    const unsub = ego().onProjectChanged?.((data) => {
+      onSelectProject(data.activeProjectId);
+      loadProjects();
+    });
+    return () => {
+      unsub?.();
+    };
+  }, [loadProjects, onSelectProject]);
+
+  const handleSelectFolder = async () => {
+    try {
+      const folder = await ego().projects.selectFolder();
+      if (folder) {
+        setNewProjectPath(folder);
+        if (!newProjectName) {
+          const parts = folder.split(/[/\\]/).filter(Boolean);
+          const folderName = parts[parts.length - 1] || "Proyecto";
+          setNewProjectName(folderName);
+        }
+      }
+    } catch (err) {
+      console.warn("[Sidebar] Error seleccionando carpeta:", err);
+    }
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim() || !newProjectPath.trim()) {
+      setProjectError("Por favor ingresa el nombre y la carpeta del proyecto.");
+      return;
+    }
+    setIsCreatingProject(true);
+    setProjectError(null);
+    try {
+      const created = await ego().projects.create({
+        name: newProjectName.trim(),
+        rootPath: newProjectPath.trim(),
+      });
+      await ego().projects.select(created.id);
+      onSelectProject(created.id);
+      await loadProjects();
+      setIsNewProjectModalOpen(false);
+      setNewProjectName("");
+      setNewProjectPath("");
+    } catch (err: any) {
+      setProjectError(err?.message || "Error al crear el proyecto en VantaDB.");
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
 
   // Atajo de teclado universal Ctrl+B para colapsar y Ctrl+N para nueva sesión
   useEffect(() => {
@@ -75,11 +159,6 @@ export function Sidebar({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onNewSession]);
-
-  const projects: ProjectScopeItem[] = [
-    { id: "default", name: "Ego Core", badge: "Activo" },
-    { id: "vantadb", name: "VantaDB Engine" },
-  ];
 
   const subEgos: SubEgoRosterItem[] = [
     {
@@ -284,7 +363,11 @@ export function Sidebar({
           <div>
             <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
               <span>Proyectos (Memory Scope)</span>
-              <button title="Crear nuevo proyecto" className="hover:text-ink">
+              <button
+                onClick={() => setIsNewProjectModalOpen(true)}
+                title="Crear nuevo proyecto"
+                className="hover:text-ink text-dim p-0.5 rounded hover:bg-raised transition-colors"
+              >
                 <Plus size={12} />
               </button>
             </div>
@@ -294,7 +377,14 @@ export function Sidebar({
                 return (
                   <button
                     key={p.id}
-                    onClick={() => onSelectProject(p.id)}
+                    onClick={async () => {
+                      onSelectProject(p.id);
+                      try {
+                        await ego().projects.select(p.id);
+                      } catch (err) {
+                        console.warn("[Sidebar] Error seleccionando proyecto:", err);
+                      }
+                    }}
                     className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
                       isSelected
                         ? "bg-raised text-ink font-medium border border-hairline"
@@ -571,6 +661,91 @@ export function Sidebar({
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Creación de Proyecto Soberano VantaDB (INT-03) */}
+      {isNewProjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 select-none">
+          <div className="flex w-[480px] flex-col rounded-lg border border-hairline bg-panel text-ink shadow-2xl overflow-hidden">
+            {/* Header Modal */}
+            <div className="flex h-11 shrink-0 items-center justify-between border-b border-hairline px-4 bg-paper">
+              <div className="flex items-center gap-2">
+                <Folder size={16} className="text-amber-400" />
+                <span className="text-xs font-semibold">Nuevo Proyecto (Memory Scope)</span>
+              </div>
+              <button
+                onClick={() => setIsNewProjectModalOpen(false)}
+                className="text-faint hover:text-ink transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Formulario */}
+            <form onSubmit={handleCreateProject} className="p-4 space-y-4 text-xs">
+              <p className="text-faint leading-relaxed">
+                Cada proyecto aísla el contexto de trabajo, el árbol de archivos y el historial de sesiones
+                en un namespace soberano de VantaDB.
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="font-medium text-ink">Nombre del Proyecto</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Mi Aplicación Core"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-medium text-ink">Carpeta Local (Root Path)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="C:\ruta\al\proyecto..."
+                    value={newProjectPath}
+                    onChange={(e) => setNewProjectPath(e.target.value)}
+                    className="flex-1 rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none font-mono text-[11px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSelectFolder}
+                    className="shrink-0 rounded border border-hairline bg-raised hover:bg-raised/80 px-2.5 py-1.5 text-xs font-medium text-ink transition-colors"
+                  >
+                    Examinar...
+                  </button>
+                </div>
+              </div>
+
+              {projectError && (
+                <div className="rounded border border-red-800/40 bg-red-950/40 p-2.5 text-[11px] text-red-300">
+                  {projectError}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-hairline">
+                <button
+                  type="button"
+                  onClick={() => setIsNewProjectModalOpen(false)}
+                  className="rounded px-3 py-1 text-xs text-faint hover:text-ink transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingProject}
+                  className="rounded bg-ink px-3 py-1 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {isCreatingProject ? "Creando..." : "Crear Proyecto en VantaDB"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

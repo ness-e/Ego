@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import { join } from "node:path";
+import { stat } from "node:fs/promises";
 import {
   EgoMemoryAdapter,
   EgoMemoryLifecycle,
@@ -23,6 +24,10 @@ import {
   ToggleMcpServerSchema,
   ListToolsFilterSchema,
   ScanSkillsSchema,
+  ProjectManifestSchema,
+  CreateProjectSchema,
+  SelectProjectSchema,
+  type ProjectManifest,
 } from "./ipc/schema.js";
 
 let adapter: EgoMemoryAdapter;
@@ -37,6 +42,7 @@ let skillScanner: SkillScanner;
 let eventBus: EventBus;
 let structuredLogger: StructuredLogger;
 let win: BrowserWindow | null = null;
+let activeProjectId: string = "default";
 
 export function getEventBus(): EventBus {
   return eventBus;
@@ -64,6 +70,50 @@ export function getExecutionManager(): ExecutionManager {
 
 export function getLifecycle(): EgoMemoryLifecycle {
   return lifecycle;
+}
+
+export function getActiveProjectId(): string {
+  return activeProjectId;
+}
+
+export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapter): Promise<ProjectManifest> {
+  const existing = await adapterInstance.get("gov/projects", "default");
+  if (existing) {
+    let payload: unknown = existing;
+    if (typeof existing === "object" && existing !== null && "payload" in existing) {
+      payload = (existing as { payload: unknown }).payload;
+    }
+    try {
+      return ProjectManifestSchema.parse(payload);
+    } catch {
+      // noop
+    }
+  }
+
+  const defaultProject: ProjectManifest = {
+    id: "default",
+    name: "Ego Core",
+    rootPath: process.env.EGO_WORKSPACE_PATH || process.cwd(),
+    description: "Proyecto central y entorno de trabajo principal de Ego",
+    activeSubEgoId: "ego.nucleus",
+    createdAtMs: Date.now(),
+    updatedAtMs: Date.now(),
+  };
+
+  await adapterInstance.put({
+    namespace: "gov/projects",
+    key: "default",
+    payload: defaultProject,
+    metadata: { name: defaultProject.name, rootPath: defaultProject.rootPath }
+  });
+  await adapterInstance.put({
+    namespace: "projects/default",
+    key: "manifest",
+    payload: defaultProject,
+    metadata: { name: defaultProject.name, rootPath: defaultProject.rootPath }
+  });
+
+  return defaultProject;
 }
 
 /**
@@ -577,6 +627,159 @@ export async function createWindow(): Promise<void> {
     }
 
     return skillScanner.scan(parseResult.data);
+  });
+
+  // 6. Canales IPC de Entidad Project y Aislamiento de Contexto (INT-03)
+  ipcMain.handle("ipc.projects.list", async () => {
+    try {
+      const defaultProj = await getOrCreateDefaultProject(adapter);
+      const searchRes = await adapter.searchMulti(["gov/projects"], "", { topK: 100, excludeSuperseded: false });
+      const projectsMap = new Map<string, ProjectManifest>();
+      projectsMap.set("default", defaultProj);
+
+      for (const hit of searchRes) {
+        if (!hit.record) continue;
+        let payload: unknown = hit.record.payload;
+        if (typeof payload === "string") {
+          try {
+            payload = JSON.parse(payload);
+          } catch {
+            // noop
+          }
+        }
+        const parseRes = ProjectManifestSchema.safeParse(payload);
+        if (parseRes.success) {
+          projectsMap.set(parseRes.data.id, parseRes.data);
+        }
+      }
+
+      return Array.from(projectsMap.values());
+    } catch (err) {
+      console.warn("[Ego Main] Error al listar proyectos:", err);
+      return [
+        {
+          id: "default",
+          name: "Ego Core",
+          rootPath: process.env.EGO_WORKSPACE_PATH || process.cwd(),
+          activeSubEgoId: "ego.nucleus",
+          createdAtMs: Date.now(),
+          updatedAtMs: Date.now(),
+        }
+      ];
+    }
+  });
+
+  ipcMain.handle("ipc.projects.create", async (_e, rawReq: unknown) => {
+    const parseResult = CreateProjectSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Solicitud de creación de proyecto inválida: ${parseResult.error.message}`);
+    }
+
+    const { name, rootPath, description, activeSubEgoId } = parseResult.data;
+
+    // Validar existencia de la carpeta en disco
+    try {
+      const stats = await stat(rootPath);
+      if (!stats.isDirectory()) {
+        throw new Error(`La ruta '${rootPath}' no es un directorio válido.`);
+      }
+    } catch (fsErr: any) {
+      throw new Error(`Ruta de directorio inaccesible o inexistente: ${fsErr.message}`);
+    }
+
+    const slug = name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "project";
+
+    const id = `proj_${slug}_${Date.now().toString(36)}`;
+    const now = Date.now();
+
+    const manifest: ProjectManifest = {
+      id,
+      name,
+      rootPath,
+      description: description || `Proyecto ${name} gestionado por Ego`,
+      activeSubEgoId: activeSubEgoId || "ego.nucleus",
+      createdAtMs: now,
+      updatedAtMs: now,
+    };
+
+    const validated = ProjectManifestSchema.parse(manifest);
+
+    // Persistencia dual: catálogo gov/projects y raíz projects/<id>/manifest
+    await adapter.put({
+      namespace: "gov/projects",
+      key: validated.id,
+      payload: validated,
+      metadata: { name: validated.name, rootPath: validated.rootPath, createdAtMs: now }
+    });
+
+    await adapter.put({
+      namespace: `projects/${validated.id}`,
+      key: "manifest",
+      payload: validated,
+      metadata: { name: validated.name, rootPath: validated.rootPath, createdAtMs: now }
+    });
+
+    return validated;
+  });
+
+  ipcMain.handle("ipc.projects.select", async (_e, rawReq: unknown) => {
+    const parseResult = SelectProjectSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Solicitud de selección de proyecto inválida: ${parseResult.error.message}`);
+    }
+
+    const { id } = parseResult.data;
+    activeProjectId = id;
+
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.projects.changed", { activeProjectId: id });
+    }
+
+    eventBus?.emit("project.switched" as any, {
+      projectId: id,
+      timestamp: Date.now()
+    }, {
+      source: "desktop.ipc.projects.select",
+      severity: "info"
+    });
+
+    return { ok: true, activeProjectId: id };
+  });
+
+  ipcMain.handle("ipc.projects.getActive", async () => {
+    const defaultProj = await getOrCreateDefaultProject(adapter);
+    if (activeProjectId === "default") return defaultProj;
+
+    const record = await adapter.get("gov/projects", activeProjectId);
+    if (record) {
+      let payload: unknown = record;
+      if (typeof record === "object" && record !== null && "payload" in record) {
+        payload = (record as { payload: unknown }).payload;
+      }
+      try {
+        return ProjectManifestSchema.parse(payload);
+      } catch {
+        // noop
+      }
+    }
+    return defaultProj;
+  });
+
+  ipcMain.handle("ipc.projects.selectFolder", async () => {
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+      title: "Seleccionar Carpeta del Proyecto",
+      properties: ["openDirectory", "createDirectory"]
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
   });
 
   ipcMain.handle("ipc.snapshots", async () => ({
