@@ -23,7 +23,7 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 |---|---|---|:---:|:---:|:---:|:---:|---|
 | **Fase 01** | Core Cognitivo | `CORE-01..15` | 15 | **P0-Alpha** | 2-3 semanas | ✅ Completada (15/15) | Chat local funcional con persistencia real en VantaDB tras reinicio |
 | **Fase 02** | Acción & Tools | `ACT-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🟢 100% DONE | Tool Calling local controlado con aprobación humana (HITL) |
-| **Fase 03** | Sub-Egos | `SUB-01..12`, `CHAR-01..08` | 20 | **P0-Alpha** | 2-3 semanas | 🔴 P0 | Múltiples Sub-Egos cooperan recursivamente compartiendo memoria |
+| **Fase 03** | Sub-Egos | `SUB-01..12`, `CHAR-01..08` | 20 | **P0-Alpha** | 2-3 semanas | 🟡 En curso (1/12) | Múltiples Sub-Egos cooperan recursivamente compartiendo memoria |
 | **Fase 04** | Dynamic Workspace | `CANV-01..12`, `CHAR-09..10` | 14 | **P0-Alpha** | 3-4 semanas | 🔴 P0 | Canvas generativo declarativo desacoplado del chat clásico |
 | **Fase 05** | Decision Intelligence | `DEC-01..09` | 9 | **P0-Alpha** | 2 semanas | 🔴 P0 | Ego clasifica y delega autónomamente al Sub-Ego óptimo (Golden Path Alpha) |
 | **Fase 06** | Knowledge & Data | `KB-01..11` | 11 | **P0-Beta** | 3 semanas | 🟠 P1 | Búsqueda híbrida (RRF) y GraphRAG sobre repositorios locales |
@@ -152,13 +152,13 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 | `HERM-19` | hermes-agent | Linter de seguridad AST para capacidades de agentes | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SUB-05` | 📥 Control de acceso a namespaces autorizados | 🆕 Pendiente |
 | `COUC-01` | coucou | Normalización de eventos estructurados inter-agente | [`coucou.md`](../extractions/coucou.md) | `SUB-06` | 📥 Bus de eventos de orquestación canónico | 🆕 Pendiente |
 | `KHOJ-05` | khoj | Consolidación y refuerzo autónomo de memorias | [`khoj.md`](../extractions/khoj.md) | `SUB-12` | 📥 Closed learning loop y refuerzo en VantaDB | 🆕 Pendiente |
-| `DSEK-03` | deepseek-harness | Identificadores opacos para entidades de Sub-Ego | [`deepseek-harness.md`](../extractions/deepseek-harness.md) | `SUB-01`, `SUB-04` | 📥 Claves inmutables prefijadas `sub_<id>` | 🆕 Pendiente |
+| `DSEK-03` | deepseek-harness | Identificadores opacos para entidades de Sub-Ego | [`deepseek-harness.md`](../extractions/deepseek-harness.md) | `SUB-01`, `SUB-04` | 📥 Claves inmutables prefijadas `sub_<id>` / `ego.<slug>` | ✅ Completada |
 
 ### Catálogo de Tareas Canónicas (Fase 03)
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `SUB-01` | 🔴 Crítica | **Contrato y esquema formal `SubEgoManifest` tipado con Zod** | `packages/subegos/SubEgoManifest.ts` | 🟢 1d | 🔴 P0 | 🆕 Pendiente | Definir campos canónicos: `id`, `name`, `role`, `responsibilities`, `capabilities`, `tools`, `permissions`, `memoryScope`, `behavior`, `autonomy`. | Ver: `docs/architecture/agentes.md` · Compuertas: `HERM-12`, `DSEK-03` | `CORE-01` |
+| `SUB-01` | 🔴 Crítica | **Contrato y esquema formal `SubEgoManifest` tipado con Zod** | `packages/subegos/SubEgoManifest.ts` | 🟢 1d | 🔴 P0 | ✅ Completada | Definir campos canónicos: `id`, `name`, `role`, `responsibilities`, `capabilities`, `tools`, `permissions`, `memoryScope`, `behavior`, `autonomy`. | Ver: `docs/architecture/agentes.md` · Compuertas: `HERM-12`, `DSEK-03` | `CORE-01` |
 | `SUB-02` | 🟠 Alta | **Fábrica Inteligente de Sub-Egos (3 modalidades)** | `packages/subegos/SubEgoFactory.ts` | 🟡 2-3d | 🔴 P0 | 🆕 Pendiente | Soporte de creación: 1) Modo conversacional guiado por Ego, 2) Selección de plantillas por dominio, 3) Editor JSON/YAML avanzado. | Ver: `docs/architecture/agentes.md` · Compuerta: `HERM-12` | `SUB-01` |
 | `SUB-03` | 🔴 Crítica | **Sub-Ego Runtime y ciclo de vida (Lazy Activation)** | `packages/subegos/SubEgoRuntime.ts` | 🟡 2-3d | 🔴 P0 | 🆕 Pendiente | Instanciación bajo demanda; los especialistas no consumen recursos en memoria si no tienen tareas activas asignadas. | Ver: `docs/architecture/agentes.md` | `SUB-01` |
 | `SUB-04` | 🔴 Crítica | **Aislamiento de estado privado `egos/<id>/*` en VantaDB** | `packages/memory/EgoMemoryAdapter.ts:331` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Garantizar que cada Sub-Ego tiene su scratchpad y estado local aislado en `egos/<id>/*`, inaccesible directamente por otros Sub-Egos. | Ver: `docs/architecture/namespaces.md` · Compuerta: `DSEK-03` | `CORE-06` |
