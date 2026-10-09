@@ -36,9 +36,9 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 5. Manejo de errores y flujo de aprobación de usuario.
 - [x] Se pueden registrar herramientas (ej. leer archivo) — Cumplido en ACT-01 (`ToolRegistry` con Zod).
 - [x] El modelo ejecuta correctamente una herramienta — Cumplido en ACT-02 (`ToolExecutionLoop` multi-turno con AI SDK v7).
-- [x] Las herramientas que requieren aprobación detienen la ejecución hasta la respuesta — Cumplido en ACT-02/ACT-03 (suspensión/reanudación HITL y supervisor de aborts).
+- [x] Las herramientas que requieren aprobación detienen la ejecución hasta la respuesta — Cumplido en ACT-02, ACT-03 y ACT-06 (ApprovalEngine con retención de promesa, ActionIdentity SHA-256 inmutable y timeout).
 - [x] Los fallos devuelven contexto para reintento — Cumplido en ACT-02/ACT-03 (inyección causal en rol tool y aislamiento de fallos).
-> **Estado actual:** 5 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`). Siguiente hito en curso: Sistema de Aprobación de Acciones Sensibles (HITL / Approval) (`ACT-06`).
+> **Estado actual:** 6 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`, `ACT-06`). Siguiente hito en curso: Componente interactivo de Aprobación en Chat UI (`ACT-07`).
 **Criterio de aceptación:** El modelo puede interactuar con el sistema operativo de forma controlada y persistente.
 
 ### Fase 03: Sub-Egos

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { z } from "zod";
 import { ModelRouter } from "@ego/models";
 import { ToolRegistry, ToolDefinition, ToolExecutionContext } from "@ego/tools";
+import { ApprovalEngine } from "@ego/execution";
 import { ToolExecutionLoop } from "../src/index.js";
 
 describe("@ego/runtime — ToolExecutionLoop (ACT-02)", () => {
@@ -254,5 +255,43 @@ describe("@ego/runtime — ToolExecutionLoop (ACT-02)", () => {
 
     expect(result.status).toBe("aborted");
     expect(result.error).toContain("AbortSignal");
+  });
+
+  it("10. Integra formalmente con ApprovalEngine congelando y reanudando ante decisión humana (ACT-06)", async () => {
+    const approvalEngine = new ApprovalEngine({ mode: "standard" });
+    const hitlLoop = new ToolExecutionLoop(router, registry, { approvalEngine });
+
+    // Lanzar ejecución de herramienta destructiva en background
+    const runPromise = hitlLoop.run({
+      messages: [
+        {
+          role: "user",
+          content: 'SIMULATE_TOOL:terminal_exec:{"command":"deploy.sh"}'
+        }
+      ],
+      context: mockContext
+    });
+
+    // Esperar breve tick para que la solicitud de aprobación quede retenida
+    await new Promise((r) => setTimeout(r, 20));
+
+    const pending = approvalEngine.listPendingApprovals();
+    expect(pending.length).toBe(1);
+    expect(pending[0].toolName).toBe("terminal_exec");
+    expect(pending[0].riskLevel).toBe("destructive");
+    expect(pending[0].action.inputDigest).toBeDefined();
+
+    // El operador humano aprueba la solicitud
+    const resolved = approvalEngine.resolveApproval(pending[0].approvalId, {
+      approved: true,
+      resolvedBy: "admin_user"
+    });
+    expect(resolved).toBe(true);
+
+    const result = await runPromise;
+    expect(result.status).toBe("completed");
+    expect(approvalEngine.listPendingApprovals().length).toBe(0);
+    const toolMsg = result.messages.find((m) => m.role === "tool");
+    expect(toolMsg?.content).toContain('"exitCode":0');
   });
 });

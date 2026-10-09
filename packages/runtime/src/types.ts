@@ -63,7 +63,7 @@ export interface LoopStepEvent {
   details?: Record<string, unknown>;
 }
 
-import type { ExecutionManager } from "@ego/execution";
+import type { ExecutionManager, ApprovalEngine } from "@ego/execution";
 
 /**
  * Configuración para instanciar el ToolExecutionLoop.
@@ -73,6 +73,7 @@ export interface ToolExecutionLoopConfig {
   defaultRole?: ModelRole;
   systemPrompt?: string;
   executionManager?: ExecutionManager;
+  approvalEngine?: ApprovalEngine;
   approvalHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   onStep?: (event: LoopStepEvent) => void;
   onToolCall?: (call: ToolCall) => void;
@@ -86,6 +87,7 @@ export interface LoopRunOptions {
   messages: ModelMessage[];
   context: ToolExecutionContext;
   executionManager?: ExecutionManager;
+  approvalEngine?: ApprovalEngine;
   role?: ModelRole;
   systemPrompt?: string;
   maxSteps?: number;

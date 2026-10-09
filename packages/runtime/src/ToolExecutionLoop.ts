@@ -1,7 +1,7 @@
 import type { ModelMessage, ModelRole } from "@ego/models";
 import { ModelRouter } from "@ego/models";
 import { ToolRegistry } from "@ego/tools";
-import { ExecutionManager } from "@ego/execution";
+import { ExecutionManager, type ApprovalEngine } from "@ego/execution";
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -27,6 +27,7 @@ export class ToolExecutionLoop {
   private readonly router: ModelRouter;
   private readonly registry: ToolRegistry;
   private readonly executionManager: ExecutionManager;
+  private readonly approvalEngine?: ApprovalEngine;
   private readonly config: ToolExecutionLoopConfig;
 
   constructor(
@@ -37,6 +38,7 @@ export class ToolExecutionLoop {
     this.router = router;
     this.registry = registry;
     this.executionManager = config.executionManager ?? new ExecutionManager();
+    this.approvalEngine = config.approvalEngine;
     this.config = {
       maxSteps: 10,
       defaultRole: "reasoning-heavy",
@@ -53,6 +55,7 @@ export class ToolExecutionLoop {
     const role: ModelRole = options.role ?? this.config.defaultRole ?? "reasoning-heavy";
     const systemPrompt = options.systemPrompt ?? this.config.systemPrompt;
     const approvalHandler = options.approvalHandler ?? this.config.approvalHandler;
+    const approvalEngine = options.approvalEngine ?? this.approvalEngine;
 
     let step = 0;
     const totalUsage = {
@@ -155,53 +158,73 @@ export class ToolExecutionLoop {
           let finalArgs = validation.data;
 
           // Verificación de política HITL (aprobación humana)
-          const requiresApproval = this.registry.resolveApprovalRequirement(tool);
+          const requiresApproval = approvalEngine
+            ? approvalEngine.evaluateRequirement(tool, finalArgs, options.context).required
+            : this.registry.resolveApprovalRequirement(tool);
+
           if (requiresApproval) {
-            const approvalReq: ApprovalRequest = {
-              approvalId: `appr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-              toolName: tool.name,
-              toolCategory: tool.category,
-              riskLevel: tool.riskLevel,
-              arguments: finalArgs,
-              callId: call.id,
-              sessionId: options.context.sessionId,
-              subEgoId: options.context.subEgoId,
-              timestamp: Date.now()
-            };
+            let decision: ApprovalDecision;
 
-            this.config.onStep?.({
-              step,
-              action: "approval_requested",
-              details: { toolName: tool.name, approvalId: approvalReq.approvalId }
-            });
+            if (approvalEngine) {
+              this.config.onStep?.({
+                step,
+                action: "approval_requested",
+                details: { toolName: tool.name, callId: call.id }
+              });
 
-            if (approvalHandler) {
-              const decision = await approvalHandler(approvalReq);
+              decision = await approvalEngine.requestApproval({
+                tool,
+                arguments: finalArgs,
+                context: options.context,
+                callId: call.id,
+                abortSignal: options.abortSignal
+              });
+
               this.config.onStep?.({
                 step,
                 action: "approval_resolved",
                 details: { approved: decision.approved, reason: decision.reason }
               });
+            } else if (approvalHandler) {
+              const approvalReq: ApprovalRequest = {
+                approvalId: `appr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                toolName: tool.name,
+                toolCategory: tool.category,
+                riskLevel: tool.riskLevel,
+                arguments: finalArgs,
+                callId: call.id,
+                sessionId: options.context.sessionId,
+                subEgoId: options.context.subEgoId,
+                timestamp: Date.now()
+              };
 
-              if (!decision.approved) {
-                const rejectionPayload = {
-                  status: "rejected",
-                  message: decision.reason || "Acción rechazada por el usuario o directiva de gobernanza."
-                };
-                messages.push({
-                  role: "tool",
-                  toolCallId: call.id,
-                  name: tool.name,
-                  content: JSON.stringify(rejectionPayload)
-                });
-                continue;
-              }
+              this.config.onStep?.({
+                step,
+                action: "approval_requested",
+                details: { toolName: tool.name, approvalId: approvalReq.approvalId }
+              });
 
-              if (decision.modifiedArguments) {
-                finalArgs = decision.modifiedArguments;
-              }
+              decision = await approvalHandler(approvalReq);
+
+              this.config.onStep?.({
+                step,
+                action: "approval_resolved",
+                details: { approved: decision.approved, reason: decision.reason }
+              });
             } else {
-              // Si requiere aprobación y no hay handler inmediato, suspendemos el ciclo
+              const approvalReq: ApprovalRequest = {
+                approvalId: `appr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                toolName: tool.name,
+                toolCategory: tool.category,
+                riskLevel: tool.riskLevel,
+                arguments: finalArgs,
+                callId: call.id,
+                sessionId: options.context.sessionId,
+                subEgoId: options.context.subEgoId,
+                timestamp: Date.now()
+              };
+
+              // Si requiere aprobación y no hay handler ni engine inmediato, suspendemos el ciclo
               return {
                 status: "approval_required",
                 pendingApproval: approvalReq,
@@ -209,6 +232,24 @@ export class ToolExecutionLoop {
                 steps: step,
                 usage: totalUsage
               };
+            }
+
+            if (!decision.approved) {
+              const rejectionPayload = {
+                status: "rejected",
+                message: decision.reason || "Acción rechazada por el usuario o directiva de gobernanza."
+              };
+              messages.push({
+                role: "tool",
+                toolCallId: call.id,
+                name: tool.name,
+                content: JSON.stringify(rejectionPayload)
+              });
+              continue;
+            }
+
+            if (decision.modifiedArguments) {
+              finalArgs = decision.modifiedArguments;
             }
           }
 
