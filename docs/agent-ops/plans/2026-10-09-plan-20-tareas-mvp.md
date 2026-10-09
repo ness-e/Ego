@@ -217,7 +217,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm build` y tests de componentes verificando conmutación reactiva de Sub-Ego activo y paso de ID en el payload del chat IPC.
 - **Task file:** `docs/agent-ops/tasks/SUB-08.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -254,10 +254,10 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
   - ⬇️ Downhill: 3 steps (componente `SubEgoSelector.tsx`, integración en la cabecera del chat, persistencia del Sub-Ego seleccionado).
 
   **DoD Task Level:**
-  - [ ] Componente `SubEgoSelector` renderiza lista de Sub-Egos activos.
-  - [ ] Opción "Automático (Ego Core)" disponible por defecto.
-  - [ ] Conmutación deshabilita/habilita herramientas según los permisos del Sub-Ego.
-  - [ ] Compilación TypeScript de `@ego/renderer` limpia.
+  - [x] Componente `SubEgoSelector` renderiza lista de Sub-Egos activos.
+  - [x] Opción "Automático (Ego Core)" disponible por defecto.
+  - [x] Conmutación deshabilita/habilita herramientas según los permisos del Sub-Ego.
+  - [x] Compilación TypeScript de `@ego/renderer` limpia.
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -1076,7 +1076,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** La vista `sub-egos.tsx` en Electron lista los Sub-Egos reales de `SubEgoRegistry`, permite crear nuevos especialistas usando las plantillas de `SubEgoFactory` y refleja el estado de ejecución de `SubEgoRuntime`.
 - **Task file:** `docs/agent-ops/tasks/INT-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -1112,10 +1112,10 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
   - ⬇️ Downhill: 4 steps (canales IPC en `main.ts`, métodos expuestos en `preload.ts`, componentes en `sub-egos.tsx`, tests).
 
   **DoD Task Level:**
-  - [ ] Métodos IPC tipados para listar, crear (plantillas) y consultar Sub-Egos.
-  - [ ] `sub-egos.tsx` consume datos reales sin rastro de mocks.
-  - [ ] Creación de Sub-Egos funcional desde la interfaz gráfica.
-  - [ ] Build limpio de desktop y renderer.
+  - [x] Métodos IPC tipados para listar, crear (plantillas) y consultar Sub-Egos.
+  - [x] `sub-egos.tsx` consume datos reales sin rastro de mocks.
+  - [x] Creación de Sub-Egos funcional desde la interfaz gráfica.
+  - [x] Build limpio de desktop y renderer.
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |

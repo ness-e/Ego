@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sparkle, TerminalWindow, Warning } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Union } from "../components/union";
+import { SubEgosView } from "../components/sub-egos";
 import { Sidebar } from "../components/sidebar";
 
 export function App() {
@@ -9,6 +10,7 @@ export function App() {
   const [approvalPending, setApprovalPending] = useState(false);
   const [activeProject, setActiveProject] = useState("default");
   const [activeSubEgo, setActiveSubEgo] = useState("ego.nucleus");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"union" | "subegos">("union");
   const [sessionNonce, setSessionNonce] = useState(0);
 
   const handleNewSession = () => {
@@ -93,10 +95,32 @@ export function App() {
               <TerminalWindow size={14} />
               <span className="font-medium text-ink">Dynamic Workspace</span>
             </div>
-            <span className="text-[10px] text-dim">Canvas React 19</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setActiveWorkspaceTab("union")}
+                className={`rounded px-2.5 py-0.5 text-xs transition-colors ${
+                  activeWorkspaceTab === "union"
+                    ? "bg-raised text-ink font-semibold border border-hairline"
+                    : "text-dim hover:text-ink"
+                }`}
+              >
+                Actividad & Telemetría
+              </button>
+              <button
+                onClick={() => setActiveWorkspaceTab("subegos")}
+                className={`rounded px-2.5 py-0.5 text-xs transition-colors ${
+                  activeWorkspaceTab === "subegos"
+                    ? "bg-raised text-ink font-semibold border border-hairline"
+                    : "text-dim hover:text-ink"
+                }`}
+              >
+                Sub-Egos Fábrica
+              </button>
+            </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4">
-            <Union />
+            {activeWorkspaceTab === "union" && <Union />}
+            {activeWorkspaceTab === "subegos" && <SubEgosView />}
           </div>
         </section>
       </main>

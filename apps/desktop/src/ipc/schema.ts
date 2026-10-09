@@ -59,16 +59,42 @@ export const MemoryOpSchema = z.discriminatedUnion("op", [
 export type MemoryOpRequest = z.infer<typeof MemoryOpSchema>;
 
 /**
- * Esquema de validación para creación de Sub-Egos
+ * Esquema de validación para creación de Sub-Egos en sus 3 modalidades (INT-04 / SUB-02)
  */
-export const CreateSubEgoSchema = z.object({
-  name: z.string().min(2).max(50),
-  role: z.string().min(2).max(50),
-  instructions: z.string().min(10),
-  tools: z.array(z.string()).optional(),
-});
+export const CreateSubEgoSchema = z.union([
+  z.object({
+    mode: z.literal("custom").optional(),
+    name: z.string().min(2).max(50),
+    role: z.string().min(2).max(50),
+    instructions: z.string().min(10),
+    tools: z.array(z.string()).optional(),
+    budget: z.object({
+      maxTokensPerCall: z.number().int().positive().optional(),
+      maxDailyCostUsd: z.number().positive().optional(),
+      requiresApprovalAboveUsd: z.number().positive().optional(),
+    }).optional(),
+  }),
+  z.object({
+    mode: z.literal("template"),
+    templateId: z.string().min(1),
+    name: z.string().min(2).max(50).optional(),
+    overrides: z.record(z.unknown()).optional(),
+  }),
+  z.object({
+    mode: z.literal("declaration"),
+    format: z.enum(["json", "yaml"]),
+    rawText: z.string().min(10),
+  }),
+]);
 
 export type CreateSubEgoRequest = z.infer<typeof CreateSubEgoSchema>;
+
+export const ToggleSubEgoStateSchema = z.object({
+  subEgoId: z.string().min(1, "El ID de Sub-Ego no puede estar vacío"),
+  state: z.enum(["active", "paused"]),
+});
+
+export type ToggleSubEgoStateRequest = z.infer<typeof ToggleSubEgoStateSchema>;
 
 /**
  * Esquema de validación para resolución de aprobaciones HITL (ACT-06, ACT-07).

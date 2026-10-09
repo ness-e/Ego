@@ -35,6 +35,9 @@ importers:
       '@ego/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@ego/subegos':
+        specifier: workspace:*
+        version: link:../../packages/subegos
       '@ego/tools':
         specifier: workspace:*
         version: link:../../packages/tools

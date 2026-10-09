@@ -101,6 +101,44 @@ export interface ProjectInfo {
   badge?: string;
 }
 
+export interface DomainTemplateInfo {
+  templateId: string;
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+  domain?: string;
+  instructions: string;
+  recommendedTools: string[];
+  recommendedCapabilities: string[];
+  recommendedResponsibilities: string[];
+  autonomy: "supervised" | "semi-autonomous" | "autonomous";
+  defaultBudget?: {
+    maxTokensPerCall: number;
+    maxDailyCostUsd: number;
+    requiresApprovalAboveUsd: number;
+  };
+}
+
+export interface SubEgoDetailInfo {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+  instructions?: string;
+  systemPrompt?: string;
+  state: "active" | "paused" | "archived" | "disabled";
+  creator?: string;
+  tools?: string[];
+  permissions?: string[];
+  budget?: {
+    maxTokensPerCall?: number;
+    maxDailyCostUsd?: number;
+    requiresApprovalAboveUsd?: number;
+  };
+  character?: any;
+}
+
 export interface EgoBridge {
   memory: (op: string, args: unknown[]) => Promise<unknown>;
   llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string; projectId?: string; subEgoId?: string }) => Promise<{
@@ -120,6 +158,23 @@ export interface EgoBridge {
   snapshots: () => Promise<unknown>;
   listSubEgos: () => Promise<SubEgoSummary[]>;
   createSubEgo: (req: { name: string; role: string; instructions: string; tools?: string[] }) => Promise<SubEgoSummary>;
+  subegos: {
+    list: () => Promise<SubEgoDetailInfo[]>;
+    getTemplates: () => Promise<DomainTemplateInfo[]>;
+    create: (req: {
+      mode?: "custom" | "template" | "declaration";
+      name?: string;
+      role?: string;
+      instructions?: string;
+      tools?: string[];
+      budget?: { maxTokensPerCall?: number; maxDailyCostUsd?: number };
+      templateId?: string;
+      overrides?: Record<string, unknown>;
+      format?: "json" | "yaml";
+      rawText?: string;
+    }) => Promise<SubEgoDetailInfo>;
+    toggleState: (req: { subEgoId: string; state: "active" | "paused" }) => Promise<SubEgoDetailInfo>;
+  };
   projects: {
     list: () => Promise<ProjectInfo[]>;
     create: (req: { name: string; rootPath: string; description?: string; activeSubEgoId?: string }) => Promise<ProjectInfo>;
@@ -142,6 +197,7 @@ export interface EgoBridge {
   onChatError?: (callback: (err: ChatErrorInfo) => void) => () => void;
   onApprovalRequest?: (callback: (req: PendingApprovalInfo) => void) => () => void;
   onProjectChanged?: (callback: (data: { activeProjectId: string }) => void) => () => void;
+  onSubEgosChanged?: (callback: (data: { subEgoId: string; action: string; state?: string }) => void) => () => void;
   onEvent?: (callback: (event: any) => void) => () => void;
 }
 
@@ -212,6 +268,106 @@ const mock: EgoBridge = {
     };
     mockSubEgos.push(nuevo);
     return nuevo;
+  },
+  subegos: {
+    list: async () => [
+      {
+        id: "ego.nucleus",
+        name: "Ego Núcleo",
+        role: "Orquestador General",
+        description: "Supervisa, planifica y orquesta la delegación y memoria del sistema.",
+        state: "active",
+        creator: "ego-nucleus",
+        tools: ["memory_recall", "delegate_task"],
+        budget: { maxTokensPerCall: 8000, maxDailyCostUsd: 10.0, requiresApprovalAboveUsd: 2.0 },
+      },
+      {
+        id: "ego.dev",
+        name: "Sub-Ego Dev",
+        role: "Ingeniería & Código",
+        description: "Especialista en desarrollo, depuración, refactorización y pruebas.",
+        state: "active",
+        creator: "template",
+        tools: ["fs_read_file", "fs_write_file", "git_status", "git_diff", "terminal_exec"],
+        budget: { maxTokensPerCall: 4000, maxDailyCostUsd: 5.0, requiresApprovalAboveUsd: 1.0 },
+      },
+      {
+        id: "ego.copywriter",
+        name: "Ego Copywriter",
+        role: "Redactor B2B",
+        description: "Genera propuestas y correos de prospección alineados al tono de marca.",
+        state: "active",
+        creator: "user",
+        tools: ["memory_recall"],
+        budget: { maxTokensPerCall: 4000, maxDailyCostUsd: 2.0, requiresApprovalAboveUsd: 0.5 },
+      },
+    ],
+    getTemplates: async () => [
+      {
+        id: "developer",
+        templateId: "developer",
+        name: "Ingeniero de Software",
+        role: "Desarrollo y Arquitectura de Software",
+        description: "Diseña, codifica, depura y refactoriza componentes con rigor técnico y pruebas.",
+        domain: "engineering",
+        instructions: "Actúa como un Ingeniero de Software Principal. Diseña código modular, tipado y testeado.",
+        recommendedTools: ["fs_read_file", "fs_write_file", "git_status", "git_diff", "terminal_exec"],
+        recommendedCapabilities: ["code_generation", "code_review", "debugging"],
+        recommendedResponsibilities: ["Implementar features", "Resolver bugs", "Escribir tests"],
+        autonomy: "supervised",
+        defaultBudget: { maxTokensPerCall: 4000, maxDailyCostUsd: 5.0, requiresApprovalAboveUsd: 1.0 },
+      },
+      {
+        id: "researcher",
+        templateId: "researcher",
+        name: "Investigador Cognitivo",
+        role: "Investigación y Extracción de Hechos",
+        description: "Explora documentación, sintetiza hallazgos y organiza la base de conocimiento.",
+        domain: "knowledge",
+        instructions: "Investiga exhaustivamente con fuentes primarias y sin inventar hechos.",
+        recommendedTools: ["memory_recall", "fs_read_file"],
+        recommendedCapabilities: ["deep_research", "synthesis"],
+        recommendedResponsibilities: ["Investigar APIs", "Generar resúmenes técnicos"],
+        autonomy: "supervised",
+        defaultBudget: { maxTokensPerCall: 4000, maxDailyCostUsd: 3.0, requiresApprovalAboveUsd: 0.5 },
+      },
+      {
+        id: "product_manager",
+        templateId: "product_manager",
+        name: "Gerente de Producto",
+        role: "Specs, PRDs y Roadmap",
+        description: "Define requerimientos, historias de usuario y priorización de backlog.",
+        domain: "product",
+        instructions: "Estructura requerimientos claros según metodología Shape Up y métricas de éxito.",
+        recommendedTools: ["memory_recall", "fs_read_file", "fs_write_file"],
+        recommendedCapabilities: ["spec_writing", "prioritization"],
+        recommendedResponsibilities: ["Escribir specs", "Validar criterios de aceptación"],
+        autonomy: "supervised",
+        defaultBudget: { maxTokensPerCall: 4000, maxDailyCostUsd: 3.0, requiresApprovalAboveUsd: 0.5 },
+      },
+    ],
+    create: async (req: any) => {
+      const id = `ego.${req.name ? req.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : "custom"}`;
+      const nuevo: SubEgoDetailInfo = {
+        id,
+        name: req.name || "Nuevo Sub-Ego",
+        role: req.role || "Especialista",
+        description: req.instructions || "Sub-Ego creado interactivamente",
+        state: "active",
+        creator: "user",
+        tools: req.tools || ["memory_recall"],
+      };
+      return nuevo;
+    },
+    toggleState: async ({ subEgoId, state }: any) => {
+      return {
+        id: subEgoId,
+        name: subEgoId,
+        role: "Especialista",
+        description: "",
+        state,
+      };
+    },
   },
   projects: {
     list: async () => [

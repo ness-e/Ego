@@ -14,8 +14,13 @@ import { EventBus, StructuredLogger } from "@ego/events";
 import { ToolExecutionLoop, type LoopExecutionResult } from "@ego/runtime";
 import { ApprovalEngine, ExecutionManager, type PendingApproval } from "@ego/execution";
 import {
+  SubEgoRegistry,
+  SubEgoFactory,
+} from "@ego/subegos";
+import {
   MemoryOpSchema,
   CreateSubEgoSchema,
+  ToggleSubEgoStateSchema,
   ApproveActionSchema,
   ResolveApprovalSchema,
   ChatStreamSchema,
@@ -37,12 +42,17 @@ let approvalEngine: ApprovalEngine;
 let executionManager: ExecutionManager;
 let toolRegistry: ToolRegistry;
 let toolLoop: ToolExecutionLoop;
+let subEgoRegistry: SubEgoRegistry;
 let mcpManager: McpManager;
 let skillScanner: SkillScanner;
 let eventBus: EventBus;
 let structuredLogger: StructuredLogger;
 let win: BrowserWindow | null = null;
 let activeProjectId: string = "default";
+
+export function getSubEgoRegistry(): SubEgoRegistry {
+  return subEgoRegistry;
+}
 
 export function getEventBus(): EventBus {
   return eventBus;
@@ -302,6 +312,7 @@ export async function createWindow(): Promise<void> {
 
   mcpManager = new McpManager(toolRegistry);
   skillScanner = new SkillScanner();
+  subEgoRegistry = new SubEgoRegistry(adapter);
 
   // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers)
   try {
@@ -448,43 +459,119 @@ export async function createWindow(): Promise<void> {
     }
   });
 
-  // 2. Canales de Sub-Egos con validación Zod
+  // 2. Canales de Sub-Egos con validación Zod y Fábrica Inteligente (INT-04 / SUB-02)
   ipcMain.handle("ipc.subegos.list", async () => {
-    return adapter.listSubEgos();
+    try {
+      const list = await subEgoRegistry.list();
+      if (list && list.length > 0) return list;
+      return adapter.listSubEgos();
+    } catch (err) {
+      console.warn("[Ego Main] Error al listar Sub-Egos:", err);
+      return adapter.listSubEgos();
+    }
+  });
+
+  ipcMain.handle("ipc.subegos.getTemplates", async () => {
+    return SubEgoFactory.listTemplates();
   });
 
   ipcMain.handle("ipc.subegos.create", async (_e, rawReq: unknown) => {
     const parseResult = CreateSubEgoSchema.safeParse(rawReq);
     if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de creación inválida: ${parseResult.error.message}`);
+      throw new Error(`[IPC Security] Solicitud de creación de Sub-Ego inválida: ${parseResult.error.message}`);
     }
 
     const req = parseResult.data;
-    const subEgoId = createSubEgoId(req.name);
-    const manifest: SubEgoManifest = {
-      id: subEgoId,
-      name: req.name,
-      role: req.role,
-      description: req.instructions,
-      systemPrompt: req.instructions,
-      creator: "user",
-      createdAtMs: Date.now(),
-      namespaces: {
-        read: ["kb/docs", `egos/${subEgoId}/*`],
-        write: [`egos/${subEgoId}/*`, "quarantine/pending"],
-      },
-      tools: req.tools || ["memory_recall", "propose_draft"],
-      budget: {
-        maxTokensPerCall: 4000,
-        maxDailyCostUsd: 2.0,
-        requiresApprovalAboveUsd: 0.5,
-      },
-      trigger: "manual",
-      state: "active",
-    };
+    let manifest: SubEgoManifest;
 
-    await adapter.registerSubEgo(manifest);
+    if ("mode" in req && req.mode === "template") {
+      manifest = SubEgoFactory.fromTemplate(req.templateId, {
+        name: req.name,
+        ...(req.overrides as any),
+      }) as unknown as SubEgoManifest;
+    } else if ("mode" in req && req.mode === "declaration") {
+      manifest = SubEgoFactory.fromRawDeclaration(req.rawText, req.format) as unknown as SubEgoManifest;
+    } else {
+      const subEgoId = createSubEgoId(req.name);
+      manifest = {
+        id: subEgoId,
+        name: req.name,
+        role: req.role,
+        description: req.instructions,
+        systemPrompt: req.instructions,
+        creator: "user",
+        createdAtMs: Date.now(),
+        namespaces: {
+          read: ["kb/docs", `egos/${subEgoId}/*`],
+          write: [`egos/${subEgoId}/*`, "quarantine/pending"],
+        },
+        tools: req.tools || ["memory_recall", "propose_draft"],
+        budget: {
+          maxTokensPerCall: req.budget?.maxTokensPerCall ?? 4000,
+          maxDailyCostUsd: req.budget?.maxDailyCostUsd ?? 2.0,
+          requiresApprovalAboveUsd: req.budget?.requiresApprovalAboveUsd ?? 0.5,
+        },
+        trigger: "manual",
+        state: "active",
+      };
+    }
+
+    await subEgoRegistry.register(manifest as any);
+    try {
+      await adapter.registerSubEgo(manifest as any);
+    } catch {
+      // noop
+    }
+
+    eventBus?.emit("subego.registered" as any, {
+      subEgoId: manifest.id,
+      name: manifest.name,
+      role: manifest.role,
+      createdAt: Date.now(),
+    }, {
+      source: "desktop.ipc.subegos.create",
+      severity: "info",
+    });
+
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.subegos.changed", { subEgoId: manifest.id, action: "created" });
+    }
+
     return manifest;
+  });
+
+  ipcMain.handle("ipc.subegos.toggleState", async (_e, rawReq: unknown) => {
+    const parseResult = ToggleSubEgoStateSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Solicitud de alternancia de estado inválida: ${parseResult.error.message}`);
+    }
+
+    const { subEgoId, state } = parseResult.data;
+    if (subEgoId === "ego.nucleus") {
+      throw new Error("No se puede pausar ni desactivar el núcleo del sistema ('ego.nucleus').");
+    }
+
+    let updated: SubEgoManifest;
+    if (state === "active") {
+      updated = (await subEgoRegistry.enable(subEgoId)) as unknown as SubEgoManifest;
+    } else {
+      updated = (await subEgoRegistry.disable(subEgoId)) as unknown as SubEgoManifest;
+    }
+
+    eventBus?.emit("subego.state_changed" as any, {
+      subEgoId,
+      state,
+      timestamp: Date.now(),
+    }, {
+      source: "desktop.ipc.subegos.toggleState",
+      severity: "info",
+    });
+
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.subegos.changed", { subEgoId, action: "state_changed", state });
+    }
+
+    return updated;
   });
 
   // 3. Gobernanza HITL con validación Zod (ACT-06, ACT-07)

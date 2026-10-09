@@ -19,8 +19,14 @@ contextBridge.exposeInMainWorld("ego", {
   }) => ipcRenderer.invoke("ipc.approval.resolve", req),
   snapshots: () => ipcRenderer.invoke("ipc.snapshots"),
   listSubEgos: () => ipcRenderer.invoke("ipc.subegos.list"),
-  createSubEgo: (req: { name: string; role: string; instructions: string; tools?: string[] }) =>
-    ipcRenderer.invoke("ipc.subegos.create", req),
+  createSubEgo: (req: unknown) => ipcRenderer.invoke("ipc.subegos.create", req),
+  subegos: {
+    list: () => ipcRenderer.invoke("ipc.subegos.list"),
+    getTemplates: () => ipcRenderer.invoke("ipc.subegos.getTemplates"),
+    create: (req: unknown) => ipcRenderer.invoke("ipc.subegos.create", req),
+    toggleState: (req: { subEgoId: string; state: "active" | "paused" }) =>
+      ipcRenderer.invoke("ipc.subegos.toggleState", req),
+  },
   mcp: {
     listServers: () => ipcRenderer.invoke("ipc.mcp.listServers"),
     addServer: (req: { config: any; enabled?: boolean }) => ipcRenderer.invoke("ipc.mcp.addServer", req),
@@ -46,6 +52,13 @@ contextBridge.exposeInMainWorld("ego", {
     ipcRenderer.on("ipc.projects.changed", sub);
     return () => {
       ipcRenderer.removeListener("ipc.projects.changed", sub);
+    };
+  },
+  onSubEgosChanged: (callback: (data: { subEgoId: string; action: string; state?: string }) => void) => {
+    const sub = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on("ipc.subegos.changed", sub);
+    return () => {
+      ipcRenderer.removeListener("ipc.subegos.changed", sub);
     };
   },
   onChatDelta: (callback: (chunk: unknown) => void) => {
