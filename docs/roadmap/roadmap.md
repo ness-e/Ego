@@ -40,7 +40,8 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [x] Los fallos devuelven contexto para reintento — Cumplido en ACT-02/ACT-03 (inyección causal en rol tool y aislamiento de fallos).
 - [x] Flujo visual interactivo de aprobación humana HITL con diffs y edición de parámetros — Cumplido en ACT-07 (`ApprovalCard` en Chat UI + puente IPC).
 - [x] Manejo de errores y reintentos con contexto causal y auto-reparación sintáctica — Cumplido en ACT-08 (`ErrorHandler` con auto-reparación OCLW-03, clasificación OCLW-04 y LoopGuard).
-> **Estado actual:** 8 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`, `ACT-06`, `ACT-07`, `ACT-08`). Siguiente hito en curso: Cliente MCP universal sobre stdio (`ACT-09`).
+- [x] Cliente MCP universal sobre stdio (Nivel B Integración) — Cumplido en ACT-09 (`McpClient` con handshake MCP 2024-11-05, auto-discovery de tools, schema bridge Zod, inferencia de riesgo, SafeConfigMutation con rollback atómico COUC-10 y kernel RPC dispatch directo HERM-18).
+> **Estado actual:** 9 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`, `ACT-06`, `ACT-07`, `ACT-08`, `ACT-09`). Siguiente hito: Validación E2E del Golden Path Alpha (Pasos 8 al 12) (`ACT-10`).
 **Criterio de aceptación:** El modelo puede interactuar con el sistema operativo de forma controlada y persistente.
 
 ### Fase 03: Sub-Egos
