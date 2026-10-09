@@ -74,6 +74,8 @@ export interface ToolExecutionLoopConfig {
   systemPrompt?: string;
   executionManager?: ExecutionManager;
   approvalEngine?: ApprovalEngine;
+  errorHandler?: any;
+  errorHandlerConfig?: ErrorHandlerConfig;
   approvalHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   onStep?: (event: LoopStepEvent) => void;
   onToolCall?: (call: ToolCall) => void;
@@ -88,6 +90,7 @@ export interface LoopRunOptions {
   context: ToolExecutionContext;
   executionManager?: ExecutionManager;
   approvalEngine?: ApprovalEngine;
+  errorHandler?: any;
   role?: ModelRole;
   systemPrompt?: string;
   maxSteps?: number;
@@ -111,4 +114,48 @@ export interface LoopExecutionResult {
     totalTokens: number;
     estimatedCostUsd: number;
   };
+}
+
+/**
+ * Taxonomía de causas raíz de error para autocorrección guiada por el modelo (ACT-08).
+ */
+export type CausalErrorCategory =
+  | "TOOL_NOT_FOUND"
+  | "VALIDATION_FAILED"
+  | "REPAIRABLE_SYNTAX_ERROR"
+  | "FILE_NOT_FOUND"
+  | "PERMISSION_DENIED"
+  | "EXECUTION_TIMEOUT"
+  | "PROCESS_FAILED"
+  | "LOOP_DETECTED"
+  | "UNKNOWN_ERROR";
+
+/**
+ * Contrato de error causal enriquecido inyectado al modelo para autocorrección guiada.
+ */
+export interface EnrichedCausalError {
+  status: "error";
+  category: CausalErrorCategory;
+  toolName: string;
+  callId: string;
+  message: string;
+  remedyHint: string;
+  validationDetails?: Array<{
+    path: string;
+    message: string;
+    expected?: string;
+    received?: string;
+  }>;
+  suggestedTools?: string[];
+  isLoopRisk?: boolean;
+  rawError?: string;
+}
+
+/**
+ * Opciones de configuración para el ErrorHandler de runtime (ACT-08).
+ */
+export interface ErrorHandlerConfig {
+  maxConsecutiveToolErrors?: number;
+  enableArgumentRepair?: boolean;
+  enableLoopGuard?: boolean;
 }

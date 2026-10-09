@@ -39,7 +39,8 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [x] Las herramientas que requieren aprobación detienen la ejecución hasta la respuesta — Cumplido en ACT-02, ACT-03 y ACT-06 (ApprovalEngine con retención de promesa, ActionIdentity SHA-256 inmutable y timeout).
 - [x] Los fallos devuelven contexto para reintento — Cumplido en ACT-02/ACT-03 (inyección causal en rol tool y aislamiento de fallos).
 - [x] Flujo visual interactivo de aprobación humana HITL con diffs y edición de parámetros — Cumplido en ACT-07 (`ApprovalCard` en Chat UI + puente IPC).
-> **Estado actual:** 7 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`, `ACT-06`, `ACT-07`). Siguiente hito en curso: Manejo de errores y reintentos con contexto causal (`ACT-08`).
+- [x] Manejo de errores y reintentos con contexto causal y auto-reparación sintáctica — Cumplido en ACT-08 (`ErrorHandler` con auto-reparación OCLW-03, clasificación OCLW-04 y LoopGuard).
+> **Estado actual:** 8 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`, `ACT-06`, `ACT-07`, `ACT-08`). Siguiente hito en curso: Cliente MCP universal sobre stdio (`ACT-09`).
 **Criterio de aceptación:** El modelo puede interactuar con el sistema operativo de forma controlada y persistente.
 
 ### Fase 03: Sub-Egos

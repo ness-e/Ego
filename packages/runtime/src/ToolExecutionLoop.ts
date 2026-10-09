@@ -10,6 +10,7 @@ import type {
   ToolExecutionLoopConfig,
   ToolExecutionResult
 } from "./types.js";
+import { ErrorHandler } from "./ErrorHandler.js";
 
 /**
  * Loop cognitivo multi-turno para Tool Calling (ACT-02).
@@ -20,7 +21,7 @@ import type {
  * 3. Validación estricta de parámetros en tiempo de ejecución con Zod.
  * 4. Gobernanza Human-in-the-Loop (HITL): suspensión o despacho a handlers de aprobación.
  * 5. Ejecución supervisada mediante ExecutionManager (timeouts, cuotas y cancelación).
- * 6. Manejo resiliente de fallos para autocorrección guiada por el modelo.
+ * 6. Manejo resiliente de fallos para autocorrección guiada por el modelo (ACT-08).
  * 7. Control de cuota y límite de iteraciones (anti-bucles infinitos).
  */
 export class ToolExecutionLoop {
@@ -28,6 +29,7 @@ export class ToolExecutionLoop {
   private readonly registry: ToolRegistry;
   private readonly executionManager: ExecutionManager;
   private readonly approvalEngine?: ApprovalEngine;
+  private readonly errorHandler: ErrorHandler;
   private readonly config: ToolExecutionLoopConfig;
 
   constructor(
@@ -39,6 +41,9 @@ export class ToolExecutionLoop {
     this.registry = registry;
     this.executionManager = config.executionManager ?? new ExecutionManager();
     this.approvalEngine = config.approvalEngine;
+    this.errorHandler =
+      config.errorHandler ??
+      new ErrorHandler(this.registry, config.errorHandlerConfig);
     this.config = {
       maxSteps: 10,
       defaultRole: "reasoning-heavy",
@@ -56,6 +61,7 @@ export class ToolExecutionLoop {
     const systemPrompt = options.systemPrompt ?? this.config.systemPrompt;
     const approvalHandler = options.approvalHandler ?? this.config.approvalHandler;
     const approvalEngine = options.approvalEngine ?? this.approvalEngine;
+    const errorHandler: ErrorHandler = options.errorHandler ?? this.errorHandler;
 
     let step = 0;
     const totalUsage = {
@@ -125,32 +131,31 @@ export class ToolExecutionLoop {
 
           const tool = this.registry.get(call.name);
           if (!tool) {
-            const errorPayload = {
-              status: "error",
-              message: `Herramienta "${call.name}" no encontrada en el registro de Ego.`
-            };
+            const enriched = errorHandler.handleToolNotFound(
+              call,
+              this.registry.list().map((t) => t.name)
+            );
             messages.push({
               role: "tool",
               toolCallId: call.id,
               name: call.name,
-              content: JSON.stringify(errorPayload)
+              content: errorHandler.formatErrorResponse(enriched)
             });
             continue;
           }
 
+          // Auto-reparación sintáctica heurística de argumentos (OCLW-03, OCLW-04)
+          const repairedArgs = errorHandler.repairArguments(call.name, call.arguments);
+
           // Validación estricta con Zod
-          const validation = this.registry.validateInput(call.name, call.arguments);
+          const validation = this.registry.validateInput(call.name, repairedArgs);
           if (!validation.success) {
-            const errorPayload = {
-              status: "error",
-              message: `Argumentos inválidos para la herramienta "${call.name}".`,
-              validationErrors: validation.error.format()
-            };
+            const enriched = errorHandler.handleValidationError(call, validation.error);
             messages.push({
               role: "tool",
               toolCallId: call.id,
               name: call.name,
-              content: JSON.stringify(errorPayload)
+              content: errorHandler.formatErrorResponse(enriched)
             });
             continue;
           }
@@ -275,6 +280,7 @@ export class ToolExecutionLoop {
           };
 
           if (execRes.status === "success") {
+            errorHandler.notifySuccess();
             messages.push({
               role: "tool",
               toolCallId: call.id,
@@ -285,14 +291,16 @@ export class ToolExecutionLoop {
                   : JSON.stringify(execRes.output)
             });
           } else {
+            const enriched = errorHandler.handleExecutionError(
+              call,
+              execRes.error || "Fallo durante la ejecución.",
+              execRes.durationMs
+            );
             messages.push({
               role: "tool",
               toolCallId: call.id,
               name: tool.name,
-              content: JSON.stringify({
-                status: execRes.status,
-                message: `Fallo durante la ejecución de "${tool.name}": ${execRes.error}`
-              })
+              content: errorHandler.formatErrorResponse(enriched)
             });
           }
 
