@@ -10,6 +10,7 @@ import {
 import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
 import { ego, RecallBadgeInfo, PendingApprovalInfo } from "../lib/ego";
 import { ApprovalCard } from "./tools/ApprovalCard";
+import { CharacterBadge } from "./character/CharacterBadge.js";
 
 function Text({ text }: { text: string }) {
   return <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>;
@@ -27,7 +28,10 @@ function UserMessage() {
 
 function AssistantMessage() {
   return (
-    <MessagePrimitive.Root style={{ display: "flex", margin: "8px 0", flexDirection: "column", gap: 4 }}>
+    <MessagePrimitive.Root style={{ display: "flex", margin: "10px 0", gap: 10, alignItems: "flex-start" }}>
+      <div style={{ marginTop: 2 }} className="shrink-0">
+        <CharacterBadge size={26} subEgoId="ego.nucleus" state="idle" />
+      </div>
       <div style={{ background: "#111113", border: "1px solid #26262b", borderRadius: 8, padding: "10px 14px", maxWidth: "85%", color: "#f4f4f5" }}>
         <MessagePrimitive.Content components={{ Text }} />
       </div>

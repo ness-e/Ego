@@ -182,6 +182,9 @@ export class CharacterEngine {
   private badgeKey = "none";
   private badgeToken = 0;
 
+  customBackDraw?: (ctx: CanvasRenderingContext2D, head: HeadFrame) => void;
+  customFrontDraw?: (ctx: CanvasRenderingContext2D, head: HeadFrame) => void;
+
   private tweens = new Map<PropKey, Tween>();
   private particles: Particle[] = [];
   private nextBlink = performance.now() / 1000 + 1.5;
@@ -371,6 +374,15 @@ export class CharacterEngine {
       x.restore();
     }
 
+    if (this.customBackDraw) {
+      x.save();
+      x.translate(cx, cy);
+      if (this.tilt !== 0) x.rotate(this.tilt);
+      x.scale(this.sx, this.sy);
+      this.customBackDraw(x, headFrame);
+      x.restore();
+    }
+
     this.drawHandsBehind(x, R, rx, ry, cx, cy);
 
     x.save();
@@ -402,6 +414,10 @@ export class CharacterEngine {
     // Capa 4: Outfits frontales (gorros, gafas, bufandas, lazos)
     if (outfit?.front) {
       outfit.front(x, headFrame, body);
+    }
+
+    if (this.customFrontDraw) {
+      this.customFrontDraw(x, headFrame);
     }
 
     x.restore();

@@ -710,7 +710,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** Máquina de estados tipada que interpola suavemente canales abstractos (`gaze`, `pulse`, `aura`, `accent`) entre los 14 estados canónicos sin saltos bruscos.
 - **Task file:** `docs/agent-ops/tasks/CHAR-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -746,10 +746,10 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
   - ⬇️ Downhill: 3 steps (máquina de estados finitos, interpolador cinético lerp, tests de transición de estados).
 
   **DoD Task Level:**
-  - [ ] 14 estados canónicos tipados e implementados en la FSM.
-  - [ ] Interpolación suave entre canales sin saltos de frame.
-  - [ ] Auto-recuperación a estado `idle` tras inactividad.
-  - [ ] Tests de integración de la FSM en verde.
+  - [x] 14 estados canónicos tipados e implementados en la FSM.
+  - [x] Interpolación suave entre canales sin saltos de frame.
+  - [x] Auto-recuperación a estado `idle` tras inactividad.
+  - [x] Tests de integración de la FSM en verde.
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -771,7 +771,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** Registro modular de rasgos que permite consultar, validar y aplicar presets morfológicos a partir de un `CharacterProfile`.
 - **Task file:** `docs/agent-ops/tasks/CHAR-07.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -807,9 +807,9 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
   - ⬇️ Downhill: 3 steps (clase `TraitRegistry`, implementación de 5 presets canónicos, suite de pruebas unitarias).
 
   **DoD Task Level:**
-  - [ ] `TraitRegistry` implementado con registro y consulta fuertemente tipados.
-  - [ ] 5 presets de dominio creados (`researcher`, `code_reviewer`, `copywriter`, `analyst`, `planner`).
-  - [ ] Pruebas unitarias de compatibilidad y renderizado passing.
+  - [x] `TraitRegistry` implementado con registro y consulta fuertemente tipados.
+  - [x] 5 presets de dominio creados (`researcher`, `code_reviewer`, `copywriter`, `analyst`, `planner`).
+  - [x] Pruebas unitarias de compatibilidad y renderizado passing.
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -831,7 +831,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** Mini-avatares interactivos del personaje renderizados eficientemente en burbujas de chat, tarjetas del catálogo y el selector de Sub-Egos.
 - **Task file:** `docs/agent-ops/tasks/CHAR-08.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -867,10 +867,10 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
   - ⬇️ Downhill: 3 steps (componente `CharacterBadge`, integración en chat y catálogo, pruebas de rendimiento de scroll).
 
   **DoD Task Level:**
-  - [ ] Componente `CharacterBadge` ligero con soporte para modo estático cacheado y modo interactivo.
-  - [ ] Integración en mensajes de chat y selector de Sub-Egos.
-  - [ ] 60 FPS estables durante el scroll de conversaciones largas.
-  - [ ] Build limpio de `@ego/renderer`.
+  - [x] Componente `CharacterBadge` ligero con soporte para modo estático cacheado y modo interactivo.
+  - [x] Integración en mensajes de chat y selector de Sub-Egos.
+  - [x] 60 FPS estables durante el scroll de conversaciones largas.
+  - [x] Build limpio de `@ego/renderer`.
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |

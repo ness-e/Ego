@@ -4,6 +4,7 @@ import { EgoChat } from "../components/ego-chat";
 import { Union } from "../components/union";
 import { SubEgosView } from "../components/sub-egos";
 import { Sidebar } from "../components/sidebar";
+import { SubEgoSelector } from "../components/SubEgoSelector";
 
 export function App() {
   const [activeWidgetState] = useState<"idle" | "working" | "approval">("idle");
@@ -79,9 +80,15 @@ export function App() {
 
         {/* Panel 1: Conversation River (Chat) */}
         <section className="flex flex-1 flex-col min-w-[380px] max-w-[550px] bg-paper">
-          <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-3 text-xs text-faint">
-            <span className="font-medium text-ink">Conversation River</span>
-            <span className="text-[10px] text-dim">@assistant-ui/react</span>
+          <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-3 text-xs text-faint">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-ink text-xs">Chat</span>
+              <SubEgoSelector
+                activeSubEgoId={activeSubEgo}
+                onSelectSubEgo={(id) => setActiveSubEgo(id)}
+              />
+            </div>
+            <span className="text-[10px] text-dim font-mono">River</span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             <EgoChat key={sessionNonce} projectId={activeProject} subEgoId={activeSubEgo} />

@@ -15,6 +15,7 @@ import {
   Cpu,
 } from "@phosphor-icons/react";
 import { ego, SubEgoDetailInfo, DomainTemplateInfo } from "../lib/ego";
+import { CharacterBadge } from "./character/CharacterBadge.js";
 
 export function SubEgosView() {
   const [subEgos, setSubEgos] = useState<SubEgoDetailInfo[]>([]);
@@ -296,10 +297,8 @@ export function SubEgosView() {
               >
                 <div>
                   <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-raised border border-hairline text-ink font-bold text-xs">
-                        {se.name.charAt(0)}
-                      </div>
+                    <div className="flex items-center gap-2.5">
+                      <CharacterBadge subEgoId={se.id} size={28} state="idle" />
                       <div className="flex flex-col">
                         <h3 className="font-semibold text-ink text-xs leading-tight">{se.name}</h3>
                         <span className="font-mono text-[10px] text-dim">{se.id}</span>
@@ -462,9 +461,10 @@ export function SubEgosView() {
                               : "border-hairline bg-paper text-faint hover:border-hairline/80 hover:text-ink"
                           }`}
                         >
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CharacterBadge subEgoId={tpl.id || tpl.templateId} size={20} state="idle" />
                             <span className="font-semibold text-xs text-ink">{tpl.name}</span>
-                            <span className="font-mono text-[9px] rounded bg-raised px-1 py-0.2 uppercase text-dim">
+                            <span className="ml-auto font-mono text-[9px] rounded bg-raised px-1 py-0.2 uppercase text-dim">
                               {tpl.domain}
                             </span>
                           </div>
