@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ego & Sub-Egos — Visor de Personajes y Guardarropa Coucou Mochi</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #131b2e;
+      --card-border: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --accent: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 2rem; min-height: 100vh; }
+    .header { max-width: 1200px; margin: 0 auto 2rem; text-align: center; }
+    .header h1 { font-size: 2.2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+    .header p { color: var(--text-muted); font-size: 1rem; }
+    
+    .grid { display: grid; grid-template-columns: 420px 1fr; gap: 2rem; max-width: 1200px; margin: 0 auto; }
+    .panel { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.5rem; }
+    
+    .stage { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; position: relative; }
+    canvas#stageCanvas { background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); cursor: pointer; }
+    .stage-hint { margin-top: 1rem; color: var(--text-muted); font-size: 0.85rem; }
+
+    .control-group { margin-bottom: 1.5rem; }
+    .control-group h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.75rem; }
+    .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .chip { background: #1e293b; border: 1px solid #334155; color: var(--text); padding: 0.5rem 0.9rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+    .chip:hover { background: #334155; }
+    .chip.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+    
+    .subegos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; }
+    .subego-card { background: #1a2236; border: 1px solid #2d3748; border-radius: 12px; padding: 1rem; text-align: center; cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
+    .subego-card:hover { transform: translateY(-2px); border-color: var(--primary); }
+    .subego-card.active { border-color: var(--accent); background: #1f2942; }
+    .subego-card canvas { margin: 0 auto 0.5rem; display: block; }
+    .subego-name { font-size: 0.9rem; font-weight: 600; }
+    .subego-role { font-size: 0.75rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Ego & Sub-Egos — Visualizador Procedural Coucou Mochi</h1>
+    <p>Motor Canvas 2D en tiempo real (EXP=2.7 superelipsoide) con física de resortes, expresiones y guardarropa modular.</p>
+  </div>
+
+  <div class="grid">
+    <!-- Panel del Escenario Principal -->
+    <div class="panel stage">
+      <canvas id="stageCanvas" width="340" height="340"></canvas>
+      <div class="stage-hint">Mueve el cursor para interactuar • Haz clic para reaccionar</div>
+    </div>
+
+    <!-- Panel de Controles -->
+    <div class="panel">
+      <!-- Especialistas / Sub-Egos -->
+      <div class="control-group">
+        <h3>Especialista Activo (Sub-Ego)</h3>
+        <div class="subegos-grid" id="subegosContainer"></div>
+      </div>
+
+      <!-- Estados Cognitivos -->
+      <div class="control-group">
+        <h3>Estado Cognitivo</h3>
+        <div class="chips" id="statesContainer"></div>
+      </div>
+
+      <!-- Guardarropa / Outfits -->
+      <div class="control-group">
+        <h3>Guardarropa / Outfit</h3>
+        <div class="chips" id="outfitsContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Parámetros y Geometría Canónica de Coucou
+    const EXP = 2.7;
+    const VIEW_TILT = -0.30;
+    const ACC_PITCH = 0.4;
+    const EYE_W = 0.25, EYE_H = 0.27, EYE_SP = 0.37, EYE_P = -0.12;
+
+    function ringR(y) { const a = Math.min(1, Math.abs(y)); return Math.pow(1 - Math.pow(a, EXP), 1 / EXP); }
+    function rot(p, yaw, pitch) {
+      let [x, y, z] = p;
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+      let x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+      let y2 = y * cp + z1 * sp, z2 = -y * sp + z1 * cp;
+      return [x1, y2, z2];
+    }
+    function proj(H, p) {
+      const r = rot(p, H.yaw, (H.view || 0) + H.pitch * ACC_PITCH);
+      return { x: r[0] * H.rx, y: -r[1] * H.ry, z: r[2] };
+    }
+    function surf(y, lon, s = 1) { const r = ringR(y) * s; return [r * Math.sin(lon), y, r * Math.cos(lon)]; }
+
+    function mochiPath(rx, ry) {
+      const p = new Path2D(); const n = 96, e = 2 / EXP;
+      for (let i = 0; i <= n; i++) {
+        const a = (i / n) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+        const x = rx * Math.sign(ca) * Math.pow(Math.abs(ca), e);
+        const y = ry * Math.sign(sa) * Math.pow(Math.abs(sa), e);
+        if (i === 0) p.moveTo(x, y); else p.lineTo(x, y);
+      }
+      p.closePath(); return p;
+    }
+
+    function lin(ctx, x0, y0, x1, y1, stops) {
+      const g = ctx.createLinearGradient(x0, y0, x1, y1);
+      stops.forEach(([o, c]) => g.addColorStop(o, c)); return g;
+    }
+    function rad(ctx, x, y, r0, r1, stops) {
+      const g = ctx.createRadialGradient(x, y, r0, x, y, r1);
+      stops.forEach(([o, c]) => g.addColorStop(o, c)); return g;
+    }
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    }
+
+    function eyeFrames(H) {
+      const out = [];
+      for (const sd of [-1, 1]) {
+        const eyeYaw = sd * EYE_SP + H.yaw;
+        const eyePitch = EYE_P + H.pitch;
+        const cp = Math.cos(eyePitch);
+        const visible = Math.cos(eyeYaw) * cp > 0.04;
+        out.push({
+          sd, visible,
+          x: Math.sin(eyeYaw) * cp * H.rx,
+          y: -Math.sin(eyePitch) * H.ry,
+          fx: Math.max(0.18, Math.cos(eyeYaw)),
+          fy: Math.max(0.18, cp),
+          w: H.R * EYE_W, h: H.R * EYE_H,
+        });
+      }
+      return out;
+    }
+
+    function frontArc(H, y, s) {
+      const pts = [];
+      for (let i = 0; i <= 120; i++) {
+        const lon = -Math.PI + (i / 120) * 2 * Math.PI;
+        const pt = { lon, ...proj(H, surf(y, lon, s)) };
+        if (pt.z >= -0.02) pts.push(pt);
+      }
+      pts.sort((a, b) => a.x - b.x);
+      return pts;
+    }
+
+    function capClip(H, y, s, extraTop = 3) {
+      const arc = frontArc(H, y, s);
+      const p = new Path2D();
+      if (arc.length === 0) return p;
+      p.moveTo(arc[0].x - H.rx, arc[0].y);
+      for (const q of arc) p.lineTo(q.x, q.y);
+      p.lineTo(arc[arc.length - 1].x + H.rx, arc[arc.length - 1].y);
+      p.lineTo(H.rx * 2, -H.ry * extraTop); p.lineTo(-H.rx * 2, -H.ry * extraTop); p.closePath();
+      return p;
+    }
+
+    function pompom(ctx, x, y, r, base = '#FFFFFF', shade = '#D5D9E2') {
+      ctx.save(); ctx.translate(x, y);
+      for (let i = 0; i < 11; i++) {
+        const a = (i / 11) * Math.PI * 2, br = r * (0.34 + 0.06 * Math.sin(i * 2.3));
+        const bx = Math.cos(a) * r * 0.78, by = Math.sin(a) * r * 0.78;
+        ctx.fillStyle = rad(ctx, bx - br * 0.4, by - br * 0.5, 0, br * 1.3, [[0, base], [1, shade]]);
+        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = rad(ctx, -r * 0.3, -r * 0.35, 0, r * 1.05, [[0, base], [0.7, base], [1, shade]]);
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.86, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // Outfits Registro
+    const OUTFITS = {
+      beanie: {
+        front(ctx, H, path) {
+          const s = 1.035, yEdge = 0.42, yCuff = 0.58;
+          const head = mochiPath(H.rx * s, H.ry * s);
+          ctx.save(); ctx.clip(capClip(H, yCuff, s));
+          ctx.fillStyle = lin(ctx, H.rx * 0.5, -H.ry * 1.1, -H.rx * 0.6, H.ry * 0.2, [[0, '#7DB6FF'], [1, '#2F6FE0']]);
+          ctx.fill(head); ctx.restore();
+          const top = proj(H, [0, 1.08 * s, 0]);
+          pompom(ctx, top.x, top.y - H.R * 0.12, H.R * 0.24);
+        }
+      },
+      partyHat: {
+        front(ctx, H) {
+          const c = proj(H, [0.16, 0.88, 0]);
+          const apex = { x: c.x - H.rx * 0.2, y: c.y - H.ry * 1.5 };
+          const cone = new Path2D();
+          cone.moveTo(c.x - H.rx * 0.45, c.y);
+          cone.lineTo(apex.x, apex.y);
+          cone.lineTo(c.x + H.rx * 0.45, c.y);
+          cone.closePath();
+          ctx.fillStyle = lin(ctx, c.x - H.rx * 0.45, apex.y, c.x + H.rx * 0.45, c.y, [[0, '#FF9BD0'], [1, '#C2187A']]);
+          ctx.fill(cone);
+          pompom(ctx, apex.x, apex.y - H.R * 0.04, H.R * 0.16, '#FFE27A', '#F2B705');
+        }
+      },
+      crown: {
+        front(ctx, H) {
+          const c = proj(H, [0, 0.75, 0]);
+          const shape = new Path2D();
+          const w = H.rx * 0.85, h = H.ry * 0.45;
+          shape.moveTo(c.x - w, c.y);
+          shape.lineTo(c.x - w * 0.9, c.y - h);
+          shape.lineTo(c.x - w * 0.4, c.y - h * 0.5);
+          shape.lineTo(c.x, c.y - h * 1.2);
+          shape.lineTo(c.x + w * 0.4, c.y - h * 0.5);
+          shape.lineTo(c.x + w * 0.9, c.y - h);
+          shape.lineTo(c.x + w, c.y);
+          shape.closePath();
+          ctx.fillStyle = lin(ctx, c.x, c.y - h * 1.2, c.x, c.y, [[0, '#FFE58A'], [0.5, '#FBBF24'], [1, '#D08A0B']]);
+          ctx.fill(shape);
+        }
+      },
+      sunglasses: {
+        front(ctx, H, path) {
+          const eyes = eyeFrames(H);
+          const w = H.R * 0.62, h = H.R * 0.46;
+          for (const e of eyes) {
+            if (!e.visible) continue;
+            ctx.save(); ctx.translate(e.x, e.y); ctx.scale(e.fx, e.fy);
+            roundRect(ctx, -w / 2, -h / 2, w, h, h * 0.4);
+            ctx.fillStyle = 'rgba(17,19,23,0.85)'; ctx.fill();
+            ctx.lineWidth = H.R * 0.05; ctx.strokeStyle = '#0B0C0F'; ctx.stroke();
+            ctx.restore();
+          }
+        }
+      },
+      roundGlasses: {
+        front(ctx, H) {
+          const eyes = eyeFrames(H);
+          const d = H.R * 0.56;
+          for (const e of eyes) {
+            if (!e.visible) continue;
+            ctx.save(); ctx.translate(e.x, e.y); ctx.scale(e.fx, e.fy);
+            ctx.beginPath(); ctx.arc(0, 0, d / 2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(190,225,255,0.18)'; ctx.fill();
+            ctx.lineWidth = H.R * 0.06; ctx.strokeStyle = '#8A4B12'; ctx.stroke();
+            ctx.restore();
+          }
+        }
+      },
+      scarf: {
+        front(ctx, H) {
+          const k = proj(H, surf(-0.45, 0, 1.04));
+          const w = H.rx * 0.9, h = H.ry * 0.35;
+          ctx.save(); ctx.translate(k.x, k.y);
+          roundRect(ctx, -w, -h / 2, w * 2, h, h * 0.4);
+          ctx.fillStyle = lin(ctx, 0, -h / 2, 0, h / 2, [[0, '#F87171'], [1, '#B91C1C']]);
+          ctx.fill();
+          ctx.restore();
+        }
+      },
+      bow: {
+        front(ctx, H) {
+          const a = proj(H, surf(0.86, 0.55, 1.02));
+          const s = H.R * 0.28;
+          ctx.save(); ctx.translate(a.x, a.y);
+          ctx.fillStyle = '#FF8CC6';
+          ctx.beginPath(); ctx.arc(-s * 0.6, 0, s * 0.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(s * 0.6, 0, s * 0.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#DB2777';
+          ctx.beginPath(); ctx.arc(0, 0, s * 0.3, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+      }
+    };
+
+    // Sub-Egos Presets
+    const SUBEGOS = [
+      { id: 'nucleus', name: 'Ego Nucleus', role: 'Meta-Ego Orquestador', top: '#EDEDEF', bot: '#C4C5CA', eye: 'pill', outfit: null },
+      { id: 'dev', name: 'Engineering Dev', role: 'Código y Arquitectura', top: '#3B82F6', bot: '#1D4ED8', eye: 'wide', outfit: 'sunglasses' },
+      { id: 'finance', name: 'Finance / Legal', role: 'Gobernanza y Costos', top: '#10B981', bot: '#047857', eye: 'dot', outfit: 'roundGlasses' },
+      { id: 'creative', name: 'Creative Designer', role: 'UX/UI y Copywriting', top: '#F59E0B', bot: '#D97706', eye: 'happy', outfit: 'partyHat' },
+      { id: 'strategy', name: 'Product Strategy', role: 'Roadmap y Mercado', top: '#8B5CF6', bot: '#6D28D9', eye: 'star', outfit: 'crown' },
+      { id: 'support', name: 'Support & Care', role: 'Asistencia y Feedback', top: '#EC4899', bot: '#BE185D', eye: 'heart', outfit: 'scarf' },
+    ];
+
+    const STATES = ['idle', 'working', 'thinking', 'searching', 'approval', 'question', 'error', 'finished'];
+    const OUTFIT_KEYS = ['none', 'beanie', 'partyHat', 'crown', 'sunglasses', 'roundGlasses', 'scarf', 'bow'];
+
+    // Estado Global de la App
+    let activeSubEgo = SUBEGOS[0];
+    let activeState = 'idle';
+    let activeOutfit = null;
+    let targetYaw = 0, targetPitch = 0, curYaw = 0, curPitch = 0;
+    let breath = 0;
+
+    const canvas = document.getElementById('stageCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Inicializar UI
+    const subegosBox = document.getElementById('subegosContainer');
+    SUBEGOS.forEach(se => {
+      const card = document.createElement('div');
+      card.className = `subego-card ${se.id === activeSubEgo.id ? 'active' : ''}`;
+      card.innerHTML = `<canvas width="48" height="48" id="mini_${se.id}"></canvas><div class="subego-name">${se.name}</div><div class="subego-role">${se.role}</div>`;
+      card.onclick = () => {
+        activeSubEgo = se;
+        activeOutfit = se.outfit;
+        document.querySelectorAll('.subego-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        renderControls();
+      };
+      subegosBox.appendChild(card);
+    });
+
+    function renderControls() {
+      const statesBox = document.getElementById('statesContainer');
+      statesBox.innerHTML = '';
+      STATES.forEach(st => {
+        const chip = document.createElement('div');
+        chip.className = `chip ${st === activeState ? 'active' : ''}`;
+        chip.textContent = st;
+        chip.onclick = () => { activeState = st; renderControls(); };
+        statesBox.appendChild(chip);
+      });
+
+      const outfitsBox = document.getElementById('outfitsContainer');
+      outfitsBox.innerHTML = '';
+      OUTFIT_KEYS.forEach(ofk => {
+        const chip = document.createElement('div');
+        const isActive = (ofk === 'none' && !activeOutfit) || (ofk === activeOutfit);
+        chip.className = `chip ${isActive ? 'active' : ''}`;
+        chip.textContent = ofk;
+        chip.onclick = () => { activeOutfit = ofk === 'none' ? null : ofk; renderControls(); };
+        outfitsBox.appendChild(chip);
+      });
+    }
+
+    renderControls();
+
+    // Loop de renderizado
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      targetYaw = ((e.clientX - rect.left) / rect.width - 0.5) * 1.2;
+      targetPitch = ((e.clientY - rect.top) / rect.height - 0.5) * 0.8;
+    });
+    canvas.addEventListener('mouseleave', () => { targetYaw = 0; targetPitch = 0; });
+
+    function drawBot(c, w, h, subego, outfitId, yaw, pitch, bOffset = 0) {
+      const R = w * 0.3;
+      const rx = R * 1.14;
+      const ry = R * 0.88;
+      const H = { R, rx, ry, yaw, pitch, view: VIEW_TILT, phys: { dx: 0, dy: 0 } };
+
+      c.save();
+      c.translate(w / 2, h / 2 + bOffset);
+
+      const path = mochiPath(rx, ry);
+      c.fillStyle = lin(c, rx * 0.7, -ry * 0.85, -rx * 0.8, ry * 0.9, [[0, subego.top], [1, subego.bot]]);
+      c.fill(path);
+
+      c.fillStyle = rad(c, 0, 0, R * 0.15, R * 1.25, [[0, 'rgba(0,0,0,0)'], [0.6, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.2)']]);
+      c.fill(path);
+
+      // Ojos
+      c.save(); c.clip(path);
+      for (const e of eyeFrames(H)) {
+        if (!e.visible) continue;
+        c.save(); c.translate(e.x, e.y); c.scale(e.fx, e.fy);
+        c.fillStyle = '#1A1412';
+        const ew = e.w, eh = e.h;
+        if (subego.eye === 'heart') {
+          c.beginPath(); c.arc(0, 0, ew * 0.4, 0, Math.PI * 2); c.fill();
+        } else if (subego.eye === 'star' || subego.eye === 'happy') {
+          c.beginPath(); c.arc(0, eh * 0.1, ew * 0.48, Math.PI * 1.15, Math.PI * 1.85);
+          c.lineWidth = R * 0.08; c.strokeStyle = '#1A1412'; c.stroke();
+        } else {
+          roundRect(c, -ew / 2, -eh / 2, ew, eh, Math.min(ew, eh) / 2);
+          c.fill();
+        }
+        c.restore();
+      }
+      c.restore();
+
+      // Outfit
+      if (outfitId && OUTFITS[outfitId]) {
+        OUTFITS[outfitId].front(c, H, path);
+      }
+
+      c.restore();
+    }
+
+    function renderStage() {
+      curYaw += (targetYaw - curYaw) * 0.1;
+      curPitch += (targetPitch - curPitch) * 0.1;
+      breath += 0.04;
+      const bOffset = Math.sin(breath) * 3;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBot(ctx, canvas.width, canvas.height, activeSubEgo, activeOutfit, curYaw, curPitch, bOffset);
+
+      // Mini bots en tarjetas
+      SUBEGOS.forEach(se => {
+        const miniCan = document.getElementById(`mini_${se.id}`);
+        if (miniCan) {
+          const mctx = miniCan.getContext('2d');
+          mctx.clearRect(0, 0, 48, 48);
+          drawBot(mctx, 48, 48, se, se.outfit, 0, 0, 0);
+        }
+      });
+
+      requestAnimationFrame(renderStage);
+    }
+
+    renderStage();
+  </script>
+</body>
+</html>

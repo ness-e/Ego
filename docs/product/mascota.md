@@ -10,7 +10,7 @@
 | Regla Fundamental | **El personaje es una capa visual del Cognitive Runtime procedural en código, NO imágenes generadas por IA** |
 | Ubicación en Código | `apps/desktop/renderer/components/character/` y `apps/desktop/renderer/components/activity-widget/` |
 
-> **Dirección artística canónica (2026-10-08):** Ego es una **criatura/bot original, carismática y limpia, con anatomía amigable (cabeza, ojos expresivos, boca y manitas/brazos gesticulantes)**, en la tradición de mascotas de escritorio como Coucou/Mochi pero con identidad propia. No es humano (no usa trajes, corbatas ni ropa de tela) ni tampoco un ente abstracto o logotipo frío. La silueta definitiva se elige en `CHAR-03`. Ver [`character-art-direction.md`](character-art-direction.md).
+> **Dirección artística canónica (Restaurada Oct 2026):** Ego y sus Sub-Egos se basan en la arquitectura procedural probada de **Coucou Mochi**: un bot/criatura carismático de silueta squircle (superelipsoide EXP=2.7) con cabeza 3D cabeceante, rostro hiper-expresivo (13 estados de ojos, boca reactiva), manos gesticulantes y un sistema integral de personalización de 6 capas (`Wardrobe`: accesorios, gorros, gafas, bufandas, lazos y distintivos). Cada Sub-Ego se distingue por su color, accesorios de especialidad, cinemática y tono, manteniendo la calidez, dinamismo y cero fatiga visual. Ver [`character-art-direction.md`](character-art-direction.md).
 
 ---
 
@@ -155,45 +155,41 @@ Cada manifestación visual se define mediante una estructura fuertemente tipada:
 ```ts
 export interface CharacterDNA {
   /**
-   * Identificador de la familia visual. Valor definitivo pendiente de CHAR-03.
-   * Todos los Sub-Egos comparten la misma familia; difieren por parámetros.
+   * Familia visual canónica: 'mochi-squircle' (basada en el superelipsoide EXP=2.7 de Coucou).
    */
-  family: string;
+  family: "mochi-squircle";
 
-  /** Anatomía y geometría del cuerpo (silueta definida por CHAR-03, no por defecto squircle) */
+  /** Anatomía y geometría del cuerpo squircle */
   body: {
-    silhouetteId: string; // referencia a una silueta registrada de la familia
-    width: number;
-    height: number;
-    proportions: Record<string, number>; // ejes propios de la silueta elegida
-    morphRatio: number; // 0 = orgánico, 1 = angular
+    baseRadius: number; // Radio de escala base
+    morphRatio?: number; // 0 = orgánico, 1 = angular
   };
 
-  /** Rostro/órgano sensorial y proyección visual */
+  /** Rostro y órganos sensoriales */
   face: {
-    eyeStyle: "dot" | "visor" | "ring" | "digital-glow";
-    eyeSize: number;
+    eyeShape: "pill" | "wide" | "dot" | "line" | "flat" | "happy" | "closed" | "spiral" | "heart" | "star" | "tired" | "wink" | "cup";
     eyeSpacing: number;
-    pupilDilation: number;
-    mouthStyle: "none" | "line" | "curve" | "digital";
+    hasBlush: boolean;
   };
 
-  /** Paleta cromática coordinada (nunca el único canal de información: accesibilidad) */
+  /** Paleta cromática coordinada */
   palette: {
-    primary: string;    // Color del cuerpo
-    secondary: string;  // Detalles y sombra
-    accent: string;     // Color de energía/ojos
-    neutral: string;    // Fondo o contraste
+    primary: string;    // Color superior del cuerpo (gradiente)
+    secondary: string;  // Color inferior del cuerpo (sombra)
+    accent: string;     // Color de ojos/energía
   };
 
   /**
-   * Rasgos anatómicos de la criatura (apéndices, crestas, órganos sensoriales).
-   * Sustituye a la antigua capa de vestimenta humana (`outfit`/`accessories`).
-   * Cada rasgo declara su capa de render (`back` | `body` | `front`).
+   * Capa de Guardarropa y Personalización (Wardrobe / Outfits de Coucou):
+   * Permite equipar accesorios y atuendos procedurales.
    */
-  traits: TraitConfig[];
+  wardrobe?: {
+    outfitId?: "beanie" | "santaHat" | "partyHat" | "crown" | "witchHat" | "pumpkin";
+    eyewearId?: "sunglasses" | "roundGlasses";
+    neckwearId?: "scarf" | "bow";
+  };
 
-  /** Parámetros de personalidad visual (0.0 a 1.0) */
+  /** Parámetros de personalidad y física cinética (0.0 a 1.0) */
   personality: {
     energy: number;       // Velocidad y amplitud de movimientos
     seriousness: number;  // Tensión postural y firmeza de la mirada
@@ -201,38 +197,29 @@ export interface CharacterDNA {
     playfulness: number;  // Frecuencia de rebotes y curiosidad
     curiosity: number;    // Amplitud de inclinación (tilt/head-roll)
   };
-
-  /** Mapeo de animaciones reactivas */
-  behavior: {
-    idleAnimation: "calm-breathe" | "attentive-float" | "focused-scan";
-    thinkingAnimation: "orbital-pulsing" | "head-tilt-compute" | "fast-blink";
-    successAnimation: "jump-glow" | "nod-spark" | "cheerful-bounce";
-    errorAnimation: "dizzy-shake" | "sweat-drop" | "glitch-recenter";
-    attentionAnimation: "wave-front" | "badge-pulse" | "direct-stare";
-  };
 }
 ```
 
 ---
 
-## 8. Presets Fundacionales de Sub-Egos (arquetipos de comportamiento)
+## 8. Presets Fundacionales de Sub-Egos (Paleta y Guardarropa Especializado)
 
-> **Corrección 2026-10-08:** los presets anteriores describían oficios humanos (gafas, corbatas, visores) y una silueta squircle. Ahora son **arquetipos de comportamiento y proporción de una misma criatura**. La anatomía concreta (rasgos, silueta) queda pendiente de `CHAR-03`; los valores de `personality` y `behavior` son orientativos y se recalibran tras esa decisión.
+Cada Sub-Ego se distingue inmediatamente por su paleta cromática, accesorios especializados y cinemática:
 
-Cada preset define solo **ejes de diferenciación** (proporción, `traits`, acento cromático, ritmo de movimiento, estilo de mirada), nunca vestimenta:
+| Preset | Dominios típicos | Paleta Primaria | Outfit / Accesorio Sugerido | Tono / Movimiento |
+|---|---|---|---|---|
+| `Preset-Core` | Ego Nucleus | `#EDEDEF` / `#C4C5CA` (Plata limpio) | Neutro / Sin accesorio | Calmo, reflexivo, pulso suave |
+| `Preset-Technical` | Ingeniería, DevOps | `#3B82F6` / `#1D4ED8` (Azul eléctrico) | `sunglasses` o `beanie` | Enfocado, cabeceo rápido |
+| `Preset-Rigorous` | Finanzas, Legal | `#10B981` / `#047857` (Esmeralda oscuro) | `roundGlasses` | Firme, mirada directa |
+| `Preset-Creative` | Diseño, Copywriting | `#F59E0B` / `#D97706` (Ámbar vibrante) | `partyHat` o `bow` | Elástico, ojos `happy` / `star` |
+| `Preset-Strategic` | Estrategia, Producto | `#8B5CF6` / `#6D28D9` (Púrpura real) | `crown` | Pausado, postura erguida |
+| `Preset-Warm` | Soporte, CRM | `#EC4899` / `#BE185D` (Rosa cálido) | `scarf` | Acogedor, parpadeo frecuente |
 
 | Preset | Dominios típicos | Proporción / ritmo | Personalidad dominante |
 |---|---|---|---|
-| `Preset-Rigorous` | Finanzas, Legal | compacto, movimiento contenido, mirada fija | `seriousness` 0.9 |
-| `Preset-Technical` | Ingeniería, DevOps | ligeramente alargado, inclinación hacia adelante, acento frío | `curiosity` 0.8 |
-| `Preset-Creative` | Diseño, Copywriting | asimétrico suave, rebote expresivo, acento cálido | `energy` 0.7 |
-| `Preset-Strategic` | Estrategia, Producto | equilibrado, pausado, acento sobrio | `seriousness` 0.6 |
-| `Preset-Warm` | Soporte, CRM | redondeado, mirada amplia, acento cálido suave | `warmth` 0.9 |
-| `Preset-Core` | Ego (coordinador) | forma base neutra, sin rasgos adicionales, respiración serena | equilibrado |
-| `Preset-Analytical` | Research, Criptografía | proporciones angulosas del ADN, pulso orbital | `curiosity` 0.7 |
-| `Preset-Explorer` | Exploración, Brainstorming | elástico, gestos rápidos de atención | `playfulness` 0.8 |
 
 ---
+
 
 ## 9. Desacoplamiento Arquitectónico Total
 

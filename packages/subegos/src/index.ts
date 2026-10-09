@@ -4,3 +4,6 @@ export * from "./templates/domainTemplates.js";
 export * from "./SubEgoFactory.js";
 export * from "./SubEgoRuntime.js";
 export * from "./SubEgoMemoryGuard.js";
+export * from "./SharedMemory.js";
+export * from "./SubEgoRegistry.js";
+export * from "./SubEgoSoul.js";

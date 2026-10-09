@@ -58,6 +58,23 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 > **Estado actual:** 4 de 12 tareas completadas (`SUB-01`, `SUB-02`, `SUB-03`, `SUB-04`). Siguiente hito en curso: Registro y catálogo de Sub-Egos en namespace `gov/sub_egos` (`SUB-07`).
 **Criterio de aceptación:** Múltiples Sub-Egos cooperan para resolver una tarea sin que el usuario intervenga en la orquestación.
 
+### Fase 03.1: Integración Operativa & Convergencia MVP
+**Objetivo:** Cerrar el circuito operativo de extremo a extremo en la aplicación de escritorio (`apps/desktop`): conectar el fast-path conversacional a `ToolExecutionLoop`, habilitar proveedores reales BYOK, aislar el contexto por entidad de proyecto y validar el bucle completo del caso de uso ancla (Ingeniería de Software).
+1. Cableado del Fast-Path `ToolExecutionLoop` en `main.ts` (`INT-01`).
+2. Conexión de Proveedores Reales y BYOK en Desktop (`INT-02`).
+3. Entidad `Project` y Aislamiento de Contexto Dinámico en UI (`INT-03`).
+4. Integración UI de Sub-Egos (`SubEgosView` ↔ Fábrica y Runtime) (`INT-04`).
+5. Tarjetas de Aprobación HITL Interactivas en el Chat (`ActionApprovalCard.tsx`) (`INT-05`).
+6. Validación E2E del Bucle Completo de MVP (Software Engineering) (`INT-06`).
+- [ ] El fast-path conversacional de Electron delega la inferencia a `ToolExecutionLoop`.
+- [ ] Proveedores reales (OpenAI, Anthropic, Ollama) operan en desktop mediante claves BYOK.
+- [ ] El selector de proyectos en el sidebar aísla memoria, scratchpads y contexto.
+- [ ] La interfaz de Sub-Egos se conecta en vivo con la fábrica y el runtime.
+- [ ] Las acciones sensibles muestran tarjetas interactivas de aprobación humana en el chat.
+- [ ] El caso de uso ancla de ingeniería de software queda validado de extremo a extremo con persistencia intacta.
+> **Estado actual:** 0 de 6 tareas completadas (`INT-01..06`).
+**Criterio de aceptación:** Un usuario puede crear un proyecto de software, conectar su proveedor real, delegar a un Sub-Ego una tarea de lectura/escritura de código con aprobación HITL interactiva y recuperar el estado completo tras reiniciar Ego Desktop. — Guía canónica: `docs/product/guia-mvp.md`.
+
 ### Fase 04: Dynamic Workspace/Canvas
 **Objetivo:** Proveer una interfaz dinámica generativa.
 1. Esquema de componentes UI generables.
