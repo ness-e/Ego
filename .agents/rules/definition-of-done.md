@@ -1,6 +1,6 @@
 # Definition of Done (DoD) — Quality Gate Rule
 
-Ninguna tarea se considera terminada ni apta para merge sin cumplir los 6 criterios obligatorios:
+Ninguna tarea se considera terminada ni apta para merge sin cumplir los 7 criterios obligatorios:
 
 1. **Implementación Completa:** El código satisface todos los requisitos funcionales de la tarea sin placeholders ni comentarios `// TODO: implement later`.
 2. **Sin Errores de Tipado ni Compilación:** Los checkers estáticos del lenguaje pasan con 0 errores (ej. `tsc --noEmit`, `cargo check`, `mypy`).
@@ -8,3 +8,5 @@ Ninguna tarea se considera terminada ni apta para merge sin cumplir los 6 criter
 4. **Cero Regresiones:** Los tests existentes continúan pasando exitosamente.
 5. **Documentación Sincronizada:** Si se modificó una interfaz pública, contrato o configuración, la documentación fue actualizada en el mismo turno.
 6. **Revisión de Seguridad:** Sin secretos, credenciales ni claves de API en el código fuente.
+7. **Gobernanza Upstream VantaDB Sincronizada:** Si la tarea identificó bugs, fricciones, limitaciones o introdujo un workaround sobre `NativeVantaDB` o `vantadb-mcp`, el hallazgo debe estar catalogado formalmente en `docs/VANTADB-FEEDBACK-Y-MEJORAS.md` con su ID canónico (`VDB-*`).
+

@@ -14,7 +14,7 @@ Los agentes no cargan la carpeta completa en su contexto:
 
 ---
 
-## Catálogo Canónico de Reglas de Ego (10 Reglas)
+## Catálogo Canónico de Reglas de Ego (11 Reglas)
 
 | # | Archivo | Alcance (Scope) | Propósito Normativo |
 |---|---|---|---|
@@ -28,6 +28,7 @@ Los agentes no cargan la carpeta completa en su contexto:
 | 8 | `memory-budget.md` | `packages/memory/`, límites RSS | Gestión de memoria in-process, prevención de fugas y topes de buffers. |
 | 9 | `namespaces-jev.md` | `packages/memory/`, `packages/decision/` | Jerarquía de namespaces VantaDB y enrutamiento con Decision Intelligence. |
 | 10 | `task-lifecycle.md` | `docs/agent-ops/`, `task-system/` | Máquina de estados C0 (`PENDING` → `IN PROGRESS` → `COMPLETED` / `DISCARDED`). |
+| 11 | `vantadb-governance.md` | `packages/memory/`, sustrato VantaDB | Registro canónico obligatorio de fallos, workarounds y requerimientos upstream. |
 
 ---
 

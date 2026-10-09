@@ -151,6 +151,13 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 
 * **Estado canónico `🚫 Descartada (con justificación)`:** Si durante la inspección de una compuerta o tarea se concluye que un patrón, herramienta o feature es redundante, incompatible con los 10 principios de Ego o introduce sobreingeniería, la tarea debe marcarse explícitamente como `🚫 Descartada (con justificación)`. Se debe asentar en la ficha técnica y en el backlog correspondiente la evidencia técnica del descarte (trade-offs, FMEA o incompatibilidad arquitectónica). Prohibido dejar tareas en el limbo o borrarlas silenciosamente.
 
+### Gobernanza de VantaDB y Registro Upstream Obligatorio
+
+* **Registro Canónico de Hallazgos (`docs/VANTADB-FEEDBACK-Y-MEJORAS.md`):** Todo error, bug, fallo de tipado/deserialización, bloqueo de descriptores de archivos, discrepancia entre documentación y comportamiento real, limitación del motor nativo (`NativeVantaDB` napi-rs / Fjall LSM) o del subproceso `vantadb-mcp`, o cualquier workaround implementado en Ego (`EgoMemoryAdapter` u otros paquetes) para sortear una deficiencia del motor, DEBE registrarse obligatoriamente en `docs/VANTADB-FEEDBACK-Y-MEJORAS.md` con taxonomía canónica (`VDB-BUG-*`, `VDB-INC-*`, `VDB-REQ-*`).
+* **Prohibición de Workarounds Silenciosos:** Queda estrictamente prohibido implementar parches, conversiones de tipos ad-hoc o reintentos defensivos en el código de Ego que mitiguen fallos o carencias de VantaDB sin catalogar la entrada formal en `docs/VANTADB-FEEDBACK-Y-MEJORAS.md` y documentar el ID del hallazgo en el código fuente (ej. `// Workaround: VDB-BUG-01`).
+* **Requisitos Formales y Backlog Upstream:** Si una capacidad requiere evolución o nuevas APIs en VantaDB para fases posteriores (ej. `COGN-01`, `CONTRACT-01`, `ASYNC-01`), debe formalizarse en `docs/engineering/vantadb-readiness-plan.md` y mapearse al backlog técnico de VantaDB.
+* **Criterio de Cierre en Definition of Done (DoD):** Si una tarea interactúa con memoria o adaptadores de VantaDB e identifica una fricción o añade un workaround, la tarea NO puede marcarse como `COMPLETED` ni pasar el Quality Gate sin haber actualizado `docs/VANTADB-FEEDBACK-Y-MEJORAS.md`.
+
 ### Seguridad
 
 * Credenciales/API keys: Credential Manager integrado con keychain del SO. Nunca en VantaDB, renderer ni código.
