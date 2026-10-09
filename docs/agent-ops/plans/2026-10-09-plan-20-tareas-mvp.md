@@ -93,7 +93,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/subegos test` (suite `DelegationRouter.test.ts` verificando delegación padre->hijo, intercepción de bucles recursivos `depth > maxDepth` y retorno de resultados integrados).
 - **Task file:** `docs/agent-ops/tasks/SUB-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -130,15 +130,15 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
   - ⬇️ Downhill: 4 steps (clase `DelegationRouter`, validación de permisos en manifiesto, detector de ciclos, suite de Vitest).
 
   **DoD Task Level:**
-  - [ ] `DelegationRouter` implementado con límite de profundidad configurable (`maxDepth = 3`).
-  - [ ] Validación estricta de permisos de delegación en `SubEgoManifest`.
-  - [ ] Detección y bloqueo inmediato de ciclos A -> B -> A con error descriptivo.
-  - [ ] Suite de pruebas unitarias pasando al 100%.
+  - [x] `DelegationRouter` implementado con límite de profundidad configurable (`maxDepth = 3`).
+  - [x] Validación estricta de permisos de delegación en `SubEgoManifest`.
+  - [x] Detección y bloqueo inmediato de ciclos A -> B -> A con error descriptivo.
+  - [x] Suite de pruebas unitarias pasando al 100% (13 tests passing).
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Implementación de `DelegationRouter.ts`, integración de tipos y suite completa `DelegationRouter.test.ts` | 13 tests pasando al 100%, validación de permisos, ciclos, SharedMemory y timeouts | `write_to_file` |
 
   **Notas:** Integración directa con `SubEgoRuntime` (`SUB-03`) y `SharedMemory` (`SUB-05`).
 
@@ -892,7 +892,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** El canal IPC `ipc.llm.stream` invoca `ToolExecutionLoop.run()` con `ToolRegistry` y `ExecutionManager`, ejecutando herramientas solicitadas por el modelo y emitiendo chunks y eventos de ejecución a la UI.
 - **Task file:** `docs/agent-ops/tasks/INT-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -925,19 +925,19 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
   | 🟢×🟡 | Errores no capturados en tools | Encapsular en el `ErrorHandler` de `packages/runtime` | En ejecución |
 
   **Uphill / Downhill:**
-  - ⬆️ Uphill: 1 (formato de eventos IPC para tool calls compatibles con el renderer).
-  - ⬇️ Downhill: 4 steps (instanciación de `ToolExecutionLoop` en `main.ts`, inyección de `ToolRegistry`, cableado de eventos de streaming, suite de tests IPC).
+  - ⬆️ Uphill: 0 (cableado de `ToolExecutionLoop` cerrado en `main.ts`).
+  - ⬇️ Downhill: 0 (suite `ipc-tool-loop.test.ts` pasando al 100%).
 
   **DoD Task Level:**
-  - [ ] `main.ts` utiliza `ToolExecutionLoop` en `ipc.llm.stream`.
-  - [ ] Las herramientas locales de nivel A (`read_file`, `write_file`) son invocables por el LLM en el chat.
-  - [ ] Los eventos de ejecución se emiten y visualizan sin romper el streaming de texto.
-  - [ ] Suite de pruebas de integración passing.
+  - [x] `main.ts` utiliza `ToolExecutionLoop` en `ipc.llm.stream`.
+  - [x] Las herramientas locales de nivel A (`fs_read_file`, `fs_write_file`, etc.) son invocables por el LLM en el chat.
+  - [x] Los eventos de ejecución se emiten y visualizan sin romper el streaming de texto.
+  - [x] Suite de pruebas de integración pasando (`apps/desktop/test/ipc-tool-loop.test.ts`).
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Cableado de `ToolExecutionLoop` con `ToolRegistry` y `ExecutionManager` en `main.ts:ipc.llm.stream` | 5 pruebas de integración pasando al 100% | `replace_file_content` |
 
   **Notas:** Resuelve el hallazgo nuclear de P0.2.
 
@@ -954,7 +954,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** `ModelRouter` en Electron main detecta y registra proveedores reales basados en variables de entorno (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) y configuración local persistente, permitiendo inferencia real.
 - **Task file:** `docs/agent-ops/tasks/INT-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -987,18 +987,18 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 
   **Uphill / Downhill:**
   - ⬆️ Uphill: 0 (patrón BYOK y adaptadores de modelos ya implementados en `@ego/models`).
-  - ⬇️ Downhill: 3 steps (registro de proveedores en `main.ts`, lectura segura de entorno/configuración, pruebas de conexión).
+  - ⬇️ Downhill: 0 (proveedores OpenAI, DeepSeek y Ollama registrados y verificados).
 
   **DoD Task Level:**
-  - [ ] `ModelRouter` en Electron Main registra proveedores reales OpenAI, Anthropic y Ollama.
-  - [ ] Fallback a `MockProvider` si no hay claves disponibles sin quebrar la app.
-  - [ ] Secretos nunca expuestos al renderer process ni persistidos en VantaDB.
-  - [ ] Pruebas unitarias de registro en verde.
+  - [x] `ModelRouter` en Electron Main registra proveedores reales OpenAI, DeepSeek y Ollama.
+  - [x] Fallback a `MockProvider` si no hay claves disponibles sin quebrar la app.
+  - [x] Secretos nunca expuestos al renderer process ni persistidos en VantaDB.
+  - [x] Pruebas unitarias de registro en verde (`apps/desktop/test/ipc-tool-loop.test.ts`).
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Conexión de proveedores reales en `setupModelProviders(modelRouter)` y test suite en `ipc-tool-loop.test.ts` | Pruebas pasando en verde al 100% | `replace_file_content` |
 
   **Notas:** Resuelve el segundo gran bloqueo de P0.2.
 

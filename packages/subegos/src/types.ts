@@ -193,3 +193,49 @@ export interface SubEgoTurnResult<T = unknown> {
   durationMs: number;
 }
 
+/**
+ * Estados posibles de una solicitud de delegación inter-Sub-Ego (SUB-06).
+ */
+export type DelegationStatus = "completed" | "failed" | "timed_out";
+
+/**
+ * Petición de delegación entre Sub-Egos (SUB-06 / Principios §4 y §7).
+ */
+export interface DelegationRequest<TInput = unknown> {
+  /** Identificador único de la delegación (autogenerado si se omite) */
+  delegationId?: string;
+  /** Identificador del proyecto activo */
+  projectId: string;
+  /** Identificador del Sub-Ego emisor (o "system" / "user") */
+  callerEgoId: string;
+  /** Identificador del Sub-Ego destinatario */
+  targetEgoId: string;
+  /** Título o descripción concisa de la tarea a resolver */
+  task: string;
+  /** Payload de datos de entrada o parámetros de la sub-tarea */
+  input: TInput;
+  /** Clave opcional de contexto en SharedMemory bajo projects/<proj>/shared/* */
+  contextKey?: string;
+  /** Tiempo límite de espera en milisegundos */
+  timeoutMs?: number;
+  /** Metadatos opcionales de auditoría */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Resultado estructurado de una delegación inter-Sub-Ego (SUB-06).
+ */
+export interface DelegationResult<TOutput = unknown> {
+  delegationId: string;
+  projectId: string;
+  callerEgoId: string;
+  targetEgoId: string;
+  status: DelegationStatus;
+  output?: TOutput;
+  error?: string;
+  sharedContextKey?: string;
+  depth: number;
+  durationMs: number;
+  callChain: string[];
+}
+

@@ -9,7 +9,7 @@ export type ModelCapability =
   | "classification.low"
   | "streaming";
 
-export type ModelProviderId = "anthropic" | "openai" | "google" | "ollama" | "mock";
+export type ModelProviderId = "anthropic" | "openai" | "deepseek" | "google" | "ollama" | "mock";
 
 export type ModelRole =
   | "fast-classifier"  // Triage rápido y bajo coste (<300ms)

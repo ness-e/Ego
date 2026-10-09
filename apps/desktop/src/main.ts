@@ -6,10 +6,12 @@ import {
   SubEgoManifest,
   createSubEgoId,
 } from "@ego/memory";
-import { ModelRouter, ModelMessage } from "@ego/models";
-import { ToolRegistry } from "@ego/tools";
+import { ModelRouter, ModelMessage, OpenAICompatibleProvider } from "@ego/models";
+import { ToolRegistry, registerNativeTools, type ToolExecutionContext } from "@ego/tools";
 import { McpManager, SkillScanner } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
+import { ToolExecutionLoop, type LoopExecutionResult } from "@ego/runtime";
+import { ApprovalEngine, ExecutionManager, type PendingApproval } from "@ego/execution";
 import {
   MemoryOpSchema,
   CreateSubEgoSchema,
@@ -22,13 +24,14 @@ import {
   ListToolsFilterSchema,
   ScanSkillsSchema,
 } from "./ipc/schema.js";
-import { ApprovalEngine, PendingApproval } from "@ego/execution";
 
 let adapter: EgoMemoryAdapter;
 let lifecycle: EgoMemoryLifecycle;
 let modelRouter: ModelRouter;
 let approvalEngine: ApprovalEngine;
+let executionManager: ExecutionManager;
 let toolRegistry: ToolRegistry;
+let toolLoop: ToolExecutionLoop;
 let mcpManager: McpManager;
 let skillScanner: SkillScanner;
 let eventBus: EventBus;
@@ -37,6 +40,191 @@ let win: BrowserWindow | null = null;
 
 export function getEventBus(): EventBus {
   return eventBus;
+}
+
+export function getModelRouter(): ModelRouter {
+  return modelRouter;
+}
+
+export function getToolRegistry(): ToolRegistry {
+  return toolRegistry;
+}
+
+export function getToolLoop(): ToolExecutionLoop {
+  return toolLoop;
+}
+
+export function getApprovalEngine(): ApprovalEngine {
+  return approvalEngine;
+}
+
+export function getExecutionManager(): ExecutionManager {
+  return executionManager;
+}
+
+export function getLifecycle(): EgoMemoryLifecycle {
+  return lifecycle;
+}
+
+/**
+ * Registra proveedores reales y BYOK en el ModelRouter (INT-02).
+ */
+export function setupModelProviders(router: ModelRouter): void {
+  // 1. OpenAI (BYOK vía OPENAI_API_KEY)
+  if (process.env.OPENAI_API_KEY) {
+    router.registerProvider(
+      new OpenAICompatibleProvider({
+        providerId: "openai",
+        baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+        apiKey: process.env.OPENAI_API_KEY,
+      })
+    );
+  }
+
+  // 2. DeepSeek (BYOK vía DEEPSEEK_API_KEY)
+  if (process.env.DEEPSEEK_API_KEY) {
+    router.registerProvider(
+      new OpenAICompatibleProvider({
+        providerId: "deepseek",
+        baseUrl: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+        apiKey: process.env.DEEPSEEK_API_KEY,
+      })
+    );
+  }
+
+  // 3. Ollama (Local Offline por defecto)
+  router.registerProvider(
+    new OpenAICompatibleProvider({
+      providerId: "ollama",
+      baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434/v1",
+    })
+  );
+}
+
+/**
+ * Procesa una solicitud de chat ejecutando el ciclo cognitivo ToolExecutionLoop con
+ * streaming, persistencia inmutable en VantaDB y control de ejecución (INT-01).
+ */
+export async function handleLlmStream(rawReq: unknown): Promise<{
+  ok: boolean;
+  turnId: string;
+  text: string;
+  recallStatus: any;
+  usage?: any;
+  status: string;
+}> {
+  const parseResult = ChatStreamSchema.safeParse(rawReq);
+  if (!parseResult.success) {
+    throw new Error(`[IPC Security] Solicitud de chat inválida: ${parseResult.error.message}`);
+  }
+  const req = parseResult.data;
+
+  const sessionId = req.sessionId || lifecycle?.currentSessionId || "default_session";
+  const turnId = `turn_${Date.now()}`;
+  const turnStartTime = Date.now();
+
+  eventBus?.emit("task.started", {
+    taskId: turnId,
+    startedAt: turnStartTime,
+  }, {
+    source: "desktop.ipc.llm.stream",
+    sessionId,
+    traceId: turnId,
+    severity: "info",
+  });
+
+  try {
+    // FASE 2: Pre-Turn Context Assembly & Recall (Prefetch + Glifo 🧠)
+    const { contextText, recallStatus } = await lifecycle.assemblePreTurn(req.prompt);
+
+    // Informar a la UI del estado de memoria inyectada
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.chat.recall_status", recallStatus);
+    }
+
+    // Ensamblar mensajes para el modelo
+    const messages: ModelMessage[] = [];
+    const systemInstruction = [
+      "Eres Ego, un Sistema Operativo Cognitivo de élite, riguroso, analítico y local-first.",
+      req.systemPrompt || "",
+      contextText,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    messages.push({ role: "system", content: systemInstruction });
+    messages.push({ role: "user", content: req.prompt });
+
+    const execContext: ToolExecutionContext = {
+      callId: turnId,
+      sessionId,
+      projectId: req.projectId || "default_project",
+      subEgoId: req.subEgoId || "ego.nucleus",
+    };
+
+    // Ejecutar loop cognitivo multi-turno a través de ToolExecutionLoop (INT-01)
+    const loopResult: LoopExecutionResult = await toolLoop.run({
+      messages,
+      context: execContext,
+      role: "general-chat",
+      systemPrompt: systemInstruction,
+      traceId: turnId,
+      eventBus
+    });
+
+    const finalText = loopResult.finalText || "";
+
+    // Retransmitir texto final hacia la UI
+    if (finalText && win && !win.isDestroyed()) {
+      win.webContents.send("ipc.chat.delta", {
+        type: "text",
+        text: finalText,
+        delta: finalText
+      });
+    }
+
+    // FASE 4: Post-Turn Synchronization (Persistencia inmutable L1 en VantaDB)
+    const recalledKeys = recallStatus.hits.map((h) => `${h.namespace}:${h.key}`);
+    await lifecycle.syncTurn(sessionId, turnId, req.prompt, finalText, recalledKeys);
+
+    eventBus?.emit("task.completed", {
+      taskId: turnId,
+      durationMs: Date.now() - turnStartTime,
+      result: { turnId, textLength: finalText.length, usage: loopResult.usage, steps: loopResult.steps },
+    }, {
+      source: "desktop.ipc.llm.stream",
+      sessionId,
+      traceId: turnId,
+      severity: "info",
+    });
+
+    return {
+      ok: loopResult.status === "completed",
+      turnId,
+      text: finalText,
+      recallStatus,
+      usage: loopResult.usage,
+      status: loopResult.status
+    };
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.chat.error", { turnId, error: errorMsg });
+    }
+
+    eventBus?.emit("task.failed", {
+      taskId: turnId,
+      error: errorMsg,
+      code: "STREAM_ERROR",
+    }, {
+      source: "desktop.ipc.llm.stream",
+      sessionId,
+      traceId: turnId,
+      severity: "error",
+    });
+
+    throw new Error(`[Cognitive Runtime Error]: ${errorMsg}`);
+  }
 }
 
 export async function createWindow(): Promise<void> {
@@ -48,6 +236,7 @@ export async function createWindow(): Promise<void> {
   await lifecycle.startSession("session_init", "default");
 
   modelRouter = new ModelRouter();
+  setupModelProviders(modelRouter);
 
   eventBus = new EventBus();
   structuredLogger = new StructuredLogger({
@@ -57,6 +246,10 @@ export async function createWindow(): Promise<void> {
   structuredLogger.attachToEventBus(eventBus);
 
   toolRegistry = new ToolRegistry();
+  registerNativeTools(toolRegistry, {
+    workspacePath: process.env.EGO_WORKSPACE_PATH || process.cwd()
+  });
+
   mcpManager = new McpManager(toolRegistry);
   skillScanner = new SkillScanner();
 
@@ -87,6 +280,41 @@ export async function createWindow(): Promise<void> {
     onApprovalRequested: (pending: PendingApproval) => {
       win?.webContents.send("ipc.approval.request", pending);
     },
+  });
+
+  executionManager = new ExecutionManager({
+    maxConcurrentExecutions: 5,
+    defaultTimeoutMs: 60_000
+  });
+
+  toolLoop = new ToolExecutionLoop(modelRouter, toolRegistry, {
+    executionManager,
+    approvalEngine,
+    eventBus,
+    maxSteps: 8,
+    defaultRole: "general-chat",
+    onToolCall: (call) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("ipc.chat.delta", {
+          type: "tool_call",
+          callId: call.id,
+          toolName: call.name,
+          arguments: call.arguments
+        });
+      }
+    },
+    onToolResult: (res) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("ipc.chat.delta", {
+          type: "tool_result",
+          callId: res.callId,
+          toolName: res.toolName,
+          success: res.success,
+          output: res.output,
+          error: res.error
+        });
+      }
+    }
   });
 
   win = new BrowserWindow({
@@ -240,97 +468,12 @@ export async function createWindow(): Promise<void> {
     return { ok: true, actionId, confirmed, timestamp: Date.now() };
   });
 
-  // 4. Ciclo de Streaming Conversacional + Memoria Unificada (CORE-03, CORE-04, CORE-12)
+  // 4. Ciclo de Streaming Conversacional + Memoria Unificada con Tool Calling (INT-01 / CORE-03)
   ipcMain.handle("ipc.llm.stream", async (_e, rawReq: unknown) => {
-    const parseResult = ChatStreamSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de chat inválida: ${parseResult.error.message}`);
-    }
-    const req = parseResult.data;
-
-    const sessionId = req.sessionId || lifecycle.currentSessionId || "default_session";
-    const turnId = `turn_${Date.now()}`;
-    const turnStartTime = Date.now();
-
-    eventBus?.emit("task.started", {
-      taskId: turnId,
-      startedAt: turnStartTime,
-    }, {
-      source: "desktop.ipc.llm.stream",
-      sessionId,
-      traceId: turnId,
-      severity: "info",
-    });
-
-    try {
-      // FASE 2: Pre-Turn Context Assembly & Recall (Prefetch + Glifo 🧠)
-      const { contextText, recallStatus } = await lifecycle.assemblePreTurn(req.prompt);
-
-      // Informar a la UI del estado de memoria inyectada
-      win?.webContents.send("ipc.chat.recall_status", recallStatus);
-
-      // Ensamblar mensajes para el modelo
-      const messages: ModelMessage[] = [];
-      const systemInstruction = [
-        "Eres Ego, un Sistema Operativo Cognitivo de élite, riguroso, analítico y local-first.",
-        req.systemPrompt || "",
-        contextText,
-      ]
-        .filter(Boolean)
-        .join("\n\n");
-
-      messages.push({ role: "system", content: systemInstruction });
-      messages.push({ role: "user", content: req.prompt });
-
-      // Ejecutar streaming a través del ModelRouter
-      const streamResult = await modelRouter.streamText(
-        "general-chat",
-        { messages },
-        (chunk) => {
-          win?.webContents.send("ipc.chat.delta", chunk);
-        }
-      );
-
-      // FASE 4: Post-Turn Synchronization (Persistencia inmutable L1 en VantaDB)
-      const recalledKeys = recallStatus.hits.map((h) => `${h.namespace}:${h.key}`);
-      await lifecycle.syncTurn(sessionId, turnId, req.prompt, streamResult.text, recalledKeys);
-
-      eventBus?.emit("task.completed", {
-        taskId: turnId,
-        durationMs: Date.now() - turnStartTime,
-        result: { turnId, textLength: streamResult.text.length, usage: streamResult.usage },
-      }, {
-        source: "desktop.ipc.llm.stream",
-        sessionId,
-        traceId: turnId,
-        severity: "info",
-      });
-
-      return {
-        ok: true,
-        turnId,
-        text: streamResult.text,
-        recallStatus,
-        usage: streamResult.usage,
-      };
-    } catch (err: any) {
-      const errorMsg = err?.message || String(err);
-      win?.webContents.send("ipc.chat.error", { turnId, error: errorMsg });
-
-      eventBus?.emit("task.failed", {
-        taskId: turnId,
-        error: errorMsg,
-        code: "STREAM_ERROR",
-      }, {
-        source: "desktop.ipc.llm.stream",
-        sessionId,
-        traceId: turnId,
-        severity: "error",
-      });
-
-      throw new Error(`[Cognitive Runtime Error]: ${errorMsg}`);
-    }
+    return handleLlmStream(rawReq);
   });
+
+
 
   // 4. Canales IPC de MCP Servers & Marketplace (ACT-11)
   ipcMain.handle("ipc.mcp.listServers", async () => {
@@ -469,16 +612,19 @@ export async function createWindow(): Promise<void> {
   }
 }
 
-void app.whenReady().then(async () => {
-  try {
-    await createWindow();
-  } catch (err) {
-    console.error("[Electron Main] Error crítico durante la inicialización:", err);
-  }
-});
+if (app && typeof app.whenReady === "function") {
+  void app.whenReady().then(async () => {
+    try {
+      await createWindow();
+    } catch (err) {
+      console.error("[Electron Main] Error crítico durante la inicialización:", err);
+    }
+  });
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit();
+    }
+  });
+}
+

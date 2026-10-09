@@ -30,6 +30,7 @@ export type ToolOrigin = "native" | "mcp" | "custom" | "skill";
 export interface ToolExecutionContext {
   callId: string;
   sessionId: string;
+  projectId?: string;
   subEgoId?: string;
   workspacePath?: string;
   abortSignal?: AbortSignal;
