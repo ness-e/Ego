@@ -1,4 +1,4 @@
-﻿---
+---
 name: test-driven-development
 description: Drives development with tests. Use when implementing any logic, fixing any bug, or changing any behavior. Use when you need to prove that code works, when a bug report arrives, or when you're about to modify existing functionality.
 ---
@@ -35,7 +35,7 @@ Run the repository's focused-test command during the loop and its full-suite com
 
 The examples below use TypeScript for illustration; the workflow is identical in any language once you've discovered the project's own tooling.
 
-> **Ego — Discover the Stack:** Ego is a Cargo workspace (`Cargo.toml` members `Ego`, `Ego-python`, `Ego-wasm`, `Ego-server`, `Ego-mcp`; plus `Ego-python/pyproject.toml` and `web/package.json` Next.js 16 + shadcn/ui). Prefer `cargo nextest run --profile audit --workspace --build-jobs 2` (full suite), `cargo test --doc` (doc tests), `cargo check -p Ego` / `cargo clippy --workspace --all-targets --all-features -- -D warnings` / `cargo fmt --check` (fast gate), and `target/audit-venv/Scripts/python -m pytest Ego-python/tests/test_sdk.py` (Python SDK). Stack discovery also means checking `.agents/task-system/prompts/plan.md` and `docs/dev/plans/` for task context. See `.agents/references/testing-patterns.md` and `systematic-debugging` if the RED phase misbehaves.
+> **Ego — Discover the Stack:** Ego is an Electron Desktop application and TypeScript monorepo (`apps/desktop` Electron Main + React 19 Renderer con `@assistant-ui/react` y Vite; `packages/` memory, models, runtime, execution, tools, events; con `NativeVantaDB` de `"vantadb/native"` napi-rs para memoria in-process). Prefer `pnpm test` (full unit test suite), `pnpm typecheck` / `npx tsc --noEmit -p apps/desktop`, `pnpm build` (fast gate). Stack discovery also means checking `.agents/task-system/prompts/plan.md` and `docs/agent-ops/plans/` for task context. See `.agents/references/testing-patterns.md` and `systematic-debugging` if the RED phase misbehaves.
 
 ## The TDD Cycle
 
@@ -362,14 +362,14 @@ This separation ensures the test is written without knowledge of the fix, making
 
 This skill is wired to Ego's task system and quality bar:
 
-- **Task system:** TDD maps to `campaign-executor` ACT → VERIFY. Each RED/GREEN/REFACTOR step is an atomic increment; verify with `campaign_verify_cmd` and transition via `campaign_update_task_state`. Plans live in `docs/dev/plans/<fecha>-<nombre>.md`, tasks at `.agents/skills/campaign-executor/tasks/<ID>.md` (resolved via `tasks/<ID>.md` per `AGENTS.md` Path Resolution).
-- **Cargo-first verification:** Prefer Ego cargo tools over generic `npm`-style examples when the change touches Rust. For docs/ADRs, keep `docs/api/` in sync with public `struct`/`fn` signatures in the same PR (AGENTS.md Regla 3) and ensure `cargo test --doc` / `cargo doc --no-deps` passes.
-- **Systematic debugging on failure:** If GREEN fails or REFACTOR regresses, switch to `systematic-debugging` (not deprecated `debugging-and-error-recovery`) and `codegraph_codegraph_explore` for blast-radius before proposing fixes. See `.agents/task-system/prompts/iter-loop-tools.md` for the PLAN→ACT→VERIFY state machine.
+- **Task system:** TDD maps to task execution ACT → VERIFY. Each RED/GREEN/REFACTOR step is an atomic increment; verify with `task_verify_cmd` and transition via `task_update_state`. Plans live in `docs/agent-ops/plans/<fecha>-<nombre>.md`, tasks at `docs/agent-ops/tasks/<ID>.md`.
+- **TypeScript-first verification:** Prefer Ego workspace tools (`pnpm typecheck`, `pnpm build`, `pnpm test`) over generic commands. For memory, keep contracts in `packages/memory` aligned with `NativeVantaDB` napi-rs in-process tests.
+- **Systematic debugging on failure:** If GREEN fails or REFACTOR regresses, switch to `systematic-debugging` (not deprecated `debugging-and-error-recovery`) and blast-radius analysis before proposing fixes. See `.agents/task-system/prompts/iter-loop-tools.md` for the PLAN→ACT→VERIFY state machine.
 - **Ponytail / simplicity:** Keep TDD increments thin — prefer the simplest thing that passes before abstracting; tag deliberate simplifications with `ponytail:` comments and a verification test.
 
 ## See Also
 
-For JavaScript/TypeScript testing patterns illustrating these principles — Jest, React Testing Library, Supertest, Playwright — see `.agents/references/testing-patterns.md` (Ego) / `../../references/testing-patterns.md` (upstream generic). The principles transfer to any ecosystem; the syntax and tools there are JS/TS-specific. Also see `systematic-debugging`, `incremental-implementation`, and `campaign-executor`.
+For JavaScript/TypeScript testing patterns illustrating these principles — Jest, Vitest, React Testing Library, Playwright — see `.agents/references/testing-patterns.md` (Ego). Also see `systematic-debugging` and `incremental-implementation`.
 
 ## Common Rationalizations
 
@@ -400,12 +400,12 @@ For JavaScript/TypeScript testing patterns illustrating these principles — Jes
 After completing any implementation:
 
 - [ ] Every new behavior has a corresponding test
-- [ ] The full suite passes, run with the repository's own test command (`npm test`, `./gradlew test`, `pytest`, `go test ./...`, ...)
+- [ ] The full suite passes, run with the repository's own test command (`pnpm test`)
 - [ ] Bug fixes include a reproduction test that failed before the fix
 - [ ] Test names describe the behavior being verified
 - [ ] No tests were skipped or disabled
 - [ ] Coverage hasn't decreased (if tracked)
 
-> **Ego verification:** For Rust core use `cargo nextest run --profile audit --workspace --build-jobs 2` and `cargo test --doc`; for Python SDK `target/audit-venv/Scripts/python -m pytest Ego-python/tests/test_sdk.py`; for `web/` use `npm test` / `npm run build` per `web/package.json`. Always run `cargo fmt --check` and `cargo clippy --workspace --all-targets --all-features -- -D warnings` before declaring GREEN. See `docs/dev/operations/CI_POLICY.md` and `dev-tools/verify.ps1` for canonical gates. If REFACTOR breaks, switch to `systematic-debugging`.
+> **Ego verification:** For packages and desktop apps use `pnpm test`, `pnpm build`, and `pnpm typecheck` (`npx tsc --noEmit -p apps/desktop`). Always run clean verification before declaring GREEN. See `.agents/dev-tools/verify.ps1` for canonical gates. If REFACTOR breaks, switch to `systematic-debugging`.
 
 **Note:** Run each test command after a change that could affect the result. After a clean run, don't repeat the same command unless the code has changed since — re-running on unchanged code adds no confidence.

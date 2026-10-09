@@ -5,7 +5,7 @@ description: >-
   Ego repository. Use whenever a task creates a .md file, edits prose in
   docs/, adds or changes an internal link, adds frontmatter, writes an ADR, a
   plan, a research note or a runbook, or touches docs/index.md, llms.txt or any
-  file under docs/dev/. Encodes the GitHub-first, Obsidian-compatible
+  file under docs/. Encodes the GitHub-first, Obsidian-compatible
   documentation standard: which link syntax renders on GitHub, which frontmatter
   keys are canonical, how kind decides path, and which seven checks must pass
   before a document is considered done.
@@ -14,7 +14,7 @@ metadata:
   created: "2026-09-28"
   applies-to: "docs/**/*.md, llms.txt, .obsidian/**"
   companion-scripts: "scripts/docs/*.mjs"
-  normativity: "docs/dev/workflow/gate-docs-links.md"
+  normativity: "docs/architecture/"
 ---
 
 # Documentation Skill — Ego
@@ -40,7 +40,7 @@ not. Everything below is detail.
 3. **`kind` is derived from the path, never chosen independently.** If the path
    and the `kind` disagree, CI fails.
 4. **Never hand-edit a generated index** (`docs/index.md`, `docs/api/index.md`,
-   `docs/user/index.md`, `docs/dev/architecture/adr/README.md`, `llms.txt`).
+   `docs/user/index.md`, `docs/architecture/adr/README.md`, `llms.txt`).
    They carry a `<!-- GENERATED -->` banner. Run `gen-index.mjs --write`.
 5. **Never write `last_reviewed`.** A self-reported date is not a measurement.
    Freshness is `git log -1 --format=%cs -- <file>`, which is exact and free.
@@ -66,7 +66,7 @@ not. Everything below is detail.
 Paths are relative to the **containing file**:
 
 ```markdown
-<!-- docs/dev/architecture/ARCHITECTURE.md linking to docs/user/glosario/hnsw.md -->
+<!-- docs/architecture/vision-general.md linking to docs/user/glosario/hnsw.md -->
 [HNSW](../../user/glosario/hnsw.md)
 
 <!-- docs/user/glosario/ai-agents.md linking to docs/user/glosario/rag.md -->
@@ -204,7 +204,7 @@ changes in the same PR.
 
 ## 4. Architecture Decision Records
 
-54 ADRs in `docs/dev/architecture/adr/`. Format: **MADR**, MIT/CC0.
+54 ADRs in `docs/architecture/adr/`. Format: **MADR**, MIT/CC0.
 
 Mandatory sections — these are what make an ADR an ADR rather than a note:
 
@@ -251,8 +251,8 @@ Rules:
 Apply concretely:
 
 - No document over ~300 lines without a table of contents and a split plan.
-- `docs/CHANGELOG.md` (175 KB) and `docs/dev/Backlog.md` (191 KB) are
-  machine-managed or append-only, not documents anyone reads.
+- `docs/CHANGELOG.md` y `docs/roadmap/Backlog.md` son
+  archivos gestionados mecánicamente o append-only.
 - If a reader needs two documents to answer one question, the boundary between
   them is wrong.
 
@@ -343,11 +343,10 @@ node scripts/docs/gen-index.mjs --check
 
 ## 10. Normative references
 
-- `docs/_schema/frontmatter.schema.json` — the schema, machine-readable
-- `docs/_schema/tags.txt` — advisory tag vocabulary
-- `docs/dev/workflow/gate-docs-links.md` — what CI enforces, and why
-- `docs/dev/workflow/RULES.md` — workflow rules (SHA pins, timeouts, permissions)
-- `docs/dev/research/docs-strategy/01-ecosystem-2026.md` — the research this standard came from
+- `docs/jerarquia-canonica.md` — 12-level decision authority hierarchy
+- `docs/architecture/vision-general.md` — canonical Ego cognitive runtime architecture
+- `docs/engineering/stack-tecnico.md` — technical stack and standards
+- `docs/roadmap/Backlog.md` — master roadmap backlog
 - https://obsidian.md/help/links — "If interoperability is important to you, you can disable Wikilinks and use Markdown links instead"
 - https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting — GFM support
 - https://diataxis.fr/ — the four kinds

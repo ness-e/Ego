@@ -85,59 +85,33 @@ function Invoke-Barrier {
 # -----------------------------------------------------------------------------
 $failures = 0
 
-# Format check
-$failures += Invoke-Barrier "cargo fmt --check" {
-    cargo fmt --all -- --check
-} -MaxDurationSec 60
-
-# Compile check (workspace + tests)
-$failures += Invoke-Barrier "cargo check --workspace --tests" {
-    cargo check --workspace --tests -j 2
+# Compile and build check
+$failures += Invoke-Barrier "pnpm build" {
+    pnpm build
 } -MaxDurationSec 300
 
-# Clippy with -D warnings
-$failures += Invoke-Barrier "cargo clippy -- -D warnings" {
-    cargo clippy --workspace --tests -j 2 -- -D warnings
+# Typecheck (apps/desktop and packages)
+$failures += Invoke-Barrier "pnpm typecheck" {
+    pnpm typecheck
 } -MaxDurationSec 300
 
-# Tests (nextest audit profile)
-$failures += Invoke-Barrier "cargo nextest run --profile audit" {
-    cargo nextest run --profile audit --workspace --build-jobs 2
+# Unit tests
+$failures += Invoke-Barrier "pnpm test" {
+    pnpm test
 } -MaxDurationSec 600
 
 # -----------------------------------------------------------------------------
 # Mode-specific checks
 # -----------------------------------------------------------------------------
 if ($Mode -in @("certify", "full")) {
-    $failures += Invoke-Barrier "cargo audit" {
-        cargo audit
-    } -MaxDurationSec 60
-
-    $failures += Invoke-Barrier "cargo deny check" {
-        cargo deny check
+    $failures += Invoke-Barrier "Agents harness integrity" {
+        pwsh -NoProfile -File .agents/dev-tools/check-agents-refs.ps1
     } -MaxDurationSec 60
 }
 
 if ($Mode -eq "full") {
-    $failures += Invoke-Barrier "cargo machete" {
-        cargo machete
-    } -MaxDurationSec 60
-
-    $failures += Invoke-Barrier "Python SDK validate" {
-        pwsh -NoProfile -File dev-tools/scripts/validate_python_sdk.ps1
-    } -MaxDurationSec 300
-
-    $failures += Invoke-Barrier "Web build" {
-        Set-Location web
-        npm ci --ignore-scripts
-        npm run lint
-        npx tsc --noEmit
-        npm run build
-        Set-Location ..
-    } -MaxDurationSec 600
-
-    $failures += Invoke-Barrier "Docs coverage" {
-        pwsh -NoProfile -File scripts/validate-docs-coverage.ps1
+    $failures += Invoke-Barrier "Desktop typecheck explicit" {
+        npx tsc --noEmit -p apps/desktop
     } -MaxDurationSec 120
 }
 

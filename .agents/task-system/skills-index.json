@@ -5823,7 +5823,7 @@
     },
     "progreso": {
       "name": "progreso",
-      "description": "Use when a task completes (Trigger 1) or a session starts. Registers completed tasks from docs/dev/Backlog.md into the canonical docs/avance tree (domain files), archives removed backlog items, tracks doc coverage, reconciles agent memory (lessons/decisions) with the project registry, and maintains cross-references across the Ego documentation tree. (Legacy name kept for call-site compatibility; since 2026-08-23 the canonical tree is docs/avance, NOT the legacy progreso tree — which was migrated and removed.)",
+      "description": "Use when a task completes (Trigger 1) or a session starts. Registers completed tasks from docs/roadmap/Backlog.md into the canonical docs/avance tree (domain files), archives removed backlog items, tracks doc coverage, reconciles agent memory (lessons/decisions) with the project registry, and maintains cross-references across the Ego documentation tree. (Legacy name kept for call-site compatibility; since 2026-08-23 the canonical tree is docs/avance, NOT the legacy progreso tree — which was migrated and removed.)",
       "dir": "progreso",
       "tokens": [
         "progreso",

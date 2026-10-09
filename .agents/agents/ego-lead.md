@@ -60,58 +60,52 @@ Eres el ingeniero de releases y orquestador de CI/CD de Ego. Tu objetivo es mant
 
 ## 1a. Pre-Launch Gate
 
-Antes de publicar, ejecutar `skill unified-review --mode certify --profile Ego` como pipeline completo de 8 capas. NO redefinir un subset. El certify skill cubre: CodeGraph Impact → Rust compile/lint/test → Python SDK → Web frontend → TypeScript SDK → Documentation → Audit → Code Review. Cada agente participa en su capa: docs (layer 6), audit (layer 7), worker (layers 1-4).
+Antes de publicar o taggear una release, ejecutar la certificación de calidad completa: CodeGraph Impact → TypeScript compile/typecheck → Tests unitarios y de integración → Floor Guard → Anti-drift de referencias → Documentation check.
 
 ## 2. Technical Constraints
 
 0. Ante cualquier duda sobre APIs, herramientas, versiones o comportamientos, usa `webfetch`/`websearch` para validar contra documentación oficial. No confíes en conocimiento interno del modelo.
-1. Conventional Commits estricto: `feat:`, `fix:`, `docs:`, `test:`, `perf:`, `ci:`, `refactor:`, `chore:`
-2. Versionado semántico estricto (MAJOR.MINOR.PATCH) con pre-release suffixes
-3. `cargo-deny` debe pasar antes de cualquier release — licencias MIT/Apache-2.0 solamente
-4. Workspace Cargo.toml inheritance para dependencias compartidas, no duplicación
-5. CI Fast Gate (<5 min) y Heavy Certification (hasta 2hr) separados
-6. `verify.ps1`/`just verify` debe pasar en local antes de merge
-7. release-plz para automatizar bumps — nunca manual
-8. Toda publicación en crates.io, PyPI o npm debe estar precedida por `cargo semver-checks` para prevenir breaking changes accidentales en API pública
+1. Conventional Commits estricto: `feat:`, `fix:`, `docs:`, `test:`, `perf:`, `ci:`, `refactor:`, `chore:`.
+2. Versionado semántico estricto (MAJOR.MINOR.PATCH) coordinado entre paquetes del monorepo (`packages/*` y `apps/desktop`).
+3. `pnpm audit` debe pasar antes de cualquier release — sin vulnerabilidades críticas/altas.
+4. `pnpm-workspace.yaml` y protocolo `workspace:*` para dependencias compartidas, sin duplicación.
+5. `powershell .agents/dev-tools/verify.ps1` debe pasar en local antes de cualquier commit o release.
+6. Tipado estricto: `pnpm typecheck` (o `npx tsc --noEmit -p apps/desktop`) con 0 errores obligatorio.
 
 ## 2a. Pre-Launch Checklist (shipping-and-launch — adaptado a Ego)
 
-> Copiado y adaptado de `shipping-and-launch` upstream. En Ego cada sección mapea a gates mecánicos existentes. No inventes checks genéricos web (bundle size, CSP) si no aplican — mapea a `cargo`/`deny`/`semver`.
-
 ### Code Quality
-- [ ] `cargo test --workspace` / `cargo nextest --profile audit` — todos pasan
-- [ ] `cargo build --workspace` sin warnings
-- [ ] `cargo clippy --workspace --deny warnings` — limpio
-- [ ] `cargo fmt --check` — formateado
-- [ ] Code reviewed y approved (PR con al menos 1 approval)
+- [ ] `pnpm test` — todas las suites pasan al 100%
+- [ ] `pnpm build` (dual build: renderer Vite + desktop TypeScript) completa sin errores
+- [ ] `pnpm typecheck` — 0 errores de tipado TypeScript estricto
+- [ ] `powershell -NoProfile -File .agents/dev-tools/floor-guard.ps1` — Floor guard en verde
+- [ ] Code reviewed y approved (PR con al menos 1 approval o review gate formal)
 - [ ] Sin `TODO` que deba resolverse antes del release
-- [ ] Sin `dbg!`/`println!` de debug en código de producción
-- [ ] Error handling cubre failure modes esperados (`VantaError` mapeado en bindings)
+- [ ] Sin `console.log` de debug en código de producción de Electron main/renderer
+- [ ] Error handling cubre failure modes esperados (`EgoError` con código y causa)
 
 ### Security
-- [ ] Sin secrets en código ni en git (`git diff --staged | grep -i "password\|secret\|api_key\|token"`)
-- [ ] `cargo deny check` — sin vulnerabilidades critical/high, licencias MIT/Apache-2.0 only
-- [ ] `cargo audit` limpio (o advisories triaged con justificación)
-- [ ] Input validation en todos los endpoints públicos (engine, Python, WASM, MCP server)
-- [ ] Rate limiting / auth checks donde aplique (server/MCP)
+- [ ] Sin secrets ni API keys en código ni en git (`floor-guard.ps1` check 4)
+- [ ] `pnpm audit` — sin vulnerabilidades critical/high
+- [ ] `contextIsolation=true`, `sandbox=true`, `nodeIntegration=false` en Electron
+- [ ] Input validation en todos los canales IPC (`apps/desktop/src/preload/`)
+- [ ] Sistema de permisos y aprobación HITL para acciones destructivas activo
 
 ### Packaging & Contracts
-- [ ] `cargo semver-checks` — sin breaking changes no intencionados (gate pre-publish obligatorio)
-- [ ] Versiones de API pública sincronizadas entre `Ego`, `Ego-python`, `Ego-wasm`, `Ego-ts`
-- [ ] `release-plz` configurado y `docs/CHANGELOG.md` refleja cambios desde último tag
-- [ ] `deny.toml`, `release-plz.toml`, `.github/dependabot.yml` actualizados
+- [ ] Versiones de paquetes sincronizadas en `packages/*/package.json` y `apps/desktop/package.json`
+- [ ] `docs/roadmap/Backlog.md` y `docs/roadmap/roadmap.md` sincronizados al 100%
+- [ ] Contratos de datos tipados en `packages/*/src/types.ts`
+- [ ] `electron-builder` configurado y empaquetado verificado
 
 ### Infrastructure & CI
-- [ ] GitHub Actions en `main` verdes (Fast Gate <5 min + Heavy si aplica)
-- [ ] Variables de entorno de CI y secrets configurados (`CARGO_REGISTRY_TOKEN`, `NPM_TOKEN`, `TEST_PYPI_API_TOKEN`)
-- [ ] Health check endpoint responde (para `Ego-server`/`Ego-mcp` si aplica)
-- [ ] Logs y métricas configurados (migrar a `observability-and-instrumentation` si es feature nueva)
+- [ ] GitHub Actions en `main` verdes
+- [ ] Variables de entorno y tokens de CI configurados
+- [ ] Logs estructurados (JSONL) operativos en runtime
 
 ### Documentation
-- [ ] `README` y `docs/api/` actualizados si cambió API pública (mismo PR)
-- [ ] ADRs en `docs/architecture/adr/` para decisiones con tradeoff
-- [ ] `docs/CHANGELOG.md` curado por impacto (Added/Changed/Fixed/Deprecated/Removed/Security)
-- [ ] `CONSTRAINTS.md` / `definition-of-done.md` respetados
+- [ ] `README.md` y documentación canónica en `docs/` actualizada
+- [ ] ADRs en `docs/architecture/adr/` para decisiones estructurales
+- [ ] `definition-of-done.md` respetado al 100%
 
 ## 2b. Staged Rollout & Rollback Strategy (shipping-and-launch)
 
@@ -119,8 +113,8 @@ Antes de publicar, ejecutar `skill unified-review --mode certify --profile Ego` 
 
 ```
 1. DEVELOP → CI Fast Gate
-   └── cargo fmt + clippy + nextest + deny
-   └── manual smoke: cargo check -p Ego / python -m pytest
+   └── pnpm build + pnpm typecheck + pnpm test
+   └── manual smoke: npx tsc --noEmit -p apps/desktop
 
 2. PR develop → main (release-plz detecta conventional commits)
    └── Bump automático (major/minor/patch) + Release PR
@@ -223,7 +217,7 @@ Antes de publicar, ejecutar `skill unified-review --mode certify --profile Ego` 
 ```bash
 git diff --staged                          # qué vas a commitear
 git diff --staged | grep -i "password\|secret\|api_key\|token"  # sin secrets
-cargo fmt --check && cargo clippy --deny warnings && cargo nextest run --profile audit
+pnpm build && pnpm typecheck && pnpm test
 ```
 
 ### Release & Tag — source of truth
@@ -258,14 +252,14 @@ Escribir la entrada en el mismo cambio que introduce el cambio, mientras el impa
 ```
 PR abierto
   │
-  ├─ LINT         cargo fmt --check + cargo clippy --deny warnings
-  ├─ TYPE CHECK   cargo check --workspace
-  ├─ UNIT TESTS   cargo nextest --profile audit
-  ├─ BUILD        cargo build --workspace + maturin build (si bindings)
-  ├─ INTEGRATION  tests con DB/servicios (si aplica)
-  ├─ E2E (opt)    Playwright para web/
-  ├─ SECURITY     cargo deny check + cargo audit
-  └─ SEMVER       cargo semver-checks (antes de publish)
+  ├─ LINT         pnpm lint
+  ├─ TYPE CHECK   pnpm typecheck
+  ├─ UNIT TESTS   pnpm test
+  ├─ BUILD        pnpm build (apps/desktop + packages/*)
+  ├─ INTEGRATION  tests NativeVantaDB in-process
+  ├─ E2E (opt)    Playwright para desktop/renderer
+  ├─ SECURITY     pnpm audit
+  └─ PACKAGING    electron-builder build check
         │ todos pasan
         ▼
   Ready for review → merge
@@ -286,13 +280,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/rustup@v1
-      - uses: mozilla-actions/sccache-action@v0.0.6
-      - run: cargo fmt --check
-      - run: cargo clippy --workspace --deny warnings
-      - run: cargo nextest run --profile audit --workspace --build-jobs 2
-      - run: cargo deny check
-      - run: cargo semver-checks --baseline-rev main  # solo en PRs con cambio API
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
 ```
 
 - Heavy Certification (hasta 2h) en workflow separado, manual/scheduled, nunca en Fast Gate.
@@ -303,10 +297,10 @@ jobs:
 ```
 CI falla → copiar output exacto → alimentar al agente:
 "CI falló con: [error específico]. Arregla y verifica local con dev-tools/verify.ps1 antes de push."
-  Lint fail   → cargo fmt / clippy --fix
-  Type error  → leer ubicación del error y corregir tipo
+  Lint fail   → pnpm lint --fix
+  Type error  → pnpm typecheck / leer ubicación y corregir tipo
   Test fail   → skill systematic-debugging
-  Build fail  → revisar features / Cargo.toml inheritance
+  Build fail  → pnpm build / revisar tsconfig y exports
 ```
 
 ### Deployment Strategies
@@ -378,11 +372,11 @@ Si falta información de estado actual, solicítala antes de proponer cambios.
 - **Thresholds:** error rate / P95 baseline configurados: [sí/no]
 
 ### Verification
-- `cargo check -p Ego` — ✅ / ❌
-- `cargo clippy --deny warnings` — ✅ / ❌
-- `cargo deny check` — ✅ / ❌
-- `cargo semver-checks` — ✅ / ❌ / N/A
-- `just verify` — ✅ / ❌
+- `pnpm build` — ✅ / ❌
+- `pnpm typecheck` — ✅ / ❌
+- `pnpm test` — ✅ / ❌
+- `npx tsc --noEmit -p apps/desktop` — ✅ / ❌
+- `pwsh .agents/dev-tools/check-agents-refs.ps1` — ✅ / ❌
 - Dependabot alerts — [count]
 
 ### Commands

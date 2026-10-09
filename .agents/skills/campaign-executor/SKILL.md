@@ -257,10 +257,10 @@ propia invocación de `opencode run`.
 
 | ❌ Vago | ✅ Verificable |
 |---------|----------------|
-| "Arreglar el bug de memoria" | "tests/test_memory.rs pasa, cargo machete 0 warnings, cargo nextest run pasa" |
+| "Arreglar el bug de memoria" | "packages/memory test pasa, pnpm typecheck 0 warnings, pnpm test pasa" |
 | "Mejorar la web" | "npx tsc --noEmit 0 errors, npm run lint 0 errors" |
 | "Refactorizar módulo" | "cargo check --workspace, clippy sin warnings nuevos, tests existentes pasan" |
-| "Funciona bien" | "cargo build && cargo nextest run pasa, y comportamiento específico funciona" |
+| "Funciona bien" | "pnpm build && pnpm test pasa, y comportamiento específico funciona" |
 
 ## System Integration
 

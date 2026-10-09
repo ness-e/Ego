@@ -189,7 +189,7 @@ Each step is independently deployable and reversible: if step 4 misbehaves, roll
 - **Build large indexes without blocking writes** (e.g. Postgres `CREATE INDEX CONCURRENTLY`).
 - **Decouple from code by feature flag** when the cutover is risky, exactly as in the Feature Flag Migration pattern above.
 
-> **Ego — storage engine migrations:** Ego's storage backends (`fjall`, `rocksdb`, `vfile` WAL, `schema`/`migration` modules) are the highest-risk expand/contract surface. A `fjall` column-family or `rocksdb` column rename must follow the same 5-phase pattern above, with dual-write at the `engine.rs` / `node.rs` layer and batched backfill via `cargo nextest` verified off the hot path. Never couple a `schema` change to the code that reads it in one deploy — during rollout old and new `Ego` binaries run together. See `.agents/rules/durability.md` (WAL/storage) and `.agents/rules/indexes.md` (vector/HNSW) for Ego-specific invariants. Each migration phase is a thin vertical slice — see `incremental-implementation` and `planning-and-task-breakdown` (with `campaign-executor`).
+> **Ego — persistence & IPC migrations:** Ego's persistent state (SQLite metadata in main process, VantaDB namespace schemas, IPC contracts between Main and Renderer) represents the highest-risk migration surface. Any schema evolution must follow the same 5-phase pattern above: additive changes first, dual-read/write at the adapter layer, and verified migrations before contracting old formats. Never couple an IPC breaking schema change to renderer presentation code in a single unversioned commit. Verify with `pnpm test` and `pnpm typecheck`.
 
 ## Zombie Code
 
@@ -250,7 +250,7 @@ After a database schema migration:
 
 ## Ego Integration
 
-- **Storage & schema sunsets:** Use expand/contract for any `fjall`/`rocksdb`/`vfile` change (column families, WAL format, schema version). Coordinate with `.agents/rules/durability.md` and verify with `cargo nextest run --profile audit --workspace --build-jobs 2` + `cargo clippy` at each phase. Never couple engine migration to SDK/API change in one PR.
+- **Storage & schema sunsets:** Use expand/contract for any SQLite/VantaDB namespace change. Coordinate with `.agents/rules/api-contract.md` and verify with `pnpm build` + `pnpm typecheck` + `pnpm test` at each phase. Never couple database schema migrations to renderer changes in one unversioned commit.
 - **API sunset discipline:** When sunsetting a `Ego` public API, follow `api-and-interface-design` and `spec-driven-development` for the replacement contract, and `incremental-implementation` for phased migration (adapter → feature flag → strangler).
 - **Debugging migration regressions:** Use `systematic-debugging` (not deprecated `debugging-and-error-recovery`) to trace data-flow across old/new paths. See `planning-and-task-breakdown` for slicing large migrations into verifyable tasks via `campaign-executor`.
 

@@ -1,4 +1,4 @@
-﻿---
+---
 name: unified-review
 description: >
   Universal project review, audit, and certification gate for OpenCode.
@@ -44,7 +44,7 @@ metadata:
    compute scores, detect cross-cutting patterns, and build a single
    prioritized report.
 4. **Report.** I write the final markdown report to
-   `docs/dev/reviews/review-<mode>-<timestamp>.md` and (optionally) update the
+   `docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.md` and (optionally) update the
    Campaign task system.
 
 ## When to use me
@@ -137,7 +137,7 @@ JSON object that every downstream sub-agent receives in its prompt.
 6. **Documentation detection**
    - `docs/` directory → check for mdbook, docusaurus, mkdocs, sphinx, etc.
    - `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`
-   - `docs/dev/plans/` directory (Campaign integration)
+   - `docs/agent-ops/plans/` directory (Campaign integration)
 
 7. **Optional tooling detection**
    - `.codegraph/` directory or `codegraph.json` → CodeGraph MCP available
@@ -317,8 +317,8 @@ fan-out candidates (each runs in its own sub-agent when `parallel: true`).
 | L8 | Performance Audit | no | yes (mode=full) | `general` (or `ego-tuner` in Ego) | Benchmarks, bundle size, profile-guided review |
 | L9 | Code Review (cognitive) | no | yes (mode=review/full) | `general` (or `ego-audit` in Ego) | Multi-axis review via `code-review-and-quality` and related skills. May veto. |
 | L10 | Findings Consolidation | no | no (orchestrator) | — | Aggregate, dedupe, detect cross-cutting patterns |
-| L11 | Final Report | no | no (orchestrator) | — | Write `docs/dev/reviews/review-<mode>-<timestamp>.md` |
-| L11b | Backlog Sync | no | no (orchestrator) | — | Register report in `docs/dev/reports/INDEX.md`; derive findings ≥ medium into `docs/dev/Backlog.md` |
+| L11 | Final Report | no | no (orchestrator) | — | Write `docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.md` |
+| L11b | Backlog Sync | no | no (orchestrator) | — | Register report in `docs/agent-ops/reports/INDEX.md`; derive findings ≥ medium into `docs/roadmap/Backlog.md` |
 
 Each phase has a `detect` field in its profile entry. A phase is **skipped
 silently** when its `detect` conditions don't match (e.g. L3 Web Frontend
@@ -384,9 +384,9 @@ Phase config:
 {...paste the L1 entry from the profile...}
 
 Run the following commands in order and capture pass/fail + output summary:
-  1. cargo fmt --all -- --check
+  1. pnpm typecheck
   2. cargo check --workspace --all-targets
-  3. cargo clippy --workspace --all-targets -- -D warnings
+  3. pnpm test
   4. cargo test --workspace
 
 For each command, record: command, exit_code, output_summary (≤ 200 chars).
@@ -621,7 +621,7 @@ report:
 
 ### Markdown template
 
-Written to `docs/dev/reviews/review-<mode>-<timestamp>.md` where timestamp is
+Written to `docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.md` where timestamp is
 `YYYYMMDD-HHMMSS` in the project's local timezone (zero-padded, no `t`, no
 `Z` suffix — keeps filenames chronologically sortable).
 
@@ -679,9 +679,9 @@ what to do next. Plain language, no jargon.>
 ### L1 — Core Language (9/10, ✅)
 
 **Commands:**
-- `cargo fmt --check`: ✅
+- `pnpm typecheck`: ✅
 - `cargo check --workspace`: ✅
-- `cargo clippy -- -D warnings`: ⚠️ 1 warning (suppressed)
+- `pnpm test`: ✅
 - `cargo test`: ✅ 234 passed / 0 failed
 
 **Quality Gate conditions:**
@@ -744,7 +744,7 @@ OWASP ASVS v5.0, and CodeClimate/Qlty maintainability scoring._
 
 ### HTML template
 
-Written to `docs/dev/reviews/review-<mode>-<timestamp>.html` (when `report.format`
+Written to `docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.html` (when `report.format`
 is `html` or `both`). Self-contained — inline CSS, no external CDN/fonts,
 works offline, print-friendly, dark-mode aware via `prefers-color-scheme`.
 
@@ -829,7 +829,7 @@ syntaxes the orchestrator fills at L11:
    (documented as HTML comments inside `report.html.tmpl`) and concatenates
    them with no separators.
 5. **Output file**: write the final HTML to
-   `docs/dev/reviews/review-<mode>-<timestamp>.html`. Don't minify — keep it
+   `docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.html`. Don't minify — keep it
    human-readable for git diffs.
 
 ---
@@ -840,23 +840,23 @@ Runs synchronously in the orchestrator after L11 writes the report. Its job is
 to make every report **traceable** — reports must never be orphaned artifacts.
 Two outputs:
 
-### 1. Register in `docs/dev/reports/INDEX.md`
+### 1. Register in `docs/agent-ops/reports/INDEX.md`
 
 Append one row to the master report registry (create the file if missing):
 
 ```
-| <YYYYMMDD-HHMMSS> | <mode> | `docs/dev/reviews/review-<mode>-<YYYYMMDD>-<HHMMSS>.md` | ✅/❌ | C/H/M/L/I | vigente | <summary one-liner> |
+| <YYYYMMDD-HHMMSS> | <mode> | `docs/agent-ops/reports/reviews/review-<mode>-<YYYYMMDD>-<HHMMSS>.md` | ✅/❌ | C/H/M/L/I | vigente | <summary one-liner> |
 ```
 
 Column: fecha | modo | archivo | QG pass/fail | findings counts | estado | resumen.
 If an older report for the same mode is superseded by this new run, flip its
 status from `vigente` to `superado` in the same edit.
 
-### 2. Derive findings into `docs/dev/Backlog.md`
+### 2. Derive findings into `docs/roadmap/Backlog.md`
 
 For every finding with severity **medium or higher** that is still open:
 
-- Add a row to `docs/dev/Backlog.md` under the `## Hallazgos pendientes de reportes`
+- Add a row to `docs/roadmap/Backlog.md` under the `## Hallazgos pendientes de reportes`
   section (create it if missing), one row per finding, **con el esquema canónico de
   10 columnas** (`.agents/references/backlog-format.md`): `ID | Severidad |
   Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción |
@@ -932,7 +932,7 @@ At Phase 0, the orchestrator checks if `campaign_*` MCP tools are available
    decision and context.
 4. **At skill end**: mark task as `completed` (Quality Gate passed) or
    `failed` (Quality Gate failed or critical phase aborted).
-5. **Plan file**: write or update `docs/dev/plans/plan-review-<timestamp>.md`
+5. **Plan file**: write or update `docs/agent-ops/plans/plan-review-<timestamp>.md`
    with phase results and findings as subtasks.
 
 ### Plan file format
@@ -1044,10 +1044,10 @@ needs `permission.task` to allow them:
 
 ## Files this skill writes
 
-- `docs/dev/reviews/review-<mode>-<timestamp>.md` — main report (always)
-- `docs/dev/reports/INDEX.md` — master report registry (L11b, always)
-- `docs/dev/plans/plan-review-<timestamp>.md` — plan file (if Campaign enabled)
-- `docs/dev/reviews/logs/<phase>-<timestamp>.log` — per-phase raw logs (only if `orchestration.keep_raw_logs: true`)
+- `docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.md` — main report (always)
+- `docs/agent-ops/reports/INDEX.md` — master report registry (L11b, always)
+- `docs/agent-ops/plans/plan-review-<timestamp>.md` — plan file (if Campaign enabled)
+- `docs/agent-ops/reports/reviews/logs/<phase>-<timestamp>.log` — per-phase raw logs (only if `orchestration.keep_raw_logs: true`)
 
 Raw sub-agent outputs are **never** embedded inline in the report. They are
 either dropped or (if `keep_raw_logs`) written to the `logs/` subdirectory
@@ -1068,7 +1068,7 @@ Runs:
 - L0 git diff analysis
 - L1 `pytest`, `mypy src/`
 
-Output: `docs/dev/reviews/review-quick-2026-07-26-1430.md` (2-page report,
+Output: `docs/agent-ops/reports/reviews/review-quick-2026-07-26-1430.md` (2-page report,
 score, top 3 findings if any).
 
 ### Example 2 — Generic TypeScript monorepo, certify
@@ -1091,18 +1091,17 @@ Aborts if `tsc` fails. Otherwise writes a 4-6 page report.
 /review certify --profile Ego
 ```
 
-Auto-detects: Rust workspace (17+ crates), Python bindings (maturin),
-WASM bindings (wasm-pack), Next.js frontend, GitHub Actions, codegraph.
+Auto-detects: TypeScript monorepo (Electron Main + React 19 Renderer + packages/*), NativeVantaDB in-process bindings, MCP tooling, GitHub Actions.
 Runs in parallel:
-- L0 codegraph impact analysis on staged diff
-- L1 `cargo fmt --check`, `cargo check --workspace`, `cargo clippy -- -D warnings`, `cargo nextest run --profile audit`
-- L2 `pwsh dev-tools/scripts/validate_python_sdk.ps1`, `wasm-pack build`
-- L3 `cd web && npm ci && npm run lint && npx tsc --noEmit && npm run build`
-- L4 CI/CD parity: verify Cargo.toml deps have CI install steps
-- L5 `pwsh scripts/validate-docs-coverage.ps1`
-- L6 codegraph structural analysis
+- L0 impact analysis on staged diff
+- L1 `pnpm build`, `pnpm typecheck`, `npx tsc --noEmit -p apps/desktop`, `pnpm test`
+- L2 `pwsh .agents/dev-tools/check-agents-refs.ps1`
+- L3 Renderer Vite build & styling check
+- L4 CI/CD parity: verify package.json scripts have CI steps
+- L5 docs coverage & ADR consistency
+- L6 cognitive structural review
 
-Aborts on L1 fail. Generates PowerShell pre-push hook if all pass.
+Aborts on L1 fail. Generates report if all pass.
 
 ### Example 4 — Ego quarterly full review
 

@@ -37,7 +37,7 @@ cat <path>                     # untracked nuevo
 # 4. Revisar cada archivo contra su Rule Group (+ contrato de la tarea como contexto)
 # 5. Reportar por severidad:
 #    Critical/High → bloquean, se corrigen ahora
-#    Medium        → fila FIND-* en docs/dev/Backlog.md (prompts/findings.md)
+#    Medium        → fila FIND-* en docs/roadmap/Backlog.md (prompts/findings.md)
 #    Low           → se descarta en silencio salvo valor claro
 ```
 
@@ -47,11 +47,10 @@ Variantes del wrapper: `-Commit <hash>` (un commit), `-From main -To <rama>`
 
 ## Reglas Ego que OCR ya cubre
 
-El rule engine built-in para `**/*.rs` mapea directo a AGENTS.md Regla 4:
-`unwrap/expect/panic` en paths de producción, `unsafe` sin rationale SAFETY,
-`clone()` innecesario, guards de Mutex/RwLock a través de `.await`, FFI sin
-validar, O(n²) evitable. No duplica `clippy/fmt/nextest` — los complementa
-a nivel cognitivo (el linter dice *qué*; OCR razona *por qué importa*).
+El rule engine built-in para TypeScript/Node mapea directo a AGENTS.md:
+`any` injustificado, bypasses de canales IPC, `clone()` o serializaciones innecesarias,
+bloqueos del event loop de Node, llamadas no seguras a FS o subprocessos. Complementa
+los linters y typecheck a nivel cognitivo (el linter dice *qué*; OCR razona *por qué importa*).
 
 ## Upgrade opcional (con LLM propio)
 

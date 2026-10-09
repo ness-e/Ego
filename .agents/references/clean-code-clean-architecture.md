@@ -1,4 +1,4 @@
-﻿# **Compendio Técnico de Clean Code y Clean Architecture para la Gobernanza de Inteligencia Artificial en Rust, Python y TypeScript**
+# **Compendio Técnico de Clean Code y Clean Architecture para la Gobernanza de Inteligencia Artificial en Rust, Python y TypeScript**
 
 > **Sello de validación Ego — 2026-09-11.** Verificado contra fuentes oficiales: *Clean Code* (Martin, 2008; 2.ª ed. 2025), *Clean Architecture* (Martin, 2017), blog.cleancoder.com, resúmenes canónicos (wojteklu/cedrickchee/j-thepac). Correcciones aplicadas al importar: fórmulas Ca/Ce/I/A/D restauradas (venían como imágenes base64 rotas), typos (`Aisle` → `Aislamiento`, `strictly` → `estrictamente`, `Inmunidad a 'any'` → `Prohibición total de 'any'`, coordenadas `A ≈ 01/11` → `0/1`), escapes de exportación (`\_`, `\#`, `\-`, `\<`…) normalizados. Los límites `≤20 líneas / ≤3 args` son **convención operativa Ego** (el libro exige "small" y "≤3 args"; el número 20 es heurística de esta guía, no cita literal). Ver **Apéndice V** para el mapa de adaptación al repo real.
 
@@ -647,28 +647,25 @@ En entornos de desarrollo asistidos por Inteligencia Artificial, el uso de direc
 
 Este apéndice aterriza la guía genérica (§1–§8) en la realidad del workspace Ego. En caso de conflicto entre un ejemplo genérico (§5.3, §6) y esta sección, **manda esta sección**.
 
-### V.1 Mapa capas → repo real
+### V.1 Mapa capas → repo real (Ego)
 
 | Capa Clean | Dónde vive en Ego | Frontera exigible |
 |---|---|---|
-| Entidades | `src/node/`, `src/graph.rs`, `src/entity/` (tipos + reglas puras) | Sin `sqlx`/`prisma`/`sqlalchemy`, sin HTTP, sin PyO3/WASM |
-| Casos de uso | `src/engine.rs`, `src/executor.rs`, `src/planner.rs`, `src/sdk/` | Dependen solo de entidades + puertos (`trait`/`Protocol`/interfaz) |
-| Adaptadores | `src/backends/`, `src/storage/`, `src/server/`, `src/cli_server.rs` | SQL/HTTP/CLI solo aquí; convierten a DTOs |
-| Frameworks/Drivers | `Ego-python/` (PyO3), `Ego-wasm/`, `Ego-ts/`, `Ego-server/`, `web/` | **Humble Objects**: traducen DTO ↔ mundo externo, cero lógica de negocio |
-| Composición | `src/bin/`, `src/lib.rs`, `dev-tools/verify.ps1`, `Justfile` | DI manual en el borde exterior |
+| **Entidades (Dominio Puro)** | `packages/*/src/types.ts` (contratos Zod y tipos puros) | Sin dependencias de UI, sin IPC, sin Electron ni bindings de sistema operativo. |
+| **Casos de Uso (Cognitive Engine)** | `packages/runtime/` (CognitiveRuntime, ToolExecutionLoop), `packages/execution/` | Orquestación cognitiva; dependen solo de contratos de dominio e interfaces de adapters. |
+| **Adaptadores de Interfaz** | `packages/memory/` (`EgoMemoryAdapter`), `packages/models/` (`ModelRouter`), `packages/events/` | Gateway único a memoria persistente (NativeVantaDB/vantadb-mcp) y proveedores LLM. |
+| **Frameworks / UI / Drivers** | `apps/desktop/src/main/` (Electron Node 22), `apps/desktop/renderer/` (React 19 + assistant-ui) | **Humble Objects**: capa de presentación pura y drivers de sistema operativo. Cero lógica de negocio en renderer. |
+| **Composición & Preload** | `apps/desktop/src/main/index.ts`, `apps/desktop/src/preload.ts` | Inyección de dependencias en el arranque de la app y puente IPC fuertemente tipado. |
 
-Nota honesta: `src/` es hoy plano por módulo técnico, no por dominio funcional (§5.3 *Screaming Architecture* es aspiracional). No reorganizar carpetas sin ADR; auditar **dirección de dependencias**, no forma de carpetas.
+### V.2 Correspondencia con reglas normativas existentes
 
-### V.2 Correspondencia con reglas duras existentes
-
-| Guía (§) | Regla Ego que ya la enforcea | Archivo |
+| Guía (§) | Regla Ego que la enforcea | Archivo |
 |---|---|---|
-| Humble Object, DTOs en frontera (§5.4, §8.1) | Regla 3 (docs sync), `api-contract.md` | `.agents/rules/api-contract.md` |
-| Tokio: no `MutexGuard` sobre `.await`, no bloqueo en loop (§3.1) | Regla 8 + `concurrency-async.md` | `.agents/rules/concurrency-async.md` |
-| `unwrap/expect` prohibido, `Result` + `?` (§2.3) | Clippy deny warnings + Regla 4 (`unsafe`/`SAFETY`) | `dev-tools/verify.ps1` |
-| FIRST, AAA, TDD (§7) | `test-suite.md`, `testing-patterns.md` | `.agents/references/` |
-| No optimizar sin medir (§9 de facto) | Regla 9 (`canonical_p99`), Regla 11 (claims) | `.agents/AGENTS.md` |
-| Boy Scout (§1) | Regla 6 (deuda neta ≤ 0 por PR) | `.agents/AGENTS.md` |
+| Humble Object, DTOs en frontera (§5.4, §8.1) | Aislamiento Electron y tipado IPC | `.agents/rules/electron-ipc.md` |
+| Gateway único de persistencia (§5.2) | EgoMemoryAdapter obligatorio | `.agents/rules/namespaces-jev.md` |
+| TypeScript strict, no `any` injustificado (§2.3) | TypeScript Strict en monorepo | `.agents/rules/js-ecosystem.md` |
+| Presupuesto de memoria y bounded streams (§3.1) | Fast path BM25 + buffers acotados | `.agents/rules/memory-budget.md` |
+| Definición de terminado (DoD) (§7) | Definition of Done integral | `.agents/rules/definition-of-done.md` |
 
 ### V.3 Naming: regla "Don't Add Gratuitous Context" (stuttering)
 

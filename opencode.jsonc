@@ -53,16 +53,7 @@
       ],
       "disabled": false,
       "type": "local",
-      "description": "Universal Agent System MCP Server (.agents) — Workflows, Tasks C0, Catálogo, Memoria y DevTools."
-    },
-    "campaign-system": {
-      "command": [
-        "node",
-        ".agents/task-system/mcp/campaign-server.mjs"
-      ],
-      "disabled": false,
-      "type": "local",
-      "description": "Campaign Executor MCP Server (.agents) — Pipeline de ejecución autónoma por oleadas, skills discovery y trace verification."
+      "description": "Universal Agent System MCP Server (.agents) — Workflows, Tasks C0, Catálogo, Memoria, DevTools y Pipeline de Campañas."
     },
     "vantadb": {
       "command": [

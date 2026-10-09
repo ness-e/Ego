@@ -1,8 +1,20 @@
 {
   "mcp": {
-    "Ego": {
+    "agent-system": {
       "type": "local",
-      "command": ["ego-cli", "server", "--mcp", "--db", "~/.Ego"],
+      "command": ["node", ".agents/task-system/mcp/agent-system-server.mjs"],
+      "enabled": true
+    },
+    "vantadb": {
+      "type": "local",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-File",
+        "C:/Users/Eros/VantaDB Proyect/VantaDB/vanta-mcp-local.ps1",
+        "-DbPath",
+        "C:/Users/Eros/.vantadb"
+      ],
       "enabled": true
     }
   }

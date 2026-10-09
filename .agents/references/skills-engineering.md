@@ -1,4 +1,4 @@
-﻿# Skill Loading Guides — Dynamic Skill Discovery Protocol (SDP v2)
+# Skill Loading Guides — Dynamic Skill Discovery Protocol (SDP v2)
 
 > Movido desde `.agents/AGENTS.md` — referencia canónica. Consultar cuando necesites decidir qué skill cargar. Si editas, actualiza también el puntero en AGENTS.md.
 > **Versión 2.0 (2026-09-01)**: SDP dinámico — búsqueda en catálogo completo (193 skills) por fase, tipo de tarea, archivos clave y keywords del contrato.
@@ -210,7 +210,7 @@ function calculateScore(skill, phase, taskType, keywords) {
 ### En `/pipeline plan` (prompts/plan.md)
 ```markdown
 ## Paso 0 — SDP Discovery
-Ejecutar: `campaign_discover_skills_v2({ phase: "PLAN", taskId: null, keyFiles: ["docs/dev/Backlog.md"], contractKeywords: ["backlog", "triage"], taskType: "planning", maxSkills: 8 })`
+Ejecutar: `campaign_discover_skills_v2({ phase: "PLAN", taskId: null, keyFiles: ["docs/roadmap/Backlog.md"], contractKeywords: ["backlog", "triage"], taskType: "planning", maxSkills: 8 })`
 → Carga skills base + dinámicas → registra en plan file
 ```
 
@@ -274,7 +274,7 @@ Ejecutar SDP v2 con phase="BUILD" + taskType del task file
 
 ## Registro de Skills Cargadas (OBLIGATORIO)
 
-En cada task file (`docs/dev/tasks/<ID>.md`) y en bloque RESULTADO:
+En cada task file (`docs/agent-ops/tasks/<ID>.md`) y en bloque RESULTADO:
 
 ```markdown
 ## Herramientas necesarias → Skills
@@ -312,7 +312,7 @@ El SDP se aplicó correctamente cuando:
 - `.agents/references/definition-of-done.md` — quality bar
 - `.agents/references/orchestration-patterns.md` — patrones multi-persona
 - `addyosmani/agent-skills` — 25 skills base (instaladas en `.agents/skills/`)
-- `docs/dev/references/skills-engineering.md` — este archivo (fuente canónica SDP)
+- `.agents/references/skills-engineering.md` — este archivo (fuente canónica SDP)
 
 ---
 

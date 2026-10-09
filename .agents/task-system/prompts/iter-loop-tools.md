@@ -159,7 +159,7 @@ Usá `campaign_validate_action state=<ESTADO> toolName=<TOOL>` para verificar an
   - **Esquema fijo por línea** (TSYS-15; los campos van separados por ` | `):
     `- <fecha-auto> | <tema> | <decisión|lección> | ref: <ruta:línea>`
   - `campaign_memory_write` recibe SOLO `entry="<tema> | <decisión|lección> | ref: <ruta:línea>"` — **NO incluir la fecha**: el server la antepone (`- YYYY-MM-DD | `); duplicarla es la FALLA #11 (desync entre líneas)
-  - Ej: `campaign_memory_write(file="decisions", entry="pyo3 | PyBytes owned en vez de raw pointer (AUDIT-01) | ref: Ego-python/src/vector.rs:59")`
+  - Ej: `memory_record_decision(entry="memory | NativeVantaDB lexical fallback (CORE-01) | ref: packages/memory/src/index.ts:42")`
   - **Read por tema** (el server NO filtra): `rg -n "<tema>" .agents/task-system/memory/*.md` (o Grep con pattern `^\- .*\| <tema> \|`)
 - Decidir el cambio atómico (~100 líneas máx)
 - Ponytail ladder: ya existe > stdlib > dependency > mínimo código
@@ -175,7 +175,7 @@ Usá `campaign_validate_action state=<ESTADO> toolName=<TOOL>` para verificar an
 - Comando mecánico real, nunca auto-reporte
 - Rust: `cargo check -p <crate>`
 - Web: `npx tsc --noEmit`
-- Tests: `cargo nextest run <test_name>`
+- Tests: `pnpm test`
 - Usar `campaign_verify_cmd command="..."` (MCP) — nunca auto-reporte
 
 **Agente de Diagnóstico (si verify falla):**
@@ -201,8 +201,8 @@ Umbral único en todo el sistema = **2 fallas de verify con el mismo error → G
 ### Fork/Join
 
 Tareas independientes en paralelo vía sub-agentes. CIERRE steps que NO dependen entre sí → fork a sub-agentes:
-- Grupo 1 (independiente): `cargo fmt --check`, `cargo machete`
-- Grupo 2 (depende de build): `cargo nextest`, `cargo clippy`
+- Grupo 1 (independiente): `pnpm typecheck`
+- Grupo 2 (depende de build): `pnpm test`, `pnpm build`
 - Usá `task` tool para spawn sub-agentes; join all antes de avanzar
 - Máximo 3 sub-agentes simultáneos (RAM en Windows)
 - Si un sub-agente de fork/join devuelve resultado INCOMPLETO, vacío o se detuvo solo →
@@ -229,9 +229,9 @@ Tareas independientes en paralelo vía sub-agentes. CIERRE steps que NO dependen
 
 ```
 1. Verificación full del contrato (fork/join — grupos independientes en paralelo):
-   - Grupo 1 (inmediato, sin deps): cargo fmt --check, cargo machete
-   - Build (dependencia): cargo build --workspace (o warm cache si Windows da error)
-   - Grupo 2 (post-build): cargo nextest + cargo clippy, fork a sub-agentes
+   - Grupo 1 (inmediato, sin deps): pnpm typecheck
+   - Build (dependencia): pnpm build
+   - Grupo 2 (post-build): pnpm test, fork a sub-agentes
    - (si frontend) npx tsc --noEmit
    - Si el código contiene unsafe o concurrencia:
      Si nightly disponible: cargo +nightly miri test (UB detection)
@@ -321,9 +321,9 @@ Usá `campaign_verify_cmd` (MCP) — nunca auto-reporte, el compilador/test runn
 
 ```
 campaign_verify_cmd command="cargo check -p Ego"
-campaign_verify_cmd command="cargo fmt --check"
-campaign_verify_cmd command="cargo nextest run --profile audit --workspace --build-jobs 2"
-campaign_verify_cmd command="cargo clippy --workspace --all-targets --all-features -- -D warnings"
+task_verify_cmd command="pnpm typecheck"
+task_verify_cmd command="pnpm build"
+task_verify_cmd command="pnpm test"
 ```
 
 Si verify falla → MoM ladder (4 escalones, ver arriba). Si pasa → continuar.
@@ -368,7 +368,7 @@ No sigas a la siguiente tarea ni iteración.
 
 | ❌ Vago | ✅ Verificable |
 |---------|----------------|
-| "Arreglar el bug de memoria" | "tests/test_memory.rs pasa, cargo machete 0 warnings, cargo nextest run pasa" |
+| "Arreglar el bug de memoria" | "packages/memory test pasa, pnpm typecheck 0 errors, pnpm test pasa" |
 | "Mejorar la web" | "npx tsc --noEmit 0 errors, npm run lint 0 errors" |
 | "Refactorizar módulo" | "cargo check --workspace, clippy sin warnings nuevos, tests existentes pasan" |
 

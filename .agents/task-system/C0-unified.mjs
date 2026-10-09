@@ -125,8 +125,8 @@ export const TYPE_PROFILES = {
     legacyFile: "workflows/refactor.json",
     phases: {
       audit: { instructions: "Map blast radius with codegraph_codegraph_explore: what calls this, what it calls, all impls. List every file that changes. Do NOT edit yet.", max_iterations: 3, on: { AUDIT_READY: "migrate", FAIL: "failed" } },
-      migrate: { instructions: "One call site at a time. After each file, verify compiles (cargo check -p Ego). No test changes yet.", max_iterations: 15, on: { DONE: "cleanup", FAIL: "failed" } },
-      cleanup: { instructions: "Remove dead code, old types, deprecated exports. cargo machete for unused deps. cargo fmt.", max_iterations: 3, on: { CLEAN: "verify", FAIL: "migrate" } },
+      migrate: { instructions: "One call site at a time. After each file, verify compiles (pnpm typecheck). No test changes yet.", max_iterations: 15, on: { DONE: "cleanup", FAIL: "failed" } },
+      cleanup: { instructions: "Remove dead code, old types, deprecated exports. clean unused code. pnpm typecheck.", max_iterations: 3, on: { CLEAN: "verify", FAIL: "migrate" } },
       verify: { instructions: "Full verification. If tests fail → diagnose and fix. Verify no public API broke.", max_iterations: 3, on: { VERIFIED: "review", FAIL: "migrate", BLOCKED: "failed" } },
       review: { instructions: "Evaluator-optimizer: auto-crítica 3 ejes (correctitud, simplicidad, consistencia). Verificar edge cases, ponytail ladder aplicada, codegraph_codegraph_explore post-implement para verificar blast radius. Máximo 2 iteraciones.", max_iterations: 2, on: { REVIEW_PASS: "accept", ISSUES_FOUND: "migrate", FAIL: "failed" } },
       accept: { instructions: "RATCHETED DOD v1. Leer dod_version del workflow. V1: contrato ✅, output validado ✅, blast radius verificado ✅, deuda técnica identificada ✅, documentación actualizada ✅. V2+: +ponytail-review sin findings, +test-coverage. V3+: +no secrets en diff, +conventional-commit validado. Si todas ✅ → ACCEPTED.", max_iterations: 2, on: { ACCEPTED: "close", REJECTED: "migrate", FAIL: "failed" } },

@@ -152,9 +152,9 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
     `[cita NO VERIFICADA — sin red]` en la evidencia y anotá la verificación pendiente
     en `contract.deuda` de la recitation. Nunca la des por verificada.
 - Verify full:
-  1. `campaign_verify_cmd command="cargo fmt --check"`
-  2. `campaign_verify_cmd command="cargo clippy --workspace --all-targets --all-features -- -D warnings"`
-  3. `campaign_verify_cmd command="cargo nextest run --profile audit --workspace --build-jobs 2"`
+  1. `task_verify_cmd command="pnpm build"`
+  2. `task_verify_cmd command="pnpm typecheck"`
+  3. `task_verify_cmd command="pnpm test"`
   4. `campaign_verify_cmd command="scripts/validate-docs-coverage.ps1"`
   5. OCR delegation review (advisory, sin API key): `pwsh .agents/dev-tools/ocr-review.ps1 -Format json`
      → `ocr delegate rule <paths>` → revisar cada archivo con su Rule Group.
@@ -224,7 +224,7 @@ Después de cada acción, llamá `campaign_update_task_state` con:
   - `result`: `OK` | `PARTIAL` | `FAILED` — el §12 `status`; estado real, nunca fabricado
   - `nextAction`: próximo paso concreto (archivo + comando)
   - `contract`: CONTRATO §12 (texto — incluye lo que gap-01 §3.3-18 llamaba `invariants`/`debt`):
-    - `verificacion`: comando de verificación EXACTO + resultado obtenido (p.ej. `cargo nextest run --profile audit --workspace --build-jobs 2` ✅)
+    - `verificacion`: comando de verificación EXACTO + resultado obtenido (p.ej. `pnpm test` ✅)
     - `evidencia` (obligatoria por claim):
       - `claim`: <afirmación concreta>
         `evidencia`: <URL | file path | tool result>

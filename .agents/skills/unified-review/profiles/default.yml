@@ -424,7 +424,7 @@ phases:
   - id: L11
     name: "Final Report"
     description: >
-      Write the final markdown report to docs/dev/reviews/review-<mode>-<timestamp>.md.
+      Write the final markdown report to docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.md.
       Always runs in orchestrator.
     critical: false
     parallel: false
@@ -654,13 +654,13 @@ orchestration:
   timeout_ms: 300000             # 5 min default per sub-agent
   abort_on_critical_fail: true   # abort pipeline if L1 fails
   retry_mechanical: true         # one retry on L1-L5 failure
-  keep_raw_logs: false           # if true, write per-phase logs to docs/dev/reviews/logs/
+  keep_raw_logs: false           # if true, write per-phase logs to docs/agent-ops/reports/reviews/logs/
 
 # -----------------------------------------------------------------------------
 # Report format (which template to use at L11)
 # -----------------------------------------------------------------------------
 # The orchestrator fills the chosen template with ConsolidatedReport data
-# and writes it to docs/dev/reviews/review-<mode>-<timestamp>.<ext>
+# and writes it to docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.<ext>
 # Templates use {{PLACEHOLDER}} and {{#SECTION}}...{{/SECTION}} syntax that
 # the orchestrator substitutes via simple string replacement.
 # Options:
@@ -701,7 +701,7 @@ integrations:
     # in ultra mode: escalate DIRECTION/Over-engineering findings by one severity
   campaign:
     enabled: auto                 # auto = use if available, skip silently otherwise
-    plan_file_pattern: "docs/dev/plans/plan-review-<timestamp>.md"
+    plan_file_pattern: "docs/agent-ops/plans/plan-review-<timestamp>.md"
   codegraph:
     use_if_available: true
     phase: L0                     # which phase uses codegraph

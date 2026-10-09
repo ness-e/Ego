@@ -1,4 +1,4 @@
-﻿---
+---
 name: review-deep
 description: >
   Deep review & optimization loop. Iterates through every module of Ego
@@ -96,36 +96,25 @@ compatibility: opencode
 El loop itera en este orden, de mayor a menor impacto potencial:
 
 ```
-Wave 0 — Core crítico (3 módulos):
-  Ego-sdk       → VantaEmbedded, connect(), Vanta* types
-  Ego-engine    → engine.rs, storage backends
-  Ego-wal       → Write-Ahead Log, recovery
+Wave 0 — Memoria & Persistencia:
+  packages/memory      → EgoMemoryAdapter, NativeVantaDB napi-rs, namespaces
 
-Wave 1 — Indexación y vectores (2 módulos):
-  Ego-vector    → HNSW, distance, quantization, governor
-  Ego-index     → flat, graph, core
+Wave 1 — Modelos & Decisiones:
+  packages/models      → ModelRouter, AI SDK adapters, fallback
 
-Wave 2 — Gobernanza (1 módulo):
-  Ego-governance → admission, consistency, conflict
+Wave 2 — Cognitive Runtime:
+  packages/runtime     → CognitiveRuntime, ToolExecutionLoop, Sub-Egos
 
-Wave 3 — SDKs y bindings (3 módulos):
-  Ego-python    → PyO3 bindings
-  Ego-ts        → TypeScript SDK
-  Ego-wasm      → WASM build
+Wave 3 — Ejecución & Gobernanza:
+  packages/execution   → ExecutionManager, cuotas, timeouts, abort
 
-Wave 4 — Infraestructura (2 módulos):
-  Ego-server    → HTTP server, CLI server
-  Ego-mcp       → MCP integration
+Wave 4 — Herramientas & Eventos:
+  packages/tools       → ToolRegistry, conectores Nivel A
+  packages/events      → EventBus, EventNormalizer, StructuredLogger
 
-Wave 5 — Adaptadores (10 módulos, paralelizable):
-  Ego-openai, Ego-ollama, Ego-litellm
-  Ego-mem0, Ego-letta, Ego-crewai
-  Ego-dspy, Ego-haystack, Ego-langchain, Ego-llamaindex
-
-Wave 6 — Utilidades y misc (3 módulos):
-  Ego-crypto    → encryption/decryption
-  Ego-cli       → CLI handlers
-  Ego-enterprise → enterprise crate
+Wave 5 — Aplicación Desktop:
+  apps/desktop/src/main     → Electron Main Process, IPC seguro, SQLite/VantaDB
+  apps/desktop/src/renderer → React 19, @assistant-ui/react, Dynamic Workspace
 ```
 ponytail: waves secuenciales. Si un wave tarda y el siguiente no depende, se podría solapar. DAG solver si >30 módulos.
 
@@ -208,34 +197,13 @@ Registrar en la bitácora del módulo:
 
 ## FASE 2: Static Analysis
 
-### Para código Rust
+### Para paquetes de Ego (packages/* y apps/*)
 
 ```bash
-cargo check -p ${CRATE} 2>&1
-cargo clippy -p ${CRATE} --all-targets --all-features -- -D warnings 2>&1
-cargo fmt --check -p ${CRATE} 2>&1
-cargo machete -p ${CRATE} 2>&1
-cargo outdated -p ${CRATE} --exit-code 1 2>&1
-cargo audit 2>&1
-cargo deny check 2>&1
-```
-
-### Para Python SDK
-
-```bash
-dev-tools/setup_venv.ps1 2>&1 | tail -5
-target/audit-venv/Scripts/python -m pytest Ego-python/tests/ -v 2>&1 | tail -30
-target/audit-venv/Scripts/python -m mypy Ego-python/ 2>&1 | tail -20
-target/audit-venv/Scripts/python -m ruff check Ego-python/ 2>&1 | tail -20
-```
-
-### Para TS SDK
-
-```bash
-cd Ego-ts/
-npx tsc --noEmit 2>&1
-npx eslint . --ext .ts 2>&1
-npx vitest run 2>&1
+pnpm --filter ${PKG} build
+pnpm --filter ${PKG} test
+pnpm typecheck
+pnpm audit
 ```
 
 ### Para Web (Next.js)

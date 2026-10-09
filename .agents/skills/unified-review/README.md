@@ -1,4 +1,4 @@
-﻿# unified-review
+# unified-review
 
 > Universal review, audit, and certification skill for OpenCode. Replaces
 > `Ego-full-review`, `Ego-certify`, and `Ego-audit` with a
@@ -22,7 +22,7 @@ unified-review/
 
 ## Report formats
 
-The skill writes reports to `docs/dev/reviews/review-<mode>-<timestamp>.<ext>`:
+The skill writes reports to `docs/agent-ops/reports/reviews/review-<mode>-<timestamp>.<ext>`:
 
 | Profile | Format | Files |
 |---------|--------|-------|

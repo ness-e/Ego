@@ -1,4 +1,4 @@
-﻿---
+---
 name: planning-and-task-breakdown
 description: Breaks work into ordered tasks. Use when you have a spec or clear requirements and need to break work into implementable tasks. Use when a task feels too large to start, when you need to estimate scope, or when parallel work is possible.
 ---
@@ -32,7 +32,7 @@ Before writing any code, operate in read-only mode:
 
 **Do NOT write code during planning.** The output is a plan document saved to `tasks/plan.md` and a task list recorded in the task list target (see Output Files; default `tasks/todo.md`), not implementation.
 
-> **Ego note — campaign-executor alignment:** In Ego, planning maps to the `campaign-executor` DISCOVERY phase. Use `codegraph_codegraph_explore` for blast-radius mapping and web research if ambiguous, then create `docs/dev/plans/<fecha>-<nombre>.md` (plan file) and `tasks/<ID>.md` at `.agents/skills/campaign-executor/tasks/<ID>.md` (task files with atomic steps). **Do NOT write code during planning** — this is a read-only discovery step; implementation starts in ACT via `iter-loop-tools.md`. See `.agents/task-system/prompts/plan.md` and `skills/campaign-executor/SKILL.md`.
+> **Ego note — campaign-executor alignment:** In Ego, planning maps to the `campaign-executor` DISCOVERY phase. Use `codegraph_codegraph_explore` for blast-radius mapping and web research if ambiguous, then create `docs/agent-ops/plans/<fecha>-<nombre>.md` (plan file) and `tasks/<ID>.md` at `.agents/skills/campaign-executor/tasks/<ID>.md` (task files with atomic steps). **Do NOT write code during planning** — this is a read-only discovery step; implementation starts in ACT via `iter-loop-tools.md`. See `.agents/task-system/prompts/plan.md` and `skills/campaign-executor/SKILL.md`.
 
 ### Step 2: Identify the Dependency Graph
 
@@ -105,7 +105,7 @@ Each task follows this structure, whether it lands in the markdown task list or 
 **Estimated scope:** [Small: 1-2 files | Medium: 3-5 files | Large: 5+ files]
 ```
 
-> **Ego verification examples:** Prefer Ego cargo tools — `cargo nextest run --profile audit --workspace --build-jobs 2`, `cargo check -p Ego`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo fmt --check` — over generic `npm` examples when the task touches Rust. For Python bindings: `target/audit-venv/Scripts/python -m pytest Ego-python/tests/test_sdk.py`. See `systematic-debugging` for root-cause investigation if verification fails.
+> **Ego verification examples:** Prefer Ego workspace verification — `pnpm build`, `pnpm typecheck`, `pnpm test`, `npx tsc --noEmit -p apps/desktop`. For in-process memory layer, verify with `NativeVantaDB` test suites. See `systematic-debugging` for root-cause investigation if verification fails.
 
 ### Step 5: Order and Checkpoint
 
@@ -158,7 +158,7 @@ Create the `tasks/` directory if it does not exist.
 
 The same rule applies to an external task list target: never bulk-close or delete another plan's open tracker items to make room for new ones.
 
-> **Ego path resolution:** In Ego, the canonical plan location is `docs/dev/plans/<fecha>-<nombre>.md` (not `tasks/plan.md`) and task files live at `.agents/skills/campaign-executor/tasks/<ID>.md` (resolved via `tasks/<ID>.md` → `.agents/skills/campaign-executor/tasks/<ID>.md` per `AGENTS.md` Path Resolution). The generic `tasks/plan.md` / `tasks/todo.md` convention in upstream maps to those Ego paths. When using the Ego task system, also check `.agents/task-system/prompts/plan.md` and honor `campaign-executor` state machine (PLAN/ACT/VERIFY) — never overwrite a plan file with unchecked tasks without asking.
+> **Ego path resolution:** In Ego, the canonical plan location is `docs/agent-ops/plans/<fecha>-<nombre>.md` (not `tasks/plan.md`) and task files live at `.agents/skills/campaign-executor/tasks/<ID>.md` (resolved via `tasks/<ID>.md` → `.agents/skills/campaign-executor/tasks/<ID>.md` per `AGENTS.md` Path Resolution). The generic `tasks/plan.md` / `tasks/todo.md` convention in upstream maps to those Ego paths. When using the Ego task system, also check `.agents/task-system/prompts/plan.md` and honor `campaign-executor` state machine (PLAN/ACT/VERIFY) — never overwrite a plan file with unchecked tasks without asking.
 
 ### Task List Target
 
@@ -169,7 +169,7 @@ The task list target is where tasks and checkpoints are recorded. It is defined 
 
 When using an external tracker, note it in `tasks/plan.md` (e.g. "Tasks tracked in Linear project FOO") so downstream steps and future sessions know where to look, and keep the plan document's Task List section as an ordered index of tracker item IDs or links rather than a duplicate checklist.
 
-> **Ego external tracker:** Ego's own tracker is the `campaign` MCP (`campaign_get_next_task`, `campaign_update_task_state`, `campaign_verify_cmd`) with plan files in `docs/dev/plans/`. When the plan file is the task list target, treat it as the external tracker — do not duplicate tasks in both `tasks/todo.md` and `docs/dev/plans/`.
+> **Ego external tracker:** Ego's own tracker is the `campaign` MCP (`campaign_get_next_task`, `campaign_update_task_state`, `campaign_verify_cmd`) with plan files in `docs/agent-ops/plans/`. When the plan file is the task list target, treat it as the external tracker — do not duplicate tasks in both `tasks/todo.md` and `docs/agent-ops/plans/`.
 
 ## Plan Document Template
 
@@ -262,13 +262,13 @@ Before starting implementation, confirm:
 
 ## Ego Integration
 
-This skill is tightly coupled to `campaign-executor` in Ego:
+This skill is tightly coupled to task execution in Ego:
 
-- **Planning is read-only discovery** — aligns with `campaign-executor` MODO DISCOVERY: use `codegraph_codegraph_explore` for blast radius, `.agents/task-system/prompts/plan.md` for triage gate, and create task files with atomic steps. Never write code during planning.
-- **Task files over todo.md** — for Ego work, prefer `docs/dev/plans/` + `tasks/<ID>.md` (→ `.agents/skills/campaign-executor/tasks/<ID>.md`) over generic `tasks/todo.md`. The verification contract in each task file must use a verifiable command (`cargo nextest run ...`, `cargo clippy ...`, etc.).
+- **Planning is read-only discovery** — aligns with MODO DISCOVERY: use blast radius exploration, `.agents/task-system/prompts/plan.md` for triage gate, and create task files with atomic steps. Never write code during planning.
+- **Task files over todo.md** — for Ego work, prefer `docs/agent-ops/plans/` + `docs/agent-ops/tasks/<ID>.md` over generic `tasks/todo.md`. The verification contract in each task file must use a verifiable command (`pnpm typecheck`, `pnpm test`, `pnpm build`, etc.).
 - **Systematic debugging on verification failure** — if verification fails, switch to `systematic-debugging` (not `debugging-and-error-recovery`, which is deprecated) for root-cause investigation before proposing fixes.
-- **Definition of Done** — acceptance criteria sit on top of `.agents/references/definition-of-done.md` (not `../../references/definition-of-done.md`). See also `.agents/task-system/prompts/iter-loop-tools.md` for the PLAN→ACT→VERIFY state machine.
+- **Definition of Done** — acceptance criteria sit on top of `.agents/references/definition-of-done.md`. See also `.agents/task-system/prompts/iter-loop-tools.md` for the PLAN→ACT→VERIFY state machine.
 
 ## See Also
 
-Acceptance criteria are per-task and answer "did we build the right thing?". They sit on top of the project-wide Definition of Done, the standing bar every task clears before it counts as done. See `.agents/references/definition-of-done.md` (Ego) / `../../references/definition-of-done.md` (upstream generic). Also see `campaign-executor`, `systematic-debugging`, and `.agents/task-system/prompts/plan.md` for Ego task-system integration.
+Acceptance criteria are per-task and answer "did we build the right thing?". They sit on top of the project-wide Definition of Done, the standing bar every task clears before it counts as done. See `.agents/references/definition-of-done.md` (Ego). Also see `systematic-debugging`, and `.agents/task-system/prompts/plan.md` for Ego task-system integration.

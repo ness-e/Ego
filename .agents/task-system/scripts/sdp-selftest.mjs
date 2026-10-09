@@ -23,7 +23,7 @@ function t(name, fn) {
 t("version v3", () => assert.equal(SDP_VERSION, "v3"))
 
 t("B1 alias ES→EN", () => {
-  const k = extractKeywordsFromInputs("docs/dev/plans/x.md", ["seguridad", "deuda", "entorno"], "HARD-09")
+  const k = extractKeywordsFromInputs("docs/agent-ops/plans/x.md", ["seguridad", "deuda", "entorno"], "HARD-09")
   assert(k.normalized.includes("security"), "seguridad→security")
   assert(k.normalized.includes("quality"), "deuda→quality")
   assert(k.derived.includes("security"))
@@ -79,7 +79,7 @@ t("L1 score con overlap de descripción", () => {
 
 t("pipeline completo — caso real HARD-02 (gates/CI)", () => {
   const r = discoverSkillsV3({
-    archivosClave: "dev-tools/verify.ps1, .github/workflows/ci-rust.yml, docs/dev/operations/CI_POLICY.md",
+    archivosClave: "dev-tools/verify.ps1, .github/workflows/ci-rust.yml, docs/engineering/CI_POLICY.md",
     phase: "BUILD", contractKeywords: ["gates", "coverage", "nightly"], taskId: "HARD-02", maxSkills: 8,
   }, ctx)
   assert.equal(r.sdpVersion, "v3")
@@ -90,7 +90,7 @@ t("pipeline completo — caso real HARD-02 (gates/CI)", () => {
 })
 
 t("pipeline completo — keywords ES (alias)", () => {
-  const r = discoverSkillsV3({ archivosClave: "docs/dev/tasks/HARD-05.md", phase: "BUILD", contractKeywords: ["seguridad", "entorno"], taskId: "HARD-05" }, ctx)
+  const r = discoverSkillsV3({ archivosClave: "docs/agent-ops/tasks/HARD-05.md", phase: "BUILD", contractKeywords: ["seguridad", "entorno"], taskId: "HARD-05" }, ctx)
   assert(r.derivedKeywords.includes("security"), "alias derivado")
 })
 

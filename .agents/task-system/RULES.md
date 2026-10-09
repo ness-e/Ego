@@ -1,4 +1,4 @@
-﻿# Campaign Executor — North Star + Reglas Invariantes
+# Campaign Executor — North Star + Reglas Invariantes
 
 > **Este archivo no cambia.** Todo el pipeline referencia esta visión como anchor.
 > Si una iteración se desvía, vuelve acá. No se edita durante ejecución.
@@ -65,16 +65,16 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
 
 ```
 ¿Querés ejecutar tareas desde un backlog?
-  ├─ Sí → /pipeline plan docs/dev/Backlog.md
+  ├─ Sí → /pipeline plan docs/roadmap/Backlog.md
   │       (crea plan file + muestra próximo paso)
   │
   └─ No → ¿Querés definir una tarea a profundidad?
-       ├─ Sí → /pipeline task DRV-NN
+       ├─ Sí → /pipeline task CORE-NN
        │       (investiga, crea task file con steps atómicos)
        │
        └─ No → ¿Querés ejecutar un plan existente?
 ├─ Completo → /pipeline run (orquestador con sub-agentes, profundidad unificada)
-├─ Una tarea → /pipeline run -SingleTask DRV-NN
+├─ Una tarea → /pipeline run -SingleTask CORE-NN
 └─ Paso a paso → /loop-goal + iter-loop-tools.md (una iteración)
 ```
 
@@ -90,8 +90,8 @@ RULES.md / VISION.md          ← north star (este archivo, no se modifica)
 .agents/task-system/prompts/pipeline-full.md      ← prompt canónico de ejecución de tarea
 .agents/task-system/prompts/subagent-recovery.md  ← SARL (recovery de sub-agentes)
 SKILL.md                      ← referencia completa del skill
-tasks/<ID>.md               ← auto-generated task definitions (resuelve a docs/dev/tasks/<ID>.md; fallback legacy .agents/skills/campaign-executor/tasks/<ID>.md)
-.agents/references/           ← repos clonados (awesome-harness-engineering, statewright, ...)
+tasks/<ID>.md               ← auto-generated task definitions (resuelve a docs/agent-ops/tasks/<ID>.md; fallback legacy .agents/skills/campaign-executor/tasks/<ID>.md)
+.agents/references/           ← referencias canónicas de Ego
 ```
 
 ---
@@ -119,29 +119,28 @@ próxima iteración arranca perdida.
 ### 4. Verificación mecánica siempre
 
 Nunca auto-reportar "anda". Siempre ejecutar un comando real:
-- `cargo check -p Ego`
-- `cargo nextest run`
-- `npx tsc --noEmit`
-- `cargo fmt --check`
-- `cargo clippy -- -D warnings`
+- `pnpm build`
+- `pnpm typecheck`
+- `pnpm test`
+- `npx tsc --noEmit -p apps/desktop`
 
-### Rust Safety Rules (motor DB)
+### TypeScript & Electron Safety Rules (Ego)
 
-- `unsafe` prohibido por defecto. Si es indispensable: `// SAFETY:` invariant documentado explicando por qué es seguro.
-- `Rc<T>` prohibido en contextos multi-hilo. Siempre `Arc<T>`.
-- Sin `#[allow(unsafe_code)]` sin aprobación explícita en code review.
-- Sin `unwrap()` en código de producción que toque datos de usuario o E/S — usar `?` o `expect("contexto del error")`.
+- `any` estrictamente prohibido en código de producción (`strict: true`). Si es indispensable una aserción, usar `unknown` + type guard documentado.
+- Context isolation forzoso: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true` en BrowserWindow.
+- IPC fuertemente tipado: todas las invocaciones renderer-main deben validarse mediante contratos canónicos.
+- Zero uncaught exceptions: envolver llamadas asíncronas y operaciones de filesystem o NativeVantaDB con `Result<T, E>` o bloques controlados con `EgoError`.
 
 ### Capa Determinista (barreras infranqueables)
 
 Estas verificaciones NO se saltan bajo ninguna circunstancia:
 
-0. **Output Validation (LLM05)**: Antes de escribir cualquier archivo que contenga shell commands, SQL, Python code, HTML o file paths, validar con `campaign_validate_output` MCP tool. Output del agente NO es confiable — sanitizar antes de write.
-1. `cargo clippy --all-targets -- -D warnings` — cero advertencias
-2. `cargo fmt --check` — formato correcto
-3. `cargo nextest run --profile audit --workspace --build-jobs 2` — tests pasan
-4. Si el diff contiene `unsafe` → `cargo +nightly miri test` (detección de UB)
-5. Si el componente es crítico (parser, serializador, WAL, protocolo de red) → marcar para fuzzing + quickcheck/proptest en CI
+0. **Output Validation (LLM05)**: Antes de escribir cualquier archivo que contenga shell commands, IPC handlers, HTML o file paths, validar con `task_validate_output` MCP tool. Output del agente NO es confiable — sanitizar antes de write.
+1. `pnpm typecheck` (o `npx tsc --noEmit -p apps/desktop`) — cero errores de tipado
+2. `pnpm build` — compilación limpia de main y renderer
+3. `pnpm test` — pruebas unitarias pasan
+4. Si el diff modifica IPC o preload → verificación de aislamiento de Electron
+5. Si el componente es crítico (MemoryAdapter, CognitiveRuntime, ExecutionManager) → pruebas de error, timeout y abort
 
 ### 6. Versioned DoD Thresholds (ratchet — solo sube, nunca baja)
 
@@ -151,9 +150,9 @@ Next: bump `NEXT_DOD_VERSION` en este archivo cuando se cumplan todas las condic
 | Versión | Nuevos checks (suman a los anteriores) |
 |---------|----------------------------------------|
 | v1 (baseline) | Capa determinista (0-5) + Pre-commit gate (7 items) |
-| v2 (coverage) | `cargo nextest run --coverage` mínimo 70% en módulos nuevos. Security checklist obligatorio (no condicional). |
-| v3 (hardening) | Fuzzing obligatorio en todo parser/serializer. `cargo audit` sin warnings. Miri en todo `unsafe`. |
-| v4 (enterprise) | `cargo deny check` sin advisories. 90% coverage mín. Review externo obligatorio antes de merge. |
+| v2 (coverage) | `pnpm test` con cobertura mínima 70% en módulos nuevos. Security checklist obligatorio (no condicional). |
+| v3 (hardening) | Validación estricta de esquemas IPC. Auditoría de dependencias (`pnpm audit`). |
+| v4 (enterprise) | 90% coverage mín. Review de contratos de IPC/Memory obligatorio antes de commit. |
 
 Regla: **No se puede saltar una versión.** Si NEXT_DOD_VERSION = v2, todos los checks de v1 + v2 aplican. Para pasar a v3, v2 debe estar estable por 5 tareas consecutivas.
 
@@ -267,7 +266,7 @@ en dos commits (uno de comportamiento, uno de estructura).
 | | Sandbox | `campaign_run_sandboxed` vía PowerShell aislado |
 | | Memory | `memory/lessons.md`, `memory/decisions.md` + `campaign_memory_read/write`. Esquema por línea (TSYS-15): `- <fecha-auto> | <tema> | <decisión\|lección> | ref: <ruta:línea>`; la fecha la agrega el server (`write` recibe solo `entry`); read por tema vía `rg -n <tema> .agents/task-system/memory/*.md` |
 | | Tracing | JSONL events a `traces/<campaign-id>.jsonl` via tracer.mjs |
-| | Plan files | `docs/dev/plans/<plan>.md` + `docs/dev/plans/<plan>.budget.json` |
+| | Plan files | `docs/agent-ops/plans/<plan>.md` + `docs/agent-ops/plans/<plan>.budget.json` |
 
 ### Rule 11 — Session lifecycle
 
@@ -459,13 +458,13 @@ No implementar como dependency — implementar como convention en el pipeline ex
 
 ## Apéndice B: Contenedor de tareas fallidas — Failed-task container (tasks/closed/) — TIR-04b
 
-> Decisión 2026-08-17 (TIR-04b): formaliza el Failed-task container citado desde el plan; WONTFIT infraestructura DLQ nueva. El contenedor es `tasks/closed/` (resuelve a `docs/dev/tasks/closed/`; fallback legacy `.agents/skills/campaign-executor/tasks/closed/`).
+> Decisión 2026-08-17 (TIR-04b): formaliza el Failed-task container citado desde el plan; WONTFIT infraestructura DLQ nueva. El contenedor es `tasks/closed/` (resuelve a `docs/agent-ops/tasks/closed/`; fallback legacy `.agents/skills/campaign-executor/tasks/closed/`).
 
 **Las 3 reglas del contenedor — Failed-task container:**
 
 1. **Al ESCALATE (SARL nivel 4):** mover el task file a `tasks/closed/<ID>.md` (nunca borrarlo). El plan file conserva la fila ❌ FAILED + recitation.
-2. **Re-procesamiento:** una tarea en `tasks/closed/` se re-abre con `campaign_update_task_state` "pending" tras revisión humana; el task file vuelve a la raíz de `tasks/` para reanudar desde el primer step ⬜ PENDING.
-3. **Índice único de fallidas:** `rg "❌ FAILED" docs/dev/plans/` lista todas las tareas fallidas vivas cruzando planes. Alternativa PowerShell: `Select-String -Pattern "❌ FAILED" -Path "docs/dev/plans/*.md"`.
+2. **Re-procesamiento:** una tarea en `tasks/closed/` se re-abre con `task_update_state` "pending" tras revisión humana; el task file vuelve a la raíz de `tasks/` para reanudar desde el primer step ⬜ PENDING.
+3. **Índice único de fallidas:** `rg "❌ FAILED" docs/agent-ops/plans/` lista todas las tareas fallidas vivas cruzando planes. Alternativa PowerShell: `Select-String -Pattern "❌ FAILED" -Path "docs/agent-ops/plans/*.md"`.
 
-**Glosario:** `tasks/complete/` = completadas y archivadas · `tasks/closed/` = Failed-task container — fallidas que agotaron la escalera SARL y esperan decisión humana · `docs/dev/plans/archive/` = planes cerrados (uno u otro estado).
+**Glosario:** `tasks/complete/` = completadas y archivadas · `tasks/closed/` = Failed-task container — fallidas que agotaron la escalera SARL y esperan decisión humana · `docs/agent-ops/plans/archive/` = planes cerrados (uno u otro estado).
 

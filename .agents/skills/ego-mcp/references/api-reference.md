@@ -215,14 +215,14 @@ async_db = AsyncClient("./my_brain")        # asyncio wrapper (thread-pool backe
 **close()**
 - Close database connection
 
-Other methods available on the class include `put_batch`, `export_namespace`, `import_file`, `operational_metrics`, `generate_snippet`, `explain_memory_search`, `capabilities`, `add_edge`, graph traversals (`graph_bfs`, `graph_dfs`, `graph_page_rank`), and more — see `Ego-python/Ego_py/__init__.py`.
+Other methods available on the class include `put_batch`, `export_namespace`, `import_file`, `operational_metrics`, `generate_snippet`, `explain_memory_search`, `capabilities`, `add_edge`, graph traversals (`graph_bfs`, `graph_dfs`, `graph_page_rank`), and more — see `vantadb` MCP tool documentation.
 
 ## Rust SDK
 
 ### VantaEmbedded
 
 ```rust
-use Ego::VantaEmbedded;
+use vantadb::VantaEmbedded;
 
 let embedded = VantaEmbedded::open("./Ego")?;  // default config
 let embedded = VantaEmbedded::open_with_config(config)?;  // custom VantaConfig

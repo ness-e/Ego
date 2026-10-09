@@ -1,44 +1,43 @@
 ---
-name: Ego
-description: Expert guide for Ego - Embedded persistent memory and hybrid retrieval engine for AI agents. Covers installation, core operations (put, get, search, list), hybrid search (BM25 + HNSW + RRF), Python SDK usage, LangChain/LlamaIndex integration, and best practices for local-first AI agent memory.
+name: vantadb-skill
+description: Expert guide for VantaDB 0.8.0 - Embedded persistent memory and hybrid retrieval engine used by Ego. Covers NativeVantaDB (napi-rs in-process) for fast-path BM25 and vantadb-mcp subprocess for cognitive L0-L3 layers.
 ---
 
-# Ego - Embedded Persistent Memory for AI Agents
+# VantaDB - Embedded Persistent Memory for Ego
 
-Ego is an embedded, local-first hybrid database engine designed specifically to act as long-term memory for autonomous AI agents. Think of it as a specialized SQLite tailored for agent payloads, integrating BM25 lexical retrieval and HNSW vector indexing in a single engine.
+VantaDB is the embedded, local-first hybrid database engine that powers the long-term memory system of Ego. In Ego's architecture, VantaDB runs in-process in the Electron Main process via `NativeVantaDB` from `"vantadb/native"` (napi-rs) for lexical/BM25 fast-path operations, and as a dedicated cognitive subprocess via `vantadb-mcp` (88 tools, ONNX dense embeddings, L0-L3 layers).
 
-## Core Philosophy
+## Core Philosophy in Ego
 
 **Embedded-First & Local-First**
-- Runs in-process (in-memory address space) like SQLite
-- No network overhead, no external dependencies
-- Data resides on the user's machine for privacy and sovereignty
+- Runs in-process (in Electron main process address space) via napi-rs
+- No network overhead, zero IPC overhead for in-process memory
+- Data resides on the user's local machine for absolute sovereignty
 - Zero-copy memory mapping for vector indexes
 
 **Multi-Model Hybrid Retrieval**
 - Vector search via HNSW (Hierarchical Navigable Small World)
 - Lexical search via BM25 (text indexing)
 - Hybrid fusion via Reciprocal Rank Fusion (RRF)
-- Structured metadata filtering
+- Structured metadata filtering and namespacing
 
 **Durable by Design**
 - Write-Ahead Log (WAL) with CRC32C checksums
 - Auto-healing recovery from crashes
-- Backend: Fjall (Rust LSM-tree) by default, RocksDB optional
 - Atomic checkpoints and crash-safe operations
 
-## Installation
+## Usage in Ego
 
-### Python SDK (Recommended)
+### Node.js Main Process (`NativeVantaDB` via napi-rs)
 
-```bash
-# From source (requires Rust toolchain)
-pip install maturin
-cd Ego-python
-maturin develop --release
+```typescript
+import { NativeVantaDB } from "vantadb/native";
 
-# From pre-built wheel (when available)
-pip install Ego-py
+// In-process fast-path embedded database
+const db = new NativeVantaDB({
+  path: "./data/memory",
+  memoryLimitBytes: 256 * 1024 * 1024
+});
 ```
 
 ### Rust SDK
@@ -631,17 +630,15 @@ db.flush()
 
 ### Documentation
 
-- **Quickstart:** `docs/user/QUICKSTART.md`
-- **Benchmarks:** `docs/user/operations/BENCHMARKS.md`
-- **Architecture:** `docs/dev/architecture/ARCHITECTURE.md`
-- **ADRs:** `docs/dev/architecture/adr/` (Architecture Decision Records)
+- **Architecture:** `docs/architecture/vision-general.md`
+- **Technical Stack:** `docs/engineering/stack-tecnico.md`
+- **ADRs:** `docs/architecture/adr/` (Architecture Decision Records)
 
 ### Examples
 
 - **Agent Memory:** `examples/python/agent_memory.py`
 - **LangChain RAG (Ollama):** `examples/python/langchain_ollama_rag.py`
-- **More integrations:** `examples/python/` (autogen, crewai, dspy, haystack, langgraph, mem0, semantic_kernel)
-- Case Studies: archivados en `docs/dev/archive/case-studies-unverified/` (internos, no verificados)
+- **More integrations:** `examples/`
 
 ### Integration Packages
 

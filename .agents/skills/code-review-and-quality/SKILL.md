@@ -1,4 +1,4 @@
-﻿---
+---
 name: code-review-and-quality
 description: Conducts multi-axis code review. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Use when you need to assess code quality across multiple dimensions before it enters the main branch.
 ---
@@ -299,7 +299,7 @@ Part of code review is dependency review:
 
 For triaging `npm audit` findings and supply-chain risk (typosquatting, compromised maintainers), follow the `security-and-hardening` skill — this section covers the upgrade *workflow*, that one covers the security verdict.
 
-> **Ego — dependency discipline:** The same 5 rules apply to `Cargo.toml` / `Cargo.lock` (not just `package.json`). Read the crate's `CHANGELOG.md` / release notes (`fjall`, `rocksdb`, `tokio`, `pyo3` etc.); in `0.x` semver, a "patch" can be breaking. Use `cargo update -p <crate>` + `cargo deny check` / `cargo audit`, review the `Cargo.lock` diff, and upgrade one crate per change (same as one npm package per change). For `web/` review `web/package.json` + `pnpm-lock.yaml`, for Python `Ego-python/pyproject.toml` + lock. Never hand-edit lockfiles. See `deny.toml`, `.agents/rules/api-contract.md`, and `.agents/rules/durability.md` for Ego gates.
+> **Ego — dependency discipline:** The same 5 rules apply to pnpm monorepo (`pnpm-lock.yaml` across root, `apps/*`, and `packages/*`). Read the package's `CHANGELOG.md` / release notes (`electron`, `@assistant-ui/react`, `@ai-sdk/*`, `vite`, `vantadb`); in `0.x` semver, a "patch" can be breaking. Use `pnpm update` or targeted version bumps, review the `pnpm-lock.yaml` diff, and upgrade one dependency group per change. Never hand-edit lockfiles. See `.agents/rules/api-contract.md` and `.agents/rules/js-ecosystem.md` for Ego gates.
 
 ## The Review Checklist
 
@@ -352,10 +352,10 @@ For triaging `npm audit` findings and supply-chain risk (typosquatting, compromi
 
 This skill is wired to Ego's task system and quality bar:
 
-- **Task system:** Reviews gate `campaign-executor` VERIFY → DONE. Use `campaign_verify_cmd` (build + tests + clippy + fmt) as the verification story; record the verdict with `campaign_update_task_state`. Plans in `docs/dev/plans/<fecha>-<nombre>.md`, tasks at `docs/dev/tasks/<ID>.md` (via `tasks/<ID>.md` per `AGENTS.md`).
-- **Cargo-first checks:** In addition to `npm audit`, run `cargo deny check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo fmt --check`, and `cargo test --doc` / `cargo doc --no-deps` for docs-heavy changes. For `Ego-python` run `target/audit-venv/Scripts/python -m pytest Ego-python/tests/test_sdk.py`. Build hygiene is enforced by `dev-tools/verify.ps1` / `dev-tools/verify_changed.ps1` (AGENTS.md Regla 1 — Pre-push Gate).
-- **Systematic debugging on verification failure:** If the change fails verification, switch to `systematic-debugging` (not deprecated `debugging-and-error-recovery`) and `codegraph_codegraph_explore` for blast-radius before proposing fixes.
-- **Definition of Done:** Reviews apply `.agents/references/definition-of-done.md` (not just upstream `../../references/definition-of-done.md`) — correctness + readability + architecture + security + performance + verification all green before merge.
+- **Task system:** Reviews gate `task_update_state` REVIEW → DONE. Use `task_verify_cmd` (typecheck + test + floor-guard) as the verification story; record the verdict with `task_update_state`. Plans in `docs/agent-ops/plans/<fecha>-<nombre>.md`, tasks at `docs/agent-ops/tasks/<ID>.md` (per `AGENTS.md`).
+- **TypeScript & Electron checks:** In addition to `pnpm audit`, run `pnpm typecheck` (or `npx tsc --noEmit -p apps/desktop`), `pnpm test`, and `powershell -NoProfile -File .agents/dev-tools/floor-guard.ps1`. Build hygiene is enforced by `dev-tools/verify.ps1` / `dev-tools/verify_changed.ps1` (AGENTS.md Pre-push Gate).
+- **Systematic debugging on verification failure:** If the change fails verification, switch to `systematic-debugging` and `codegraph_explore` / `codebase-memory` for blast-radius before proposing fixes.
+- **Definition of Done:** Reviews apply `.agents/references/definition-of-done.md` (and `definition-of-done.md` rules) — correctness + readability + architecture + security + performance + verification all green before merge.
 
 ## See Also
 
@@ -405,6 +405,6 @@ After review is complete:
 - [ ] The verification story is documented (what changed, how it was verified)
 - [ ] Dependency upgrades were reviewed against their changelog, isolated per package, and verified by a green suite with the lockfile diff reviewed
 
-> **Ego verification:** Tests = `cargo nextest run --profile audit --workspace --build-jobs 2` (Rust) + `target/audit-venv/Scripts/python -m pytest Ego-python/tests/test_sdk.py` (Python) + `npm test` (web) as applicable; build = `cargo check -p Ego` / `cargo build`; lint = `cargo clippy -- -D warnings` / `cargo fmt --check` / `cargo deny check`. Run via `campaign_verify_cmd` and `dev-tools/verify.ps1` per `docs/dev/operations/CI_POLICY.md`.
+> **Ego verification:** Tests = `pnpm test` (o suites específicas en `.agents/task-system/mcp/*.test.mjs`); build = `pnpm build` (dual build: renderer Vite + desktop TypeScript); typecheck = `pnpm typecheck` (o `npx tsc --noEmit -p apps/desktop`); floor-guard = `powershell -NoProfile -File .agents/dev-tools/floor-guard.ps1`. Run via `task_verify_cmd` and `.agents/dev-tools/verify.ps1`.
 
 **Presumptive blockers:** surface and propose the simpler design for each of these; escalate to Required only when the change actively makes structure worse: a refactor that relocates complexity instead of reducing it; a change that pushes a file past the size boundary with no decomposition; feature logic added to a shared module; a near-duplicate of an existing canonical helper; a silent fallback that hides an unclear invariant.

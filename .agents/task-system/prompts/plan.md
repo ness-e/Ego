@@ -44,7 +44,7 @@ El tool devuelve skills con justificaciones (base type + lifecycle PLAN + manife
 **Pasos por tarea (mientras mayor el esfuerzo/ambiguïdad, más exhaustivo):**
 
 1. **Extrae referencias** del texto de la tarea:
-   - Rutas de archivos (ej: `src/storage/vfile.rs`, `Ego-python/src/convert.rs`)
+   - Rutas de archivos (ej: `packages/memory/src/index.ts`, `apps/desktop/src/main/index.ts`)
    - Símbolos (funciones, structs, tests, CLIs, endpoints)
    - Features Cargo / flags de build / API pública
 2. **Verifica en el código real** con Code Intelligence dual:

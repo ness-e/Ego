@@ -21,21 +21,15 @@ This installs Ego. Configuration is handled entirely through environment
 variables (`VANTADB_*` / `VANTA_*`) and CLI flags — **there is no config
 file** (see [references/configuration.md](references/configuration.md)).
 
-### Starting the MCP Server
+### Starting the VantaDB MCP Server (Subproceso Cognitivo de Ego)
 
-The Ego MCP server runs as a stdio JSON-RPC server. Use the CLI wrapper (canonical — it spawns the server with the database path):
+El servidor MCP de memoria de VantaDB corre como subproceso stdio JSON-RPC. En el entorno de Ego, se invoca mediante su launcher canónico:
 
-```bash
-ego-cli server --mcp --db ~/.Ego
+```powershell
+pwsh -NoProfile -File "C:/Users/Eros/VantaDB Proyect/VantaDB/vanta-mcp-local.ps1" -DbPath "C:/Users/Eros/.vantadb"
 ```
 
-Or run the server binary directly. `Ego-server` has no `--db`/`--path` flags; the storage path comes from the `VANTADB_STORAGE_PATH` environment variable:
-
-```bash
-VANTADB_STORAGE_PATH=~/.Ego Ego-server --mcp
-```
-
-> Note: `ego-server` is not a real binary and `--path` is not a valid flag on any Ego binary. Use `ego-cli server --mcp --db <path>` or `Ego-server --mcp` with `VANTADB_STORAGE_PATH`.
+En OpenCode o Antigravity, este servidor ya está configurado en `opencode.jsonc` bajo la clave `"vantadb"`. Desde Ego Desktop, la memoria in-process opera vía `NativeVantaDB` de `"vantadb/native"`, mientras que la inferencia semántica densa delega a este subproceso.
 
 ### MCP Client Configuration
 

@@ -24,7 +24,7 @@ Según los archivos involucrados:
 |----------|------|-----------------|--------|
 | `src/**` (Rust core) | Rust | source-driven-development, doubt-driven-development | cargo check, nextest, fmt, clippy |
 | `web/src/**` | Frontend | frontend-ui-engineering | npx tsc --noEmit, npm run lint |
-| `Ego-python/**` | Python SDK | source-driven-development | pytest -v |
+| `packages/memory/**` | Memory Adapter | source-driven-development | pnpm test |
 | `Ego-ts/**` | TypeScript SDK | source-driven-development | npx tsc, npm test |
 | `docs/**` | Documentation | writing-guidelines, writing-plans | scripts/validate-docs-coverage |
 | `*.md` (plan/backlog) | Planning | writing-plans, planning-and-task-breakdown | — |
@@ -209,7 +209,7 @@ como gate mandatorio para 🔴 — revisión adversarial en contexto fresco
 - **Veredicto impacto:** [bajo/medio/alto — qué se rompe si cambio/elimino]
 
 ## Contrato
-"cargo nextest run --profile audit --workspace --build-jobs 2 pasa y el comportamiento específico es [condición]"
+"pnpm test pasa y el comportamiento específico es [condición]"
 
 ## Spec (SDD — obligatoria si Phase 1b detectó feature-add/símbolos públicos)
 
@@ -228,7 +228,7 @@ como gate mandatorio para 🔴 — revisión adversarial en contexto fresco
 > arranca sin contexto (gap-01 §3.3-18, eng-03-project.md:198).
 
 - **Invariantes a preservar:** [qué condición de dominio/seguridad no puede violar el próximo agente]
-- **Comandos de verificación:** [comando exacto + resultado esperado, p.ej. `cargo nextest run --profile audit --workspace --build-jobs 2`]
+- **Comandos de verificación:** [comando exacto + resultado esperado, p.ej. `pnpm test`]
 - **Deuda pendiente:** [lo que queda incompleto al cerrar esta iteración, o "ninguna"]
 
 ## Recitation (canónico — estructura única)
@@ -354,7 +354,7 @@ Evaluación mandatoria ANTES de codear. Si no aplica, justificar en Notas:
 ### Step 2: [Nombre corto]
 - **Archivos:** `path/to/file.rs`
 - **Acción:** describir qué hacer
-- **Verify:** `cargo nextest run test_xxx`
+- **Verify:** `pnpm test`
 - **Estado:** ⬜ PENDING
 
 ## Dependencias
@@ -392,7 +392,7 @@ Evaluación mandatoria ANTES de codear. Si no aplica, justificar en Notas:
 
 | ❌ Vago | ✅ Verificable |
 |---------|----------------|
-| "Arreglar el bug de memoria" | "tests/test_memory.rs pasa, cargo machete 0 warnings, cargo nextest run pasa" |
+| "Arreglar el bug de memoria" | "packages/memory/test pasa, pnpm typecheck 0 warnings, pnpm test pasa" |
 | "Mejorar la web" | "cd web && npx tsc --noEmit 0 errors, npm run lint 0 errors, npm run build éxito" |
 | "Refactorizar módulo" | "cargo check --workspace, clippy sin warnings nuevos, tests existentes pasan" |
-| "Funciona bien" | "cargo build && cargo nextest run pasa, y [comportamiento específico] funciona" |
+| "Funciona bien" | "pnpm build && pnpm test pasa, y [comportamiento específico] funciona" |

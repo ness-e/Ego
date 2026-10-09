@@ -83,7 +83,7 @@ function countGateResults(content) {
 
 // ---------- P2-04: WIP hard-limit ----------
 
-// Escanea tareas activas (in-progress): plan files en docs/dev/plans/ (task blocks
+// Escanea tareas activas (in-progress): plan files en docs/agent-ops/plans/ (task blocks
 // con `- **Estado:**` = IN PROGRESS/in-progress) + task files en tasks/.
 // TTL: un IN PROGRESS sin actividad > staleMinutes (budget.lastActivity para
 // tareas de plan; mtime para task files) NO bloquea claims nuevos — se devuelve
@@ -94,7 +94,7 @@ function findInProgressTasks(worktree, staleMinutes = 1440) {
   const opencodeRoot = existsSync(resolve(worktree, ".agents")) ? resolve(worktree, ".agents") : resolve(worktree, ".agents")
   const isStale = lastActivityMs => !lastActivityMs || (Date.now() - lastActivityMs) / 60000 > staleMinutes
 
-  // 1) Plan files en docs/agent-ops/plans/, docs/dev/plans/, docs/roadmap/plans/.
+  // 1) Plan files en docs/agent-ops/plans/, docs/agent-ops/plans/, docs/roadmap/plans/.
   const candidatePlanDirs = [
     join(worktree, "docs", "agent-ops", "plans"),
     join(worktree, "docs", "dev", "plans"),
@@ -446,12 +446,12 @@ server.tool(
   {
     taskId: z.string().describe("ID de la tarea (ej: DRV-068)"),
     filePath: z.string().describe("Ruta del archivo a editar (relativa al workspace root)"),
-    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente en docs/dev/plans/"),
+    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente en docs/agent-ops/plans/"),
   },
   async ({ taskId, filePath, planFile }) => {
     const worktree = PROJECT_ROOT
     const planPath = resolvePlan(planFile, worktree)
-    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ valid: false, error: "No plan file found in docs/dev/plans/", reason: "NO_PLAN_FILE" }) }] }
+    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ valid: false, error: "No plan file found in docs/agent-ops/plans/", reason: "NO_PLAN_FILE" }) }] }
 
     const content = readFileSync(planPath, "utf-8")
     const tasks = parseTasks(content)
@@ -548,13 +548,13 @@ function extractBlastRadiusFiles(taskFileContent) {
 server.tool(
   "campaign_get_next_task",
   {
-    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente en docs/dev/plans/"),
+    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente en docs/agent-ops/plans/"),
     claim: z.boolean().optional().default(false).describe("Claim atómico: marca la tarea devuelta IN PROGRESS bajo lock (evita que 2 instancias hagan Discovery de la misma)"),
   },
   async ({ planFile, claim }) => {
     const worktree = PROJECT_ROOT
     const planPath = resolvePlan(planFile, worktree)
-    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found in docs/dev/plans/" }) }] }
+    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found in docs/agent-ops/plans/" }) }] }
 
     // Campaign ID write-on-read atómico: sin lock, dos instancias pueden pisar
     // el write y desincronizar el mtime que findPlanFile usa como "más reciente".
@@ -1208,7 +1208,7 @@ server.tool(
     const nextestMatch = stdout.match(/(\d+)\s+passed.*?(\d+)\s+failed/s)
     const summary = nextestMatch ? { passed: parseInt(nextestMatch[1]), failed: parseInt(nextestMatch[2]) } : null
 
-    // EVAL-01: append every verify to the eval log for North Star metrics (docs/dev/reports/pipeline-evals.md).
+    // EVAL-01: append every verify to the eval log for North Star metrics (docs/agent-ops/reports/pipeline-evals.md).
     // P2-05: cada registro incluye traceId de la tarea para trazabilidad.
     // P3-rem: skills (derivadas del plan vía detectType) + toolUsed (derivado del command) para correlación skill→primer intento.
     try {
@@ -1299,7 +1299,7 @@ server.tool(
 
 // ---------- Tool 4: campaign_detect_task_type ----------
 
-// Orden específico→genérico: `Ego-python/src/lib.rs` debe ser python, no
+// Orden específico→genérico: `packages/memory/src/index.ts` debe ser typescript, no
 // "multi" por el fallback `/src\//`. El patrón genérico va ÚLTIMO y gana el
 // primer match. Para tareas genuinamente multi-dominio usar extraSkills.
 

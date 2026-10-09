@@ -20,7 +20,7 @@
       },
       "verify": {
         "allowed_tools": ["bash", "read", "grep"],
-        "allowed_commands": ["cargo check", "cargo nextest", "cargo fmt", "cargo clippy"],
+        "allowed_commands": ["pnpm build", "pnpm typecheck", "pnpm test", "npx tsc"],
         "instructions": "Run verification. If tests fail → IMPLEMENT. If compilation errors → IMPLEMENT.",
         "max_iterations": 3,
         "on": { "VERIFIED": "review", "FAIL": "implement", "BLOCKED": "failed" }

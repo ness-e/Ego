@@ -1,4 +1,4 @@
-﻿# Ego — Manual de Operación del Sistema (ÍNDICE)
+# Ego — Manual de Operación del Sistema (ÍNDICE)
 
 > ⚠️ **DEPRECATED COMO FUENTE DE DETALLE (2026-08-23).** Este documento duplicaba
 > ~60% del contenido vivo y divergía de las fuentes canónicas. Ahora es un
@@ -26,7 +26,7 @@
 | MCP servers activos/deshabilitados | `AGENTS.md` § MCP Servers Disponibles + `opencode.jsonc` |
 | Inventario completo de MCP tools (por server; nativas vs Code Mode) | `.agents/references/mcp-tools.md` |
 | Reglas normativas por área de código (lazy-loading) | `.agents/rules/README.md` + archivo del área |
-| Troubleshooting técnico (Windows, cargo, tests) | `docs/dev/references/troubleshooting.md` |
+| Stack técnico y entorno de ejecución | `docs/engineering/stack-tecnico.md` |
 | DoD por nivel (task/commit/release) | `.agents/references/definition-of-done.md` |
 
 ## Flujos rápidos (resumen de bolsillo)

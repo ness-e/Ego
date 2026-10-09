@@ -1,4 +1,4 @@
-﻿---
+---
 name: incremental-implementation
 description: Delivers changes incrementally. Use when implementing any feature or change that touches more than one file. Use when you're about to write a large amount of code at once, or when a task feels too big to land in one step.
 ---
@@ -196,23 +196,23 @@ verify nothing is broken."
 
 Be explicit about what's in scope and what's NOT in scope for each increment.
 
-> **Ego examples:** For Rust increments, verify with `cargo nextest run --profile audit --workspace --build-jobs 2`, `cargo check -p Ego`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo fmt --check`, and `cargo test --doc` where applicable; for Python `target/audit-venv/Scripts/python -m pytest Ego-python/tests/test_sdk.py`; for `web/` `npm run build` / `npx tsc --noEmit`. Scope each slice via `docs/dev/plans/<fecha>-<nombre>.md` and `campaign-executor` tasks (`tasks/<ID>.md` → `.agents/skills/campaign-executor/tasks/<ID>.md`).
+> **Ego examples:** For desktop and packages increments, verify with `pnpm build`, `pnpm typecheck`, `pnpm test`, and `npx tsc --noEmit -p apps/desktop`; for memory binding layer, verify with `NativeVantaDB` in-process tests. Scope each slice via `docs/agent-ops/plans/<fecha>-<nombre>.md` and task files (`docs/agent-ops/tasks/<ID>.md`).
 
 ## Increment Checklist
 
 After each increment, verify with the repository's own commands (see the test-driven-development skill's Discover the Stack First section):
 
 - [ ] The change does one thing and does it completely
-- [ ] All existing tests still pass (the repository's test command: `npm test`, `./gradlew test`, `pytest`, ...)
-- [ ] The build succeeds (the repository's build command)
-- [ ] Type checking passes, where the stack has one (`npx tsc --noEmit`, `mypy`, ...)
-- [ ] Linting passes (the repository's lint command)
+- [ ] All existing tests still pass (the repository's test command: `pnpm test`, ...)
+- [ ] The build succeeds (the repository's build command: `pnpm build`)
+- [ ] Type checking passes, where the stack has one (`pnpm typecheck` / `npx tsc --noEmit`)
+- [ ] Linting passes (the repository's lint command: `pnpm lint`)
 - [ ] The new functionality works as expected
 - [ ] The change is committed with a descriptive message
 
 **Note:** Run each verification command after a change that could affect it. After a successful run, don't repeat the same command unless the code has changed since — re-running on unchanged code adds no information.
 
-> **Ego — verify after increment:** The checklist above is the local gate; each increment must also clear the task's verification contract via `campaign_verify_cmd` (clippy + fmt + nextest + deny) before `campaign_update_task_state`. See `test-driven-development` (Discover the Stack First) for how to pick the right command, `systematic-debugging` if verification fails, and `.agents/task-system/prompts/iter-loop-tools.md` for the PLAN→ACT→VERIFY state machine. Keep increments additive and rollback-friendly per `ponytail` (simplest thing that could work).
+> **Ego — verify after increment:** The checklist above is the local gate; each increment must also clear the task's verification contract via `task_verify_cmd` (`pnpm typecheck`, `pnpm build`, `pnpm test`) before `task_update_state`. See `test-driven-development` (Discover the Stack First) for how to pick the right command, `systematic-debugging` if verification fails, and `.agents/task-system/prompts/iter-loop-tools.md` for the PLAN→ACT→VERIFY state machine. Keep increments additive and rollback-friendly per `ponytail` (simplest thing that could work).
 
 ## Common Rationalizations
 
@@ -252,11 +252,11 @@ After completing all increments for a task:
 
 This skill is wired to Ego's task system and quality bar:
 
-- **Slicing via campaign-executor:** Break `docs/dev/plans/<fecha>-<nombre>.md` tasks into thin vertical slices at `.agents/skills/campaign-executor/tasks/<ID>.md` (atomic steps with a verification contract). Each slice = one `campaign_verify_cmd` + commit + `campaign_update_task_state`; never batch multiple logical changes.
-- **Cargo-first verification:** Prefer `cargo nextest` / `cargo clippy` / `cargo fmt` over generic `npm` examples when the slice touches Rust. For `web/` use `npm run build` / `npx tsc --noEmit`. See `dev-tools/verify.ps1` and `docs/dev/operations/CI_POLICY.md` for canonical fast-gate vs heavy-certification tiers.
+- **Slicing via task-system:** Break `docs/agent-ops/plans/<fecha>-<nombre>.md` tasks into thin vertical slices at `docs/agent-ops/tasks/<ID>.md` (atomic steps with a verification contract). Each slice = one `task_verify_cmd` + commit + `task_update_state`; never batch multiple logical changes.
+- **TypeScript-first verification:** Prefer `pnpm build` / `pnpm typecheck` / `pnpm test` for all packages and desktop main/renderer. See `.agents/dev-tools/verify.ps1` for canonical fast-gate verification.
 - **Scope discipline + ponytail:** Touch only what the task requires; keep the simplest thing that could work before abstracting. Tag deliberate simplifications with `ponytail:` comments.
-- **Debugging on failure:** If verify after increment fails, switch to `systematic-debugging` (not `debugging-and-error-recovery`) and `codegraph_codegraph_explore` for blast-radius before retrying.
+- **Debugging on failure:** If verify after increment fails, switch to `systematic-debugging` (not `debugging-and-error-recovery`) and blast-radius analysis before retrying.
 
 ## See Also
 
-Per-increment verification is the local check. Before declaring a task done, apply the project-wide Definition of Done as the final gate, the standing bar every increment clears regardless of the task. See `.agents/references/definition-of-done.md` (Ego) / `../../references/definition-of-done.md` (upstream generic). Also see `test-driven-development` (Discover the Stack), `campaign-executor`, and `systematic-debugging`.
+Per-increment verification is the local check. Before declaring a task done, apply the project-wide Definition of Done as the final gate, the standing bar every increment clears regardless of the task. See `.agents/references/definition-of-done.md` (Ego). Also see `test-driven-development` (Discover the Stack) and `systematic-debugging`.

@@ -169,7 +169,7 @@ Evaluación mandatoria ANTES de codear. Si no aplica, justificar en Notas:
 ### Step 2: [Nombre corto]
 - **Archivos:** `path/to/file.rs`
 - **Acción:** describir qué hacer
-- **Verify:** `cargo nextest run test_xxx`
+- **Verify:** `pnpm test`
 - **Estado:** ⬜ PENDING
 
 ## Dependencias

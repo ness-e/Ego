@@ -133,7 +133,7 @@ Skills: skill review-deep
 Deliverable: perModule report [{module, score, issues, recommendations}]
 Rules:
 - Load skill review-deep
-- Iterate per module: Ego core, Ego-python, Ego-server, Ego-mcp
+- Iterate per module: desktop, memory, models, runtime, execution, tools, events
 - For each: codegraph_codegraph_explore → web research → competitor compare
 - Score each module 0-10
 - Return findings as structured markdown

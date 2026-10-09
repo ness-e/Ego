@@ -14,19 +14,19 @@
       },
       "migrate": {
         "allowed_tools": ["read", "grep", "edit", "write", "bash"],
-        "instructions": "One call site at a time. After each file, verify compiles (cargo check -p Ego). No test changes yet.",
+        "instructions": "One call site at a time. After each file, verify compiles (pnpm typecheck). No test changes yet.",
         "max_iterations": 15,
         "on": { "DONE": "cleanup", "FAIL": "failed" }
       },
       "cleanup": {
         "allowed_tools": ["read", "edit", "bash", "grep"],
-        "instructions": "Remove dead code, old types, deprecated exports. cargo machete for unused deps. cargo fmt.",
+        "instructions": "Remove dead code, old types, deprecated exports. clean unused code. pnpm typecheck.",
         "max_iterations": 3,
         "on": { "CLEAN": "verify", "FAIL": "migrate" }
       },
       "verify": {
         "allowed_tools": ["bash", "read", "grep"],
-        "allowed_commands": ["cargo check", "cargo nextest", "cargo fmt", "cargo clippy"],
+        "allowed_commands": ["pnpm build", "pnpm typecheck", "pnpm test", "npx tsc"],
         "instructions": "Full verification. If tests fail → diagnose and fix. Verify no public API broke.",
         "max_iterations": 3,
         "on": { "VERIFIED": "review", "FAIL": "migrate", "BLOCKED": "failed" }

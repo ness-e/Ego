@@ -1,4 +1,4 @@
-﻿// SDP v3 — Skill Discovery Protocol (dinámico, testable).
+// SDP v3 — Skill Discovery Protocol (dinámico, testable).
 // Mejoras v3 (2026-09-27, decisión owner "todas las mejoras"):
 //   B1 alias ES↔EN + normalización morfológica (plurales)
 //   B2 cierre de drift spec↔impl: familias excluidas (incl-*/gsap-*/understand-*),
@@ -19,17 +19,19 @@ export const SDP_VERSION = "v3"
 // ---------- Type detection (movido del server) ----------
 
 export const TYPE_PATTERNS = [
-  { pattern: /Ego-python\//, type: "python", label: "Python SDK", skills: ["source-driven-development"], checks: ["python -m pytest Ego-python/tests/ -v"] },
-  { pattern: /Ego-ts\/|Ego-node\//, type: "typescript", label: "TypeScript SDK", skills: ["source-driven-development"], checks: ["npx tsc --noEmit", "npm test"] },
+  { pattern: /packages\/memory\//, type: "typescript", label: "Memory Package", skills: ["source-driven-development", "test-driven-development"], checks: ["pnpm --filter @ego/memory test", "pnpm typecheck"] },
+  { pattern: /packages\/(models|runtime|execution|tools|events)\//, type: "typescript", label: "Cognitive Runtime Packages", skills: ["source-driven-development", "test-driven-development"], checks: ["pnpm typecheck", "pnpm test"] },
+  { pattern: /apps\/desktop\/src\/renderer\//, type: "react", label: "Desktop Renderer UI", skills: ["frontend-design", "react-dev"], checks: ["pnpm build", "pnpm typecheck"] },
+  { pattern: /apps\/desktop\/src\/main\//, type: "typescript", label: "Desktop Main Process", skills: ["source-driven-development", "doubt-driven-development", "ponytail"], checks: ["pnpm build", "pnpm typecheck", "npx tsc --noEmit -p apps/desktop"] },
+  { pattern: /Ego-python\//, type: "python", label: "Python SDK", skills: ["source-driven-development"], checks: ["python -m pytest"] },
   { pattern: /web\/src\//, type: "frontend", label: "Web frontend", skills: ["frontend-ui-engineering", "design-taste-frontend"], checks: ["npx tsc --noEmit", "npm run lint"] },
   { pattern: /\.github\//, type: "devops", label: "CI/CD / DevOps", skills: ["ci-cd-and-automation", "doubt-driven-development"], checks: ["yamllint .github/"] },
   { pattern: /desktop\/src/, type: "desktop", label: "Desktop Tauri", skills: ["frontend-ui-engineering", "source-driven-development"], checks: ["cd desktop && npm run build"] },
   { pattern: /Ego-mcp\//, type: "mcp", label: "MCP server", skills: ["source-driven-development", "security-and-hardening"], checks: ["cargo check -p Ego-mcp", "cargo test -p Ego-mcp --test mcp_tests"] },
   { pattern: /ego-proxy\//, type: "proxy", label: "LLM proxy", skills: ["source-driven-development"], checks: ["cargo check -p ego-proxy", "cargo test -p ego-proxy"] },
-  { pattern: /Ego-wasm\//, type: "wasm", label: "WASM binding", skills: ["source-driven-development"], checks: ["cargo check -p Ego-wasm --target wasm32-unknown-unknown"] },
   { pattern: /Ego-server\//, type: "server", label: "HTTP server", skills: ["source-driven-development", "security-and-hardening"], checks: ["cargo check -p Ego-server"] },
   { pattern: /docs\//, type: "docs", label: "Documentation", skills: ["writing-guidelines", "writing-plans"], checks: ["scripts/validate-docs-coverage.ps1"] },
-  { pattern: /(^|[^a-z-])src\//, type: "rust", label: "Rust core", skills: ["source-driven-development", "doubt-driven-development", "ponytail"], checks: ["cargo check -p Ego", "cargo fmt --check", "cargo clippy --workspace --all-targets --all-features -- -D warnings", "cargo nextest run --profile audit --workspace --build-jobs 2"] },
+  { pattern: /(^|[^a-z-])src\//, type: "rust", label: "Rust core", skills: ["source-driven-development", "doubt-driven-development", "ponytail"], checks: ["cargo check -p Ego"] },
 ]
 
 export const ESTIMATE_MAP = { "🟢": { turns: "5-10", label: "Bajo" }, "🟡": { turns: "15-30", label: "Medio" }, "🔴": { turns: "30-60", label: "Alto" } }

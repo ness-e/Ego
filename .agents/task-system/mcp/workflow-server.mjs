@@ -12,6 +12,7 @@ import { registerWorkflowTools } from "./tools/workflow-tools.mjs"
 import { registerTaskTools } from "./tools/task-tools.mjs"
 import { registerCatalogTools } from "./tools/catalog-tools.mjs"
 import { registerMemoryTools } from "./tools/memory-tools.mjs"
+import { registerCampaignTools } from "./tools/campaign-tools.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -56,12 +57,13 @@ const server = new McpServer({
   version: "2.0.0"
 })
 
-// Registrar los 4 dominios con contexto universal
+// Registrar los 5 dominios con contexto universal
 const context = { AGENTS_ROOT, PROJECT_ROOT, config }
 registerWorkflowTools(server, context)
 registerTaskTools(server, context)
 registerCatalogTools(server, context)
 registerMemoryTools(server, context)
+registerCampaignTools(server, context)
 
 // Conectar transporte Stdio
 async function main() {

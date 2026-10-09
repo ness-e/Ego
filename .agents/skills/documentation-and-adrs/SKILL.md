@@ -45,7 +45,7 @@ If the available evidence conflicts, surface the conflict rather than silently i
 
 ### ADR Template
 
-Store ADRs in `docs/dev/architecture/adr/` with sequential numbering (`NNN_titulo_breve.md`, template `docs/dev/_templates/adr.md`):
+Store ADRs in `docs/architecture/adr/` with sequential numbering (`NNN_titulo_breve.md`):
 
 ```markdown
 # ADR-001: Use PostgreSQL for primary database

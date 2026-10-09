@@ -617,10 +617,10 @@
              <div class="finding-head">
                <span class="sev critical">critical</span>
                <span class="finding-id">H01-CODE-001</span>
-               <span class="finding-file">src/lib.rs:142</span>
+               <span class="finding-file">apps/desktop/src/main/index.ts:142</span>
              </div>
-             <div class="finding-desc">unwrap() on user-provided vector index</div>
-             <div class="finding-rec">Use ok_or_else(|| VantaError::IndexOutOfBounds { ... })</div>
+             <div class="finding-desc">Unchecked access on IPC payload</div>
+             <div class="finding-rec">Validate schema using EgoError.InvalidArgument</div>
            </div>
            severity classes: critical, high, medium, low, info
            finding class matches severity (controls left border + bg)
@@ -637,8 +637,8 @@
       <h2>🔀 Cross-Cutting Patterns <span class="count">{{CROSS_CUTTING_COUNT}}</span></h2>
       <!-- CROSS_CUTTING_CARD template (orchestrator renders one per pattern):
            <div class="cross-cutting">
-             <strong>unwrap() on user input</strong> — appears in 3 phases (L1, L2, L9).
-             Recommend: add clippy::unwrap_used to workspace Cargo.toml.
+             <strong>any cast on user input</strong> — appears in 3 phases (L1, L2, L9).
+             Recommend: enforce strict schema validation in package.json scripts.
            </div>
       -->
       {{CROSS_CUTTING_PATTERNS}}
@@ -703,8 +703,8 @@
              <div class="phase-body">
                <h3>Commands</h3>
                <table>
-                 <tr><td class="mono">cargo fmt --check</td><td><span class="pill pass">exit 0</span></td></tr>
-                 <tr><td class="mono">cargo clippy -- -D warnings</td><td><span class="pill warn">1 warning</span></td></tr>
+                 <tr><td class="mono">pnpm typecheck</td><td><span class="pill pass">exit 0</span></td></tr>
+                 <tr><td class="mono">pnpm test</td><td><span class="pill pass">exit 0</span></td></tr>
                </table>
                <h3>Quality Gates</h3>
                <ul>
@@ -775,7 +775,7 @@
         <p><strong>Target:</strong> <span class="pill warn">{{CII_TARGET}}</span></p>
         <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);"><strong>Gaps for next level:</strong></p>
         <!-- CII_GAP template (orchestrator renders one <li> per gap):
-             <li>Add license SPDX tag in Cargo.toml</li>
+             <li>Add license SPDX tag in package.json</li>
         -->
         <ul style="font-size: 13px; padding-left: 20px;">{{CII_GAPS}}</ul>
       </div>

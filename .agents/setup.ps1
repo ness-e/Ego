@@ -62,7 +62,7 @@ if (-not (Test-Path $ConfigPath)) {
         $detectedStack = "rust"
         $pkgManager = "cargo"
         $testCmd = "cargo test"
-        $lintCmd = "cargo clippy"
+        $lintCmd = "pnpm typecheck"
         $buildCmd = "cargo build --release"
     } elseif ((Test-Path (Join-Path $ProjectRoot "pyproject.toml")) -or (Test-Path (Join-Path $ProjectRoot "requirements.txt"))) {
         $detectedStack = "python"

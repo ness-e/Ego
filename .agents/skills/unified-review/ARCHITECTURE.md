@@ -95,7 +95,7 @@ JSON reports (typically 1-5 KB each), never the raw command output.
                 │  Phase L10: consolidate (sync)           │
                 │  Phase L11: report (sync)                │
                 │                                           │
-                │  Write docs/dev/reviews/review-<mode>-<ts>.md│
+                │  Write docs/agent-ops/reports/reviews/review-<mode>-<ts>.md│
                 │  Optionally update Campaign task         │
                 └──────────────────────────────────────────┘
 ```
@@ -128,7 +128,7 @@ Each sub-agent MUST return a single JSON object and nothing else.
       "summary": "ok. 17 crates checked."  // ≤ 200 chars
     },
     {
-      "cmd": "cargo clippy --workspace --tests -j 2 -- -D warnings",
+      "cmd": "pnpm typecheck",
       "exit": 1,
       "duration_ms": 8901,
       "summary": "error: found 2 warnings, -D warnings turned them into errors"
@@ -147,7 +147,7 @@ Each sub-agent MUST return a single JSON object and nothing else.
       "file": "crates/Ego-core/src/engine.rs",
       "line": 142,
       "description": "unwrap() on user-provided vector index",
-      "recommendation": "Use ok_or_else(|| VantaError::IndexOutOfBounds { ... })",
+      "recommendation": "Use ok_or_else(|| EgoError.IndexOutOfBounds { ... })",
       "skills_loaded": ["code-review-and-quality"],
       "cross_cutting": false
     }
@@ -166,7 +166,7 @@ Each sub-agent MUST return a single JSON object and nothing else.
     "owasp": {"level_reached": "L1", "failed_checks": [...]},
     "codeclimate": {"rating": "B", "issues_by_severity": {...}}
   },
-  "raw_log_path": "docs/dev/reviews/logs/L1-2026-07-26-1430.log"  // only if keep_raw_logs
+  "raw_log_path": "docs/agent-ops/reports/reviews/logs/L1-2026-07-26-1430.log"  // only if keep_raw_logs
 }
 ```
 
@@ -374,7 +374,7 @@ Things that would blow the orchestrator's context:
   structured markdown, not a log dump).
 
 The skill is designed to avoid all of these. Raw logs go to
-`docs/dev/reviews/logs/` (if `keep_raw_logs: true`) and are linked from the
+`docs/agent-ops/reports/reviews/logs/` (if `keep_raw_logs: true`) and are linked from the
 report, not embedded.
 
 ## 7. Subagent type definitions (reference)
@@ -581,7 +581,7 @@ issues that would break the release pipeline.
 Should:
 - Run Phase 0 (detect).
 - Launch one sub-agent for L1.
-- Return a single-page report at `docs/dev/reviews/review-quick-<timestamp>.md`.
+- Return a single-page report at `docs/agent-ops/reports/reviews/review-quick-<timestamp>.md`.
 - Take < 2 minutes.
 
 ### 9.2 Verify context budget
