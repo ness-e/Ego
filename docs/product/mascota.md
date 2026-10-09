@@ -10,6 +10,8 @@
 | Regla Fundamental | **El personaje es una capa visual del Cognitive Runtime procedural en código, NO imágenes generadas por IA** |
 | Ubicación en Código | `apps/desktop/renderer/components/character/` y `apps/desktop/renderer/components/activity-widget/` |
 
+> **Dirección artística canónica (2026-10-08):** Ego es una **criatura/bot original, carismática y limpia, con anatomía amigable (cabeza, ojos expresivos, boca y manitas/brazos gesticulantes)**, en la tradición de mascotas de escritorio como Coucou/Mochi pero con identidad propia. No es humano (no usa trajes, corbatas ni ropa de tela) ni tampoco un ente abstracto o logotipo frío. La silueta definitiva se elige en `CHAR-03`. Ver [`character-art-direction.md`](character-art-direction.md).
+
 ---
 
 ## 1. Tesis Fundamental: Sistema Procedural vs Generación por IA
@@ -71,9 +73,10 @@ Sub-Ego (Especialista Cognitivo)
 ### Regla: La Identidad NO Cambia cuando Cambia el Estado
 
 * **Identidad:** ¿Quién es?
-  * **Ego Base:** Neutral, monocromático, sin accesorios, postura zen.
-  * **Sub-Ego Dev:** Squircle cian oscuro, hoodie, visor tech, postura hacia adelante.
-  * **Sub-Ego Finanzas:** Squircle verde bosque, corbata, lentes finos, postura rigurosa.
+  * **Ego Base:** Forma base neutra de la familia, sin rasgos adicionales, paleta sobria, mirada serena (silueta definitiva pendiente de `CHAR-03`).
+  * **Sub-Ego Dev (ejemplo):** misma familia, proporción ligeramente alargada, acento frío, inclinación hacia adelante, rasgo sensorial de enfoque.
+  * **Sub-Ego Finanzas (ejemplo):** misma familia, proporción compacta, acento sobrio, postura erguida, movimiento contenido.
+  * Regla: la diferenciación usa proporción, `traits`, acento, ritmo y mirada. **Nunca ropa ni elementos humanos.**
 * **Estado Operativo:** ¿Qué está haciendo?
   * `idle`, `listening`, `thinking`, `working`, `searching`, `using_tool`, `waiting`, `approval_required`, `question`, `success`, `warning`, `error`, `sleeping`, `attention`.
 
@@ -96,9 +99,9 @@ El personaje **no debe convertirse en una fuente de fatiga o distracción**:
 
 ### Transición de Morphing (350–550 ms)
 Cuando cambia el orador relevante, la transición es una coreografía procedural suave:
-* **Fase 1: Preparación (100–150 ms):** El personaje se comprime elásticamente (squash) y oculta accesorios salientes.
+* **Fase 1: Preparación (100–150 ms):** El personaje se comprime elásticamente (squash) y retrae los rasgos salientes.
 * **Fase 2: Metamorfosis (150–250 ms):** Interpola suavemente geometría y color.
-* **Fase 3: Entrada (100–180 ms):** Rebote elástico ascendente y despliegue de los accesorios del nuevo especialista.
+* **Fase 3: Entrada (100–180 ms):** Rebote elástico ascendente y despliegue de los rasgos del nuevo especialista.
 
 ---
 
@@ -151,42 +154,44 @@ Cada manifestación visual se define mediante una estructura fuertemente tipada:
 
 ```ts
 export interface CharacterDNA {
-  /** Identificador de la morfología base */
-  species: "squircle-prime" | "orb-minimal" | "geom-shadow";
+  /**
+   * Identificador de la familia visual. Valor definitivo pendiente de CHAR-03.
+   * Todos los Sub-Egos comparten la misma familia; difieren por parámetros.
+   */
+  family: string;
 
-  /** Anatomía y geometría del cuerpo */
+  /** Anatomía y geometría del cuerpo (silueta definida por CHAR-03, no por defecto squircle) */
   body: {
-    silhouette: "squircle" | "rounded-capsule" | "drop";
+    silhouetteId: string; // referencia a una silueta registrada de la familia
     width: number;
     height: number;
-    cornerRadii: [number, number, number, number];
-    morphRatio: number; // 0 = orgánico, 1 = prisma/caja
+    proportions: Record<string, number>; // ejes propios de la silueta elegida
+    morphRatio: number; // 0 = orgánico, 1 = angular
   };
 
-  /** Rostro y proyección visual */
+  /** Rostro/órgano sensorial y proyección visual */
   face: {
-    eyeStyle: "dot" | "visor" | "anime-minimal" | "digital-glow";
+    eyeStyle: "dot" | "visor" | "ring" | "digital-glow";
     eyeSize: number;
     eyeSpacing: number;
     pupilDilation: number;
     mouthStyle: "none" | "line" | "curve" | "digital";
   };
 
-  /** Paleta cromática coordinada */
+  /** Paleta cromática coordinada (nunca el único canal de información: accesibilidad) */
   palette: {
-    primary: string;    // Color de piel/cuerpo
+    primary: string;    // Color del cuerpo
     secondary: string;  // Detalles y sombra
     accent: string;     // Color de energía/ojos
     neutral: string;    // Fondo o contraste
   };
 
-  /** Capas de accesorios y prendas */
-  accessories: AccessoryConfig[];
-  outfit?: {
-    id: string;
-    layer: "back" | "torso" | "front";
-    paletteOverride?: Partial<CharacterDNA["palette"]>;
-  };
+  /**
+   * Rasgos anatómicos de la criatura (apéndices, crestas, órganos sensoriales).
+   * Sustituye a la antigua capa de vestimenta humana (`outfit`/`accessories`).
+   * Cada rasgo declara su capa de render (`back` | `body` | `front`).
+   */
+  traits: TraitConfig[];
 
   /** Parámetros de personalidad visual (0.0 a 1.0) */
   personality: {
@@ -210,18 +215,22 @@ export interface CharacterDNA {
 
 ---
 
-## 8. Los 8 Presets Fundacionales de Sub-Egos
+## 8. Presets Fundacionales de Sub-Egos (arquetipos de comportamiento)
 
-Para garantizar usabilidad inmediata sin fricción de diseño:
+> **Corrección 2026-10-08:** los presets anteriores describían oficios humanos (gafas, corbatas, visores) y una silueta squircle. Ahora son **arquetipos de comportamiento y proporción de una misma criatura**. La anatomía concreta (rasgos, silueta) queda pendiente de `CHAR-03`; los valores de `personality` y `behavior` son orientativos y se recalibran tras esa decisión.
 
-1. **`Preset-Professional` (Finanzas / Legal):** Silueta sobria, paleta neutra/azul marino, gafas sutiles, postura erguida, alta seriedad ($0.9$).
-2. **`Preset-Technical` (Ingeniería / DevOps):** Silueta estilizada, paleta oscura con acentos cian, visor/gafas técnicas, inclinación hacia adelante, alta curiosidad ($0.8$).
-3. **`Preset-Creative` (Diseño / Copywriting):** Silueta orgánica suave, paleta violeta/ámbar, accesorios asimétricos, rebote expresivo, alta energía ($0.7$).
-4. **`Preset-Executive` (Estrategia / Producto):** Silueta equilibrada, monocromo con acento dorado, postura firme y pausada, calidez moderada ($0.6$).
-5. **`Preset-Friendly` (Soporte / CRM):** Silueta redondeada, ojos amplios luminosos, paleta verde/cálida, sonrisa frecuente, alta calidez ($0.9$).
-6. **`Preset-Minimal` (Ego Core / Coordinador):** Silueta squircle pura, rigurosamente blanco/negro, sin accesorios, respiración zen.
-7. **`Preset-Futuristic` (Research / Criptografía):** Silueta geométrica con bordes duros, resplandor perimetral neón, pulso orbital continuo.
-8. **`Preset-Playful` (Exploración / Brainstorming):** Silueta elástica deformable, animaciones de sorpresa y gestos rápidos de atención.
+Cada preset define solo **ejes de diferenciación** (proporción, `traits`, acento cromático, ritmo de movimiento, estilo de mirada), nunca vestimenta:
+
+| Preset | Dominios típicos | Proporción / ritmo | Personalidad dominante |
+|---|---|---|---|
+| `Preset-Rigorous` | Finanzas, Legal | compacto, movimiento contenido, mirada fija | `seriousness` 0.9 |
+| `Preset-Technical` | Ingeniería, DevOps | ligeramente alargado, inclinación hacia adelante, acento frío | `curiosity` 0.8 |
+| `Preset-Creative` | Diseño, Copywriting | asimétrico suave, rebote expresivo, acento cálido | `energy` 0.7 |
+| `Preset-Strategic` | Estrategia, Producto | equilibrado, pausado, acento sobrio | `seriousness` 0.6 |
+| `Preset-Warm` | Soporte, CRM | redondeado, mirada amplia, acento cálido suave | `warmth` 0.9 |
+| `Preset-Core` | Ego (coordinador) | forma base neutra, sin rasgos adicionales, respiración serena | equilibrado |
+| `Preset-Analytical` | Research, Criptografía | proporciones angulosas del ADN, pulso orbital | `curiosity` 0.7 |
+| `Preset-Explorer` | Exploración, Brainstorming | elástico, gestos rápidos de atención | `playfulness` 0.8 |
 
 ---
 

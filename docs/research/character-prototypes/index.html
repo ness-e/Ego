@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CHAR-03 — Laboratorio de Identidad Visual: Ego y Familia de Sub-Egos</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --card: #151a24;
+    --card-ego: #182030;
+    --card-sub: #162438;
+    --border: #283347;
+    --border-ego: #385177;
+    --border-sub: #00e5ff44;
+    --txt: #f0f6fc;
+    --mute: #8d9bb0;
+    --acc: #58a6ff;
+    --cyan: #00e5ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--txt);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    padding: 24px;
+    max-width: 1440px;
+    margin-inline: auto;
+  }
+  h1 { font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 19px; font-weight: 600; margin: 0 0 4px; }
+  .section-title {
+    font-size: 21px;
+    font-weight: 700;
+    color: #9ecbff;
+    margin: 44px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title.sub-hero {
+    color: #4eedff;
+    border-bottom-color: #00e5ff66;
+  }
+  h3 { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); margin: 20px 0 10px; font-weight: 700; }
+  p { margin: 4px 0; color: var(--mute); }
+  .note {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--acc);
+    padding: 14px 18px;
+    border-radius: 8px;
+    background: var(--card);
+    margin: 16px 0 24px;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .note.sub-note {
+    border-left-color: var(--cyan);
+    background: #0d1a29;
+  }
+  .bar {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    padding: 12px 18px;
+    background: var(--card);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  button, select {
+    background: #21293a;
+    color: var(--txt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover, select:hover { background: #2c3850; border-color: var(--acc); }
+  section.cand {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin: 24px 0;
+  }
+  section.cand.ego-card {
+    background: var(--card-ego);
+    border: 1px solid var(--border-ego);
+    box-shadow: 0 4px 24px rgba(0, 229, 255, 0.04);
+  }
+  section.cand.sub-card {
+    background: var(--card-sub);
+    border: 1px solid var(--border-sub);
+    box-shadow: 0 4px 28px rgba(0, 229, 255, 0.08);
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: baseline;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+  }
+  .tag {
+    font-size: 12px;
+    background: #1f293d;
+    color: #79c0ff;
+    padding: 4px 10px;
+    border-radius: 99px;
+    border: 1px solid #388bfd44;
+  }
+  .tag.ego-tag {
+    background: #103247;
+    color: #4eedff;
+    border-color: #00e5ff66;
+    font-weight: 600;
+  }
+  .tag.sub-tag {
+    background: #004455;
+    color: #00f0ff;
+    border-color: #00f0ff88;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; color: var(--mute); }
+  .sil { background: #ffffff; padding: 14px 20px; border-radius: 10px; display: flex; gap: 24px; align-items: flex-end; }
+  .sil .cell { color: #24292f; font-weight: 600; }
+  canvas { display: block; }
+  .c-dark canvas {
+    background: #090d14;
+    border: 1px solid #20283a;
+    border-radius: 10px;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: 14px; font-size: 13px; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: center; }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: #161e2c; color: #d0d7e5; }
+  tfoot td { font-weight: 700; background: #131926; color: var(--acc); }
+  .w { color: var(--mute); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>CHAR-03 — Laboratorio de Identidad Visual: Ego y Familia de Sub-Egos</h1>
+<p>Sistema Procedural en <b>Canvas 2D (60 fps)</b>. Incorpora la matemática volumétrica de Coucou y define la <b>Personalización Anatómica Profunda</b> donde Ego es el Orquestador y cada Sub-Ego tiene una esencia, silueta, mirada y extremidades radicalmente distintas adaptadas a su rol cognitivo.</p>
+
+<div class="note sub-note">
+  👑 <b>Personalización Anatómica de Esencia (Sección III):</b>
+  <br>• <b>Ego no es un Sub-Ego:</b> Es el <b>Orquestador Soberano</b> (Cúpula armónica perfecta, mirada omnisciente, Cognitive Core mnemónico y orbes gravitacionales satélite).
+  <br>• <b>Todos los Sub-Egos son distintos entre sí:</b>
+  <br>— <b>Dev (Ingeniería):</b> Prisma hexagonal técnico, Cyber-Visor de escaneo cian, antena angular y manos mecánicas de tecleo veloz.
+  <br>— <b>Finanzas & Legal (Rigor):</b> Silueta trapezoidal achatada y sólida, mirada de escrutinio analítico y manos de compostura formal.
+  <br>— <b>Creativo (Diseño & Arte):</b> Gota orgánica fluida con cresta dinámica ondulante, ojos gigantes anime con destello triple y bracitos elásticos de trazo.
+  <br>— <b>Research (VantaDB & GraphRAG):</b> Cabeza bilobulada de búho erudito cósmico, ojos de lente concéntrica con anillos de apertura mnemónica y antenas de radar.
+  <br>— <b>Soporte & CRM (Empatía):</b> Ultra-redondeado, cuerpo de nube esponjosa con orejitas suaves expresivas, ojos sonrientes y manitas acogedoras.
+</div>
+
+<div class="bar">
+  <button id="pause" aria-pressed="false">⏸ Pausar animación</button>
+  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+    <input type="checkbox" id="reduce"> 🛑 Movimiento reducido (congelar pose)
+  </label>
+  <button id="waveAll">👋 Saludo Interactivo (Wave)</button>
+  <span class="w" style="margin-left:auto;">👁 Cada personaje sigue tu cursor con proyección esférica 3D adaptada a su anatomía.</span>
+</div>
+
+<div id="app"></div>
+
+<section class="cand" id="scoring">
+  <h2>Matriz Comparativa y de Selección (CHAR-03)</h2>
+  <p>Puntúa del 0 al 5 según carisma, diferenciación de silueta a 16 px, coherencia de dominio y fidelidad al espíritu de Ego.</p>
+  <div id="matrix"></div>
+</section>
+
+<script>
+'use strict';
+const TAU = Math.PI * 2;
+
+// Constantes exactas de Coucou
+const EYE_W = 0.25;
+const EYE_H = 0.27;
+const EYE_SP = 0.37;
+const EYE_P = -0.12;
+
+// Paletas Base
+const BASE_TOP = [0.929, 0.929, 0.937]; // #EDEDEF (Cerámica Blanca)
+const BASE_BOTTOM = [0.769, 0.773, 0.792]; // #C4C5CA
+const VANTA_TOP = [0.20, 0.23, 0.30]; // Grafito Obsidiana Profundo
+const VANTA_BOTTOM = [0.09, 0.11, 0.15]; // Negro VantaDB
+const INK = 'rgb(26,20,18)'; // #1A1412
+const CYAN_GLOW = 'rgb(0,229,255)'; // #00E5FF
+
+const C = {
+  idle: [0.902, 0.914, 0.933],
+  working: [0.231, 0.62, 1],
+  thinking: [0.545, 0.361, 0.965],
+  searching: [0.388, 0.396, 0.949],
+  approval: [0.961, 0.647, 0.141],
+  finished: [0.204, 0.831, 0.6],
+  error: [0.957, 0.314, 0.369]
+};
+
+const rgba = (c, a = 1) => `rgba(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)},${a})`;
+
+const STATES = {
+  idle: {
+    color: C.idle, tint: 0.0, eye: 'pill', badge: null,
+    breathes: true, bounces: false, open: 1.0
+  },
+  thinking: {
+    color: C.thinking, tint: 0.72, eye: 'pill', badge: { kind: 'dots', color: C.thinking },
+    breathes: false, bounces: false, open: 0.75, look: [0.55, 0.55]
+  },
+  working: {
+    color: C.working, tint: 0.72, eye: 'pill', badge: { kind: 'dots', color: C.working },
+    breathes: false, bounces: false, open: 0.65, handsWorking: true
+  },
+  approval: {
+    color: C.approval, tint: 0.78, eye: 'wide', badge: { kind: 'bang', color: C.approval },
+    breathes: false, bounces: true, open: 1.25
+  },
+  success: {
+    color: C.finished, tint: 0.35, eye: 'happy', badge: { kind: 'dot', color: C.finished },
+    breathes: true, bounces: true, open: 1.0
+  },
+  error: {
+    color: C.error, tint: 0.78, eye: 'flat', badge: { kind: 'dot', color: C.error },
+    breathes: false, bounces: false, open: 1.2, shake: true
+  }
+};
+
+const VARIANTS = [
+  { name: 'Core (Ego)',       tintOverride: null,       speed: 1.0,  sx: 1.0,  sy: 1.0 },
+  { name: 'Dev (Técnico)',    tintOverride: C.working,  speed: 1.15, sx: 0.94, sy: 1.06 },
+  { name: 'Finanzas (Rigor)', tintOverride: C.finished, speed: 0.8,  sx: 1.08, sy: 0.92 },
+  { name: 'Creativo (Exp)',   tintOverride: C.approval, speed: 1.3,  sx: 1.02, sy: 1.02 }
+];
+
+function roundRectPath(ctx, X, Y, W, H, R) {
+  const r = Math.max(0, Math.min(R, W / 2, H / 2));
+  ctx.beginPath();
+  ctx.moveTo(X + r, Y);
+  ctx.arcTo(X + W, Y, X + W, Y + H, r);
+  ctx.arcTo(X + W, Y + H, X, Y + H, r);
+  ctx.arcTo(X, Y + H, X, Y, r);
+  ctx.arcTo(X, Y, X + W, Y, r);
+  ctx.closePath();
+}
+
+// -----------------------------------------------------------------------------
+// GENERADORES DE SILUETAS ANATÓMICAS PROFUNDAS
+// -----------------------------------------------------------------------------
+
+// 1. Ego Base: Cúpula armónica perfecta
+function drawEgoOrchestratorPath(rx, ry) {
+  const n = 72;
+  const expN = 2.0 / 2.7;
+  const p = new Path2D();
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    let px = rx * (ca >= 0 ? Math.pow(ca, expN) : -Math.pow(-ca, expN));
+    let py = ry * (sa >= 0 ? Math.pow(sa, expN) : -Math.pow(-sa, expN));
+    if (i === 0) p.moveTo(px, py); else p.lineTo(px, py);
+  }
+  p.closePath();
+  return p;
+}
+
+// 2. Sub-Ego Dev: Prisma hexagonal vertical técnico redondeado
+function drawDevBodyPath(rx, ry) {
+  const p = new Path2D();
+  const w = rx * 0.95, h = ry * 1.12, cutX = w * 0.42, cutY = h * 0.28;
+  p.moveTo(-w + cutX, -h);
+  p.lineTo(w - cutX, -h);
+  p.quadraticCurveTo(w, -h, w, -h + cutY);
+  p.lineTo(w, h - cutY);
+  p.quadraticCurveTo(w, h, w - cutX, h);
+  p.lineTo(-w + cutX, h);
+  p.quadraticCurveTo(-w, h, -w, h - cutY);
+  p.lineTo(-w, -h + cutY);
+  p.quadraticCurveTo(-w, -h, -w + cutX, -h);
+  p.closePath();
+  return p;
+}
+
+// 3. Sub-Ego Finanzas: Trapecio sólido y achatado de base pesada
+function drawFinanceBodyPath(rx, ry) {
+  const p = new Path2D();
+  const topW = rx * 0.88, botW = rx * 1.32, h = ry * 0.85;
+  p.moveTo(-topW * 0.6, -h);
+  p.lineTo(topW * 0.6, -h);
+  p.bezierCurveTo(topW, -h * 0.7, botW, h * 0.3, botW, h * 0.75);
+  p.quadraticCurveTo(botW, h, botW * 0.7, h);
+  p.lineTo(-botW * 0.7, h);
+  p.quadraticCurveTo(-botW, h, -botW, h * 0.75);
+  p.bezierCurveTo(-botW, h * 0.3, -topW, -h * 0.7, -topW * 0.6, -h);
+  p.closePath();
+  return p;
+}
+
+// 4. Sub-Ego Creativo: Gota fluida orgánica con cresta asimétrica ondulante
+function drawCreativeBodyPath(rx, ry, t) {
+  const p = new Path2D();
+  const sway = Math.sin(t * 3.5) * (rx * 0.15);
+  p.moveTo(sway, -ry * 1.25);
+  p.bezierCurveTo(rx * 0.6 + sway, -ry * 0.9, rx * 1.2, -ry * 0.1, rx * 1.05, ry * 0.65);
+  p.bezierCurveTo(rx * 0.9, ry * 1.05, -rx * 0.9, ry * 1.05, -rx * 1.05, ry * 0.65);
+  p.bezierCurveTo(-rx * 1.2, -ry * 0.1, -rx * 0.4 + sway, -ry * 0.9, sway, -ry * 1.25);
+  p.closePath();
+  return p;
+}
+
+// 5. Sub-Ego Research: Cabeza bilobulada de búho erudito cósmico
+function drawResearchBodyPath(rx, ry) {
+  const p = new Path2D();
+  const w = rx * 1.28, h = ry * 0.92;
+  p.moveTo(0, -h * 0.85);
+  p.quadraticCurveTo(w * 0.4, -h * 1.25, w * 0.85, -h * 0.75);
+  p.bezierCurveTo(w * 1.15, -h * 0.3, w * 1.05, h * 0.4, w * 0.75, h * 0.85);
+  p.quadraticCurveTo(0, h * 1.05, -w * 0.75, h * 0.85);
+  p.bezierCurveTo(-w * 1.05, h * 0.4, -w * 1.15, -h * 0.3, -w * 0.85, -h * 0.75);
+  p.quadraticCurveTo(-w * 0.4, -h * 1.25, 0, -h * 0.85);
+  p.closePath();
+  return p;
+}
+
+// 6. Sub-Ego Soporte: Nube esponjosa ultra-redondeada
+function drawSupportBodyPath(rx, ry) {
+  const p = new Path2D();
+  const r = rx * 1.05;
+  p.arc(0, 0, r * 0.95, 0, TAU);
+  // Dos patitas esféricas diminutas abajo
+  p.moveTo(-r * 0.42, r * 0.88);
+  p.arc(-r * 0.42, r * 0.88, r * 0.22, 0, TAU);
+  p.moveTo(r * 0.42, r * 0.88);
+  p.arc(r * 0.42, r * 0.88, r * 0.22, 0, TAU);
+  p.closePath();
+  return p;
+}
+
+// -----------------------------------------------------------------------------
+// SHADING VOLUMÉTRICO UNIVERSAL
+// -----------------------------------------------------------------------------
+function applyVolumetricShading(ctx, body, R, rx, ry, tintCol, tintAmount, sil, isDarkVanta = false) {
+  if (sil) {
+    ctx.fillStyle = '#000000';
+    ctx.fill(body);
+    return;
+  }
+  const topCol = isDarkVanta ? VANTA_TOP : BASE_TOP;
+  const botCol = isDarkVanta ? VANTA_BOTTOM : BASE_BOTTOM;
+  const g = ctx.createLinearGradient(rx * 0.7, -ry * 0.85, -rx * 0.8, ry * 0.9);
+  g.addColorStop(0, rgba(topCol));
+  g.addColorStop(1, rgba(botCol));
+  ctx.fillStyle = g;
+  ctx.fill(body);
+
+  if (tintAmount > 0.01) {
+    const tg = ctx.createLinearGradient(0, ry, 0, -ry);
+    tg.addColorStop(0, rgba(tintCol, 0.72 * tintAmount));
+    tg.addColorStop(1, rgba(tintCol, 0));
+    ctx.fillStyle = tg;
+    ctx.fill(body);
+  }
+
+  const sh = ctx.createRadialGradient(0, 0, R * 0.15, 0, 0, R * 1.25);
+  sh.addColorStop(0, 'rgba(0,0,0,0)');
+  sh.addColorStop(0.6, 'rgba(0,0,0,0)');
+  sh.addColorStop(1, isDarkVanta ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.22)');
+  ctx.fillStyle = sh;
+  ctx.fill(body);
+
+  const hl = ctx.createRadialGradient(rx * 0.34, -ry * 0.46, 0, rx * 0.34, -ry * 0.46, R * 0.42);
+  hl.addColorStop(0, isDarkVanta ? 'rgba(120,200,255,0.45)' : 'rgba(255,255,255,0.58)');
+  hl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  ctx.fill(body);
+}
+
+// -----------------------------------------------------------------------------
+// RUBOR / MEJILLAS REACTIVAS (BLUSH PROCEDURAL)
+// -----------------------------------------------------------------------------
+function drawCoucouBlush(ctx, body, R, rx, ry, yaw, sil, isDarkVanta = false) {
+  if (sil || isDarkVanta) return;
+  ctx.save();
+  ctx.clip(body);
+
+  const blushY = ry * 0.16;
+  const blushR = R * 0.18;
+  const blushSpacing = rx * 0.52;
+
+  for (const sd of [-1, 1]) {
+    const eyeYaw = sd * 0.35 + yaw;
+    if (Math.cos(eyeYaw) <= 0.05) continue;
+    const bx = sd * blushSpacing + Math.sin(yaw) * rx * 0.25;
+    const by = blushY;
+
+    const bg = ctx.createRadialGradient(bx, by, 0, bx, by, blushR);
+    bg.addColorStop(0, 'rgba(255, 120, 140, 0.28)');
+    bg.addColorStop(0.6, 'rgba(255, 140, 160, 0.12)');
+    bg.addColorStop(1, 'rgba(255, 140, 160, 0)');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.arc(bx, by, blushR, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// -----------------------------------------------------------------------------
+// RENDERIZADO DE OJOS ESPECIALIZADOS POR DOMINIO
+// -----------------------------------------------------------------------------
+function drawSpecializedEyes(ctx, body, R, rx, ry, model, yaw, pitch, open, sil) {
+  if (sil) return;
+  ctx.save();
+  ctx.clip(body);
+
+  const isDarkVanta = model.isDarkVanta || false;
+  ctx.fillStyle = isDarkVanta ? CYAN_GLOW : INK;
+  ctx.strokeStyle = isDarkVanta ? CYAN_GLOW : INK;
+
+  const eyeStyle = model.customEyeStyle || 'pill';
+
+  for (const sd of [-1, 1]) {
+    const eyeYaw = sd * EYE_SP + yaw;
+    let eyePitch = EYE_P + pitch;
+    eyePitch = (((eyePitch + Math.PI) % TAU) + TAU) % TAU - Math.PI;
+    const cp = Math.cos(eyePitch);
+    if (Math.cos(eyeYaw) * cp <= 0.04) continue;
+
+    const ex = Math.sin(eyeYaw) * cp * rx;
+    const ey = -Math.sin(eyePitch) * ry;
+    const fx = Math.max(0.18, Math.cos(eyeYaw));
+    const fy = Math.max(0.18, cp);
+    const ew = R * EYE_W * (model.eyeScaleX || 1.0);
+    const eh = R * EYE_H * (model.eyeScaleY || 1.0);
+
+    ctx.save();
+    ctx.translate(ex, ey);
+    ctx.scale(fx, fy);
+
+    if (eyeStyle === 'cyber-visor') {
+      // Dev: Visor rectangular tecnológico de precisión con escaneo cian
+      const vw = ew * 1.35, vh = Math.max(eh * 0.55 * open, ew * 0.22);
+      roundRectPath(ctx, -vw / 2, -vh / 2, vw, vh, vh * 0.28);
+      ctx.fill();
+      // Línea de escaneo láser interior
+      ctx.fillStyle = '#00e5ff';
+      ctx.fillRect(-vw * 0.42, -vh * 0.15, vw * 0.84, Math.max(1, vh * 0.3));
+    } else if (eyeStyle === 'finance-scrutiny') {
+      // Finanzas: Ojos con ceño recto de escrutinio analítico
+      const fw = ew * 1.15, fh = Math.max(eh * 0.72 * open, ew * 0.25);
+      roundRectPath(ctx, -fw / 2, -fh / 2, fw, fh, fh * 0.2);
+      ctx.fill();
+      // Pestaña superior recta de concentración severa
+      ctx.lineWidth = ew * 0.22;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-fw * 0.65, -fh * 0.55 - sd * 0.08 * eh);
+      ctx.lineTo(fw * 0.65, -fh * 0.55 + sd * 0.08 * eh);
+      ctx.stroke();
+    } else if (eyeStyle === 'anime-sparkle') {
+      // Creativo: Ojos enormes hiper-expresivos con triple destello
+      const cr = ew * 0.72 * open;
+      ctx.beginPath(); ctx.arc(0, 0, cr, 0, TAU); ctx.fill();
+      // Brillos estelares
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(-cr * 0.32, -cr * 0.32, cr * 0.36, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(cr * 0.36, cr * 0.22, cr * 0.18, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(-cr * 0.15, cr * 0.42, cr * 0.12, 0, TAU); ctx.fill();
+    } else if (eyeStyle === 'concentric-lens') {
+      // Research: Lente concéntrica con anillos de apertura mnemónica
+      const lr = ew * 0.68;
+      ctx.beginPath(); ctx.arc(0, 0, lr, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = Math.max(1, ew * 0.12);
+      ctx.beginPath(); ctx.arc(0, 0, lr * 0.65, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(0, 0, lr * 0.28, 0, TAU); ctx.fill();
+    } else {
+      // Píldora clásica Coucou
+      const hh = Math.max(eh * open, ew * 0.3);
+      roundRectPath(ctx, -ew / 2, -hh / 2, ew, hh, Math.min(ew / 2, hh / 2));
+      ctx.fill();
+      if (!isDarkVanta && open > 0.4) {
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.beginPath(); ctx.arc(-ew * 0.18, -eh * 0.18, ew * 0.12, 0, TAU); ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// -----------------------------------------------------------------------------
+// MANOS Y EXTREMIDADES ESPECIALIZADAS POR DOMINIO
+// -----------------------------------------------------------------------------
+function drawSpecializedHands(ctx, R, rx, ry, cx, cy, model, isWorking, isWaving, t, sil) {
+  if (sil || R <= 14) return;
+  const handType = model.handType || 'classic';
+  const bodyH = 2 * ry;
+  const isDarkVanta = model.isDarkVanta || false;
+
+  for (const sd of [-1, 1]) {
+    let localX = sd * rx * 1.1;
+    let localY = ry * 0.72;
+    let handRot = 0;
+
+    if (handType === 'gravitational-orb') {
+      // Ego Base: Orbes satelitales en órbita continua
+      const orbAngle = (t * 1.8 * sd) + (sd > 0 ? 0 : Math.PI);
+      localX = sd * (rx * 1.25 + Math.cos(orbAngle) * R * 0.12);
+      localY = ry * 0.35 + Math.sin(orbAngle) * R * 0.15;
+    } else if (handType === 'cyber-articulated' && isWorking) {
+      // Dev: Manos mecánicas que teclean a alta frecuencia
+      const typePhase = t * 24 + (sd * Math.PI);
+      localX = sd * (rx * 0.85);
+      localY = ry * 0.88 + Math.sin(typePhase) * 0.1 * bodyH;
+    } else if (handType === 'formal-firm') {
+      // Finanzas: Manos firmes y estructuradas sobre la base
+      localX = sd * (rx * 0.95);
+      localY = ry * 0.82;
+    } else if (handType === 'fluid-ribbon') {
+      // Creativo: Bracitos elásticos ondeantes
+      const wave = Math.sin(t * 4 + sd) * 0.15 * bodyH;
+      localX = sd * (rx * 1.15);
+      localY = ry * 0.55 + wave;
+      handRot = sd * 0.3 + Math.sin(t * 3) * 0.2;
+    } else if (isWaving && sd > 0) {
+      const wt = t % 1.5;
+      localX = rx * 1.12 + Math.cos(13 * wt) * 0.06 * bodyH;
+      localY = -ry * 0.18 - Math.sin(13 * wt) * 0.14 * bodyH;
+      handRot = -0.5 + Math.sin(13 * wt) * 0.35;
+    }
+
+    const worldX = cx + localX;
+    const worldY = cy + localY;
+
+    ctx.save();
+    ctx.translate(worldX, worldY);
+    if (handRot !== 0) ctx.rotate(handRot);
+
+    const hew = R * 0.24, heh = R * 0.24;
+    const topCol = isDarkVanta ? VANTA_TOP : BASE_TOP;
+    const botCol = isDarkVanta ? VANTA_BOTTOM : BASE_BOTTOM;
+    const g = ctx.createLinearGradient(hew * 0.7, -heh * 0.85, -hew * 0.8, heh * 0.9);
+    g.addColorStop(0, rgba(topCol));
+    g.addColorStop(1, rgba(botCol));
+
+    ctx.beginPath();
+    ctx.ellipse(0, 0, hew, heh, 0, 0, TAU);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = isDarkVanta ? 'rgba(0,229,255,0.3)' : 'rgba(0,0,0,0.09)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Detalle biomecánico en Dev
+    if (handType === 'cyber-articulated') {
+      ctx.fillStyle = '#00e5ff';
+      ctx.fillRect(-hew * 0.35, -heh * 0.15, hew * 0.7, heh * 0.3);
+    }
+    // Detalle cuántico en Ego Core
+    if (handType === 'gravitational-orb') {
+      ctx.strokeStyle = 'rgba(88,166,255,0.55)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(0, 0, hew * 1.35, heh * 0.45, 0.4, 0, TAU); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+// -----------------------------------------------------------------------------
+// RENDERIZADOR MAESTRO DE ANATOMÍAS
+// -----------------------------------------------------------------------------
+function renderAnatomicalCharacter(ctx, W, H, env, model) {
+  const { t, s, v, sil, gaze, isWavingGlobal } = env;
+  const R = W * 0.29;
+  const rx = R * (model.rxScale || 1.14) * v.sx;
+  const ry = R * (model.ryScale || 0.88) * v.sy;
+
+  const breath = s.breathes ? Math.sin(t * 1.8 * v.speed) * 0.035 : 0;
+  const bounce = s.bounces ? -Math.abs(Math.sin(t * 5.2)) * 0.07 * R : 0;
+  const shakeX = s.shake ? Math.sin(t * 45) * 0.04 * R : 0;
+
+  const cx = W / 2 + shakeX;
+  const cy = H / 2 + bounce + R * 0.05;
+
+  const yaw = (s.look ? s.look[0] * 0.45 : gaze.x * 0.55);
+  const pitch = (s.look ? s.look[1] * 0.45 : gaze.y * 0.45);
+
+  const isDarkVanta = model.isDarkVanta || false;
+  const tintCol = model.colorOverride || v.tintOverride || s.color;
+  const tintAmount = s.tint;
+
+  // 1. Manos detrás / extremidades
+  drawSpecializedHands(ctx, R, rx, ry, cx, cy, model, s.handsWorking, isWavingGlobal, t, sil);
+
+  // 2. Apéndices antes del cuerpo (Antenas / Crestas / Lóbulos)
+  if (model.id === 'SUB-DEV' && !sil) {
+    // Antena angular biónica lateral
+    ctx.save();
+    ctx.translate(cx + rx * 0.85, cy - ry * 0.85);
+    ctx.strokeStyle = '#283347';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(R * 0.22, -R * 0.35); ctx.stroke();
+    ctx.fillStyle = '#00e5ff';
+    ctx.beginPath(); ctx.arc(R * 0.22, -R * 0.35, R * 0.065, 0, TAU); ctx.fill();
+    ctx.restore();
+  } else if (model.id === 'SUB-RES' && !sil) {
+    // Antenas de radar en búho research
+    for (const sd of [-1, 1]) {
+      ctx.save();
+      ctx.translate(cx + sd * rx * 0.72, cy - ry * 0.95);
+      const antWiggle = Math.sin(t * 3.5 + sd) * 0.08;
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.85)';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(sd * R * 0.12, -R * 0.28, sd * (R * 0.22 + antWiggle * R), -R * 0.38);
+      ctx.stroke();
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath(); ctx.arc(sd * (R * 0.22 + antWiggle * R), -R * 0.38, R * 0.06, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  } else if (model.earStyle === 'ears' && !sil) {
+    // Orejitas bot C2
+    for (const sd of [-1, 1]) {
+      ctx.save();
+      ctx.translate(cx + sd * rx * 0.65, cy - ry * 0.85);
+      ctx.rotate(sd * 0.35);
+      const eg = ctx.createLinearGradient(0, -R * 0.35, 0, 0);
+      eg.addColorStop(0, '#EDEDEF'); eg.addColorStop(1, '#C4C5CA');
+      ctx.fillStyle = eg;
+      ctx.beginPath(); ctx.ellipse(0, 0, R * 0.14, R * 0.28, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  } else if (model.earStyle === 'sprout' && !sil) {
+    // Brote C3
+    ctx.save();
+    ctx.translate(cx, cy - ry * 0.95);
+    const wiggle = Math.sin(t * 4.5) * 0.12;
+    ctx.rotate(wiggle);
+    ctx.strokeStyle = '#283347'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(0, -R * 0.25, R * 0.15, -R * 0.42); ctx.stroke();
+    ctx.fillStyle = '#58a6ff';
+    ctx.beginPath(); ctx.arc(R * 0.15, -R * 0.42, R * 0.08, 0, TAU); ctx.fill();
+    ctx.restore();
+  } else if (model.id === 'E3' && !sil) {
+    // Aletas/sensores biónicos Ego Synapse
+    for (const sd of [-1, 1]) {
+      ctx.save();
+      ctx.translate(cx + sd * rx * 0.82, cy - ry * 0.72);
+      ctx.rotate(sd * 0.45);
+      ctx.fillStyle = '#385177';
+      ctx.beginPath(); ctx.ellipse(0, 0, R * 0.12, R * 0.32, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath(); ctx.ellipse(0, 0, R * 0.06, R * 0.22, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  } else if (model.id === 'E4' && !sil) {
+    // Halo cuántico flotante Ego Halo
+    ctx.save();
+    ctx.translate(cx, cy - ry * 1.15 + Math.sin(t * 3) * 3);
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(0, 0, rx * 0.85, ry * 0.25, 0, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+
+  // 3. Geometría y cuerpo específico
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1 + breath, 1 - breath * 0.5);
+
+  let bodyPath;
+  if (model.id === 'SUB-DEV') bodyPath = drawDevBodyPath(rx, ry);
+  else if (model.id === 'SUB-FIN') bodyPath = drawFinanceBodyPath(rx, ry);
+  else if (model.id === 'SUB-CRE') bodyPath = drawCreativeBodyPath(rx, ry, t);
+  else if (model.id === 'SUB-RES') bodyPath = drawResearchBodyPath(rx, ry);
+  else if (model.id === 'SUB-CRM') bodyPath = drawSupportBodyPath(rx, ry);
+  else bodyPath = drawEgoOrchestratorPath(rx, ry);
+
+  applyVolumetricShading(ctx, bodyPath, R, rx, ry, tintCol, tintAmount, sil, isDarkVanta);
+  drawCoucouBlush(ctx, bodyPath, R, rx, ry, yaw, sil, isDarkVanta);
+  drawSpecializedEyes(ctx, bodyPath, R, rx, ry, model, yaw, pitch, s.open, sil);
+
+  // 4. Insignia central / Sensor Mnemónico
+  if (model.hasCognitiveCore && !sil) {
+    const coreYaw = Math.sin(yaw) * rx * 0.75;
+    const corePitch = -Math.sin(pitch) * ry * 0.6;
+    const coreY = -ry * 0.62 + corePitch;
+    const corePulse = 0.8 + 0.2 * Math.sin(t * 3.5);
+
+    ctx.save();
+    ctx.translate(coreYaw, coreY);
+    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.22);
+    const colCore = isDarkVanta ? '0,229,255' : '88,166,255';
+    coreGrad.addColorStop(0, `rgba(${colCore}, ${0.85 * corePulse})`);
+    coreGrad.addColorStop(0.5, `rgba(${colCore}, ${0.25 * corePulse})`);
+    coreGrad.addColorStop(1, `rgba(${colCore}, 0)`);
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.22, 0, TAU); ctx.fill();
+
+    ctx.fillStyle = isDarkVanta ? '#00e5ff' : '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0, -R * 0.08);
+    ctx.lineTo(R * 0.06, 0);
+    ctx.lineTo(0, R * 0.08);
+    ctx.lineTo(-R * 0.06, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Escudo mnemónico en Finanzas
+  if (model.id === 'SUB-FIN' && !sil) {
+    ctx.save();
+    ctx.fillStyle = '#4ee085';
+    ctx.beginPath();
+    const sy = ry * 0.55;
+    ctx.moveTo(0, sy - R * 0.07);
+    ctx.lineTo(R * 0.08, sy - R * 0.02);
+    ctx.lineTo(R * 0.08, sy + R * 0.05);
+    ctx.lineTo(0, sy + R * 0.09);
+    ctx.lineTo(-R * 0.08, sy + R * 0.05);
+    ctx.lineTo(-R * 0.08, sy - R * 0.02);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  // 5. Badge flotante de estado
+  drawCoucouBadge(ctx, s.badge, R, cx, cy, t, sil);
+}
+
+// -----------------------------------------------------------------------------
+// BADGE FLOTANTE DE ESTADO OPERATIVO (Coucou Engine Pattern)
+// -----------------------------------------------------------------------------
+function drawCoucouBadge(ctx, badge, R, cx, cy, t, sil) {
+  if (!badge || sil) return;
+  const bx = cx - R * 0.72;
+  const by = cy - R * 0.72;
+  const col = rgba(badge.color);
+
+  ctx.save();
+  ctx.translate(bx, by);
+
+  if (badge.kind === 'dots') {
+    const pw = R * 0.65;
+    const ph = R * 0.32;
+    roundRectPath(ctx, -pw / 2, -ph / 2, pw, ph, ph / 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+    for (let i = 0; i < 3; i++) {
+      const phase = (((t * 2.4 - i * 0.22) % 1) + 1) % 1;
+      const dotR = R * 0.05 * (1 + 0.4 * Math.max(0, Math.sin(phase * Math.PI * 2)));
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc((i - 1) * R * 0.16, 0, dotR, 0, TAU);
+      ctx.fill();
+    }
+  } else if (badge.kind === 'bang' || badge.kind === 'question') {
+    ctx.fillStyle = '#10131a';
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 0.28, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 0.21, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${Math.round(R * 0.28)}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(badge.kind === 'bang' ? '!' : '?', 0, R * 0.02);
+  } else {
+    ctx.fillStyle = '#10131a';
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 0.18, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 0.13, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// -----------------------------------------------------------------------------
+// CATÁLOGO DE SECCIONES (SECCIÓN III HERO + SECCIÓN II + SECCIÓN I)
+// -----------------------------------------------------------------------------
+const SECTIONS = [
+  {
+    title: '👑 Sección III: Familia Anatómica Canónica — Esencias y Siluetas Especializadas (Ego & Sub-Egos)',
+    isSubFamily: true,
+    items: [
+      {
+        id: 'EGO-PRIME',
+        name: 'Ego Prime (El Orquestador Soberano)',
+        tag: 'Ego Core / Mente Maestra',
+        desc: 'Cúpula armónica pura, mirada serena omnisciente, Cognitive Core mnemónico de VantaDB en coronilla y dos orbes satelitales gravitacionales en órbita continua.',
+        hasCognitiveCore: true,
+        handType: 'gravitational-orb',
+        customEyeStyle: 'pill',
+        rxScale: 1.14, ryScale: 0.92
+      },
+      {
+        id: 'SUB-DEV',
+        name: 'Sub-Ego Dev (Ingeniero de Sistemas & Terminal)',
+        tag: 'Sub-Ego / Ingeniería',
+        desc: 'Prisma hexagonal técnico redondeado vertical. Cyber-Visor de doble ranura horizontal con escaneo cian, antena angular de telemetría y manos mecánicas articuladas de tecleo veloz.',
+        customEyeStyle: 'cyber-visor',
+        handType: 'cyber-articulated',
+        colorOverride: C.working,
+        rxScale: 0.95, ryScale: 1.12
+      },
+      {
+        id: 'SUB-FIN',
+        name: 'Sub-Ego Finanzas & Legal (Auditoría & Rigor Crítico)',
+        tag: 'Sub-Ego / Finanzas & Legal',
+        desc: 'Base trapezoidal sólida y achatada con peso gravitacional de máxima estabilidad. Mirada de escrutinio analítico con ceño firme, escudo mnemónico y manos reposadas en compostura formal.',
+        customEyeStyle: 'finance-scrutiny',
+        handType: 'formal-firm',
+        colorOverride: C.finished,
+        rxScale: 1.25, ryScale: 0.82
+      },
+      {
+        id: 'SUB-CRE',
+        name: 'Sub-Ego Creativo (Diseño, UI/UX & Copywriting)',
+        tag: 'Sub-Ego / Creativo',
+        desc: 'Gota fluida elástica asimétrica con cresta curvada superior que ondea rítmicamente. Ojos gigantes anime con triple destello estelar, mejillas vivas y bracitos flexibles que dibujan en el aire.',
+        customEyeStyle: 'anime-sparkle',
+        handType: 'fluid-ribbon',
+        colorOverride: C.approval,
+        rxScale: 1.08, ryScale: 0.98
+      },
+      {
+        id: 'SUB-RES',
+        name: 'Sub-Ego Research & Data (Erudito Mnemónico VantaDB)',
+        tag: 'Sub-Ego / Research & Memoria',
+        desc: 'Cabeza bilobulada expandida de búho cósmico. Ojos de lente concéntrica con anillos de apertura mnemónica (GraphRAG), antenas de radar en los lóbulos y manos curiosas exploratorias.',
+        customEyeStyle: 'concentric-lens',
+        handType: 'classic',
+        colorOverride: [0.388, 0.396, 0.949],
+        rxScale: 1.28, ryScale: 0.90
+      },
+      {
+        id: 'SUB-CRM',
+        name: 'Sub-Ego Soporte & Relaciones (Empatía & Calidez)',
+        tag: 'Sub-Ego / Soporte & CRM',
+        desc: 'Silueta ultra-redondeada de nube esponjosa con patitas esféricas diminutas. Ojos dulces y sonrientes, rubor cálido en mejillas y manitas abiertas acogedoras siempre listas para conectar.',
+        customEyeStyle: 'pill',
+        handType: 'classic',
+        colorOverride: [0.98, 0.55, 0.65],
+        rxScale: 1.05, ryScale: 1.02
+      }
+    ]
+  },
+  {
+    title: '🌟 Sección II: Colección Identidad Ego (Modo Ego — Variaciones Iniciales)',
+    isEgo: true,
+    items: [
+      {
+        id: 'E1',
+        name: 'E1 — Ego Prime (Modo Cerámico Clásico)',
+        tag: 'ADN Canónico Ego',
+        desc: 'Superelipse cerámico blanco perla de Coucou enriquecida con el Cognitive Core (sensor mnemónico VantaDB pulsante) y manitas orbitales magnéticas.',
+        hasCognitiveCore: true,
+        handType: 'gravitational-orb'
+      },
+      {
+        id: 'E2',
+        name: 'E2 — Ego Vanta (Edición Obsidiana Soberana)',
+        tag: 'VantaDB & Soberanía',
+        desc: 'El modo oscuro nativo de Ego. Cuerpo de cerámica de grafito obsidiana profundo, reflejos de titanio, ojos y núcleo en cian electromagnético puro (#00E5FF).',
+        hasCognitiveCore: true,
+        isDarkVanta: true,
+        handType: 'gravitational-orb'
+      },
+      {
+        id: 'E3',
+        name: 'E3 — Ego Synapse (Sensores de Intención Biónicos)',
+        tag: 'Sensores Biónicos',
+        desc: 'Cuerpo cerámico con aletas/sensores biónicos integrados en la coronilla que captan la intención del usuario.',
+        earStyle: 'synapse'
+      },
+      {
+        id: 'E4',
+        name: 'E4 — Ego Halo (Diadema Cuántica Multimodal)',
+        tag: 'Diadema Cuántica',
+        desc: 'Cuerpo marshmallow pulido acompañado por un halo toroidal cuántico flotante que sigue la inclinación de la mirada.',
+        hasHalo: true
+      }
+    ]
+  },
+  {
+    title: '🏛 Sección I: Línea Base Coucou (Referencia Técnica Intacta)',
+    isEgo: false,
+    items: [
+      {
+        id: 'C1',
+        name: 'C1 — Ego Pure (Coucou Standard)',
+        tag: 'Fidelidad Absoluta Coucou',
+        desc: 'Superelipse de Lamé pura (p=2.7) con sombreado idéntico de Coucou, ojos en tinta #1A1412, manitas y badges.',
+        earStyle: 'none'
+      },
+      {
+        id: 'C2',
+        name: 'C2 — Ego Auris (Orejitas Sensoriales)',
+        tag: 'Orejitas Suaves',
+        desc: 'Misma matemática de Coucou con orejitas-sensor suaves integradas en la curvatura de la coronilla.',
+        earStyle: 'ears'
+      },
+      {
+        id: 'C3',
+        name: 'C3 — Ego Sprout (Brote Luminoso)',
+        tag: 'Brote Cinético',
+        desc: 'Cuerpo idéntico de Coucou con un brote/antena cinético en la coronilla que pulsa con el estado.',
+        earStyle: 'sprout'
+      },
+      {
+        id: 'C4',
+        name: 'C4 — Ego Lumia (Gota Suave)',
+        tag: 'Gota Orgánica',
+        desc: 'Deformación con elevación de cúspide tipo gota. Conserva la mirada, manos y material marshmallow.',
+        earStyle: 'droplet'
+      }
+    ]
+  }
+];
+
+// Infraestructura Canvas
+const cells = [];
+const mouse = { x: innerWidth / 2, y: innerHeight / 2 };
+let isWavingGlobal = false;
+let waveTimer = 0;
+
+addEventListener('pointermove', ev => { mouse.x = ev.clientX; mouse.y = ev.clientY; });
+
+function makeCell(parent, size, label, model, stateName, variant, sil) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cell';
+  const cv = document.createElement('canvas');
+  const dpr = devicePixelRatio || 1;
+  cv.width = cv.height = Math.round(size * dpr);
+  cv.style.width = cv.style.height = size + 'px';
+  cv.setAttribute('role', 'img');
+  cv.setAttribute('aria-label', `${model.name} ${label}`);
+  const lb = document.createElement('span');
+  lb.textContent = label;
+  wrap.append(cv, lb);
+  parent.append(wrap);
+  cells.push({
+    cv,
+    ctx: cv.getContext('2d'),
+    size,
+    dpr,
+    model,
+    s: STATES[stateName],
+    v: variant,
+    sil,
+    rect: null
+  });
+}
+
+function buildUI() {
+  const app = document.getElementById('app');
+  for (const sec of SECTIONS) {
+    const sTitle = document.createElement('div');
+    sTitle.className = sec.isSubFamily ? 'section-title sub-hero' : 'section-title';
+    sTitle.textContent = sec.title;
+    app.append(sTitle);
+
+    for (const cd of sec.items) {
+      const card = document.createElement('section');
+      card.className = sec.isSubFamily ? 'cand sub-card' : (sec.isEgo ? 'cand ego-card' : 'cand');
+      card.innerHTML = `
+        <div class="head">
+          <div>
+            <h2>${cd.name}</h2>
+            <p>${cd.desc}</p>
+          </div>
+          <div>
+            <span class="tag ${sec.isSubFamily ? 'sub-tag' : (sec.isEgo ? 'ego-tag' : '')}">${cd.tag}</span>
+          </div>
+        </div>
+      `;
+
+      // 1. Siluetas
+      const h1 = document.createElement('h3');
+      h1.textContent = 'Prueba de Silueta Pura (16 / 24 / 48 / 96 px)';
+      card.append(h1);
+      const sil = document.createElement('div');
+      sil.className = 'sil';
+      for (const sz of [16, 24, 48, 96]) {
+        makeCell(sil, sz, sz + 'px', cd, 'idle', VARIANTS[0], true);
+      }
+      card.append(sil);
+
+      // 2. Estados canónicos
+      const h2 = document.createElement('h3');
+      h2.textContent = 'Estados Canónicos Operativos (idle, thinking, working, approval, success, error · 76 px)';
+      card.append(h2);
+      const st = document.createElement('div');
+      st.className = 'row c-dark';
+      for (const k of Object.keys(STATES)) {
+        makeCell(st, 76, k, cd, k, VARIANTS[0], false);
+      }
+      card.append(st);
+
+      // 3. Sub-Egos
+      const h3 = document.createElement('h3');
+      h3.textContent = 'Variaciones de Tinte y Ritmo Operativo (76 px)';
+      card.append(h3);
+      const vr = document.createElement('div');
+      vr.className = 'row c-dark';
+      for (const v of VARIANTS) {
+        makeCell(vr, 76, v.name, cd, 'working', v, false);
+      }
+      card.append(vr);
+
+      app.append(card);
+    }
+  }
+}
+
+const paused = { v: false };
+function frameLoop(ms) {
+  if (!paused.v && !document.hidden) {
+    const reduce = document.getElementById('reduce').checked;
+    const t = reduce ? 1.5 : ms / 1000;
+
+    for (const c of cells) {
+      if (!c.rect || (frameIndex % 60 === 0)) c.rect = c.cv.getBoundingClientRect();
+      const r = c.rect;
+      // Mantener renderizado incluso si está fuera de pantalla inicial para evitar canvas en blanco
+      const cx = (r && r.width) ? (r.left + r.width / 2) : (c.size / 2);
+      const cy = (r && r.height) ? (r.top + r.height / 2) : (c.size / 2);
+      const dx = mouse.x - cx;
+      const dy = mouse.y - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const reach = Math.min(1.0, dist / 200);
+      const gaze = reduce ? { x: 0, y: 0 } : { x: (dx / dist) * reach, y: (dy / dist) * reach };
+
+      const ctx = c.ctx;
+      ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0);
+      ctx.clearRect(0, 0, c.size, c.size);
+
+      if (c.sil) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.size, c.size);
+      }
+
+      renderAnatomicalCharacter(ctx, c.size, c.size, {
+        t,
+        s: c.s,
+        v: c.v,
+        sil: c.sil,
+        gaze,
+        isWavingGlobal
+      }, c.model);
+    }
+  }
+  frameIndex++;
+  requestAnimationFrame(frameLoop);
+}
+
+let frameIndex = 0;
+document.getElementById('pause').onclick = ev => {
+  paused.v = !paused.v;
+  ev.target.setAttribute('aria-pressed', paused.v);
+  ev.target.textContent = paused.v ? '▶ Reanudar animación' : '⏸ Pausar animación';
+};
+document.getElementById('waveAll').onclick = () => {
+  isWavingGlobal = true;
+  clearTimeout(waveTimer);
+  waveTimer = setTimeout(() => { isWavingGlobal = false; }, 2000);
+};
+document.getElementById('reduce').checked = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Matriz de evaluación
+const ALL_CANDS = [...SECTIONS[0].items, ...SECTIONS[1].items, ...SECTIONS[2].items];
+const CRIT = [
+  ['Diferenciación profunda y originalidad de esencia', 4],
+  ['Adecuación al dominio cognitivo (Dev, Fin, Cre, Res, CRM)', 4],
+  ['Reconocibilidad nítida de silueta a 16 px', 3],
+  ['Expresividad de ojos, mirada y extremidades', 3],
+  ['Calidad de renderizado volumétrico y marshmallow', 3]
+];
+const STORAGE_KEY = 'ego-char03-anatomical-scores';
+
+function renderMatrix() {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  let html = '<table><thead><tr><th>Criterio Evaluado</th><th>Peso</th>' +
+    ALL_CANDS.map(c => `<th>${c.name.split(' (')[0]}</th>`).join('') + '</tr></thead><tbody>';
+
+  CRIT.forEach(([name, weight], idx) => {
+    html += `<tr><td>${name}</td><td>×${weight}</td>` +
+      ALL_CANDS.map(c => `<td><select data-key="${c.id}-${idx}" aria-label="${name} ${c.id}">
+        ${[0, 1, 2, 3, 4, 5].map(val => `<option value="${val}" ${saved[c.id + '-' + idx] == val ? 'selected' : ''}>${val}</option>`).join('')}
+      </select></td>`).join('') + '</tr>';
+  });
+
+  html += '</tbody><tfoot><tr><td>Total Ponderado (máx 85 pts)</td><td></td>' +
+    ALL_CANDS.map(c => `<td id="score-${c.id}">0</td>`).join('') + '</tr></tfoot></table>';
+
+  document.getElementById('matrix').innerHTML = html;
+
+  const updateScores = () => {
+    const scores = {};
+    document.querySelectorAll('select[data-key]').forEach(el => {
+      scores[el.dataset.key] = parseInt(el.value, 10);
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(scores));
+
+    for (const c of ALL_CANDS) {
+      let sum = 0;
+      CRIT.forEach(([, weight], idx) => {
+        sum += weight * (scores[c.id + '-' + idx] || 0);
+      });
+      document.getElementById('score-' + c.id).textContent = sum + ' pts';
+    }
+  };
+
+  document.querySelectorAll('select[data-key]').forEach(el => el.onchange = updateScores);
+  updateScores();
+}
+
+buildUI();
+renderMatrix();
+requestAnimationFrame(frameLoop);
+</script>
+</body>
+</html>

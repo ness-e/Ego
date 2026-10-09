@@ -12,6 +12,8 @@
 
 ---
 
+> **Estado y correcciones (2026-10-08):** documento en estado `SPECIFIED` (no hay código aún). La identidad visual es una **criatura/bot original, carismática y limpia, con cabeza, ojos grandes expresivos, boca y manitas/brazos procedimentales**. No es un humano con ropa de tela ni un logotipo geométrico abstracto. Tareas: `CHAR-01..11` y `WIDG-01..05` en `docs/roadmap/Backlog.md`. El widget in-app es `CANV-11`; la ventana flotante de escritorio es `WIDG-02`; ambos comparten `AttentionStateMachine` (`WIDG-03`). El motor/renderer lo implementa `CHAR-05`/`CHAR-06` (absorbe el alcance técnico de `CANV-08`).
+
 ## 1. Visión y Doctrina: Un Personaje, Múltiples Superficies, Una Sola Fuente de Estado
 
 El `CharacterSystem` de Ego **NO es un adorno cosmético de la interfaz, un GIF decorativo ni una colección de avatares generados por un LLM en cada respuesta**.
@@ -67,7 +69,7 @@ Sub-Ego (Entidad Cognitiva)
 ```
 
 1. **`Sub-Ego` (Entidad Cognitiva):** Manifiesto del especialista, herramientas registradas, contexto y alma (`SubEgoSoul`). Reside en el Cognitive Runtime.
-2. **`CharacterProfile` / `CharacterDNA` (Identidad Visual):** Configuración geométrica, cromática, accesorios y vestimenta que definen *quién es*. No cambia cuando el especialista ejecuta tareas.
+2. **`CharacterProfile` / `CharacterDNA` (Identidad Visual):** Familia, silueta, proporciones, paleta y rasgos anatómicos (`traits`) que definen *quién es*. No cambia cuando el especialista ejecuta tareas.
 3. **`CharacterState` (Estado Operativo):** Enumeración discreta de lo que la entidad está haciendo en un instante preciso (`idle`, `thinking`, `working`, `approval_required`, etc.).
 4. **`CharacterBehavior` (Cinética y Expresión):** Algoritmos de movimiento, física de resortes, seguimiento ocular con proyección 3D simulada y amplitudes de respiración asociadas al estado y la personalidad del especialista.
 
@@ -78,12 +80,13 @@ Sub-Ego (Entidad Cognitiva)
 ### La Identidad NO Muta cuando Cambia el Estado
 
 Un error común de diseño es asociar una apariencia completamente nueva a cada acción. En Ego:
-* **Ego Base (Coordinador):** Geometría squircle neutral, monocromática (blanco, negro, gris suave), sin accesorios, mirada serena y equilibrada.
-* **Sub-Ego Dev:** Squircle en tono cian oscuro, hoodie técnico, gafas de programador, postura ligeramente inclinada hacia adelante.
-* **Sub-Ego Finanzas:** Squircle esmeralda sobrio, corbata delgada, lentes rectangulares finos, postura erguida y formal.
+* **Ego Base (Coordinador):** forma base neutra de la familia (silueta definida en `CHAR-03`), paleta sobria, sin rasgos adicionales, mirada serena y equilibrada.
+* **Sub-Ego Dev (ejemplo):** misma familia, proporción ligeramente alargada, acento frío, rasgo sensorial de enfoque, postura inclinada hacia adelante.
+* **Sub-Ego Finanzas (ejemplo):** misma familia, proporción compacta, acento sobrio, postura erguida y movimiento contenido.
+* **Regla:** la diferenciación usa proporción, `traits`, acento, ritmo y mirada. Nunca ropa ni elementos humanos.
 
 Cuando el **Sub-Ego Dev** pasa de `idle` a `thinking`, luego a `using_tool` (editando código) y finalmente a `approval_required`:
-* **Su identidad sigue siendo Dev:** Sigue teniendo su color cian, su hoodie y sus gafas.
+* **Su identidad sigue siendo Dev:** conserva su acento, su proporción y sus rasgos.
 * **Solo muta su estado operativo:** Sus ojos se entrecierran en concentración, la cabeza oscila suavemente siguiendo un reloj interno de cómputo y, al requerir aprobación, sus ojos se agrandan y el widget emite una pulsación perimetral de atención.
 
 ### Máquina de Estados Operativos Canónicos (`CharacterState`)
@@ -159,16 +162,16 @@ export interface CharacterTransitionEvent {
 
 1. **Fase 1: Preparación (100–150 ms):**
    * El cuerpo se contrae verticalmente ($\text{scaleY} \approx 0.82$, $\text{scaleX} \approx 1.15$), simulando carga de energía elástica.
-   * Los accesorios del especialista saliente se desvanecen con un fade-out acelerado (`opacity` $\to 0$).
+   * Los rasgos del especialista saliente se retraen con un fade-out acelerado (`opacity` $\to 0$).
    * Los ojos se cierran ligeramente en anticipación.
 2. **Fase 2: Transformación (150–250 ms):**
    * Interpolación matemática de los semiejes de la superelipse ($a, b, n$) desde la forma anterior a la nueva.
    * Interpolación cromática en espacio de color OKLab para transiciones suaves de tonalidad sin cortes grises sucios.
-   * Intercambio de accesorios en el punto de máxima compresión física.
+   * Intercambio de rasgos en el punto de máxima compresión física.
 3. **Fase 3: Entrada y Asentamiento (100–180 ms):**
    * El cuerpo se expande con un rebote elástico amortiguado ($\text{scaleY} \approx 1.08 \to 1.00$).
    * Los nuevos ojos se abren con la postura y mirada características del nuevo especialista.
-   * Los accesorios oscilan mediante `AccessoryPhysics` absorbiendo la inercia del movimiento.
+   * Los rasgos oscilan mediante `TraitPhysics` absorbiendo la inercia del movimiento.
 
 ---
 
@@ -267,7 +270,9 @@ Para flujos de trabajo complejos donde intervienen varios especialistas en casca
 
 ## 10. Anatomía y Geometría Procedural del Cuerpo
 
-A diferencia de modelos estáticos o sprites, el cuerpo se dibuja matemáticamente mediante una **superelipse paramétrica (squircle deformable)**:
+> **Corrección 2026-10-08:** la superelipse es una **herramienta matemática disponible**, no la identidad de Ego. Un squircle con ojos es la geometría de partida de Coucou/Mochi y puede percibirse como derivado. La silueta definitiva se elige en `CHAR-03` (candidatos en [`character-art-direction.md`](../product/character-art-direction.md)); `BodyGeometry` debe poder describir cualquier silueta registrada por la familia, no solo un squircle.
+
+El cuerpo se dibuja matemáticamente (no con sprites). Como ejemplo de familia parametrizable se usa una **superelipse paramétrica (deformable)**:
 
 ### Ecuación de la Superelipse Deformable
 $$| \frac{x}{a} |^n + | \frac{y}{b} |^n = 1$$
@@ -275,7 +280,7 @@ $$| \frac{x}{a} |^n + | \frac{y}{b} |^n = 1$$
 El generador procedural modula los parámetros en cada fotograma:
 * $a, b$: Semiejes escalados por `width` y `height`.
 * $n$: Grado de redondez (típicamente $n \approx 3.5$ a $4.2$).
-* `morph`: Factor que transforma el squircle hacia un prisma rectangular para animaciones mecánicas.
+* `morph`: Factor que transforma la silueta hacia una forma angular para animaciones mecánicas.
 * `tilt`, `roll`: Inclinación angular basada en el movimiento y aceleración.
 * `squish`, `stretch`: Factor de volumen constante ($sx \times sy = 1$) que produce rebotes con sensación de masa y peso orgánico.
 
@@ -284,7 +289,7 @@ export interface BodyGeometry {
   width: number;
   height: number;
   curvature: number;      // Exponente n de la superelipse
-  morph: number;          // Interpolación hacia caja (0 = squircle, 1 = prisma)
+  morph: number;          // Interpolación hacia caja (0 = orgánico, 1 = angular)
   scaleX: number;
   scaleY: number;
   tilt: number;           // Inclinación lateral
@@ -327,23 +332,23 @@ Cada fotograma se compone en el orden estricto de capas para garantizar la integ
 ┌─────────────────────────────────────────────────────────────┐
 │                 RENDER PIPELINE POR CAPAS                   │
 ├─────────────────────────────────────────────────────────────┤
-│  1. Capa Trasera (Back Accessories)                         │
-│     Sombreros por detrás, mochilas, capas, halos.           │
+│  1. Capa Trasera (Back Traits)                              │
+│     Rasgos detrás del cuerpo: apéndices, halos, estelas.    │
 ├─────────────────────────────────────────────────────────────┤
 │  2. Sombra Dinámica (Drop Shadow)                           │
 │     Elipse difusa proyectada en la base del personaje.      │
 ├─────────────────────────────────────────────────────────────┤
-│  3. Cuerpo (Body Squircle)                                  │
-│     Path2D con superelipse, gradiente de volumen y brillo.   │
+│  3. Cuerpo (Silueta de la familia, CHAR-03)                 │
+│     Path2D de la silueta, gradiente de volumen y brillo.    │
 ├─────────────────────────────────────────────────────────────┤
-│  4. Vestimenta Base (Torso / Outfit)                        │
-│     Prendas (hoodie, corbata, traje) recortadas por el body.│
+│  4. Rasgos del Cuerpo (Body Traits)                         │
+│     Marcas, crestas o texturas recortadas por el cuerpo.    │
 ├─────────────────────────────────────────────────────────────┤
-│  5. Rostro (Eyes, Pupils, Mouth)                            │
+│  5. Rostro / Órgano Sensorial (Eyes, Pupils, Mouth)         │
 │     Ojos proyectados en 3D, parpadeos, rubor y gestos.      │
 ├─────────────────────────────────────────────────────────────┤
-│  6. Capa Frontal (Front Accessories)                        │
-│     Gafas, visores, auriculares, insignias flotantes.       │
+│  6. Capa Frontal (Front Traits)                             │
+│     Antenas, visores orgánicos, destellos anatómicos.       │
 ├─────────────────────────────────────────────────────────────┤
 │  7. Partículas & Efectos Reactivos (Overlays)               │
 │     Glow de pensamiento, chispas de éxito, gotas de sudor.  │
@@ -352,16 +357,16 @@ Cada fotograma se compone en el orden estricto de capas para garantizar la integ
 
 ---
 
-## 13. Física de Inercia y Resortes para Accesorios (`AccessoryPhysics`)
+## 13. Física de Inercia y Resortes para Rasgos (`TraitPhysics`)
 
-Los accesorios (gafas, insignias, corbatas) no son calcomanías estáticas; reaccionan a las aceleraciones del personaje:
+Los rasgos anatómicos con holgura (apéndices, crestas, antenas) no son calcomanías estáticas; reaccionan a las aceleraciones del personaje. Se mantiene el integrador de resorte amortiguado, reimplementado con constantes propias (adaptado del patrón de Coucou, MIT):
 
 ```ts
-export class AccessoryPhysics {
+export class TraitPhysics {
   x = 0; y = 0;
   vx = 0; vy = 0;
-  private readonly stiffness = 120; // Rigidez del resorte
-  private readonly damping = 14;    // Amortiguación
+  private readonly stiffness = 120; // Rigidez del resorte (a calibrar en CHAR-05)
+  private readonly damping = 14;    // Amortiguación (a calibrar en CHAR-05)
 
   update(targetX: number, targetY: number, dt: number) {
     const ax = (targetX - this.x) * this.stiffness - this.vx * this.damping;
@@ -395,6 +400,6 @@ El especialista mantiene coherencia integral: su postura visual refleja su rigor
 ## 15. Presupuesto de Rendimiento, Benchmarks y Tolerancia a Fallos
 
 * **Consumo de CPU:** $\le 1.0\%$ en reposo (idle); $\le 2.5\%$ en animación activa a 60 fps en una CPU x86_64 o ARM moderna.
-* **Frecuencia Adaptativa:** Si la ventana de Ego pierde el foco del sistema operativo o el usuario no interactúa en 60 segundos, la tasa de refresco conmuta automáticamente a **15 fps** o se congela en modo estático determinista (`MochiStill`).
+* **Frecuencia Adaptativa:** Si la ventana de Ego pierde el foco del sistema operativo o el usuario no interactúa en 60 segundos, la tasa de refresco conmuta automáticamente a **15 fps** o se congela en modo estático determinista (`StillPose`, pose estática determinista).
 * **Cero Dependencias Externas Pesadas:** 100% Canvas 2D y Path2D nativos. Sin WebGL redundante ni motores de 500 KB (sin Rive, sin Lottie, sin three.js en P0).
 * **Tolerancia Absoluta a Fallos:** Si el renderizador de Canvas produce una excepción no controlada, un `ErrorBoundary` de React aísla el lienzo sin alterar la ejecución de los agentes ni congelar el IPC.
