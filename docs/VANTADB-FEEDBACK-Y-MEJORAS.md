@@ -25,6 +25,8 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
 | `VDB-REQ-01` | Petición de Mejora | 🟡 Media | Core `Search` | Soporte nativo de comodines en `search_multi` (`projects/default/*`) |
 | `VDB-REQ-02` | Petición de Mejora | 🟢 Baja | `NativeVantaDB.js` | `query_vector` obligatorio para búsquedas puras de texto BM25 |
 | `VDB-REQ-03` | Petición de Mejora | 🟡 Media | Tokenizer BM25 | Normalización de signos de puntuación española (`¿`, `?`, `¡`, `!`) |
+| `VDB-REQ-04` | Petición de Mejora | 🟠 Media | `vantadb-node` / `vantadb-py` | Ingesta sin copia (*Zero-Copy*) para arrays de vectores (`Float32Array` / `PyBuffer`) |
+| `VDB-REQ-05` | Petición de Mejora | 🟠 Media | Core `vanta-vector` / HNSW | *Vacuum* y desfragmentación periódica de grafos HNSW (purga de *tombstones*) |
 
 ---
 
@@ -127,3 +129,22 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
   const cleanPrompt = prompt.replace(/[¿?¡!.,;:()]/g, " ").trim();
   ```
 * **Solución recomendada en VantaDB:** Incorporar un filtro de puntuación Unicode (`UnicodePunctuationFilter`) en el pipeline de tokenización avanzado de VantaDB.
+
+---
+
+### `VDB-REQ-04`: Soporte de Buffers Nativos Zero-Copy (`Float32Array` / `PyBuffer`)
+* **Componente:** `vantadb-node/src/` (NAPI-RS) y `vantadb-py/` (PyO3)
+* **Petición:** Permitir el paso de matrices de embeddings y vectores mediante vistas de memoria directa (`Float32Array` en JavaScript / `PyBuffer` o `numpy.ndarray` en Python) mapeados directamente a punteros contiguos `&[f32]` en Rust, sin serialización intermedia ni duplicación en memoria.
+* **Situación Actual:** `vantadb-node` deserializa vectores de punto flotante a través de arrays genéricos o structs de serde, lo que en operaciones masivas o búsquedas concurrentes genera presión innecesaria sobre el Garbage Collector de V8 y ciclos de CPU adicionales en la conversión de matrices.
+* **Impacto en Ego:** Reduce la latencia del fast-path en Electron Main y previene picos de consumo RSS al indexar o consultar representaciones densas.
+* **Solución recomendada en VantaDB:** Utilizar `napi::bindgen_prelude::Float32Array` en los argumentos de Node-API y acceder a `as_slice()` para lectura sin copia; en Python implementar el protocolo de búfer de PyO3 (`PyReadonlyArray1<f32>`).
+
+---
+
+### `VDB-REQ-05`: Proceso de Vacuum y Purga de Nodos Eliminados en el Grafo HNSW
+* **Componente:** Core de vector indexing / `vanta-vector`
+* **Petición:** Implementar un mecanismo de compactación incremental (*Vacuum*) para el índice HNSW que purgue los nodos eliminados (*tombstones*) y reconstruya las listas de adyacencia de los vecinos afectados.
+* **Situación Actual:** Mientras que el motor subyacente Fjall LSM compacta automáticamente las claves y valores en disco, las actualizaciones o eliminaciones continuas de recuerdos en el índice vectorial dejan nodos fantasma o enlaces degradados en el grafo HNSW en memoria y disco, aumentando el tamaño del archivo y perjudicando la localidad de caché y el recall con el paso del tiempo.
+* **Impacto en Ego:** Garantiza que agentes con ciclos de vida prolongados que reescriben recuerdos o descartan hipótesis no degraden la velocidad ni la precisión de búsqueda semántica.
+* **Solución recomendada en VantaDB:** Agregar un comando o tarea en segundo plano `vacuum_vector_index(namespace)` que pode enlaces hacia nodos borrados y recablee las capas HNSW sin requerir una re-indexación completa desde cero.
+

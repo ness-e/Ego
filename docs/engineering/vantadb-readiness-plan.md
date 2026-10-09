@@ -63,6 +63,9 @@ Este documento establece el **contrato de evolución coordinada** entre Ego (el 
 | **Grafo ↔ Memoria causal** | `MEMG-03` | 📋 Catalogado en backlog | P1 | Enlaza decisiones, hechos y tareas en una topología causal navegable. |
 | **Cancelación vía `AbortSignal`** | `ASYNC-01` | ⚠️ Tarea requerida | P1 | Previene bloqueos del Event Loop en búsquedas largas o indexación pesada. |
 | **Tests de contrato cruzado** | `CONTRACT-01`| ⚠️ Tarea requerida | P1 | CI compartido que detecta regresiones de API antes de actualizar dependencias. |
+| **Zero-Copy Vector Ingestion** | `BIND-01` (`VDB-REQ-04`) | ⚠️ Tarea requerida | P1 | Vistas de memoria `Float32Array` / `PyBuffer` directas a `&[f32]`, eliminando presión en GC. |
+| **Vacuum de Grafos HNSW** | `VEC-01` (`VDB-REQ-05`) | ⚠️ Tarea requerida | P1 | Purga de *tombstones* y recableado de adyacencias tras borrado/actualización de recuerdos. |
+| **ANN-Benchmarks Nightly CI** | `CI-ANN-NIGHTLY` | ⚠️ Tarea requerida | P2 | Monitoreo nocturno automatizado de Recall vs QPS para prevenir regresiones en `develop`. |
 
 ---
 
@@ -93,6 +96,25 @@ Para cerrar la brecha entre los proyectos, el backlog técnico de VantaDB (`docs
 * **Esfuerzo:** 1-2 días
 * **Prioridad:** 🟠 P1
 * **Descripción:** Incorporar `AbortSignal` opcional en las operaciones asíncronas pesadas (`search`, `graphragSearch`, `bulk_import`), propagando la señal de cancelación a los canales Tokio en Rust para abortar la computación de inmediato si el usuario cancela la consulta en la interfaz.
+
+### Tarea 5: `BIND-01` (`VDB-REQ-04`) — Ingesta Vectorial Zero-Copy (`Float32Array` / `PyBuffer`)
+* **Ámbito:** `vantadb-node/`, `vantadb-py/`
+* **Esfuerzo:** 3-5 días
+* **Prioridad:** 🟠 P1
+* **Descripción:** Implementar binding directo sin copia para vectores y tensores: en Node-API recibir `napi::bindgen_prelude::Float32Array` con acceso directo a `as_slice()` hacia `&[f32]`, y en Python implementar el protocolo de búfer de PyO3 (`PyReadonlyArray1<f32>`). Elimina la sobrecarga de serialización JSON/serde y amortigua picos de memoria en ingesta masiva.
+
+### Tarea 6: `VEC-01` (`VDB-REQ-05`) — Vacuum y Desfragmentación Incremental de Grafos HNSW
+* **Ámbito:** `src/index/vector/`, `vanta-vector/`
+* **Esfuerzo:** 1-2 semanas
+* **Prioridad:** 🟠 P1
+* **Descripción:** Diseñar un mecanismo de compactación vectorial en segundo plano (`vacuum_vector_index`) que purgue los nodos eliminados de las listas de adyacencia de HNSW y reestructure los enlaces multicapa. Mitiga la degradación de precisión de búsqueda y fragmentación de memoria tras ciclos intensivos de sobrescritura y olvido de recuerdos episódicos.
+
+### Tarea 7: `CI-ANN-NIGHTLY` — Pipeline Automatizado Nocturno de ANN-Benchmarks
+* **Ámbito:** `.github/workflows/`, `benches/`
+* **Esfuerzo:** 2-3 días
+* **Prioridad:** 🟡 P2
+* **Descripción:** Configurar un workflow programado nocturno (nightly) que ejecute benchmarks automatizados contra datasets canónicos de ANN-Benchmarks (ej. GloVe-100, SIFT-128), midiendo curvas de *Recall vs QPS* para detectar regresiones de rendimiento causadas por modificaciones en los heurísticos de poda de grafos en la rama `develop`.
+
 
 ---
 
