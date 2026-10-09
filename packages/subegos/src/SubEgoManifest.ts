@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CharacterProfileSchema } from "./CharacterProfile.js";
 import type {
   SubEgoManifest,
   SubEgoCreateInput,
@@ -112,6 +113,7 @@ export const SubEgoManifestSchema = z.object({
   }),
   trigger: SubEgoTriggerSchema.default("manual"),
   soul: SubEgoSoulConfigSchema.optional(),
+  character: CharacterProfileSchema.optional(),
   state: SubEgoStateSchema.default("active"),
   creator: SubEgoCreatorSchema.default("user"),
   createdAtMs: z.number().int().positive().default(() => Date.now()),

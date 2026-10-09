@@ -1,3 +1,5 @@
+import type { CharacterProfile } from "./CharacterProfile.js";
+
 /**
  * Estados del ciclo de vida de un Sub-Ego especializado.
  */
@@ -109,6 +111,8 @@ export interface SubEgoManifest {
   trigger: SubEgoTrigger;
   /** Definición opcional de Alma / Personalidad profunda */
   soul?: SubEgoSoulConfig;
+  /** Perfil e identidad visual del personaje en Canvas 2D (CHAR-04) */
+  character?: CharacterProfile;
   /** Estado operativo actual */
   state: SubEgoState;
   /** Entidad creadora del Sub-Ego */
@@ -138,6 +142,7 @@ export interface SubEgoCreateInput {
   autonomy?: SubEgoAutonomy;
   budget?: Partial<SubEgoBudget>;
   soul?: SubEgoSoulConfig;
+  character?: CharacterProfile;
   trigger?: SubEgoTrigger;
   creator?: SubEgoCreator;
 }

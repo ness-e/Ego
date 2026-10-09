@@ -279,7 +279,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/subegos test` (suite `SubEgoBudget.test.ts` verificando conteo acumulado, corte inmediato ante exceso de cuota e informe de métricas).
 - **Task file:** `docs/agent-ops/tasks/SUB-09.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -313,18 +313,18 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 
   **Uphill / Downhill:**
   - ⬆️ Uphill: 0 (lógica de presupuestos documentada en `SubEgoManifest.ts`).
-  - ⬇️ Downhill: 3 steps (clase `SubEgoBudgetTracker`, integración con `ExecutionManager`, suite de Vitest).
+  - ⬇️ Downhill: 0 (clase `SubEgoBudgetTracker` y suite de Vitest al 100%).
 
   **DoD Task Level:**
-  - [ ] Tracker contabiliza tokens de entrada, salida y costo estimado.
-  - [ ] Emite evento y rechaza la ejecución si se sobrepasa `maxTokensPerTurn` o `maxCostPerSession`.
-  - [ ] Persistencia de métricas en VantaDB.
-  - [ ] Tests unitarios en verde al 100%.
+  - [x] Tracker contabiliza tokens de entrada, salida y costo estimado.
+  - [x] Valida turnos y rechaza la ejecución si se sobrepasa `maxTokensPerCall` o `maxDailyCostUsd`.
+  - [x] Persistencia de métricas en VantaDB bajo `egos/<id>/metrics_usage`.
+  - [x] Tests unitarios en verde al 100% (10 tests passing).
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Implementación de `SubEgoBudgetTracker`, tabla de precios y suite completa `SubEgoBudget.test.ts` | 10 tests pasando al 100%, validación de cuotas y persistencia | `write_to_file` |
 
   **Notas:** Conectable al `ExecutionManager` de `packages/execution`.
 
@@ -587,7 +587,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/subegos test` (suite `CharacterProfile.test.ts` validando esquemas Zod de rasgos anatómicos, serialización y validación cruzada con `SubEgoManifest`).
 - **Task file:** `docs/agent-ops/tasks/CHAR-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -620,18 +620,18 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 
   **Uphill / Downhill:**
   - ⬆️ Uphill: 0 (reglas de identidad sin vestimenta acordadas en `character-audit-and-coucou-inventory.md`).
-  - ⬇️ Downhill: 3 steps (esquema Zod `CharacterProfileSchema`, métodos de serialización, suite Vitest).
+  - ⬇️ Downhill: 0 (esquema Zod `CharacterProfileSchema`, métodos de serialización y suite Vitest al 100%).
 
   **DoD Task Level:**
-  - [ ] Esquema `CharacterProfile` definido sin atributos de ropa humana.
-  - [ ] Parámetros normalizados para escala, geometría, paleta cromática y aura.
-  - [ ] Integración opcional validada dentro de `SubEgoManifest`.
-  - [ ] Tests unitarios en verde.
+  - [x] Esquema `CharacterProfile` definido sin atributos de ropa humana.
+  - [x] Parámetros normalizados para escala, geometría, paleta cromática y aura.
+  - [x] Integración opcional validada dentro de `SubEgoManifest`.
+  - [x] Tests unitarios en verde al 100% (11 tests passing).
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Implementación de `CharacterProfile.ts`, fábrica de identidades armónicas y suite de pruebas | 11 tests pasando al 100%, rechazo de ropa humana y persistencia en VantaDB | `write_to_file` |
 
   **Notas:** Conecta `CHAR-03` con el motor procedural de `CHAR-05`.
 
