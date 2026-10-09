@@ -103,3 +103,56 @@ export const ChatStreamSchema = z.object({
 });
 
 export type ChatStreamRequest = z.infer<typeof ChatStreamSchema>;
+
+/**
+ * Esquema de validación para configuración de servidores MCP locales (ACT-11).
+ */
+export const McpServerConfigSchema = z.object({
+  id: z.string().min(1).regex(/^[a-zA-Z0-9_\-.:]{1,64}$/, "ID de servidor inválido"),
+  name: z.string().min(1).max(100),
+  transport: z.enum(["stdio", "sse"]).default("stdio"),
+  command: z.string().min(1),
+  args: z.array(z.string()).optional(),
+  env: z.record(z.string()).optional(),
+  cwd: z.string().optional(),
+  toolPrefix: z.string().optional(),
+  timeoutMs: z.number().int().positive().max(300000).optional(),
+});
+
+export type McpServerConfigRequest = z.infer<typeof McpServerConfigSchema>;
+
+export const AddMcpServerSchema = z.object({
+  config: McpServerConfigSchema,
+  enabled: z.boolean().optional().default(true),
+});
+
+export type AddMcpServerRequest = z.infer<typeof AddMcpServerSchema>;
+
+export const RemoveMcpServerSchema = z.object({
+  id: z.string().min(1),
+});
+
+export type RemoveMcpServerRequest = z.infer<typeof RemoveMcpServerSchema>;
+
+export const ToggleMcpServerSchema = z.object({
+  id: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+export type ToggleMcpServerRequest = z.infer<typeof ToggleMcpServerSchema>;
+
+export const ListToolsFilterSchema = z.object({
+  query: z.string().optional(),
+  riskLevel: z.enum(["safe", "sensitive", "destructive"]).optional(),
+  serverId: z.string().optional(),
+});
+
+export type ListToolsFilterRequest = z.infer<typeof ListToolsFilterSchema>;
+
+export const ScanSkillsSchema = z.object({
+  searchPaths: z.array(z.string()).optional(),
+  projectRoot: z.string().optional(),
+});
+
+export type ScanSkillsRequest = z.infer<typeof ScanSkillsSchema>;
+

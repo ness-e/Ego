@@ -21,6 +21,18 @@ contextBridge.exposeInMainWorld("ego", {
   listSubEgos: () => ipcRenderer.invoke("ipc.subegos.list"),
   createSubEgo: (req: { name: string; role: string; instructions: string; tools?: string[] }) =>
     ipcRenderer.invoke("ipc.subegos.create", req),
+  mcp: {
+    listServers: () => ipcRenderer.invoke("ipc.mcp.listServers"),
+    addServer: (req: { config: any; enabled?: boolean }) => ipcRenderer.invoke("ipc.mcp.addServer", req),
+    removeServer: (req: { id: string }) => ipcRenderer.invoke("ipc.mcp.removeServer", req),
+    toggleServer: (req: { id: string; enabled: boolean }) => ipcRenderer.invoke("ipc.mcp.toggleServer", req),
+    listTools: (filter?: { query?: string; riskLevel?: string; serverId?: string }) =>
+      ipcRenderer.invoke("ipc.mcp.listTools", filter),
+  },
+  skills: {
+    listLocal: (req?: { searchPaths?: string[]; projectRoot?: string }) =>
+      ipcRenderer.invoke("ipc.skills.listLocal", req),
+  },
   onChatDelta: (callback: (chunk: unknown) => void) => {
     const sub = (_event: Electron.IpcRendererEvent, chunk: unknown) => callback(chunk);
     ipcRenderer.on("ipc.chat.delta", sub);

@@ -16,6 +16,7 @@ import {
   X,
   CheckCircle,
 } from "@phosphor-icons/react";
+import { McpManagerModal } from "./mcp/McpManagerModal";
 
 export interface ProjectScopeItem {
   id: string;
@@ -56,6 +57,7 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMcpOpen, setIsMcpOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"models" | "memory" | "gov">("models");
 
   // Atajo de teclado universal Ctrl+B para colapsar y Ctrl+N para nueva sesión
@@ -134,95 +136,98 @@ export function Sidebar({
   // 1. MODO COLAPSADO (Navigation Rail compacto de 54px)
   if (isCollapsed) {
     return (
-      <aside className="flex h-full w-[54px] shrink-0 flex-col items-center justify-between border-r border-hairline bg-panel py-3 select-none">
-        {/* Superior: Toggle y Nuevo */}
-        <div className="flex flex-col items-center gap-4">
-          <button
-            onClick={() => setIsCollapsed(false)}
-            title="Expandir barra lateral (Ctrl+B)"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
-          >
-            <SidebarSimple size={18} />
-          </button>
+      <>
+        <aside className="flex h-full w-[54px] shrink-0 flex-col items-center justify-between border-r border-hairline bg-panel py-3 select-none">
+          {/* Superior: Toggle y Nuevo */}
+          <div className="flex flex-col items-center gap-4">
+            <button
+              onClick={() => setIsCollapsed(false)}
+              title="Expandir barra lateral (Ctrl+B)"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
+            >
+              <SidebarSimple size={18} />
+            </button>
 
-          <button
-            onClick={onNewSession}
-            title="Nueva sesión (Ctrl+N)"
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-paper hover:opacity-90 transition-opacity shadow-sm"
-          >
-            <Plus size={16} weight="bold" />
-          </button>
+            <button
+              onClick={onNewSession}
+              title="Nueva sesión (Ctrl+N)"
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-paper hover:opacity-90 transition-opacity shadow-sm"
+            >
+              <Plus size={16} weight="bold" />
+            </button>
 
-          <div className="h-px w-6 bg-hairline my-1" />
+            <div className="h-px w-6 bg-hairline my-1" />
 
-          {/* Iconos de acceso directo */}
-          <button
-            onClick={() => setIsCollapsed(false)}
-            title="Proyectos de Memoria"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
-          >
-            <FolderSimple size={18} />
-          </button>
+            {/* Iconos de acceso directo */}
+            <button
+              onClick={() => setIsCollapsed(false)}
+              title="Proyectos de Memoria"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
+            >
+              <FolderSimple size={18} />
+            </button>
 
-          <button
-            onClick={() => setIsCollapsed(false)}
-            title="Roster de Sub-Egos"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors relative"
-          >
-            <Users size={18} />
-            <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          </button>
+            <button
+              onClick={() => setIsCollapsed(false)}
+              title="Roster de Sub-Egos"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors relative"
+            >
+              <Users size={18} />
+              <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </button>
 
-          <button
-            onClick={() => setIsCollapsed(false)}
-            title="Historial de Sesiones"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
-          >
-            <ChatCircle size={18} />
-          </button>
+            <button
+              onClick={() => setIsCollapsed(false)}
+              title="Historial de Sesiones"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
+            >
+              <ChatCircle size={18} />
+            </button>
 
-          <button
-            onClick={() => setIsCollapsed(false)}
-            title="Artifacts del Canvas"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
-          >
-            <Shapes size={18} />
-          </button>
+            <button
+              onClick={() => setIsCollapsed(false)}
+              title="Artifacts del Canvas"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
+            >
+              <Shapes size={18} />
+            </button>
 
-          <button
-            onClick={() => setIsCollapsed(false)}
-            title="Servidores MCP & Tools"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
-          >
-            <PlugsConnected size={18} />
-          </button>
-        </div>
-
-        {/* Inferior: Configuración y Estado */}
-        <div className="flex flex-col items-center gap-3">
-          <div
-            title="VantaDB persistente activo"
-            className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800/40"
-          >
-            <HardDrive size={13} />
+            <button
+              onClick={() => setIsMcpOpen(true)}
+              title="Servidores MCP & Tools"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
+            >
+              <PlugsConnected size={18} />
+            </button>
           </div>
 
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            title="Configuración de Ego"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
-          >
-            <Gear size={18} />
-          </button>
+          {/* Inferior: Configuración y Estado */}
+          <div className="flex flex-col items-center gap-3">
+            <div
+              title="VantaDB persistente activo"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800/40"
+            >
+              <HardDrive size={13} />
+            </div>
 
-          <div
-            title="Eros Nessy (Owner)"
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-raised text-ink text-[11px] font-bold border border-hairline"
-          >
-            EN
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              title="Configuración de Ego"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
+            >
+              <Gear size={18} />
+            </button>
+
+            <div
+              title="Eros Nessy (Owner)"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-raised text-ink text-[11px] font-bold border border-hairline"
+            >
+              EN
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+        <McpManagerModal isOpen={isMcpOpen} onClose={() => setIsMcpOpen(false)} />
+      </>
     );
   }
 
@@ -387,7 +392,10 @@ export function Sidebar({
                 <Shapes size={14} className="text-dim" />
                 <span>Artifacts del Canvas</span>
               </button>
-              <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-raised/60 hover:text-ink transition-colors">
+              <button
+                onClick={() => setIsMcpOpen(true)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-raised/60 hover:text-ink transition-colors text-left"
+              >
                 <PlugsConnected size={14} className="text-dim" />
                 <span>MCP Servers & Tools</span>
               </button>
@@ -566,6 +574,9 @@ export function Sidebar({
           </div>
         </div>
       )}
+
+      {/* Modal del Gestor de Servidores MCP y Skills (ACT-11) */}
+      <McpManagerModal isOpen={isMcpOpen} onClose={() => setIsMcpOpen(false)} />
     </>
   );
 }

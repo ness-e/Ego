@@ -108,7 +108,7 @@ export interface McpCallToolResult {
 export interface McpServerConfig {
   id: string;
   name: string;
-  transport: "stdio";
+  transport: "stdio" | "sse";
   command: string;
   args?: string[];
   env?: Record<string, string>;

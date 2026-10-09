@@ -89,6 +89,11 @@ export class McpClient extends EventEmitter {
       this.sendNotification("notifications/initialized", {});
 
       this.setStatus("connected");
+      try {
+        await this.listTools();
+      } catch {
+        // Silencioso si el servidor no expone tools o tools/list falla
+      }
     } catch (err) {
       this.setStatus("error");
       this.cleanupProcess();
@@ -153,6 +158,13 @@ export class McpClient extends EventEmitter {
     const res = await this.sendRequest<McpListToolsResult>("tools/list", {});
     this.cachedTools = res.tools || [];
     return this.cachedTools;
+  }
+
+  /**
+   * Obtiene la copia en caché de las herramientas descubiertas sin realizar llamadas I/O.
+   */
+  public getCachedTools(): McpToolDefinition[] {
+    return [...this.cachedTools];
   }
 
   /**

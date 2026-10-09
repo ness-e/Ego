@@ -13,6 +13,7 @@
   "dependencies": {
     "@ego/events": "workspace:*",
     "@ego/execution": "workspace:*",
+    "@ego/integrations": "workspace:*",
     "@ego/memory": "workspace:*",
     "@ego/models": "workspace:*",
     "@ego/runtime": "workspace:*",

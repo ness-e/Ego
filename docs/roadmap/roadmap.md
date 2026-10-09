@@ -42,7 +42,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [x] Manejo de errores y reintentos con contexto causal y auto-reparación sintáctica — Cumplido en ACT-08 (`ErrorHandler` con auto-reparación OCLW-03, clasificación OCLW-04 y LoopGuard).
 - [x] Cliente MCP universal sobre stdio (Nivel B Integración) — Cumplido en ACT-09 (`McpClient` con handshake MCP 2024-11-05, auto-discovery de tools, schema bridge Zod, inferencia de riesgo, SafeConfigMutation con rollback atómico COUC-10 y kernel RPC dispatch directo HERM-18).
 - [x] Validación E2E del Golden Path Alpha (Pasos 8 al 12) — Cumplido en ACT-10 (Suite E2E automatizada `tools-execution.test.ts`: Solicitud → Inferencia ModelRouter → Selección de Tool → Retención HITL con ActionIdentity SHA-256 → Aprobación humana → Ejecución atómica Nivel A → Persistencia de turno y artefacto en VantaDB → Recuperación intacta tras reinicio).
-> **Estado actual:** 10 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`, `ACT-06`, `ACT-07`, `ACT-08`, `ACT-09`, `ACT-10`). Siguiente hito: Gestor y Marketplace Local de MCP Servers y Skills a Elección (`ACT-11`).
+> **Estado actual:** 11 de 12 tareas completadas (`ACT-01`, `ACT-02`, `ACT-03`, `ACT-04`, `ACT-05`, `ACT-06`, `ACT-07`, `ACT-08`, `ACT-09`, `ACT-10`, `ACT-11`). Siguiente hito en curso: Integrar EventBus en ToolExecutionLoop y Desktop Main (`ACT-12`).
 **Criterio de aceptación:** El modelo puede interactuar con el sistema operativo de forma controlada y persistente.
 
 ### Fase 03: Sub-Egos
