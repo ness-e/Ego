@@ -66,6 +66,10 @@ export class EgoMemoryAdapter {
     return this.isInitialized && this.db !== null;
   }
 
+  public getDb(): NativeVantaDB | null {
+    return this.db;
+  }
+
   private ensureReady(): NativeVantaDB {
     if (!this.db) {
       throw new Error("[EgoMemoryAdapter] No inicializado. Llamar a init() primero.");
@@ -142,6 +146,26 @@ export class EgoMemoryAdapter {
     const record = await db.get({ namespace, key });
     if (!record) return null;
     return this.parseRecord(record);
+  }
+
+  /**
+   * Lista registros por namespace usando la API de listado nativa de VantaDB
+   */
+  async list(
+    namespace: string,
+    limit: number = 100
+  ): Promise<Array<{ key: string; payload: unknown; metadata?: Record<string, unknown> }>> {
+    const db = this.ensureReady();
+    try {
+      const page = await db.list({ namespace, limit });
+      return page.records.map((r: MemoryRecord) => ({
+        key: r.key,
+        payload: this.parseRecord(r),
+        metadata: r.metadata as Record<string, unknown>,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   /**

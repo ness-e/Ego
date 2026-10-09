@@ -10,3 +10,4 @@ export * from "./SubEgoSoul.js";
 export * from "./DelegationRouter.js";
 export * from "./CharacterProfile.js";
 export * from "./SubEgoBudget.js";
+export * from "./SelfImprovementLoop.js";

@@ -341,7 +341,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm test` ejecuta `tests/e2e/subegos-delegation.test.ts` con exit code 0 en modo offline/mock y determinista.
 - **Task file:** `docs/agent-ops/tasks/SUB-10.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -464,7 +464,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/subegos test` (suite `SelfImprovementLoop.test.ts` probando extracción de lecciones post-ejecución, deduplicación y refuerzo de estrategias en VantaDB).
 - **Task file:** `docs/agent-ops/tasks/SUB-12.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -1198,7 +1198,7 @@ Status: ⬆️ uphill = 6 (decisión formal de silueta de personaje, esquema de 
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm test` ejecuta `tests/e2e/mvp-software-loop.test.ts` con exit code 0 validando: Creación de proyecto -> Inferencia con modelo -> Delegación a Sub-Ego -> Tool con HITL -> Persistencia en VantaDB -> Reapertura intacta.
 - **Task file:** `docs/agent-ops/tasks/INT-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
