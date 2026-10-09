@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld("ego", {
     ipcRenderer.invoke("ipc.llm.stream", req),
   approve: (req: { actionId: string; confirmed: boolean; notes?: string }) =>
     ipcRenderer.invoke("ipc.gov.approve", req),
+  resolveApproval: (req: {
+    approvalId: string;
+    approved: boolean;
+    reason?: string;
+    modifiedArguments?: Record<string, unknown>;
+  }) => ipcRenderer.invoke("ipc.approval.resolve", req),
   snapshots: () => ipcRenderer.invoke("ipc.snapshots"),
   listSubEgos: () => ipcRenderer.invoke("ipc.subegos.list"),
   createSubEgo: (req: { name: string; role: string; instructions: string; tools?: string[] }) =>
@@ -34,6 +40,13 @@ contextBridge.exposeInMainWorld("ego", {
     ipcRenderer.on("ipc.chat.error", sub);
     return () => {
       ipcRenderer.removeListener("ipc.chat.error", sub);
+    };
+  },
+  onApprovalRequest: (callback: (req: any) => void) => {
+    const sub = (_event: Electron.IpcRendererEvent, req: any) => callback(req);
+    ipcRenderer.on("ipc.approval.request", sub);
+    return () => {
+      ipcRenderer.removeListener("ipc.approval.request", sub);
     };
   },
 });

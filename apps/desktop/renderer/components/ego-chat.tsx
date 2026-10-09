@@ -8,7 +8,8 @@ import {
   ComposerPrimitive,
 } from "@assistant-ui/react";
 import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
-import { ego, RecallBadgeInfo } from "../lib/ego";
+import { ego, RecallBadgeInfo, PendingApprovalInfo } from "../lib/ego";
+import { ApprovalCard } from "./tools/ApprovalCard";
 
 function Text({ text }: { text: string }) {
   return <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>;
@@ -55,7 +56,43 @@ export function EgoChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [latestRecall, setLatestRecall] = useState<RecallBadgeInfo | null>(null);
   const [activeError, setActiveError] = useState<ActiveChatError | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
   const currentPromptRef = useRef<string>("");
+
+  // Subscripción reactiva a solicitudes de aprobación HITL (ACT-07)
+  useEffect(() => {
+    const unsub = ego().onApprovalRequest?.((req) => {
+      setPendingApprovals((prev) => {
+        if (prev.some((p) => p.approvalId === req.approvalId)) return prev;
+        return [...prev, req];
+      });
+    });
+    return () => {
+      unsub?.();
+    };
+  }, []);
+
+  const handleResolveApproval = useCallback(
+    async (
+      approvalId: string,
+      decision: {
+        approved: boolean;
+        reason?: string;
+        modifiedArguments?: Record<string, unknown>;
+      }
+    ) => {
+      await ego().resolveApproval({
+        approvalId,
+        approved: decision.approved,
+        reason: decision.reason,
+        modifiedArguments: decision.modifiedArguments,
+      });
+      setTimeout(() => {
+        setPendingApprovals((prev) => prev.filter((p) => p.approvalId !== approvalId));
+      }, 1200);
+    },
+    []
+  );
 
   // Subscripción reactiva a eventos de error de IPC emitidos desde el main process
   useEffect(() => {
@@ -198,6 +235,19 @@ export function EgoChat() {
                 <X size={13} />
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Panel de Solicitudes de Aprobación HITL activas (ACT-07 / HERM-03 / OCLW-08) */}
+        {pendingApprovals.length > 0 && (
+          <div className="border-t border-hairline bg-raised/20 px-3.5 py-2 max-h-72 overflow-y-auto">
+            {pendingApprovals.map((req) => (
+              <ApprovalCard
+                key={req.approvalId}
+                request={req}
+                onResolve={(decision) => handleResolveApproval(req.approvalId, decision)}
+              />
+            ))}
           </div>
         )}
 

@@ -22,6 +22,26 @@ export interface ChatErrorInfo {
   timestamp?: number;
 }
 
+export interface PendingApprovalInfo {
+  approvalId: string;
+  action: {
+    sessionId: string;
+    subEgoId: string;
+    toolName: string;
+    callId: string;
+    inputDigest: string;
+    createdAt: number;
+  };
+  toolName: string;
+  toolCategory: string;
+  riskLevel: "safe" | "sensitive" | "destructive";
+  arguments: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected" | "timed_out" | "aborted";
+  createdAt: number;
+  expiresAt: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface EgoBridge {
   memory: (op: string, args: unknown[]) => Promise<unknown>;
   llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string }) => Promise<{
@@ -32,12 +52,19 @@ export interface EgoBridge {
     usage?: unknown;
   }>;
   approve: (req: { actionId: string; confirmed: boolean; notes?: string }) => Promise<unknown>;
+  resolveApproval: (req: {
+    approvalId: string;
+    approved: boolean;
+    reason?: string;
+    modifiedArguments?: Record<string, unknown>;
+  }) => Promise<{ ok: boolean; approvalId: string; approved: boolean; timestamp: number }>;
   snapshots: () => Promise<unknown>;
   listSubEgos: () => Promise<SubEgoSummary[]>;
   createSubEgo: (req: { name: string; role: string; instructions: string; tools?: string[] }) => Promise<SubEgoSummary>;
   onChatDelta?: (callback: (chunk: { type: string; delta?: string }) => void) => () => void;
   onRecallStatus?: (callback: (status: RecallBadgeInfo) => void) => () => void;
   onChatError?: (callback: (err: ChatErrorInfo) => void) => () => void;
+  onApprovalRequest?: (callback: (req: PendingApprovalInfo) => void) => () => void;
 }
 
 const mockSubEgos: SubEgoSummary[] = [
@@ -89,6 +116,12 @@ const mock: EgoBridge = {
     },
   }),
   approve: async (args) => ({ ok: true, mock: true, args }),
+  resolveApproval: async (req) => ({
+    ok: true,
+    approvalId: req.approvalId,
+    approved: req.approved,
+    timestamp: Date.now(),
+  }),
   snapshots: async () => ({ ok: true, mock: true, missing: [] }),
   listSubEgos: async () => mockSubEgos,
   createSubEgo: async (req) => {

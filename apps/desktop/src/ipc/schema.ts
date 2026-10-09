@@ -71,7 +71,19 @@ export const CreateSubEgoSchema = z.object({
 export type CreateSubEgoRequest = z.infer<typeof CreateSubEgoSchema>;
 
 /**
- * Esquema de validación para aprobación HITL
+ * Esquema de validación para resolución de aprobaciones HITL (ACT-06, ACT-07).
+ */
+export const ResolveApprovalSchema = z.object({
+  approvalId: z.string().min(1, "El approvalId no puede estar vacío"),
+  approved: z.boolean(),
+  reason: z.string().optional(),
+  modifiedArguments: z.record(z.unknown()).optional(),
+});
+
+export type ResolveApprovalRequest = z.infer<typeof ResolveApprovalSchema>;
+
+/**
+ * Esquema de validación legacy para aprobación de acciones simples
  */
 export const ApproveActionSchema = z.object({
   actionId: z.string().min(1),

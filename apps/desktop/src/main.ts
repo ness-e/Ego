@@ -11,12 +11,15 @@ import {
   MemoryOpSchema,
   CreateSubEgoSchema,
   ApproveActionSchema,
+  ResolveApprovalSchema,
   ChatStreamSchema,
 } from "./ipc/schema.js";
+import { ApprovalEngine, PendingApproval } from "@ego/execution";
 
 let adapter: EgoMemoryAdapter;
 let lifecycle: EgoMemoryLifecycle;
 let modelRouter: ModelRouter;
+let approvalEngine: ApprovalEngine;
 let win: BrowserWindow | null = null;
 
 export async function createWindow(): Promise<void> {
@@ -28,6 +31,13 @@ export async function createWindow(): Promise<void> {
   await lifecycle.startSession("session_init", "default");
 
   modelRouter = new ModelRouter();
+
+  approvalEngine = new ApprovalEngine({
+    mode: "standard",
+    onApprovalRequested: (pending: PendingApproval) => {
+      win?.webContents.send("ipc.approval.request", pending);
+    },
+  });
 
   win = new BrowserWindow({
     width: 1440,
@@ -129,7 +139,24 @@ export async function createWindow(): Promise<void> {
     return manifest;
   });
 
-  // 3. Gobernanza HITL con validación Zod
+  // 3. Gobernanza HITL con validación Zod (ACT-06, ACT-07)
+  ipcMain.handle("ipc.approval.resolve", async (_e, rawReq: unknown) => {
+    const parseResult = ResolveApprovalSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Solicitud de resolución de aprobación inválida: ${parseResult.error.message}`);
+    }
+
+    const { approvalId, approved, reason, modifiedArguments } = parseResult.data;
+    const ok = approvalEngine.resolveApproval(approvalId, {
+      approved,
+      reason,
+      modifiedArguments,
+      resolvedBy: "user",
+    });
+
+    return { ok, approvalId, approved, timestamp: Date.now() };
+  });
+
   ipcMain.handle("ipc.gov.approve", async (_e, rawReq: unknown) => {
     const parseResult = ApproveActionSchema.safeParse(rawReq);
     if (!parseResult.success) {

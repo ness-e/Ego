@@ -4,6 +4,7 @@ import {
   CreateSubEgoSchema,
   ApproveActionSchema,
   ChatStreamSchema,
+  ResolveApprovalSchema,
 } from "../src/ipc/schema.js";
 
 describe("@ego/desktop — IPC Validation Schema Suite", () => {
@@ -76,5 +77,50 @@ describe("@ego/desktop — IPC Validation Schema Suite", () => {
 
     const missingPrompt = ChatStreamSchema.safeParse({});
     expect(missingPrompt.success).toBe(false);
+  });
+
+  it("Valida esquema de resolución HITL interactiva (ResolveApprovalSchema - ACT-06 / ACT-07)", () => {
+    // Aprobación estándar
+    const validApproval = ResolveApprovalSchema.safeParse({
+      approvalId: "appr_1234567890",
+      approved: true,
+    });
+    expect(validApproval.success).toBe(true);
+
+    // Aprobación con argumentos modificados
+    const modifiedApproval = ResolveApprovalSchema.safeParse({
+      approvalId: "appr_1234567890",
+      approved: true,
+      modifiedArguments: { path: "src/safe.ts", force: false },
+    });
+    expect(modifiedApproval.success).toBe(true);
+    if (modifiedApproval.success) {
+      expect(modifiedApproval.data.modifiedArguments?.force).toBe(false);
+    }
+
+    // Rechazo con motivo
+    const validRejection = ResolveApprovalSchema.safeParse({
+      approvalId: "appr_1234567890",
+      approved: false,
+      reason: "Comando destructivo denegado por operador",
+    });
+    expect(validRejection.success).toBe(true);
+    if (validRejection.success) {
+      expect(validRejection.data.reason).toBe("Comando destructivo denegado por operador");
+    }
+
+    // Rechazo ante approvalId vacío
+    const invalidId = ResolveApprovalSchema.safeParse({
+      approvalId: "",
+      approved: true,
+    });
+    expect(invalidId.success).toBe(false);
+
+    // Rechazo ante approved faltante o no booleano
+    const invalidApproved = ResolveApprovalSchema.safeParse({
+      approvalId: "appr_1234567890",
+      approved: "yes",
+    });
+    expect(invalidApproved.success).toBe(false);
   });
 });
