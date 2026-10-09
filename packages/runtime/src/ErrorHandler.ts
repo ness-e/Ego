@@ -393,6 +393,19 @@ export class ErrorHandler {
           }
         }
 
+        // Si el campo representa contenido de código o texto crudo, preservar como string
+        const lowerKey = key.toLowerCase();
+        if (
+          lowerKey === "content" ||
+          lowerKey === "code" ||
+          lowerKey === "script" ||
+          lowerKey === "text" ||
+          lowerKey === "body"
+        ) {
+          result[key] = val;
+          continue;
+        }
+
         // JSON anidado dentro de string
         if (
           (trimmed.startsWith("{") && trimmed.endsWith("}")) ||

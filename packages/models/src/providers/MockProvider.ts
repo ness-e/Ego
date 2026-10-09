@@ -39,7 +39,7 @@ export class MockProvider implements EgoModelInterface {
 
     // Si se especifican herramientas y la consulta contiene la directiva SIMULATE_TOOL:<name>:<json>
     if (options.tools && options.tools.length > 0 && userQuery.includes("SIMULATE_TOOL:")) {
-      const match = userQuery.match(/SIMULATE_TOOL:([a-zA-Z0-9_-]+)(?::(\{.*\}))?/);
+      const match = userQuery.match(/SIMULATE_TOOL:([a-zA-Z0-9_-]+)(?::(\{[\s\S]*\}))?/);
       if (match) {
         const toolName = match[1];
         let args: Record<string, unknown> = {};
