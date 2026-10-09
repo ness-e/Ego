@@ -55,7 +55,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [ ] El Sub-Ego ejecuta una tarea independiente.
 - [ ] Los Sub-Egos comparten contexto a través de la Shared Memory.
 - [ ] El Sub-Ego reporta el resultado de su tarea.
-> **Estado actual:** 2 de 12 tareas completadas (`SUB-01`, `SUB-02`). Siguiente hito en curso: Registro y catálogo de Sub-Egos en namespace `gov/sub_egos` (`SUB-07`).
+> **Estado actual:** 3 de 12 tareas completadas (`SUB-01`, `SUB-02`, `SUB-03`). Siguiente hito en curso: Registro y catálogo de Sub-Egos en namespace `gov/sub_egos` (`SUB-07`).
 **Criterio de aceptación:** Múltiples Sub-Egos cooperan para resolver una tarea sin que el usuario intervenga en la orquestación.
 
 ### Fase 04: Dynamic Workspace/Canvas

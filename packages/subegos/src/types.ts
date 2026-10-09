@@ -141,3 +141,55 @@ export interface SubEgoCreateInput {
   trigger?: SubEgoTrigger;
   creator?: SubEgoCreator;
 }
+
+/**
+ * Estados del ciclo de vida en memoria de una instancia de Sub-Ego (SUB-03).
+ */
+export type SubEgoLifecycleState =
+  | "unloaded"
+  | "activating"
+  | "idle"
+  | "executing"
+  | "suspended";
+
+/**
+ * Instancia activa en memoria de un Sub-Ego gestionada por SubEgoRuntime.
+ */
+export interface SubEgoInstance {
+  manifest: SubEgoManifest;
+  state: SubEgoLifecycleState;
+  activatedAtMs: number;
+  lastActiveMs: number;
+  totalTurnsExecuted: number;
+  totalTokensUsed: number;
+  totalCostUsd: number;
+  scratchpad: Map<string, unknown>;
+}
+
+/**
+ * Opciones de configuración para SubEgoRuntime.
+ */
+export interface SubEgoRuntimeOptions {
+  /** Tiempo de inactividad antes de suspender o descargar una instancia (default: 60_000 ms) */
+  idleTtlMs?: number;
+  /** Límite de instancias activas concurrentes en RAM (default: 10) */
+  maxConcurrentActive?: number;
+  /** Callback opcional ejecutado ante cada transición de ciclo de vida */
+  onStateTransition?: (
+    instance: SubEgoInstance,
+    fromState: SubEgoLifecycleState,
+    toState: SubEgoLifecycleState
+  ) => void;
+}
+
+/**
+ * Resultado estructurado de la ejecución de un turno en un Sub-Ego.
+ */
+export interface SubEgoTurnResult<T = unknown> {
+  subEgoId: string;
+  output: T;
+  tokensUsed: number;
+  costUsd: number;
+  durationMs: number;
+}
+

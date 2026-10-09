@@ -94,7 +94,7 @@ Status: ⬆️ uphill = 2 (interfaz conversacional desacoplada de UI y política
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/subegos test` (suite `SubEgoRuntime.test.ts` probando ciclo de vida, activación perezosa, inyección de herramientas y descarga por TTL).
 - **Task file:** `docs/agent-ops/tasks/SUB-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -216,6 +216,17 @@ Para ejecutar este plan de campaña mediante el pipeline formal:
 ```
 
 === RECITATION SUB-02 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: COMPLETED
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION SUB-03 ===
 Campaign ID: 
 Objetivo activo: 
 Estado: completed

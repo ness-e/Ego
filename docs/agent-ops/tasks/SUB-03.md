@@ -12,7 +12,7 @@ tags: [subegos, runtime, lifecycle, lazy-activation, ttl, phase-03]
 ---
 
 # Task: SUB-03 — Sub-Ego Runtime y ciclo de vida (Lazy Activation)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Plan:** docs/agent-ops/plans/2026-10-09-subegos-foundation.md
 - **Archivos clave:** packages/subegos/src/SubEgoRuntime.ts, packages/subegos/src/types.ts
 
@@ -41,19 +41,19 @@ Conforme a los 10 Principios Innegociables de Ego (§4 Sub-Egos y §10 Operació
 - Queda pendiente: Integración directa con ToolExecutionLoop y OrchestrationBus (SUB-06)
 
 ## Steps de ejecución
-- [ ] Step 1: Definir tipos de ciclo de vida (`SubEgoLifecycleState`, `SubEgoInstance`) en `packages/subegos/src/types.ts`
-- [ ] Step 2: Implementar clase `SubEgoRuntime` con lazy activation y temporizador TTL en `packages/subegos/src/SubEgoRuntime.ts`
-- [ ] Step 3: Exportar API en `packages/subegos/src/index.ts`
-- [ ] Step 4: Crear suite de pruebas unitarias en `packages/subegos/test/SubEgoRuntime.test.ts`
-- [ ] Step 5: Verificación global de monorepo (`pnpm test && pnpm typecheck`)
+- [x] Step 1: Definir tipos de ciclo de vida (`SubEgoLifecycleState`, `SubEgoInstance`) en `packages/subegos/src/types.ts`
+- [x] Step 2: Implementar clase `SubEgoRuntime` con lazy activation y temporizador TTL en `packages/subegos/src/SubEgoRuntime.ts`
+- [x] Step 3: Exportar API en `packages/subegos/src/index.ts`
+- [x] Step 4: Crear suite de pruebas unitarias en `packages/subegos/test/SubEgoRuntime.test.ts`
+- [x] Step 5: Verificación global de monorepo (`pnpm test && pnpm typecheck`)
 
 ## Deuda técnica (Regla 6 — MUST)
 **Saldo neto de deuda:** Sin deuda nueva.
 
 ## Definition of Done (contrato multi-nivel — P2-08)
-- [ ] **Task:** `pnpm --filter @ego/subegos test` pasa con 100% de cobertura en ciclo de vida y transiciones.
-- [ ] **Commit:** Commit semántico convencional atómico (`feat(subegos): implement SubEgoRuntime with lazy activation and idle TTL`).
-- [ ] **Release:** Documentación sincronizada, exportación en `@ego/subegos` y sin regresiones en el monorepo.
+- [x] **Task:** `pnpm --filter @ego/subegos test` pasa con 100% de cobertura en ciclo de vida y transiciones.
+- [x] **Commit:** Commit semántico convencional atómico (`feat(subegos): implement SubEgoRuntime with lazy activation and idle TTL`).
+- [x] **Release:** Documentación sincronizada, exportación en `@ego/subegos` y sin regresiones en el monorepo.
 
 ## Herramientas necesarias
 - Vitest (`pnpm --filter @ego/subegos test`)
@@ -73,3 +73,9 @@ Conforme a los 10 Principios Innegociables de Ego (§4 Sub-Egos y §10 Operació
 - **Revisor:** ego-audit / reviewer
 - **Enfoque:** FSM determinista, ausencia de timers colgados (`.unref()`) y gestión de memoria.
 - **Veredicto:** ⬜ Pendiente de implementación
+
+## Registro de Cumplimiento (2026-10-09)
+- **Estado:** ✅ COMPLETED
+- **Timestamp:** 2026-10-09T19:39:51.628Z
+- **Evidencia:** Verificación mecánica aprobada
+- **Commit:** Transacción local
