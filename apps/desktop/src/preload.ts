@@ -61,4 +61,11 @@ contextBridge.exposeInMainWorld("ego", {
       ipcRenderer.removeListener("ipc.approval.request", sub);
     };
   },
+  onEvent: (callback: (event: unknown) => void) => {
+    const sub = (_event: Electron.IpcRendererEvent, egoEvent: unknown) => callback(egoEvent);
+    ipcRenderer.on("ipc.event", sub);
+    return () => {
+      ipcRenderer.removeListener("ipc.event", sub);
+    };
+  },
 });

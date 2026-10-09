@@ -9,6 +9,7 @@ import {
 import { ModelRouter, ModelMessage } from "@ego/models";
 import { ToolRegistry } from "@ego/tools";
 import { McpManager, SkillScanner } from "@ego/integrations";
+import { EventBus, StructuredLogger } from "@ego/events";
 import {
   MemoryOpSchema,
   CreateSubEgoSchema,
@@ -30,7 +31,13 @@ let approvalEngine: ApprovalEngine;
 let toolRegistry: ToolRegistry;
 let mcpManager: McpManager;
 let skillScanner: SkillScanner;
+let eventBus: EventBus;
+let structuredLogger: StructuredLogger;
 let win: BrowserWindow | null = null;
+
+export function getEventBus(): EventBus {
+  return eventBus;
+}
 
 export async function createWindow(): Promise<void> {
   const dbPath = join(app.getPath("userData"), "ego_memory.vdb");
@@ -41,6 +48,13 @@ export async function createWindow(): Promise<void> {
   await lifecycle.startSession("session_init", "default");
 
   modelRouter = new ModelRouter();
+
+  eventBus = new EventBus();
+  structuredLogger = new StructuredLogger({
+    minSeverity: "info",
+    outputStream: (line) => console.log(`[Ego EventLog] ${line}`)
+  });
+  structuredLogger.attachToEventBus(eventBus);
 
   toolRegistry = new ToolRegistry();
   mcpManager = new McpManager(toolRegistry);
@@ -93,6 +107,13 @@ export async function createWindow(): Promise<void> {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+
+  // Retransmitir eventos hacia Chromium Renderer (Activity Widget, Observabilidad)
+  eventBus.onAny((event) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.event", event);
+    }
   });
 
   win.webContents.on("console-message", (_e, level, message, line, sourceId) => {
@@ -229,6 +250,17 @@ export async function createWindow(): Promise<void> {
 
     const sessionId = req.sessionId || lifecycle.currentSessionId || "default_session";
     const turnId = `turn_${Date.now()}`;
+    const turnStartTime = Date.now();
+
+    eventBus?.emit("task.started", {
+      taskId: turnId,
+      startedAt: turnStartTime,
+    }, {
+      source: "desktop.ipc.llm.stream",
+      sessionId,
+      traceId: turnId,
+      severity: "info",
+    });
 
     try {
       // FASE 2: Pre-Turn Context Assembly & Recall (Prefetch + Glifo 🧠)
@@ -263,6 +295,17 @@ export async function createWindow(): Promise<void> {
       const recalledKeys = recallStatus.hits.map((h) => `${h.namespace}:${h.key}`);
       await lifecycle.syncTurn(sessionId, turnId, req.prompt, streamResult.text, recalledKeys);
 
+      eventBus?.emit("task.completed", {
+        taskId: turnId,
+        durationMs: Date.now() - turnStartTime,
+        result: { turnId, textLength: streamResult.text.length, usage: streamResult.usage },
+      }, {
+        source: "desktop.ipc.llm.stream",
+        sessionId,
+        traceId: turnId,
+        severity: "info",
+      });
+
       return {
         ok: true,
         turnId,
@@ -273,6 +316,18 @@ export async function createWindow(): Promise<void> {
     } catch (err: any) {
       const errorMsg = err?.message || String(err);
       win?.webContents.send("ipc.chat.error", { turnId, error: errorMsg });
+
+      eventBus?.emit("task.failed", {
+        taskId: turnId,
+        error: errorMsg,
+        code: "STREAM_ERROR",
+      }, {
+        source: "desktop.ipc.llm.stream",
+        sessionId,
+        traceId: turnId,
+        severity: "error",
+      });
+
       throw new Error(`[Cognitive Runtime Error]: ${errorMsg}`);
     }
   });

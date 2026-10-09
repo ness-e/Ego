@@ -2,6 +2,7 @@ import type { ModelMessage, ModelRole } from "@ego/models";
 import { ModelRouter } from "@ego/models";
 import { ToolRegistry } from "@ego/tools";
 import { ExecutionManager, type ApprovalEngine } from "@ego/execution";
+import type { EventBus } from "@ego/events";
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -23,6 +24,7 @@ import { ErrorHandler } from "./ErrorHandler.js";
  * 5. Ejecución supervisada mediante ExecutionManager (timeouts, cuotas y cancelación).
  * 6. Manejo resiliente de fallos para autocorrección guiada por el modelo (ACT-08).
  * 7. Control de cuota y límite de iteraciones (anti-bucles infinitos).
+ * 8. Telemetría y observabilidad integral vía EventBus (ACT-12 / COUC-01).
  */
 export class ToolExecutionLoop {
   private readonly router: ModelRouter;
@@ -30,6 +32,7 @@ export class ToolExecutionLoop {
   private readonly executionManager: ExecutionManager;
   private readonly approvalEngine?: ApprovalEngine;
   private readonly errorHandler: ErrorHandler;
+  private readonly eventBus?: EventBus;
   private readonly config: ToolExecutionLoopConfig;
 
   constructor(
@@ -41,6 +44,7 @@ export class ToolExecutionLoop {
     this.registry = registry;
     this.executionManager = config.executionManager ?? new ExecutionManager();
     this.approvalEngine = config.approvalEngine;
+    this.eventBus = config.eventBus;
     this.errorHandler =
       config.errorHandler ??
       new ErrorHandler(this.registry, config.errorHandlerConfig);
@@ -62,6 +66,10 @@ export class ToolExecutionLoop {
     const approvalHandler = options.approvalHandler ?? this.config.approvalHandler;
     const approvalEngine = options.approvalEngine ?? this.approvalEngine;
     const errorHandler: ErrorHandler = options.errorHandler ?? this.errorHandler;
+    const eventBus = options.eventBus ?? this.eventBus;
+    const sessionId = options.context.sessionId;
+    const traceId = options.traceId ?? sessionId;
+    const loopStartTime = Date.now();
 
     let step = 0;
     const totalUsage = {
@@ -75,6 +83,17 @@ export class ToolExecutionLoop {
       step++;
 
       if (options.abortSignal?.aborted) {
+        eventBus?.emit("task.failed", {
+          taskId: sessionId,
+          error: "Operación abortada por señal de cancelación (AbortSignal).",
+          code: "ABORTED"
+        }, {
+          source: "runtime.tool_loop",
+          sessionId,
+          traceId,
+          severity: "warn"
+        });
+
         return {
           status: "aborted",
           messages,
@@ -130,7 +149,31 @@ export class ToolExecutionLoop {
           this.config.onToolCall?.(call);
 
           const tool = this.registry.get(call.name);
+          eventBus?.emit("tool.started", {
+            callId: call.id,
+            toolName: call.name,
+            input: call.arguments,
+            riskLevel: tool?.riskLevel
+          }, {
+            source: "runtime.tool_loop",
+            sessionId,
+            traceId,
+            severity: "info"
+          });
+
           if (!tool) {
+            eventBus?.emit("tool.failed", {
+              callId: call.id,
+              toolName: call.name,
+              error: `Herramienta '${call.name}' no encontrada.`,
+              durationMs: 0
+            }, {
+              source: "runtime.tool_loop",
+              sessionId,
+              traceId,
+              severity: "error"
+            });
+
             const enriched = errorHandler.handleToolNotFound(
               call,
               this.registry.list().map((t) => t.name)
@@ -150,6 +193,18 @@ export class ToolExecutionLoop {
           // Validación estricta con Zod
           const validation = this.registry.validateInput(call.name, repairedArgs);
           if (!validation.success) {
+            eventBus?.emit("tool.failed", {
+              callId: call.id,
+              toolName: call.name,
+              error: validation.error.message || `Validación fallida para '${call.name}'.`,
+              durationMs: 0
+            }, {
+              source: "runtime.tool_loop",
+              sessionId,
+              traceId,
+              severity: "error"
+            });
+
             const enriched = errorHandler.handleValidationError(call, validation.error);
             messages.push({
               role: "tool",
@@ -169,12 +224,26 @@ export class ToolExecutionLoop {
 
           if (requiresApproval) {
             let decision: ApprovalDecision;
+            const approvalId = `appr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
             if (approvalEngine) {
               this.config.onStep?.({
                 step,
                 action: "approval_requested",
                 details: { toolName: tool.name, callId: call.id }
+              });
+
+              eventBus?.emit("approval.required", {
+                approvalId,
+                action: tool.name,
+                riskLevel: tool.riskLevel,
+                details: finalArgs,
+                timeoutMs: 120_000
+              }, {
+                source: "runtime.tool_loop",
+                sessionId,
+                traceId,
+                severity: "warn"
               });
 
               decision = await approvalEngine.requestApproval({
@@ -190,9 +259,21 @@ export class ToolExecutionLoop {
                 action: "approval_resolved",
                 details: { approved: decision.approved, reason: decision.reason }
               });
+
+              eventBus?.emit("approval.resolved", {
+                approvalId,
+                approved: decision.approved,
+                resolvedBy: "user",
+                reason: decision.reason
+              }, {
+                source: "runtime.tool_loop",
+                sessionId,
+                traceId,
+                severity: "info"
+              });
             } else if (approvalHandler) {
               const approvalReq: ApprovalRequest = {
-                approvalId: `appr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                approvalId,
                 toolName: tool.name,
                 toolCategory: tool.category,
                 riskLevel: tool.riskLevel,
@@ -209,6 +290,18 @@ export class ToolExecutionLoop {
                 details: { toolName: tool.name, approvalId: approvalReq.approvalId }
               });
 
+              eventBus?.emit("approval.required", {
+                approvalId: approvalReq.approvalId,
+                action: tool.name,
+                riskLevel: tool.riskLevel,
+                details: finalArgs
+              }, {
+                source: "runtime.tool_loop",
+                sessionId,
+                traceId,
+                severity: "warn"
+              });
+
               decision = await approvalHandler(approvalReq);
 
               this.config.onStep?.({
@@ -216,9 +309,21 @@ export class ToolExecutionLoop {
                 action: "approval_resolved",
                 details: { approved: decision.approved, reason: decision.reason }
               });
+
+              eventBus?.emit("approval.resolved", {
+                approvalId: approvalReq.approvalId,
+                approved: decision.approved,
+                resolvedBy: "user",
+                reason: decision.reason
+              }, {
+                source: "runtime.tool_loop",
+                sessionId,
+                traceId,
+                severity: "info"
+              });
             } else {
               const approvalReq: ApprovalRequest = {
-                approvalId: `appr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                approvalId,
                 toolName: tool.name,
                 toolCategory: tool.category,
                 riskLevel: tool.riskLevel,
@@ -228,6 +333,18 @@ export class ToolExecutionLoop {
                 subEgoId: options.context.subEgoId,
                 timestamp: Date.now()
               };
+
+              eventBus?.emit("approval.required", {
+                approvalId: approvalReq.approvalId,
+                action: tool.name,
+                riskLevel: tool.riskLevel,
+                details: finalArgs
+              }, {
+                source: "runtime.tool_loop",
+                sessionId,
+                traceId,
+                severity: "warn"
+              });
 
               // Si requiere aprobación y no hay handler ni engine inmediato, suspendemos el ciclo
               return {
@@ -281,6 +398,17 @@ export class ToolExecutionLoop {
 
           if (execRes.status === "success") {
             errorHandler.notifySuccess();
+            eventBus?.emit("tool.executed", {
+              callId: call.id,
+              toolName: tool.name,
+              durationMs: execRes.durationMs,
+              result: execRes.output
+            }, {
+              source: "runtime.tool_loop",
+              sessionId,
+              traceId,
+              severity: "info"
+            });
             messages.push({
               role: "tool",
               toolCallId: call.id,
@@ -291,9 +419,21 @@ export class ToolExecutionLoop {
                   : JSON.stringify(execRes.output)
             });
           } else {
+            const errorMsg = execRes.error || "Fallo durante la ejecución.";
+            eventBus?.emit("tool.failed", {
+              callId: call.id,
+              toolName: tool.name,
+              error: errorMsg,
+              durationMs: execRes.durationMs
+            }, {
+              source: "runtime.tool_loop",
+              sessionId,
+              traceId,
+              severity: "error"
+            });
             const enriched = errorHandler.handleExecutionError(
               call,
-              execRes.error || "Fallo durante la ejecución.",
+              errorMsg,
               execRes.durationMs
             );
             messages.push({
@@ -328,6 +468,17 @@ export class ToolExecutionLoop {
         details: { finalTextLength: res.text.length }
       });
 
+      eventBus?.emit("task.completed", {
+        taskId: sessionId,
+        durationMs: Date.now() - loopStartTime,
+        result: { steps: step, finalTextLength: res.text.length, totalTokens: totalUsage.totalTokens }
+      }, {
+        source: "runtime.tool_loop",
+        sessionId,
+        traceId,
+        severity: "info"
+      });
+
       return {
         status: "completed",
         finalText: res.text,
@@ -338,6 +489,17 @@ export class ToolExecutionLoop {
     }
 
     // Límite de turnos alcanzado
+    eventBus?.emit("task.failed", {
+      taskId: sessionId,
+      error: `Se excedió el número máximo de pasos permitidos (${maxSteps}) sin llegar a una respuesta terminal.`,
+      code: "MAX_STEPS_EXCEEDED"
+    }, {
+      source: "runtime.tool_loop",
+      sessionId,
+      traceId,
+      severity: "warn"
+    });
+
     return {
       status: "max_steps_exceeded",
       messages,
@@ -357,6 +519,9 @@ export class ToolExecutionLoop {
   ): Promise<LoopExecutionResult> {
     const messages = [...options.messages];
     const tool = this.registry.get(pendingApproval.toolName);
+    const eventBus = options.eventBus ?? this.eventBus;
+    const sessionId = options.context.sessionId;
+    const traceId = options.traceId ?? sessionId;
 
     if (!decision.approved) {
       messages.push({
@@ -371,11 +536,36 @@ export class ToolExecutionLoop {
     } else if (tool) {
       const argsToExecute = decision.modifiedArguments || pendingApproval.arguments;
       const execManager = options.executionManager ?? this.executionManager;
+
+      eventBus?.emit("tool.started", {
+        callId: pendingApproval.callId,
+        toolName: tool.name,
+        input: argsToExecute,
+        riskLevel: tool.riskLevel
+      }, {
+        source: "runtime.tool_loop",
+        sessionId,
+        traceId,
+        severity: "info"
+      });
+
       const execRes = await execManager.execute(tool, argsToExecute, options.context, {
         abortSignal: options.abortSignal
       });
 
       if (execRes.status === "success") {
+        eventBus?.emit("tool.executed", {
+          callId: pendingApproval.callId,
+          toolName: tool.name,
+          durationMs: execRes.durationMs,
+          result: execRes.output
+        }, {
+          source: "runtime.tool_loop",
+          sessionId,
+          traceId,
+          severity: "info"
+        });
+
         messages.push({
           role: "tool",
           toolCallId: pendingApproval.callId,
@@ -386,13 +576,26 @@ export class ToolExecutionLoop {
               : JSON.stringify(execRes.output)
         });
       } else {
+        const errorMsg = execRes.error || "Fallo durante la ejecución.";
+        eventBus?.emit("tool.failed", {
+          callId: pendingApproval.callId,
+          toolName: tool.name,
+          error: errorMsg,
+          durationMs: execRes.durationMs
+        }, {
+          source: "runtime.tool_loop",
+          sessionId,
+          traceId,
+          severity: "error"
+        });
+
         messages.push({
           role: "tool",
           toolCallId: pendingApproval.callId,
           name: tool.name,
           content: JSON.stringify({
             status: execRes.status,
-            message: `Error al reanudar herramienta: ${execRes.error}`
+            message: `Error al reanudar herramienta: ${errorMsg}`
           })
         });
       }

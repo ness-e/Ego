@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ego/events": "workspace:*",
     "@ego/execution": "workspace:*",
     "@ego/models": "workspace:*",
     "@ego/tools": "workspace:*",

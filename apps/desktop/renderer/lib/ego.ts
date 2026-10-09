@@ -123,6 +123,7 @@ export interface EgoBridge {
   onRecallStatus?: (callback: (status: RecallBadgeInfo) => void) => () => void;
   onChatError?: (callback: (err: ChatErrorInfo) => void) => () => void;
   onApprovalRequest?: (callback: (req: PendingApprovalInfo) => void) => () => void;
+  onEvent?: (callback: (event: any) => void) => () => void;
 }
 
 const mockSubEgos: SubEgoSummary[] = [
@@ -271,6 +272,7 @@ const mock: EgoBridge = {
       },
     ],
   },
+  onEvent: () => () => {},
 };
 
 export function ego(): EgoBridge {

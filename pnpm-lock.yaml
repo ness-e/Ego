@@ -197,6 +197,9 @@ importers:
 
   packages/runtime:
     dependencies:
+      '@ego/events':
+        specifier: workspace:*
+        version: link:../events
       '@ego/execution':
         specifier: workspace:*
         version: link:../execution
