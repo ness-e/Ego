@@ -12,7 +12,7 @@ tags: [subegos, memory, vantadb, isolation, security, permissions, phase-03]
 ---
 
 # Task: SUB-04 — Aislamiento de estado privado egos/<id>/* en VantaDB
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Plan:** docs/agent-ops/plans/2026-10-09-subegos-foundation.md
 - **Archivos clave:** packages/subegos/src/SubEgoMemoryGuard.ts, packages/memory/EgoMemoryAdapter.ts
 
@@ -41,19 +41,19 @@ Conforme a los 10 Principios Innegociables de Ego (§1 Memoria local persistente
 - Queda pendiente: Control de acceso a namespaces compartidos (SUB-05)
 
 ## Steps de ejecución
-- [ ] Step 1: Implementar error tipado `SubEgoMemoryAccessDeniedError` y clase `SubEgoMemoryGuard` en `packages/subegos/src/SubEgoMemoryGuard.ts`
-- [ ] Step 2: Implementar validación estricta de namespaces por llamador en operaciones `putMulti`, `get`, `query` y `delete`
-- [ ] Step 3: Exportar API en `packages/subegos/src/index.ts`
-- [ ] Step 4: Crear suite de pruebas de seguridad y aislamiento en `packages/subegos/test/SubEgoMemoryGuard.test.ts`
-- [ ] Step 5: Verificación global de monorepo (`pnpm test && pnpm typecheck`)
+- [x] Step 1: Implementar error tipado `SubEgoMemoryAccessDeniedError` y clase `SubEgoMemoryGuard` en `packages/subegos/src/SubEgoMemoryGuard.ts`
+- [x] Step 2: Implementar validación estricta de namespaces por llamador en operaciones `putMulti`, `get`, `query` y `delete`
+- [x] Step 3: Exportar API en `packages/subegos/src/index.ts`
+- [x] Step 4: Crear suite de pruebas de seguridad y aislamiento en `packages/subegos/test/SubEgoMemoryGuard.test.ts`
+- [x] Step 5: Verificación global de monorepo (`pnpm test && pnpm typecheck`)
 
 ## Deuda técnica (Regla 6 — MUST)
 **Saldo neto de deuda:** Sin deuda nueva.
 
 ## Definition of Done (contrato multi-nivel — P2-08)
-- [ ] **Task:** Tests de `SubEgoMemoryGuard` y de `@ego/memory` pasan al 100%.
-- [ ] **Commit:** Commit semántico convencional atómico (`feat(subegos): implement SubEgoMemoryGuard for strict private state isolation`).
-- [ ] **Release:** Documentación de namespaces respetada y sin regresiones en el monorepo.
+- [x] **Task:** Tests de `SubEgoMemoryGuard` y de `@ego/memory` pasan al 100%.
+- [x] **Commit:** Commit semántico convencional atómico (`feat(subegos): implement SubEgoMemoryGuard for strict private state isolation`).
+- [x] **Release:** Documentación de namespaces respetada y sin regresiones en el monorepo.
 
 ## Herramientas necesarias
 - Vitest (`pnpm --filter @ego/subegos test`)
@@ -73,3 +73,9 @@ Conforme a los 10 Principios Innegociables de Ego (§1 Memoria local persistente
 - **Revisor:** ego-audit / reviewer
 - **Enfoque:** Seguridad perimetral, integridad de datos y ausencia de bypasses en escrituras en lote.
 - **Veredicto:** ⬜ Pendiente de implementación
+
+## Registro de Cumplimiento (2026-10-09)
+- **Estado:** ✅ COMPLETED
+- **Timestamp:** 2026-10-09T20:05:02.576Z
+- **Evidencia:** Verificación mecánica aprobada
+- **Commit:** Transacción local

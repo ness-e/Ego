@@ -156,7 +156,7 @@ Status: ⬆️ uphill = 2 (interfaz conversacional desacoplada de UI y política
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/subegos test` y `pnpm --filter @ego/memory test` (verificación de rechazo inmediato de operaciones no autorizadas entre especialistas y paso exitoso de operaciones legítimas).
 - **Task file:** `docs/agent-ops/tasks/SUB-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** master
 - **Commit:** —
 
@@ -227,6 +227,17 @@ Próxima tarea si completa:
 === END RECITATION ===
 
 === RECITATION SUB-03 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: COMPLETED
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION SUB-04 ===
 Campaign ID: 
 Objetivo activo: 
 Estado: completed
