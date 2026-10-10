@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kairo — Character Forge Interactive System</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --panel-bg: rgba(15, 23, 42, 0.75);
+      --panel-border: rgba(56, 189, 248, 0.2);
+      --accent: #00f0ff;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+
+    #viewport-container {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      cursor: grab;
+    }
+
+    #viewport-container:active {
+      cursor: grabbing;
+    }
+
+    #canvas3d {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Overlay HUD */
+    .hud-header {
+      position: absolute;
+      top: 24px;
+      left: 28px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    p.subtitle {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    /* Panel de Telemetría Superior Derecho */
+    .telemetry-card {
+      position: absolute;
+      top: 24px;
+      right: 28px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      gap: 20px;
+      z-index: 10;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .telemetry-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .telemetry-label {
+      color: var(--text-dim);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .telemetry-val {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    /* Panel Lateral de Controles e Ingeniería */
+    .control-panel {
+      width: 360px;
+      height: 100%;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      z-index: 20;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(56, 189, 248, 0.2);
+    }
+
+    /* Botones de la FSM */
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .btn-state {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-state:hover {
+      background: rgba(51, 65, 85, 0.9);
+      border-color: rgba(56, 189, 248, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-state.active {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    }
+
+    /* Sliders de Parámetros */
+    .param-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .param-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .param-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .param-val {
+      color: var(--text);
+      font-family: monospace;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent);
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Selector de Paletas */
+    .color-swatches {
+      display: flex;
+      gap: 10px;
+    }
+
+    .swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .swatch:hover {
+      transform: scale(1.1);
+    }
+
+    .swatch.active {
+      border-color: #ffffff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+    }
+
+    /* Toggle Switches */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: rgba(30, 41, 59, 0.5);
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      font-size: 12px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #334155;
+      transition: .25s;
+      border-radius: 22px;
+    }
+
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .25s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-toggle {
+      background-color: var(--accent);
+    }
+
+    input:checked + .slider-toggle:before {
+      transform: translateX(18px);
+    }
+
+    /* Hint de Interacción */
+    .interaction-hint {
+      position: absolute;
+      bottom: 24px;
+      left: 28px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .key-badge {
+      background: #1e293b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Viewport 3D Principal -->
+  <div id="viewport-container">
+    <div class="hud-header">
+      <div class="badge">
+        <span class="badge-dot"></span>
+        Character Forge Engineering Demo
+      </div>
+      <h1>Kairo</h1>
+      <p class="subtitle">Mascota de Marca & Asistente Cognitivo Procedural</p>
+    </div>
+
+    <div class="telemetry-card">
+      <div class="telemetry-item">
+        <span class="telemetry-label">FPS</span>
+        <span class="telemetry-val" id="val-fps">60</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Triángulos</span>
+        <span class="telemetry-val" id="val-tris">2,416</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Draw Calls</span>
+        <span class="telemetry-val" id="val-drawcalls">9</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Estado</span>
+        <span class="telemetry-val" id="val-state">TRACKING</span>
+      </div>
+    </div>
+
+    <canvas id="canvas3d"></canvas>
+
+    <div class="interaction-hint">
+      <span>Mueve el cursor para verificar el <strong>Look-At amortiguado con Clamps</strong></span>
+      <span>• Arrastra para orbitar cámara</span>
+    </div>
+  </div>
+
+  <!-- Panel de Control Lateral -->
+  <div class="control-panel">
+    <div>
+      <div class="section-title">Máquina de Estados (FSM)</div>
+      <div class="state-grid">
+        <button class="btn-state active" data-state="tracking">Tracking <span>🎯</span></button>
+        <button class="btn-state" data-state="idle">Idle <span>🫁</span></button>
+        <button class="btn-state" data-state="thinking">Thinking <span>💡</span></button>
+        <button class="btn-state" data-state="success">Success <span>✨</span></button>
+        <button class="btn-state" data-state="error">Error <span>⚠️</span></button>
+        <button class="btn-state" data-state="celebrating">Celebration <span>🎉</span></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Paleta de Marca</div>
+      <div class="color-swatches">
+        <div class="swatch active" style="background: #00bcd4;" data-color="#00bcd4" title="Teal Cyan (Default)"></div>
+        <div class="swatch" style="background: #6366f1;" data-color="#6366f1" title="Indigo Tech"></div>
+        <div class="swatch" style="background: #10b981;" data-color="#10b981" title="Emerald Mint"></div>
+        <div class="swatch" style="background: #f43f5e;" data-color="#f43f5e" title="Neon Coral"></div>
+        <div class="swatch" style="background: #0f172a;" data-color="#0f172a" title="Obsidian Slate"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Parámetros de Material PBR</div>
+      <div class="param-group">
+        <div class="param-row">
+          <div class="param-header">
+            <span>Roughness (Rugosidad)</span>
+            <span class="param-val" id="lbl-roughness">0.18</span>
+          </div>
+          <input type="range" id="rng-roughness" min="0.0" max="1.0" step="0.02" value="0.18">
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Clearcoat (Laca de vinilo)</span>
+            <span class="param-val" id="lbl-clearcoat">0.85</span>
+          </div>
+          <input type="range" id="rng-clearcoat" min="0.0" max="1.0" step="0.05" value="0.85">
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Emisión de Visor / Ojos</span>
+            <span class="param-val" id="lbl-emissive">2.0</span>
+          </div>
+          <input type="range" id="rng-emissive" min="0.5" max="5.0" step="0.1" value="2.0">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Física & Dinámica</div>
+      <div class="param-group">
+        <div class="param-row">
+          <div class="param-header">
+            <span>Rigidez del Resorte (Look-At)</span>
+            <span class="param-val" id="lbl-stiffness">8.0</span>
+          </div>
+          <input type="range" id="rng-stiffness" min="2.0" max="20.0" step="0.5" value="8.0">
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Elasticidad de Antena</span>
+            <span class="param-val" id="lbl-wiggle">1.0</span>
+          </div>
+          <input type="range" id="rng-wiggle" min="0.0" max="2.5" step="0.1" value="1.0">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Accesibilidad & Calidad</div>
+      <div class="param-group">
+        <div class="toggle-row">
+          <span>Prefers-Reduced-Motion</span>
+          <label class="switch">
+            <input type="checkbox" id="chk-reduced-motion">
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span>Sombra de Contacto</span>
+          <label class="switch">
+            <input type="checkbox" id="chk-shadow" checked>
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js Bundle mediante ESM CDN seguro -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // =========================================================================
+    // 1. CONFIGURACIÓN DE ESCENA, RENDERER Y CÁMARA
+    // =========================================================================
+    const container = document.getElementById('viewport-container');
+    const canvas = document.getElementById('canvas3d');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x090d16);
+
+    const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 50);
+    camera.position.set(0, 0.8, 5.2);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: 'high-performance',
+      alpha: false
+    });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 + 0.05; // Evita mirar por debajo del suelo
+    controls.minDistance = 3.0;
+    controls.maxDistance = 8.5;
+    controls.target.set(0, 0.3, 0);
+
+    // =========================================================================
+    // 2. ESQUEMA DE ILUMINACIÓN DE ESTUDIO (3 PUNTOS + RIM DE MARCA)
+    // =========================================================================
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xfff8ee, 1.4);
+    keyLight.position.set(3, 4, 3.5);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.5);
+    fillLight.position.set(-3, 2, 2);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0x00f0ff, 1.6);
+    rimLight.position.set(0, 3.5, -4);
+    scene.add(rimLight);
+
+    // =========================================================================
+    // 3. MATERIALES DE MARCA COMPARTIDOS (PBR VINYL TOY)
+    // =========================================================================
+    let currentBrandHex = '#00bcd4';
+    let currentAccentHex = '#00f0ff';
+
+    const bodyMaterial = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(currentBrandHex),
+      roughness: 0.18,
+      metalness: 0.04,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.08,
+      reflectivity: 0.55,
+    });
+
+    const darkMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0x0a0f1d),
+      roughness: 0.2,
+      metalness: 0.5,
+    });
+
+    const jointMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0x334155),
+      roughness: 0.45,
+      metalness: 0.3,
+    });
+
+    const emissiveMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0x001525),
+      emissive: new THREE.Color(currentAccentHex),
+      emissiveIntensity: 2.0,
+      roughness: 0.1,
+    });
+
+    // =========================================================================
+    // 4. CONSTRUCCIÓN DE GEOMETRÍA PROCEDURAL DEL PERSONAJE (KAIRO)
+    // =========================================================================
+    const characterRoot = new THREE.Group();
+    scene.add(characterRoot);
+
+    // 4.1. Sombra de contacto suave (Blob Shadow)
+    const shadowGeo = new THREE.PlaneGeometry(1.8, 1.8);
+    // Canvas procedural con gradiente radial para sombra perfecta sin assets
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 128;
+    shadowCanvas.height = 128;
+    const ctx = shadowCanvas.getContext('2d');
+    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(5, 8, 18, 0.65)');
+    grad.addColorStop(0.5, 'rgba(5, 8, 18, 0.25)');
+    grad.addColorStop(1, 'rgba(5, 8, 18, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+    const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTex,
+      transparent: true,
+      depthWrite: false,
+    });
+    const contactShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    contactShadow.rotation.x = -Math.PI / 2;
+    contactShadow.position.y = -0.74;
+    scene.add(contactShadow);
+
+    // 4.2. Torso Cilíndrico Squircle
+    const torsoMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.52, 0.58, 0.82, 32),
+      bodyMaterial
+    );
+    torsoMesh.position.y = -0.12;
+    characterRoot.add(torsoMesh);
+
+    // Cuello
+    const neckMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.26, 0.18, 24),
+      jointMaterial
+    );
+    neckMesh.position.y = 0.35;
+    characterRoot.add(neckMesh);
+
+    // Emblema circular en el pecho
+    const emblemMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.12, 0.05, 24),
+      emissiveMaterial
+    );
+    emblemMesh.rotation.x = Math.PI / 2;
+    emblemMesh.position.set(0, -0.06, 0.55);
+    characterRoot.add(emblemMesh);
+
+    // 4.3. Cabeza con Nodo Pivote en el Cuello (Y = 0.42)
+    const headPivot = new THREE.Group();
+    headPivot.position.set(0, 0.42, 0);
+    characterRoot.add(headPivot);
+
+    // Carcasa exterior redondeada
+    const headHousing = new THREE.Mesh(
+      new THREE.BoxGeometry(1.12, 0.86, 0.88),
+      bodyMaterial
+    );
+    headHousing.position.y = 0.44;
+    headPivot.add(headHousing);
+
+    // Visor curvo frontal retranqueado
+    const visorMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.92, 0.58, 0.08),
+      darkMaterial
+    );
+    visorMesh.position.set(0, 0.44, 0.44);
+    headPivot.add(visorMesh);
+
+    // Ojos Emisivos (Esferas)
+    const eyeRadius = 0.095;
+    const eyeGeo = new THREE.SphereGeometry(eyeRadius, 16, 16);
+    
+    const leftEye = new THREE.Mesh(eyeGeo, emissiveMaterial);
+    leftEye.position.set(-0.25, 0.44, 0.485);
+    headPivot.add(leftEye);
+
+    const rightEye = new THREE.Mesh(eyeGeo, emissiveMaterial);
+    rightEye.position.set(0.25, 0.44, 0.485);
+    headPivot.add(rightEye);
+
+    // Orejas de cápsula lateral
+    const earGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.16, 16);
+    const leftEar = new THREE.Mesh(earGeo, jointMaterial);
+    leftEar.rotation.z = Math.PI / 2;
+    leftEar.position.set(-0.62, 0.44, 0);
+    headPivot.add(leftEar);
+
+    const rightEar = new THREE.Mesh(earGeo, jointMaterial);
+    rightEar.rotation.z = Math.PI / 2;
+    rightEar.position.set(0.62, 0.44, 0);
+    headPivot.add(rightEar);
+
+    // 4.4. Antena Elástica con Nodo Secundario
+    const antennaBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.08, 0.1, 16),
+      jointMaterial
+    );
+    antennaBase.position.set(0, 0.9, 0);
+    headPivot.add(antennaBase);
+
+    // Pivote de la varilla de antena
+    const antennaPivot = new THREE.Group();
+    antennaPivot.position.set(0, 0.95, 0);
+    headPivot.add(antennaPivot);
+
+    const antennaStem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.02, 0.28, 8),
+      jointMaterial
+    );
+    antennaStem.position.y = 0.14;
+    antennaPivot.add(antennaStem);
+
+    const antennaBeacon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.085, 16, 16),
+      emissiveMaterial
+    );
+    antennaBeacon.position.y = 0.32;
+    antennaPivot.add(antennaBeacon);
+
+    // 4.5. Brazos Articulados con Pivotes en Hombros
+    // Brazo Izquierdo
+    const leftShoulderPivot = new THREE.Group();
+    leftShoulderPivot.position.set(-0.68, 0.16, 0);
+    characterRoot.add(leftShoulderPivot);
+
+    const shoulderJointL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), jointMaterial);
+    leftShoulderPivot.add(shoulderJointL);
+
+    const leftArmMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.08, 0.48, 16),
+      bodyMaterial
+    );
+    leftArmMesh.position.y = -0.26;
+    leftShoulderPivot.add(leftArmMesh);
+
+    const leftHandMesh = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), jointMaterial);
+    leftHandMesh.position.y = -0.52;
+    leftShoulderPivot.add(leftHandMesh);
+
+    // Brazo Derecho
+    const rightShoulderPivot = new THREE.Group();
+    rightShoulderPivot.position.set(0.68, 0.16, 0);
+    characterRoot.add(rightShoulderPivot);
+
+    const shoulderJointR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), jointMaterial);
+    rightShoulderPivot.add(shoulderJointR);
+
+    const rightArmMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.08, 0.48, 16),
+      bodyMaterial
+    );
+    rightArmMesh.position.y = -0.26;
+    rightShoulderPivot.add(rightArmMesh);
+
+    const rightHandMesh = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), jointMaterial);
+    rightHandMesh.position.y = -0.52;
+    rightShoulderPivot.add(rightHandMesh);
+
+    // Patas / Soportes inferiores
+    const legGeo = new THREE.CylinderGeometry(0.13, 0.14, 0.24, 16);
+    const leftLeg = new THREE.Mesh(legGeo, jointMaterial);
+    leftLeg.position.set(-0.28, -0.62, 0);
+    characterRoot.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(legGeo, jointMaterial);
+    rightLeg.position.set(0.28, -0.62, 0);
+    characterRoot.add(rightLeg);
+
+    // =========================================================================
+    // 5. VARIABLES DE ESTADO, FÍSICA Y CINEMÁTICA (0 ALLOC EN LOOP)
+    // =========================================================================
+    let currentState = 'tracking';
+    let springStiffness = 8.0;
+    let antennaWiggleFactor = 1.0;
+    let prefersReducedMotion = false;
+
+    // Coordenadas normalizadas de puntero [-1, 1]
+    const mouse = { x: 0, y: 0 };
+    const targetHeadEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    const targetHeadQuat = new THREE.Quaternion();
+    
+    // Antena física secundaria
+    let antennaAngleX = 0;
+    let antennaAngleZ = 0;
+    let antennaVelX = 0;
+    let antennaVelZ = 0;
+    let prevHeadYaw = 0;
+
+    // Parpadeo orgánico
+    let blinkTimer = 0;
+    let nextBlinkTime = 3.2;
+    let isBlinking = false;
+    let blinkProgress = 0;
+
+    // Escucha del cursor sobre el contenedor
+    window.addEventListener('mousemove', (e) => {
+      const rect = container.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+      mouse.x = Math.max(-1, Math.min(1, x));
+      mouse.y = Math.max(-1, Math.min(1, y));
+    });
+
+    // =========================================================================
+    // 6. RENDER LOOP A 60-120 FPS CON LEYES DE ANIMACIÓN
+    // =========================================================================
+    let lastTime = performance.now();
+    let frameCounter = 0;
+    let fpsTimer = 0;
+
+    const elFps = document.getElementById('val-fps');
+    const elState = document.getElementById('val-state');
+
+    function animate(currentTime) {
+      requestAnimationFrame(animate);
+
+      const delta = Math.min((currentTime - lastTime) * 0.001, 0.033);
+      lastTime = currentTime;
+      const time = currentTime * 0.001;
+
+      // Telemetría FPS
+      frameCounter++;
+      fpsTimer += delta;
+      if (fpsTimer >= 0.5) {
+        elFps.textContent = Math.round(frameCounter / fpsTimer);
+        frameCounter = 0;
+        fpsTimer = 0;
+      }
+
+      controls.update();
+
+      if (prefersReducedMotion) {
+        // En modo accesible: postura estática equilibrada
+        characterRoot.position.set(0, 0, 0);
+        characterRoot.scale.set(1, 1, 1);
+        headPivot.quaternion.identity();
+        leftShoulderPivot.rotation.set(0, 0, 0.2);
+        rightShoulderPivot.rotation.set(0, 0, -0.2);
+        antennaPivot.rotation.set(0, 0, 0);
+        contactShadow.scale.set(1, 1, 1);
+        renderer.render(scene, camera);
+        return;
+      }
+
+      // -----------------------------------------------------------------------
+      // A. RESPIRACIÓN Y SQUASH & STRETCH CON VOLUMEN CONSTANTE
+      // -----------------------------------------------------------------------
+      if (currentState === 'idle' || currentState === 'tracking') {
+        const breath = Math.sin(time * 2.4) * 0.028;
+        const sy = 1.0 + breath;
+        const sRadial = 1.0 / Math.sqrt(sy); // Preserva volumen exacto
+        characterRoot.scale.set(sRadial, sy, sRadial);
+        characterRoot.position.y = breath * 0.4;
+        contactShadow.scale.set(1 - breath * 0.5, 1 - breath * 0.5, 1);
+      } else if (currentState === 'success') {
+        // Salto elástico y rebote
+        const jump = Math.abs(Math.sin(time * 7.5)) * 0.45;
+        const sy = jump > 0.05 ? 1.15 : 0.85; // Stretch en subida, squash en suelo
+        const sRadial = 1.0 / Math.sqrt(sy);
+        characterRoot.position.y = jump;
+        characterRoot.scale.set(sRadial, sy, sRadial);
+        contactShadow.scale.set(1 - jump * 0.6, 1 - jump * 0.6, 1);
+      } else if (currentState === 'error') {
+        // Sacudida lateral amortiguada
+        characterRoot.position.x = Math.sin(time * 24) * 0.04;
+        characterRoot.scale.set(1, 1, 1);
+      } else {
+        characterRoot.position.set(0, 0, 0);
+        characterRoot.scale.set(1, 1, 1);
+      }
+
+      // -----------------------------------------------------------------------
+      // B. LOOK-AT AMORTIGUADO CON LÍMITES ANGULARES (CLAMPS)
+      // -----------------------------------------------------------------------
+      let targetYaw = 0;
+      let targetPitch = 0;
+
+      const MAX_YAW = (34 * Math.PI) / 180;   // ~34 grados
+      const MAX_PITCH = (22 * Math.PI) / 180; // ~22 grados
+
+      if (currentState === 'tracking') {
+        targetYaw = mouse.x * MAX_YAW;
+        targetPitch = -mouse.y * MAX_PITCH;
+      } else if (currentState === 'thinking') {
+        targetYaw = -0.38;
+        targetPitch = -0.28; // Mirada diagonal pensativa
+      } else if (currentState === 'error') {
+        targetYaw = 0;
+        targetPitch = 0.25;  // Cabeza agachada afligida
+      } else if (currentState === 'celebrating') {
+        targetYaw = Math.sin(time * 4) * 0.35;
+        targetPitch = -0.15;
+      }
+
+      targetHeadEuler.set(targetPitch, targetYaw, 0, 'YXZ');
+      targetHeadQuat.setFromEuler(targetHeadEuler);
+      headPivot.quaternion.slerp(targetHeadQuat, springStiffness * delta);
+
+      // Desplazamiento pupilar sutil dentro del visor
+      const eyeDx = (headPivot.rotation.y / MAX_YAW) * 0.035;
+      const eyeDy = (-headPivot.rotation.x / MAX_PITCH) * 0.025;
+      leftEye.position.x = -0.25 + eyeDx;
+      leftEye.position.y = 0.44 + eyeDy;
+      rightEye.position.x = 0.25 + eyeDx;
+      rightEye.position.y = 0.44 + eyeDy;
+
+      // -----------------------------------------------------------------------
+      // C. FÍSICA DE ANTENA SECUNDARIA (INERCIA & DRAG)
+      // -----------------------------------------------------------------------
+      const currentYaw = headPivot.rotation.y;
+      const headAngularAcc = (currentYaw - prevHeadYaw) / delta;
+      prevHeadYaw = currentYaw;
+
+      // Resorte para Z (inercia lateral)
+      const kAntenna = 120 * antennaWiggleFactor;
+      const dAntenna = 9;
+      const forceZ = -kAntenna * antennaAngleZ - dAntenna * antennaVelZ - headAngularAcc * 0.4;
+      antennaVelZ += forceZ * delta;
+      antennaAngleZ += antennaVelZ * delta;
+
+      // Si celebra, oscilar en resonancia
+      if (currentState === 'celebrating') {
+        antennaPivot.rotation.z = Math.sin(time * 12) * 0.35 * antennaWiggleFactor;
+      } else {
+        antennaPivot.rotation.z = antennaAngleZ;
+      }
+
+      // -----------------------------------------------------------------------
+      // D. ARTICULACIÓN DE BRAZOS SEGÚN FSM
+      // -----------------------------------------------------------------------
+      if (currentState === 'success' || currentState === 'celebrating') {
+        // Brazos en alto celebratorios
+        leftShoulderPivot.rotation.z = 2.4 + Math.sin(time * 8) * 0.15;
+        rightShoulderPivot.rotation.z = -2.4 - Math.sin(time * 8) * 0.15;
+      } else if (currentState === 'thinking') {
+        // Mano izquierda apoyada en mentón
+        leftShoulderPivot.rotation.z = 1.8;
+        leftShoulderPivot.rotation.x = 0.5;
+        rightShoulderPivot.rotation.z = -0.25;
+        rightShoulderPivot.rotation.x = 0;
+      } else if (currentState === 'error') {
+        // Brazos caídos y hombros encogidos
+        leftShoulderPivot.rotation.z = 0.1;
+        rightShoulderPivot.rotation.z = -0.1;
+      } else {
+        // Reposo Idle con balanceo sutil
+        const sway = Math.sin(time * 2.4) * 0.06;
+        leftShoulderPivot.rotation.z = 0.22 + sway;
+        leftShoulderPivot.rotation.x = 0;
+        rightShoulderPivot.rotation.z = -0.22 - sway;
+        rightShoulderPivot.rotation.x = 0;
+      }
+
+      // -----------------------------------------------------------------------
+      // E. PARPADEO ORGÁNICO ASÍNCRONO
+      // -----------------------------------------------------------------------
+      if (!isBlinking) {
+        blinkTimer += delta;
+        if (blinkTimer >= nextBlinkTime) {
+          isBlinking = true;
+          blinkTimer = 0;
+          blinkProgress = 0;
+          nextBlinkTime = 2.4 + Math.random() * 3.8; // Intervalo aleatorio
+        }
+      } else {
+        blinkProgress += delta / 0.15; // 150ms parpadeo
+        if (blinkProgress >= 1.0) {
+          isBlinking = false;
+          leftEye.scale.y = 1;
+          rightEye.scale.y = 1;
+        } else {
+          const eyeScaleY = Math.abs(Math.sin(blinkProgress * Math.PI - Math.PI / 2));
+          leftEye.scale.y = eyeScaleY;
+          rightEye.scale.y = eyeScaleY;
+        }
+      }
+
+      // Pulso emisivo en thinking
+      if (currentState === 'thinking') {
+        const pulse = (Math.sin(time * 7) + 1) * 0.5;
+        emissiveMaterial.emissiveIntensity = 1.0 + pulse * 2.5;
+      } else {
+        emissiveMaterial.emissiveIntensity = parseFloat(document.getElementById('rng-emissive').value);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    requestAnimationFrame(animate);
+
+    // =========================================================================
+    // 7. VINCULACIÓN DE CONTROLES E INTERFAZ HUD
+    // =========================================================================
+    // FSM State Buttons
+    const stateButtons = document.querySelectorAll('.btn-state');
+    stateButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        stateButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentState = btn.dataset.state;
+        elState.textContent = currentState.toUpperCase();
+      });
+    });
+
+    // Color Swatches
+    const swatches = document.querySelectorAll('.swatch');
+    swatches.forEach(sw => {
+      sw.addEventListener('click', () => {
+        swatches.forEach(s => s.classList.remove('active'));
+        sw.classList.add('active');
+        currentBrandHex = sw.dataset.color;
+        bodyMaterial.color.set(currentBrandHex);
+        rimLight.color.set(currentBrandHex === '#0f172a' ? '#38bdf8' : currentBrandHex);
+      });
+    });
+
+    // PBR Sliders
+    const rngRoughness = document.getElementById('rng-roughness');
+    const lblRoughness = document.getElementById('lbl-roughness');
+    rngRoughness.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      bodyMaterial.roughness = v;
+      lblRoughness.textContent = v.toFixed(2);
+    });
+
+    const rngClearcoat = document.getElementById('rng-clearcoat');
+    const lblClearcoat = document.getElementById('lbl-clearcoat');
+    rngClearcoat.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      bodyMaterial.clearcoat = v;
+      lblClearcoat.textContent = v.toFixed(2);
+    });
+
+    const rngEmissive = document.getElementById('rng-emissive');
+    const lblEmissive = document.getElementById('lbl-emissive');
+    rngEmissive.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      emissiveMaterial.emissiveIntensity = v;
+      lblEmissive.textContent = v.toFixed(1);
+    });
+
+    // Sliders de Física
+    const rngStiffness = document.getElementById('rng-stiffness');
+    const lblStiffness = document.getElementById('lbl-stiffness');
+    rngStiffness.addEventListener('input', (e) => {
+      springStiffness = parseFloat(e.target.value);
+      lblStiffness.textContent = springStiffness.toFixed(1);
+    });
+
+    const rngWiggle = document.getElementById('rng-wiggle');
+    const lblWiggle = document.getElementById('lbl-wiggle');
+    rngWiggle.addEventListener('input', (e) => {
+      antennaWiggleFactor = parseFloat(e.target.value);
+      lblWiggle.textContent = antennaWiggleFactor.toFixed(1);
+    });
+
+    // Toggles de Accesibilidad y Sombra
+    document.getElementById('chk-reduced-motion').addEventListener('change', (e) => {
+      prefersReducedMotion = e.target.checked;
+    });
+
+    document.getElementById('chk-shadow').addEventListener('change', (e) => {
+      contactShadow.visible = e.target.checked;
+    });
+
+    // Responsive Resize
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+  </script>
+</body>
+</html>
