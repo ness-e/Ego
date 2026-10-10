@@ -283,3 +283,52 @@ export const KnowledgeExplainArtifactSchema = z.object({
 
 export type KnowledgeExplainArtifactRequest = z.infer<typeof KnowledgeExplainArtifactSchema>;
 
+/**
+ * Esquemas de validación para Daily State (Fase 08)
+ */
+export const DailyStateGetSummarySchema = z.object({
+  date: z.string().optional(),
+});
+
+export type DailyStateGetSummaryRequest = z.infer<typeof DailyStateGetSummarySchema>;
+
+export const DailyStateRefineGoalsSchema = z.object({
+  date: z.string().optional(),
+});
+
+export type DailyStateRefineGoalsRequest = z.infer<typeof DailyStateRefineGoalsSchema>;
+
+export const DailyStateGetDecisionsSchema = z.object({
+  limit: z.number().int().positive().optional(),
+  since: z.number().optional(),
+  subEgoId: z.string().optional(),
+});
+
+export type DailyStateGetDecisionsRequest = z.infer<typeof DailyStateGetDecisionsSchema>;
+
+export const DailyStateResolveApprovalsBatchSchema = z.object({
+  approvals: z.array(
+    z.object({
+      approvalId: z.string().min(1),
+      approved: z.boolean(),
+      reason: z.string().optional(),
+    })
+  ),
+});
+
+export type DailyStateResolveApprovalsBatchRequest = z.infer<typeof DailyStateResolveApprovalsBatchSchema>;
+
+export const DailyStateJournalSchema = z.object({
+  action: z.enum(["get", "save"]),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  content: z.string().optional(),
+});
+
+export type DailyStateJournalRequest = z.infer<typeof DailyStateJournalSchema>;
+
+export const DailyStateFirstLaunchSchema = z.object({
+  date: z.string().optional(),
+});
+
+export type DailyStateFirstLaunchRequest = z.infer<typeof DailyStateFirstLaunchSchema>;
+

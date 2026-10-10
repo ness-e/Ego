@@ -49,6 +49,12 @@ import {
   KnowledgeQuarantineActionSchema,
   KnowledgeAsOfSchema,
   KnowledgeExplainArtifactSchema,
+  DailyStateGetSummarySchema,
+  DailyStateRefineGoalsSchema,
+  DailyStateGetDecisionsSchema,
+  DailyStateResolveApprovalsBatchSchema,
+  DailyStateJournalSchema,
+  DailyStateFirstLaunchSchema,
 } from "./ipc/schema.js";
 import {
   KnowledgeIndexer,
@@ -61,6 +67,12 @@ import {
   KnowledgeExport,
   DocumentParser,
 } from "@ego/knowledge";
+import {
+  DailyStateEngine,
+  DailyStatePersistence,
+  GoalPrioritizer,
+  DecisionsFeed,
+} from "@ego/dailystate";
 
 let adapter: EgoMemoryAdapter;
 let lifecycle: EgoMemoryLifecycle;
@@ -87,6 +99,10 @@ let bitemporalQueries: BitemporalQueries;
 let projectMemoryGraph: ProjectMemoryGraph;
 let knowledgeExport: KnowledgeExport;
 let documentParser: DocumentParser;
+let dailyStateEngine: DailyStateEngine;
+let dailyStatePersistence: DailyStatePersistence;
+let goalPrioritizer: GoalPrioritizer;
+let decisionsFeed: DecisionsFeed;
 let win: BrowserWindow | null = null;
 let activeProjectId: string = "default";
 
@@ -533,6 +549,12 @@ export async function createWindow(): Promise<void> {
   projectMemoryGraph = new ProjectMemoryGraph(adapter);
   knowledgeExport = new KnowledgeExport(adapter);
   documentParser = new DocumentParser();
+
+  // Motores de Daily State y Ritual de Bienvenida (Fase 08)
+  dailyStateEngine = new DailyStateEngine(adapter, { eventBus });
+  dailyStatePersistence = new DailyStatePersistence(adapter, { eventBus });
+  goalPrioritizer = new GoalPrioritizer({ eventBus });
+  decisionsFeed = new DecisionsFeed(adapter, { eventBus });
 
   // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers)
   try {
@@ -1291,6 +1313,103 @@ export async function createWindow(): Promise<void> {
     }
     const result = await knowledgeExport.importPackage(pkg as any);
     return { ok: true, result };
+  });
+
+  // 8. Daily State & Ritual de Bienvenida IPC (Fase 08 / DS-01..DS-08)
+  ipcMain.handle("ipc.daily.getSummary", async (_e, rawReq: unknown) => {
+    const parseResult = DailyStateGetSummarySchema.safeParse(rawReq || {});
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const summary = await dailyStateEngine.synthesize({ date: parseResult.data.date });
+    return { ok: true, summary };
+  });
+
+  ipcMain.handle("ipc.daily.refineGoals", async (_e, rawReq: unknown) => {
+    const parseResult = DailyStateRefineGoalsSchema.safeParse(rawReq || {});
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const summary = await dailyStateEngine.synthesize({ date: parseResult.data.date });
+    const goals = await goalPrioritizer.refineWithAI(summary, modelRouter);
+    return { ok: true, goals };
+  });
+
+  ipcMain.handle("ipc.daily.getDecisions", async (_e, rawReq: unknown) => {
+    const parseResult = DailyStateGetDecisionsSchema.safeParse(rawReq || {});
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const decisions = await decisionsFeed.getDecisions(parseResult.data);
+    return { ok: true, decisions };
+  });
+
+  ipcMain.handle("ipc.daily.saveSnapshot", async () => {
+    const summary = await dailyStateEngine.synthesize();
+    const snapshot = await dailyStatePersistence.saveSnapshot(summary);
+    return { ok: true, snapshot };
+  });
+
+  ipcMain.handle("ipc.daily.getSnapshot", async (_e, date: unknown) => {
+    const dateStr = typeof date === "string" ? date : DailyStateEngine.getTodayDateString();
+    const snapshot = await dailyStatePersistence.getSnapshot(dateStr);
+    return { ok: true, snapshot };
+  });
+
+  ipcMain.handle("ipc.daily.listSnapshots", async (_e, limit?: unknown) => {
+    const lim = typeof limit === "number" ? limit : 30;
+    const snapshots = await dailyStatePersistence.listSnapshots(lim);
+    return { ok: true, snapshots };
+  });
+
+  ipcMain.handle("ipc.daily.isFirstLaunch", async (_e, rawReq: unknown) => {
+    const parseResult = DailyStateFirstLaunchSchema.safeParse(rawReq || {});
+    const date = parseResult.success ? parseResult.data.date : undefined;
+    const isFirstLaunch = await dailyStatePersistence.isFirstLaunchOfDay(date);
+    return { ok: true, isFirstLaunch };
+  });
+
+  ipcMain.handle("ipc.daily.journal", async (_e, rawReq: unknown) => {
+    const parseResult = DailyStateJournalSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const req = parseResult.data;
+    if (req.action === "get") {
+      const record = await adapter.get("journal", req.date);
+      let content = "";
+      if (record && typeof record === "object" && "content" in record) {
+        content = String((record as { content: unknown }).content || "");
+      } else if (typeof record === "string") {
+        content = record;
+      }
+      return { ok: true, date: req.date, content };
+    } else {
+      await adapter.put({
+        namespace: "journal",
+        key: req.date,
+        payload: { date: req.date, content: req.content || "", updatedAt: Date.now() },
+        metadata: { date: req.date, agent_id: "user", ts: Date.now() },
+      });
+      return { ok: true, date: req.date, content: req.content };
+    }
+  });
+
+  ipcMain.handle("ipc.daily.resolveApprovalsBatch", async (_e, rawReq: unknown) => {
+    const parseResult = DailyStateResolveApprovalsBatchSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const results = [];
+    for (const item of parseResult.data.approvals) {
+      const ok = approvalEngine.resolveApproval(item.approvalId, {
+        approved: item.approved,
+        reason: item.reason,
+        resolvedBy: "user",
+      });
+      results.push({ approvalId: item.approvalId, ok });
+    }
+    return { ok: true, resolved: results };
   });
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)

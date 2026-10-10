@@ -101,4 +101,19 @@ contextBridge.exposeInMainWorld("ego", {
       ipcRenderer.removeListener("ipc.event", sub);
     };
   },
+  daily: {
+    getSummary: (req?: { date?: string }) => ipcRenderer.invoke("ipc.daily.getSummary", req),
+    refineGoals: (req?: { date?: string }) => ipcRenderer.invoke("ipc.daily.refineGoals", req),
+    getDecisions: (req?: { limit?: number; since?: number; subEgoId?: string }) =>
+      ipcRenderer.invoke("ipc.daily.getDecisions", req),
+    saveSnapshot: () => ipcRenderer.invoke("ipc.daily.saveSnapshot"),
+    getSnapshot: (date?: string) => ipcRenderer.invoke("ipc.daily.getSnapshot", date),
+    listSnapshots: (limit?: number) => ipcRenderer.invoke("ipc.daily.listSnapshots", limit),
+    isFirstLaunch: (req?: { date?: string }) => ipcRenderer.invoke("ipc.daily.isFirstLaunch", req),
+    journal: (req: { action: "get" | "save"; date: string; content?: string }) =>
+      ipcRenderer.invoke("ipc.daily.journal", req),
+    resolveApprovalsBatch: (req: {
+      approvals: Array<{ approvalId: string; approved: boolean; reason?: string }>;
+    }) => ipcRenderer.invoke("ipc.daily.resolveApprovalsBatch", req),
+  },
 });
