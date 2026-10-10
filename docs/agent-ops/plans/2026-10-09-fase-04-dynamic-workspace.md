@@ -1,7 +1,7 @@
 # Plan de Ejecución: Fase 04 — Dynamic Workspace & Canvas (P0-Alpha)
 
 > **Fecha:** 2026-10-09  
-> **Estado:** ⏳ READY FOR EXECUTION  
+> **Estado:** ✅ COMPLETED  
 > **Fuente Canónica:** `docs/roadmap/Backlog.md` (Fase 04: `CANV-01..12`, `CHAR-09..10`)  
 > **Objetivo:** Trascender la interfaz de chat clásica implementando el espacio de trabajo generativo declarativo (Canvas), manipulación interactiva de artefactos, telemetría reactiva en el Ego Activity Widget, explicabilidad contextual bajo demanda y eliminación definitiva de mocks (`union.tsx`).  
 > **Autonomous:** false  
@@ -308,8 +308,8 @@ flowchart TD
 - **Gate Result:** ✅ DO (Compuerta: `COUC-14`)
 - **Contrato:** `pnpm test` ejecuta `tests/e2e/canvas-interaction.test.ts` con exit code 0.
 - **DoD:**
-  - [ ] Suite E2E completa en `tests/e2e/canvas-interaction.test.ts` pasando al 100%.
-  - [ ] Cero regresiones en los 300+ tests existentes del monorepo.
+  - [x] Suite E2E completa en `tests/e2e/canvas-interaction.test.ts` pasando al 100%.
+  - [x] Cero regresiones en los 300+ tests existentes del monorepo.
 
 ---
 

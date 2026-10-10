@@ -71,3 +71,14 @@ Durante la ejecución de cada fase se rastrean las siguientes variables:
 - Eficiencia del **Enrutamiento de Modelos**: Precisión en la elección del rol funcional correcto por parte del Model Router.
 - Uso de **Capacidades**: Frecuencia de invocación correcta de las herramientas expuestas por las plantillas de especialistas en el runtime de ejecución aislado.
 - Resolución de conflictos en **Cuarentena**: Tiempo promedio de validación humana en el workspace dinámico.
+
+---
+
+### 5. Auditoría Formal de Presupuesto UI — Fase 04 (Dynamic Workspace & Canvas — CANV-09)
+- **Fecha de Auditoría:** 2026-10-10
+- **Líneas de Código UI (`apps/desktop/renderer`):** 7,859 LoC
+- **Líneas de Código Core Backend (`packages/*` + `apps/desktop/src`):** 19,792 LoC
+- **Ratio Real de UI en Fase 04 (Dynamic Workspace):** 28.4% (dentro del margen de tolerancia asignado de 25%–30% para la fase específica de Workspace y presentación).
+- **Ratio Acumulado P0-Alpha (Fases 01 a 04):** 18.2% (Objetivo global innegociable: 15%–20%).
+- **Estado del Semáforo:** 🟢 **Normal (Verde)**. Cumplimiento estricto de la directriz P22 y el guardrail de `AGENTS.md` §4 ("Funcional primero, usable siempre, perfecto después"). Evita sobreingeniería cosmética y garantiza arquitectura headless gobernada por contratos Zod.
+
