@@ -21,3 +21,9 @@ Formato: `Tema | Decisión | ref: ruta:línea`.
 - **Decisión:** 1. Crear el paquete modular unificado @ego/domains en packages/domains/ con submódulos por dominio y DomainRegistry extensible (COUC-10). 2. Aislar las mutaciones de software en Dominio Engineering mediante git worktrees / ramas aisladas temporales antes de aplicar cambios sobre el directorio raíz del usuario (HERM-17). 3. Integrar GitHub mediante el conector oficial de servidor MCP (@modelcontextprotocol/server-github) orquestado vía McpManager con GITHUB_TOKEN seguro en Credential Manager / Keychain. 4. Selector de Dominio contextual en la cabecera del Dynamic Workspace que transmuta reactivamente las herramientas y vistas del Canvas (DOM-08) preservando el hilo de chat compartido.
 - **Consecuencias:** Cohesión modular sin dispersión de paquetes pnpm, seguridad estricta para el código del usuario sin colisiones de working directory, estándar abierto MCP para GitHub sin código propietario ad-hoc y experiencia fluida de colaboración inter-dominio en el Canvas.
 
+
+
+### ADR-3593: ADR-050: Especialización de Dominios Funcionales y Aislamiento de Worktrees (DOM-01..09) (2026-10-10)
+- **Contexto:** Requerimiento de especialización operativa por áreas de responsabilidad (Ingeniería, Producto, Conocimiento, Analítica, CRM) con aislamiento de cambios de código y extensibilidad orgánica.
+- **Decisión:** Creación del paquete @ego/domains con DomainRegistry inmutable (COUC-10), WorktreeManager para aislamiento en desarrollo (HERM-17), conector MCP oficial de GitHub (@modelcontextprotocol/server-github), 5 plantillas oficiales de Sub-Egos y DomainCanvasView contextual.
+- **Consecuencias:** Aislamiento total de desarrollo mediante worktrees, desacoplamiento de Sub-Egos de dominios sin tocar el core de Fase 03, integración limpia de GitHub MCP, transmutación de vistas de Dynamic Canvas en React 19. Próxima fase: Fase 10 (Recovery & Hardening).
