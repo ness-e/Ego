@@ -39,6 +39,11 @@ export type EgoEventType =
   | "project.changed"
   | "system.alert"
 
+  // Daily State y Sesión Diaria (Fase 08)
+  | "daily.state.synthesized"
+  | "daily.snapshot.saved"
+  | "daily.snapshot.restored"
+
   // Eventos de telemetría de bajo nivel (Nivel A)
   | "fs.write_attempted"
   | "terminal.output_chunk";
@@ -104,6 +109,10 @@ export interface CanonicalEventPayloadMap {
 
   "project.changed": { projectId: string; path: string; name: string };
   "system.alert": { code: string; message: string; details?: unknown };
+
+  "daily.state.synthesized": unknown;
+  "daily.snapshot.saved": unknown;
+  "daily.snapshot.restored": unknown;
 
   "fs.write_attempted": { path: string; sizeBytes: number; isAtomic: boolean; backupCreated: boolean };
   "terminal.output_chunk": { pid: number; chunkLength: number; isThrottled: boolean };
