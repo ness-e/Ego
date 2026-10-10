@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TerminalWindow, Palette } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { CanvasRuntime } from "../components/canvas/CanvasRuntime";
@@ -8,6 +8,7 @@ import { Sidebar } from "../components/sidebar";
 import { SubEgoSelector } from "../components/SubEgoSelector";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
 import { ActivityTray } from "../components/activity-tray/ActivityTray";
+import { DailyDashboard } from "../components/daily-state";
 
 function ThemeControl() {
   const { tokens, applyPreset, availablePresets } = useDesignSystem();
@@ -33,8 +34,25 @@ function ThemeControl() {
 export function App() {
   const [activeProject, setActiveProject] = useState("default");
   const [activeSubEgo, setActiveSubEgo] = useState("ego.nucleus");
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"canvas" | "subegos">("canvas");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"daily" | "canvas" | "subegos">("daily");
   const [sessionNonce, setSessionNonce] = useState(0);
+
+  useEffect(() => {
+    // Al abrir Ego: si es el primer inicio del día, abrir en Daily State (COUC-06).
+    // Si no, restaurar última pestaña ("canvas" por defecto).
+    const ego = (window as any).ego;
+    if (ego?.daily?.isFirstLaunch) {
+      ego.daily.isFirstLaunch().then((res: any) => {
+        if (res?.ok && res.isFirstLaunch) {
+          setActiveWorkspaceTab("daily");
+        } else {
+          setActiveWorkspaceTab("canvas");
+        }
+      }).catch(() => {
+        setActiveWorkspaceTab("canvas");
+      });
+    }
+  }, []);
 
   const handleNewSession = () => {
     setSessionNonce((prev) => prev + 1);
@@ -102,8 +120,18 @@ export function App() {
                 <ThemeControl />
                 <div className="flex items-center gap-1 border-l border-hairline pl-2">
                   <button
+                    onClick={() => setActiveWorkspaceTab("daily")}
+                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                      activeWorkspaceTab === "daily"
+                        ? "bg-raised text-ink font-semibold border border-hairline"
+                        : "text-dim hover:text-ink"
+                    }`}
+                  >
+                    Daily State
+                  </button>
+                  <button
                     onClick={() => setActiveWorkspaceTab("canvas")}
-                    className={`rounded px-2.5 py-0.5 text-xs transition-colors ${
+                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
                       activeWorkspaceTab === "canvas"
                         ? "bg-raised text-ink font-semibold border border-hairline"
                         : "text-dim hover:text-ink"
@@ -113,7 +141,7 @@ export function App() {
                   </button>
                   <button
                     onClick={() => setActiveWorkspaceTab("subegos")}
-                    className={`rounded px-2.5 py-0.5 text-xs transition-colors ${
+                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
                       activeWorkspaceTab === "subegos"
                         ? "bg-raised text-ink font-semibold border border-hairline"
                         : "text-dim hover:text-ink"
@@ -125,6 +153,9 @@ export function App() {
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
+              {activeWorkspaceTab === "daily" && (
+                <DailyDashboard onNavigateToCanvas={() => setActiveWorkspaceTab("canvas")} />
+              )}
               {activeWorkspaceTab === "canvas" && <CanvasRuntime projectId={activeProject} />}
               {activeWorkspaceTab === "subegos" && <SubEgosView />}
             </div>
