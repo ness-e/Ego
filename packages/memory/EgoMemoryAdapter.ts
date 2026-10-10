@@ -6,6 +6,7 @@ import * as path from "node:path";
 import * as crypto from "node:crypto";
 import type { NativeVantaDB } from "vantadb/native";
 import type { SearchHit, MemoryRecord } from "vantadb/types";
+export type { SearchHit, MemoryRecord };
 import { SubEgoManifest, validateSubEgoAccess } from "./sub-egos.js";
 
 export interface EgoPut {
