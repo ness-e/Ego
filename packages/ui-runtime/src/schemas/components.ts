@@ -1,21 +1,12 @@
 import { z } from "zod";
+import {
+  RecordViewPropsSchema,
+  QueryViewPropsSchema,
+  RelationViewPropsSchema,
+} from "./data-views.js";
 
-/**
- * Metadata canónica de explicabilidad y autoría para componentes de Canvas (P11 & Mascota)
- */
-export const ComponentMetadataSchema = z.object({
-  generatedBy: z.string().optional(),
-  timestamp: z.number().default(() => Date.now()),
-  why: z
-    .object({
-      directCause: z.string().optional(),
-      vantaSources: z.array(z.string()).default([]),
-      auditTrace: z.string().optional(),
-    })
-    .optional(),
-});
-
-export type ComponentMetadata = z.infer<typeof ComponentMetadataSchema>;
+import { ComponentMetadataSchema, type ComponentMetadata } from "./metadata.js";
+export { ComponentMetadataSchema, type ComponentMetadata };
 
 /**
  * Tabla interactiva declarativa (TableSchema)
@@ -252,6 +243,24 @@ export const CanvasComponentManifestSchema = z.discriminatedUnion("type", [
     id: z.string().min(1),
     type: z.literal("terminal"),
     props: TerminalPropsSchema,
+    metadata: ComponentMetadataSchema.optional(),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("record_view"),
+    props: RecordViewPropsSchema,
+    metadata: ComponentMetadataSchema.optional(),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("query_view"),
+    props: QueryViewPropsSchema,
+    metadata: ComponentMetadataSchema.optional(),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("relation_view"),
+    props: RelationViewPropsSchema,
     metadata: ComponentMetadataSchema.optional(),
   }),
 ]);

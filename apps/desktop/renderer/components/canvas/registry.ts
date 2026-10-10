@@ -8,6 +8,7 @@ import { BoardView } from "./BoardView.js";
 import { EditorView } from "./EditorView.js";
 import { DiffView } from "./DiffView.js";
 import { TerminalView } from "./TerminalView.js";
+import { RecordView, QueryView, RelationView } from "./data/index.js";
 
 export type ComponentRendererProps = {
   props: any;
@@ -26,6 +27,9 @@ export const ComponentRegistry: Record<CanvasComponentType, ComponentRendererFn>
   editor: EditorView as ComponentRendererFn,
   diff: DiffView as ComponentRendererFn,
   terminal: TerminalView as ComponentRendererFn,
+  record_view: RecordView as ComponentRendererFn,
+  query_view: QueryView as ComponentRendererFn,
+  relation_view: RelationView as ComponentRendererFn,
 };
 
 export function getComponentRenderer(type: CanvasComponentType): ComponentRendererFn | null {
