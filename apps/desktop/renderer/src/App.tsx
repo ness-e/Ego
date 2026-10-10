@@ -9,6 +9,16 @@ import { SubEgoSelector } from "../components/SubEgoSelector";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
 import { ActivityTray } from "../components/activity-tray/ActivityTray";
 import { DailyDashboard } from "../components/daily-state";
+import { DomainSelector, type DomainMeta } from "../components/domains/DomainSelector";
+import { DomainCanvasView } from "../components/domains/DomainCanvasView";
+
+const CANONICAL_DOMAINS: DomainMeta[] = [
+  { id: "engineering", name: "Engineering", description: "Árbol de código, Git worktrees e inspección", icon: "code", defaultSubEgoId: "ego.dev" },
+  { id: "product", name: "Product", description: "Backlog, épicas, roadmap y PRDs", icon: "kanban", defaultSubEgoId: "ego.product" },
+  { id: "knowledge", name: "Knowledge", description: "GraphRAG, búsqueda híbrida y síntesis", icon: "book-open", defaultSubEgoId: "ego.researcher" },
+  { id: "analytics", name: "Analytics", description: "Telemetría, consumo de tokens y métricas", icon: "bar-chart", defaultSubEgoId: "ego.analyst" },
+  { id: "crm", name: "CRM & Sales", description: "Pipeline de ventas, contactos y deals", icon: "users", defaultSubEgoId: "ego.crm" },
+];
 
 function ThemeControl() {
   const { tokens, applyPreset, availablePresets } = useDesignSystem();
@@ -34,7 +44,8 @@ function ThemeControl() {
 export function App() {
   const [activeProject, setActiveProject] = useState("default");
   const [activeSubEgo, setActiveSubEgo] = useState("ego.nucleus");
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"daily" | "canvas" | "subegos">("daily");
+  const [activeDomainId, setActiveDomainId] = useState("engineering");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"daily" | "domains" | "canvas" | "subegos">("daily");
   const [sessionNonce, setSessionNonce] = useState(0);
 
   useEffect(() => {
@@ -115,6 +126,15 @@ export function App() {
               <div className="flex items-center gap-2">
                 <TerminalWindow size={14} />
                 <span className="font-medium text-ink">Dynamic Workspace</span>
+                <span className="text-hairline">|</span>
+                <DomainSelector
+                  domains={CANONICAL_DOMAINS}
+                  activeDomainId={activeDomainId}
+                  onSelectDomain={(d) => {
+                    setActiveDomainId(d);
+                    setActiveWorkspaceTab("domains");
+                  }}
+                />
               </div>
               <div className="flex items-center gap-3">
                 <ThemeControl />
@@ -128,6 +148,16 @@ export function App() {
                     }`}
                   >
                     Daily State
+                  </button>
+                  <button
+                    onClick={() => setActiveWorkspaceTab("domains")}
+                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                      activeWorkspaceTab === "domains"
+                        ? "bg-raised text-ink font-semibold border border-hairline"
+                        : "text-dim hover:text-ink"
+                    }`}
+                  >
+                    Dominio
                   </button>
                   <button
                     onClick={() => setActiveWorkspaceTab("canvas")}
@@ -155,6 +185,9 @@ export function App() {
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
               {activeWorkspaceTab === "daily" && (
                 <DailyDashboard onNavigateToCanvas={() => setActiveWorkspaceTab("canvas")} />
+              )}
+              {activeWorkspaceTab === "domains" && (
+                <DomainCanvasView domainId={activeDomainId} />
               )}
               {activeWorkspaceTab === "canvas" && <CanvasRuntime projectId={activeProject} />}
               {activeWorkspaceTab === "subegos" && <SubEgosView />}

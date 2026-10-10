@@ -332,3 +332,52 @@ export const DailyStateFirstLaunchSchema = z.object({
 
 export type DailyStateFirstLaunchRequest = z.infer<typeof DailyStateFirstLaunchSchema>;
 
+/**
+ * Esquemas de validación para Dominios Funcionales (Fase 09 / DOM-08)
+ */
+export const DomainGetSchema = z.object({
+  domainId: z.string().min(1),
+});
+
+export type DomainGetRequest = z.infer<typeof DomainGetSchema>;
+
+export const DomainSwitchSchema = z.object({
+  domainId: z.string().min(1),
+  viewId: z.string().optional(),
+});
+
+export type DomainSwitchRequest = z.infer<typeof DomainSwitchSchema>;
+
+export const DomainEngineeringStatusSchema = z.object({
+  workspaceRoot: z.string().optional(),
+});
+
+export type DomainEngineeringStatusRequest = z.infer<typeof DomainEngineeringStatusSchema>;
+
+export const DomainProductBacklogSchema = z.object({
+  action: z.enum(["list", "create", "updateStatus"]),
+  payload: z.unknown().optional(),
+});
+
+export type DomainProductBacklogRequest = z.infer<typeof DomainProductBacklogSchema>;
+
+export const DomainKnowledgeSearchSchema = z.object({
+  query: z.string().min(1),
+  limit: z.number().int().positive().optional(),
+});
+
+export type DomainKnowledgeSearchRequest = z.infer<typeof DomainKnowledgeSearchSchema>;
+
+export const DomainAnalyticsSeriesSchema = z.object({
+  days: z.number().int().positive().optional(),
+});
+
+export type DomainAnalyticsSeriesRequest = z.infer<typeof DomainAnalyticsSeriesSchema>;
+
+export const DomainCrmDealsSchema = z.object({
+  action: z.enum(["list", "create", "updateStage", "summary"]),
+  payload: z.unknown().optional(),
+});
+
+export type DomainCrmDealsRequest = z.infer<typeof DomainCrmDealsSchema>;
+

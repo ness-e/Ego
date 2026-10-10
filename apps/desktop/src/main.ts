@@ -55,7 +55,22 @@ import {
   DailyStateResolveApprovalsBatchSchema,
   DailyStateJournalSchema,
   DailyStateFirstLaunchSchema,
+  DomainGetSchema,
+  DomainSwitchSchema,
+  DomainEngineeringStatusSchema,
+  DomainProductBacklogSchema,
+  DomainKnowledgeSearchSchema,
+  DomainAnalyticsSeriesSchema,
+  DomainCrmDealsSchema,
 } from "./ipc/schema.js";
+import {
+  DomainRegistry,
+  EngineeringDomain,
+  ProductDomain,
+  KnowledgeDomain,
+  AnalyticsDomain,
+  CrmDomain,
+} from "@ego/domains";
 import {
   KnowledgeIndexer,
   HybridSearch,
@@ -1410,6 +1425,152 @@ export async function createWindow(): Promise<void> {
       results.push({ approvalId: item.approvalId, ok });
     }
     return { ok: true, resolved: results };
+  });
+
+  // ==========================================
+  // IPC Handlers: Dominios Funcionales (DOM-08)
+  // ==========================================
+  const domainRegistry = new DomainRegistry();
+  const engineeringDomain = new EngineeringDomain();
+  const productDomain = new ProductDomain(adapter);
+  const knowledgeDomain = new KnowledgeDomain({
+    memory: adapter,
+    graphRag: graphRagEngine,
+    hybridSearch,
+  });
+  const analyticsDomain = new AnalyticsDomain(adapter);
+  const crmDomain = new CrmDomain(adapter);
+
+  ipcMain.handle("ipc.domains.list", async () => {
+    return { ok: true, domains: domainRegistry.listDomains() };
+  });
+
+  ipcMain.handle("ipc.domains.get", async (_e, rawReq: unknown) => {
+    const parseResult = DomainGetSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const domain = domainRegistry.getDomain(parseResult.data.domainId);
+    if (!domain) {
+      return { ok: false, error: `Dominio '${parseResult.data.domainId}' no encontrado.` };
+    }
+    return { ok: true, domain };
+  });
+
+  ipcMain.handle("ipc.domains.switch", async (_e, rawReq: unknown) => {
+    const parseResult = DomainSwitchSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const { domainId, viewId } = parseResult.data;
+    const domain = domainRegistry.getDomain(domainId);
+    if (!domain) {
+      return { ok: false, error: `Dominio '${domainId}' no encontrado.` };
+    }
+    const activeView = viewId
+      ? domain.views.find((v) => v.id === viewId) || domainRegistry.getDefaultView(domainId)
+      : domainRegistry.getDefaultView(domainId);
+
+    return {
+      ok: true,
+      domainId,
+      activeViewId: activeView?.id || "default",
+      defaultSubEgoId: domain.defaultSubEgoId,
+    };
+  });
+
+  ipcMain.handle("ipc.domains.engineering.status", async (_e, rawReq: unknown) => {
+    const parseResult = DomainEngineeringStatusSchema.safeParse(rawReq || {});
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const targetRoot = parseResult.data.workspaceRoot || process.env.EGO_WORKSPACE_PATH || process.cwd();
+    const inspection = await engineeringDomain.scanWorkspace(targetRoot);
+    const gitStatus = await engineeringDomain.getGitStatus(targetRoot);
+    const worktrees = await engineeringDomain.getWorktreeManager().listWorktrees(targetRoot);
+
+    return {
+      ok: true,
+      workspaceRoot: targetRoot,
+      inspection,
+      gitStatus,
+      worktrees,
+    };
+  });
+
+  ipcMain.handle("ipc.domains.product.backlog", async (_e, rawReq: unknown) => {
+    const parseResult = DomainProductBacklogSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const { action, payload } = parseResult.data;
+
+    if (action === "create" && payload && typeof payload === "object") {
+      const item = await productDomain.createBacklogItem(payload as any);
+      return { ok: true, item };
+    } else if (action === "updateStatus" && payload && typeof payload === "object") {
+      const p = payload as { id: string; status: any };
+      const item = await productDomain.updateBacklogItemStatus(p.id, p.status);
+      return { ok: true, item };
+    } else {
+      const items = await productDomain.listBacklogItems();
+      const epics = await productDomain.listEpics();
+      return { ok: true, items, epics };
+    }
+  });
+
+  ipcMain.handle("ipc.domains.knowledge.search", async (_e, rawReq: unknown) => {
+    const parseResult = DomainKnowledgeSearchSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const results = await knowledgeDomain.searchKnowledge(parseResult.data.query, {
+      limit: parseResult.data.limit,
+    });
+    return { ok: true, results };
+  });
+
+  ipcMain.handle("ipc.domains.analytics.series", async (_e, rawReq: unknown) => {
+    const parseResult = DomainAnalyticsSeriesSchema.safeParse(rawReq || {});
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const days = parseResult.data.days || 7;
+    const series = await analyticsDomain.getTokensUsageSeries(days);
+    const modelDistribution = await analyticsDomain.getModelDistribution();
+    const namespaceStats = await analyticsDomain.getNamespaceStats();
+
+    return {
+      ok: true,
+      series,
+      modelDistribution,
+      namespaceStats,
+    };
+  });
+
+  ipcMain.handle("ipc.domains.crm.deals", async (_e, rawReq: unknown) => {
+    const parseResult = DomainCrmDealsSchema.safeParse(rawReq || { action: "list" });
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const { action, payload } = parseResult.data;
+
+    if (action === "create" && payload && typeof payload === "object") {
+      const deal = await crmDomain.createDeal(payload as any);
+      return { ok: true, deal };
+    } else if (action === "updateStage" && payload && typeof payload === "object") {
+      const p = payload as { id: string; stage: any };
+      const deal = await crmDomain.updateDealStage(p.id, p.stage);
+      return { ok: true, deal };
+    } else if (action === "summary") {
+      const summary = await crmDomain.getPipelineSummary();
+      return { ok: true, summary };
+    } else {
+      const deals = await crmDomain.listDeals();
+      const contacts = await crmDomain.listContacts();
+      const summary = await crmDomain.getPipelineSummary();
+      return { ok: true, deals, contacts, summary };
+    }
   });
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)

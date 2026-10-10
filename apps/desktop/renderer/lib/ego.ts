@@ -203,6 +203,29 @@ export interface EgoBridge {
     getModelConfig: () => Promise<ModelConfigInfo>;
     saveModelConfig: (config: ModelConfigInfo) => Promise<{ ok: boolean; config: ModelConfigInfo }>;
   };
+  daily?: {
+    getSummary: (req?: { date?: string }) => Promise<any>;
+    refineGoals: (req?: { date?: string }) => Promise<any>;
+    getDecisions: (req?: { limit?: number; since?: number; subEgoId?: string }) => Promise<any>;
+    saveSnapshot: () => Promise<any>;
+    getSnapshot: (date?: string) => Promise<any>;
+    listSnapshots: (limit?: number) => Promise<any>;
+    isFirstLaunch: (req?: { date?: string }) => Promise<any>;
+    journal: (req: { action: "get" | "save"; date: string; content?: string }) => Promise<any>;
+    resolveApprovalsBatch: (req: {
+      approvals: Array<{ approvalId: string; approved: boolean; reason?: string }>;
+    }) => Promise<any>;
+  };
+  domains?: {
+    list: () => Promise<{ ok: boolean; domains: any[] }>;
+    get: (domainId: string) => Promise<{ ok: boolean; domain?: any; error?: string }>;
+    switch: (domainId: string, viewId?: string) => Promise<{ ok: boolean; domainId: string; activeViewId: string; defaultSubEgoId: string; error?: string }>;
+    getEngineeringStatus: (workspaceRoot?: string) => Promise<{ ok: boolean; workspaceRoot: string; inspection: any; gitStatus: any; worktrees: any[] }>;
+    productBacklog: (req: { action: "list" | "create" | "updateStatus"; payload?: any }) => Promise<{ ok: boolean; items?: any[]; epics?: any[]; item?: any }>;
+    knowledgeSearch: (query: string, limit?: number) => Promise<{ ok: boolean; results: any[] }>;
+    analyticsSeries: (days?: number) => Promise<{ ok: boolean; series: any[]; modelDistribution: any[]; namespaceStats: any[] }>;
+    crmDeals: (req?: { action: "list" | "create" | "updateStage" | "summary"; payload?: any }) => Promise<{ ok: boolean; deals?: any[]; contacts?: any[]; summary?: any; deal?: any }>;
+  };
   onChatDelta?: (callback: (chunk: { type: string; delta?: string }) => void) => () => void;
   onRecallStatus?: (callback: (status: RecallBadgeInfo) => void) => () => void;
   onChatError?: (callback: (err: ChatErrorInfo) => void) => () => void;

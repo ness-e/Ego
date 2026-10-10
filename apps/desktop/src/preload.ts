@@ -116,4 +116,21 @@ contextBridge.exposeInMainWorld("ego", {
       approvals: Array<{ approvalId: string; approved: boolean; reason?: string }>;
     }) => ipcRenderer.invoke("ipc.daily.resolveApprovalsBatch", req),
   },
+  domains: {
+    list: () => ipcRenderer.invoke("ipc.domains.list"),
+    get: (domainId: string) => ipcRenderer.invoke("ipc.domains.get", { domainId }),
+    switch: (domainId: string, viewId?: string) =>
+      ipcRenderer.invoke("ipc.domains.switch", { domainId, viewId }),
+    getEngineeringStatus: (workspaceRoot?: string) =>
+      ipcRenderer.invoke("ipc.domains.engineering.status", { workspaceRoot }),
+    productBacklog: (req: { action: "list" | "create" | "updateStatus"; payload?: unknown }) =>
+      ipcRenderer.invoke("ipc.domains.product.backlog", req),
+    knowledgeSearch: (query: string, limit?: number) =>
+      ipcRenderer.invoke("ipc.domains.knowledge.search", { query, limit }),
+    analyticsSeries: (days?: number) =>
+      ipcRenderer.invoke("ipc.domains.analytics.series", { days }),
+    crmDeals: (req?: { action: "list" | "create" | "updateStage" | "summary"; payload?: unknown }) =>
+      ipcRenderer.invoke("ipc.domains.crm.deals", req),
+  },
 });
+
