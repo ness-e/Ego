@@ -2,7 +2,7 @@
 title: Registro Canónico de Fallos, Inconsistencias y Peticiones de Mejora para VantaDB
 status: activo
 owner: ness-e
-last_updated: 2026-10-07
+last_updated: 2026-10-10
 context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-node (Fjall LSM / NAPI-RS)"
 ---
 
@@ -22,11 +22,16 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
 | `VDB-BUG-02` | Bug | 🔴 Alta | `vantadb-node` / Serde | Fallo de deserialización IEEE-754 a `VantaValue::Int(i64)` |
 | `VDB-BUG-03` | Bug / Bloqueo | 🟠 Media | `NativeVantaDB` (Fjall) | Bloqueo residual de descriptores en Windows ante excepciones (`FjallError: Locked`) |
 | `VDB-INC-01` | Inconsistencia | 🔴 Alta | `Embedded` / Documentación | Ausencia de Auto-Embed ONNX local en `Embedded::put_one` |
+| `VDB-INC-02` | Inconsistencia / Bloqueo | 🔴 Alta | `Fjall` LSM / Concurrencia | Exclusión mutua de proceso (`flock`) impidiendo acceso multi-proceso embebido (`NativeVantaDB` + sidecar Python) |
+| `VDB-BUG-04` | Bug / Limitación | 🟠 Media | `vantadb-node` / Serde | Rechazo de estructuras anidadas profundas en `metadata` (`VantaValue` carece de variante Map/Object recursiva) |
+| `VDB-INC-03` | Inconsistencia | 🟠 Media | `NativeVantaDB` (Ciclo de Vida) | Invalidación de descriptores tras `db.close()` en el mismo proceso requiriendo re-inyección en consumers |
 | `VDB-REQ-01` | Petición de Mejora | 🟡 Media | Core `Search` | Soporte nativo de comodines en `search_multi` (`projects/default/*`) |
 | `VDB-REQ-02` | Petición de Mejora | 🟢 Baja | `NativeVantaDB.js` | `query_vector` obligatorio para búsquedas puras de texto BM25 |
 | `VDB-REQ-03` | Petición de Mejora | 🟡 Media | Tokenizer BM25 | Normalización de signos de puntuación española (`¿`, `?`, `¡`, `!`) |
 | `VDB-REQ-04` | Petición de Mejora | 🟠 Media | `vantadb-node` / `vantadb-py` | Ingesta sin copia (*Zero-Copy*) para arrays de vectores (`Float32Array` / `PyBuffer`) |
 | `VDB-REQ-05` | Petición de Mejora | 🟠 Media | Core `vanta-vector` / HNSW | *Vacuum* y desfragmentación periódica de grafos HNSW (purga de *tombstones*) |
+| `VDB-REQ-06` | Petición de Mejora | 🟡 Media | Core `Temporal` | Soporte nativo de consultas bitemporales (`AS OF <timestamp>` sobre intervalos `[valid_at, invalid_at)`) |
+| `VDB-REQ-07` | Petición de Mejora | 🟠 Media | Core `graphragSearch` | Poda y límite configurable de grado de conectividad en expansión de grafos para evitar sobrecarga de memoria |
 
 ---
 
@@ -147,4 +152,68 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
 * **Situación Actual:** Mientras que el motor subyacente Fjall LSM compacta automáticamente las claves y valores en disco, las actualizaciones o eliminaciones continuas de recuerdos en el índice vectorial dejan nodos fantasma o enlaces degradados en el grafo HNSW en memoria y disco, aumentando el tamaño del archivo y perjudicando la localidad de caché y el recall con el paso del tiempo.
 * **Impacto en Ego:** Garantiza que agentes con ciclos de vida prolongados que reescriben recuerdos o descartan hipótesis no degraden la velocidad ni la precisión de búsqueda semántica.
 * **Solución recomendada en VantaDB:** Agregar un comando o tarea en segundo plano `vacuum_vector_index(namespace)` que pode enlaces hacia nodos borrados y recablee las capas HNSW sin requerir una re-indexación completa desde cero.
+
+---
+
+### `VDB-INC-02`: Exclusión Mutua de Proceso en Fjall LSM frente a Subprocesos / Sidecars
+* **Componente:** Motor de almacenamiento Fjall (`Embedded::open_with_config` / `flock`)
+* **Síntoma:** Si un subproceso secundario (ej. un sidecar de extracción masiva en Python ejecutando `vantadb-py`) intenta instanciar `NativeVantaDB` sobre el mismo directorio mientras Electron Desktop (`apps/desktop` con `vantadb-node`) está en ejecución, la llamada falla de forma fatal con:
+  ```
+  VantaError: connect: IO error: FjallError: Locked
+  ```
+* **Causa Raíz:** Fjall LSM mantiene un bloqueo de archivo exclusivo a nivel de sistema operativo (`flock` en Linux/macOS, `LockFile` en Windows) sobre el directorio de datos para garantizar la integridad ACID y evitar corrupciones de escritura. Dos procesos independientes no pueden compartir el motor embebido in-process en modo lectura/escritura directo.
+* **Impacto en Ego:** La tarea `KB-02` (Sidecar opcional en Python para ingesta pesada) no puede abrir la base de datos de VantaDB directamente para persistir fragmentos.
+* **Workaround en Ego:** El sidecar en Python se desacopla del almacenamiento: actúa exclusivamente como un worker de procesamiento y tokenización que emite streams JSONL por `stdio` hacia el proceso Main de Electron. Electron Main (el único proceso con el lock activo) ejecuta la inserción batch mediante `EgoMemoryAdapter`.
+* **Solución recomendada en VantaDB:** Documentar explícitamente el soporte de multi-proceso:
+  1. Habilitar un modo de apertura de sólo lectura concurrente (`Embedded::open_readonly`) que no adquiera el lock exclusivo de escritura.
+  2. Para modo lectura/escritura compartido, formalizar la recomendación de comunicar a través de un daemon/socket local o canal IPC.
+
+---
+
+### `VDB-BUG-04`: Limitación de Serialización de Metadatos Complejos Anidados en `VantaValue`
+* **Componente:** `vantadb-node/src/sdk/types.rs` (`enum VantaValue`) y bindings NAPI-RS
+* **Síntoma:** Al insertar registros con metadatos estructurados complejos (ej. listas de objetos como `preconditions: [{ name: "workspace", satisfied: true }]` en `gov/audit` o `heading_path: ["Capítulo 1", "Sección A"]` en `kb/docs`), la llamada a `db.put()` falla con error de deserialización en Rust:
+  ```
+  VantaError: put: invalid metadata: expected primitive or string value
+  ```
+* **Causa Raíz:** El tipo `VantaValue` en Rust modela valores primitivos (`String`, `Int`, `Float`, `Bool`) y arrays planos, pero no implementa una variante recursiva tipo `VantaValue::Map(HashMap<String, VantaValue>)` o `VantaValue::Json(serde_json::Value)` completa para metadatos jerárquicos arbitrarios.
+* **Workaround en Ego:** En [`packages/decision/src/DecisionAuditor.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/decision/src/DecisionAuditor.ts) y en [`EgoMemoryAdapter.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryAdapter.ts), cualquier objeto o lista compleja anidada dentro de `metadata` debe aplanarse o convertirse explícitamente a cadena de texto mediante `JSON.stringify()` previo a la inserción, requiriendo `JSON.parse()` defensivo en el consumo.
+* **Solución recomendada en VantaDB:** Agregar soporte para `serde_json::Value` arbitrario en los metadatos o enriquecer `VantaValue` con variantes `Map(HashMap<String, VantaValue>)` y `Array(Vec<VantaValue>)` que serialicen transparentemente desde y hacia objetos JavaScript anidados.
+
+---
+
+### `VDB-INC-03`: Invalidación de Descriptores de Instancia tras `db.close()` en el Mismo Proceso
+* **Componente:** Ciclo de vida de `NativeVantaDB` en NAPI-RS
+* **Síntoma:** Si se cierra el adaptador de base de datos (`adapter.close()` / `db.close()`) y se crea una nueva instancia de base de datos en el mismo proceso (como ocurre en suites de prueba E2E multi-reinicio o en escenarios de hot-recovery post-crash), cualquier componente downstream que conserve la referencia original al adaptador lanza excepciones `[EgoMemoryAdapter] No inicializado`.
+* **Causa Raíz:** Al llamar `db.close()`, los punteros nativos de Rust se liberan inmediatamente (`drop`), dejando el objeto NAPI en un estado inerte e irrecuperable.
+* **Impacto en Ego:** Detectado durante la validación del Golden Path Alpha (`DEC-09` pasos 5-6 y 18-19), donde fue necesario re-vincular explícitamente la instancia de `EgoMemoryAdapter` a `DecisionAuditor` tras la reapertura en frío.
+* **Workaround en Ego:** Inyección dinámica de dependencias y actualización explícita de referencias al adaptador en todos los servicios de runtime (`auditor.setAdapter(newAdapter)`).
+* **Solución recomendada en VantaDB:** Implementar un método `db.reopen(path)` o un wrapper de nivel de sesión que permita reactivar descriptores cerrados sin forzar la recreación del wrapper en JavaScript.
+
+---
+
+### `VDB-REQ-06`: Soporte Nativo de Consultas Bitemporales (`AS OF <timestamp>`)
+* **Componente:** Motor de almacenamiento y consulta en `vanta-core`
+* **Petición:** Proveer operadores o métodos nativos de consulta temporal (ej. `db.search_as_of({ namespace, query, as_of: timestamp })` o predicados sobre intervalos `[valid_at, invalid_at)`).
+* **Situación Actual:** VantaDB 0.8.0 indexa marcas de tiempo de inserción `ts`, pero no soporta modelado bitemporal (tiempo de transacción vs tiempo de validez del hecho). No existe soporte nativo para consultar el estado exacto de una colección de recuerdos en un punto del pasado.
+* **Impacto en Ego:** La tarea `KB-09` (Consultas Bitemporales) debe implementar la reconstrucción histórica enteramente en espacio de usuario en TypeScript (`BitemporalQueries.ts`), recorriendo aristas `SUPERSEDED_BY` e interpretando metadatos temporales de forma manual.
+* **Solución recomendada en VantaDB:** Incorporar soporte para campos bitemporales estándar (`tx_time`, `valid_time`) e índices temporales en Fjall LSM para ejecutar consultas `AS OF` nativas a nivel de motor de almacenamiento.
+
+---
+
+### `VDB-REQ-07`: Poda y Límite de Grado en Expansión de Grafos (`graphragSearch`)
+* **Componente:** `src/sdk/api/graphrag.rs` (`DIST-15`)
+* **Petición:** Permitir parámetros de poda de grado (`max_degree_per_node`, `max_expanded_nodes`, `min_edge_weight`) en las opciones de `graphragSearch`.
+* **Situación Actual:** La función actual recorre las aristas del grafo sin considerar la centralidad de grado de los nodos. Si un nodo semilla es un nodo altamente conectado (un "hub" con cientos de relaciones), la expansión de 2 saltos genera un abanico combinatorio desmedido de lecturas en disco y saturación de memoria.
+* **Impacto en Ego:** Para la tarea `KB-06` (`GraphRagEngine`), Ego debe acotar defensivamente los saltos y filtrar candidatos antes de delegar la expansión, aumentando la complejidad del runtime.
+* **Solución recomendada en VantaDB:** Agregar poda configurable en el algoritmo de recorrido en Rust:
+  ```rust
+  pub struct GraphRagOptions {
+      pub max_depth: usize,
+      pub max_degree_per_node: usize,
+      pub max_total_nodes: usize,
+      pub min_edge_weight: f32,
+  }
+  ```
+
 
