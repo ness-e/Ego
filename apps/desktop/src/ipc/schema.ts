@@ -215,3 +215,15 @@ export const SelectProjectSchema = z.object({
 
 export type SelectProjectRequest = z.infer<typeof SelectProjectSchema>;
 
+/**
+ * Esquema de configuración de proveedores de modelos y BYOK (INT-02)
+ */
+export const ModelConfigSchema = z.object({
+  activeProvider: z.enum(["openai", "deepseek", "ollama", "mock"]),
+  apiKey: z.string().optional(),
+  baseUrl: z.string().optional(),
+  modelName: z.string().optional(),
+});
+
+export type ModelConfig = z.infer<typeof ModelConfigSchema>;
+

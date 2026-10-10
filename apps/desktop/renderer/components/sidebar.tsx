@@ -67,6 +67,55 @@ export function Sidebar({
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"models" | "memory" | "gov">("models");
+  const [modelConfig, setModelConfig] = useState<{
+    activeProvider: "openai" | "deepseek" | "ollama" | "mock";
+    apiKey: string;
+    baseUrl: string;
+    modelName: string;
+  }>({
+    activeProvider: "mock",
+    apiKey: "",
+    baseUrl: "",
+    modelName: "",
+  });
+  const [isSavingModelConfig, setIsSavingModelConfig] = useState(false);
+  const [modelConfigSuccess, setModelConfigSuccess] = useState<string | null>(null);
+
+  const loadModelConfig = useCallback(async () => {
+    try {
+      const cfg = await ego().settings.getModelConfig();
+      if (cfg) {
+        setModelConfig({
+          activeProvider: cfg.activeProvider || "mock",
+          apiKey: cfg.apiKey || "",
+          baseUrl: cfg.baseUrl || "",
+          modelName: cfg.modelName || "",
+        });
+      }
+    } catch (err) {
+      console.warn("[Sidebar] Error al cargar configuración de modelos:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isSettingsOpen) {
+      loadModelConfig();
+    }
+  }, [isSettingsOpen, loadModelConfig]);
+
+  const handleSaveModelConfig = async () => {
+    setIsSavingModelConfig(true);
+    setModelConfigSuccess(null);
+    try {
+      await ego().settings.saveModelConfig(modelConfig);
+      setModelConfigSuccess("Configuración guardada en VantaDB exitosamente.");
+      setTimeout(() => setModelConfigSuccess(null), 3000);
+    } catch (err: any) {
+      console.error("[Sidebar] Error al guardar configuración de modelos:", err);
+    } finally {
+      setIsSavingModelConfig(false);
+    }
+  };
 
   const [projects, setProjects] = useState<ProjectScopeItem[]>([
     { id: "default", name: "Ego Core", badge: "Activo" },
@@ -591,22 +640,94 @@ export function Sidebar({
               {/* Contenido de la Pestaña */}
               <div className="flex-1 p-4 overflow-y-auto text-xs space-y-3">
                 {activeSettingsTab === "models" && (
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-ink text-sm">Enrutamiento de Modelos (AI SDK v7)</h3>
-                    <p className="text-faint leading-relaxed">
-                      Ego utiliza un Model Router heurístico desacoplado. Soporta ejecución offline local
-                      mediante Ollama (`http://localhost:11434`) o endpoints compatibles con OpenAI / DeepSeek.
-                    </p>
-                    <div className="rounded border border-hairline bg-paper p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-ink">Proveedor Activo</span>
-                        <span className="rounded bg-emerald-950 px-2 py-0.5 text-[10px] text-emerald-400 font-mono">
-                          Mock Determinista (P0-Alpha)
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-dim">
-                        Sin consumo de tokens externos en pruebas locales. Respuestas automáticas de verificación.
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold text-ink text-sm">Enrutamiento de Modelos y BYOK (INT-02)</h3>
+                      <p className="text-faint leading-relaxed mt-1 text-[11px]">
+                        Ego utiliza un Model Router heurístico desacoplado. Configura tus claves de API propias (BYOK) para interactuar con proveedores en la nube o un endpoint local de Ollama.
                       </p>
+                    </div>
+
+                    <div className="rounded border border-hairline bg-paper p-3 space-y-3">
+                      <div>
+                        <label className="block text-dim text-[11px] font-medium mb-1">Proveedor Activo</label>
+                        <select
+                          value={modelConfig.activeProvider}
+                          onChange={(e) =>
+                            setModelConfig((prev) => ({
+                              ...prev,
+                              activeProvider: e.target.value as any,
+                            }))
+                          }
+                          className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-ink/50"
+                        >
+                          <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                          <option value="deepseek">DeepSeek (DeepSeek-Chat / Coder)</option>
+                          <option value="ollama">Ollama Local (Offline)</option>
+                          <option value="mock">Mock Determinista (Pruebas sin coste)</option>
+                        </select>
+                      </div>
+
+                      {modelConfig.activeProvider !== "mock" && (
+                        <>
+                          {modelConfig.activeProvider !== "ollama" && (
+                            <div>
+                              <label className="block text-dim text-[11px] font-medium mb-1">
+                                API Key ({modelConfig.activeProvider.toUpperCase()})
+                              </label>
+                              <input
+                                type="password"
+                                placeholder={`sk-... (Clave de ${modelConfig.activeProvider})`}
+                                value={modelConfig.apiKey}
+                                onChange={(e) =>
+                                  setModelConfig((prev) => ({ ...prev, apiKey: e.target.value }))
+                                }
+                                className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 text-xs text-ink placeholder:text-dim font-mono focus:outline-none focus:border-ink/50"
+                              />
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="block text-dim text-[11px] font-medium mb-1">
+                              Endpoint Base URL (Opcional / Proxy)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder={
+                                modelConfig.activeProvider === "ollama"
+                                  ? "http://localhost:11434/v1"
+                                  : modelConfig.activeProvider === "deepseek"
+                                  ? "https://api.deepseek.com"
+                                  : "https://api.openai.com/v1"
+                              }
+                              value={modelConfig.baseUrl}
+                              onChange={(e) =>
+                                setModelConfig((prev) => ({ ...prev, baseUrl: e.target.value }))
+                              }
+                              className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 text-xs text-ink placeholder:text-dim font-mono focus:outline-none focus:border-ink/50"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      <div className="pt-1 flex items-center justify-between">
+                        <span className="text-[10px] text-dim font-mono">
+                          Persistencia en: gov/settings
+                        </span>
+                        <button
+                          onClick={handleSaveModelConfig}
+                          disabled={isSavingModelConfig}
+                          className="rounded bg-ink px-3 py-1 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50"
+                        >
+                          {isSavingModelConfig ? "Guardando..." : "Guardar Configuración"}
+                        </button>
+                      </div>
+
+                      {modelConfigSuccess && (
+                        <div className="rounded bg-emerald-950/40 border border-emerald-500/30 p-2 text-[11px] text-emerald-300">
+                          ✓ {modelConfigSuccess}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

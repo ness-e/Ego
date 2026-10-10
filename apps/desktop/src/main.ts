@@ -33,6 +33,8 @@ import {
   CreateProjectSchema,
   SelectProjectSchema,
   type ProjectManifest,
+  ModelConfigSchema,
+  type ModelConfig,
 } from "./ipc/schema.js";
 
 let adapter: EgoMemoryAdapter;
@@ -124,6 +126,48 @@ export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapte
   });
 
   return defaultProject;
+}
+
+/**
+ * Registra proveedores reales y BYOK en el ModelRouter (INT-02).
+ */
+export let currentModelConfig: ModelConfig = {
+  activeProvider: process.env.OPENAI_API_KEY ? "openai" : process.env.DEEPSEEK_API_KEY ? "deepseek" : "mock",
+  apiKey: process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY || "",
+  baseUrl: process.env.OPENAI_BASE_URL || "",
+  modelName: "",
+};
+
+/**
+ * Aplica una configuración de modelo al ModelRouter registrando el proveedor adecuado (INT-02).
+ */
+export function applyModelConfig(router: ModelRouter, config: ModelConfig): void {
+  currentModelConfig = { ...config };
+  if (config.activeProvider === "openai" && config.apiKey) {
+    router.registerProvider(
+      new OpenAICompatibleProvider({
+        providerId: "openai",
+        baseUrl: config.baseUrl || "https://api.openai.com/v1",
+        apiKey: config.apiKey,
+      })
+    );
+  } else if (config.activeProvider === "deepseek" && config.apiKey) {
+    router.registerProvider(
+      new OpenAICompatibleProvider({
+        providerId: "deepseek",
+        baseUrl: config.baseUrl || "https://api.deepseek.com",
+        apiKey: config.apiKey,
+      })
+    );
+  } else if (config.activeProvider === "ollama") {
+    router.registerProvider(
+      new OpenAICompatibleProvider({
+        providerId: "ollama",
+        baseUrl: config.baseUrl || "http://localhost:11434/v1",
+        apiKey: config.apiKey || "ollama",
+      })
+    );
+  }
 }
 
 /**
@@ -297,6 +341,23 @@ export async function createWindow(): Promise<void> {
 
   modelRouter = new ModelRouter();
   setupModelProviders(modelRouter);
+
+  // Restaurar configuración persistida de modelos BYOK si existe (gov/settings)
+  try {
+    const savedConfig = await adapter.get("gov/settings", "model_config");
+    if (savedConfig) {
+      let payload: unknown = savedConfig;
+      if (typeof savedConfig === "object" && savedConfig !== null && "payload" in savedConfig) {
+        payload = (savedConfig as { payload: unknown }).payload;
+      }
+      const parsed = ModelConfigSchema.safeParse(payload);
+      if (parsed.success) {
+        applyModelConfig(modelRouter, parsed.data);
+      }
+    }
+  } catch (cfgErr) {
+    console.warn("[Ego Main] Error al restaurar configuración de modelos de VantaDB:", cfgErr);
+  }
 
   eventBus = new EventBus();
   structuredLogger = new StructuredLogger({
@@ -874,6 +935,52 @@ export async function createWindow(): Promise<void> {
     dbPath,
     operational: adapter.ready,
   }));
+
+  // 5. Configuración de Modelos y BYOK (INT-02)
+  ipcMain.handle("ipc.settings.getModelConfig", async () => {
+    try {
+      const savedConfig = await adapter.get("gov/settings", "model_config");
+      if (savedConfig) {
+        let payload: unknown = savedConfig;
+        if (typeof savedConfig === "object" && savedConfig !== null && "payload" in savedConfig) {
+          payload = (savedConfig as { payload: unknown }).payload;
+        }
+        const parsed = ModelConfigSchema.safeParse(payload);
+        if (parsed.success) {
+          return parsed.data;
+        }
+      }
+    } catch {
+      // noop
+    }
+    return currentModelConfig;
+  });
+
+  ipcMain.handle("ipc.settings.saveModelConfig", async (_e, rawReq: unknown) => {
+    const parseResult = ModelConfigSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      throw new Error(`[IPC Security] Configuración de modelo inválida: ${parseResult.error.message}`);
+    }
+    const config = parseResult.data;
+    applyModelConfig(modelRouter, config);
+
+    await adapter.put({
+      namespace: "gov/settings",
+      key: "model_config",
+      payload: config,
+      metadata: { updatedAtMs: Date.now() },
+    });
+
+    eventBus?.emit("settings.model_updated" as any, {
+      activeProvider: config.activeProvider,
+      timestamp: Date.now(),
+    }, {
+      source: "desktop.ipc.settings.saveModelConfig",
+      severity: "info",
+    });
+
+    return { ok: true, config };
+  });
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)
   const isDev = !app.isPackaged && process.env.NODE_ENV !== "production";

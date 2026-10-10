@@ -47,6 +47,11 @@ contextBridge.exposeInMainWorld("ego", {
     getActive: () => ipcRenderer.invoke("ipc.projects.getActive"),
     selectFolder: () => ipcRenderer.invoke("ipc.projects.selectFolder"),
   },
+  settings: {
+    getModelConfig: () => ipcRenderer.invoke("ipc.settings.getModelConfig"),
+    saveModelConfig: (config: { activeProvider: string; apiKey?: string; baseUrl?: string; modelName?: string }) =>
+      ipcRenderer.invoke("ipc.settings.saveModelConfig", config),
+  },
   onProjectChanged: (callback: (data: { activeProjectId: string }) => void) => {
     const sub = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
     ipcRenderer.on("ipc.projects.changed", sub);

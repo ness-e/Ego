@@ -139,6 +139,13 @@ export interface SubEgoDetailInfo {
   character?: any;
 }
 
+export interface ModelConfigInfo {
+  activeProvider: "openai" | "deepseek" | "ollama" | "mock";
+  apiKey?: string;
+  baseUrl?: string;
+  modelName?: string;
+}
+
 export interface EgoBridge {
   memory: (op: string, args: unknown[]) => Promise<unknown>;
   llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string; projectId?: string; subEgoId?: string }) => Promise<{
@@ -191,6 +198,10 @@ export interface EgoBridge {
   };
   skills: {
     listLocal: (req?: { searchPaths?: string[]; projectRoot?: string }) => Promise<ScannedSkillInfo[]>;
+  };
+  settings: {
+    getModelConfig: () => Promise<ModelConfigInfo>;
+    saveModelConfig: (config: ModelConfigInfo) => Promise<{ ok: boolean; config: ModelConfigInfo }>;
   };
   onChatDelta?: (callback: (chunk: { type: string; delta?: string }) => void) => () => void;
   onRecallStatus?: (callback: (status: RecallBadgeInfo) => void) => () => void;
@@ -462,6 +473,15 @@ const mock: EgoBridge = {
         tags: ["engineering"],
       },
     ],
+  },
+  settings: {
+    getModelConfig: async () => ({
+      activeProvider: "mock",
+      apiKey: "",
+      baseUrl: "",
+      modelName: "mock-core",
+    }),
+    saveModelConfig: async (config) => ({ ok: true, config }),
   },
   onEvent: () => () => {},
 };
