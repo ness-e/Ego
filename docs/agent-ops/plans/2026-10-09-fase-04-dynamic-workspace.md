@@ -112,9 +112,9 @@ flowchart TD
   2. *Riesgo 2:* Inyección de scripts si se permite HTML crudo en props de componentes.
   3. *Riesgo 3:* Sobrecarga de tipos en el monorepo.
 - **DoD:**
-  - [ ] Paquete `packages/ui-runtime` inicializado y linkeado en `pnpm-workspace.yaml`.
-  - [ ] Esquemas Zod para `Table`, `Card`, `Form`, `Chart`, `Board`, `Editor`, `Diff`, `Terminal`.
-  - [ ] Tests unitarios en Vitest verificando parsing positivo y rechazo de inputs inválidos.
+  - [x] Paquete `packages/ui-runtime` inicializado y linkeado en `pnpm-workspace.yaml`.
+  - [x] Esquemas Zod para `Table`, `Card`, `Form`, `Chart`, `Board`, `Editor`, `Diff`, `Terminal`.
+  - [x] Tests unitarios en Vitest verificando parsing positivo y rechazo de inputs inválidos.
 
 ---
 
@@ -127,9 +127,9 @@ flowchart TD
 - **Gate Result:** ✅ DO (Compuerta: `COUC-15`)
 - **Contrato:** `pnpm --filter @ego/renderer test` ejecuta suites de componentes sin requerir Electron vivo.
 - **DoD:**
-  - [ ] Script `test` añadido a `apps/desktop/renderer/package.json`.
-  - [ ] `MockEgoBridge` determinista configurado en `test/setup.ts`.
-  - [ ] Pruebas unitarias de `Sidebar`, `EgoChat`, `SubEgoSelector` y modales pasando en verde.
+  - [x] Script `test` añadido a `apps/desktop/renderer/package.json`.
+  - [x] `MockEgoBridge` determinista configurado en `test/setup.ts`.
+  - [x] Pruebas unitarias de `Sidebar`, `EgoChat`, `SubEgoSelector` y modales pasando en verde.
 
 ---
 
@@ -142,10 +142,10 @@ flowchart TD
 - **Gate Result:** ✅ DO (Compuertas: `COUC-06`, `OCLW-14`)
 - **Contrato:** Conmuta visualmente entre `idle` (VantaDB OK), `working` (spinner reactivo con nombre de Sub-Ego y herramienta activa), y `approval` (badge ámbar interactivo con modal de confirmación rápida).
 - **DoD:**
-  - [ ] Componente `ActivityWidget` desacoplado y montado en `App.tsx`.
-  - [ ] Hook `useActivityState` escuchando `onEvent` (`task.started`, `tool.invoked`, `task.completed`, `task.failed`).
-  - [ ] Subscripción a `onApprovalRequest` con badge interactivo y resolución directa con `resolveApproval`.
-  - [ ] Eliminar variables estáticas `activeWidgetState` y `setApprovalPending` sin uso en `App.tsx`.
+  - [x] Componente `ActivityWidget` desacoplado y montado en `App.tsx`.
+  - [x] Hook `useActivityState` escuchando `onEvent` (`task.started`, `tool.invoked`, `task.completed`, `task.failed`).
+  - [x] Subscripción a `onApprovalRequest` con badge interactivo y resolución directa con `resolveApproval`.
+  - [x] Eliminar variables estáticas `activeWidgetState` y `setApprovalPending` sin uso en `App.tsx`.
 
 ---
 
@@ -158,8 +158,8 @@ flowchart TD
 - **Gate Result:** ✅ DO
 - **Contrato:** Al cambiar de `ego.nucleus` a `code_reviewer`, la silueta y los atuendos transicionan suavemente sin saltos visuales ni parpadeos.
 - **DoD:**
-  - [ ] Módulo `CharacterMorph` con interpolación de color RGB y curvatura de ojos.
-  - [ ] Respeto de accesibilidad `prefers-reduced-motion` (corte instantáneo sin morphing).
+  - [x] Módulo `CharacterMorph` con interpolación de color RGB y curvatura de ojos.
+  - [x] Respeto de accesibilidad `prefers-reduced-motion` (corte instantáneo sin morphing).
 
 ---
 
