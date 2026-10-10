@@ -13,6 +13,7 @@ import {
   DOMAIN_TEMPLATES,
   getDomainTemplate,
   listDomainTemplates,
+  registerDomainTemplate,
   type DomainTemplate
 } from "./templates/domainTemplates.js";
 
@@ -339,6 +340,13 @@ export class SubEgoFactory {
    */
   static listTemplates(): DomainTemplate[] {
     return listDomainTemplates();
+  }
+
+  /**
+   * Registra dinámicamente una nueva plantilla de dominio (COUC-10).
+   */
+  static registerTemplate(template: DomainTemplate): void {
+    registerDomainTemplate(template);
   }
 
   /**

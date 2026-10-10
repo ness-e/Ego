@@ -4,3 +4,4 @@ export * from "./mcp/McpClient.js";
 export * from "./mcp/McpManager.js";
 export * from "./skills/SkillLinter.js";
 export * from "./skills/SkillScanner.js";
+export * from "./github/GitHubMcpConnector.js";

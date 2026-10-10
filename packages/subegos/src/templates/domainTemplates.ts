@@ -246,6 +246,13 @@ Reglas innegociables:
 };
 
 /**
+ * Registra dinámicamente una nueva plantilla de dominio (COUC-10).
+ */
+export function registerDomainTemplate(template: DomainTemplate): void {
+  DOMAIN_TEMPLATES[template.templateId] = template;
+}
+
+/**
  * Obtiene la lista completa de plantillas canónicas disponibles.
  */
 export function listDomainTemplates(): DomainTemplate[] {
@@ -258,3 +265,4 @@ export function listDomainTemplates(): DomainTemplate[] {
 export function getDomainTemplate(templateId: string): DomainTemplate | undefined {
   return DOMAIN_TEMPLATES[templateId];
 }
+
