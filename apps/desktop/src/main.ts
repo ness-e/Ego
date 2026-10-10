@@ -18,6 +18,14 @@ import {
   SubEgoFactory,
 } from "@ego/subegos";
 import {
+  DecisionRouter,
+  DecisionAuditor,
+  DecisionTelemetry,
+  LoopBreaker,
+  IntentRequestSchema,
+  type DecisionVerdict
+} from "@ego/decision";
+import {
   MemoryOpSchema,
   CreateSubEgoSchema,
   ToggleSubEgoStateSchema,
@@ -45,6 +53,10 @@ let executionManager: ExecutionManager;
 let toolRegistry: ToolRegistry;
 let toolLoop: ToolExecutionLoop;
 let subEgoRegistry: SubEgoRegistry;
+let decisionRouter: DecisionRouter;
+let decisionAuditor: DecisionAuditor;
+let decisionTelemetry: DecisionTelemetry;
+let loopBreaker: LoopBreaker;
 let mcpManager: McpManager;
 let skillScanner: SkillScanner;
 let eventBus: EventBus;
@@ -86,6 +98,22 @@ export function getLifecycle(): EgoMemoryLifecycle {
 
 export function getActiveProjectId(): string {
   return activeProjectId;
+}
+
+export function getDecisionRouter(): DecisionRouter {
+  return decisionRouter;
+}
+
+export function getDecisionAuditor(): DecisionAuditor {
+  return decisionAuditor;
+}
+
+export function getDecisionTelemetry(): DecisionTelemetry {
+  return decisionTelemetry;
+}
+
+export function getLoopBreaker(): LoopBreaker {
+  return loopBreaker;
 }
 
 export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapter): Promise<ProjectManifest> {
@@ -241,6 +269,68 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
     // FASE 2: Pre-Turn Context Assembly & Recall (Prefetch + Glifo 🧠)
     const { contextText, recallStatus } = await lifecycle.assemblePreTurn(req.prompt);
 
+    // FASE DECISION INTELLIGENCE: Evaluación de Intención, Enrutamiento y Precondiciones (DEC-01..DEC-08)
+    let verdict: DecisionVerdict | null = null;
+    if (decisionRouter) {
+      const tDecStart = performance.now();
+      verdict = await decisionRouter.decide({
+        prompt: req.prompt,
+        projectId: req.projectId || activeProjectId,
+        workspacePath: process.env.EGO_WORKSPACE_PATH || process.cwd(),
+        activeSubEgoId: req.subEgoId || "ego.nucleus"
+      });
+      const tDecTotal = Math.round(performance.now() - tDecStart);
+
+      // Verificación de bucles recursivos de delegación (DEC-06, OCLW-02, HERM-03)
+      if (loopBreaker) {
+        const breakCheck = loopBreaker.evaluate(
+          verdict.subEgoId,
+          verdict.intentDigest,
+          verdict.admittedRunContext,
+          verdict.confidence
+        );
+
+        if (breakCheck.shouldBreak && breakCheck.clarification) {
+          const clarificationText = `[Pausa de Supervisión Cognitiva: ${breakCheck.reason}]\n${breakCheck.clarification.question}\n\nOpciones:\n` +
+            breakCheck.clarification.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n');
+
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("ipc.chat.delta", {
+              type: "text",
+              text: clarificationText,
+              delta: clarificationText
+            });
+          }
+
+          return {
+            ok: true,
+            turnId,
+            text: clarificationText,
+            recallStatus,
+            status: "paused_clarification"
+          };
+        }
+      }
+
+      // Registro inmutable en gov/audit (DEC-07)
+      if (decisionAuditor) {
+        await decisionAuditor.recordVerdict(verdict);
+      }
+
+      // Telemetría de decisión (DEC-08)
+      if (decisionTelemetry) {
+        decisionTelemetry.record({
+          runId: verdict.admittedRunContext.runId,
+          intentId: verdict.intentId,
+          classifyMs: Math.round(tDecTotal * 0.7),
+          subEgoSelectMs: Math.round(tDecTotal * 0.15),
+          preconditionsMs: Math.round(tDecTotal * 0.15),
+          totalDecisionMs: tDecTotal,
+          decidedBy: verdict.decidedBy
+        });
+      }
+    }
+
     // Informar a la UI del estado de memoria inyectada
     if (win && !win.isDestroyed()) {
       win.webContents.send("ipc.chat.recall_status", recallStatus);
@@ -263,7 +353,7 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       callId: turnId,
       sessionId,
       projectId: req.projectId || "default_project",
-      subEgoId: req.subEgoId || "ego.nucleus",
+      subEgoId: req.subEgoId || verdict?.subEgoId || "ego.nucleus",
     };
 
     // Ejecutar loop cognitivo multi-turno a través de ToolExecutionLoop (INT-01)
@@ -374,6 +464,10 @@ export async function createWindow(): Promise<void> {
   mcpManager = new McpManager(toolRegistry);
   skillScanner = new SkillScanner();
   subEgoRegistry = new SubEgoRegistry(adapter);
+  decisionRouter = new DecisionRouter();
+  decisionAuditor = new DecisionAuditor(adapter);
+  decisionTelemetry = new DecisionTelemetry(eventBus);
+  loopBreaker = new LoopBreaker({ maxDepth: 4 });
 
   // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers)
   try {
@@ -980,6 +1074,42 @@ export async function createWindow(): Promise<void> {
     });
 
     return { ok: true, config };
+  });
+
+  // 6. Decision Intelligence Layer IPC (DEC-01..DEC-08)
+  ipcMain.handle("ipc.decision.evaluate", async (_e, rawReq: unknown) => {
+    const parseResult = IntentRequestSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const t0 = performance.now();
+    const verdict = await decisionRouter.decide(parseResult.data);
+    const totalMs = Math.round(performance.now() - t0);
+
+    const auditKey = await decisionAuditor.recordVerdict(verdict);
+
+    decisionTelemetry.record({
+      runId: verdict.admittedRunContext.runId,
+      intentId: verdict.intentId,
+      classifyMs: Math.round(totalMs * 0.7),
+      subEgoSelectMs: Math.round(totalMs * 0.15),
+      preconditionsMs: Math.round(totalMs * 0.15),
+      totalDecisionMs: totalMs,
+      decidedBy: verdict.decidedBy
+    });
+
+    return { ok: true, verdict, auditKey };
+  });
+
+  ipcMain.handle("ipc.decision.listAudits", async (_e, limit: unknown) => {
+    const lim = typeof limit === "number" ? limit : 50;
+    const audits = await decisionAuditor.listRecentVerdicts(lim);
+    return { ok: true, audits };
+  });
+
+  ipcMain.handle("ipc.decision.telemetry", async () => {
+    const summary = decisionTelemetry.getSummary();
+    return { ok: true, summary };
   });
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)
