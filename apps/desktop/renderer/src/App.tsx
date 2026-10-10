@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { Sparkle, TerminalWindow, Warning } from "@phosphor-icons/react";
+import { TerminalWindow } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Union } from "../components/union";
 import { SubEgosView } from "../components/sub-egos";
 import { Sidebar } from "../components/sidebar";
 import { SubEgoSelector } from "../components/SubEgoSelector";
+import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
 
 export function App() {
-  const [activeWidgetState] = useState<"idle" | "working" | "approval">("idle");
-  const [approvalPending, setApprovalPending] = useState(false);
   const [activeProject, setActiveProject] = useState("default");
   const [activeSubEgo, setActiveSubEgo] = useState("ego.nucleus");
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"union" | "subegos">("union");
@@ -32,34 +31,7 @@ export function App() {
         </div>
 
         {/* Ego Activity Widget (Superficie Canónica de Telemetría y HITL) */}
-        <div className="flex items-center gap-2 app-region-no-drag">
-          {activeWidgetState === "idle" && !approvalPending && (
-            <div className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised px-2.5 py-0.5 text-[11px] text-faint">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>VantaDB Core OK</span>
-            </div>
-          )}
-
-          {activeWidgetState === "working" && (
-            <div className="flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-950/20 px-3 py-0.5 text-[11px] text-cyan-300">
-              <Sparkle className="animate-spin text-cyan-400" size={13} />
-              <span>Sub-Ego Dev ejecutando tarea...</span>
-            </div>
-          )}
-
-          {approvalPending && (
-            <div className="flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-950/30 px-3 py-0.5 text-[11px] text-amber-200 shadow-sm animate-pulse">
-              <Warning size={14} className="text-amber-400" />
-              <span>Aprobación HITL requerida</span>
-              <button
-                onClick={() => setApprovalPending(false)}
-                className="rounded bg-amber-500 px-1.5 py-0.2 text-[10px] font-semibold text-black hover:bg-amber-400"
-              >
-                Revisar
-              </button>
-            </div>
-          )}
-        </div>
+        <ActivityWidget />
 
         {/* Indicadores Auxiliares */}
         <div className="flex items-center gap-3 text-xs text-faint app-region-no-drag">

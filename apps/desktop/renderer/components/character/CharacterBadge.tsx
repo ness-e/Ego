@@ -4,10 +4,15 @@
 // Solo anima si animated={true} (turno activo).
 
 import React, { useEffect, useRef } from "react";
-import { CharacterEngine, hexToRGB } from "./core/CharacterEngine.js";
+import { CharacterEngine } from "./core/CharacterEngine.js";
 import { CharacterStateMachine, type CharacterState } from "./state/CharacterStateMachine.js";
 import { TraitRegistry, type DomainCharacterPreset } from "./traits/TraitRegistry.js";
 import type { HeadFrame } from "./wardrobe/CharacterWardrobe.js";
+import {
+  CharacterMorphController,
+  presetToMorphTarget,
+  type MorphTarget,
+} from "./transitions/CharacterMorph.js";
 
 export interface CharacterBadgeProps {
   subEgoId?: string;
@@ -31,6 +36,9 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fsmRef = useRef<CharacterStateMachine | null>(null);
   const engineRef = useRef<CharacterEngine | null>(null);
+  const morphRef = useRef<CharacterMorphController | null>(null);
+  const prevTargetRef = useRef<MorphTarget | null>(null);
+  const renderSingleFrameRef = useRef<(() => void) | null>(null);
 
   // Inicialización de FSM y Engine en ref
   if (!fsmRef.current) {
@@ -41,9 +49,13 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
     eng.isMini = true;
     engineRef.current = eng;
   }
+  if (!morphRef.current) {
+    morphRef.current = new CharacterMorphController(450);
+  }
 
   const fsm = fsmRef.current;
   const engine = engineRef.current;
+  const morph = morphRef.current;
 
   // Obtener preset de dominio
   const preset: DomainCharacterPreset = TraitRegistry.getPreset(subEgoId);
@@ -54,11 +66,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   }, [state, fsm]);
 
   useEffect(() => {
-    // Configuración morfológica del motor según el preset
-    engine.bodyColor = hexToRGB(preset.bodyColors[0]);
-    engine.permanentEye = preset.eyeShape;
-    // Conectar atuendo canónico de Coucou Mochi
-    engine.setOutfit(outfitId !== undefined ? outfitId : (preset.outfitId ?? null));
+    const nextTarget = presetToMorphTarget(preset, outfitId);
 
     // Configurar dibujado de traits mediante capas si existen
     engine.customBackDraw = (ctx: CanvasRenderingContext2D, head: HeadFrame) => {
@@ -73,7 +81,47 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
         TraitRegistry.renderLayer("overlay", ctx, head, preset.traits, preset.accentColor, fsm.channels.aura);
       }
     };
-  }, [preset, outfitId, engine, fsm]);
+
+    const prevTarget = prevTargetRef.current;
+    if (
+      prevTarget &&
+      (prevTarget.bodyColor[0] !== nextTarget.bodyColor[0] ||
+        prevTarget.bodyColor[1] !== nextTarget.bodyColor[1] ||
+        prevTarget.bodyColor[2] !== nextTarget.bodyColor[2] ||
+        prevTarget.eyeShape !== nextTarget.eyeShape ||
+        prevTarget.outfitId !== nextTarget.outfitId)
+    ) {
+      // Iniciar interpolación morfológica (CHAR-09)
+      morph.start(
+        prevTarget,
+        nextTarget,
+        (current) => {
+          engine.bodyColor = current.bodyColor;
+          engine.permanentEye = current.eyeShape;
+          engine.setOutfit(current.outfitId ?? null);
+          if (!animated && renderSingleFrameRef.current) {
+            renderSingleFrameRef.current();
+          }
+        },
+        () => {
+          prevTargetRef.current = nextTarget;
+        }
+      );
+    } else {
+      // Primera inicialización o sin cambios morfológicos
+      engine.bodyColor = nextTarget.bodyColor;
+      engine.permanentEye = nextTarget.eyeShape;
+      engine.setOutfit(nextTarget.outfitId ?? null);
+      prevTargetRef.current = nextTarget;
+      if (!animated && renderSingleFrameRef.current) {
+        renderSingleFrameRef.current();
+      }
+    }
+
+    return () => {
+      morph.cancel();
+    };
+  }, [preset, outfitId, engine, fsm, animated, morph]);
 
   // Ciclo de renderizado (Estático vs Animado continuo)
   useEffect(() => {
@@ -95,12 +143,13 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
 
       // Sincronizar parámetros de la FSM en el engine
       engine.tilt = fsm.channels.tilt;
-      engine.permanentEye = preset.eyeShape;
 
       // Dibujar criatura
       engine.draw(ctx, engineSize, engineSize);
       ctx.restore();
     };
+
+    renderSingleFrameRef.current = renderFrame;
 
     if (!animated) {
       // Modo StillPose: 1 solo fotograma determinista sin consumir rAF

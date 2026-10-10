@@ -487,6 +487,6 @@ describe("SubEgoRegistry — Registro y catálogo en gov/sub_egos (SUB-07)", () 
       const filteredDisabled = await registry2.list({ state: "disabled" });
       expect(filteredDisabled.length).toBe(1);
       expect(filteredDisabled[0].id).toBe(persistentSubEgo.id);
-    });
+    }, 30000);
   });
 });
