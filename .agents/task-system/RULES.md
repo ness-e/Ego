@@ -9,9 +9,7 @@
 
 ### Propósito
 
-Automatizar la ejecución de campañas de tareas desde backlog con **calidad
-consistente** y **cero supervision overhead**: que un dev pueda dejar N tareas
-encargadas y volver a encontrar todo hecho, verificado y comiteado.
+Automatizar la ejecución de campañas de tareas desde backlog con **calidad consistente**, **verificación mecánica rigurosa** y **alineación deliberada con el desarrollador**: ejecutar el trabajo repetitivo y la verificación sin fricción, pero **garantizando que toda decisión técnica, de producto o ambigüedad sea consultada al desarrollador** mediante preguntas claras para asegurar que el sistema construya exactamente lo deseado y permita al desarrollador dirigir conscientemente la evolución del producto.
 
 ### Criterios de éxito
 
@@ -21,7 +19,8 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
 | **Falsos positivos** | 0 — no marcar complete si algo falla |
 | **Regresión silenciosa** | 0 — no romper tests que antes pasaban |
 | **Deuda técnica** | no introducir más de la que se resuelve |
-| **Tiempo dev** | 100% del foco en código, 0% en coordinar el loop |
+| **Alineación con el Dev** | 100% de decisiones no declaradas consultadas y confirmadas |
+| **Tiempo dev** | Foco estratégico y toma de decisiones conscientes, 0% en micro-gestión del loop |
 
 ### Principios invariantes
 
@@ -60,6 +59,14 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
 10. **Auto-mejora** — después de cada tarea, evaluar: ¿qué fue más difícil de
     lo esperado? ¿el proceso mejoró o empeoró? Actualizar discoverys en el
     proceso.
+
+11. **Zero Silent Assumptions (Alineación por preguntas obligatorias)** —
+    toda decisión de diseño, arquitectura, modelo de datos, UX o contrato no
+    declarada unívocamente en el backlog DEBE investigarse y consultarse al
+    desarrollador mediante preguntas estructuradas (contexto + opciones +
+    `(Recomendado)`) ANTES de escribir código. Prohibido asumir silenciosamente
+    bifurcaciones técnicas.
+
 
 ### Árbol de decisión (antes de empezar)
 

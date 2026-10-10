@@ -158,6 +158,16 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 * **Requisitos Formales y Backlog Upstream:** Si una capacidad requiere evolución o nuevas APIs en VantaDB para fases posteriores (ej. `COGN-01`, `CONTRACT-01`, `ASYNC-01`), debe formalizarse en `docs/engineering/vantadb-readiness-plan.md` y mapearse al backlog técnico de VantaDB.
 * **Criterio de Cierre en Definition of Done (DoD):** Si una tarea interactúa con memoria o adaptadores de VantaDB e identifica una fricción o añade un workaround, la tarea NO puede marcarse como `COMPLETED` ni pasar el Quality Gate sin haber actualizado `docs/VANTADB-FEEDBACK-Y-MEJORAS.md`.
 
+### Protocolo de Alineación HITL y Cero Asunciones Silenciosas (Zero Silent Assumptions)
+
+* **Obligación de Preguntar por Plan y por Tarea:** Todo agente de código (orquestador, planificador o ejecutor) tiene terminantemente prohibido asumir decisiones técnicas, arquitectónicas, de producto, de UX o de contrato que no estén explícitamente declaradas en el Backlog o especificación.
+* **Investigación Previa de Ambigüedades:** Antes de fijar un plan o comenzar a implementar una tarea (`ACT`), el agente debe analizar a fondo el código y los requerimientos para detectar decisiones no declaradas, casos borde sin definir o instrucciones ambiguas.
+* **Estructura Pedagógica de Preguntas:** Las preguntas deben formularse al desarrollador de manera interactiva y estructurada:
+  1. **Contexto técnico breve:** Explicar el impacto de la decisión en el sistema.
+  2. **Opciones discretas y claras:** Alternativas técnicas viables con sus pros y contras.
+  3. **Opción recomendada:** La alternativa del agente marcada como `(Recomendado)` en primer lugar para facilitar la decisión.
+* **Alineación Consciente y Aprendizaje:** El desarrollador debe ser partícipe activo de cada decisión clave. El propósito es garantizar que la dirección del producto coincida exactamente con su visión y que pueda evaluar y mejorar el diseño al revisar las alternativas presentadas.
+
 ### Seguridad
 
 * Credenciales/API keys: Credential Manager integrado con keychain del SO. Nunca en VantaDB, renderer ni código.

@@ -67,11 +67,11 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 #### ⬜ PENDING
 
 **Discovery:**
-- **Gate D (question-gates.md):** tras zero-code planning y ANTES de escribir el
-  task file — si blast radius >10 archivos/hot path/API pública, contrato ambiguo,
-  **el plan de solución agrega símbolos públicos nuevos (`pub fn`, tool, endpoint,
-  método de binding — aunque el tipo auto-detectado diga fix/wrapper)**,
-  o feature-add sin spec → `question` al usuario (GO / ajustar / dividir).
+- **Gate D Universal (question-gates.md — Zero Silent Assumptions):** Tras zero-code planning e investigación previa,
+  identificar **todas las decisiones no declaradas** (estructuras de datos, nombres de símbolos, tratamiento de errores,
+  dependencias, persistencia, flujos de UX y contratos ambiguos). Formular obligatoriamente una ronda interactiva de
+  `ask_question` / `question` con opciones claras y `(Recomendado)` en primer lugar. Prohibido entrar a implementación
+  asumiendo silenciosamente bifurcaciones técnicas o de producto.
 - **Gate mecánico spec-first:** task file de feature-add/lógica nueva SIN la sección
   `## Spec` LLENA según la definición canónica (question-gates.md §"Contenido
   válido de `## Spec`": tabla de decisiones O justificación por evidencia por ítem;

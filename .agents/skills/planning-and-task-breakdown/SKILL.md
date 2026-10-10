@@ -29,10 +29,11 @@ Before writing any code, operate in read-only mode:
 - Identify existing patterns and conventions
 - Map dependencies between components
 - Note risks and unknowns
+- **Identify undeclared decisions & ambiguities:** Formulate structured questions with concrete options and a `(Recommended)` default to present to the developer before finalizing the plan. Never make silent assumptions on architecture, UX, or contracts.
 
 **Do NOT write code during planning.** The output is a plan document saved to `tasks/plan.md` and a task list recorded in the task list target (see Output Files; default `tasks/todo.md`), not implementation.
 
-> **Ego note — campaign-executor alignment:** In Ego, planning maps to the `campaign-executor` DISCOVERY phase. Use `codegraph_codegraph_explore` for blast-radius mapping and web research if ambiguous, then create `docs/agent-ops/plans/<fecha>-<nombre>.md` (plan file) and `tasks/<ID>.md` at `.agents/skills/campaign-executor/tasks/<ID>.md` (task files with atomic steps). **Do NOT write code during planning** — this is a read-only discovery step; implementation starts in ACT via `iter-loop-tools.md`. See `.agents/task-system/prompts/plan.md` and `skills/campaign-executor/SKILL.md`.
+> **Ego note — campaign-executor alignment:** In Ego, planning maps to the `campaign-executor` DISCOVERY phase. Use `codegraph_codegraph_explore` for blast-radius mapping, identify undeclared design decisions, formulate alignment questions to the developer, and create `docs/agent-ops/plans/<fecha>-<nombre>.md` (plan file) and `docs/agent-ops/tasks/<ID>.md` (task files with atomic steps). **Do NOT write code during planning** — this is a read-only discovery step; implementation starts in ACT via `iter-loop-tools.md`. See `.agents/task-system/prompts/plan.md` and `skills/campaign-executor/SKILL.md`.
 
 ### Step 2: Identify the Dependency Graph
 

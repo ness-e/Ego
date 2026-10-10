@@ -1,4 +1,4 @@
-﻿> **CANONICAL SPEC — Question Gates HITL (fuente única, TSYS-H7)**
+> **CANONICAL SPEC — Question Gates HITL (fuente única, TSYS-H7)**
 > Referenciado por: plan.md (Gate P) · pipeline-full.md / iter-loop-tools.md (Gates D/V/C)
 > · pipeline-run.md · subagent-recovery.md. Los prompts REFERENCIAN este archivo;
 > nunca lo redefinen. Si este archivo cambia, los gates cambian en un solo lugar.
@@ -16,12 +16,22 @@
    re-preguntar lo decidido salvo que el código contradiga la decisión).
 4. Si el harness no expone `question`, fallback: reporte estructurado y STOP
    esperando input del usuario (nunca asumir GO).
+5. **Cero Asunciones Silenciosas (Zero Silent Assumptions):** Si una instrucción
+   carece de contexto, tiene múltiples interpretaciones, o deja decisiones
+   técnicas/de producto abiertas (nombres de API, flujos de error, dependencias,
+   persistencia, contratos de interfaz), el agente DEBE investigar y formular
+   preguntas estructuradas al desarrollador. Prohibido asumir silenciosamente un
+   camino sin validarlo.
+6. **Valor Pedagógico y Estratégico:** Cada pregunta debe formularse con contexto
+   técnico claro, exponiendo alternativas reales con pros y contras. El objetivo es
+   asegurar la participación activa del desarrollador, fomentar decisiones conscientes
+   y alinear la evolución del producto con su visión estratégica.
 
 ## Routing de questions (quién pregunta)
 
 | Contexto | Cómo se pregunta |
 |---|---|
-| Orquestador (`/pipeline`, `/pipeline run`, ego-lead) | Directo vía `question` tool |
+| Orquestador (`/pipeline`, `/pipeline run`, ego-lead) | Directo vía `ask_question` / `question` tool |
 | Sub-agente CON `question` en permissions (hoy: solo ego-lead, ego-review) | Directo |
 | Sub-agente SIN `question` (worker/arch/engine/audit/chaos/tuner/docs/research) | Devolver bloque `RESULTADO` con `BLOQUEO: <gate + opciones>` — **el orquestador hace la pregunta** al recibirlo y reanuda vía SARL con la respuesta. El sub-agente NUNCA asume GO. |
 
@@ -35,22 +45,24 @@
 
 | Disparador | Question |
 |---|---|
+| **Decisiones no declaradas o arquitectura abierta** | Investigar el alcance del plan e interrogar al usuario sobre bifurcaciones arquitectónicas, bibliotecas a utilizar o trade-offs de diseño. |
+| **Instrucciones o requerimientos ambiguos** (≥2 interpretaciones) | Mostrar las interpretaciones viables con pros/contras y pedir elección antes de congelar el plan. |
 | Tarea prioridad 🔴 | Confirmar inclusión/scope: opciones GO (como está) / Ajustar scope / DEFER / SKIP |
-| Contrato ambiguo (≥2 interpretaciones que cambian el resultado) | Mostrar las interpretaciones y pedir elección |
-| **Agrega símbolos/contratos públicos nuevos** (`pub fn`/struct público, tool MCP, endpoint HTTP/CLI, método de binding PyO3/WASM/TS/NAPI, componente consumible) — **aunque el tipo auto-detectado diga fix/wrapper/refactor** | Tratar como feature-add: mini-spec con `prompts/spec-template.md` §5 → decisiones abiertas al usuario (una ronda, opciones + default recomendado) ANTES de aprobar DO. La etiqueta de tipo NO anula este disparador. |
-| feature-add o lógica nueva | **Spec-driven guiado**: generar mini-spec con `prompts/spec-template.md` → preguntar al usuario las decisiones abiertas de §5 (una ronda, opciones + default recomendado) ANTES de aprobar DO. La spec confirmada viaja al task file (sección `## Spec`) — sin ella no hay ACT. |
-| Resumen final del triage | Confirmar el set DEFER/SKIP completo antes de escribir el plan file |
+| **Agrega símbolos/contratos públicos nuevos** (`pub fn`/struct público, tool MCP, endpoint HTTP/CLI, método de binding PyO3/WASM/TS/NAPI, componente consumible) | Tratar como feature-add: mini-spec con `prompts/spec-template.md` §5 → decisiones abiertas al usuario (una ronda, opciones + default recomendado) ANTES de aprobar DO. |
+| feature-add o lógica nueva | **Spec-driven guiado**: generar mini-spec con `prompts/spec-template.md` → preguntar al usuario las decisiones abiertas de §5 (una ronda, opciones + default recomendado) ANTES de aprobar DO. |
+| Resumen final del triage | Confirmar el set DEFER/SKIP completo antes de escribir el plan file. |
 
 ## Gate D — Discovery (en pipeline-full.md §Discovery, iter-loop-tools MODO DISCOVERY)
 
-**Cuándo:** tras zero-code planning, ANTES de escribir el task file.
+**Cuándo:** tras zero-code planning, ANTES de escribir el task file y ANTES de pasar a `ACT`.
 
 | Disparador | Question |
 |---|---|
-| Blast radius > 10 archivos o toca hot path/WAL/API pública | Mostrar blast radius resumido + approach propuesto → GO / ajustar / dividir en tareas |
-| **El plan de solución agrega símbolos/contratos públicos nuevos** (ídem Gate P: `pub fn`, tool, endpoint, método de binding) — detectar en zero-code planning, no en la etiqueta de tipo | Confirmar diseño de la superficie pública (nombres, firmas, semántica de error) → GO / ajustar |
-| Contrato ambiguo descubierto en código (Paso 0 no lo vio) | Detener y elegir entre caminos válidos |
-| Tarea feature-add/lógica nueva sin mini-spec | Generar mini-spec y confirmar criterio de aceptación con el usuario |
+| **Toda decisión de implementación no declarada en el contrato** | Relevar parámetros, tipos de datos, política de reintentos, comportamiento ante errores y nombres de funciones → preguntar con alternativas y `(Recomendado)`. |
+| **Instrucción o caso borde ambiguo descubierto en código** | Detenerse y presentar los caminos técnicos posibles con sus trade-offs para que el usuario decida conscientemente. |
+| Blast radius > 10 archivos o toca hot path/WAL/API pública | Mostrar blast radius resumido + approach propuesto → GO / ajustar / dividir en tareas. |
+| **El plan de solución agrega símbolos/contratos públicos nuevos** | Confirmar diseño de la superficie pública (nombres, firmas, semántica de error) → GO / ajustar. |
+| Tarea feature-add/lógica nueva sin mini-spec | Generar mini-spec y confirmar criterio de aceptación con el usuario. |
 
 ## Contenido válido de `## Spec` (definición canónica del gate mecánico spec-first)
 
@@ -110,21 +122,25 @@ Sin respuesta → STOP (no marcar FAILED unilateralmente salvo FAIL_MODE=stop ex
 
 Quien vigila al harness es `ego-harness` (leaf, nunca el implementador del cambio). El ACCEPT de la tarea del harness también pasa por el gate mecanizado HARD-07 (payload `review` obligatorio para `completed` — ver Gate C). **Rollout HARD-07:** el enforcement vive en `campaign-server.mjs` y el proceso MCP en ejecución mantiene el código previo — activa al reiniciar el proceso (las sesiones abiertas no quedan protegidas hasta entonces).
 
-## Anti-abuso
+## Anti-abuso y Límites de Supresión
 
-- Los gates NO aplican a tareas 🟢 triviales con contrato mecánico claro.
+- Los gates NO aplican a cambios sintácticos puramente mecánicos (formateo, typos en comentarios, bumps de versión menores).
 - Una familia aprobada explícitamente por el usuario en esta sesión (mismo plan,
-  mismo objetivo) **suprime Gate P/D individual solo para tareas de
-  fix/test/docs/refactor sin superficie pública nueva** (ver subagent-recovery §5).
-  Las tareas **feature-add o con símbolos públicos nuevos** dentro de una familia
+  mismo objetivo) suprime Gate P/D individual solo para tareas de
+  fix/test/docs/refactor estrictamente acotadas y sin decisiones abiertas.
+- **Excepción Innegociable (Zero Silent Assumptions):** Si cualquier tarea (incluyendo fix, refactor o test)
+  descubre decisiones no declaradas en el contrato, ambigüedades en cómo resolver el problema,
+  o bifurcaciones entre enfoques técnicos viables, **Gate D NO se suprime bajo ninguna circunstancia**.
+  El agente debe formular la pregunta con opciones antes de escribir código.
+- Las tareas **feature-add o con símbolos públicos nuevos** dentro de una familia
   aprobada SÍ disparan **UNA `question` batched de confirmación de spec** (1 ronda,
   todas las decisiones abiertas juntas, opciones + default recomendado) antes de
   ACT. Racional: la aprobación del plan cubre el QUÉ de cada tarea; la spec de una
   feature nueva define el CÓMO técnico, que el plan no detalla.
-- Si el plan file declara `> **Autonomous:** true` (leído vía
-  `campaign_get_next_task` → campo `autonomous`), solo operan Gate V y
-  Gate C-casos-de-seguridad (archivos fuera de blast radius). Sin el flag,
-  operan los 4 gates.
+- Si el plan file declara `> **Autonomous:** true`, la autonomía cubre la ejecución mecánica,
+  pero **cualquier decisión no declarada o ambigüedad arquitectónica sigue requiriendo confirmación**
+  para evitar desvíos silenciosos del producto.
+
 
 ## Non-stop / run defaults (D12)
 

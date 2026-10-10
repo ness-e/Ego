@@ -110,10 +110,13 @@ el plan file junto al contrato de cada tarea.
 
 ### Reglas del gate (aplicar DESPUÉS del Paso 0)
 
-> **Question Gates HITL (canónico: `prompts/question-gates.md` §Gate P):** toda
-> tarea 🔴 o con contrato ambiguo se confirma con el usuario vía `question` antes
-> de fijar el gate; para feature-add/lógica nueva, mini-spec vía
-> `spec-driven-development` refinada con questions antes del DO.
+> **Question Gates HITL Universal (canónico: `prompts/question-gates.md` §Gate P):**
+> 1. **Cero Asunciones Silenciosas:** Toda decisión de producto, arquitectura, flujo de usuario o contrato
+>    no declarada unívocamente en el Backlog DEBE investigarse y consultarse al usuario antes de fijar el gate.
+> 2. **Ronda de Preguntas de Alineación:** Formular preguntas interactivas vía `ask_question` / `question` con
+>    contexto técnico claro, opciones discretas y la alternativa recomendada `(Recomendado)` en primer lugar.
+> 3. Tareas 🔴 o con requerimientos ambiguos: confirmar alcance y alternativas antes de aprobar DO.
+> 4. Feature-add o lógica nueva: mini-spec con `prompts/spec-template.md` refinada con preguntas antes de DO.
 
 1. Bug ya inexistente o feature ya implementada (**verificado**) → SKIP
 2. Cosmético sin queja de usuario → DEFER

@@ -119,6 +119,26 @@ Argus.extract_content(url_del_resultado)
 → Documentar en Investigation Notes del task file
 ```
 
+### Phase 3b: Inquiry & Alignment Pass (Preguntas Obligatorias al Usuario — Gate D)
+
+> **Regla Innegociable (Zero Silent Assumptions):** Antes de descomponer la tarea en pasos de código,
+> el agente DEBE analizar a fondo los requerimientos e identificar **todas las decisiones no declaradas,
+> bifurcaciones técnicas o ambigüedades**. Prohibido decidir silenciosamente.
+
+1. **Identificar decisiones abiertas:**
+   - ¿Qué nombres de símbolos, APIs o funciones se usarán?
+   - ¿Cómo se manejan los errores y fallos de borde (fallo silencioso, excepción, log, reintento)?
+   - ¿Qué estructuras de datos o esquemas aplican si no están cerrados en el contrato?
+   - ¿Qué dependencias o enfoques alternativos existen (trade-offs A vs B)?
+   - ¿Existen implicaciones de UX o comportamiento visible al usuario?
+2. **Formular preguntas interactivas (`ask_question` / `question`):**
+   - **Contexto técnico breve:** Explicar el impacto de la decisión en el sistema.
+   - **Opciones claras y concretas:** Opciones de respuesta mutuamente excluyentes o combinables.
+   - **Opción recomendada:** Colocar la alternativa sugerida por el agente marcada como `(Recomendado)` en primer lugar, fundamentando por qué es la más robusta o escalable.
+3. **Esperar y consolidar:**
+   - La respuesta del usuario es vinculante.
+   - Registrar las decisiones resueltas en la sección `## Spec` o en el encabezado del task file antes de pasar a Phase 4.
+
 ### Phase 4: Descomponer en pasos atómicos
 
 Cada paso debe ser:
