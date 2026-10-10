@@ -1,7 +1,7 @@
 # Plan de Ejecución: Fase 06 — Knowledge & Data (P0-Beta)
 
 > **Fecha:** 2026-10-10  
-> **Estado:** 🟡 READY  
+> **Estado:** 🟢 COMPLETED  
 > **Fuente Canónica:** `docs/roadmap/Backlog.md` (Fase 06: `KB-01..11`)  
 > **Objetivo:** Implementar la infraestructura integral de memoria y conocimiento a largo plazo de Ego: pipeline de ingesta local multiformato, chunking jerárquico adaptativo con deduplicación criptográfica (`KHOJ-01`, `KHOJ-02`), indexación en VantaDB (`kb/docs` y `kb/facts`), motor de búsqueda híbrida con fusión recíproca (RRF) y filtrado por corte dinámico de similitud coseno (`KHOJ-03`), extracción estructurada de hechos (`KHOJ-04`), motor GraphRAG nativo de expansión relacional, Data Views interactivas en el Canvas declarativo (Record, Query y Relation View), gobernanza estricta con aislamiento en cuarentena de 14 días (`CARP-04`), supersesión atómica no destructiva (`DSEK-01`), consultas bitemporales históricas `AS OF` (`DSEK-02`), serialización portable de bases de conocimiento y el grafo mnemónico del proyecto (Project Memory Graph v0).  
 > **Autonomous:** false  
@@ -119,11 +119,11 @@ flowchart TD
   - *Efecto:* Fallo de lectura que interrumpe la ingesta del lote.
   - *Mitigación:* Captura defensiva por archivo, registro de error detallado y continuación con los demás documentos.
 - **DoD:**
-  - [ ] Paquete `packages/knowledge` configurado en `pnpm-workspace.yaml` con build tipado.
-  - [ ] Implementación de `AdaptiveChunker` con solapamiento y `contentHash` (`KHOJ-01`).
-  - [ ] Implementación de `MarkdownExtractor` con preservación de `heading_path` (`KHOJ-02`).
-  - [ ] Soporte multiformato verificado para MD, TXT, JSON, CSV.
-  - [ ] Suite de pruebas unitarias verificando límites de tokens, deduplicación y preservación de jerarquía.
+  - [x] Paquete `packages/knowledge` configurado en `pnpm-workspace.yaml` con build tipado.
+  - [x] Implementación de `AdaptiveChunker` con solapamiento y `contentHash` (`KHOJ-01`).
+  - [x] Implementación de `MarkdownExtractor` con preservación de `heading_path` (`KHOJ-02`).
+  - [x] Soporte multiformato verificado para MD, TXT, JSON, CSV.
+  - [x] Suite de pruebas unitarias verificando límites de tokens, deduplicación y preservación de jerarquía.
 
 ---
 
@@ -149,10 +149,10 @@ flowchart TD
   - *Efecto:* Error de proceso sin salida clara.
   - *Mitigación:* Captura del código de salida y reporte de diagnóstico en `StructuredLogger`.
 - **DoD:**
-  - [ ] Script `scripts/ingest/bulk_import.py` implementado con interfaz stdio JSONL.
-  - [ ] `PythonSidecarBridge` en TypeScript con detección de runtime y streaming de progreso.
-  - [ ] Fallback transparente al parser de TypeScript si Python no está presente.
-  - [ ] Pruebas unitarias simulando invocación de sidecar y recuperación ante errores.
+  - [x] Script `scripts/ingest/bulk_import.py` implementado con interfaz stdio JSONL.
+  - [x] `PythonSidecarBridge` en TypeScript con detección de runtime y streaming de progreso.
+  - [x] Fallback transparente al parser de TypeScript si Python no está presente.
+  - [x] Pruebas unitarias simulando invocación de sidecar y recuperación ante errores.
 
 ---
 
@@ -179,10 +179,10 @@ flowchart TD
   - *Efecto:* Fallo de indexación.
   - *Mitigación:* Reintento defensivo documentado con backoff según el estándar de `docs/VANTADB-FEEDBACK-Y-MEJORAS.md`.
 - **DoD:**
-  - [ ] Esquemas Zod para registros de `kb/docs` y `kb/facts`.
-  - [ ] Implementación de `KnowledgeIndexer` integrando `EgoMemoryAdapter`.
-  - [ ] Deduplicación verificada por `content_hash`.
-  - [ ] Pruebas unitarias de indexación masiva y verificación de persistencia en VantaDB.
+  - [x] Esquemas Zod para registros de `kb/docs` y `kb/facts`.
+  - [x] Implementación de `KnowledgeIndexer` integrando `EgoMemoryAdapter`.
+  - [x] Deduplicación verificada por `content_hash`.
+  - [x] Pruebas unitarias de indexación masiva y verificación de persistencia en VantaDB.
 
 ---
 
@@ -210,10 +210,10 @@ flowchart TD
   - *Efecto:* Riesgo de error en downstream agents.
   - *Mitigación:* Retorno de conjunto vacío limpio sin excepciones, permitiendo al Cognitive Runtime declarar falta de contexto en vez de inventar.
 - **DoD:**
-  - [ ] Implementación de `CosineThresholdFilter` (`KHOJ-03`).
-  - [ ] Implementación de `HybridSearch` con algoritmo RRF y diversificación MMR.
-  - [ ] Integración de extracción de hechos estructurados (`KHOJ-04`).
-  - [ ] Pruebas unitarias validando ordenamiento RRF, filtrado por umbral y descarte de ruido.
+  - [x] Implementación de `CosineThresholdFilter` (`KHOJ-03`).
+  - [x] Implementación de `HybridSearch` con algoritmo RRF y diversificación MMR.
+  - [x] Integración de extracción de hechos estructurados (`KHOJ-04`).
+  - [x] Pruebas unitarias validando ordenamiento RRF, filtrado por umbral y descarte de ruido.
 
 ---
 
@@ -240,10 +240,10 @@ flowchart TD
   - *Efecto:* Fallo de renderizado en React.
   - *Mitigación:* Error boundary granular con fallback visual a tarjeta de error descriptiva.
 - **DoD:**
-  - [ ] Esquemas Zod para `RecordViewProps`, `QueryViewProps` y `RelationViewProps`.
-  - [ ] Implementación de `RecordView`, `QueryView` y `RelationView` en React 19.
-  - [ ] Conexión reactiva con `useSelectionContext` para inyectar selecciones al chat.
-  - [ ] Pruebas unitarias de componentes con `@testing-library/react` y Vitest.
+  - [x] Esquemas Zod para `RecordViewProps`, `QueryViewProps` y `RelationViewProps`.
+  - [x] Implementación de `RecordView`, `QueryView` y `RelationView` en React 19.
+  - [x] Conexión reactiva con `useSelectionContext` para inyectar selecciones al chat.
+  - [x] Pruebas unitarias de componentes con `@testing-library/react` y Vitest.
 
 ---
 
@@ -269,10 +269,10 @@ flowchart TD
   - *Efecto:* Bucle infinito de recorrido en memoria.
   - *Mitigación:* Set de nodos visitados en memoria (`visitedNodeIds`) para cortar ciclos de inmediato.
 - **DoD:**
-  - [ ] Implementación de `GraphRagEngine` con las 4 fases (Semilla, Expansión, Ponderación, Ensamblado).
-  - [ ] Soporte para expansión de hasta 2 saltos con límite de poda configurable.
-  - [ ] Formateo de salida optimizado para el Cognitive Runtime.
-  - [ ] Suite de pruebas unitarias verificando corte de ciclos, expansión correcta y ranking de nodos.
+  - [x] Implementación de `GraphRagEngine` con las 4 fases (Semilla, Expansión, Ponderación, Ensamblado).
+  - [x] Soporte para expansión de hasta 2 saltos con límite de poda configurable.
+  - [x] Formateo de salida optimizado para el Cognitive Runtime.
+  - [x] Suite de pruebas unitarias verificando corte de ciclos, expansión correcta y ranking de nodos.
 
 ---
 
@@ -298,10 +298,10 @@ flowchart TD
   - *Efecto:* Los hechos se eliminan automáticamente.
   - *Mitigación:* Notificación visual proactiva en el Activity Widget antes de la expiración.
 - **DoD:**
-  - [ ] Formalización de `QuarantineManager` acoplado a `EgoMemoryAdapter`.
-  - [ ] Aislamiento estricto verificado: `searchMulti` excluye `quarantine/pending` por defecto.
-  - [ ] Cálculo de caducidad con TTL de 14 días y método de purga.
-  - [ ] Pruebas unitarias de aislamiento, listado y expiración.
+  - [x] Formalización de `QuarantineManager` acoplado a `EgoMemoryAdapter`.
+  - [x] Aislamiento estricto verificado: `searchMulti` excluye `quarantine/pending` por defecto.
+  - [x] Cálculo de caducidad con TTL de 14 días y método de purga.
+  - [x] Pruebas unitarias de aislamiento, listado y expiración.
 
 ---
 
@@ -327,10 +327,10 @@ flowchart TD
   - *Efecto:* Ciclo infinito de consulta en el linaje.
   - *Mitigación:* Validación previa asegurando que el hecho sustituido no sea descendiente del nuevo hecho.
 - **DoD:**
-  - [ ] Implementación de `FactLifecycle` coordinando promoción y supersesión atómica.
-  - [ ] Verificación de marcado inmutable `SUPERSEDED_BY` y `is_latest: false`.
-  - [ ] Búsquedas en `kb/facts` excluyen registros obsoletos por defecto.
-  - [ ] Suite de pruebas unitarias cubriendo promoción desde cuarentena, linaje de versiones y exclusión de superseded.
+  - [x] Implementación de `FactLifecycle` coordinando promoción y supersesión atómica.
+  - [x] Verificación de marcado inmutable `SUPERSEDED_BY` y `is_latest: false`.
+  - [x] Búsquedas en `kb/facts` excluyen registros obsoletos por defecto.
+  - [x] Suite de pruebas unitarias cubriendo promoción desde cuarentena, linaje de versiones y exclusión de superseded.
 
 ---
 
@@ -357,10 +357,10 @@ flowchart TD
   - *Efecto:* Retorno de conjunto vacío.
   - *Mitigación:* Comportamiento esperado consistente, sin errores en tiempo de ejecución.
 - **DoD:**
-  - [ ] Esquema Zod de metadatos bitemporales (`system_at`, `valid_at`, `invalid_at`).
-  - [ ] Implementación de `BitemporalQueries` con método `asOf()`.
-  - [ ] Filtrado temporal correcto para hechos activos y sustituidos en el tiempo objetivo.
-  - [ ] Pruebas unitarias verificando reconstrucción de estado histórica en múltiples momentos del tiempo.
+  - [x] Esquema Zod de metadatos bitemporales (`system_at`, `valid_at`, `invalid_at`).
+  - [x] Implementación de `BitemporalQueries` con método `asOf()`.
+  - [x] Filtrado temporal correcto para hechos activos y sustituidos en el tiempo objetivo.
+  - [x] Pruebas unitarias verificando reconstrucción de estado histórica en múltiples momentos del tiempo.
 
 ---
 
@@ -386,10 +386,10 @@ flowchart TD
   - *Efecto:* Error de deserialización y riesgo de estado a medias.
   - *Mitigación:* Validación previa del checksum SHA-256 antes de iniciar la inserción en VantaDB.
 - **DoD:**
-  - [ ] Esquema Zod para encabezados de archivo de exportación con versión y checksum.
-  - [ ] Implementación de `KnowledgeExport` con `exportPackage()` e `importPackage()`.
-  - [ ] Filtro activo de saneamiento de credenciales en el volcado.
-  - [ ] Pruebas unitarias de exportación e importación verificando paridad de datos al 100%.
+  - [x] Esquema Zod para encabezados de archivo de exportación con versión y checksum.
+  - [x] Implementación de `KnowledgeExport` con `exportPackage()` e `importPackage()`.
+  - [x] Filtro activo de saneamiento de credenciales en el volcado.
+  - [x] Pruebas unitarias de exportación e importación verificando paridad de datos al 100%.
 
 ---
 
@@ -416,11 +416,11 @@ flowchart TD
   - *Efecto:* Grafo desconectado.
   - *Mitigación:* Aristas opcionales con degradación suave: la cadena vincula directamente Decisión → Commit → Código.
 - **DoD:**
-  - [ ] Esquema Zod del grafo causal de proyecto (`ProjectMemoryNode`, `ProjectMemoryEdge`).
-  - [ ] Implementación de `ProjectMemoryGraph` con trazabilidad completa de la cadena de ingeniería.
-  - [ ] Vinculación automática con veredictos de `gov/audit` y herramientas de Git.
-  - [ ] Integración con el botón contextual de explicabilidad ("¿Por qué?") de `CANV-07`.
-  - [ ] Suite de pruebas unitarias verificando construcción y consulta del grafo de proyecto.
+  - [x] Esquema Zod del grafo causal de proyecto (`ProjectMemoryNode`, `ProjectMemoryEdge`).
+  - [x] Implementación de `ProjectMemoryGraph` con trazabilidad completa de la cadena de ingeniería.
+  - [x] Vinculación automática con veredictos de `gov/audit` y herramientas de Git.
+  - [x] Integración con el botón contextual de explicabilidad ("¿Por qué?") de `CANV-07`.
+  - [x] Suite de pruebas unitarias verificando construcción y consulta del grafo de proyecto.
 
 ---
 

@@ -227,3 +227,59 @@ export const ModelConfigSchema = z.object({
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 
+/**
+ * Esquemas de validación para Knowledge y Memoria a Largo Plazo (Fase 06)
+ */
+export const KnowledgeIngestSchema = z.object({
+  filePath: z.string().optional(),
+  content: z.string().optional(),
+  title: z.string().optional(),
+  mimeType: z.string().default("text/markdown"),
+  projectId: z.string().default("default"),
+});
+
+export type KnowledgeIngestRequest = z.infer<typeof KnowledgeIngestSchema>;
+
+export const KnowledgeHybridSearchSchema = z.object({
+  query: z.string().min(1),
+  topK: z.number().int().positive().max(100).default(10),
+  minConfidence: z.number().min(0).max(1).default(0.7),
+  namespaces: z.array(z.string()).default(["kb/docs", "kb/facts", "gov/audit"]),
+});
+
+export type KnowledgeHybridSearchRequest = z.infer<typeof KnowledgeHybridSearchSchema>;
+
+export const KnowledgeGraphRagSchema = z.object({
+  query: z.string().min(1),
+  maxDepth: z.number().int().positive().max(5).default(2),
+  maxDegreePerNode: z.number().int().positive().max(50).default(10),
+  maxTotalNodes: z.number().int().positive().max(100).default(20),
+  minSimilarity: z.number().min(0).max(1).default(0.7),
+});
+
+export type KnowledgeGraphRagRequest = z.infer<typeof KnowledgeGraphRagSchema>;
+
+export const KnowledgeQuarantineActionSchema = z.object({
+  action: z.enum(["list", "promote", "reject", "purge"]),
+  factId: z.string().optional(),
+  reason: z.string().optional(),
+  promotedBy: z.string().default("user"),
+});
+
+export type KnowledgeQuarantineActionRequest = z.infer<typeof KnowledgeQuarantineActionSchema>;
+
+export const KnowledgeAsOfSchema = z.object({
+  targetTime: z.number(),
+  namespace: z.string().default("kb/facts"),
+  subject: z.string().optional(),
+  limit: z.number().int().positive().default(100),
+});
+
+export type KnowledgeAsOfRequest = z.infer<typeof KnowledgeAsOfSchema>;
+
+export const KnowledgeExplainArtifactSchema = z.object({
+  filePath: z.string().min(1),
+});
+
+export type KnowledgeExplainArtifactRequest = z.infer<typeof KnowledgeExplainArtifactSchema>;
+

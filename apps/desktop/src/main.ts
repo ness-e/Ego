@@ -43,7 +43,24 @@ import {
   type ProjectManifest,
   ModelConfigSchema,
   type ModelConfig,
+  KnowledgeIngestSchema,
+  KnowledgeHybridSearchSchema,
+  KnowledgeGraphRagSchema,
+  KnowledgeQuarantineActionSchema,
+  KnowledgeAsOfSchema,
+  KnowledgeExplainArtifactSchema,
 } from "./ipc/schema.js";
+import {
+  KnowledgeIndexer,
+  HybridSearch,
+  GraphRagEngine,
+  QuarantineManager,
+  FactLifecycle,
+  BitemporalQueries,
+  ProjectMemoryGraph,
+  KnowledgeExport,
+  DocumentParser,
+} from "@ego/knowledge";
 
 let adapter: EgoMemoryAdapter;
 let lifecycle: EgoMemoryLifecycle;
@@ -61,8 +78,45 @@ let mcpManager: McpManager;
 let skillScanner: SkillScanner;
 let eventBus: EventBus;
 let structuredLogger: StructuredLogger;
+let knowledgeIndexer: KnowledgeIndexer;
+let hybridSearch: HybridSearch;
+let graphRagEngine: GraphRagEngine;
+let quarantineManager: QuarantineManager;
+let factLifecycle: FactLifecycle;
+let bitemporalQueries: BitemporalQueries;
+let projectMemoryGraph: ProjectMemoryGraph;
+let knowledgeExport: KnowledgeExport;
+let documentParser: DocumentParser;
 let win: BrowserWindow | null = null;
 let activeProjectId: string = "default";
+
+export function getKnowledgeIndexer(): KnowledgeIndexer {
+  return knowledgeIndexer;
+}
+
+export function getHybridSearch(): HybridSearch {
+  return hybridSearch;
+}
+
+export function getGraphRagEngine(): GraphRagEngine {
+  return graphRagEngine;
+}
+
+export function getQuarantineManager(): QuarantineManager {
+  return quarantineManager;
+}
+
+export function getFactLifecycle(): FactLifecycle {
+  return factLifecycle;
+}
+
+export function getBitemporalQueries(): BitemporalQueries {
+  return bitemporalQueries;
+}
+
+export function getProjectMemoryGraph(): ProjectMemoryGraph {
+  return projectMemoryGraph;
+}
 
 export function getSubEgoRegistry(): SubEgoRegistry {
   return subEgoRegistry;
@@ -468,6 +522,17 @@ export async function createWindow(): Promise<void> {
   decisionAuditor = new DecisionAuditor(adapter);
   decisionTelemetry = new DecisionTelemetry(eventBus);
   loopBreaker = new LoopBreaker({ maxDepth: 4 });
+
+  // Motores de Conocimiento y Memoria a Largo Plazo (Fase 06)
+  knowledgeIndexer = new KnowledgeIndexer(adapter);
+  hybridSearch = new HybridSearch(adapter);
+  graphRagEngine = new GraphRagEngine(adapter);
+  quarantineManager = new QuarantineManager(adapter);
+  factLifecycle = new FactLifecycle(adapter);
+  bitemporalQueries = new BitemporalQueries(adapter);
+  projectMemoryGraph = new ProjectMemoryGraph(adapter);
+  knowledgeExport = new KnowledgeExport(adapter);
+  documentParser = new DocumentParser();
 
   // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers)
   try {
@@ -1110,6 +1175,122 @@ export async function createWindow(): Promise<void> {
   ipcMain.handle("ipc.decision.telemetry", async () => {
     const summary = decisionTelemetry.getSummary();
     return { ok: true, summary };
+  });
+
+  // 7. Knowledge & Long-Term Memory IPC (Fase 06 / KB-01..11)
+  ipcMain.handle("ipc.knowledge.ingest", async (_e, rawReq: unknown) => {
+    const parseResult = KnowledgeIngestSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const req = parseResult.data;
+
+    const parsed = req.filePath
+      ? await documentParser.parseFile(req.filePath)
+      : documentParser.parseContent(req.content || "", req.title || "inline", req.mimeType);
+
+    const indexResult = await knowledgeIndexer.indexDocument(parsed, {
+      projectId: req.projectId,
+    });
+    return { ok: true, ...indexResult };
+  });
+
+  ipcMain.handle("ipc.knowledge.hybridSearch", async (_e, rawReq: unknown) => {
+    const parseResult = KnowledgeHybridSearchSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const req = parseResult.data;
+    const hits = await hybridSearch.search(req.query, {
+      topK: req.topK,
+      minConfidence: req.minConfidence,
+      namespaces: req.namespaces,
+    });
+    return { ok: true, hits };
+  });
+
+  ipcMain.handle("ipc.knowledge.graphRag", async (_e, rawReq: unknown) => {
+    const parseResult = KnowledgeGraphRagSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const req = parseResult.data;
+    const context = await graphRagEngine.search(req.query, {
+      maxDepth: req.maxDepth,
+      maxDegreePerNode: req.maxDegreePerNode,
+      maxTotalNodes: req.maxTotalNodes,
+      minSimilarity: req.minSimilarity,
+    });
+    return { ok: true, context };
+  });
+
+  ipcMain.handle("ipc.knowledge.quarantine", async (_e, rawReq: unknown) => {
+    const parseResult = KnowledgeQuarantineActionSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const req = parseResult.data;
+    if (req.action === "list") {
+      const pending = await quarantineManager.listPending();
+      return { ok: true, pending };
+    }
+    if (req.action === "promote" && req.factId) {
+      try {
+        const promoted = await factLifecycle.promoteFromQuarantine(req.factId, {
+          promotedBy: req.promotedBy,
+        });
+        return { ok: true, promoted };
+      } catch (err: any) {
+        return { ok: false, error: err?.message || "Error al promover fact" };
+      }
+    }
+    if (req.action === "reject" && req.factId) {
+      const deleted = await quarantineManager.reject(req.factId);
+      return { ok: true, deleted };
+    }
+    if (req.action === "purge") {
+      const purged = await quarantineManager.purgeExpired();
+      return { ok: true, purged };
+    }
+    return { ok: false, error: "Acción de cuarentena no soportada" };
+  });
+
+  ipcMain.handle("ipc.knowledge.asOf", async (_e, rawReq: unknown) => {
+    const parseResult = KnowledgeAsOfSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const req = parseResult.data;
+    const facts = await bitemporalQueries.asOf(req.targetTime, {
+      namespace: req.namespace,
+      subject: req.subject,
+      limit: req.limit,
+    });
+    return { ok: true, facts };
+  });
+
+  ipcMain.handle("ipc.knowledge.explainArtifact", async (_e, rawReq: unknown) => {
+    const parseResult = KnowledgeExplainArtifactSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const req = parseResult.data;
+    const explanation = await projectMemoryGraph.explainArtifact(req.filePath);
+    return { ok: true, explanation };
+  });
+
+  ipcMain.handle("ipc.knowledge.export", async (_e, projectId?: unknown) => {
+    const pId = typeof projectId === "string" ? projectId : activeProjectId;
+    const pkg = await knowledgeExport.exportPackage(pId);
+    return { ok: true, pkg };
+  });
+
+  ipcMain.handle("ipc.knowledge.import", async (_e, pkg: unknown) => {
+    if (typeof pkg !== "object" || pkg === null) {
+      return { ok: false, error: "Paquete de importación inválido" };
+    }
+    const result = await knowledgeExport.importPackage(pkg as any);
+    return { ok: true, result };
   });
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)
