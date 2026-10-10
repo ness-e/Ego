@@ -272,3 +272,51 @@ export const CanvasWorkspaceStateSchema = z.object({
 });
 
 export type CanvasWorkspaceState = z.infer<typeof CanvasWorkspaceStateSchema>;
+
+/**
+ * Esquema de tokens del Sistema de Diseño Generativo de Ego (EGDS)
+ */
+export const DesignSystemTokensSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  version: z.number().int().positive().default(1),
+  colors: z.object({
+    brand: z.string().default("#38bdf8"),
+    background: z.string().default("#0c0a09"),
+    panel: z.string().default("#171717"),
+    raised: z.string().default("#262626"),
+    text: z.string().default("#fafafa"),
+    muted: z.string().default("#a1a1aa"),
+    border: z.string().default("#2e2e2e"),
+    success: z.string().default("#10b981"),
+    warning: z.string().default("#f59e0b"),
+    error: z.string().default("#f43f5e"),
+  }),
+  geometry: z.object({
+    radius: z.enum(["none", "sm", "md", "lg", "full"]).default("md"),
+    density: z.enum(["compact", "comfortable", "spacious"]).default("comfortable"),
+  }),
+  typography: z.object({
+    fontFamily: z.enum(["sans", "mono", "serif"]).default("sans"),
+    baseSizePx: z.number().int().min(10).max(20).default(13),
+  }),
+});
+
+export type DesignSystemTokens = z.infer<typeof DesignSystemTokensSchema>;
+
+/**
+ * Esquema de plantillas de composición reutilizables generables por Sub-Egos
+ */
+export const LayoutTemplateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  category: z.enum(["engineering", "product", "analytics", "operations", "custom"]).default("custom"),
+  layoutType: z.enum(["grid", "stream", "split"]).default("grid"),
+  components: z.array(CanvasComponentManifestSchema),
+  creator: z.string().default("ego.nucleus"),
+  createdAt: z.number().default(() => Date.now()),
+});
+
+export type LayoutTemplate = z.infer<typeof LayoutTemplateSchema>;
+

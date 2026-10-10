@@ -10,6 +10,8 @@ import {
   TerminalPropsSchema,
   CanvasComponentManifestSchema,
   CanvasWorkspaceStateSchema,
+  DesignSystemTokensSchema,
+  LayoutTemplateSchema,
 } from "../src/index.js";
 
 describe("CANV-01: Esquemas declarativos Zod de UI Runtime", () => {
@@ -276,4 +278,86 @@ describe("CANV-01: Esquemas declarativos Zod de UI Runtime", () => {
       expect(parsed.updatedAt).toBeTypeOf("number");
     });
   });
+
+  describe("10. DesignSystemTokensSchema (EGDS)", () => {
+    it("debe validar un tema personalizado completo con colores semánticos y geometría", () => {
+      const customTheme = {
+        id: "theme-midnight-cyan",
+        name: "Medianoche Cyan",
+        colors: {
+          brand: "#06b6d4",
+          background: "#030712",
+          panel: "#111827",
+          raised: "#1f2937",
+          text: "#f9fafb",
+          muted: "#9ca3af",
+          border: "#374151",
+          success: "#10b981",
+          warning: "#f59e0b",
+          error: "#ef4444",
+        },
+        geometry: {
+          radius: "lg",
+          density: "compact",
+        },
+        typography: {
+          fontFamily: "mono",
+          baseSizePx: 12,
+        },
+      };
+
+      const parsed = DesignSystemTokensSchema.parse(customTheme);
+      expect(parsed.name).toBe("Medianoche Cyan");
+      expect(parsed.colors.brand).toBe("#06b6d4");
+      expect(parsed.geometry.radius).toBe("lg");
+      expect(parsed.geometry.density).toBe("compact");
+    });
+
+    it("debe aplicar valores por defecto ante tokens mínimos", () => {
+      const minimalTheme = {
+        id: "theme-minimal",
+        name: "Tema Mínimo",
+        colors: {},
+        geometry: {},
+        typography: {},
+      };
+
+      const parsed = DesignSystemTokensSchema.parse(minimalTheme);
+      expect(parsed.colors.brand).toBe("#38bdf8");
+      expect(parsed.geometry.radius).toBe("md");
+      expect(parsed.typography.fontFamily).toBe("sans");
+    });
+  });
+
+  describe("11. LayoutTemplateSchema", () => {
+    it("debe validar una plantilla de composición generada por un Sub-Ego", () => {
+      const template = {
+        id: "template-code-audit",
+        name: "Auditoría de Código y Diffs",
+        description: "Plantilla especializada para revisión de cambios con terminal y diff viewer",
+        category: "engineering",
+        layoutType: "split",
+        creator: "ego.developer",
+        components: [
+          {
+            id: "comp-diff-1",
+            type: "diff",
+            props: {
+              id: "d-1",
+              filePath: "src/engine.ts",
+              originalContent: "a",
+              modifiedContent: "b",
+            },
+          },
+        ],
+      };
+
+      const parsed = LayoutTemplateSchema.parse(template);
+      expect(parsed.name).toBe("Auditoría de Código y Diffs");
+      expect(parsed.category).toBe("engineering");
+      expect(parsed.creator).toBe("ego.developer");
+      expect(parsed.components).toHaveLength(1);
+    });
+  });
 });
+

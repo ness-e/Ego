@@ -7,3 +7,4 @@ export * from "./traits/index.js";
 export * from "./CharacterCanvas.js";
 export * from "./CharacterMiniBadge.js";
 export * from "./CharacterBadge.js";
+export * from "./wardrobe/WardrobeSelector.js";

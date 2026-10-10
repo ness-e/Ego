@@ -1,0 +1,241 @@
+import type { CanvasComponentManifest } from "./schemas/components.js";
+
+export interface CanvasChangeSet<T = unknown> {
+  id: string;
+  componentId: string;
+  timestamp: number;
+  op: "insert" | "update" | "delete" | "replace";
+  path?: string;
+  previousValue?: T;
+  newValue: T;
+  origin: "user" | "subego" | "system";
+}
+
+export interface CanvasActionEvent {
+  type: "canvas.action";
+  componentId: string;
+  actionId: string;
+  payload?: Record<string, unknown>;
+  timestamp: number;
+}
+
+export interface CanvasMutationEvent {
+  type: "canvas.mutation";
+  changeSet: CanvasChangeSet;
+  timestamp: number;
+}
+
+export interface CanvasFocusEvent {
+  type: "canvas.focus";
+  componentId: string;
+  contextExcerpt?: string;
+  timestamp: number;
+}
+
+export interface CanvasInjectEvent {
+  type: "canvas.inject";
+  manifest: CanvasComponentManifest;
+  timestamp: number;
+}
+
+export interface CanvasRemoveEvent {
+  type: "canvas.remove";
+  componentId: string;
+  timestamp: number;
+}
+
+export type CanvasEvent =
+  | CanvasActionEvent
+  | CanvasMutationEvent
+  | CanvasFocusEvent
+  | CanvasInjectEvent
+  | CanvasRemoveEvent;
+
+export type CanvasEventListener<T = CanvasEvent> = (event: T) => void;
+
+/**
+ * CanvasBridge — Protocolo bidireccional Chat <-> Canvas con ChangeSets atómicos (COUC-07 / OCLW-11)
+ */
+export class CanvasBridge {
+  private components: Map<string, CanvasComponentManifest> = new Map();
+  private listeners: Map<string, Set<CanvasEventListener<any>>> = new Map();
+  private focusedContext: { componentId: string; excerpt?: string } | null = null;
+
+  constructor(initialComponents: CanvasComponentManifest[] = []) {
+    for (const comp of initialComponents) {
+      this.components.set(comp.id, comp);
+    }
+  }
+
+  public getComponents(): CanvasComponentManifest[] {
+    return Array.from(this.components.values());
+  }
+
+  public getComponent(id: string): CanvasComponentManifest | undefined {
+    return this.components.get(id);
+  }
+
+  public on<T extends CanvasEvent = CanvasEvent>(
+    eventType: T["type"] | "*",
+    listener: CanvasEventListener<T>
+  ): () => void {
+    if (!this.listeners.has(eventType)) {
+      this.listeners.set(eventType, new Set());
+    }
+    this.listeners.get(eventType)!.add(listener);
+
+    return () => {
+      this.off(eventType, listener);
+    };
+  }
+
+  public off<T extends CanvasEvent = CanvasEvent>(
+    eventType: T["type"] | "*",
+    listener: CanvasEventListener<T>
+  ): void {
+    const set = this.listeners.get(eventType);
+    if (set) {
+      set.delete(listener);
+      if (set.size === 0) {
+        this.listeners.delete(eventType);
+      }
+    }
+  }
+
+  public emit(event: CanvasEvent): void {
+    // Listeners del evento específico
+    const specific = this.listeners.get(event.type);
+    if (specific) {
+      for (const listener of specific) {
+        try {
+          listener(event);
+        } catch (err) {
+          console.error(`[CanvasBridge] Error en listener para ${event.type}:`, err);
+        }
+      }
+    }
+
+    // Wildcard listeners
+    const wildcard = this.listeners.get("*");
+    if (wildcard) {
+      for (const listener of wildcard) {
+        try {
+          listener(event);
+        } catch (err) {
+          console.error("[CanvasBridge] Error en wildcard listener:", err);
+        }
+      }
+    }
+  }
+
+  /**
+   * Despacha una acción originada en un componente del Canvas hacia el Chat / Sub-Ego
+   */
+  public dispatchAction(
+    componentId: string,
+    actionId: string,
+    payload?: Record<string, unknown>
+  ): void {
+    const event: CanvasActionEvent = {
+      type: "canvas.action",
+      componentId,
+      actionId,
+      payload,
+      timestamp: Date.now(),
+    };
+    this.emit(event);
+  }
+
+  /**
+   * Aplica un ChangeSet atómico a un componente del Canvas (COUC-07)
+   */
+  public applyChangeSet(changeSet: CanvasChangeSet): boolean {
+    const comp = this.components.get(changeSet.componentId);
+    if (!comp) {
+      console.warn(`[CanvasBridge] Componente ${changeSet.componentId} no encontrado para ChangeSet`);
+      return false;
+    }
+
+    try {
+      const clonedProps = JSON.parse(JSON.stringify(comp.props));
+
+      if (changeSet.op === "replace") {
+        comp.props = changeSet.newValue as any;
+      } else if (changeSet.op === "update") {
+        if (changeSet.path) {
+          const parts = changeSet.path.split(".");
+          let current: any = clonedProps;
+          for (let i = 0; i < parts.length - 1; i++) {
+            if (!(parts[i] in current)) {
+              current[parts[i]] = {};
+            }
+            current = current[parts[i]];
+          }
+          current[parts[parts.length - 1]] = changeSet.newValue;
+          comp.props = clonedProps;
+        } else if (typeof changeSet.newValue === "object" && changeSet.newValue !== null) {
+          comp.props = { ...clonedProps, ...changeSet.newValue };
+        }
+      }
+
+      this.components.set(comp.id, comp);
+
+      const event: CanvasMutationEvent = {
+        type: "canvas.mutation",
+        changeSet,
+        timestamp: Date.now(),
+      };
+      this.emit(event);
+      return true;
+    } catch (err) {
+      console.error(`[CanvasBridge] Fallo al aplicar ChangeSet ${changeSet.id}:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Inyecta o actualiza un manifiesto emitido desde el Chat o un Sub-Ego
+   */
+  public injectComponent(manifest: CanvasComponentManifest): void {
+    this.components.set(manifest.id, manifest);
+    const event: CanvasInjectEvent = {
+      type: "canvas.inject",
+      manifest,
+      timestamp: Date.now(),
+    };
+    this.emit(event);
+  }
+
+  /**
+   * Elimina un componente de la superficie de trabajo
+   */
+  public removeComponent(componentId: string): void {
+    if (this.components.has(componentId)) {
+      this.components.delete(componentId);
+      const event: CanvasRemoveEvent = {
+        type: "canvas.remove",
+        componentId,
+        timestamp: Date.now(),
+      };
+      this.emit(event);
+    }
+  }
+
+  /**
+   * Notifica enfoque contextual (celda, texto, fila) para alimentar el River de Chat
+   */
+  public focusComponent(componentId: string, contextExcerpt?: string): void {
+    this.focusedContext = { componentId, excerpt: contextExcerpt };
+    const event: CanvasFocusEvent = {
+      type: "canvas.focus",
+      componentId,
+      contextExcerpt,
+      timestamp: Date.now(),
+    };
+    this.emit(event);
+  }
+
+  public getFocusedContext(): { componentId: string; excerpt?: string } | null {
+    return this.focusedContext;
+  }
+}

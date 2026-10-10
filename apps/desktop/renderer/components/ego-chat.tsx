@@ -11,6 +11,7 @@ import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
 import { ego, RecallBadgeInfo, PendingApprovalInfo } from "../lib/ego";
 import { ApprovalCard } from "./tools/ApprovalCard";
 import { CharacterBadge } from "./character/CharacterBadge.js";
+import { useCanvasBridge } from "../hooks/useCanvasBridge";
 
 function Text({ text }: { text: string }) {
   return <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>;
@@ -67,6 +68,8 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
   const [activeError, setActiveError] = useState<ActiveChatError | null>(null);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
   const currentPromptRef = useRef<string>("");
+
+  const { focusedContext, onAction } = useCanvasBridge();
 
   // Subscripción reactiva a solicitudes de aprobación HITL (ACT-07)
   useEffect(() => {
@@ -174,6 +177,16 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
     }
   }, [projectId, subEgoId]);
 
+  // Sincronización reactiva: acciones disparadas en el Canvas alimentan el Chat (CANV-03 / COUC-07)
+  useEffect(() => {
+    const unsub = onAction((act) => {
+      executeTurn(`[Acción de Canvas en ${act.componentId}]: ${act.actionId}`);
+    });
+    return () => {
+      unsub();
+    };
+  }, [onAction, executeTurn]);
+
   const handleRetry = useCallback(() => {
     if (!activeError?.prompt) return;
     const promptToRetry = activeError.prompt;
@@ -257,6 +270,16 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
                 onResolve={(decision) => handleResolveApproval(req.approvalId, decision)}
               />
             ))}
+          </div>
+        )}
+
+        {/* Pastilla de contexto enfocado en Canvas (CANV-03 / CANV-04) */}
+        {focusedContext && (
+          <div className="flex items-center justify-between bg-raised/60 px-3 py-1.5 text-[11px] text-dim border-t border-hairline font-mono">
+            <span className="truncate">
+              Enfoque Canvas: <strong className="text-ink">{focusedContext.componentId}</strong>
+              {focusedContext.excerpt ? ` — "${focusedContext.excerpt}"` : ""}
+            </span>
           </div>
         )}
 
