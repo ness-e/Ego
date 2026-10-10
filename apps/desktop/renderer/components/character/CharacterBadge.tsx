@@ -14,6 +14,7 @@ export interface CharacterBadgeProps {
   state?: CharacterState;
   size?: number;          // Dimensión en píxeles CSS (default: 28)
   animated?: boolean;     // Si es false, renderiza 1 fotograma estático sin rAF continuo
+  outfitId?: string | null; // Override opcional de atuendo Coucou Mochi
   className?: string;
   title?: string;
 }
@@ -23,6 +24,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   state = "idle",
   size = 28,
   animated = false,
+  outfitId,
   className = "",
   title,
 }) => {
@@ -55,17 +57,23 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
     // Configuración morfológica del motor según el preset
     engine.bodyColor = hexToRGB(preset.bodyColors[0]);
     engine.permanentEye = preset.eyeShape;
+    // Conectar atuendo canónico de Coucou Mochi
+    engine.setOutfit(outfitId !== undefined ? outfitId : (preset.outfitId ?? null));
 
-    // Configurar dibujado de traits mediante capas
+    // Configurar dibujado de traits mediante capas si existen
     engine.customBackDraw = (ctx: CanvasRenderingContext2D, head: HeadFrame) => {
-      TraitRegistry.renderLayer("back", ctx, head, preset.traits, preset.accentColor, 0.9);
+      if (preset.traits && preset.traits.length > 0) {
+        TraitRegistry.renderLayer("back", ctx, head, preset.traits, preset.accentColor, 0.9);
+      }
     };
 
     engine.customFrontDraw = (ctx: CanvasRenderingContext2D, head: HeadFrame) => {
-      TraitRegistry.renderLayer("front", ctx, head, preset.traits, preset.accentColor, 0.95);
-      TraitRegistry.renderLayer("overlay", ctx, head, preset.traits, preset.accentColor, fsm.channels.aura);
+      if (preset.traits && preset.traits.length > 0) {
+        TraitRegistry.renderLayer("front", ctx, head, preset.traits, preset.accentColor, 0.95);
+        TraitRegistry.renderLayer("overlay", ctx, head, preset.traits, preset.accentColor, fsm.channels.aura);
+      }
     };
-  }, [preset, engine, fsm]);
+  }, [preset, outfitId, engine, fsm]);
 
   // Ciclo de renderizado (Estático vs Animado continuo)
   useEffect(() => {

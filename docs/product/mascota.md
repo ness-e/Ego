@@ -76,7 +76,7 @@ Sub-Ego (Especialista Cognitivo)
   * **Ego Base:** Forma base neutra de la familia, sin rasgos adicionales, paleta sobria, mirada serena (silueta definitiva pendiente de `CHAR-03`).
   * **Sub-Ego Dev (ejemplo):** misma familia, proporción ligeramente alargada, acento frío, inclinación hacia adelante, rasgo sensorial de enfoque.
   * **Sub-Ego Finanzas (ejemplo):** misma familia, proporción compacta, acento sobrio, postura erguida, movimiento contenido.
-  * Regla: la diferenciación usa proporción, `traits`, acento, ritmo y mirada. **Nunca ropa ni elementos humanos.**
+  * Regla de diferenciación: la identidad utiliza la silueta squircle Coucou Mochi, la paleta de colores de dominio, morfología de ojos (`eyeShape`) y el **guardarropa modular canónico (`Wardrobe`: gafas, gorros, bufandas, coronas, lazos)** según [`character-art-direction.md`](character-art-direction.md).
 * **Estado Operativo:** ¿Qué está haciendo?
   * `idle`, `listening`, `thinking`, `working`, `searching`, `using_tool`, `waiting`, `approval_required`, `question`, `success`, `warning`, `error`, `sleeping`, `attention`.
 
