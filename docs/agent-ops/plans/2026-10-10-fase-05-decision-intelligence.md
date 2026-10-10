@@ -1,7 +1,7 @@
 # Plan de Ejecución: Fase 05 — Decision Intelligence (P0-Alpha / Hito Alpha)
 
 > **Fecha:** 2026-10-10  
-> **Estado:** ⏳ READY FOR EXECUTION  
+> **Estado:** ✅ COMPLETED  
 > **Fuente Canónica:** `docs/roadmap/Backlog.md` (Fase 05: `DEC-01..09`)  
 > **Objetivo:** Automatizar la toma de decisiones cognitivas desacopladas: clasificación tipada de intenciones, scoring con cascada de 3 niveles (Reglas → Jev opcional → LLM estructurado), enrutamiento por afinidad de capacidades a Sub-Egos, detección y corte de bucles infinitos, persistencia inmutable en `gov/audit`, telemetría de latencia (800–1500 ms) y cierre definitivo del hito P0-Alpha mediante la validación automatizada del Golden Path Alpha completo (20 pasos).  
 > **Autonomous:** false  
@@ -121,10 +121,10 @@ flowchart TD
   - *Efecto:* Fallo en el despacho del turno conversacional.
   - *Mitigación:* Validación estricta con `safeParse` de Zod antes de emitir el veredicto; fallback a reglas de seguridad deterministas.
 - **DoD:**
-  - [ ] Paquete `packages/decision` configurado en `pnpm-workspace.yaml` con build tipado.
-  - [ ] `DecisionVerdictSchema` implementado con Zod y tipado estricto.
-  - [ ] Interfaz abstracta `DecisionRouter` implementada con despacho síncrono/asíncrono.
-  - [ ] Suite de pruebas unitarias verificando validación y rechazo de veredictos inválidos.
+  - [x] Paquete `packages/decision` configurado en `pnpm-workspace.yaml` con build tipado.
+  - [x] `DecisionVerdictSchema` implementado con Zod y tipado estricto.
+  - [x] Interfaz abstracta `DecisionRouter` implementada con despacho síncrono/asíncrono.
+  - [x] Suite de pruebas unitarias verificando validación y rechazo de veredictos inválidos.
 
 ---
 
@@ -150,10 +150,10 @@ flowchart TD
   - *Efecto:* Fallo de clasificación o bloqueo de turno.
   - *Mitigación:* Normalización de entrada y fallback seguro al dominio general con `confidence = 0.5`.
 - **DoD:**
-  - [ ] `IntentClassifier` implementado con mapeo a dominios canónicos (`engineering`, `knowledge`, etc.).
-  - [ ] Evaluación causal de precondiciones verificando estado de proyecto y workspace.
-  - [ ] Generación de hash canónico SHA-256 (`intentDigest`).
-  - [ ] Pruebas unitarias cubriendo inputs ambiguos, bordes vacíos y expresiones multilingües.
+  - [x] `IntentClassifier` implementado con mapeo a dominios canónicos (`engineering`, `knowledge`, etc.).
+  - [x] Evaluación causal de precondiciones verificando estado de proyecto y workspace.
+  - [x] Generación de hash canónico SHA-256 (`intentDigest`).
+  - [x] Pruebas unitarias cubriendo inputs ambiguos, bordes vacíos y expresiones multilingües.
 
 ---
 
@@ -178,10 +178,10 @@ flowchart TD
   - *Efecto:* Inhabilidad para decidir el Sub-Ego o herramientas.
   - *Mitigación:* Fallback universal ultra-seguro a `ego.nucleus` (General) con tier local y herramientas de sólo lectura.
 - **DoD:**
-  - [ ] Implementación de `DeterministicRules` con catálogo base de patrones de software, conocimiento y tareas.
-  - [ ] Implementación de `DecisionCascade` orquestando los 3 niveles con timeouts configurables.
-  - [ ] Degradación suave a Nivel 3 y Nivel 1 verificado ante fallos de conexión simulados.
-  - [ ] Cobertura de pruebas unitarias verificando resolución en Nivel 1, 2 y 3.
+  - [x] Implementación de `DeterministicRules` con catálogo base de patrones de software, conocimiento y tareas.
+  - [x] Implementación de `DecisionCascade` orquestando los 3 niveles con timeouts configurables.
+  - [x] Degradación suave a Nivel 3 y Nivel 1 verificado ante fallos de conexión simulados.
+  - [x] Cobertura de pruebas unitarias verificando resolución en Nivel 1, 2 y 3.
 
 ---
 
@@ -207,10 +207,10 @@ flowchart TD
   - *Efecto:* Riesgo de latencia acumulada en el turno.
   - *Mitigación:* Abort estricto a los 500ms y salto transparente a Nivel 3.
 - **DoD:**
-  - [ ] `JevProvider` implementa la interfaz común `DecisionScorerProvider`.
-  - [ ] Soporte para BYOK y lectura segura de variable o keychain.
-  - [ ] Manejo de timeouts (500ms) y degradación graciosa.
-  - [ ] Suite de pruebas unitarias con mock server HTTP verificando respuestas válidas, errores 500 y timeouts.
+  - [x] `JevProvider` implementa la interfaz común `DecisionScorerProvider`.
+  - [x] Soporte para BYOK y lectura segura de variable o keychain.
+  - [x] Manejo de timeouts (500ms) y degradación graciosa.
+  - [x] Suite de pruebas unitarias con mock server HTTP verificando respuestas válidas, errores 500 y timeouts.
 
 ---
 
@@ -236,10 +236,10 @@ flowchart TD
   - *Efecto:* Imposibilidad de seleccionar un agente ejecutor.
   - *Mitigación:* Fallback forzado e inmutable a `ego.nucleus` nativo.
 - **DoD:**
-  - [ ] `SubEgoSelector` implementado con matching de capacidades y cálculo de afinidad.
-  - [ ] Integración con `SubEgoRegistry` de `@ego/subegos`.
-  - [ ] Protección inmutable de `ego.nucleus` ante fallos o ausencia de especialistas.
-  - [ ] Pruebas unitarias cubriendo matching perfecto, fallbacks por afinidad baja y Sub-Egos inactivos.
+  - [x] `SubEgoSelector` implementado con matching de capacidades y cálculo de afinidad.
+  - [x] Integración con `SubEgoRegistry` de `@ego/subegos`.
+  - [x] Protección inmutable de `ego.nucleus` ante fallos o ausencia de especialistas.
+  - [x] Pruebas unitarias cubriendo matching perfecto, fallbacks por afinidad baja y Sub-Egos inactivos.
 
 ---
 
@@ -265,9 +265,9 @@ flowchart TD
   - *Efecto:* Bucle infinito de inferencia, consumo de créditos y congelamiento.
   - *Mitigación:* `LoopBreaker` aborta a la 4ª transición y fuerza intervención humana interactiva.
 - **DoD:**
-  - [ ] Implementación de `LoopBreaker` con seguimiento de trazas de delegación y profundidad.
-  - [ ] Generación de directiva estructurada de clarificación (`HERM-03`) ante incertidumbre o bucle.
-  - [ ] Pruebas unitarias simulando bucles de delegación A->B->A y recursión profunda (`depth > 4`).
+  - [x] Implementación de `LoopBreaker` con seguimiento de trazas de delegación y profundidad.
+  - [x] Generación de directiva estructurada de clarificación (`HERM-03`) ante incertidumbre o bucle.
+  - [x] Pruebas unitarias simulando bucles de delegación A->B->A y recursión profunda (`depth > 4`).
 
 ---
 
@@ -293,9 +293,9 @@ flowchart TD
   - *Efecto:* Fallo de auditoría.
   - *Mitigación:* Captura defensiva, registro de advertencia en logs estructurados y prosecución del turno sin colgar la UI.
 - **DoD:**
-  - [ ] `DecisionAuditor` integrado con `EgoMemoryAdapter`.
-  - [ ] Escritura verificada en namespace `gov/audit` con clave canónica `verdict:<runId>:<timestamp>`.
-  - [ ] Pruebas unitarias y de integración con VantaDB verificando persistencia y recuperación intacta.
+  - [x] `DecisionAuditor` integrado con `EgoMemoryAdapter`.
+  - [x] Escritura verificada en namespace `gov/audit` con clave canónica `verdict:<runId>:<timestamp>`.
+  - [x] Pruebas unitarias y de integración con VantaDB verificando persistencia y recuperación intacta.
 
 ---
 
@@ -324,9 +324,9 @@ flowchart TD
   - *Efecto:* Aumento no intencionado de latencia en el fast path.
   - *Mitigación:* Estructura en memoria ligera O(1) con muestreo eficiente.
 - **DoD:**
-  - [ ] Implementación de `DecisionTelemetry` con recolección de latencias por etapa.
-  - [ ] Emisión de eventos tipados al `EventBus`.
-  - [ ] Pruebas unitarias verificando cálculo de percentiles y bajo overhead (< 1ms).
+  - [x] Implementación de `DecisionTelemetry` con recolección de latencias por etapa.
+  - [x] Emisión de eventos tipados al `EventBus`.
+  - [x] Pruebas unitarias verificando cálculo de percentiles y bajo overhead (< 1ms).
 
 ---
 
@@ -368,11 +368,11 @@ flowchart TD
   - *Efecto:* Pérdida de datos del usuario al cerrar la aplicación (viola el Principio Innegociable §1).
   - *Mitigación:* Verificación de hash criptográfico de los artefactos antes del cierre y tras la reapertura.
 - **DoD:**
-  - [ ] Suite E2E completa implementada en `tests/e2e/golden-path-alpha-full.test.ts`.
-  - [ ] Validación secuencial exitosa de los 20 pasos del Golden Path Alpha.
-  - [ ] Verificación de durabilidad completa post-reinicio en VantaDB real.
-  - [ ] Cero regresiones en los 330+ tests del monorepo y `pnpm build` con exit code 0.
-  - [ ] Actualización del Backlog Maestro marcando el Hito P0-Alpha como completado.
+  - [x] Suite E2E completa implementada en `tests/e2e/golden-path-alpha-full.test.ts`.
+  - [x] Validación secuencial exitosa de los 20 pasos del Golden Path Alpha.
+  - [x] Verificación de durabilidad completa post-reinicio en VantaDB real.
+  - [x] Cero regresiones en los 330+ tests del monorepo y `pnpm build` con exit code 0.
+  - [x] Actualización del Backlog Maestro marcando el Hito P0-Alpha como completado.
 
 ---
 
