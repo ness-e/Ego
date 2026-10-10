@@ -1,7 +1,7 @@
 # Plan de Ejecución: Fase 07 — Tasks & Background (P0-Beta)
 
 > **Fecha:** 2026-10-10  
-> **Estado:** ⏳ PLAN  
+> **Estado:** 🟢 COMPLETED  
 > **Fuente Canónica:** `docs/roadmap/Backlog.md` (Fase 07: `TASK-01..11` + `WIDG-01..04`)  
 > **Objetivo:** Implementar la infraestructura completa de ejecución continua asíncrona, memoria de tareas aislada de la conversación (`OCLW-13`), puntos de control atómicos resilientes a caídas del sistema (`OCLW-15`, `MEMG-20`), scheduler adaptativo con control de concurrencia y saturación de recursos, bandeja de actividad no invasiva en el footer con FSM de atención de Coucou (`COUC-06`), cancelación cooperativa multi-capa mediante `AbortSignal` (DIST-20), proactividad autónoma de Sub-Egos mediante cron y observadores de archivos, consolidación onírica de memoria en periodos de inactividad ("Dream Consolidation", `KHOJ-05`), ventana flotante desacoplada de escritorio (`WIDG-01..04`) y verificación integral de caos post-crash.  
 > **Autonomous:** false  
@@ -849,3 +849,168 @@ Para declarar la Fase 07 formalmente como `COMPLETED` y habilitar el pase a la F
 4. **Gobernanza y Sincronización:**
    - Registro de cualquier hallazgo nuevo en `docs/VANTADB-FEEDBACK-Y-MEJORAS.md`.
    - Sincronización de estados en `docs/roadmap/Backlog.md` y actualización del plan a `COMPLETED`.
+
+=== RECITATION TASK-01 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: BackgroundEngine implementado con colas de prioridad, reintentos, timeouts y emisión de eventos. 5 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-02 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: TaskMemory implementado con aislamiento en namespace tasks/<taskId>/ sobre EgoMemoryAdapter. 4 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-03 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: TaskCheckpointManager implementado con checksum SHA-256 (MEMG-20, OCLW-15) y rotación sobre EgoMemoryAdapter. 4 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-04 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: ResourceScheduler implementado con control de heap/lag de EventLoop y ordenamiento con aging. 4 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-09 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: TaskCancellationManager implementado con AbortSignal nativo cooperativo e idempotencia. 5 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-11 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Propagación de AbortSignal a operaciones nativas (DIST-20 / TASK-11) implementada y testeada con éxito.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-05 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: ActivityTray implementado en apps/desktop/renderer e integrado en footer shell.tsx/App.tsx. 4 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-06 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: TaskNotificationManager implementado con severidad, deduplicación y buffer circular. 4 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION WIDG-03 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: AttentionStateMachine implementada en @ego/runtime con estados Coucou COUC-06, colapso y prioridades. 5 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-07 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: ProactivityEngine implementado con cron parser de 5 campos y observadores de archivos con debounce. 4 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-08 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: DreamConsolidator implementado con purga de cuarentena y supersesión atómica en kb/facts. 3 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION WIDG-04 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: WidgetHitlBridge implementado con protocolo de admisión ACK <= 800ms y resolución en ApprovalEngine. 3 tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION WIDG-01 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: FloatingWindowPrototype implementado con frameless, click-through y reposicionamiento en monitor cercano. Tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION WIDG-02 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: FloatingWindowManager implementado con control de visibilidad, silenciado y modo HITL interactivo. Tests pasando.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION TASK-10 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Prueba de resiliencia ante crash task-crash-resume.test.ts completada con éxito. Reanudación exacta desde checkpoint 6 validada.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===

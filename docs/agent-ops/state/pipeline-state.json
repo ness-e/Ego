@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-10-09T21:05:00.000Z",
+  "lastUpdated": "2026-10-10T21:35:10.160Z",
   "activePlan": "docs/agent-ops/plans/2026-10-09-plan-20-tareas-mvp.md",
   "inProgressTask": null,
   "completedTasks": [
@@ -10,7 +10,22 @@
     "SUB-01",
     "SUB-02",
     "SUB-03",
-    "SUB-04"
+    "SUB-04",
+    "TASK-01",
+    "TASK-02",
+    "TASK-03",
+    "TASK-04",
+    "TASK-09",
+    "TASK-11",
+    "TASK-05",
+    "TASK-06",
+    "WIDG-03",
+    "TASK-07",
+    "TASK-08",
+    "WIDG-04",
+    "WIDG-01",
+    "WIDG-02",
+    "TASK-10"
   ],
   "failedTasks": [],
   "tasks": {
@@ -54,6 +69,96 @@
       "state": "COMPLETED",
       "updatedAt": "2026-10-09T20:05:02.576Z",
       "evidence": null,
+      "commitSha": null
+    },
+    "TASK-01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:24:08.912Z",
+      "evidence": "BackgroundEngine implementado con colas de prioridad, reintentos, timeouts y emisión de eventos. 5 tests pasando.",
+      "commitSha": null
+    },
+    "TASK-02": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:24:12.088Z",
+      "evidence": "TaskMemory implementado con aislamiento en namespace tasks/<taskId>/ sobre EgoMemoryAdapter. 4 tests pasando.",
+      "commitSha": null
+    },
+    "TASK-03": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:24:15.513Z",
+      "evidence": "TaskCheckpointManager implementado con checksum SHA-256 (MEMG-20, OCLW-15) y rotación sobre EgoMemoryAdapter. 4 tests pasando.",
+      "commitSha": null
+    },
+    "TASK-04": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:25:16.096Z",
+      "evidence": "ResourceScheduler implementado con control de heap/lag de EventLoop y ordenamiento con aging. 4 tests pasando.",
+      "commitSha": null
+    },
+    "TASK-09": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:25:19.592Z",
+      "evidence": "TaskCancellationManager implementado con AbortSignal nativo cooperativo e idempotencia. 5 tests pasando.",
+      "commitSha": null
+    },
+    "TASK-11": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:25:22.931Z",
+      "evidence": "Propagación de AbortSignal a operaciones nativas (DIST-20 / TASK-11) implementada y testeada con éxito.",
+      "commitSha": null
+    },
+    "TASK-05": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:28:36.791Z",
+      "evidence": "ActivityTray implementado en apps/desktop/renderer e integrado en footer shell.tsx/App.tsx. 4 tests pasando.",
+      "commitSha": null
+    },
+    "TASK-06": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:28:40.531Z",
+      "evidence": "TaskNotificationManager implementado con severidad, deduplicación y buffer circular. 4 tests pasando.",
+      "commitSha": null
+    },
+    "WIDG-03": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:29:06.976Z",
+      "evidence": "AttentionStateMachine implementada en @ego/runtime con estados Coucou COUC-06, colapso y prioridades. 5 tests pasando.",
+      "commitSha": null
+    },
+    "TASK-07": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:31:27.801Z",
+      "evidence": "ProactivityEngine implementado con cron parser de 5 campos y observadores de archivos con debounce. 4 tests pasando.",
+      "commitSha": null
+    },
+    "TASK-08": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:31:31.217Z",
+      "evidence": "DreamConsolidator implementado con purga de cuarentena y supersesión atómica en kb/facts. 3 tests pasando.",
+      "commitSha": null
+    },
+    "WIDG-04": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:31:35.152Z",
+      "evidence": "WidgetHitlBridge implementado con protocolo de admisión ACK <= 800ms y resolución en ApprovalEngine. 3 tests pasando.",
+      "commitSha": null
+    },
+    "WIDG-01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:35:01.097Z",
+      "evidence": "FloatingWindowPrototype implementado con frameless, click-through y reposicionamiento en monitor cercano. Tests pasando.",
+      "commitSha": null
+    },
+    "WIDG-02": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:35:04.593Z",
+      "evidence": "FloatingWindowManager implementado con control de visibilidad, silenciado y modo HITL interactivo. Tests pasando.",
+      "commitSha": null
+    },
+    "TASK-10": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-10T21:35:10.160Z",
+      "evidence": "Prueba de resiliencia ante crash task-crash-resume.test.ts completada con éxito. Reanudación exacta desde checkpoint 6 validada.",
       "commitSha": null
     }
   }

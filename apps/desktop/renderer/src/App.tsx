@@ -7,6 +7,7 @@ import { SubEgosView } from "../components/sub-egos";
 import { Sidebar } from "../components/sidebar";
 import { SubEgoSelector } from "../components/SubEgoSelector";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
+import { ActivityTray } from "../components/activity-tray/ActivityTray";
 
 function ThemeControl() {
   const { tokens, applyPreset, availablePresets } = useDesignSystem();
@@ -129,6 +130,9 @@ export function App() {
             </div>
           </section>
         </main>
+
+        {/* 3. Bandeja de Actividad en Segundo Plano (Footer) */}
+        <ActivityTray />
       </div>
     </DesignSystemProvider>
   );

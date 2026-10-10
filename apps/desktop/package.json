@@ -22,6 +22,7 @@
     "@ego/ui-runtime": "workspace:*",
     "@ego/decision": "workspace:*",
     "@ego/knowledge": "workspace:*",
+    "@ego/tasks": "workspace:*",
     "vantadb": "0.8.0",
     "vantadb-node": "file:../../../VantaDB/vantadb-node",
     "zod": "^3.23.8"

@@ -115,10 +115,11 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 2. Ejecución en background y concurrencia.
 3. Sistema de eventos asíncronos.
 4. Comportamiento proactivo de Sub-Egos.
-- [ ] Se programa una tarea persistente o basada en triggers.
-- [ ] Las tareas en background no bloquean la interfaz.
-- [ ] El sistema notifica resultados relevantes.
-**Criterio de aceptación:** Ego trabaja en segundo plano mientras el usuario realiza otras actividades.
+- [x] Se programa una tarea persistente o basada en triggers.
+- [x] Las tareas en background no bloquean la interfaz.
+- [x] El sistema notifica resultados relevantes.
+> **Estado actual:** 11 de 11 tareas completadas. **Fase 100% COMPLETADA**.
+**Criterio de aceptación:** Ego trabaja en segundo plano mientras el usuario realiza otras actividades — **100% COMPLETADO (TASK-01..11)**.
 
 ### Fase 08: Daily State
 **Objetivo:** Seguimiento del flujo de trabajo continuo y la atención.
