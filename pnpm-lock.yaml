@@ -17,6 +17,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@ego/decision':
+        specifier: workspace:*
+        version: link:../../packages/decision
       '@ego/events':
         specifier: workspace:*
         version: link:../../packages/events
@@ -41,6 +44,9 @@ importers:
       '@ego/tools':
         specifier: workspace:*
         version: link:../../packages/tools
+      '@ego/ui-runtime':
+        specifier: workspace:*
+        version: link:../../packages/ui-runtime
       vantadb:
         specifier: 0.8.0
         version: 0.8.0
@@ -124,6 +130,34 @@ importers:
       vite:
         specifier: ^6.0.0
         version: 6.4.4(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1)
+      vitest:
+        specifier: ^2.1.2
+        version: 2.1.9(@types/node@22.20.5)(happy-dom@20.14.6)(lightningcss@1.32.0)
+
+  packages/decision:
+    dependencies:
+      '@ego/events':
+        specifier: workspace:*
+        version: link:../events
+      '@ego/memory':
+        specifier: workspace:*
+        version: link:../memory
+      '@ego/models':
+        specifier: workspace:*
+        version: link:../models
+      '@ego/subegos':
+        specifier: workspace:*
+        version: link:../subegos
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.8.0
+        version: 22.20.5
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
       vitest:
         specifier: ^2.1.2
         version: 2.1.9(@types/node@22.20.5)(happy-dom@20.14.6)(lightningcss@1.32.0)
