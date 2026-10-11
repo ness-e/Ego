@@ -3,3 +3,5 @@ export * from "./sub-egos.js";
 export * from "./EgoMemoryLifecycle.js";
 export * from "./OpaqueId.js";
 export * from "./SessionCheckpointPolicy.js";
+export * from "./DataContract.js";
+export * from "./UntrustedContentSanitizer.js";
