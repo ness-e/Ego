@@ -573,10 +573,9 @@ export async function createWindow(): Promise<void> {
 
   // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers)
   try {
-    const savedServers = await adapter.searchMulti(["gov/mcp_servers"], "", { topK: 50 });
-    for (const hit of savedServers) {
-      if (!hit.record) continue;
-      let rawPayload = hit.record.payload;
+    const savedServers = await adapter.list("gov/mcp_servers", 50);
+    for (const record of savedServers) {
+      let rawPayload = record.payload;
       if (typeof rawPayload === "string") {
         try {
           rawPayload = JSON.parse(rawPayload);
@@ -977,13 +976,12 @@ export async function createWindow(): Promise<void> {
   ipcMain.handle("ipc.projects.list", async () => {
     try {
       const defaultProj = await getOrCreateDefaultProject(adapter);
-      const searchRes = await adapter.searchMulti(["gov/projects"], "", { topK: 100, excludeSuperseded: false });
+      const records = await adapter.list("gov/projects", 100);
       const projectsMap = new Map<string, ProjectManifest>();
       projectsMap.set("default", defaultProj);
 
-      for (const hit of searchRes) {
-        if (!hit.record) continue;
-        let payload: unknown = hit.record.payload;
+      for (const rec of records) {
+        let payload: unknown = rec.payload;
         if (typeof payload === "string") {
           try {
             payload = JSON.parse(payload);

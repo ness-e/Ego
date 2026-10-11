@@ -35,7 +35,7 @@ export class PythonSidecarBridge {
       const candidates = [
         path.resolve(process.cwd(), "scripts/ingest/bulk_import.py"),
         path.resolve(process.cwd(), "../../scripts/ingest/bulk_import.py"),
-        path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1")), "../../../../scripts/ingest/bulk_import.py"),
+        path.resolve(__dirname, "../../../../scripts/ingest/bulk_import.py"),
       ];
       this.scriptPath = candidates.find((c) => fs.existsSync(c)) || candidates[0];
     }
