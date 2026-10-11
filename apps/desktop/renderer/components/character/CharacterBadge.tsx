@@ -19,7 +19,8 @@ export interface CharacterBadgeProps {
   state?: CharacterState;
   size?: number;          // Dimensión en píxeles CSS (default: 28)
   animated?: boolean;     // Si es false, renderiza 1 fotograma estático sin rAF continuo
-  outfitId?: string | null; // Override opcional de atuendo Coucou Mochi
+  baseForm?: "delta-core" | "coucou-mochi"; // Geometría de silueta
+  outfitId?: string | null; // Override opcional de atuendo
   className?: string;
   title?: string;
 }
@@ -29,6 +30,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   state = "idle",
   size = 28,
   animated = false,
+  baseForm,
   outfitId,
   className = "",
   title,
@@ -66,7 +68,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   }, [state, fsm]);
 
   useEffect(() => {
-    const nextTarget = presetToMorphTarget(preset, outfitId);
+    const nextTarget = presetToMorphTarget(preset, outfitId, baseForm);
 
     // Configurar dibujado de traits mediante capas si existen
     engine.customBackDraw = (ctx: CanvasRenderingContext2D, head: HeadFrame) => {
@@ -89,6 +91,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
         prevTarget.bodyColor[1] !== nextTarget.bodyColor[1] ||
         prevTarget.bodyColor[2] !== nextTarget.bodyColor[2] ||
         prevTarget.eyeShape !== nextTarget.eyeShape ||
+        prevTarget.baseForm !== nextTarget.baseForm ||
         prevTarget.outfitId !== nextTarget.outfitId)
     ) {
       // Iniciar interpolación morfológica (CHAR-09)
@@ -98,6 +101,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
         (current) => {
           engine.bodyColor = current.bodyColor;
           engine.permanentEye = current.eyeShape;
+          engine.setShape(current.baseForm ?? "delta-core");
           engine.setOutfit(current.outfitId ?? null);
           if (!animated && renderSingleFrameRef.current) {
             renderSingleFrameRef.current();
@@ -111,6 +115,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
       // Primera inicialización o sin cambios morfológicos
       engine.bodyColor = nextTarget.bodyColor;
       engine.permanentEye = nextTarget.eyeShape;
+      engine.setShape(nextTarget.baseForm ?? "delta-core");
       engine.setOutfit(nextTarget.outfitId ?? null);
       prevTargetRef.current = nextTarget;
       if (!animated && renderSingleFrameRef.current) {
@@ -121,7 +126,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
     return () => {
       morph.cancel();
     };
-  }, [preset, outfitId, engine, fsm, animated, morph]);
+  }, [preset, outfitId, baseForm, engine, fsm, animated, morph]);
 
   // Ciclo de renderizado (Estático vs Animado continuo)
   useEffect(() => {

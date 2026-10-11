@@ -141,8 +141,8 @@ export interface CharacterTransitionEvent {
   timestamp: number;
   previousSubEgoId: string | null;
   nextSubEgoId: string;
-  previousDNA: CharacterDNA;
-  nextDNA: CharacterDNA;
+  previousProfile: CharacterProfile;
+  nextProfile: CharacterProfile;
   reason: "user_mention" | "delegated_speaker" | "domain_switch" | "session_init";
   visibleToUser: boolean; // Si es false, solo se actualiza el Activity Widget sin mutar el chat principal
 }
@@ -270,29 +270,35 @@ Para flujos de trabajo complejos donde intervienen varios especialistas en casca
 
 ## 10. Anatomía y Geometría Procedural del Cuerpo
 
-> **Corrección 2026-10-08:** la superelipse es una **herramienta matemática disponible**, no la identidad de Ego. Un squircle con ojos es la geometría de partida de Coucou/Mochi y puede percibirse como derivado. La silueta definitiva se elige en `CHAR-03` (candidatos en [`character-art-direction.md`](../product/character-art-direction.md)); `BodyGeometry` debe poder describir cualquier silueta registrada por la familia, no solo un squircle.
+El cuerpo se dibuja analíticamente mediante matemáticas polares y curvas continuas (cero sprites rasterizados ni imágenes estáticas). El runtime soporta una familia parametrizable de geometrías declaradas en `BaseFormSchema` (`packages/subegos/src/CharacterProfile.ts`):
 
-El cuerpo se dibuja matemáticamente (no con sprites). Como ejemplo de familia parametrizable se usa una **superelipse paramétrica (deformable)**:
+### A. Geometría Canónica Primaria: Triángulo Delta Core (`delta-core`)
+Silueta equilátera de esquinas redondeadas con simetría armónica $C_3$, vértice superior en $-\pi/2$ y base horizontal convexa:
+$$\theta_{rot} = a + \frac{\pi}{2}$$
+$$k = \cos(3\theta_{rot})$$
+$$r(a) = 0.92 + 0.38 \cdot k - 0.07 \cdot (k^2 - 0.5)$$
+$$px_{tri} = \cos(a) \cdot r(a) \cdot 1.18, \quad py_{tri} = \sin(a) \cdot r(a) \cdot 1.08 + (r_y \cdot 0.16)$$
 
-### Ecuación de la Superelipse Deformable
-$$| \frac{x}{a} |^n + | \frac{y}{b} |^n = 1$$
+* **Compensación de Ojos en Y:** Para evitar colisiones con el estrechamiento superior del triángulo, la proyección 3D desplaza dinámicamente los ojos hacia el centro de masa visual:
+  $$ey = -\sin(\text{eyePitch}) \cdot r_y + (\text{triangleMorph} \cdot r_y \cdot 0.14)$$
 
-El generador procedural modula los parámetros en cada fotograma:
-* $a, b$: Semiejes escalados por `width` y `height`.
-* $n$: Grado de redondez (típicamente $n \approx 3.5$ a $4.2$).
-* `morph`: Factor que transforma la silueta hacia una forma angular para animaciones mecánicas.
-* `tilt`, `roll`: Inclinación angular basada en el movimiento y aceleración.
-* `squish`, `stretch`: Factor de volumen constante ($sx \times sy = 1$) que produce rebotes con sensación de masa y peso orgánico.
+### B. Geometría de Superelipse Paramétrica (`coucou-mochi` / `squircle-core`)
+Curva continua de Lamé con exponente $EXP = 2.7$ (retenida temporalmente bajo `coucou-mochi` hasta la culminación de `COUC-23`):
+$$| \frac{x}{a} |^n + | \frac{y}{b} |^n = 1 \quad (n = 2.7)$$
+
+### C. Morphing Procedural Continuo entre Siluetas
+La interpolación punto a punto entre la superelipse y el triángulo se calcula en tiempo real para los 72 vértices del trazado `Path2D`:
+$$px = \text{lerp}(px_{squircle}, px_{tri}, \text{morph}), \quad py = \text{lerp}(py_{squircle}, py_{tri}, \text{morph})$$
 
 ```ts
 export interface BodyGeometry {
   width: number;
   height: number;
-  curvature: number;      // Exponente n de la superelipse
-  morph: number;          // Interpolación hacia caja (0 = orgánico, 1 = angular)
+  baseForm: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi";
+  triangleMorph: number;  // 0 = superelipse, 1 = triángulo Delta Core
   scaleX: number;
   scaleY: number;
-  tilt: number;           // Inclinación lateral
+  tilt: number;           // Inclinación lateral reactiva
   verticalOffset: number; // Rebote y respiración
 }
 ```
@@ -381,16 +387,16 @@ export class TraitPhysics {
 
 ---
 
-## 14. Enlace Orgánico entre `SubEgoSoul` y `CharacterDNA`
+## 14. Enlace Orgánico entre `SubEgoSoul` y `CharacterProfile`
 
-El alma del especialista ([`SubEgoSoul`](subego-soul.md)) gobierna directamente los parámetros de personalidad del `CharacterDNA`:
+El alma del especialista ([`SubEgoSoul`](subego-soul.md)) gobierna directamente los parámetros de identidad y reactividad del `CharacterProfile`:
 
 ```text
 SubEgoSoul (Arquitectura Cognitiva)
-  ├── tone: "analytical-critical" ────► CharacterDNA.personality.seriousness = 0.9
-  ├── temperament.skepticism = "high" ─► CharacterDNA.face.eyeStyle = "focused"
-  ├── temperament.proactivity = "high" ─► CharacterDNA.personality.energy = 0.8
-  └── identityName: "Architect-Prime" ──► CharacterPreset: "Preset-Technical"
+  ├── tone: "analytical-critical" ────► CharacterProfile.traits: ["geometric-crest"]
+  ├── temperament.skepticism = "high" ─► CharacterProfile.defaultEye = "line"
+  ├── temperament.proactivity = "high" ─► CharacterProfile.pulseRate = 1.3
+  └── identityName: "Architect-Prime" ──► CharacterProfile.baseForm = "delta-core"
 ```
 
 El especialista mantiene coherencia integral: su postura visual refleja su rigor analítico.

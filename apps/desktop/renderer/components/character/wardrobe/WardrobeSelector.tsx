@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { CharacterBadge } from "../CharacterBadge.js";
-import { TraitRegistry, type DomainCharacterPreset } from "../traits/TraitRegistry.js";
-import { OUTFITS } from "./CharacterWardrobe.js";
+import { TraitRegistry, type DomainCharacterPreset, type CharacterTrait } from "../traits/TraitRegistry.js";
 import { Sparkle, Check, ArrowClockwise, FloppyDisk } from "@phosphor-icons/react";
 
 export interface CustomCharacterConfig {
@@ -9,6 +8,7 @@ export interface CustomCharacterConfig {
   name: string;
   bodyColors: [string, string];
   eyeShape: "pill" | "wide" | "dot" | "line" | "flat" | "happy" | "cup";
+  baseForm: "delta-core" | "coucou-mochi";
   outfitId?: string | null;
   traits: string[];
 }
@@ -51,28 +51,33 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
     name: defaultPreset.name,
     bodyColors: [...defaultPreset.bodyColors] as [string, string],
     eyeShape: defaultPreset.eyeShape,
-    outfitId: defaultPreset.outfitId || null,
+    baseForm: defaultPreset.baseForm ?? "delta-core",
+    outfitId: null,
     traits: [...defaultPreset.traits],
   }));
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const availableOutfits = useMemo(() => {
-    return [
-      { id: null, name: "Sin Atuendo (Puro)" },
-      ...Object.keys(OUTFITS).map((key) => ({
-        id: key,
-        name: key.charAt(0).toUpperCase() + key.slice(1),
-      })),
-    ];
+  const availableTraits = useMemo(() => {
+    return TraitRegistry.listTraits();
   }, []);
 
   const handlePaletteSelect = (colors: [string, string]) => {
     setCurrentConfig((prev) => ({ ...prev, bodyColors: colors }));
   };
 
-  const handleOutfitSelect = (outfitId: string | null) => {
-    setCurrentConfig((prev) => ({ ...prev, outfitId }));
+  const handleShapeSelect = (baseForm: "delta-core" | "coucou-mochi") => {
+    setCurrentConfig((prev) => ({ ...prev, baseForm }));
+  };
+
+  const handleTraitToggle = (traitId: string) => {
+    setCurrentConfig((prev) => {
+      const exists = prev.traits.includes(traitId);
+      const newTraits = exists
+        ? prev.traits.filter((t) => t !== traitId)
+        : [...prev.traits, traitId];
+      return { ...prev, traits: newTraits };
+    });
   };
 
   const handleEyeShapeSelect = (eyeShape: CustomCharacterConfig["eyeShape"]) => {
@@ -85,7 +90,8 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       name: defaultPreset.name,
       bodyColors: [...defaultPreset.bodyColors] as [string, string],
       eyeShape: defaultPreset.eyeShape,
-      outfitId: defaultPreset.outfitId || null,
+      baseForm: defaultPreset.baseForm ?? "delta-core",
+      outfitId: null,
       traits: [...defaultPreset.traits],
     });
     setSavedSuccess(false);
@@ -97,7 +103,8 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       ...defaultPreset,
       bodyColors: currentConfig.bodyColors,
       eyeShape: currentConfig.eyeShape,
-      outfitId: currentConfig.outfitId,
+      baseForm: currentConfig.baseForm,
+      outfitId: null,
       traits: currentConfig.traits,
     };
     TraitRegistry.registerPreset(updatedPreset);
@@ -114,7 +121,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
         <div className="flex items-center gap-2">
           <Sparkle size={16} className="text-amber-400" />
           <h3 className="font-semibold text-sm text-ink">
-            Personalización de Identidad & Guardarropa
+            Personalización de Identidad & Rasgos Morfológicos
           </h3>
         </div>
         <span className="font-mono text-[11px] text-faint">{subEgoId}</span>
@@ -126,7 +133,8 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
           <div className="relative mb-3 flex items-center justify-center h-28 w-28">
             <CharacterBadge
               subEgoId={subEgoId}
-              outfitId={currentConfig.outfitId}
+              baseForm={currentConfig.baseForm}
+              outfitId={null}
               size={96}
               animated={true}
               title={`Vista previa de ${currentConfig.name}`}
@@ -136,40 +144,73 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
             {currentConfig.name}
           </span>
           <span className="text-[10px] text-faint mt-0.5 font-mono">
-            {currentConfig.outfitId ? `Atuendo: ${currentConfig.outfitId}` : "Morfología base"}
+            {currentConfig.baseForm === "delta-core" ? "Delta Core (Triángulo C₃)" : "Superelipse (Squircle)"}
           </span>
         </div>
 
         {/* Panel derecho: Controles de Personalización */}
         <div className="md:col-span-2 space-y-4">
-          {/* 1. Atuendos Coucou Mochi */}
+          {/* 1. Geometría de Silueta */}
           <div>
             <label className="block text-[11px] font-semibold text-dim mb-1.5">
-              Guardarropa Procedimental (Coucou Mochi)
+              Geometría Base del Núcleo
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleShapeSelect("delta-core")}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
+                  currentConfig.baseForm === "delta-core"
+                    ? "bg-raised border-ink text-ink font-semibold"
+                    : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
+                }`}
+              >
+                <span>🔺 Delta Core (C₃)</span>
+                {currentConfig.baseForm === "delta-core" && <Check size={12} weight="bold" className="text-emerald-400" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShapeSelect("coucou-mochi")}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
+                  currentConfig.baseForm === "coucou-mochi"
+                    ? "bg-raised border-ink text-ink font-semibold"
+                    : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
+                }`}
+              >
+                <span>🔘 Superelipse</span>
+                {currentConfig.baseForm === "coucou-mochi" && <Check size={12} weight="bold" className="text-emerald-400" />}
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Rasgos Anatómicos y Sensores (Cero Ropa Humana) */}
+          <div>
+            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+              Rasgos Anatómicos & Sensores ({currentConfig.traits.length} activos)
             </label>
             <div className="grid grid-cols-2 gap-1.5 max-h-28 overflow-y-auto pr-1">
-              {availableOutfits.map((item) => {
-                const isSelected = currentConfig.outfitId === item.id;
+              {availableTraits.map((trait: CharacterTrait) => {
+                const isSelected = currentConfig.traits.includes(trait.id);
                 return (
                   <button
-                    key={item.id ?? "none"}
+                    key={trait.id}
                     type="button"
-                    onClick={() => handleOutfitSelect(item.id)}
-                    className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
+                    onClick={() => handleTraitToggle(trait.id)}
+                    className={`flex items-center justify-between px-2 py-1.5 rounded text-[10px] border transition-colors ${
                       isSelected
                         ? "bg-raised border-ink text-ink font-semibold"
                         : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
                     }`}
                   >
-                    <span className="truncate">{item.name}</span>
-                    {isSelected && <Check size={12} weight="bold" className="text-emerald-400" />}
+                    <span className="truncate">{trait.name}</span>
+                    {isSelected && <Check size={12} weight="bold" className="text-cyan-400" />}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* 2. Paletas de Color */}
+          {/* 3. Paletas de Color */}
           <div>
             <label className="block text-[11px] font-semibold text-dim mb-1.5">
               Gradiente Energético Corporal
@@ -203,7 +244,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
             </div>
           </div>
 
-          {/* 3. Forma de Ojos */}
+          {/* 4. Forma de Ojos */}
           <div>
             <label className="block text-[11px] font-semibold text-dim mb-1.5">
               Expresión Ocular

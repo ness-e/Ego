@@ -11,7 +11,7 @@ describe("CHAR-10: WardrobeSelector — Personalización y persistencia de avata
   beforeEach(() => {
     TraitRegistry.initialize();
     const orig = TraitRegistry.getPreset("ego.nucleus");
-    TraitRegistry.registerPreset({ ...orig, outfitId: null });
+    TraitRegistry.registerPreset({ ...orig, outfitId: null, baseForm: "delta-core" });
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -29,27 +29,27 @@ describe("CHAR-10: WardrobeSelector — Personalización y persistencia de avata
       root.render(<WardrobeSelector subEgoId="ego.nucleus" />);
     });
 
-    expect(container.textContent).toContain("Personalización de Identidad & Guardarropa");
+    expect(container.textContent).toContain("Personalización de Identidad & Rasgos Morfológicos");
     expect(container.textContent).toContain("ego.nucleus");
-    expect(container.textContent).toContain("Sin Atuendo (Puro)");
+    expect(container.textContent).toContain("Geometría Base del Núcleo");
     expect(container.textContent).toContain("Cyan Neón");
   });
 
-  it("debe permitir seleccionar un atuendo Coucou Mochi y guardarlo", async () => {
+  it("debe permitir seleccionar geometría morfológica y guardarla", async () => {
     const handleSave = vi.fn();
 
     await act(async () => {
       root.render(<WardrobeSelector subEgoId="ego.nucleus" onSave={handleSave} />);
     });
 
-    // Encontrar botón de atuendo Beanie
-    const beanieBtn = Array.from(container.querySelectorAll("button")).find(
-      (b) => b.textContent?.includes("Beanie")
+    // Encontrar botón de geometría Superelipse
+    const superellipseBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("Superelipse")
     );
-    expect(beanieBtn).toBeDefined();
+    expect(superellipseBtn).toBeDefined();
 
     await act(async () => {
-      beanieBtn?.click();
+      superellipseBtn?.click();
     });
 
     // Encontrar botón de guardar
@@ -65,11 +65,11 @@ describe("CHAR-10: WardrobeSelector — Personalización y persistencia de avata
     expect(handleSave).toHaveBeenCalledTimes(1);
     const savedConfig = handleSave.mock.calls[0][0];
     expect(savedConfig.subEgoId).toBe("ego.nucleus");
-    expect(savedConfig.outfitId).toBe("beanie");
+    expect(savedConfig.baseForm).toBe("coucou-mochi");
 
     // Verificar que TraitRegistry fue actualizado
     const updatedPreset = TraitRegistry.getPreset("ego.nucleus");
-    expect(updatedPreset.outfitId).toBe("beanie");
+    expect(updatedPreset.baseForm).toBe("coucou-mochi");
   });
 
   it("debe restaurar a los valores predeterminados", async () => {
@@ -93,6 +93,7 @@ describe("CHAR-10: WardrobeSelector — Personalización y persistencia de avata
       resetBtn?.click();
     });
 
-    expect(container.textContent).toContain("Morfología base");
+    expect(container.textContent).toContain("Geometría Base del Núcleo");
+    expect(container.textContent).toContain("Delta Core (Triángulo C₃)");
   });
 });

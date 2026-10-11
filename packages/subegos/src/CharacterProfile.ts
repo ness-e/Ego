@@ -9,6 +9,7 @@ export const BaseFormSchema = z.enum([
   "quantum-monolith",
   "energy-core",
   "fractal-polyhedron",
+  "delta-core",
   "coucou-mochi"
 ]);
 export type BaseForm = z.infer<typeof BaseFormSchema>;
@@ -233,7 +234,7 @@ export function createDefaultCharacterProfile(
   const profile: CharacterProfile = {
     id: `char_${slug || "default"}`,
     name: `${subEgoId} Avatar`,
-    baseForm: "quantum-monolith",
+    baseForm: "delta-core",
     palette,
     defaultEye: "pill",
     defaultMouth: "flat",

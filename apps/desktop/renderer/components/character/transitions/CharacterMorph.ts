@@ -8,6 +8,7 @@ import type { DomainCharacterPreset } from "../traits/TraitRegistry.js";
 export interface MorphTarget {
   bodyColor: RGB;
   eyeShape: EyeShape;
+  baseForm?: "delta-core" | "coucou-mochi";
   outfitId?: string | null;
   accentColor?: RGB;
 }
@@ -48,12 +49,14 @@ export function isReducedMotionPreferred(): boolean {
  */
 export function presetToMorphTarget(
   preset: DomainCharacterPreset,
-  overrideOutfitId?: string | null
+  overrideOutfitId?: string | null,
+  overrideBaseForm?: "delta-core" | "coucou-mochi"
 ): MorphTarget {
   const primaryHex = preset.bodyColors[0] || "#93c5fd";
   return {
     bodyColor: hexToRGB(primaryHex),
     eyeShape: preset.eyeShape,
+    baseForm: overrideBaseForm !== undefined ? overrideBaseForm : (preset.baseForm ?? "delta-core"),
     outfitId: overrideOutfitId !== undefined ? overrideOutfitId : (preset.outfitId ?? null),
     accentColor: preset.accentColor,
   };
@@ -114,6 +117,8 @@ export class CharacterMorphController {
 
     const currentTarget: MorphTarget = {
       bodyColor: lerpRGB(this.fromTarget.bodyColor, this.toTarget.bodyColor, progress),
+      // La forma geométrica conmuta al superar el 50% de la transición
+      baseForm: progress < 0.5 ? this.fromTarget.baseForm : this.toTarget.baseForm,
       // La forma de los ojos conmuta a la mitad del morphing
       eyeShape: progress < 0.5 ? this.fromTarget.eyeShape : this.toTarget.eyeShape,
       // El atuendo conmuta al superar el 50% de la transición

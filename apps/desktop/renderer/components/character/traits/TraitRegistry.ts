@@ -25,7 +25,8 @@ export interface DomainCharacterPreset {
   bodyColors: [string, string]; // [top, bottom] gradiente en hex
   accentColor: RGB;
   eyeShape: "pill" | "wide" | "dot" | "line" | "flat" | "happy" | "cup";
-  outfitId?: string | null;      // Guardarropa canónico de Coucou Mochi (sunglasses, crown, beanie, etc.)
+  baseForm?: "delta-core" | "coucou-mochi"; // Silueta geométrica procedural
+  outfitId?: string | null;      // Cero ropa humana (default: null)
   traits: string[];              // IDs de traits activos
   description: string;
 }
@@ -218,7 +219,7 @@ export class TraitRegistry {
       },
     });
 
-    // 2. Registro de Presets Canónicos de Dominio (Coucou Mochi Wardrobe Integrado)
+    // 2. Registro de Presets Canónicos de Dominio (Cero Ropa Humana, Pura Geometría y Rasgos)
     this.registerPreset({
       id: "ego.nucleus",
       name: "Ego Nucleus",
@@ -226,9 +227,10 @@ export class TraitRegistry {
       bodyColors: ["#EDEDEF", "#C4C5CA"],
       accentColor: [0.902, 0.914, 0.933],
       eyeShape: "pill",
+      baseForm: "delta-core",
       outfitId: null,
       traits: [],
-      description: "Coordinador general del sistema. Criatura sobria y equilibrada con proporciones canónicas Coucou Mochi.",
+      description: "Coordinador general del sistema. Criatura sobria y equilibrada con proporciones canónicas Delta Core.",
     });
 
     this.registerPreset({
@@ -238,7 +240,8 @@ export class TraitRegistry {
       bodyColors: ["#E0F2FE", "#BAE6FD"], // Cian zafiro claro
       accentColor: [0.06, 0.71, 0.83],
       eyeShape: "line",
-      outfitId: "beanie",
+      baseForm: "delta-core",
+      outfitId: null,
       traits: ["sensor_antenna_scanner", "visor_analytical"],
       description: "Especialista en investigación, síntesis documental y búsqueda en VantaDB.",
     });
@@ -250,7 +253,8 @@ export class TraitRegistry {
       bodyColors: ["#EDE9FE", "#DDD6FE"], // Violeta índigo sobrio
       accentColor: [0.545, 0.361, 0.965],
       eyeShape: "wide",
-      outfitId: "sunglasses",
+      baseForm: "delta-core",
+      outfitId: null,
       traits: ["crest_logic_prism"],
       description: "Arquitectura, verificación de contratos, análisis estático de código y suites de test.",
     });
@@ -262,7 +266,8 @@ export class TraitRegistry {
       bodyColors: ["#FEF3C7", "#FDE68A"], // Ámbar cálido / oro solar
       accentColor: [0.961, 0.62, 0.043],
       eyeShape: "happy",
-      outfitId: "partyHat",
+      baseForm: "delta-core",
+      outfitId: null,
       traits: ["aura_harmonic_halo"],
       description: "Especificaciones, diseño de producto, narrativa y claridad de comunicación.",
     });
@@ -274,7 +279,8 @@ export class TraitRegistry {
       bodyColors: ["#D1FAE5", "#A7F3D0"], // Menta esmeralda
       accentColor: [0.06, 0.73, 0.51],
       eyeShape: "dot",
-      outfitId: "roundGlasses",
+      baseForm: "delta-core",
+      outfitId: null,
       traits: ["sensor_bipolar_nodes"],
       description: "Auditoría de cuotas, telemetría de rendimiento y modelos de consumo económico.",
     });
@@ -286,7 +292,8 @@ export class TraitRegistry {
       bodyColors: ["#F3E8FF", "#E9D5FF"], // Amatista sobrio
       accentColor: [0.659, 0.333, 0.969],
       eyeShape: "flat",
-      outfitId: "crown",
+      baseForm: "delta-core",
+      outfitId: null,
       traits: ["crest_milestone_crown"],
       description: "Gestión de dependencias, descomposición de tareas y ordenamiento temporal.",
     });

@@ -10,7 +10,7 @@
 | Regla Fundamental | **El personaje es una capa visual del Cognitive Runtime procedural en código, NO imágenes generadas por IA** |
 | Ubicación en Código | `apps/desktop/renderer/components/character/` y `apps/desktop/renderer/components/activity-widget/` |
 
-> **Dirección artística canónica (Restaurada Oct 2026):** Ego y sus Sub-Egos se basan en la arquitectura procedural probada de **Coucou Mochi**: un bot/criatura carismático de silueta squircle (superelipsoide EXP=2.7) con cabeza 3D cabeceante, rostro hiper-expresivo (13 estados de ojos, boca reactiva), manos gesticulantes y un sistema integral de personalización de 6 capas (`Wardrobe`: accesorios, gorros, gafas, bufandas, lazos y distintivos). Cada Sub-Ego se distingue por su color, accesorios de especialidad, cinemática y tono, manteniendo la calidez, dinamismo y cero fatiga visual. Ver [`character-art-direction.md`](character-art-direction.md).
+> **Dirección artística canónica (Actualizada Oct 2026):** Ego y sus Sub-Egos se basan en el **Motor Gráfico Procedural Canvas 2D** inspirado en la arquitectura matemática de `BotEngine`: una entidad bio-digital/geométrica viva con cabeza 3D cabeceante, rostro hiper-expresivo (13 morfologías de ojos, boca reactiva), manos gesticulantes y un sistema integral de personalización basado en **siluetas matemáticas** (`delta-core` triángulo $C_3$, `squircle-core` superelipse $EXP=2.7$, y temporalmente `coucou-mochi` hasta `COUC-23`) combinadas con **rasgos anatómicos y energéticos no humanoides** (`traits`: halos, núcleos de energía, anillos orbitales, crestas y antenas). Cero vestimenta humana (`BANNED_HUMAN_CLOTHING`), cero assets gráficos privativos de terceros y síntesis de audio pura en tiempo real (Web Audio API). Ver [`character-art-direction.md`](character-art-direction.md).
 
 ---
 
@@ -73,10 +73,10 @@ Sub-Ego (Especialista Cognitivo)
 ### Regla: La Identidad NO Cambia cuando Cambia el Estado
 
 * **Identidad:** ¿Quién es?
-  * **Ego Base:** Forma base neutra de la familia, sin rasgos adicionales, paleta sobria, mirada serena (silueta definitiva pendiente de `CHAR-03`).
-  * **Sub-Ego Dev (ejemplo):** misma familia, proporción ligeramente alargada, acento frío, inclinación hacia adelante, rasgo sensorial de enfoque.
-  * **Sub-Ego Finanzas (ejemplo):** misma familia, proporción compacta, acento sobrio, postura erguida, movimiento contenido.
-  * Regla de diferenciación: la identidad utiliza la silueta squircle Coucou Mochi, la paleta de colores de dominio, morfología de ojos (`eyeShape`) y el **guardarropa modular canónico (`Wardrobe`: gafas, gorros, bufandas, coronas, lazos)** según [`character-art-direction.md`](character-art-direction.md).
+  * **Ego Base:** Forma base neutra de la familia (silueta `delta-core` o superelipse sobria), sin rasgos adicionales, paleta plata/cian limpia, mirada serena y balanceada.
+  * **Sub-Ego Dev (ejemplo):** misma base paramétrica o `delta-core`, paleta azul eléctrico `#3B82F6`, postura inclinada hacia adelante, rasgo de enfoque `energy-cores` o `antennae`.
+  * **Sub-Ego Finanzas (ejemplo):** proporción compacta, paleta esmeralda `#10B981`, postura erguida, movimiento contenido, rasgo de solidez `geometric-crest`.
+  * Regla de diferenciación: la identidad utiliza la silueta geométrica (`baseForm`: `delta-core`, `coucou-mochi` temporal), paleta cromática de dominio, morfología de ojos (`eyeShape`) y **rasgos anatómicos abstractos no humanos (`traits`: halos, núcleos de energía, anillos orbitales, antenas)** según [`character-art-direction.md`](character-art-direction.md) y el contrato `CharacterProfile`. Prohibida la ropa humana.
 * **Estado Operativo:** ¿Qué está haciendo?
   * `idle`, `listening`, `thinking`, `working`, `searching`, `using_tool`, `waiting`, `approval_required`, `question`, `success`, `warning`, `error`, `sleeping`, `attention`.
 
@@ -148,75 +148,65 @@ Adaptado del concepto de widget dinámico de Coucou, el **`Ego Activity Widget`*
 
 ---
 
-## 7. El Modelo `CharacterDNA`
+## 7. El Modelo Canónico `CharacterProfile`
 
-Cada manifestación visual se define mediante una estructura fuertemente tipada:
+Cada manifestación visual se define mediante el contrato tipado Zod implementado en `packages/subegos/src/CharacterProfile.ts`:
 
 ```ts
-export interface CharacterDNA {
+export interface CharacterProfile {
+  id: string; // "char_<id>" o "ego.<subego>.char"
+  name: string;
+  
   /**
-   * Familia visual canónica: 'mochi-squircle' (basada en el superelipsoide EXP=2.7 de Coucou).
+   * Silueta base matemática del personaje:
+   * 'delta-core' (triángulo C3), 'quantum-monolith', 'energy-core',
+   * 'fractal-polyhedron' o 'coucou-mochi' (temporal hasta COUC-23).
    */
-  family: "mochi-squircle";
-
-  /** Anatomía y geometría del cuerpo squircle */
-  body: {
-    baseRadius: number; // Radio de escala base
-    morphRatio?: number; // 0 = orgánico, 1 = angular
-  };
-
-  /** Rostro y órganos sensoriales */
-  face: {
-    eyeShape: "pill" | "wide" | "dot" | "line" | "flat" | "happy" | "closed" | "spiral" | "heart" | "star" | "tired" | "wink" | "cup";
-    eyeSpacing: number;
-    hasBlush: boolean;
-  };
+  baseForm: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi";
 
   /** Paleta cromática coordinada */
   palette: {
-    primary: string;    // Color superior del cuerpo (gradiente)
-    secondary: string;  // Color inferior del cuerpo (sombra)
+    primary: string;    // Color superior de la superficie (gradiente)
+    secondary: string;  // Color inferior de la superficie (sombra)
     accent: string;     // Color de ojos/energía
+    aura: string;       // Resplandor perimetral
+    glow?: string;      // Destello de excitación cognitiva
   };
+
+  /** Rostro y órganos sensoriales */
+  defaultEye: "pill" | "wide" | "dot" | "line" | "flat" | "happy" | "closed" | "spiral" | "heart" | "star" | "tired" | "wink" | "cup";
+  defaultMouth: "flat" | "slight-smile" | "open-smile" | "o-shape" | "wavy" | "smirk" | "tongue-out" | "frown";
 
   /**
-   * Capa de Guardarropa y Personalización (Wardrobe / Outfits de Coucou):
-   * Permite equipar accesorios y atuendos procedurales.
+   * Rasgos Anatómicos y Energéticos No Humanos (TraitConfig):
+   * Cero vestimenta humana (BANNED_HUMAN_CLOTHING prohíbe trajes, corbatas, gafas humanas, etc.).
    */
-  wardrobe?: {
-    outfitId?: "beanie" | "santaHat" | "partyHat" | "crown" | "witchHat" | "pumpkin";
-    eyewearId?: "sunglasses" | "roundGlasses";
-    neckwearId?: "scarf" | "bow";
-  };
+  traits: Array<{
+    kind: "halo" | "energy-cores" | "antennae" | "floating-shards" | "aura-field" | "quantum-crown" | "orbital-rings" | "geometric-crest";
+    intensity: number;  // 0.0 a 1.0
+    color?: string;
+    enabled: boolean;
+  }>;
 
-  /** Parámetros de personalidad y física cinética (0.0 a 1.0) */
-  personality: {
-    energy: number;       // Velocidad y amplitud de movimientos
-    seriousness: number;  // Tensión postural y firmeza de la mirada
-    warmth: number;       // Frecuencia de sonrisas y parpadeos
-    playfulness: number;  // Frecuencia de rebotes y curiosidad
-    curiosity: number;    // Amplitud de inclinación (tilt/head-roll)
-  };
+  scale: number;      // Factor de escala (0.5 a 3.0)
+  pulseRate: number;  // Velocidad de respiración y pulso
 }
 ```
 
 ---
 
-## 8. Presets Fundacionales de Sub-Egos (Paleta y Guardarropa Especializado)
+## 8. Presets Fundacionales de Sub-Egos (Paleta y Rasgos Abstractos)
 
-Cada Sub-Ego se distingue inmediatamente por su paleta cromática, accesorios especializados y cinemática:
+Cada Sub-Ego se distingue inmediatamente por su silueta geométrica, paleta cromática, rasgos anatómicos no humanos y cinemática:
 
-| Preset | Dominios típicos | Paleta Primaria | Outfit / Accesorio Sugerido | Tono / Movimiento |
-|---|---|---|---|---|
-| `Preset-Core` | Ego Nucleus | `#EDEDEF` / `#C4C5CA` (Plata limpio) | Neutro / Sin accesorio | Calmo, reflexivo, pulso suave |
-| `Preset-Technical` | Ingeniería, DevOps | `#3B82F6` / `#1D4ED8` (Azul eléctrico) | `sunglasses` o `beanie` | Enfocado, cabeceo rápido |
-| `Preset-Rigorous` | Finanzas, Legal | `#10B981` / `#047857` (Esmeralda oscuro) | `roundGlasses` | Firme, mirada directa |
-| `Preset-Creative` | Diseño, Copywriting | `#F59E0B` / `#D97706` (Ámbar vibrante) | `partyHat` o `bow` | Elástico, ojos `happy` / `star` |
-| `Preset-Strategic` | Estrategia, Producto | `#8B5CF6` / `#6D28D9` (Púrpura real) | `crown` | Pausado, postura erguida |
-| `Preset-Warm` | Soporte, CRM | `#EC4899` / `#BE185D` (Rosa cálido) | `scarf` | Acogedor, parpadeo frecuente |
-
-| Preset | Dominios típicos | Proporción / ritmo | Personalidad dominante |
-|---|---|---|---|
+| Preset | Dominios típicos | Silueta Base | Paleta Primaria | Rasgo / Trait Sugerido | Tono / Movimiento |
+|---|---|---|---|---|---|
+| `Preset-Core` | Ego Nucleus | `delta-core` o `coucou-mochi` | `#EDEDEF` / `#C4C5CA` (Plata limpio) | `aura-field` sobrio | Calmo, reflexivo, pulso suave |
+| `Preset-Technical` | Ingeniería, DevOps | `delta-core` | `#3B82F6` / `#1D4ED8` (Azul eléctrico) | `energy-cores` o `antennae` | Enfocado, cabeceo rápido |
+| `Preset-Rigorous` | Finanzas, Legal | `delta-core` | `#10B981` / `#047857` (Esmeralda oscuro) | `geometric-crest` | Firme, mirada directa |
+| `Preset-Creative` | Diseño, Copywriting | `delta-core` | `#F59E0B` / `#D97706` (Ámbar vibrante) | `floating-shards` | Elástico, ojos `happy` / `star` |
+| `Preset-Strategic` | Estrategia, Producto | `delta-core` | `#8B5CF6` / `#6D28D9` (Púrpura real) | `quantum-crown` o `orbital-rings` | Pausado, postura erguida |
+| `Preset-Warm` | Soporte, CRM | `delta-core` | `#EC4899` / `#BE185D` (Rosa cálido) | `halo` | Acogedor, parpadeo frecuente |
 
 ---
 

@@ -38,7 +38,7 @@ describe("CharacterProfile — Contrato de Identidad Visual y Rasgos Anatómicos
 
   describe("1. Validación de Esquema Zod y Formas Base", () => {
     it("debe validar correctamente un perfil con todas las formas canónicas no humanoides", () => {
-      const validForms = ["quantum-monolith", "energy-core", "fractal-polyhedron", "coucou-mochi"] as const;
+      const validForms = ["quantum-monolith", "energy-core", "fractal-polyhedron", "delta-core", "coucou-mochi"] as const;
 
       for (const form of validForms) {
         const profile = CharacterProfileSchema.parse({
@@ -129,7 +129,7 @@ describe("CharacterProfile — Contrato de Identidad Visual y Rasgos Anatómicos
       const profile = createDefaultCharacterProfile("ego.dev-coder", "engineering");
       expect(profile.id).toBe("char_dev-coder");
       expect(profile.palette.primary).toBe("#00E5FF");
-      expect(profile.baseForm).toBe("quantum-monolith");
+      expect(profile.baseForm).toBe("delta-core");
       expect(profile.traits[0].kind).toBe("aura-field");
     });
 

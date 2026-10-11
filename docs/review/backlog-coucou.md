@@ -5,7 +5,7 @@
 | --- | --- |
 | Estado | Activo — Backlog de Extracción Complementario |
 | Repositorio Origen | `repos-referencia/coucou/` · Commit verificado: oct-2026 |
-| Total de Tareas | **16 tareas canónicas** (`COUC-01..16`) |
+| Total de Tareas | **23 tareas canónicas** (`COUC-01..23`) |
 | Fases Impactadas en Ego | Fase 01, Fase 02, Fase 04, Fase 07, Fase 10, Fase 11 |
 | Owner | ness-e / Principal Systems Engineer |
 | Fecha | 2026-10-07 |
@@ -56,6 +56,7 @@ El análisis de `coucou` aporta a Ego componentes críticos de **infraestructura
 | `COUC-20` | 🟡 Media | **Sistema de Feedback Auditivo (`SoundEngine`)** | `NotchBuddy/Resources/sounds/`, `windows/src/core/sound.ts` | 🟢 1d | 🟡 P2 | 📋 Planificada | Motor Web Audio API con carga asíncrona y reproducción sin bloqueo de los 28 efectos de sonido WAV (work, approval, finish, error, etc.) adaptados para eventos de Ego. | Ego: `CORE-01`, `ACT-04` | — |
 | `COUC-21` | 🟠 Alta | **Motor de Avatar Cognitivo Procedural 2D Personalizable** | `windows/src/mochi/engine.ts`, `design/outfits/` | 🟡 2d | 🟠 P1 | 📋 Planificada | Motor Canvas 2D en TypeScript con expresiones vectoriales (ojos, parpadeo, emociones, partículas y atuendos) adaptado y personalizado para la identidad de Ego. | Ego: `CANV-11`, `CORE-05` | `COUC-18` |
 | `COUC-22` | 🔵 Futura | **Notificaciones Móviles y Bridge Remoto de Aprobación HITL** | `NotchBuddy/Sources/Phone/`, `MochiLive.swift` | 🟣 3-4d | 🔵 P3 | ⏳ Futura (P1/P2) | Envío de notificaciones remotas al teléfono del usuario y puente de autorización HITL mediante WebSockets cifrados o bot seguro cuando esté lejos del escritorio. | Ego: `INT-05`, `DOM-05` | — |
+| `COUC-23` | 🔵 Futura | **Independización Geométrica de Ego & Catálogo Procedural Extendido** | `packages/subegos/src/CharacterProfile.ts` | 🟡 1-2d | 🔵 P2 | ⏳ Futura (P1) | Expansión del catálogo de formas procedurales nativas de Sub-Egos (`delta-core`, `squircle-core`, `monolith-core`, `polyhedron-core`), desacoplamiento definitivo del identificador temporal `coucou-mochi` y soporte para morphing dinámico multi-geometría en el runtime. | Ego: `SUB-11`, `CHAR-12`, `CANV-11` | `COUC-21` |
 
 ---
 
@@ -95,6 +96,7 @@ Fase 07 (Tasks & Background)
 Fase 11 (Seguridad)
   └── COUC-13: ResourcePolicy & Safe URLs
 
-Fase Futura (P1 / Extensiones Remotas)
-  └── COUC-22: Notificaciones y aprobación remota en teléfono
+Fase Futura (P1 / Extensiones Remotas & Desacoplamiento)
+  ├── COUC-22: Notificaciones y aprobación remota en teléfono
+  └── COUC-23: Independización Geométrica de Ego & Catálogo Procedural Extendido
 ```
