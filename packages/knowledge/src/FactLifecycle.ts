@@ -133,4 +133,103 @@ export class FactLifecycle {
       console.warn(`[FactLifecycle] Error marcando hecho superseded ${oldFactKey}:`, err);
     }
   }
+
+  /**
+   * Consolida y actualiza autónomamente memorias y hechos cognitivos (KHOJ-05).
+   * Procesa listas de hechos nuevos, sustituciones causales y retiros sin borrado destructivo.
+   */
+  public async consolidateMemories(
+    updates: {
+      create?: Fact[];
+      supersede?: Array<{ oldFactId: string; newFact: Fact }>;
+      retire?: string[];
+    }
+  ): Promise<{
+    createdCount: number;
+    supersededCount: number;
+    retiredCount: number;
+    processedFactIds: string[];
+  }> {
+    const processedFactIds: string[] = [];
+    let createdCount = 0;
+    let supersededCount = 0;
+    let retiredCount = 0;
+    const now = Date.now();
+
+    // 1. Crear hechos nuevos
+    if (updates.create && updates.create.length > 0) {
+      for (const fact of updates.create) {
+        FactSchema.parse(fact);
+        await this.adapter.put({
+          namespace: "kb/facts",
+          key: fact.id,
+          payload: `${fact.subject} ${fact.predicate} ${fact.object}`,
+          metadata: {
+            fact_id: fact.id,
+            subject: fact.subject,
+            predicate: fact.predicate,
+            object: fact.object,
+            confidence: fact.confidence,
+            temporal_scope: fact.temporalScope,
+            source: fact.source,
+            valid_at: fact.validAt,
+            invalid_at: -1,
+            is_latest: true,
+            state: "active",
+            ts: now,
+          },
+        });
+        processedFactIds.push(fact.id);
+        createdCount++;
+      }
+    }
+
+    // 2. Sustituir hechos existentes vinculando aristas causales
+    if (updates.supersede && updates.supersede.length > 0) {
+      for (const item of updates.supersede) {
+        await this.supersedeFact(item.oldFactId, item.newFact);
+        processedFactIds.push(item.newFact.id);
+        supersededCount++;
+      }
+    }
+
+    // 3. Retirar hechos obsoletos (soft-retire en lugar de borrado físico destructivo)
+    if (updates.retire && updates.retire.length > 0) {
+      for (const oldFactId of updates.retire) {
+        try {
+          const existing = (await this.adapter.get("kb/facts", oldFactId)) as {
+            payload?: unknown;
+            metadata?: Record<string, unknown>;
+          } | null;
+
+          if (existing) {
+            const oldMeta = existing.metadata || {};
+            await this.adapter.put({
+              namespace: "kb/facts",
+              key: oldFactId,
+              payload: existing.payload,
+              metadata: {
+                ...oldMeta,
+                state: "retired",
+                is_latest: false,
+                invalid_at: now,
+                retired_at: now,
+              },
+            });
+            processedFactIds.push(oldFactId);
+            retiredCount++;
+          }
+        } catch (err) {
+          console.warn(`[FactLifecycle] Error retirando hecho ${oldFactId}:`, err);
+        }
+      }
+    }
+
+    return {
+      createdCount,
+      supersededCount,
+      retiredCount,
+      processedFactIds,
+    };
+  }
 }

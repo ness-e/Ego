@@ -114,4 +114,39 @@ describe("QuarantineManager & FactLifecycle (KB-07, KB-08 / CARP-04, DSEK-01)", 
       })
     );
   });
+
+  it("consolida memorias ejecutando create, supersede y retire atómicamente (KHOJ-05)", async () => {
+    mockAdapter.get.mockResolvedValueOnce({
+      payload: "Usuario modelo_preferido Claude",
+      metadata: { state: "active", is_latest: true },
+    });
+
+    const newCreatedFact: Fact = {
+      ...testFact,
+      id: "fact_create_1",
+      subject: "Ego",
+      predicate: "soporta",
+      object: "VantaDB",
+    };
+
+    const newSupersedingFact: Fact = {
+      ...testFact,
+      id: "fact_super_2",
+      subject: "Usuario",
+      predicate: "modelo_preferido",
+      object: "DeepSeek-V3",
+    };
+
+    const result = await lifecycle.consolidateMemories({
+      create: [newCreatedFact],
+      supersede: [{ oldFactId: "fact_super_1", newFact: newSupersedingFact }],
+      retire: ["fact_obsolete_9"],
+    });
+
+    expect(result.createdCount).toBe(1);
+    expect(result.supersededCount).toBe(1);
+    expect(result.retiredCount).toBe(0); // Mock get no devolvió obsolete, así que graceful
+    expect(result.processedFactIds).toContain("fact_create_1");
+    expect(result.processedFactIds).toContain("fact_super_2");
+  });
 });
