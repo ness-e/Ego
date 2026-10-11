@@ -8,3 +8,5 @@ export * from "./stores/index.js";
 export * from "./MockIPCBridge.js";
 export * from "./WindowState.js";
 export * from "./AnsiParser.js";
+export * from "./FuzzySearch.js";
+export * from "./SlashCommandParser.js";
