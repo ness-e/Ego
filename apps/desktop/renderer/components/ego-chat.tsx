@@ -12,16 +12,20 @@ import { ego, RecallBadgeInfo, PendingApprovalInfo } from "../lib/ego";
 import { ApprovalCard } from "./tools/ApprovalCard";
 import { CharacterBadge } from "./character/CharacterBadge.js";
 import { useCanvasBridge } from "../hooks/useCanvasBridge";
-
-function Text({ text }: { text: string }) {
-  return <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>;
-}
+import { MarkdownText } from "./assistant-ui/markdown-text.js";
+import { MessageRenderBoundary } from "./assistant-ui/message-render-boundary.js";
 
 function UserMessage() {
   return (
     <MessagePrimitive.Root style={{ display: "flex", justifyContent: "flex-end", margin: "8px 0" }}>
       <div style={{ background: "#26262b", color: "#f4f4f5", borderRadius: 8, padding: "8px 14px", maxWidth: "80%" }}>
-        <MessagePrimitive.Content components={{ Text }} />
+        <MessageRenderBoundary resetKey="user-turn">
+          <MessagePrimitive.Content
+            components={{
+              Text: ({ text }) => <MarkdownText text={text} />,
+            }}
+          />
+        </MessageRenderBoundary>
       </div>
     </MessagePrimitive.Root>
   );
@@ -34,7 +38,13 @@ function AssistantMessage() {
         <CharacterBadge size={26} subEgoId="ego.nucleus" state="idle" />
       </div>
       <div style={{ background: "#111113", border: "1px solid #26262b", borderRadius: 8, padding: "10px 14px", maxWidth: "85%", color: "#f4f4f5" }}>
-        <MessagePrimitive.Content components={{ Text }} />
+        <MessageRenderBoundary resetKey="assistant-turn">
+          <MessagePrimitive.Content
+            components={{
+              Text: ({ text }) => <MarkdownText text={text} />,
+            }}
+          />
+        </MessageRenderBoundary>
       </div>
     </MessagePrimitive.Root>
   );
