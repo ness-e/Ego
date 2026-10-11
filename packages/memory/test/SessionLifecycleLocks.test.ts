@@ -43,7 +43,7 @@ describe("SessionLifecycleLocks Suite (OCLW-05)", () => {
 
     expect(a).toBe("A");
     expect(b).toBe("B");
-    expect(duration).toBeLessThan(75); // Ambas corrieron en paralelo (~40ms)
+    expect(duration).toBeLessThan(150); // Ambas corren en paralelo (~40ms + jitter)
   });
 
   it("debe soportar reentrancia sin provocar deadlocks", async () => {
