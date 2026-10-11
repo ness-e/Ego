@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenAI Dots — The Authentic 3D Mascot Studio</title>
+  <!-- Three.js 0.160.0 -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0c12;
+      --card-bg: rgba(20, 22, 32, 0.88);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #10a37f;
+      --accent-glow: rgba(16, 163, 127, 0.35);
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1360px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #10a37f 0%, #059669 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(16, 163, 127, 0.4);
+    }
+
+    .brand-logo svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+    }
+
+    .brand-text h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text p {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .pill-badge {
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(16, 163, 127, 0.14);
+      color: #34d399;
+      border: 1px solid rgba(16, 163, 127, 0.3);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 8px #34d399;
+    }
+
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 640px 1fr;
+      gap: 24px;
+      width: 100%;
+      max-width: 1360px;
+    }
+
+    /* 3D Viewport */
+    .viewport-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(20px);
+    }
+
+    #viewport3d {
+      width: 600px;
+      height: 560px;
+      border-radius: 14px;
+      background: radial-gradient(circle at 45% 35%, #2a2d42 0%, #10121a 100%);
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 2px 24px rgba(0, 0, 0, 0.7);
+    }
+
+    #viewport3d:active {
+      cursor: grabbing;
+    }
+
+    .viewport-hud {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .hud-chip {
+      font-size: 0.74rem;
+      padding: 5px 12px;
+      border-radius: 8px;
+      background: rgba(10, 12, 18, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e5e7eb;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      backdrop-filter: blur(10px);
+    }
+
+    .viewport-hint {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: var(--muted);
+      background: rgba(10, 12, 18, 0.7);
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
+
+    .telemetry {
+      width: 100%;
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .speech-box {
+      width: 100%;
+      margin-top: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .speech-dot {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #eab308;
+      box-shadow: 0 0 14px rgba(234, 179, 8, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #000000;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .speech-text {
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: #e5e7eb;
+    }
+
+    /* Controls */
+    .controls-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      backdrop-filter: blur(20px);
+    }
+
+    .panel-header {
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #e5e7eb;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-tag {
+      font-size: 0.7rem;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 8px;
+      border-radius: 10px;
+      color: var(--muted);
+      text-transform: none;
+    }
+
+    /* Characters Carousel Grid */
+    .char-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .char-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      text-align: center;
+    }
+
+    .char-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .char-btn.active {
+      border-color: #34d399;
+      background: rgba(16, 163, 127, 0.16);
+      box-shadow: 0 0 16px rgba(16, 163, 127, 0.25);
+    }
+
+    .char-avatar-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .char-btn strong {
+      font-size: 0.82rem;
+      color: #f3f4f6;
+    }
+
+    .char-btn span.role {
+      font-size: 0.67rem;
+      color: var(--muted);
+    }
+
+    /* Actions Grid */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .action-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e5e7eb;
+      padding: 10px 8px;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.18s ease;
+    }
+
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .action-btn.active {
+      background: rgba(16, 163, 127, 0.2);
+      border-color: #10a37f;
+      color: #34d399;
+      font-weight: 600;
+    }
+
+    .action-btn span.sub {
+      font-size: 0.66rem;
+      color: var(--muted);
+    }
+
+    /* Slider Row */
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+
+    .slider-header span.val {
+      color: #34d399;
+      font-family: monospace;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #10a37f;
+      cursor: pointer;
+      box-shadow: 0 0 10px #10a37f;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>OpenAI Dots — The Authentic 3D Mascot Studio</h1>
+        <p>Replicación 1:1 de los Personajes de OpenAI: Pirámide Alfred, Nube Felipe, Yeti Beige, Corazón Jojo, Rana Todd y Conejo Rosa</p>
+      </div>
+    </div>
+    <div class="pill-badge">
+      Fiel a la Imagen Oficial • Three.js 3D • 60 FPS
+    </div>
+  </header>
+
+  <div class="layout-grid">
+    <!-- Viewport 3D -->
+    <div class="viewport-box">
+      <div id="viewport3d">
+        <div class="viewport-hud">
+          <div class="hud-chip" id="hudName">DOT: ALFRED (PIRÁMIDE AMARILLA)</div>
+          <div class="hud-chip" id="hudGeometry">MORFOLOGÍA: Pirámide Esférica Suave</div>
+          <div class="hud-chip" id="hudState">ESTADO: IDLE_LISTENING</div>
+        </div>
+        <div class="viewport-hint">Arrastra para rotar 360° • Clic para acariciar y reaccionar</div>
+      </div>
+
+      <div class="telemetry">
+        <span>FPS: <strong id="fpsVal" style="color:#34d399">60</strong></span>
+        <span>VOLUMEN $S_{xz}$: <strong id="volVal" style="color:#60a5fa">1.000</strong></span>
+        <span>GAZE X: <strong id="gazeVal">0.00</strong></span>
+        <span>PELUSA: <strong id="fuzzVal">100%</strong></span>
+      </div>
+
+      <div class="speech-box">
+        <div class="speech-dot" id="speechAvatar">A</div>
+        <div class="speech-text" id="speechText">
+          "¡Hola! Soy Alfred, el dot piramidal amarillo. Llevo mis gafas circulares negras y mi pajarita formal."
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel de Control de Personajes y Actuaciones -->
+    <div class="controls-stack">
+
+      <!-- 1. Los 6 Personajes Canónicos Exactos de la Foto Oficial -->
+      <div class="panel-card">
+        <div class="panel-header">
+          1. Elenco Fiel de la Imagen Oficial
+          <span class="panel-tag">6 Morfologías Únicas</span>
+        </div>
+        <div class="char-grid">
+          <!-- Alfred (Pirámide Amarilla) -->
+          <button class="char-btn active" onclick="selectDot('alfred')">
+            <div class="char-avatar-dot" style="background:#eab308; border-radius: 4px;"></div>
+            <strong>Alfred</strong>
+            <span class="role">Pirámide + Pajarita</span>
+          </button>
+          <!-- Yeti Beige (Con auriculares y carita) -->
+          <button class="char-btn" onclick="selectDot('yeti')">
+            <div class="char-avatar-dot" style="background:#fde68a;"></div>
+            <strong>Yeti</strong>
+            <span class="role">Cuerpo Acolchado</span>
+          </button>
+          <!-- Felipe (Nube Azul) -->
+          <button class="char-btn" onclick="selectDot('felipe')">
+            <div class="char-avatar-dot" style="background:#2563eb;"></div>
+            <strong>Felipe</strong>
+            <span class="role">Nube + Boina</span>
+          </button>
+          <!-- Todd (Rana Verde) -->
+          <button class="char-btn" onclick="selectDot('todd')">
+            <div class="char-avatar-dot" style="background:#84cc16;"></div>
+            <strong>Todd</strong>
+            <span class="role">Rana + Ojos Cúpula</span>
+          </button>
+          <!-- Jojo (Corazón Magenta) -->
+          <button class="char-btn" onclick="selectDot('jojo')">
+            <div class="char-avatar-dot" style="background:#ec4899;"></div>
+            <strong>Jojo</strong>
+            <span class="role">Corazón + Gafas Sol</span>
+          </button>
+          <!-- Conejo Rosa (Con auriculares) -->
+          <button class="char-btn" onclick="selectDot('bunny')">
+            <div class="char-avatar-dot" style="background:#f472b6;"></div>
+            <strong>Bunny</strong>
+            <span class="role">Conejo Dormido</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Textura Táctil y Pelusa Micro-Fur -->
+      <div class="panel-card">
+        <div class="panel-header">
+          2. Textura Superficial Táctil (Micro-Fur Shader)
+          <span class="panel-tag">Procedural Canvas Bump</span>
+        </div>
+        <div class="action-grid">
+          <button class="action-btn active" id="btnMatPlush" onclick="setMaterialMode('plush')">
+            <strong>Peluche de Felpa</strong>
+            <span class="sub">Microfibras + Sheen</span>
+          </button>
+          <button class="action-btn" id="btnMatFelt" onclick="setMaterialMode('felt')">
+            <strong>Fieltro Artesanal</strong>
+            <span class="sub">Rugosidad densa</span>
+          </button>
+          <button class="action-btn" id="btnMatVelvet" onclick="setMaterialMode('velvet')">
+            <strong>Terciopelo Rim</strong>
+            <span class="sub">Kicker acentuado</span>
+          </button>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Fuerza de Pelusa Tangencial (Sheen Scatter)</span>
+            <span class="val" id="sheenVal">1.00</span>
+          </div>
+          <input type="range" id="sheenRange" min="0" max="1" step="0.05" value="1.0" oninput="updateSheenStrength(this.value)">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Intensidad de Relieve Fibroso (Bump)</span>
+            <span class="val" id="bumpVal">0.035</span>
+          </div>
+          <input type="range" id="bumpRange" min="0" max="0.08" step="0.005" value="0.035" oninput="updateBumpScale(this.value)">
+        </div>
+      </div>
+
+      <!-- 3. Actuación y Estados del Agente -->
+      <div class="panel-card">
+        <div class="panel-header">
+          3. Actuación Conductual y Estados del Agente
+          <span class="panel-tag">6 Modos Dramáticos</span>
+        </div>
+        <div class="action-grid">
+          <button class="action-btn active" onclick="setAgentState('listening')">
+            <strong>Escuchando</strong>
+            <span class="sub">Atención al cursor</span>
+          </button>
+          <button class="action-btn" onclick="setAgentState('thinking')">
+            <strong>Pensando</strong>
+            <span class="sub">Ladeo curioso</span>
+          </button>
+          <button class="action-btn" onclick="setAgentState('processing')">
+            <strong>Procesando</strong>
+            <span class="sub">Micro-pulsaciones</span>
+          </button>
+          <button class="action-btn" onclick="setAgentState('celebrating')">
+            <strong>Misión Exitosa</strong>
+            <span class="sub">Squash & Stretch</span>
+          </button>
+          <button class="action-btn" onclick="setAgentState('sleep')">
+            <strong>Modo Reposo</strong>
+            <span class="sub">Respiración lenta</span>
+          </button>
+          <button class="action-btn" onclick="setAgentState('alert')">
+            <strong>Alerta HITL</strong>
+            <span class="sub">Sobresalto elástico</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       OPENAI DOTS 3D MOTOR CANÓNICO — REPLICACIÓN FIEL 1:1 DE LA IMAGEN OFICIAL
+       ========================================================================== */
+
+    const container = document.getElementById('viewport3d');
+    let width = container.clientWidth;
+    let height = container.clientHeight;
+
+    // 1. Escena, Cámara y Renderer
+    const scene = new THREE.Scene();
+    scene.background = null;
+
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
+    camera.position.set(0, 0.4, 4.4);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    container.appendChild(renderer.domElement);
+
+    // 2. Generador Procedural de Textura de Peluche / Microfibras
+    function generatePlushBumpTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, 512, 512);
+
+      const imgData = ctx.getImageData(0, 0, 512, 512);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 50;
+        data[i] = Math.min(255, Math.max(0, 128 + noise));
+        data[i + 1] = Math.min(255, Math.max(0, 128 + noise));
+        data[i + 2] = Math.min(255, Math.max(0, 128 + noise));
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.lineWidth = 1;
+      for (let j = 0; j < 1400; j++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const len = 3 + Math.random() * 5;
+        const angle = Math.random() * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+        ctx.stroke();
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(6, 6);
+      return tex;
+    }
+
+    const plushBumpMap = generatePlushBumpTexture();
+
+    // 3. Sistema de Iluminación de Estudio Oficial (Iluminación dual cálida / fría)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+
+    // Key Light Cálida Ámbar (lado izquierdo en la imagen)
+    const keyWarmLight = new THREE.DirectionalLight(0xffedd5, 1.4);
+    keyWarmLight.position.set(-3.0, 3.5, 3.0);
+    keyWarmLight.castShadow = true;
+    keyWarmLight.shadow.mapSize.width = 1024;
+    keyWarmLight.shadow.mapSize.height = 1024;
+    keyWarmLight.shadow.bias = -0.001;
+    keyWarmLight.shadow.radius = 4;
+    scene.add(keyWarmLight);
+
+    // Fill Light Fría Azulada (lado derecho en la imagen)
+    const fillCoolLight = new THREE.DirectionalLight(0x93c5fd, 0.9);
+    fillCoolLight.position.set(3.5, 2.5, 2.5);
+    scene.add(fillCoolLight);
+
+    // Rim Kicker Light Posterior Potente para encender la silueta de pelusa
+    const rimLight = new THREE.DirectionalLight(0xffffff, 2.6);
+    rimLight.position.set(0, 3.2, -3.8);
+    scene.add(rimLight);
+
+    // Bounce inferior
+    const bounceLight = new THREE.DirectionalLight(0xffffff, 0.25);
+    bounceLight.position.set(0, -3.0, 1.0);
+    scene.add(bounceLight);
+
+    // 4. Sombra de Contacto Acoplada al Suelo
+    const shadowGeo = new THREE.PlaneGeometry(2.8, 2.8);
+    const canvasShadow = document.createElement('canvas');
+    canvasShadow.width = 128;
+    canvasShadow.height = 128;
+    const ctxShadow = canvasShadow.getContext('2d');
+    const grad = ctxShadow.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+    grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.5)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctxShadow.fillStyle = grad;
+    ctxShadow.fillRect(0, 0, 128, 128);
+
+    const shadowTex = new THREE.CanvasTexture(canvasShadow);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTex,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false
+    });
+    const contactShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    contactShadow.rotation.x = -Math.PI / 2;
+    contactShadow.position.y = -1.18;
+    scene.add(contactShadow);
+
+    // 5. Jerarquía Nodal del Dot
+    const dotRoot = new THREE.Group();
+    scene.add(dotRoot);
+
+    const bodyGroup = new THREE.Group();
+    dotRoot.add(bodyGroup);
+
+    // Material de Peluche Maestro PBR con Sheen
+    const bodyMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xfacc15, // Alfred amarillo por defecto
+      roughness: 0.88,
+      metalness: 0.0,
+      sheen: 1.0,
+      sheenRoughness: 0.45,
+      sheenColor: new THREE.Color(0xfef08a),
+      transmission: 0.03,
+      thickness: 0.5,
+      bumpMap: plushBumpMap,
+      bumpScale: 0.035,
+      clearcoat: 0.0
+    });
+
+    // Grupos internos
+    let characterBodyGroup = new THREE.Group();
+    bodyGroup.add(characterBodyGroup);
+
+    const faceGroup = new THREE.Group();
+    bodyGroup.add(faceGroup);
+
+    const accessoryGroup = new THREE.Group();
+    bodyGroup.add(accessoryGroup);
+
+    // Materiales comunes
+    const blackMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.35, metalness: 0.1 });
+    const eyeWhiteMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, clearcoat: 1.0 });
+
+    // 6. Base de Datos Canónica Fiel a la Imagen Oficial
+    const dotsDatabase = {
+      alfred: {
+        name: 'ALFRED',
+        color: 0xfacc15,
+        sheenColor: 0xfef08a,
+        subtext: 'PIRÁMIDE AMARILLA',
+        morphology: 'Pirámide Triangular Esférica',
+        avatarText: 'A',
+        avatarBg: '#facc15',
+        speech: '"Soy Alfred, la pirámide triangular amarilla con esquinas redondeadas, gafas de pasta negra y pajarita."'
+      },
+      yeti: {
+        name: 'YETI',
+        color: 0xfef3c7,
+        sheenColor: 0xffedd5,
+        subtext: 'ACOLCHADO BEIGE',
+        morphology: 'Cápsula Blanda con Carita y Brazos',
+        avatarText: 'Y',
+        avatarBg: '#fde68a',
+        speech: '"Soy el Yeti beige de peluche suave. Llevo auriculares negros de diadema, mejillas sonrosadas y una sonrisa apacible."'
+      },
+      felipe: {
+        name: 'FELIPE',
+        color: 0x2563eb,
+        sheenColor: 0x93c5fd,
+        subtext: 'NUBE AZUL',
+        morphology: 'Nube Acolchada de 5 Esferoides',
+        avatarText: 'F',
+        avatarBg: '#2563eb',
+        speech: '"Soy Felipe, la nube azul mullida con boina negra francesa ladeada y un guiño travieso."'
+      },
+      todd: {
+        name: 'TODD',
+        color: 0x84cc16,
+        sheenColor: 0xd9f99d,
+        subtext: 'RANA VERDE',
+        morphology: 'Esferoide con Cúpulas Oculares y Moño',
+        avatarText: 'T',
+        avatarBg: '#84cc16',
+        speech: '"Soy Todd, la simpática rana verde con grandes ojos saltones en la parte superior y pajarita negra."'
+      },
+      jojo: {
+        name: 'JOJO',
+        color: 0xec4899,
+        sheenColor: 0xfbcfe8,
+        subtext: 'CORAZÓN MAGENTA',
+        morphology: 'Corazón Esférico Tridimensional',
+        avatarText: 'J',
+        avatarBg: '#ec4899',
+        speech: '"Soy Jojo, el corazón mullido magenta con gafas de sol negras en forma de corazón."'
+      },
+      bunny: {
+        name: 'BUNNY',
+        color: 0xf472b6,
+        sheenColor: 0xfce7f3,
+        subtext: 'CONEJO ROSA',
+        morphology: 'Esferoide con Orejas y Ojos Dormidos',
+        avatarText: 'B',
+        avatarBg: '#f472b6',
+        speech: '"Soy el conejito rosa dormido con auriculares de diadema y ojitos cerrados en reposo."'
+      }
+    };
+
+    let currentDotKey = 'alfred';
+    let eyeRefs = [];
+
+    // 7. Constructores de Morfologías Específicas Fieles a la Imagen
+    function buildCharacterGeometry(key) {
+      // Limpiar grupos previos
+      while (characterBodyGroup.children.length > 0) {
+        const c = characterBodyGroup.children[0];
+        characterBodyGroup.remove(c);
+        if (c.geometry) c.geometry.dispose();
+      }
+      while (faceGroup.children.length > 0) {
+        const c = faceGroup.children[0];
+        faceGroup.remove(c);
+        if (c.geometry) c.geometry.dispose();
+      }
+      while (accessoryGroup.children.length > 0) {
+        const c = accessoryGroup.children[0];
+        accessoryGroup.remove(c);
+        if (c.geometry) c.geometry.dispose();
+      }
+      eyeRefs = [];
+
+      // A) ALFRED: Pirámide triangular redondeada amarilla
+      if (key === 'alfred') {
+        const pyrGeo = new THREE.CylinderGeometry(0.35, 1.35, 1.8, 3, 32);
+        pyrGeo.scale(1.15, 1.0, 1.0);
+        pyrGeo.center();
+        const pyrMesh = new THREE.Mesh(pyrGeo, bodyMaterial);
+        pyrMesh.castShadow = true;
+        pyrMesh.receiveShadow = true;
+        characterBodyGroup.add(pyrMesh);
+
+        // Gafas circulares de pasta negra con lentes negras
+        const glasses = new THREE.Group();
+        const ringGeo = new THREE.TorusGeometry(0.24, 0.038, 16, 32);
+        const lensGeo = new THREE.CircleGeometry(0.22, 32);
+        const lensMat = new THREE.MeshBasicMaterial({ color: 0x090a0f });
+
+        const leftRing = new THREE.Mesh(ringGeo, blackMat);
+        leftRing.position.set(-0.32, 0.12, 0.72);
+        const leftLens = new THREE.Mesh(lensGeo, lensMat);
+        leftLens.position.set(-0.32, 0.12, 0.71);
+        glasses.add(leftRing, leftLens);
+
+        const rightRing = new THREE.Mesh(ringGeo, blackMat);
+        rightRing.position.set(0.32, 0.12, 0.72);
+        const rightLens = new THREE.Mesh(lensGeo, lensMat);
+        rightLens.position.set(0.32, 0.12, 0.71);
+        glasses.add(rightRing, rightLens);
+
+        // Puente y patillas
+        const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.26, 12), blackMat);
+        bridge.rotation.z = Math.PI / 2;
+        bridge.position.set(0, 0.15, 0.72);
+        glasses.add(bridge);
+
+        const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.45, 12), blackMat);
+        leftArm.rotation.y = Math.PI / 2;
+        leftArm.position.set(-0.62, 0.12, 0.52);
+        const rightArm = leftArm.clone();
+        rightArm.position.x = 0.62;
+        glasses.add(leftArm, rightArm);
+
+        accessoryGroup.add(glasses);
+
+        // Pajarita negra en la base
+        const bowtie = new THREE.Group();
+        const knot = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), blackMat);
+        const wingGeo = new THREE.ConeGeometry(0.24, 0.44, 16);
+        wingGeo.scale(1.0, 0.42, 0.8);
+        const leftWing = new THREE.Mesh(wingGeo, blackMat);
+        leftWing.rotation.z = Math.PI / 2;
+        leftWing.position.x = -0.24;
+        const rightWing = new THREE.Mesh(wingGeo, blackMat);
+        rightWing.rotation.z = -Math.PI / 2;
+        rightWing.position.x = 0.24;
+        bowtie.add(knot, leftWing, rightWing);
+        bowtie.position.set(0, -0.58, 0.75);
+        accessoryGroup.add(bowtie);
+      }
+
+      // B) YETI: Criatura beige peluche con cara clara, brazos y auriculares
+      else if (key === 'yeti') {
+        const bodyGeo = new THREE.CapsuleGeometry(0.85, 0.8, 32, 32);
+        const body = new THREE.Mesh(bodyGeo, bodyMaterial);
+        body.castShadow = true;
+        characterBodyGroup.add(body);
+
+        // Brazos pequeños a los lados
+        const armGeo = new THREE.CapsuleGeometry(0.22, 0.45, 16, 16);
+        const leftArm = new THREE.Mesh(armGeo, bodyMaterial);
+        leftArm.position.set(-0.85, -0.2, 0.15);
+        leftArm.rotation.z = 0.4;
+        const rightArm = new THREE.Mesh(armGeo, bodyMaterial);
+        rightArm.position.set(0.85, -0.2, 0.15);
+        rightArm.rotation.z = -0.4;
+        characterBodyGroup.add(leftArm, rightArm);
+
+        // Pies pequeños
+        const footGeo = new THREE.SphereGeometry(0.25, 16, 16);
+        footGeo.scale(1.0, 0.5, 1.4);
+        const leftFoot = new THREE.Mesh(footGeo, bodyMaterial);
+        leftFoot.position.set(-0.35, -1.05, 0.1);
+        const rightFoot = new THREE.Mesh(footGeo, bodyMaterial);
+        rightFoot.position.set(0.35, -1.05, 0.1);
+        characterBodyGroup.add(leftFoot, rightFoot);
+
+        // Máscara facial suave y lisa
+        const faceSkinMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.6 });
+        const faceMask = new THREE.Mesh(new THREE.SphereGeometry(0.68, 32, 32), faceSkinMat);
+        faceMask.scale.set(1.0, 0.95, 0.35);
+        faceMask.position.set(0, 0.15, 0.68);
+        characterBodyGroup.add(faceMask);
+
+        // Mejillas sonrosadas
+        const blushMat = new THREE.MeshBasicMaterial({ color: 0xf87171, transparent: true, opacity: 0.38 });
+        const blushGeo = new THREE.CircleGeometry(0.12, 24);
+        const leftBlush = new THREE.Mesh(blushGeo, blushMat);
+        leftBlush.position.set(-0.42, 0.12, 0.88);
+        const rightBlush = new THREE.Mesh(blushGeo, blushMat);
+        rightBlush.position.set(0.42, 0.12, 0.88);
+        faceGroup.add(leftBlush, rightBlush);
+
+        // Ojos de botón negro redondos
+        const eyeDotGeo = new THREE.SphereGeometry(0.065, 16, 16);
+        const eyeDotMat = new THREE.MeshBasicMaterial({ color: 0x090a0f });
+        const leftEyeDot = new THREE.Mesh(eyeDotGeo, eyeDotMat);
+        leftEyeDot.position.set(-0.25, 0.22, 0.88);
+        const rightEyeDot = new THREE.Mesh(eyeDotGeo, eyeDotMat);
+        rightEyeDot.position.set(0.25, 0.22, 0.88);
+        faceGroup.add(leftEyeDot, rightEyeDot);
+        eyeRefs.push(leftEyeDot, rightEyeDot);
+
+        // Sonrisa dulce
+        const smileGeo = new THREE.TorusGeometry(0.08, 0.018, 12, 24, Math.PI);
+        const smileMesh = new THREE.Mesh(smileGeo, blackMat);
+        smileMesh.position.set(0, 0.12, 0.88);
+        faceGroup.add(smileMesh);
+
+        // Auriculares DJ de diadema negros
+        const hp = new THREE.Group();
+        const band = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.05, 16, 32, Math.PI), blackMat);
+        band.rotation.z = -Math.PI / 2;
+        band.rotation.y = Math.PI / 2;
+        band.position.set(0, 0.45, 0);
+        hp.add(band);
+
+        const cupGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.18, 24);
+        cupGeo.rotateZ(Math.PI / 2);
+        const leftCup = new THREE.Mesh(cupGeo, blackMat);
+        leftCup.position.set(-0.95, 0.42, 0);
+        const rightCup = new THREE.Mesh(cupGeo, blackMat);
+        rightCup.position.set(0.95, 0.42, 0);
+        hp.add(leftCup, rightCup);
+        accessoryGroup.add(hp);
+      }
+
+      // C) FELIPE: Nube azul de múltiples esferas con boina negra y guiño
+      else if (key === 'felipe') {
+        const cloud = new THREE.Group();
+        // Centro
+        const cCenter = new THREE.Mesh(new THREE.SphereGeometry(0.85, 32, 32), bodyMaterial);
+        cloud.add(cCenter);
+        // Lóbulos laterales de la nube
+        const cLeft = new THREE.Mesh(new THREE.SphereGeometry(0.68, 24, 24), bodyMaterial);
+        cLeft.position.set(-0.68, -0.15, 0);
+        const cRight = new THREE.Mesh(new THREE.SphereGeometry(0.68, 24, 24), bodyMaterial);
+        cRight.position.set(0.68, -0.15, 0);
+        const cBottom = new THREE.Mesh(new THREE.SphereGeometry(0.62, 24, 24), bodyMaterial);
+        cBottom.position.set(0, -0.55, 0);
+        const cTop = new THREE.Mesh(new THREE.SphereGeometry(0.65, 24, 24), bodyMaterial);
+        cTop.position.set(0.18, 0.55, 0);
+        cloud.add(cLeft, cRight, cBottom, cTop);
+        characterBodyGroup.add(cloud);
+
+        // Ojos: uno guiñado en ángulo, otro botón abierto
+        const eyeL = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 12), blackMat);
+        eyeL.rotation.z = 0.5;
+        eyeL.rotation.x = Math.PI / 2;
+        eyeL.position.set(-0.35, 0.08, 0.85);
+
+        const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 16), blackMat);
+        eyeR.position.set(0.35, 0.08, 0.85);
+        faceGroup.add(eyeL, eyeR);
+        eyeRefs.push(eyeR);
+
+        // Boina francesa de lana negra ladeada
+        const beret = new THREE.Group();
+        const beretCap = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.45, 0.22, 32), blackMat);
+        beretCap.scale.set(1.0, 0.8, 1.0);
+        const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 12), blackMat);
+        tip.position.set(0, 0.15, 0);
+        beret.add(beretCap, tip);
+        beret.position.set(-0.45, 0.78, 0.1);
+        beret.rotation.z = 0.45;
+        beret.rotation.x = -0.15;
+        accessoryGroup.add(beret);
+      }
+
+      // D) TODD: Rana verde con grandes cúpulas oculares blancas y pupilas negras
+      else if (key === 'todd') {
+        // Cuerpo esferoide ligeramente aplanado
+        const frogGeo = new THREE.SphereGeometry(1.0, 48, 48);
+        frogGeo.scale(1.15, 0.95, 1.05);
+        const frog = new THREE.Mesh(frogGeo, bodyMaterial);
+        frog.castShadow = true;
+        characterBodyGroup.add(frog);
+
+        // Dos grandes ojos saltones sobresaliendo en la parte superior
+        const eyeHolderL = new THREE.Mesh(new THREE.SphereGeometry(0.38, 32, 32), eyeWhiteMat);
+        eyeHolderL.position.set(-0.52, 0.72, 0.35);
+        const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.18, 24, 24), blackMat);
+        pupilL.position.set(-0.52, 0.74, 0.65);
+
+        const eyeHolderR = new THREE.Mesh(new THREE.SphereGeometry(0.38, 32, 32), eyeWhiteMat);
+        eyeHolderR.position.set(0.52, 0.72, 0.35);
+        const pupilR = new THREE.Mesh(new THREE.SphereGeometry(0.18, 24, 24), blackMat);
+        pupilR.position.set(0.52, 0.74, 0.65);
+
+        faceGroup.add(eyeHolderL, pupilL, eyeHolderR, pupilR);
+        eyeRefs.push(pupilL, pupilR);
+
+        // Pajarita negra en el cuello
+        const bowtie = new THREE.Group();
+        const knot = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), blackMat);
+        const wingGeo = new THREE.ConeGeometry(0.22, 0.42, 16);
+        wingGeo.scale(1.0, 0.4, 0.8);
+        const leftWing = new THREE.Mesh(wingGeo, blackMat);
+        leftWing.rotation.z = Math.PI / 2;
+        leftWing.position.x = -0.22;
+        const rightWing = new THREE.Mesh(wingGeo, blackMat);
+        rightWing.rotation.z = -Math.PI / 2;
+        rightWing.position.x = 0.22;
+        bowtie.add(knot, leftWing, rightWing);
+        bowtie.position.set(0, -0.38, 0.95);
+        accessoryGroup.add(bowtie);
+      }
+
+      // E) JOJO: Corazón 3D magenta con gafas de sol corazón
+      else if (key === 'jojo') {
+        const heartGroup = new THREE.Group();
+        // Construir corazón mediante unión de 2 esferas superiores y cono invertido
+        const sL = new THREE.Mesh(new THREE.SphereGeometry(0.55, 32, 32), bodyMaterial);
+        sL.position.set(-0.42, 0.42, 0);
+        const sR = new THREE.Mesh(new THREE.SphereGeometry(0.55, 32, 32), bodyMaterial);
+        sR.position.set(0.42, 0.42, 0);
+
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.92, 1.35, 32), bodyMaterial);
+        cone.rotation.z = Math.PI;
+        cone.position.set(0, -0.25, 0);
+        heartGroup.add(sL, sR, cone);
+        characterBodyGroup.add(heartGroup);
+
+        // Gafas de sol negras en forma de corazón
+        const heartGlasses = new THREE.Group();
+        const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x090a0f, roughness: 0.1, clearcoat: 1.0 });
+
+        const hShape = new THREE.Shape();
+        hShape.moveTo(0, 0);
+        hShape.bezierCurveTo(0, 0.15, -0.2, 0.25, -0.25, 0.12);
+        hShape.bezierCurveTo(-0.3, -0.05, 0, -0.25, 0, -0.3);
+        hShape.bezierCurveTo(0, -0.25, 0.3, -0.05, 0.25, 0.12);
+        hShape.bezierCurveTo(0.2, 0.25, 0, 0.15, 0, 0);
+
+        const extrudeSettings = { depth: 0.04, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 };
+        const hGeom = new THREE.ExtrudeGeometry(hShape, extrudeSettings);
+
+        const leftGlass = new THREE.Mesh(hGeom, glassMat);
+        leftGlass.scale.set(0.9, 0.9, 0.9);
+        leftGlass.position.set(-0.35, 0.22, 0.6);
+        const rightGlass = new THREE.Mesh(hGeom, glassMat);
+        rightGlass.scale.set(0.9, 0.9, 0.9);
+        rightGlass.position.set(0.35, 0.22, 0.6);
+
+        // Puente
+        const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.25, 12), blackMat);
+        bridge.rotation.z = Math.PI / 2;
+        bridge.position.set(0, 0.22, 0.6);
+        heartGlasses.add(leftGlass, rightGlass, bridge);
+        accessoryGroup.add(heartGlasses);
+      }
+
+      // F) BUNNY: Conejo rosa durmiendo con orejitas y auriculares
+      else if (key === 'bunny') {
+        const bunnyGeo = new THREE.SphereGeometry(1.0, 36, 36);
+        bunnyGeo.scale(1.05, 1.0, 1.0);
+        const bunny = new THREE.Mesh(bunnyGeo, bodyMaterial);
+        characterBodyGroup.add(bunny);
+
+        // Dos orejas redondeadas suaves arriba
+        const earGeo = new THREE.SphereGeometry(0.35, 24, 24);
+        earGeo.scale(1.0, 1.4, 0.6);
+        const earL = new THREE.Mesh(earGeo, bodyMaterial);
+        earL.position.set(-0.38, 0.95, 0);
+        const earR = new THREE.Mesh(earGeo, bodyMaterial);
+        earR.position.set(0.38, 0.95, 0);
+        characterBodyGroup.add(earL, earR);
+
+        // Ojos cerrados dormidos (líneas arqueadas)
+        const eyeArchL = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 12, 24, Math.PI), blackMat);
+        eyeArchL.position.set(-0.32, 0.12, 0.95);
+        const eyeArchR = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 12, 24, Math.PI), blackMat);
+        eyeArchR.position.set(0.32, 0.12, 0.95);
+        faceGroup.add(eyeArchL, eyeArchR);
+
+        // Auriculares de diadema negros
+        const hp = new THREE.Group();
+        const band = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.05, 16, 32, Math.PI), blackMat);
+        band.rotation.z = -Math.PI / 2;
+        band.rotation.y = Math.PI / 2;
+        band.position.set(0, 0.45, 0);
+        hp.add(band);
+
+        const cupGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.18, 24);
+        cupGeo.rotateZ(Math.PI / 2);
+        const leftCup = new THREE.Mesh(cupGeo, blackMat);
+        leftCup.position.set(-1.02, 0.42, 0);
+        const rightCup = new THREE.Mesh(cupGeo, blackMat);
+        rightCup.position.set(1.02, 0.42, 0);
+        hp.add(leftCup, rightCup);
+        accessoryGroup.add(hp);
+      }
+    }
+
+    // 8. Selector Maestro de Personajes
+    function selectDot(key) {
+      currentDotKey = key;
+      const cfg = dotsDatabase[key];
+
+      document.querySelectorAll('.char-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${key}'`));
+      });
+
+      document.getElementById('hudName').innerText = `DOT: ${cfg.name} (${cfg.subtext})`;
+      document.getElementById('hudGeometry').innerText = `MORFOLOGÍA: ${cfg.morphology}`;
+      document.getElementById('speechAvatar').innerText = cfg.avatarText;
+      document.getElementById('speechAvatar').style.background = cfg.avatarBg;
+      document.getElementById('speechAvatar').style.boxShadow = `0 0 16px ${cfg.avatarBg}`;
+      document.getElementById('speechText').innerText = cfg.speech;
+
+      // Actualizar material PBR
+      bodyMaterial.color.set(cfg.color);
+      if (bodyMaterial.sheenColor) {
+        bodyMaterial.sheenColor.set(cfg.sheenColor);
+      }
+      bodyMaterial.needsUpdate = true;
+
+      // Reconstruir geometría y accesorios exactos
+      buildCharacterGeometry(key);
+    }
+
+    // Inicializar con ALFRED (el protagonista de la imagen)
+    selectDot('alfred');
+
+    // 9. Modos de Material y Ajustes de Pelusa
+    function setMaterialMode(mode) {
+      document.querySelectorAll('#btnMatPlush, #btnMatFelt, #btnMatVelvet').forEach(b => b.classList.remove('active'));
+
+      if (mode === 'plush') {
+        document.getElementById('btnMatPlush').classList.add('active');
+        bodyMaterial.roughness = 0.88;
+        bodyMaterial.sheen = parseFloat(document.getElementById('sheenRange').value);
+        bodyMaterial.sheenRoughness = 0.45;
+        bodyMaterial.bumpScale = 0.035;
+      } else if (mode === 'felt') {
+        document.getElementById('btnMatFelt').classList.add('active');
+        bodyMaterial.roughness = 0.95;
+        bodyMaterial.sheen = 0.3;
+        bodyMaterial.bumpScale = 0.06;
+      } else if (mode === 'velvet') {
+        document.getElementById('btnMatVelvet').classList.add('active');
+        bodyMaterial.roughness = 0.92;
+        bodyMaterial.sheen = 1.0;
+        bodyMaterial.sheenRoughness = 0.25;
+        bodyMaterial.bumpScale = 0.015;
+      }
+      bodyMaterial.needsUpdate = true;
+    }
+
+    function updateSheenStrength(val) {
+      document.getElementById('sheenVal').innerText = parseFloat(val).toFixed(2);
+      bodyMaterial.sheen = parseFloat(val);
+      document.getElementById('fuzzVal').innerText = Math.round(val * 100) + '%';
+      bodyMaterial.needsUpdate = true;
+    }
+
+    function updateBumpScale(val) {
+      document.getElementById('bumpVal').innerText = parseFloat(val).toFixed(3);
+      bodyMaterial.bumpScale = parseFloat(val);
+      bodyMaterial.needsUpdate = true;
+    }
+
+    // 10. FSM de Estados del Agente
+    let currentAgentState = 'listening';
+    let stateTime = 0;
+
+    function setAgentState(st) {
+      currentAgentState = st;
+      stateTime = 0;
+
+      document.querySelectorAll('[onclick^="setAgentState"]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${st}'`));
+      });
+
+      document.getElementById('hudState').innerText = `ESTADO: ${st.toUpperCase()}`;
+    }
+
+    // 11. Interacción de Mirada con el Puntero (Eye-Tracking)
+    const mouse = { x: 0, y: 0, targetX: 0, targetY: 0 };
+
+    window.addEventListener('mousemove', (e) => {
+      const rect = container.getBoundingClientRect();
+      const rawX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const rawY = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+      mouse.targetX = Math.max(-1.0, Math.min(1.0, rawX));
+      mouse.targetY = Math.max(-1.0, Math.min(1.0, rawY));
+    });
+
+    // Reacción Háptica de Apretón al Clic
+    let clickSquash = 0;
+    container.addEventListener('click', () => {
+      clickSquash = 0.38;
+      eyeRefs.forEach(eye => {
+        eye.scale.y = 0.2;
+        setTimeout(() => { eye.scale.y = 1.0; }, 160);
+      });
+    });
+
+    // Control Manual de Órbita 360°
+    let isDragging = false;
+    let prevMouseX = 0;
+    let prevMouseY = 0;
+    let orbitYaw = 0;
+    let orbitPitch = 0;
+
+    container.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const deltaX = e.clientX - prevMouseX;
+        const deltaY = e.clientY - prevMouseY;
+        orbitYaw += deltaX * 0.008;
+        orbitPitch += deltaY * 0.008;
+        orbitPitch = Math.max(-0.4, Math.min(0.6, orbitPitch));
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      }
+    });
+
+    // 12. Bucle de Animación Continuo y Telemetría
+    const clock = new THREE.Clock();
+    let fpsFrames = 0;
+    let fpsLastTime = performance.now();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const dt = clock.getDelta();
+      const time = clock.getElapsedTime();
+      stateTime += dt;
+
+      // Telemetría FPS
+      fpsFrames++;
+      const now = performance.now();
+      if (now - fpsLastTime >= 500) {
+        document.getElementById('fpsVal').innerText = Math.round((fpsFrames * 1000) / (now - fpsLastTime));
+        fpsFrames = 0;
+        fpsLastTime = now;
+      }
+
+      // Suavizado inercial de la mirada
+      mouse.x += (mouse.targetX - mouse.x) * (dt * 6.5);
+      mouse.y += (mouse.targetY - mouse.y) * (dt * 6.5);
+      document.getElementById('gazeVal').innerText = mouse.x.toFixed(2);
+
+      // Rotación por órbita manual
+      dotRoot.rotation.y = orbitYaw;
+      dotRoot.rotation.x = orbitPitch;
+
+      // A) Respiración Orgánica Basal
+      let breathFreq = 2.4;
+      let breathAmp = 0.035;
+      if (currentAgentState === 'sleep') {
+        breathFreq = 1.1;
+        breathAmp = 0.06;
+      } else if (currentAgentState === 'processing') {
+        breathFreq = 5.2;
+        breathAmp = 0.02;
+      }
+      const breathY = 1.0 + Math.sin(time * breathFreq) * breathAmp;
+
+      // B) Deformaciones Cinemáticas por Estado
+      let targetElevation = 0;
+      let actionSquashY = 1.0;
+
+      if (currentAgentState === 'listening') {
+        bodyGroup.rotation.z = Math.sin(time * 1.5) * 0.035;
+        bodyGroup.rotation.y = mouse.x * 0.32;
+      } else if (currentAgentState === 'thinking') {
+        targetElevation = 0.22 + Math.sin(time * 3.0) * 0.07;
+        bodyGroup.rotation.z = 0.16 + Math.sin(time * 2.0) * 0.04;
+        bodyGroup.rotation.y = 0.22;
+      } else if (currentAgentState === 'processing') {
+        actionSquashY = 1.0 + Math.sin(time * 12.0) * 0.035;
+      } else if (currentAgentState === 'celebrating') {
+        const jumpPhase = (stateTime % 1.2) / 1.2;
+        if (jumpPhase < 0.25) {
+          actionSquashY = 0.76;
+          targetElevation = -0.16;
+        } else if (jumpPhase < 0.65) {
+          const tFlight = (jumpPhase - 0.25) / 0.4;
+          targetElevation = Math.sin(tFlight * Math.PI) * 0.70;
+          actionSquashY = 1.28;
+        } else if (jumpPhase < 0.85) {
+          actionSquashY = 0.70;
+          targetElevation = 0;
+        } else {
+          actionSquashY = 1.0;
+          targetElevation = 0;
+        }
+      } else if (currentAgentState === 'sleep') {
+        targetElevation = -0.16;
+        bodyGroup.rotation.x = 0.18;
+      } else if (currentAgentState === 'alert') {
+        if (stateTime < 0.3) {
+          actionSquashY = 1.35;
+          targetElevation = 0.38;
+        } else {
+          actionSquashY = 1.0 + Math.sin(stateTime * 16.0) * Math.exp(-stateTime * 4.0) * 0.2;
+          targetElevation = 0;
+        }
+      }
+
+      // Amortiguación elástica de apretón
+      if (clickSquash > 0) {
+        actionSquashY -= clickSquash;
+        clickSquash = Math.max(0, clickSquash - dt * 2.2);
+      }
+
+      // C) LEY FUNDAMENTAL DE CONSERVACIÓN DE VOLUMEN: Sxz = 1 / sqrt(Sy)
+      const finalSy = breathY * actionSquashY;
+      const finalSxz = 1.0 / Math.sqrt(Math.max(0.25, finalSy));
+
+      bodyGroup.scale.set(finalSxz, finalSy, finalSxz);
+      bodyGroup.position.y = targetElevation;
+      document.getElementById('volVal').innerText = finalSxz.toFixed(3);
+
+      // D) Sombra de Contacto Acoplada al Salto
+      const elevationNorm = Math.max(0, Math.min(1.0, targetElevation / 0.7));
+      contactShadow.scale.set(finalSxz * (1.0 + elevationNorm * 0.6), finalSxz * (1.0 + elevationNorm * 0.6), 1.0);
+      shadowMat.opacity = 0.60 * (1.0 - elevationNorm * 0.68);
+
+      // E) Eye-Tracking Ocular Dinámico
+      eyeRefs.forEach(eye => {
+        eye.position.x += (mouse.x * 0.04);
+        eye.position.y += (mouse.y * 0.03);
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      width = container.clientWidth;
+      height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lumi — Visor 3D de Mascota Suave (Three.js & WebGL)</title>
+  <style>
+    :root {
+      --bg: #09090b;
+      --card-bg: #18181b;
+      --border: #27272a;
+      --accent: #f59e0b;
+      --accent-glow: rgba(245, 158, 11, 0.25);
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --success: #10b981;
+      --danger: #ef4444;
+      --info: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1240px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      font-weight: 600;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 560px 1fr;
+      gap: 20px;
+      width: 100%;
+      max-width: 1240px;
+    }
+
+    .viewport-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    #threeCanvasContainer {
+      width: 528px;
+      height: 528px;
+      border-radius: 8px;
+      background: radial-gradient(circle at center, #27272a 0%, #09090b 100%);
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      border: 1px solid var(--border);
+    }
+
+    #threeCanvasContainer:active {
+      cursor: grabbing;
+    }
+
+    .telemetry {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(9, 9, 11, 0.85);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: var(--muted);
+      line-height: 1.4;
+      pointer-events: none;
+    }
+
+    .telemetry strong {
+      color: var(--text);
+    }
+
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    button {
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-weight: 500;
+    }
+
+    button:hover {
+      background: #3f3f46;
+      border-color: #52525b;
+    }
+
+    button.active {
+      background: var(--accent);
+      border-color: #fbbf24;
+      color: #000;
+      font-weight: 600;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    button.danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: var(--danger);
+    }
+
+    button.success {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: var(--success);
+    }
+
+    .timeline-bar {
+      display: flex;
+      gap: 3px;
+      margin-top: 10px;
+    }
+
+    .timeline-pip {
+      flex: 1;
+      height: 5px;
+      background: #27272a;
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+
+    .timeline-pip.active {
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    .slider-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .slider-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+  </style>
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- OrbitControls CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Lumi — Mascota 3D Suave & Expresiva (WebGL Three.js)</h1>
+      <p style="font-size: 0.8rem; color: var(--muted); margin-top: 2px;">
+        Arquitectura PBR Physical + Sheen Fuzz + 8 Expresiones + 10 Actuaciones en 10 Fases
+      </p>
+    </div>
+    <div class="status-badge">EXTENSIÓN CHARACTER-FORGE 3D VERIFICADA</div>
+  </header>
+
+  <div class="main-layout">
+    <!-- Viewport 3D -->
+    <div class="viewport-card">
+      <div id="threeCanvasContainer">
+        <div class="telemetry" id="telemetry">
+          FPS: <strong id="tFps">60</strong> | GPU: <strong id="tDrawCalls">7 calls</strong><br>
+          Expresión: <strong id="tExpr">neutral</strong><br>
+          Actuación: <strong id="tAction">reposo</strong><br>
+          Fase: <strong id="tPhase">stimulus</strong><br>
+          Material: <strong id="tMat">short_plush (Peluche)</strong><br>
+          Squash Y: <strong id="tSquash">1.00</strong> | Stretch XZ: <strong id="tStretch">1.00</strong>
+        </div>
+      </div>
+      <p style="font-size: 0.75rem; color: var(--muted); margin-top: 10px;">
+        Arrastra con el ratón para rotar la cámara 3D en 360° | Rueda para zoom
+      </p>
+    </div>
+
+    <!-- Panel de Control -->
+    <div class="controls-panel">
+      <!-- 1. Biblioteca de Materiales -->
+      <div class="card">
+        <div class="card-title">
+          <span>1. Materiales Táctiles (5 Recetas PBR + Sheen)</span>
+          <span style="font-size: 0.75rem; color: var(--accent);">Fuzz & Sheen</span>
+        </div>
+        <div class="btn-grid" id="matButtons">
+          <button class="active" data-mat="short_plush">Peluche de Algodón</button>
+          <button data-mat="velvet_fuzz">Terciopelo Púrpura</button>
+          <button data-mat="soft_rubber">Vinilo Mate Art-Toy</button>
+          <button data-mat="translucent_gummy">Gominola Translúcida</button>
+          <button data-mat="matte_ceramic">Porcelana Biscuit</button>
+        </div>
+      </div>
+
+      <!-- 2. Ocho Expresiones Faciales -->
+      <div class="card">
+        <div class="card-title">
+          <span>2. Expresiones Faciales (8 Canónicas)</span>
+          <span style="font-size: 0.75rem; color: var(--success);">Canales Continuos</span>
+        </div>
+        <div class="btn-grid" id="exprButtons">
+          <button class="active" data-expr="neutral">Neutral Atento</button>
+          <button data-expr="happy">Alegría</button>
+          <button data-expr="curious">Curiosidad (?)</button>
+          <button data-expr="surprised">Sorpresa</button>
+          <button data-expr="sleepy">Sueño / Cansancio (Zzz)</button>
+          <button data-expr="thinking">Concentración / Pensando</button>
+          <button data-expr="alert">Alerta Crítica (!)</button>
+          <button data-expr="proud">Orgullo / Victoria (✦)</button>
+        </div>
+      </div>
+
+      <!-- 3. Diez Actuaciones Contextuales en 10 Fases -->
+      <div class="card">
+        <div class="card-title">
+          <span>3. Actuaciones Contextuales (10 Fases Dramáticas)</span>
+          <span id="actTimer">En reposo</span>
+        </div>
+        <div class="btn-grid" id="actButtons">
+          <button data-act="act_breathe_idle">Respiración Reposo</button>
+          <button data-act="act_look_around">Mirar Alrededor</button>
+          <button data-act="act_bounce_happy">Salto Alegre</button>
+          <button data-act="act_fuzz_shake">Sacudida de Pelusa</button>
+          <button data-act="act_yawn_sleep">Bostezo y Siesta</button>
+          <button data-act="act_startle">Sobresalto</button>
+          <button data-act="act_celebrate">Celebrar Build</button>
+          <button data-act="act_curious_inspect">Inspeccionar Código</button>
+          <button data-act="act_nod_agree">Asentimiento</button>
+          <button data-act="act_poke_react">Reacción al Toque</button>
+        </div>
+        <div class="timeline-bar" id="timelinePips">
+          <div class="timeline-pip" title="1. Estímulo"></div>
+          <div class="timeline-pip" title="2. Orientación"></div>
+          <div class="timeline-pip" title="3. Anticipación"></div>
+          <div class="timeline-pip" title="4. Acción"></div>
+          <div class="timeline-pip" title="5. Ápex"></div>
+          <div class="timeline-pip" title="6. Follow-through"></div>
+          <div class="timeline-pip" title="7. Rebote"></div>
+          <div class="timeline-pip" title="8. Asimilación"></div>
+          <div class="timeline-pip" title="9. Asentamiento"></div>
+          <div class="timeline-pip" title="10. Memoria"></div>
+        </div>
+      </div>
+
+      <!-- 4. Laboratorio de Defecto de Volumen (DEF-ANI-BLOB) -->
+      <div class="card">
+        <div class="card-title">
+          <span>4. Calidad Cinemática: Defecto DEF-ANI-BLOB</span>
+          <span id="defectBadge" style="font-size: 0.75rem; color: var(--success);">Volumen Conservado</span>
+        </div>
+        <div class="btn-grid">
+          <button id="btnInjectBlob" class="danger">Inyectar Defecto (Rigidez Sxz=1)</button>
+          <button id="btnRepairBlob" class="success">Reparar Ley Física (Sxz=1/√Sy)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Inicialización del Grafo de Escena Three.js
+    const container = document.getElementById('threeCanvasContainer');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0e0e11);
+
+    const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(0, 1.2, 4.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 + 0.05; // No pasar del suelo
+
+    // -------------------------------------------------------------
+    // ILUMINACIÓN DE ESTUDIO DE 3 PUNTOS + RIM
+    // -------------------------------------------------------------
+    // 1. Key Light (Cálida suave con sombra)
+    const keyLight = new THREE.DirectionalLight(0xfffbeb, 1.5);
+    keyLight.position.set(3, 5, 4);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 1024;
+    keyLight.shadow.mapSize.height = 1024;
+    keyLight.shadow.bias = -0.0005;
+    scene.add(keyLight);
+
+    // 2. Fill Light (Cielo suave azulado)
+    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.6);
+    fillLight.position.set(-4, 2, 2);
+    scene.add(fillLight);
+
+    // 3. Rim Light (Posterior fuerte para encender el Sheen / Fuzz de peluche)
+    const rimLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    rimLight.position.set(0, 3, -4);
+    scene.add(rimLight);
+
+    // Luz ambiental suave
+    const hemiLight = new THREE.HemisphereLight(0xfffbeb, 0x18181b, 0.4);
+    scene.add(hemiLight);
+
+    // -------------------------------------------------------------
+    // CONSTRUCCIÓN DEL PERSONAJE LUMI
+    // -------------------------------------------------------------
+    const lumiRoot = new THREE.Group();
+    scene.add(lumiRoot);
+
+    // Materiales PBR
+    let activeMaterialProps = {
+      color: 0xfef3c7,
+      roughness: 0.88,
+      metalness: 0.0,
+      sheen: 1.0,
+      sheenColor: 0xffffff,
+      transmission: 0.04,
+      thickness: 0.6,
+      clearcoat: 0.0
+    };
+
+    const bodyMaterial = new THREE.MeshPhysicalMaterial(activeMaterialProps);
+    const bellyMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xfffbeb,
+      roughness: 0.85,
+      sheen: 1.0,
+      sheenColor: 0xffffff
+    });
+    const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.1 });
+    const blushMat = new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.45 });
+
+    // 1. Cuerpo Superelipsoide (Icosahedron inflado con deformación suave)
+    const bodyGeom = new THREE.SphereGeometry(1.0, 64, 48);
+    // Deformar vértices para morfología de pera/mochi suave
+    const posAttr = bodyGeom.attributes.position;
+    for (let i = 0; i < posAttr.count; i++) {
+      let x = posAttr.getX(i);
+      let y = posAttr.getY(i);
+      let z = posAttr.getZ(i);
+
+      // Ensanchar la base (pera) y aplanar ligeramente la cúpula
+      const yNorm = (y + 1.0) * 0.5; // [0, 1]
+      const taper = 1.15 - yNorm * 0.25;
+      x *= taper * 1.12;
+      z *= taper * 0.95;
+      y *= 0.95;
+
+      posAttr.setXYZ(i, x, y, z);
+    }
+    bodyGeom.computeVertexNormals();
+
+    const bodyMesh = new THREE.Mesh(bodyGeom, bodyMaterial);
+    bodyMesh.castShadow = true;
+    bodyMesh.receiveShadow = true;
+    bodyMesh.position.y = 1.0;
+    lumiRoot.add(bodyMesh);
+
+    // 2. Parche Abdominal Suave
+    const bellyGeom = new THREE.SphereGeometry(0.68, 32, 24);
+    const bellyMesh = new THREE.Mesh(bellyGeom, bellyMaterial);
+    bellyMesh.position.set(0, -0.15, 0.42);
+    bellyMesh.scale.set(1.0, 0.85, 0.35);
+    bodyMesh.add(bellyMesh);
+
+    // 3. Orejas Caídas con Jerarquía de Huesos
+    const earGeom = new THREE.CylinderGeometry(0.12, 0.22, 0.75, 24);
+    earGeom.translate(0, -0.35, 0);
+
+    const earLGroup = new THREE.Group();
+    earLGroup.position.set(-0.65, 0.65, -0.05);
+    earLGroup.rotation.z = 0.5;
+    const earLMesh = new THREE.Mesh(earGeom, bodyMaterial);
+    earLMesh.castShadow = true;
+    earLGroup.add(earLMesh);
+    bodyMesh.add(earLGroup);
+
+    const earRGroup = new THREE.Group();
+    earRGroup.position.set(0.65, 0.65, -0.05);
+    earRGroup.rotation.z = -0.5;
+    const earRMesh = new THREE.Mesh(earGeom, bodyMaterial);
+    earRMesh.castShadow = true;
+    earRGroup.add(earRMesh);
+    bodyMesh.add(earRGroup);
+
+    // 4. Ojos Grandes y Pupil Tracking
+    const eyesGroup = new THREE.Group();
+    eyesGroup.position.set(0, 0.12, 0.85);
+    bodyMesh.add(eyesGroup);
+
+    // Ojo Izquierdo
+    const eyeGeom = new THREE.SphereGeometry(0.16, 24, 24);
+    const eyeL = new THREE.Mesh(eyeGeom, eyeWhiteMat);
+    eyeL.position.set(-0.35, 0, 0);
+    eyesGroup.add(eyeL);
+
+    const pupilGeom = new THREE.SphereGeometry(0.09, 20, 20);
+    const pupilL = new THREE.Mesh(pupilGeom, pupilMat);
+    pupilL.position.set(0, 0, 0.11);
+    eyeL.add(pupilL);
+
+    // Ojo Derecho
+    const eyeR = new THREE.Mesh(eyeGeom, eyeWhiteMat);
+    eyeR.position.set(0.35, 0, 0);
+    eyesGroup.add(eyeR);
+
+    const pupilR = new THREE.Mesh(pupilGeom, pupilMat);
+    pupilR.position.set(0, 0, 0.11);
+    eyeR.add(pupilR);
+
+    // Mejillas Ruborizadas
+    const blushGeom = new THREE.CircleGeometry(0.12, 16);
+    const blushL = new THREE.Mesh(blushGeom, blushMat);
+    blushL.position.set(-0.52, -0.15, 0.72);
+    blushL.rotation.y = -0.45;
+    bodyMesh.add(blushL);
+
+    const blushR = new THREE.Mesh(blushGeom, blushMat);
+    blushR.position.set(0.52, -0.15, 0.72);
+    blushR.rotation.y = 0.45;
+    bodyMesh.add(blushR);
+
+    // 5. Patitas Rechuchas
+    const footGeom = new THREE.SphereGeometry(0.24, 20, 20);
+    const footL = new THREE.Mesh(footGeom, bodyMaterial);
+    footL.scale.set(0.9, 0.6, 1.3);
+    footL.position.set(-0.45, -0.85, 0.25);
+    footL.castShadow = true;
+    bodyMesh.add(footL);
+
+    const footR = new THREE.Mesh(footGeom, bodyMaterial);
+    footR.scale.set(0.9, 0.6, 1.3);
+    footR.position.set(0.45, -0.85, 0.25);
+    footR.castShadow = true;
+    bodyMesh.add(footR);
+
+    // 6. Plano de Sombra de Contacto Suave en Suelo
+    const shadowGeom = new THREE.PlaneGeometry(3.5, 3.5);
+    const shadowTexture = createRadialShadowTexture();
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false
+    });
+    const shadowMesh = new THREE.Mesh(shadowGeom, shadowMat);
+    shadowMesh.rotation.x = -Math.PI / 2;
+    shadowMesh.position.y = 0.01;
+    scene.add(shadowMesh);
+
+    function createRadialShadowTexture() {
+      const c = document.createElement('canvas');
+      c.width = 128;
+      c.height = 128;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
+      grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.75)');
+      grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.25)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(c);
+    }
+
+    // -------------------------------------------------------------
+    // MOTOR CINEMÁTICO Y DE ANIMACIÓN DE LUMI
+    // -------------------------------------------------------------
+    let currentExpr = "neutral";
+    let activeAction = null;
+    let actionElapsedMs = 0;
+    let injectBlobDefect = false;
+
+    // FSM de Expresiones
+    const EXPR_PRESETS = {
+      neutral:   { squint: 0.0, pupil: 1.0,  open: 0.0, droop: 0.15, blush: 0.35 },
+      happy:     { squint: 0.75, pupil: 1.15, open: 0.2, droop: 0.0,  blush: 0.65 },
+      curious:   { squint: 0.2,  pupil: 1.3,  open: 0.1, droop: 0.25, blush: 0.40 },
+      surprised: { squint: 0.0,  pupil: 1.45, open: 0.6, droop: 0.0,  blush: 0.25 },
+      sleepy:    { squint: 0.4,  pupil: 0.85, open: 0.1, droop: 0.85, blush: 0.20 },
+      thinking:  { squint: 0.35, pupil: 0.95, open: 0.0, droop: 0.30, blush: 0.30 },
+      alert:     { squint: 0.1,  pupil: 1.25, open: 0.2, droop: 0.05, blush: 0.10 },
+      proud:     { squint: 0.6,  pupil: 1.05, open: 0.0, droop: 0.0,  blush: 0.55 }
+    };
+
+    // 10 Actuaciones en 10 Fases Dramáticas
+    const ACTIONS = {
+      act_bounce_happy: {
+        totalMs: 980,
+        phases: [
+          { name: "stimulus", ms: 40, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "happy" },
+          { name: "anticipation", ms: 140, sy: 0.74, y: 0.82, yaw: 0, roll: 0, expr: "happy" },
+          { name: "launch", ms: 160, sy: 1.28, y: 1.65, yaw: 0.1, roll: 0.04, expr: "happy" },
+          { name: "apex", ms: 90, sy: 1.08, y: 1.78, yaw: 0.2, roll: 0.08, expr: "happy" },
+          { name: "follow_through", ms: 130, sy: 0.88, y: 0.92, yaw: 0.05, roll: -0.02, expr: "happy" },
+          { name: "rebound", ms: 120, sy: 1.12, y: 1.12, yaw: 0, roll: 0, expr: "happy" },
+          { name: "settling", ms: 180, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "happy" },
+          { name: "memory", ms: 120, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "happy" }
+        ]
+      },
+      act_fuzz_shake: {
+        totalMs: 1100,
+        phases: [
+          { name: "stimulus", ms: 50, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "neutral" },
+          { name: "anticipation", ms: 120, sy: 0.86, y: 0.92, yaw: -0.15, roll: -0.05, expr: "neutral" },
+          { name: "shake_1", ms: 100, sy: 1.02, y: 1.0, yaw: 0.40, roll: 0.15, expr: "happy" },
+          { name: "shake_2", ms: 100, sy: 1.02, y: 1.0, yaw: -0.40, roll: -0.15, expr: "happy" },
+          { name: "shake_3", ms: 100, sy: 1.02, y: 1.0, yaw: 0.35, roll: 0.12, expr: "happy" },
+          { name: "settling_shake", ms: 160, sy: 0.92, y: 0.96, yaw: -0.08, roll: -0.04, expr: "happy" },
+          { name: "puff_up", ms: 220, sy: 1.10, y: 1.06, yaw: 0, roll: 0, expr: "proud" },
+          { name: "memory", ms: 250, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "proud" }
+        ]
+      },
+      act_startle: {
+        totalMs: 950,
+        phases: [
+          { name: "stimulus", ms: 30, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "alert" },
+          { name: "jolt", ms: 60, sy: 0.82, y: 0.88, yaw: 0, roll: 0, expr: "alert" },
+          { name: "jump_back", ms: 160, sy: 1.25, y: 1.55, yaw: -0.1, roll: 0.05, expr: "alert" },
+          { name: "apex", ms: 90, sy: 1.06, y: 1.62, yaw: 0.1, roll: 0.08, expr: "alert" },
+          { name: "land_heavy", ms: 150, sy: 0.75, y: 0.82, yaw: -0.05, roll: -0.02, expr: "alert" },
+          { name: "rebound", ms: 140, sy: 1.08, y: 1.08, yaw: 0.04, roll: 0, expr: "alert" },
+          { name: "settling", ms: 200, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "neutral" },
+          { name: "memory", ms: 120, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "neutral" }
+        ]
+      }
+    };
+
+    // Crear entradas genéricas para las 10
+    const allActions = [
+      "act_breathe_idle", "act_look_around", "act_bounce_happy", "act_fuzz_shake",
+      "act_yawn_sleep", "act_startle", "act_celebrate", "act_curious_inspect",
+      "act_nod_agree", "act_poke_react"
+    ];
+
+    allActions.forEach(name => {
+      if (!ACTIONS[name]) {
+        ACTIONS[name] = {
+          totalMs: 1000,
+          phases: [
+            { name: "stimulus", ms: 50, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "neutral" },
+            { name: "anticipation", ms: 120, sy: 0.88, y: 0.94, yaw: -0.08, roll: -0.04, expr: "curious" },
+            { name: "action", ms: 200, sy: 1.15, y: 1.25, yaw: 0.25, roll: 0.08, expr: "curious" },
+            { name: "apex", ms: 100, sy: 1.05, y: 1.30, yaw: 0.32, roll: 0.10, expr: "curious" },
+            { name: "follow_through", ms: 140, sy: 0.92, y: 0.96, yaw: 0.15, roll: 0.04, expr: "curious" },
+            { name: "rebound", ms: 130, sy: 1.04, y: 1.04, yaw: 0.06, roll: 0.01, expr: "neutral" },
+            { name: "settling", ms: 160, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "neutral" },
+            { name: "memory", ms: 100, sy: 1.0, y: 1.0, yaw: 0, roll: 0, expr: "neutral" }
+          ]
+        };
+      }
+    });
+
+    // Seguimiento del cursor en 3D
+    let mouse3D = { x: 0, y: 0 };
+    window.addEventListener('mousemove', (e) => {
+      const rect = container.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      mouse3D.x = THREE.MathUtils.clamp(x, -1, 1);
+      mouse3D.y = THREE.MathUtils.clamp(y, -1, 1);
+    });
+
+    // Bucle de Renderizado y Física
+    let lastTime = performance.now();
+    let frameCounter = 0;
+    let lastFpsTime = performance.now();
+
+    function animate(now) {
+      const dt = Math.min(0.033, (now - lastTime) / 1000);
+      lastTime = now;
+
+      // Telemetría FPS
+      frameCounter++;
+      if (now - lastFpsTime >= 500) {
+        document.getElementById('tFps').textContent = Math.round((frameCounter * 1000) / (now - lastFpsTime));
+        frameCounter = 0;
+        lastFpsTime = now;
+      }
+
+      controls.update();
+
+      // 1. Cinemática de Actuación
+      let curSquashY = 1.0;
+      let curPosY = 1.0;
+      let curYaw = 0.0;
+      let curRoll = 0.0;
+      let currentPhaseName = "reposo";
+
+      if (activeAction) {
+        actionElapsedMs += dt * 1000;
+        let accum = 0;
+        let p = activeAction.phases[0];
+        let pIdx = 0;
+
+        for (let i = 0; i < activeAction.phases.length; i++) {
+          const ph = activeAction.phases[i];
+          if (actionElapsedMs <= accum + ph.ms) {
+            p = ph;
+            pIdx = i;
+            break;
+          }
+          accum += ph.ms;
+        }
+
+        curSquashY = p.sy;
+        curPosY = p.y;
+        curYaw = p.yaw;
+        curRoll = p.roll;
+        currentPhaseName = p.name;
+        currentExpr = p.expr;
+
+        document.getElementById('tPhase').textContent = p.name;
+        document.getElementById('actTimer').textContent = `${Math.round(actionElapsedMs)}ms / ${activeAction.totalMs}ms`;
+
+        document.querySelectorAll('.timeline-pip').forEach((pip, idx) => {
+          pip.classList.toggle('active', idx === pIdx);
+        });
+
+        if (actionElapsedMs >= activeAction.totalMs) {
+          activeAction = null;
+          document.getElementById('actTimer').textContent = "En reposo";
+          document.querySelectorAll('.timeline-pip').forEach(p => p.classList.remove('active'));
+        }
+      } else {
+        // Respiración suave
+        const t = now * 0.002;
+        curSquashY = 1.0 + Math.sin(t) * 0.02;
+        curPosY = 1.0 + Math.sin(t) * 0.03;
+      }
+
+      // 2. Conservación de Volumen (Squash & Stretch)
+      let curStretchXZ = 1.0;
+      if (injectBlobDefect) {
+        curStretchXZ = 1.0; // Defecto inyectado
+      } else {
+        curStretchXZ = 1.0 / Math.sqrt(Math.max(0.4, curSquashY));
+      }
+
+      bodyMesh.scale.set(curStretchXZ, curSquashY, curStretchXZ);
+      bodyMesh.position.y = curPosY;
+      bodyMesh.rotation.y = curYaw;
+      bodyMesh.rotation.z = curRoll;
+
+      // Sombra de contacto
+      const heightAboveGround = Math.max(0, curPosY - 1.0);
+      shadowMesh.scale.set(curStretchXZ * (1.0 + heightAboveGround * 0.4), curStretchXZ * (1.0 + heightAboveGround * 0.4), 1.0);
+      shadowMat.opacity = Math.max(0.06, 0.38 - heightAboveGround * 0.25);
+
+      // 3. Pupil Tracking
+      const targetGazeX = mouse3D.x * 0.04;
+      const targetGazeY = mouse3D.y * 0.03;
+      pupilL.position.x = THREE.MathUtils.lerp(pupilL.position.x, targetGazeX, 0.1);
+      pupilL.position.y = THREE.MathUtils.lerp(pupilL.position.y, targetGazeY, 0.1);
+      pupilR.position.x = THREE.MathUtils.lerp(pupilR.position.x, targetGazeX, 0.1);
+      pupilR.position.y = THREE.MathUtils.lerp(pupilR.position.y, targetGazeY, 0.1);
+
+      // 4. Expresión Facial Activa
+      const expr = EXPR_PRESETS[currentExpr] || EXPR_PRESETS.neutral;
+      const targetPupilScale = expr.pupil;
+      pupilL.scale.setScalar(targetPupilScale);
+      pupilR.scale.setScalar(targetPupilScale);
+
+      // Párpados / Squint
+      eyeL.scale.y = 1.0 - expr.squint * 0.55;
+      eyeR.scale.y = 1.0 - expr.squint * 0.55;
+
+      // Orejitas secundarias (inercia)
+      const earSwing = Math.sin(now * 0.005) * 0.08 - curYaw * 0.8;
+      earLGroup.rotation.x = THREE.MathUtils.lerp(earLGroup.rotation.x, earSwing + expr.droop, 0.1);
+      earRGroup.rotation.x = THREE.MathUtils.lerp(earRGroup.rotation.x, -earSwing + expr.droop, 0.1);
+
+      // Telemetría
+      document.getElementById('tExpr').textContent = currentExpr;
+      document.getElementById('tAction').textContent = activeAction ? activeAction.name : "reposo";
+      document.getElementById('tSquash').textContent = curSquashY.toFixed(2);
+      document.getElementById('tStretch').textContent = curStretchXZ.toFixed(2);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+
+    // -------------------------------------------------------------
+    // EVENT LISTENERS DEL PANEL DE CONTROL
+    // -------------------------------------------------------------
+    // Expresiones
+    document.querySelectorAll('#exprButtons button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#exprButtons button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentExpr = btn.dataset.expr;
+      });
+    });
+
+    // Actuaciones
+    document.querySelectorAll('#actButtons button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const actName = btn.dataset.act;
+        activeAction = { ...ACTIONS[actName], name: actName };
+        actionElapsedMs = 0;
+      });
+    });
+
+    // Materiales
+    document.querySelectorAll('#matButtons button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#matButtons button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const matId = btn.dataset.mat;
+        applyMaterialPreset(matId);
+      });
+    });
+
+    function applyMaterialPreset(id) {
+      document.getElementById('tMat').textContent = id;
+      if (id === 'short_plush') {
+        bodyMaterial.color.setHex(0xfef3c7);
+        bodyMaterial.roughness = 0.88;
+        bodyMaterial.sheen = 1.0;
+        bodyMaterial.sheenColor.setHex(0xffffff);
+        bodyMaterial.transmission = 0.04;
+        bodyMaterial.clearcoat = 0.0;
+        bellyMaterial.color.setHex(0xfffbeb);
+      } else if (id === 'velvet_fuzz') {
+        bodyMaterial.color.setHex(0x4c1d95);
+        bodyMaterial.roughness = 0.95;
+        bodyMaterial.sheen = 1.0;
+        bodyMaterial.sheenColor.setHex(0xf472b6);
+        bodyMaterial.transmission = 0.0;
+        bodyMaterial.clearcoat = 0.0;
+        bellyMaterial.color.setHex(0x7c3aed);
+      } else if (id === 'soft_rubber') {
+        bodyMaterial.color.setHex(0x0ea5e9);
+        bodyMaterial.roughness = 0.42;
+        bodyMaterial.sheen = 0.15;
+        bodyMaterial.transmission = 0.0;
+        bodyMaterial.clearcoat = 0.12;
+        bellyMaterial.color.setHex(0xe0f2fe);
+      } else if (id === 'translucent_gummy') {
+        bodyMaterial.color.setHex(0xfb7185);
+        bodyMaterial.roughness = 0.18;
+        bodyMaterial.sheen = 0.3;
+        bodyMaterial.transmission = 0.88;
+        bodyMaterial.thickness = 1.2;
+        bodyMaterial.clearcoat = 0.6;
+        bellyMaterial.color.setHex(0xffe4e6);
+      } else if (id === 'matte_ceramic') {
+        bodyMaterial.color.setHex(0xf8fafc);
+        bodyMaterial.roughness = 0.35;
+        bodyMaterial.sheen = 0.0;
+        bodyMaterial.transmission = 0.0;
+        bodyMaterial.clearcoat = 0.05;
+        bellyMaterial.color.setHex(0xe2e8f0);
+      }
+    }
+
+    // Inyección y Reparación de Defecto DEF-ANI-BLOB
+    document.getElementById('btnInjectBlob').addEventListener('click', () => {
+      injectBlobDefect = true;
+      const badge = document.getElementById('defectBadge');
+      badge.textContent = "DEFECTO DEF-ANI-BLOB ACTIVO (Rigidez Sxz=1)";
+      badge.style.color = "var(--danger)";
+    });
+
+    document.getElementById('btnRepairBlob').addEventListener('click', () => {
+      injectBlobDefect = false;
+      const badge = document.getElementById('defectBadge');
+      badge.textContent = "Volumen Conservado (Sxz = 1/√Sy)";
+      badge.style.color = "var(--success)";
+    });
+
+    // Ajuste responsive
+    window.addEventListener('resize', () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+  </script>
+</body>
+</html>

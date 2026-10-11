@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pip — Original 3D Soft Plush Companion (Real Shell Fur Engine)</title>
+  <!-- Three.js 0.160.0 -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0d14;
+      --card-bg: rgba(18, 21, 33, 0.88);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.35);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1380px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.45);
+    }
+
+    .brand-logo svg {
+      width: 24px;
+      height: 24px;
+      fill: #ffffff;
+    }
+
+    .brand-text h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text p {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .pill-badge {
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.14);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 8px #38bdf8;
+    }
+
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 660px 1fr;
+      gap: 24px;
+      width: 100%;
+      max-width: 1380px;
+    }
+
+    /* 3D Viewport Box */
+    .viewport-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(20px);
+    }
+
+    #viewport3d {
+      width: 620px;
+      height: 580px;
+      border-radius: 14px;
+      background: radial-gradient(circle at 45% 35%, #1e2638 0%, #0c0e17 100%);
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 2px 24px rgba(0, 0, 0, 0.7);
+    }
+
+    #viewport3d:active {
+      cursor: grabbing;
+    }
+
+    .viewport-hud {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .hud-chip {
+      font-size: 0.74rem;
+      padding: 5px 12px;
+      border-radius: 8px;
+      background: rgba(10, 12, 18, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e5e7eb;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      backdrop-filter: blur(10px);
+    }
+
+    .viewport-hint {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: var(--muted);
+      background: rgba(10, 12, 18, 0.7);
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
+
+    .telemetry {
+      width: 100%;
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .speech-box {
+      width: 100%;
+      margin-top: 14px;
+      background: rgba(56, 189, 248, 0.06);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .speech-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #0b0d14;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .speech-text {
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: #e2e8f0;
+    }
+
+    /* Controls Stack */
+    .controls-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      backdrop-filter: blur(20px);
+    }
+
+    .panel-header {
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #e2e8f0;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-tag {
+      font-size: 0.7rem;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 8px;
+      border-radius: 10px;
+      color: var(--muted);
+      text-transform: none;
+    }
+
+    /* Grids */
+    .btn-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .ui-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      padding: 10px 8px;
+      border-radius: 10px;
+      font-size: 0.76rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.18s ease;
+      text-align: center;
+    }
+
+    .ui-btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .ui-btn.active {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: #38bdf8;
+      color: #38bdf8;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+    }
+
+    .ui-btn span.sub {
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    /* Sliders */
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+
+    .slider-header span.val {
+      color: #38bdf8;
+      font-family: monospace;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px #38bdf8;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .color-swatch.active {
+      border-color: #ffffff;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>Pip — Original 3D Soft Plush Companion</h1>
+        <p>Motor de Pelaje Real Volumétrico (Shell Fur 12 Capas) • Antena Estelar • 12 Expresiones • 10 Actuaciones</p>
+      </div>
+    </div>
+    <div class="pill-badge">
+      12x Shell Fur Engine • Three.js 3D • 60 FPS
+    </div>
+  </header>
+
+  <div class="layout-grid">
+    <!-- Viewport 3D -->
+    <div class="viewport-box">
+      <div id="viewport3d">
+        <div class="viewport-hud">
+          <div class="hud-chip" id="hudName">PIP — PELUCHE AFELPADO 3D</div>
+          <div class="hud-chip" id="hudExpr">EXPRESIÓN: NEUTRAL ATENTO</div>
+          <div class="hud-chip" id="hudFur">PELAJE: SHELL FUR ACTIVO (12 CAPAS)</div>
+        </div>
+        <div class="viewport-hint">Arrastra para rotar 360° • Clic para acariciar / reaccionar</div>
+      </div>
+
+      <div class="telemetry">
+        <span>FPS: <strong id="fpsVal" style="color:#38bdf8">60</strong></span>
+        <span>VOLUMEN $S_{xz}$: <strong id="volVal" style="color:#60a5fa">1.000</strong></span>
+        <span>LONGITUD PELO: <strong id="furLenVal" style="color:#f59e0b">0.055</strong></span>
+        <span>DENSIDAD FIBRAS: <strong id="furDensVal">40x</strong></span>
+      </div>
+
+      <div class="speech-box">
+        <div class="speech-avatar" id="speechAvatar">P</div>
+        <div class="speech-text" id="speechText">
+          "¡Hola! Mira mi nuevo pelaje volumétrico de peluche. Cada fibra sobresale tridimensionalmente de mi cuerpo."
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel de Controles -->
+    <div class="controls-stack">
+
+      <!-- 1. Catálogo de 12 Expresiones Emocionales -->
+      <div class="panel-card">
+        <div class="panel-header">
+          1. Sistema Facial (12 Expresiones Emocionales)
+          <span class="panel-tag">Canales Anatómicos</span>
+        </div>
+        <div class="btn-grid-4">
+          <button class="ui-btn active" onclick="setExpression('neutral_attentive')">
+            <strong>Neutral</strong>
+            <span class="sub">Atento</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('joyful')">
+            <strong>Alegre</strong>
+            <span class="sub">Sonrisa amplia</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('curious')">
+            <strong>Curioso</strong>
+            <span class="sub">Ojo asimétrico</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('surprised')">
+            <strong>Sorprendido</strong>
+            <span class="sub">Ojos abiertos</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('confused')">
+            <strong>Confundido</strong>
+            <span class="sub">Ceño ladeado</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('sad')">
+            <strong>Triste</strong>
+            <span class="sub">Boca abajo</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('frustrated')">
+            <strong>Frustrado</strong>
+            <span class="sub">Ceño fruncido</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('enthusiastic')">
+            <strong>Entusiasta</strong>
+            <span class="sub">Brillo estelar</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('tired')">
+            <strong>Cansado</strong>
+            <span class="sub">Párpados caídos</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('sleeping')">
+            <strong>Dormido</strong>
+            <span class="sub">Ojos cerrados</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('focused')">
+            <strong>Concentrado</strong>
+            <span class="sub">Mirada fija</span>
+          </button>
+          <button class="ui-btn" onclick="setExpression('playful')">
+            <strong>Juguetón</strong>
+            <span class="sub">Guiño pícaro</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Motor de Pelaje Real Volumétrico (Shell Fur) -->
+      <div class="panel-card">
+        <div class="panel-header">
+          2. Motor de Pelaje Real (Shell Fur Nivel C)
+          <span class="panel-tag">12 Mallas Concéntricas</span>
+        </div>
+        <div class="btn-grid-3">
+          <button class="ui-btn active" id="btnFurPlush" onclick="setFurPreset('dense_plush')">
+            <strong>Peluche Denso</strong>
+            <span class="sub">Pelo medio tupido</span>
+          </button>
+          <button class="ui-btn" id="btnFurLong" onclick="setFurPreset('long_fluff')">
+            <strong>Felpa Larga</strong>
+            <span class="sub">Pelo largo esponjoso</span>
+          </button>
+          <button class="ui-btn" id="btnFurVelvet" onclick="setFurPreset('short_velvet')">
+            <strong>Terciopelo Corto</strong>
+            <span class="sub">Micro-vellón</span>
+          </button>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Longitud del Pelaje (Hair Extrusion Length)</span>
+            <span class="val" id="furLengthVal">0.055</span>
+          </div>
+          <input type="range" id="furLengthRange" min="0.015" max="0.10" step="0.005" value="0.055" oninput="updateFurLength(this.value)">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Densidad de Fibras de Pelo</span>
+            <span class="val" id="furDensityVal">40</span>
+          </div>
+          <input type="range" id="furDensityRange" min="20" max="60" step="5" value="40" oninput="updateFurDensity(this.value)">
+        </div>
+      </div>
+
+      <!-- 3. Actuaciones Dramáticas -->
+      <div class="panel-card">
+        <div class="panel-header">
+          3. Actuaciones y Deformación Elástica
+          <span class="panel-tag">Squash & Stretch</span>
+        </div>
+        <div class="btn-grid-3">
+          <button class="ui-btn active" onclick="triggerAction('idle_breathe')">
+            <strong>1. Reposo</strong>
+            <span class="sub">Respiración</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('look_at_user')">
+            <strong>2. Mirar Usuario</strong>
+            <span class="sub">Atención directa</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('tilt_curious')">
+            <strong>3. Inclinar Cabeza</strong>
+            <span class="sub">Curiosidad</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('jump_bounce')">
+            <strong>4. Saltar & Rebotar</strong>
+            <span class="sub">Vuelo elástico</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('celebrate_success')">
+            <strong>5. Celebrar Éxito</strong>
+            <span class="sub">Júbilo estelar</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('startle_alert')">
+            <strong>6. Sobresaltarse</strong>
+            <span class="sub">Alerta HITL</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('cower_retract')">
+            <strong>7. Encogerse</strong>
+            <span class="sub">Timidez / Miedo</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('stretch_wake')">
+            <strong>8. Estirarse</strong>
+            <span class="sub">Desperezarse</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('fall_asleep')">
+            <strong>9. Dormirse</strong>
+            <span class="sub">Sueño suave</span>
+          </button>
+          <button class="ui-btn" onclick="triggerAction('react_click')">
+            <strong>10. Acariciar</strong>
+            <span class="sub">Apretón táctil</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4. Paleta Cromática de Pip -->
+      <div class="panel-card">
+        <div class="panel-header">
+          4. Color del Pelaje de Pip
+          <span class="panel-tag">Tintado en Tiempo Real</span>
+        </div>
+
+        <div>
+          <span style="font-size:0.75rem; color:var(--muted)">Color de Pelaje Principal:</span>
+          <div class="color-swatches">
+            <div class="color-swatch active" style="background:#38bdf8;" onclick="setPrimaryColor('#38bdf8', '#bae6fd', this)" title="Celeste Estelar"></div>
+            <div class="color-swatch" style="background:#a855f7;" onclick="setPrimaryColor('#a855f7', '#f3e8ff', this)" title="Nebulosa Violeta"></div>
+            <div class="color-swatch" style="background:#f43f5e;" onclick="setPrimaryColor('#f43f5e', '#ffe4e6', this)" title="Coral Aurora"></div>
+            <div class="color-swatch" style="background:#10b981;" onclick="setPrimaryColor('#10b981', '#d1fae5', this)" title="Menta Galáctica"></div>
+            <div class="color-swatch" style="background:#f59e0b;" onclick="setPrimaryColor('#f59e0b', '#fef3c7', this)" title="Ámbar Solar"></div>
+          </div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Separación Interocular</span>
+            <span class="val" id="eyeSepVal">1.00</span>
+          </div>
+          <input type="range" id="eyeSepRange" min="0.8" max="1.35" step="0.05" value="1.0" oninput="updateEyeSep(this.value)">
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       PIP: MOTOR DE PELAJE REAL VOLUMÉTRICO (SHELL FUR ENGINE) — THREE.JS
+       ========================================================================== */
+
+    const container = document.getElementById('viewport3d');
+    let width = container.clientWidth;
+    let height = container.clientHeight;
+
+    // 1. Escena, Cámara y Renderer
+    const scene = new THREE.Scene();
+    scene.background = null;
+
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
+    camera.position.set(0, 0.45, 4.3);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    container.appendChild(renderer.domElement);
+
+    // 2. Generador de Textura Alpha de Puntas de Pelaje (Hair Strands Pattern)
+    let currentFurDensity = 40;
+    function generateFurAlphaMap(density) {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      // Fondo transparente
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Puntos y fibras aleatorias de pelo
+      ctx.fillStyle = '#ffffff';
+      const numFibers = density * 300;
+      for (let i = 0; i < numFibers; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const r = 0.8 + Math.random() * 1.6;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(density, density);
+      return tex;
+    }
+
+    let furAlphaTexture = generateFurAlphaMap(currentFurDensity);
+
+    // 3. Rig de Iluminación de Estudio de 3 Puntos + Rim Kicker
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xfff8ee, 1.45);
+    keyLight.position.set(-2.8, 3.8, 3.2);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 1024;
+    keyLight.shadow.mapSize.height = 1024;
+    keyLight.shadow.bias = -0.001;
+    keyLight.shadow.radius = 4;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xbae6fd, 0.65);
+    fillLight.position.set(3.2, 2.2, 2.0);
+    scene.add(fillLight);
+
+    // Rim Kicker Trasero Potente (ilumina el contorno de fibras de pelo)
+    const rimLight = new THREE.DirectionalLight(0xffffff, 2.9);
+    rimLight.position.set(0, 3.2, -3.8);
+    scene.add(rimLight);
+
+    const bounceLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    bounceLight.position.set(0, -3.0, 1.2);
+    scene.add(bounceLight);
+
+    // 4. Sombra de Contacto Acoplada al Suelo
+    const shadowGeo = new THREE.PlaneGeometry(2.8, 2.8);
+    const canvasShadow = document.createElement('canvas');
+    canvasShadow.width = 128;
+    canvasShadow.height = 128;
+    const ctxShadow = canvasShadow.getContext('2d');
+    const grad = ctxShadow.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+    grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.5)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctxShadow.fillStyle = grad;
+    ctxShadow.fillRect(0, 0, 128, 128);
+
+    const shadowTex = new THREE.CanvasTexture(canvasShadow);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTex,
+      transparent: true,
+      opacity: 0.60,
+      depthWrite: false
+    });
+    const contactShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    contactShadow.rotation.x = -Math.PI / 2;
+    contactShadow.position.y = -1.18;
+    scene.add(contactShadow);
+
+    // 5. Construcción Geométrica de Pip con Shell Fur Multicapa
+    const pipRoot = new THREE.Group();
+    scene.add(pipRoot);
+
+    const bodyGroup = new THREE.Group();
+    pipRoot.add(bodyGroup);
+
+    let activePrimaryColor = '#38bdf8';
+    let activeSheenColor = '#bae6fd';
+    let furLength = 0.055;
+    const NUM_SHELLS = 12; // 12 mallas concéntricas de pelaje
+
+    // Malla Base (Skin / Piel profunda)
+    const baseBodyMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(activePrimaryColor),
+      roughness: 0.92,
+      metalness: 0.0
+    });
+
+    const bodyGeom = new THREE.SphereGeometry(1.0, 64, 64);
+    const pos = bodyGeom.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i);
+      let y = pos.getY(i);
+      let z = pos.getZ(i);
+      const yNorm = (y + 1.0) * 0.5;
+      const taper = 1.18 - yNorm * 0.35;
+      x *= taper * 1.08;
+      z *= taper * 0.98;
+      y *= 0.96;
+      pos.setXYZ(i, x, y, z);
+    }
+    bodyGeom.computeVertexNormals();
+
+    const baseBodyMesh = new THREE.Mesh(bodyGeom, baseBodyMaterial);
+    baseBodyMesh.castShadow = true;
+    baseBodyMesh.receiveShadow = true;
+    bodyGroup.add(baseBodyMesh);
+
+    // B) Generación del Sistema de Capas Shell Fur (12 Capas de Pelo Extruidas)
+    const furShellsGroup = new THREE.Group();
+    bodyGroup.add(furShellsGroup);
+
+    let furMaterials = [];
+
+    function buildFurShells() {
+      // Limpiar capas previas
+      while (furShellsGroup.children.length > 0) {
+        const c = furShellsGroup.children[0];
+        furShellsGroup.remove(c);
+        if (c.geometry) c.geometry.dispose();
+      }
+      furMaterials = [];
+
+      for (let k = 1; k <= NUM_SHELLS; k++) {
+        const t = k / NUM_SHELLS; // [0.08, 1.0]
+
+        // Geometría extruida a lo largo de las normales de vértice
+        const shellGeom = bodyGeom.clone();
+        const sPos = shellGeom.attributes.position;
+        const sNorm = shellGeom.attributes.normal;
+
+        for (let i = 0; i < sPos.count; i++) {
+          const nx = sNorm.getX(i);
+          const ny = sNorm.getY(i);
+          const nz = sNorm.getZ(i);
+
+          const curX = sPos.getX(i);
+          const curY = sPos.getY(i);
+          const curZ = sPos.getZ(i);
+
+          // Pk = P0 + N * (k/N) * L_hair
+          const disp = t * furLength;
+          sPos.setXYZ(i, curX + nx * disp, curY + ny * disp, curZ + nz * disp);
+        }
+        shellGeom.computeVertexNormals();
+
+        // Material con canal alpha creciente hacia las puntas
+        const shellColor = new THREE.Color(activePrimaryColor).lerp(new THREE.Color(activeSheenColor), t * 0.6);
+
+        const shellMat = new THREE.MeshStandardMaterial({
+          color: shellColor,
+          roughness: 0.85,
+          alphaMap: furAlphaTexture,
+          transparent: true,
+          opacity: 0.95 - (t * 0.55), // Se desvanece suavemente en las puntas exteriores
+          depthWrite: false
+        });
+
+        furMaterials.push(shellMat);
+
+        const shellMesh = new THREE.Mesh(shellGeom, shellMat);
+        furShellsGroup.add(shellMesh);
+      }
+    }
+
+    buildFurShells();
+
+    // C) Parche Abdominal Suave
+    const bellyMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf0f9ff,
+      roughness: 0.88
+    });
+    const bellyGeom = new THREE.SphereGeometry(0.68, 32, 32);
+    bellyGeom.scale(1.0, 0.92, 0.32);
+    const bellyMesh = new THREE.Mesh(bellyGeom, bellyMaterial);
+    bellyMesh.position.set(0, -0.22, 0.84);
+    bodyGroup.add(bellyMesh);
+
+    // D) Orejas Aladas Laterales Afelpadas
+    const earsGroup = new THREE.Group();
+    bodyGroup.add(earsGroup);
+
+    const earGeom = new THREE.SphereGeometry(0.35, 24, 24);
+    earGeom.scale(0.35, 1.3, 0.7);
+
+    const leftEar = new THREE.Mesh(earGeom, baseBodyMaterial);
+    leftEar.position.set(-0.96, 0.35, -0.05);
+    leftEar.rotation.z = 0.55;
+    leftEar.rotation.x = -0.15;
+    earsGroup.add(leftEar);
+
+    const rightEar = new THREE.Mesh(earGeom, baseBodyMaterial);
+    rightEar.position.set(0.96, 0.35, -0.05);
+    rightEar.rotation.z = -0.55;
+    rightEar.rotation.x = -0.15;
+    earsGroup.add(rightEar);
+
+    // E) Antena Estelar Superior Flexible
+    const antennaGroup = new THREE.Group();
+    antennaGroup.position.set(0, 0.88, 0.05);
+    bodyGroup.add(antennaGroup);
+
+    const stemGeom = new THREE.CylinderGeometry(0.025, 0.035, 0.42, 16);
+    stemGeom.translate(0, 0.21, 0);
+    const stemMesh = new THREE.Mesh(stemGeom, baseBodyMaterial);
+    stemMesh.rotation.x = -0.15;
+    antennaGroup.add(stemMesh);
+
+    const antennaBallMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      emissive: 0xf59e0b,
+      emissiveIntensity: 0.6,
+      roughness: 0.2
+    });
+    const starOrbGeom = new THREE.SphereGeometry(0.12, 24, 24);
+    const starOrbMesh = new THREE.Mesh(starOrbGeom, antennaBallMaterial);
+    starOrbMesh.position.set(0, 0.42, -0.06);
+    antennaGroup.add(starOrbMesh);
+
+    const antennaGlowLight = new THREE.PointLight(0xf59e0b, 0.8, 2.5);
+    antennaGlowLight.position.set(0, 1.45, 0.15);
+    bodyGroup.add(antennaGlowLight);
+
+    // F) Rostro 3D Expresivo (Ojos Esféricos + Boca + Mejillas)
+    const faceGroup = new THREE.Group();
+    faceGroup.position.set(0, 0.12, 0.98); // Ligeramente adelantado para flotar sobre el pelaje
+    bodyGroup.add(faceGroup);
+
+    const eyeWhiteMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, clearcoat: 1.0 });
+    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x090a0f });
+    const catchlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+    let eyeSeparationDistance = 0.34;
+
+    const eyeGeom = new THREE.SphereGeometry(0.18, 32, 32);
+    eyeGeom.scale(1.0, 1.0, 0.45);
+
+    const leftEye = new THREE.Mesh(eyeGeom, eyeWhiteMat);
+    leftEye.position.set(-eyeSeparationDistance, 0, 0);
+    faceGroup.add(leftEye);
+
+    const rightEye = new THREE.Mesh(eyeGeom, eyeWhiteMat);
+    rightEye.position.set(eyeSeparationDistance, 0, 0);
+    faceGroup.add(rightEye);
+
+    const pupilGeom = new THREE.SphereGeometry(0.09, 24, 24);
+    pupilGeom.scale(1.0, 1.0, 0.2);
+
+    const leftPupil = new THREE.Mesh(pupilGeom, pupilMat);
+    leftPupil.position.set(-eyeSeparationDistance, 0, 0.08);
+    faceGroup.add(leftPupil);
+
+    const rightPupil = new THREE.Mesh(pupilGeom, pupilMat);
+    rightPupil.position.set(eyeSeparationDistance, 0, 0.08);
+    faceGroup.add(rightPupil);
+
+    const catchGeom = new THREE.SphereGeometry(0.032, 16, 16);
+    const leftCatch = new THREE.Mesh(catchGeom, catchlightMat);
+    leftCatch.position.set(-eyeSeparationDistance + 0.03, 0.04, 0.10);
+    faceGroup.add(leftCatch);
+
+    const rightCatch = new THREE.Mesh(catchGeom, catchlightMat);
+    rightCatch.position.set(eyeSeparationDistance + 0.03, 0.04, 0.10);
+    faceGroup.add(rightCatch);
+
+    const blushMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.38 });
+    const blushGeom = new THREE.CircleGeometry(0.11, 24);
+    const leftBlush = new THREE.Mesh(blushGeom, blushMat);
+    leftBlush.position.set(-0.54, -0.10, 0.02);
+    faceGroup.add(leftBlush);
+
+    const rightBlush = new THREE.Mesh(blushGeom, blushMat);
+    rightBlush.position.set(0.54, -0.10, 0.02);
+    faceGroup.add(rightBlush);
+
+    const mouthMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+    const mouthGeom = new THREE.TorusGeometry(0.07, 0.016, 12, 24, Math.PI);
+    const mouthMesh = new THREE.Mesh(mouthGeom, mouthMat);
+    mouthMesh.rotation.x = Math.PI;
+    mouthMesh.position.set(0, -0.16, 0.04);
+    faceGroup.add(mouthMesh);
+
+    // 6. Controles y Presets de Pelaje
+    function setFurPreset(preset) {
+      document.querySelectorAll('#btnFurPlush, #btnFurLong, #btnFurVelvet').forEach(b => b.classList.remove('active'));
+
+      if (preset === 'dense_plush') {
+        document.getElementById('btnFurPlush').classList.add('active');
+        furLength = 0.055;
+        currentFurDensity = 40;
+      } else if (preset === 'long_fluff') {
+        document.getElementById('btnFurLong').classList.add('active');
+        furLength = 0.085;
+        currentFurDensity = 30;
+      } else if (preset === 'short_velvet') {
+        document.getElementById('btnFurVelvet').classList.add('active');
+        furLength = 0.025;
+        currentFurDensity = 55;
+      }
+
+      document.getElementById('furLengthRange').value = furLength;
+      document.getElementById('furLengthVal').innerText = furLength.toFixed(3);
+      document.getElementById('furLenVal').innerText = furLength.toFixed(3);
+
+      document.getElementById('furDensityRange').value = currentFurDensity;
+      document.getElementById('furDensityVal').innerText = currentFurDensity;
+      document.getElementById('furDensVal').innerText = currentFurDensity + 'x';
+
+      furAlphaTexture = generateFurAlphaMap(currentFurDensity);
+      buildFurShells();
+    }
+
+    function updateFurLength(val) {
+      furLength = parseFloat(val);
+      document.getElementById('furLengthVal').innerText = furLength.toFixed(3);
+      document.getElementById('furLenVal').innerText = furLength.toFixed(3);
+      buildFurShells();
+    }
+
+    function updateFurDensity(val) {
+      currentFurDensity = parseInt(val);
+      document.getElementById('furDensityVal').innerText = currentFurDensity;
+      document.getElementById('furDensVal').innerText = currentFurDensity + 'x';
+      furAlphaTexture = generateFurAlphaMap(currentFurDensity);
+      buildFurShells();
+    }
+
+    function setPrimaryColor(hex, sheenHex, el) {
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      activePrimaryColor = hex;
+      activeSheenColor = sheenHex;
+
+      baseBodyMaterial.color.set(hex);
+      buildFurShells();
+      document.getElementById('speechAvatar').style.background = hex;
+    }
+
+    function updateEyeSep(val) {
+      document.getElementById('eyeSepVal').innerText = parseFloat(val).toFixed(2);
+      const sep = 0.34 * parseFloat(val);
+      leftEye.position.x = -sep;
+      rightEye.position.x = sep;
+      leftPupil.position.x = -sep;
+      rightPupil.position.x = sep;
+      leftCatch.position.x = -sep + 0.03;
+      rightCatch.position.x = sep + 0.03;
+    }
+
+    // 7. Estado de Expresiones y Actuaciones
+    let currentExpression = 'neutral_attentive';
+    let currentAction = 'idle_breathe';
+    let actionTime = 0;
+
+    const speechTextMap = {
+      neutral_attentive: '"Atento a tus instrucciones. Mi sistema está listo para ayudarte."',
+      joyful: '"¡Qué alegría! El pelaje suave vibra de emoción."',
+      curious: '"Mmm... qué interesante. ¿Puedo explorar más sobre este detalle?"',
+      surprised: '"¡Vaya! No esperaba ese cambio repentino en el entorno."',
+      confused: '"No comprendo del todo esa instrucción... ¿podrías aclararla?"',
+      sad: '"Oh... parece que algo no salió como esperábamos."',
+      frustrated: '"Se presentó un bloqueo persistente en el proceso."',
+      enthusiastic: '"¡Increíble! Avancemos con toda la energía hacia la meta."',
+      tired: '"He estado procesando muchas tareas continuas... bostezo suave."',
+      sleeping: '"Modo reposo nocturno activado... zzz..."',
+      focused: '"Concentrado al máximo analizando datos y código."',
+      playful: '"¿Un descanso para jugar un poco? ¡Te sigo el ritmo!"'
+    };
+
+    function setExpression(expr) {
+      currentExpression = expr;
+      document.querySelectorAll('[onclick^="setExpression"]').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('onclick').includes(`'${expr}'`));
+      });
+      document.getElementById('hudExpr').innerText = `EXPRESIÓN: ${expr.toUpperCase().replace('_', ' ')}`;
+      document.getElementById('speechText').innerText = speechTextMap[expr] || '...';
+      applyFacialChannels(expr);
+    }
+
+    function applyFacialChannels(expr) {
+      if (expr === 'sleeping') {
+        leftEye.scale.y = 0.06;
+        rightEye.scale.y = 0.06;
+        leftPupil.visible = false;
+        rightPupil.visible = false;
+        leftCatch.visible = false;
+        rightCatch.visible = false;
+        mouthMesh.rotation.x = 0;
+        antennaBallMaterial.emissiveIntensity = 0.1;
+        antennaGlowLight.intensity = 0.15;
+      } else if (expr === 'playful') {
+        leftEye.scale.y = 1.0;
+        rightEye.scale.y = 0.1;
+        leftPupil.visible = true;
+        rightPupil.visible = false;
+        mouthMesh.rotation.x = Math.PI;
+        antennaBallMaterial.emissiveIntensity = 0.8;
+      } else if (expr === 'joyful' || expr === 'enthusiastic') {
+        leftEye.scale.y = 0.85;
+        rightEye.scale.y = 0.85;
+        leftPupil.visible = true;
+        rightPupil.visible = true;
+        leftCatch.visible = true;
+        rightCatch.visible = true;
+        mouthMesh.rotation.x = Math.PI;
+        mouthMesh.scale.set(1.3, 1.3, 1);
+        antennaBallMaterial.emissiveIntensity = 1.0;
+        antennaGlowLight.intensity = 1.2;
+      } else if (expr === 'sad' || expr === 'frustrated') {
+        leftEye.scale.y = 0.7;
+        rightEye.scale.y = 0.7;
+        leftPupil.visible = true;
+        rightPupil.visible = true;
+        mouthMesh.rotation.x = 0;
+        antennaBallMaterial.emissiveIntensity = 0.2;
+        antennaGlowLight.intensity = 0.3;
+      } else if (expr === 'surprised') {
+        leftEye.scale.y = 1.3;
+        rightEye.scale.y = 1.3;
+        leftPupil.scale.set(1.35, 1.35, 1);
+        rightPupil.scale.set(1.35, 1.35, 1);
+        leftPupil.visible = true;
+        rightPupil.visible = true;
+        mouthMesh.rotation.x = Math.PI;
+        mouthMesh.scale.set(1.4, 1.6, 1);
+        antennaBallMaterial.emissiveIntensity = 1.2;
+      } else {
+        leftEye.scale.y = 1.0;
+        rightEye.scale.y = 1.0;
+        leftPupil.scale.set(1.0, 1.0, 1);
+        rightPupil.scale.set(1.0, 1.0, 1);
+        leftPupil.visible = true;
+        rightPupil.visible = true;
+        leftCatch.visible = true;
+        rightCatch.visible = true;
+        mouthMesh.rotation.x = Math.PI;
+        mouthMesh.scale.set(1.0, 1.0, 1);
+        antennaBallMaterial.emissiveIntensity = 0.5;
+        antennaGlowLight.intensity = 0.8;
+      }
+    }
+
+    function triggerAction(action) {
+      currentAction = action;
+      actionTime = 0;
+      document.querySelectorAll('[onclick^="triggerAction"]').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('onclick').includes(`'${action}'`));
+      });
+    }
+
+    // 8. Interacción de Mirada con el Puntero (Eye-Tracking)
+    const mouse = { x: 0, y: 0, targetX: 0, targetY: 0 };
+
+    window.addEventListener('mousemove', (e) => {
+      const rect = container.getBoundingClientRect();
+      const rawX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const rawY = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+      mouse.targetX = Math.max(-1.0, Math.min(1.0, rawX));
+      mouse.targetY = Math.max(-1.0, Math.min(1.0, rawY));
+    });
+
+    // Clic Háptico
+    let clickSquash = 0;
+    container.addEventListener('click', () => {
+      clickSquash = 0.38;
+      triggerAction('react_click');
+    });
+
+    // Control Manual de Órbita 360°
+    let isDragging = false;
+    let prevMouseX = 0;
+    let prevMouseY = 0;
+    let orbitYaw = 0;
+    let orbitPitch = 0;
+
+    container.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const deltaX = e.clientX - prevMouseX;
+        const deltaY = e.clientY - prevMouseY;
+        orbitYaw += deltaX * 0.008;
+        orbitPitch += deltaY * 0.008;
+        orbitPitch = Math.max(-0.4, Math.min(0.6, orbitPitch));
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      }
+    });
+
+    // 9. Bucle Continuo de Animación
+    const clock = new THREE.Clock();
+    let blinkTimer = 0;
+    let nextBlinkInterval = 3.5;
+    let fpsFrames = 0;
+    let fpsLastTime = performance.now();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const dt = clock.getDelta();
+      const time = clock.getElapsedTime();
+      actionTime += dt;
+
+      // Telemetría FPS
+      fpsFrames++;
+      const now = performance.now();
+      if (now - fpsLastTime >= 500) {
+        document.getElementById('fpsVal').innerText = Math.round((fpsFrames * 1000) / (now - fpsLastTime));
+        fpsFrames = 0;
+        fpsLastTime = now;
+      }
+
+      // Suavizado inercial de la mirada
+      mouse.x += (mouse.targetX - mouse.x) * (dt * 6.5);
+      mouse.y += (mouse.targetY - mouse.y) * (dt * 6.5);
+
+      // Órbita
+      pipRoot.rotation.y = orbitYaw;
+      pipRoot.rotation.x = orbitPitch;
+
+      // Respiración Basal
+      let breathFreq = 2.4;
+      let breathAmp = 0.035;
+      if (currentAction === 'fall_asleep' || currentExpression === 'sleeping') {
+        breathFreq = 1.1;
+        breathAmp = 0.055;
+      }
+      const breathY = 1.0 + Math.sin(time * breathFreq) * breathAmp;
+
+      // Deformaciones Cinemáticas por Actuación
+      let actionElevation = 0;
+      let actionSquash = 1.0;
+      let actionTiltZ = 0;
+      let actionTurnY = 0;
+      let actionPitchX = 0;
+
+      if (currentAction === 'idle_breathe') {
+        actionTurnY = mouse.x * 0.25;
+        actionPitchX = -mouse.y * 0.18;
+      } else if (currentAction === 'look_at_user') {
+        actionTurnY = mouse.x * 0.45;
+        actionPitchX = -mouse.y * 0.30;
+        actionTiltZ = -mouse.x * 0.08;
+      } else if (currentAction === 'tilt_curious') {
+        actionElevation = 0.15;
+        actionTiltZ = 0.28;
+        actionTurnY = 0.20;
+      } else if (currentAction === 'jump_bounce') {
+        const phase = (actionTime % 1.0) / 1.0;
+        if (phase < 0.22) {
+          actionSquash = 0.72;
+          actionElevation = -0.15;
+        } else if (phase < 0.65) {
+          const flightT = (phase - 0.22) / 0.43;
+          actionElevation = Math.sin(flightT * Math.PI) * 0.75;
+          actionSquash = 1.28;
+        } else if (phase < 0.85) {
+          actionSquash = 0.68;
+          actionElevation = 0;
+        } else {
+          actionSquash = 1.0;
+          actionElevation = 0;
+        }
+      } else if (currentAction === 'celebrate_success') {
+        const phase = (actionTime % 1.2) / 1.2;
+        if (phase < 0.5) {
+          actionElevation = Math.sin(phase * 2 * Math.PI) * 0.45;
+          actionSquash = 1.22;
+          actionTiltZ = Math.sin(phase * 4 * Math.PI) * 0.15;
+        } else {
+          actionElevation = 0;
+          actionSquash = 0.85;
+          actionTiltZ = 0;
+        }
+      } else if (currentAction === 'startle_alert') {
+        if (actionTime < 0.25) {
+          actionSquash = 1.35;
+          actionElevation = 0.40;
+        } else {
+          actionSquash = 1.0 + Math.sin(actionTime * 18.0) * Math.exp(-actionTime * 5.0) * 0.22;
+          actionElevation = 0;
+        }
+      } else if (currentAction === 'cower_retract') {
+        actionElevation = -0.22;
+        actionSquash = 0.65;
+        actionPitchX = 0.25;
+      } else if (currentAction === 'stretch_wake') {
+        if (actionTime < 0.8) {
+          actionSquash = 1.32;
+          actionElevation = 0.18;
+          actionPitchX = -0.20;
+        } else {
+          actionSquash = 0.88;
+          actionElevation = 0;
+        }
+      } else if (currentAction === 'fall_asleep') {
+        actionElevation = -0.18;
+        actionSquash = 0.82;
+        actionPitchX = 0.22;
+      } else if (currentAction === 'react_click') {
+        if (actionTime < 0.2) {
+          actionSquash = 0.62;
+        } else {
+          actionSquash = 1.0 + Math.sin(actionTime * 20.0) * Math.exp(-actionTime * 6.0) * 0.25;
+        }
+      }
+
+      if (clickSquash > 0) {
+        actionSquash -= clickSquash;
+        clickSquash = Math.max(0, clickSquash - dt * 2.2);
+      }
+
+      // LEY DE CONSERVACIÓN DE VOLUMEN Sxz = 1 / sqrt(Sy)
+      const finalSy = breathY * actionSquash;
+      const finalSxz = 1.0 / Math.sqrt(Math.max(0.25, finalSy));
+
+      bodyGroup.scale.set(finalSxz, finalSy, finalSxz);
+      bodyGroup.position.y = actionElevation;
+      bodyGroup.rotation.z = actionTiltZ;
+      bodyGroup.rotation.y = actionTurnY;
+      bodyGroup.rotation.x = actionPitchX;
+
+      document.getElementById('volVal').innerText = finalSxz.toFixed(3);
+
+      // Sombra de Contacto Acoplada
+      const elevationNorm = Math.max(0, Math.min(1.0, actionElevation / 0.75));
+      contactShadow.scale.set(finalSxz * (1.0 + elevationNorm * 0.65), finalSxz * (1.0 + elevationNorm * 0.65), 1.0);
+      shadowMat.opacity = 0.60 * (1.0 - elevationNorm * 0.70);
+
+      // Eye-Tracking Ocular
+      const gazeX = mouse.x * 0.06;
+      const gazeY = mouse.y * 0.05;
+      const sep = 0.34 * parseFloat(document.getElementById('eyeSepRange').value);
+
+      leftPupil.position.x = -sep + gazeX;
+      leftPupil.position.y = gazeY;
+      rightPupil.position.x = sep + gazeX;
+      rightPupil.position.y = gazeY;
+
+      leftCatch.position.x = -sep + 0.03 + gazeX * 0.5;
+      leftCatch.position.y = 0.04 + gazeY * 0.5;
+      rightCatch.position.x = sep + 0.03 + gazeX * 0.5;
+      rightCatch.position.y = 0.04 + gazeY * 0.5;
+
+      // Física Secundaria de Orejas y Antena
+      const earSway = Math.sin(time * 3.2) * 0.06 - (actionTurnY * 0.35);
+      leftEar.rotation.z = 0.55 + earSway;
+      rightEar.rotation.z = -0.55 + earSway;
+
+      const antennaSway = Math.sin(time * 4.2) * 0.08 - (actionTurnY * 0.25);
+      antennaGroup.rotation.z = antennaSway;
+
+      // Parpadeo de Poisson
+      blinkTimer += dt;
+      if (blinkTimer >= nextBlinkInterval) {
+        if (currentExpression !== 'sleeping') {
+          leftEye.scale.y = 0.06;
+          rightEye.scale.y = 0.06;
+          setTimeout(() => {
+            if (currentExpression !== 'sleeping') {
+              applyFacialChannels(currentExpression);
+            }
+          }, 110);
+        }
+        blinkTimer = 0;
+        nextBlinkInterval = 2.5 + Math.random() * 3.5;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      width = container.clientWidth;
+      height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    });
+  </script>
+</body>
+</html>
