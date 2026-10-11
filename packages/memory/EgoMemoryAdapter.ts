@@ -37,6 +37,19 @@ export interface EgoImportReport {
   durationMs: number;
 }
 
+export interface VersionNode {
+  key: string;
+  namespace: string;
+  payload: unknown;
+  metadata: Record<string, unknown>;
+  supersededBy?: string;
+  supersedes?: string;
+  supersededAt?: number;
+  createdAt: number;
+  isLatest: boolean;
+  versionIndex: number;
+}
+
 export class EgoMemoryAdapter {
   private db: NativeVantaDB | null = null;
   private isInitialized = false;
@@ -107,8 +120,15 @@ export class EgoMemoryAdapter {
         }
       }
 
+      const resolvedTs = typeof item.metadata?.ts === "number"
+        ? item.metadata.ts
+        : (typeof item.metadata?.created_at === "number"
+          ? item.metadata.created_at
+          : Date.now());
+
       metadata.org_id = { String: String(item.metadata?.org_id || "org_default") };
-      metadata.ts = { Float: typeof item.metadata?.ts === "number" ? item.metadata.ts : Date.now() };
+      metadata.ts = { Float: resolvedTs };
+      metadata.created_at = { Float: resolvedTs };
       metadata.agent_id = { String: String(item.metadata?.agent_id || "ego.nucleus") };
       metadata.confidence = { Float: typeof item.metadata?.confidence === "number" ? item.metadata.confidence : 1.0 };
       metadata.state = { String: String(item.metadata?.state || "active") };
@@ -353,7 +373,41 @@ export class EgoMemoryAdapter {
    * Sustituye un hecho existente (supersede) marcando versión y arista en grafo.
    * Usa la supersesión nativa de VantaDB (ADR-028: soft-replace, nunca borra en caliente).
    */
-  async supersedeFact(oldKey: string, newItem: EgoPut): Promise<void> {
+  async supersedeFact(oldKey: string, newItem: EgoPut): Promise<void>;
+  async supersedeFact(
+    namespace: string,
+    oldKey: string,
+    newKey: string,
+    newPayload: unknown,
+    newMetadata?: Record<string, unknown>
+  ): Promise<void>;
+  async supersedeFact(
+    param1: string,
+    param2: EgoPut | string,
+    param3?: string,
+    param4?: unknown,
+    param5?: Record<string, unknown>
+  ): Promise<void> {
+    let oldKey: string;
+    let newItem: EgoPut;
+
+    if (typeof param2 === "string") {
+      const namespace = param1;
+      oldKey = param2;
+      const newKey = param3!;
+      const payload = param4;
+      const metadata = param5;
+      newItem = {
+        namespace,
+        key: newKey,
+        payload,
+        metadata,
+      };
+    } else {
+      oldKey = param1;
+      newItem = param2;
+    }
+
     const db = this.ensureReady();
     const now = Date.now();
 
@@ -364,7 +418,7 @@ export class EgoMemoryAdapter {
         ...(newItem.metadata || {}),
         is_latest: true,
         supersedes: oldKey,
-        superseded_at: now,
+        created_at: typeof newItem.metadata?.created_at === "number" ? newItem.metadata.created_at : now,
       },
     };
     await this.putMulti([newRecord]);
@@ -373,7 +427,7 @@ export class EgoMemoryAdapter {
     try {
       const existing = await db.get({ namespace: newItem.namespace, key: oldKey });
       if (existing) {
-        const prevMeta = (existing.metadata || {}) as Record<string, unknown>;
+        const prevMeta = this.unwrapMetadata(existing.metadata as Record<string, unknown>);
         await this.putMulti([
           {
             namespace: newItem.namespace,
@@ -407,6 +461,110 @@ export class EgoMemoryAdapter {
         },
       },
     ]);
+  }
+
+  /**
+   * Reconstruye el árbol/cadena de versiones de un hecho o entidad (DSEK-02).
+   * Sigue los punteros causales `supersedes` hacia atrás y `superseded_by` hacia adelante.
+   */
+  async getVersionHistory(namespace: string, key: string): Promise<VersionNode[]> {
+    const db = this.ensureReady();
+    const visited = new Set<string>();
+
+    // 1. Obtener el registro inicial
+    const startRecord = await db.get({ namespace, key });
+    if (!startRecord) return [];
+
+    // 2. Caminar hacia atrás para encontrar la raíz (versión 1)
+    let rootKey = key;
+    let curr = startRecord;
+    while (curr) {
+      visited.add(curr.key);
+      const meta = this.unwrapMetadata(curr.metadata as Record<string, unknown>);
+      const parentKey = typeof meta.supersedes === "string" ? meta.supersedes : null;
+      if (!parentKey || visited.has(parentKey)) break;
+      const parentRec = await db.get({ namespace, key: parentKey });
+      if (!parentRec) break;
+      curr = parentRec;
+      rootKey = parentKey;
+    }
+
+    // 3. Caminar hacia adelante desde la raíz siguiendo superseded_by
+    const chain: VersionNode[] = [];
+    visited.clear();
+    let forwardKey: string | null = rootKey;
+    let versionIndex = 1;
+
+    while (forwardKey && !visited.has(forwardKey)) {
+      visited.add(forwardKey);
+      const rec = await db.get({ namespace, key: forwardKey });
+      if (!rec) break;
+
+      const meta = this.unwrapMetadata(rec.metadata as Record<string, unknown>);
+      const supersededBy = typeof meta.superseded_by === "string" ? meta.superseded_by : undefined;
+      const supersedes = typeof meta.supersedes === "string" ? meta.supersedes : undefined;
+      const supersededAt = typeof meta.superseded_at === "number" ? meta.superseded_at : undefined;
+      const createdAt = typeof meta.ts === "number" ? meta.ts : (typeof meta.created_at === "number" ? meta.created_at : 0);
+      const isLatest = meta.is_latest === true || (!supersededBy && meta.state !== "superseded");
+
+      chain.push({
+        key: rec.key,
+        namespace,
+        payload: this.parseRecord(rec),
+        metadata: meta,
+        supersededBy,
+        supersedes,
+        supersededAt,
+        createdAt,
+        isLatest,
+        versionIndex: versionIndex++,
+      });
+
+      forwardKey = supersededBy || null;
+    }
+
+    return chain;
+  }
+
+  /**
+   * Consulta time-travel (DSEK-02): Recupera el estado de una entidad en un instante temporal específico.
+   */
+  async getAtTimestamp(namespace: string, key: string, targetTimestamp: number): Promise<VersionNode | null> {
+    const history = await this.getVersionHistory(namespace, key);
+    if (history.length === 0) return null;
+
+    for (const node of history) {
+      const created = node.createdAt;
+      const supersededAt = node.supersededAt;
+      if (created <= targetTimestamp) {
+        if (!supersededAt || supersededAt > targetTimestamp) {
+          return node;
+        }
+      }
+    }
+
+    if (history[0].createdAt > targetTimestamp) {
+      return null;
+    }
+
+    const priorNodes = history.filter((n) => n.createdAt <= targetTimestamp);
+    return priorNodes.length > 0 ? priorNodes[priorNodes.length - 1] : null;
+  }
+
+  private unwrapMetadata(metadata?: Record<string, unknown>): Record<string, unknown> {
+    if (!metadata) return {};
+    const clean: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(metadata)) {
+      if (typeof v === "object" && v !== null) {
+        if ("String" in v) clean[k] = (v as { String: unknown }).String;
+        else if ("Float" in v) clean[k] = (v as { Float: unknown }).Float;
+        else if ("Bool" in v) clean[k] = (v as { Bool: unknown }).Bool;
+        else clean[k] = v;
+      } else {
+        clean[k] = v;
+      }
+    }
+    return clean;
   }
 
   /**
