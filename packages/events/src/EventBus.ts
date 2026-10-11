@@ -26,6 +26,7 @@ export class EventBus {
    * Emite un evento tipado hacia todos los suscriptores registrados.
    * La ejecución de los manejadores se realiza de forma asíncrona no bloqueante.
    */
+  public emit<T = unknown>(event: EgoEvent<T>): EgoEvent<T>;
   public emit<K extends keyof CanonicalEventPayloadMap>(
     type: K,
     payload: CanonicalEventPayloadMap[K],
@@ -49,9 +50,9 @@ export class EventBus {
     }
   ): EgoEvent<T>;
   public emit(
-    type: EgoEventType,
-    payload: unknown,
-    options: {
+    typeOrEvent: EgoEventType | EgoEvent,
+    payload?: unknown,
+    options?: {
       source: string;
       severity?: EventSeverity;
       sessionId?: string;
@@ -59,17 +60,24 @@ export class EventBus {
       metadata?: Record<string, unknown>;
     }
   ): EgoEvent {
-    const event: EgoEvent = {
-      id: randomUUID(),
-      type,
-      timestamp: Date.now(),
-      source: options.source,
-      payload,
-      severity: options.severity ?? "info",
-      sessionId: options.sessionId,
-      traceId: options.traceId,
-      metadata: options.metadata,
-    };
+    let event: EgoEvent;
+
+    if (typeof typeOrEvent === "object" && typeOrEvent !== null && "type" in typeOrEvent) {
+      event = typeOrEvent as EgoEvent;
+    } else {
+      const type = typeOrEvent as EgoEventType;
+      event = {
+        id: randomUUID(),
+        type,
+        timestamp: Date.now(),
+        source: options?.source ?? "unknown",
+        payload,
+        severity: options?.severity ?? "info",
+        sessionId: options?.sessionId,
+        traceId: options?.traceId,
+        metadata: options?.metadata,
+      };
+    }
 
     // Almacenar en historial circular
     this.recentEvents.push(event);

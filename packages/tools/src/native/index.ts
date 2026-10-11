@@ -21,7 +21,9 @@ export * from "./fs/NativeFsTool.js";
 export * from "./git/GitParser.js";
 export * from "./git/NativeGitTool.js";
 export * from "./git/SessionDiffRevisions.js";
+export * from "./git/ChangeSetService.js";
 export * from "./security/NetPolicy.js";
+export * from "./security/ResourcePolicy.js";
 
 
 
