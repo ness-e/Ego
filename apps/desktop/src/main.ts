@@ -88,7 +88,12 @@ import {
   GoalPrioritizer,
   DecisionsFeed,
 } from "@ego/dailystate";
+import { CrashRecoveryEngine, OpGate } from "@ego/recovery";
+import { WindowStateManager } from "./windows/WindowStateManager.js";
 
+let crashRecoveryEngine: CrashRecoveryEngine;
+let opGate: OpGate;
+let windowStateManager: WindowStateManager;
 let adapter: EgoMemoryAdapter;
 let lifecycle: EgoMemoryLifecycle;
 let modelRouter: ModelRouter;
@@ -199,6 +204,14 @@ export function getDecisionTelemetry(): DecisionTelemetry {
 
 export function getLoopBreaker(): LoopBreaker {
   return loopBreaker;
+}
+
+export function getOpGate(): OpGate {
+  return opGate;
+}
+
+export function getCrashRecoveryEngine(): CrashRecoveryEngine {
+  return crashRecoveryEngine;
 }
 
 export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapter): Promise<ProjectManifest> {
@@ -507,7 +520,23 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
 }
 
 export async function createWindow(): Promise<void> {
-  const dbPath = join(app.getPath("userData"), "ego_memory.vdb");
+  const userDataDir = app.getPath("userData");
+  crashRecoveryEngine = new CrashRecoveryEngine({
+    storageDir: userDataDir,
+    eventBus,
+  });
+  opGate = new OpGate({ drainTimeoutMs: 3000 });
+
+  try {
+    const dirtyReport = await crashRecoveryEngine.checkAndAcquireLock("session_init");
+    if (dirtyReport.wasDirty) {
+      console.warn(`[CrashRecoveryEngine] Recuperación post-Dirty Shutdown detectada (${dirtyReport.recoveryAction}).`, dirtyReport);
+    }
+  } catch (lockErr) {
+    console.warn("[CrashRecoveryEngine] Advertencia de bloqueo:", lockErr);
+  }
+
+  const dbPath = join(userDataDir, "ego_memory.vdb");
   adapter = new EgoMemoryAdapter(dbPath);
   await adapter.init();
 
@@ -634,9 +663,17 @@ export async function createWindow(): Promise<void> {
     }
   });
 
+  windowStateManager = new WindowStateManager({
+    userDataDir,
+    adapter,
+  });
+  const windowState = await windowStateManager.restoreState();
+
   win = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    x: windowState.x,
+    y: windowState.y,
+    width: windowState.width,
+    height: windowState.height,
     show: true,
     frame: true,
     titleBarStyle: "hidden",
@@ -653,6 +690,12 @@ export async function createWindow(): Promise<void> {
       sandbox: true,
     },
   });
+
+  if (windowState.isMaximized) {
+    win.maximize();
+  }
+
+  windowStateManager.trackWindow(win);
 
   // Retransmitir eventos hacia Chromium Renderer (Activity Widget, Observabilidad)
   eventBus.onAny((event) => {
@@ -1607,10 +1650,38 @@ if (app && typeof app.whenReady === "function") {
     }
   });
 
+  let isQuittingCleanly = false;
+  app.on("before-quit", async (event) => {
+    if (isQuittingCleanly) return;
+    event.preventDefault();
+    isQuittingCleanly = true;
+    console.log("[Ego Desktop] Drenando operaciones activas antes de salir (OpGate)...");
+    try {
+      if (opGate) {
+        const drainResult = await opGate.drain(3000);
+        console.log(`[Ego Desktop] Drenado OpGate completado: drained=${drainResult.drained}, pendientes=${drainResult.remaining}`);
+      }
+      if (adapter) {
+        await adapter.close();
+      }
+      if (crashRecoveryEngine) {
+        crashRecoveryEngine.releaseLock();
+      }
+    } catch (shutdownErr) {
+      console.error("[Ego Desktop] Error durante apagado ordenado:", shutdownErr);
+    } finally {
+      app.quit();
+    }
+  });
+
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
       app.quit();
     }
   });
+}
+
+export function getWindowStateManager(): WindowStateManager {
+  return windowStateManager;
 }
 
