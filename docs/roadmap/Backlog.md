@@ -22,25 +22,25 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 | Fase | Título | Rango de IDs | Tareas | Hito | Esfuerzo Estimado | Prioridad | Criterio de Aceptación Clave |
 |---|---|---|:---:|:---:|:---:|:---:|---|
 | **Fase 01** | Core Cognitivo | `CORE-01..15` | 15 | **P0-Alpha** | 2-3 semanas | ✅ Completada (15/15) | Chat local funcional con persistencia real en VantaDB tras reinicio |
-| **Fase 02** | Acción & Tools | `ACT-01..12` | 12 | **P0-Alpha** | 2-3 semanas | 🟢 100% DONE | Tool Calling local controlado con aprobación humana (HITL) |
-| **Fase 03** | Sub-Egos | `SUB-01..12`, `CHAR-01..08` | 20 | **P0-Alpha** | 2-3 semanas | 🟡 En curso (6/20) | Múltiples Sub-Egos cooperan recursivamente compartiendo memoria |
-| **Fase 03.1** | Integración Operativa & MVP | `INT-01..06` | 6 | **P0-Alpha** | 1-2 semanas | 🔴 P0 | Bucle de producto cerrado en escritorio (Fast-path + BYOK + Proyectos + HITL) |
-| **Fase 04** | Dynamic Workspace | `CANV-01..12`, `CHAR-09..10` | 14 | **P0-Alpha** | 3-4 semanas | 🔴 P0 | Canvas generativo declarativo desacoplado del chat clásico |
-| **Fase 05** | Decision Intelligence | `DEC-01..09` | 9 | **P0-Alpha** | 2 semanas | 🔴 P0 | Ego clasifica y delega autónomamente al Sub-Ego óptimo (Golden Path Alpha) |
-| **Fase 06** | Knowledge & Data | `KB-01..11` | 11 | **P0-Beta** | 3 semanas | 🟠 P1 | Búsqueda híbrida (RRF) y GraphRAG sobre repositorios locales |
-| **Fase 07** | Tasks & Background | `TASK-01..11`, `WIDG-01..04` | 15 | **P0-Beta** | 2-3 semanas | 🟢 100% DONE | Tareas persistentes en background con checkpoints de estado |
-| **Fase 08** | Daily State | `DS-01..08` | 8 | **P0-Beta** | 1-2 semanas | 🟠 P1 | Asistente de operaciones continuo con briefing dinámico diario |
-| **Fase 09** | Dominios Funcionales | `DOM-01..09` | 9 | **P0-Beta** | 3-4 semanas | 🟠 P1 | Workspaces especializados (Engineering, Product, CRM, Analytics) |
-| **Fase 10** | Recovery & Hardening | `REC-01..09`, `CHAR-11`, `WIDG-05` | 11 | **P0-Beta** | 2 semanas | 🟠 P1 | Tolerancia total a crashes, snapshots y exportación `.vdbdump` |
-| **Fase 11** | Seguridad | `SEC-01..09` | 9 | **P0-Beta** | 2 semanas | 🟠 P1 | Sandboxing riguroso, validación IPC y gestión segura de secretos |
-| **Fase 12** | Distribución | `DIST-01..12` | 12 | **P0-Beta** | 2-3 semanas | 🟠 P1 | Instaladores firmados (NSIS/DMG) con auto-updater y clean machine |
-| **TOTAL** | **13 Fases (12 + 03.1 MVP)** | — | **151** | **P0 Completo** | **~29–38 semanas** | — | **Golden Path Beta multi-día y multi-dominio completado** |
+| **Fase 02** | Acción & Tools | `ACT-01..12` | 12 | **P0-Alpha** | 2-3 semanas | ✅ Completada (12/12) | Tool Calling local controlado con aprobación humana (HITL) |
+| **Fase 03** | Sub-Egos | `SUB-01..12`, `CHAR-01..08` | 20 | **P0-Alpha** | 2-3 semanas | ✅ Completada (20/20) | Múltiples Sub-Egos cooperan recursivamente compartiendo memoria |
+| **Fase 03.1** | Integración Operativa & MVP | `INT-01..06` | 6 | **P0-Alpha** | 1-2 semanas | ✅ Completada (6/6) | Bucle de producto cerrado en escritorio (Fast-path + BYOK + Proyectos + HITL) |
+| **Fase 04** | Dynamic Workspace | `CANV-01..12`, `CHAR-09..10` | 14 | **P0-Alpha** | 3-4 semanas | ✅ Completada (14/14) | Canvas generativo declarativo desacoplado del chat clásico |
+| **Fase 05** | Decision Intelligence | `DEC-01..09` | 9 | **P0-Alpha** | 2 semanas | ✅ Completada (9/9) | Ego clasifica y delega autónomamente al Sub-Ego óptimo (Golden Path Alpha) |
+| **Fase 06** | Knowledge & Data | `KB-01..11` | 11 | **P0-Beta** | 3 semanas | ✅ Completada (11/11) | Búsqueda híbrida (RRF) y GraphRAG sobre repositorios locales |
+| **Fase 07** | Tasks & Background | `TASK-01..11`, `WIDG-01..04` | 15 | **P0-Beta** | 2-3 semanas | ✅ Completada (15/15) | Tareas persistentes en background con checkpoints de estado |
+| **Fase 08** | Daily State | `DS-01..08` | 8 | **P0-Beta** | 1-2 semanas | ✅ Completada (8/8) | Asistente de operaciones continuo con briefing dinámico diario |
+| **Fase 09** | Dominios Funcionales | `DOM-01..09` | 9 | **P0-Beta** | 3-4 semanas | ✅ Completada (9/9) | Workspaces especializados (Engineering, Product, CRM, Analytics) |
+| **Fase 10** | Recovery & Hardening | `REC-01..09`, `CHAR-11`, `WIDG-05` | 11 | **P0-Beta** | 2 semanas | ✅ Completada (11/11) | Tolerancia total a crashes, snapshots y exportación `.vdbdump` |
+| **Fase 11** | Seguridad | `SEC-01..09` | 9 | **P0-Beta** | 2 semanas | 🟡 En curso (1/9) | Sandboxing riguroso, validación IPC y gestión segura de secretos |
+| **Fase 12** | Distribución | `DIST-01..12` | 12 | **P0-Beta** | 2-3 semanas | 🟠 P1 (0/12) | Instaladores firmados (NSIS/DMG) con auto-updater y clean machine |
+| **TOTAL** | **13 Fases (12 + 03.1 MVP)** | — | **151** | **P0 Completo** | **~29–38 semanas** | — | **130/151 tareas completadas (86%) — Golden Path Beta multi-dominio** |
 
 > **Backlogs Especializados de Referencia y Extracción (7 Repositorios):**
 > Para acelerar la implementación sin reinventar la rueda ni importar deuda técnica, Ego mantiene 7 backlogs especializados derivados del escrutinio profundo de `repos-referencia/`:
 > - [`docs/review/backlog-hermes.md`](../review/backlog-hermes.md): 22 tareas (`HERM-01..22`) — gemelo de stack `hermes-agent` (UI assistant-ui, artifacts, hardening Windows, packaging, hot command palette, visualizador de costos). Ficha: [`hermes-agent.md`](../extractions/hermes-agent.md).
 > - [`docs/review/backlog-openclaw.md`](../review/backlog-openclaw.md): 18 tareas (`OCLW-01..18`) — `openclaw` (admisión inmutable de runs, auto-reparación de tools, locks de sesión, workers, hot-reloading de tools y file watcher). Ficha: [`openclaw.md`](../extractions/openclaw.md).
-> - [`docs/review/backlog-coucou.md`](../review/backlog-coucou.md): 22 tareas (`COUC-01..22`) — `coucou` (normalización en el borde, atención, HITL con ACK, ChangeSet, SafeConfigMutation, Dynamic Island de escritorio, Spring Physics, System Tray, SoundEngine, avatar procedural y notificaciones móviles). Ficha: [`coucou.md`](../extractions/coucou.md).
+> - [`docs/review/backlog-coucou.md`](../review/backlog-coucou.md): 23 tareas (`COUC-01..23`) — `coucou` (normalización en el borde, atención, HITL con ACK, ChangeSet, SafeConfigMutation, Dynamic Island de escritorio, Spring Physics, System Tray, SoundEngine, avatar procedural, notificaciones móviles e independización geométrica). Ficha: [`coucou.md`](../extractions/coucou.md).
 > - [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md): 6 tareas (`KHOJ-01..06`) — `khoj` (chunking de 256 tokens con deduplicación, filtrado de confianza coseno, extracción de hechos y conectores de monetización Stripe/Twilio/SMTP para Ego Web y dominios). Ficha: [`khoj.md`](../extractions/khoj.md).
 > - [`docs/review/backlog-helmor.md`](../review/backlog-helmor.md): 5 tareas (`HELM-01..05`) — `helmor` (programador de drenado PTY / coalescencia de ráfagas terminales, puente reactivo de UI y badges de contexto). Ficha: [`helmor.md`](../extractions/helmor.md).
 > - [`docs/review/backlog-career-ops.md`](../review/backlog-career-ops.md): 4 tareas (`CARP-01..04`) — `career-ops` (contrato de datos Usuario vs Sistema, locks atómicos en FS y cuarentena de inputs). Ficha: [`career-ops.md`](../extractions/career-ops.md).
