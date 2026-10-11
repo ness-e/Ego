@@ -6,4 +6,5 @@ export * from "./MermaidRenderer.js";
 export * from "./PayloadRef.js";
 export * from "./stores/index.js";
 export * from "./MockIPCBridge.js";
+export * from "./WindowState.js";
 

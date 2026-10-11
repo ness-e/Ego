@@ -7,4 +7,7 @@ export * from "./SnapshotManager.js";
 export * from "./SchemaMigrator.js";
 export * from "./DiagnosticsLogger.js";
 export * from "./ProcessSupervisor.js";
+export * from "./WindowsUserEnv.js";
+export * from "./WindowsSandboxFallback.js";
+export * from "./StorageHealthLatch.js";
 
