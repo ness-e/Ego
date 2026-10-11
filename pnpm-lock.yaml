@@ -373,6 +373,9 @@ importers:
       '@ego/models':
         specifier: workspace:*
         version: link:../models
+      '@ego/tool-call-repair':
+        specifier: workspace:*
+        version: link:../tool-call-repair
       '@ego/tools':
         specifier: workspace:*
         version: link:../tools
@@ -423,6 +426,18 @@ importers:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.8.0
+        version: 22.20.5
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.2
+        version: 2.1.9(@types/node@22.20.5)(happy-dom@20.14.6)(lightningcss@1.32.0)
+
+  packages/tool-call-repair:
     devDependencies:
       '@types/node':
         specifier: ^22.8.0

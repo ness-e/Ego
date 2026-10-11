@@ -33,6 +33,8 @@ export interface ExecutionManagerConfig {
   onEvent?: (event: ExecutionEvent) => void;
 }
 
+import type { AdmittedRunContext } from "./AdmittedRunContext.js";
+
 /**
  * Opciones específicas para una llamada individual de ejecución.
  */
@@ -40,6 +42,7 @@ export interface ExecutionOptions {
   timeoutMs?: number;
   abortSignal?: AbortSignal;
   maxOutputSizeBytes?: number;
+  admittedRunContext?: AdmittedRunContext;
 }
 
 /**
@@ -52,6 +55,7 @@ export interface ExecutionEvent {
   durationMs?: number;
   details?: Record<string, unknown>;
   timestamp: number;
+  admittedRunContext?: AdmittedRunContext;
 }
 
 /**

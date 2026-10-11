@@ -132,7 +132,8 @@ export class ExecutionManager {
         toolName: tool.name,
         type: "timeout",
         durationMs: timeoutMs,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        admittedRunContext: options.admittedRunContext
       });
     }, timeoutMs);
 
@@ -148,7 +149,8 @@ export class ExecutionManager {
       callId,
       toolName: tool.name,
       type: "started",
-      timestamp: startTime
+      timestamp: startTime,
+      admittedRunContext: options.admittedRunContext
     });
 
     // Inyectar abortSignal supervisado en el contexto
@@ -170,7 +172,8 @@ export class ExecutionManager {
         toolName: tool.name,
         type: "completed",
         durationMs,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        admittedRunContext: options.admittedRunContext
       });
 
       return this.createResult(callId, tool.name, "success", output, undefined, durationMs, truncated);
@@ -203,7 +206,8 @@ export class ExecutionManager {
         type: status === "timeout" ? "timeout" : status === "aborted" ? "aborted" : "failed",
         durationMs,
         details: { error: errorMsg },
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        admittedRunContext: options.admittedRunContext
       });
 
       return this.createResult<TOutput>(callId, tool.name, status, undefined, errorMsg, durationMs, false);

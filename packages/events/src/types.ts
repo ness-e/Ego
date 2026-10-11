@@ -18,8 +18,10 @@ export type EgoEventType =
 
   // Ejecución de herramientas locales y MCP
   | "tool.started"
+  | "tool.progress"
   | "tool.executed"
   | "tool.failed"
+  | "tool.patch_summary"
 
   // Gobernanza y Aprobación Humana (HITL)
   | "approval.required"
@@ -93,8 +95,10 @@ export interface CanonicalEventPayloadMap {
   "subego.completed": { subEgoId: string; outcome: unknown };
 
   "tool.started": { callId: string; toolName: string; input: unknown; riskLevel?: string };
+  "tool.progress": { callId: string; toolName: string; deltaOutput?: string; percent?: number; status?: string };
   "tool.executed": { callId: string; toolName: string; durationMs: number; result: unknown };
   "tool.failed": { callId: string; toolName: string; error: string; durationMs: number };
+  "tool.patch_summary": { callId: string; toolName: string; added: string[]; modified: string[]; deleted: string[]; summary: string };
 
   "approval.required": { approvalId: string; action: string; riskLevel: string; details: unknown; timeoutMs?: number };
   "approval.resolved": { approvalId: string; approved: boolean; resolvedBy: string; reason?: string };

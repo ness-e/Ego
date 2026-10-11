@@ -6,3 +6,5 @@ export * from "./ProjectImport.js";
 export * from "./SnapshotManager.js";
 export * from "./SchemaMigrator.js";
 export * from "./DiagnosticsLogger.js";
+export * from "./ProcessSupervisor.js";
+

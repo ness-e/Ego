@@ -12,6 +12,7 @@ import type {
   ToolExecutionResult
 } from "./types.js";
 import { ErrorHandler } from "./ErrorHandler.js";
+import { ToolCallRepairEngine } from "@ego/tool-call-repair";
 
 /**
  * Loop cognitivo multi-turno para Tool Calling (ACT-02).
@@ -130,6 +131,19 @@ export class ToolExecutionLoop {
       totalUsage.totalTokens += res.usage.totalTokens;
       totalUsage.estimatedCostUsd += res.usage.estimatedCostUsd;
 
+      // Auto-reparación e intercepción de llamadas a herramientas emitidas en texto plano (OCLW-03)
+      if ((!res.toolCalls || res.toolCalls.length === 0) && res.text) {
+        const extracted = ToolCallRepairEngine.extractFromText(res.text);
+        if (extracted.length > 0) {
+          res.toolCalls = extracted.map((ext, idx) => ({
+            id: `call_repaired_${Date.now()}_${idx}`,
+            name: ext.name,
+            arguments: ext.arguments
+          }));
+          res.text = ToolCallRepairEngine.stripToolCalls(res.text);
+        }
+      }
+
       // Si el modelo solicita invocar herramientas
       if (res.toolCalls && res.toolCalls.length > 0) {
         // Añadir turno del asistente conteniendo las llamadas solicitadas
@@ -188,7 +202,11 @@ export class ToolExecutionLoop {
           }
 
           // Auto-reparación sintáctica heurística de argumentos (OCLW-03, OCLW-04)
-          const repairedArgs = errorHandler.repairArguments(call.name, call.arguments);
+          const repaired = ToolCallRepairEngine.repair({
+            name: call.name,
+            arguments: call.arguments
+          });
+          const repairedArgs = repaired ? repaired.arguments : errorHandler.repairArguments(call.name, call.arguments);
 
           // Validación estricta con Zod
           const validation = this.registry.validateInput(call.name, repairedArgs);

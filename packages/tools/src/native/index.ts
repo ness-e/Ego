@@ -20,6 +20,10 @@ export * from "./fs/NativeFsTool.js";
 
 export * from "./git/GitParser.js";
 export * from "./git/NativeGitTool.js";
+export * from "./git/SessionDiffRevisions.js";
+export * from "./security/NetPolicy.js";
+
+
 
 export * from "./terminal/TerminalOutputBuffer.js";
 export * from "./terminal/NativeTerminalTool.js";

@@ -7,3 +7,5 @@ export * from './TaskCancellation.js';
 export * from './TaskNotifications.js';
 export * from './ProactivityEngine.js';
 export * from './DreamConsolidator.js';
+export * from './WorkerTaskPool.js';
+
