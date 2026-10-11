@@ -1,6 +1,7 @@
 # Carpetas de herramientas de IA / configuración local
 .*
 !.gitignore
+!.github/
 !.agents/
 .agents/node_modules/
 .agents/**/node_modules/

@@ -1,0 +1,77 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Lint, Typecheck, Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
+        run: |
+          mkdir -p ../VantaDB/vantadb-node
+          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
+          {
+            "name": "vantadb-node",
+            "version": "0.8.0",
+            "main": "index.js",
+            "types": "index.d.ts"
+          }
+          EOF
+          cat << 'EOF' > ../VantaDB/vantadb-node/index.d.ts
+          export class NativeVantaDB {
+            constructor(path?: string);
+            open(path: string): Promise<void>;
+            close(): Promise<void>;
+            put(namespace: string, key: string, payload: any): Promise<void>;
+            get(namespace: string, key: string): Promise<any>;
+            delete(namespace: string, key: string): Promise<boolean>;
+            scan(prefix: string): Promise<any[]>;
+            search(query: string, limit?: number): Promise<any[]>;
+          }
+          EOF
+          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
+          module.exports = {
+            NativeVantaDB: class NativeVantaDB {
+              constructor() {}
+              async open() {}
+              async close() {}
+              async put() {}
+              async get() { return null; }
+              async delete() { return true; }
+              async scan() { return []; }
+              async search() { return []; }
+            }
+          };
+          EOF
+
+      - name: Install Dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run Linter and Typecheck
+        run: pnpm lint
+
+      - name: Run Test Suite
+        run: pnpm test
+
+      - name: Build Desktop and Renderer
+        run: pnpm build

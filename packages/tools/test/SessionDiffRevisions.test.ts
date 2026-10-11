@@ -21,7 +21,7 @@ describe("SessionDiffRevisions Suite (OCLW-07)", () => {
       }
 
       if (cmd.startsWith("log")) {
-        return "2222222222222222222222222222222222222222\0feat: agregar modulo\0Ego Dev\01700000000\n";
+        return "2222222222222222222222222222222222222222\x00feat: agregar modulo\x00Ego Dev\x001700000000\n";
       }
 
       if (cmd.startsWith("diff")) {
