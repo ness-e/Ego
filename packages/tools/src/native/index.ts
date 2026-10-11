@@ -23,6 +23,7 @@ export * from "./git/NativeGitTool.js";
 
 export * from "./terminal/TerminalOutputBuffer.js";
 export * from "./terminal/NativeTerminalTool.js";
+export * from "./terminal/TerminalSessionStore.js";
 
 export interface NativeToolsOptions {
   workspacePath?: string;
