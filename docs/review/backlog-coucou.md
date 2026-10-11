@@ -50,18 +50,25 @@ El análisis de `coucou` aporta a Ego componentes críticos de **infraestructura
 | `COUC-14` | 🟠 Alta | **Runtime Sintético y Modo Demo (`SyntheticRuntime`)** | `NotchBuddy/DemoEngine.swift` | 🟡 1-2d | 🟠 P1 | ✅ Completada | Inyector determinista de eventos sintéticos (proyectos simulados, tool calls, diffs, approvals) con token `RunEpoch` para QA reproducible, tests de integración y demos sin tocar VantaDB real. Implementado en `packages/runtime/src/SyntheticRuntime.ts`. | Ego: `CANV-10`, `TEST-01` | `COUC-01` |
 | `COUC-15` | 🟡 Media | **Mock IPC para Iteración Aislada de UI** | `windows/src/core/bridge.ts` | 🟢 1d | 🔴 P0 | ✅ Completada | Capa de transporte falso que permite ejecutar y probar los componentes del Dynamic Workspace en un navegador web estándar sin requerir arrancar Electron ni Node.js. Implementado en `packages/ui-runtime/src/MockIPCBridge.ts`. | Ego: `CORE-01`, `CANV-01` | `COUC-05` |
 | `COUC-16` | 🟡 Media | **Captura de Contexto Activo del Sistema (`ContextProvider`)** | `NotchBuddy/WindowContextCapture.swift`| 🟢 1d | 🟠 P1 | ✅ Completada | Proveedor desacoplado de contexto ambiental (aplicación activa, título de ventana, selección de texto) para inyectar intencionalidad al iniciar nuevas tareas en Ego. Implementado en `packages/tasks/src/ContextProvider.ts`. | Ego: `TASK-08` | — |
+| `COUC-17` | 🔴 Crítica | **Ventana Flotante Secundaria (Dynamic Island de Escritorio)** | `windows/src/island/island.ts`, `IslandWindowController.swift` | 🟡 2d | 🔴 P0 | 📋 Planificada | Ventana auxiliar `BrowserWindow` frameless, transparente y `alwaysOnTop` en Electron para supervisión e interacción completa en segundo plano cuando la app principal está minimizada. | Ego: `CANV-11`, `TASK-02`, `DS-02` | `COUC-06`, `COUC-18` |
+| `COUC-18` | 🟠 Alta | **Motor de Físicas de Resortes (`Spring Physics`) y Animación de Píldora** | `windows/src/core/anim.ts`, `windows/src/island/island.ts` | 🟢 1d | 🟠 P1 | 📋 Planificada | Algoritmo de resorte continuo (`Spring`, masa, rigidez, amortiguación) para transiciones fluidas de expansión y colapso de la isla flotante. | Ego: `CANV-11` | — |
+| `COUC-19` | 🟡 Media | **Icono Interactivo en Bandeja del Sistema (System Tray de Windows)** | `windows/src-tauri/src/tray.rs` | 🟢 1d | 🟠 P1 | 📋 Planificada | Integración de System Tray en Electron con cambio de icono por color de atención (Verde: idle, Azul: pensando, Rojo: HITL approval). | Ego: `CANV-11`, `TASK-04` | `COUC-06` |
+| `COUC-20` | 🟡 Media | **Sistema de Feedback Auditivo (`SoundEngine`)** | `NotchBuddy/Resources/sounds/`, `windows/src/core/sound.ts` | 🟢 1d | 🟡 P2 | 📋 Planificada | Motor Web Audio API con carga asíncrona y reproducción sin bloqueo de los 28 efectos de sonido WAV (work, approval, finish, error, etc.) adaptados para eventos de Ego. | Ego: `CORE-01`, `ACT-04` | — |
+| `COUC-21` | 🟠 Alta | **Motor de Avatar Cognitivo Procedural 2D Personalizable** | `windows/src/mochi/engine.ts`, `design/outfits/` | 🟡 2d | 🟠 P1 | 📋 Planificada | Motor Canvas 2D en TypeScript con expresiones vectoriales (ojos, parpadeo, emociones, partículas y atuendos) adaptado y personalizado para la identidad de Ego. | Ego: `CANV-11`, `CORE-05` | `COUC-18` |
+| `COUC-22` | 🔵 Futura | **Notificaciones Móviles y Bridge Remoto de Aprobación HITL** | `NotchBuddy/Sources/Phone/`, `MochiLive.swift` | 🟣 3-4d | 🔵 P3 | ⏳ Futura (P1/P2) | Envío de notificaciones remotas al teléfono del usuario y puente de autorización HITL mediante WebSockets cifrados o bot seguro cuando esté lejos del escritorio. | Ego: `INT-05`, `DOM-05` | — |
 
 ---
 
 ## 3. Matriz de Integración con el Backlog Maestro
 
-Las 16 tareas de Coucou se integran formalmente en las fases de Ego como herramientas de robustecimiento:
+Las 22 tareas de Coucou se integran formalmente en las fases de Ego como herramientas de robustecimiento:
 
 ```text
 Fase 01 (Core Cognitivo)
   ├── COUC-01: EventNormalizer (Ingreso universal de eventos)
   ├── COUC-05: Desacoplamiento en 7 Stores de Estado
-  └── COUC-15: Mock IPC para desarrollo ágil en navegador
+  ├── COUC-15: Mock IPC para desarrollo ágil en navegador
+  └── COUC-20: SoundEngine (Feedback auditivo cognitivo)
 
 Fase 02 (Acción & Tools)
   ├── COUC-02: Event Ingress No Bloqueante
@@ -73,14 +80,21 @@ Fase 02 (Acción & Tools)
 Fase 04 (Dynamic Workspace)
   ├── COUC-07: ChangeSetService & DiffEngine
   ├── COUC-08: PayloadRef (Desacoplamiento de datos pesados)
-  └── COUC-14: SyntheticRuntime (Modo Demo y Fixtures)
+  ├── COUC-14: SyntheticRuntime (Modo Demo y Fixtures)
+  ├── COUC-17: Dynamic Island Flotante en Electron (Overlay)
+  ├── COUC-18: Spring Physics para animaciones fluidas
+  └── COUC-21: Motor de Avatar Cognitivo Procedural 2D
 
 Fase 07 (Tasks & Background)
   ├── COUC-06: AttentionStateMachine
   ├── COUC-09: RunRecorder (Persistencia de ejecuciones en VantaDB)
   ├── COUC-12: IntervalSet (Métricas de tiempo sin solapamiento)
-  └── COUC-16: ContextProvider (Captura de contexto de ventana)
+  ├── COUC-16: ContextProvider (Captura de contexto de ventana)
+  └── COUC-19: System Tray de Windows con código de color
 
 Fase 11 (Seguridad)
   └── COUC-13: ResourcePolicy & Safe URLs
+
+Fase Futura (P1 / Extensiones Remotas)
+  └── COUC-22: Notificaciones y aprobación remota en teléfono
 ```
