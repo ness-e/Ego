@@ -7,5 +7,5 @@ export * from "./DataContract.js";
 export * from "./UntrustedContentSanitizer.js";
 export * from "./SessionLifecycleLocks.js";
 export * from "./TranscriptReadWindow.js";
-
+export * from "./SessionTimelineRewind.js";
 
