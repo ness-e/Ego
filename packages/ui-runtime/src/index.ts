@@ -4,4 +4,6 @@ export * from "./CanvasPersistence.js";
 export * from "./TerminalSessionStore.js";
 export * from "./MermaidRenderer.js";
 export * from "./PayloadRef.js";
+export * from "./stores/index.js";
+export * from "./MockIPCBridge.js";
 
