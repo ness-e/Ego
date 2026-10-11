@@ -24,6 +24,7 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
 | `VDB-INC-01` | Inconsistencia | 🔴 Alta | `Embedded` / Documentación | Ausencia de Auto-Embed ONNX local en `Embedded::put_one` |
 | `VDB-INC-02` | Inconsistencia / Bloqueo | 🔴 Alta | `Fjall` LSM / Concurrencia | Exclusión mutua de proceso (`flock`) impidiendo acceso multi-proceso embebido (`NativeVantaDB` + sidecar Python) |
 | `VDB-BUG-04` | Bug / Limitación | 🟠 Media | `vantadb-node` / Serde | Rechazo de estructuras anidadas profundas en `metadata` (`VantaValue` carece de variante Map/Object recursiva) |
+| `VDB-BUG-05` | Bug / Validación | 🟡 Media | Core `Search` / Guards | Rechazo de búsqueda léxica con texto vacío `text_query: ""` (`query_vector must be a non-empty array`) |
 | `VDB-INC-03` | Inconsistencia | 🟠 Media | `NativeVantaDB` (Ciclo de Vida) | Invalidación de descriptores tras `db.close()` en el mismo proceso requiriendo re-inyección en consumers |
 | `VDB-REQ-01` | Petición de Mejora | 🟡 Media | Core `Search` | Soporte nativo de comodines en `search_multi` (`projects/default/*`) |
 | `VDB-REQ-02` | Petición de Mejora | 🟢 Baja | `NativeVantaDB.js` | `query_vector` obligatorio para búsquedas puras de texto BM25 |
@@ -179,6 +180,24 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
 * **Causa Raíz:** El tipo `VantaValue` en Rust modela valores primitivos (`String`, `Int`, `Float`, `Bool`) y arrays planos, pero no implementa una variante recursiva tipo `VantaValue::Map(HashMap<String, VantaValue>)` o `VantaValue::Json(serde_json::Value)` completa para metadatos jerárquicos arbitrarios.
 * **Workaround en Ego:** En [`packages/decision/src/DecisionAuditor.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/decision/src/DecisionAuditor.ts) y en [`EgoMemoryAdapter.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryAdapter.ts), cualquier objeto o lista compleja anidada dentro de `metadata` debe aplanarse o convertirse explícitamente a cadena de texto mediante `JSON.stringify()` previo a la inserción, requiriendo `JSON.parse()` defensivo en el consumo.
 * **Solución recomendada en VantaDB:** Agregar soporte para `serde_json::Value` arbitrario en los metadatos o enriquecer `VantaValue` con variantes `Map(HashMap<String, VantaValue>)` y `Array(Vec<VantaValue>)` que serialicen transparentemente desde y hacia objetos JavaScript anidados.
+
+---
+
+### `VDB-BUG-05`: Rechazo de Búsqueda con Texto Vacío en `search()` / `search_multi()`
+* **Componente:** `vantadb/dist/guards.js:181` / `src/sdk/api/search.rs`
+* **Síntoma:** Al intentar barrer o listar registros de un namespace utilizando `db.search()` o `search_multi()` con texto de consulta vacío `""` o espacios en blanco (ej. `db.search_multi(["gov/projects"], "", { topK: 100 })`), el validador base lanza una excepción de validación fatal:
+  ```
+  DbError [VantaError]: buildSearchRequestBase: query_vector must be a non-empty array unless text_query or query_sparse is provided
+  ```
+* **Causa Raíz:** En `guards.js:181`, la guarda evalúa:
+  ```javascript
+  if (!text_query && !query_sparse && (!query_vector || query_vector.length === 0)) {
+    throw new VantaError("buildSearchRequestBase: query_vector must be a non-empty array unless text_query or query_sparse is provided");
+  }
+  ```
+  Una cadena vacía `text_query: ""` se evalúa como falsy (`!text_query === true`), forzando de forma estricta la presencia de un vector denso o esparso.
+* **Workaround en Ego:** En `apps/desktop/src/main.ts` y en todos los servicios de dominio, no utilizar `searchMulti()` para barridos de namespaces sin término léxico; utilizar obligatoriamente la API nativa de paginación [`adapter.list(namespace, limit)`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryAdapter.ts#L155).
+* **Solución recomendada en VantaDB:** Permitir `text_query: ""` como coincidencia total (*match-all / full namespace scan*) o proveer un método explícito `db.scan()` / documentar la prohibición de búsquedas sin vector en la API TypeScript.
 
 ---
 
