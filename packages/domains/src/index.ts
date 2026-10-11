@@ -10,4 +10,5 @@ export * from "./analytics/AnalyticsDomain.js";
 export * from "./crm/types.js";
 export * from "./crm/CrmDomain.js";
 export * from "./WorkboardContract.js";
+export * from "./IntervalSet.js";
 
