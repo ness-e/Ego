@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, safeStorage } from "electron";
 import { join } from "node:path";
 import { stat } from "node:fs/promises";
 import {
@@ -252,6 +252,56 @@ export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapte
   });
 
   return defaultProject;
+}
+
+/**
+ * Cifra una credencial sensible usando safeStorage del SO (Keychain/DPAPI).
+ * Prohibición absoluta de guardar API keys en texto plano en VantaDB.
+ */
+export function encryptCredential(plainText: string): string {
+  if (!plainText) return "";
+  try {
+    if (typeof safeStorage !== "undefined" && safeStorage.isEncryptionAvailable()) {
+      const encryptedBuffer = safeStorage.encryptString(plainText);
+      return `enc:${encryptedBuffer.toString("base64")}`;
+    }
+  } catch (err) {
+    console.warn("[Security] Fallo al cifrar con safeStorage:", err);
+  }
+  return `obf:${Buffer.from(plainText, "utf-8").toString("base64")}`;
+}
+
+/**
+ * Descifra una credencial sensible protegida por safeStorage del SO.
+ */
+export function decryptCredential(stored: string): string {
+  if (!stored) return "";
+  try {
+    if (stored.startsWith("enc:")) {
+      const b64 = stored.slice(4);
+      const buffer = Buffer.from(b64, "base64");
+      if (typeof safeStorage !== "undefined" && safeStorage.isEncryptionAvailable()) {
+        return safeStorage.decryptString(buffer);
+      }
+    } else if (stored.startsWith("obf:")) {
+      const b64 = stored.slice(4);
+      return Buffer.from(b64, "base64").toString("utf-8");
+    }
+  } catch (err) {
+    console.warn("[Security] Fallo al descifrar credencial con safeStorage:", err);
+  }
+  return stored;
+}
+
+/**
+ * Enmascara una API key para devolver a la UI sin exponer el secreto en claro (ej. sk-...3a8f).
+ */
+export function maskApiKey(key: string): string {
+  if (!key) return "";
+  if (key.length <= 8) return "••••••••";
+  const prefix = key.slice(0, 4);
+  const suffix = key.slice(-4);
+  return `${prefix}...${suffix}`;
 }
 
 /**
@@ -550,13 +600,38 @@ export async function createWindow(): Promise<void> {
   try {
     const savedConfig = await adapter.get("gov/settings", "model_config");
     if (savedConfig) {
-      let payload: unknown = savedConfig;
+      let payload: any = savedConfig;
       if (typeof savedConfig === "object" && savedConfig !== null && "payload" in savedConfig) {
-        payload = (savedConfig as { payload: unknown }).payload;
+        payload = (savedConfig as { payload: any }).payload;
       }
-      const parsed = ModelConfigSchema.safeParse(payload);
-      if (parsed.success) {
-        applyModelConfig(modelRouter, parsed.data);
+      if (payload && typeof payload === "object") {
+        let resolvedKey = "";
+        if (payload.apiKeyEncrypted) {
+          resolvedKey = decryptCredential(payload.apiKeyEncrypted);
+        } else if (payload.apiKey && typeof payload.apiKey === "string") {
+          // Migración automática de legado plano a cifrado con safeStorage
+          resolvedKey = payload.apiKey;
+          const reEncrypted = encryptCredential(resolvedKey);
+          await adapter.put({
+            namespace: "gov/settings",
+            key: "model_config",
+            payload: {
+              activeProvider: payload.activeProvider,
+              apiKeyEncrypted: reEncrypted,
+              baseUrl: payload.baseUrl,
+              modelName: payload.modelName,
+            },
+            metadata: { updatedAtMs: Date.now(), migrated: true },
+          });
+        }
+
+        const restoredConfig: ModelConfig = {
+          activeProvider: payload.activeProvider || "mock",
+          apiKey: resolvedKey,
+          baseUrl: payload.baseUrl,
+          modelName: payload.modelName,
+        };
+        applyModelConfig(modelRouter, restoredConfig);
       }
     }
   } catch (cfgErr) {
@@ -1173,24 +1248,57 @@ export async function createWindow(): Promise<void> {
     operational: adapter.ready,
   }));
 
-  // 5. Configuración de Modelos y BYOK (INT-02)
+  // 5. Configuración de Modelos y BYOK (INT-02 / Cifrado Seguro con safeStorage)
   ipcMain.handle("ipc.settings.getModelConfig", async () => {
     try {
       const savedConfig = await adapter.get("gov/settings", "model_config");
       if (savedConfig) {
-        let payload: unknown = savedConfig;
+        let payload: any = savedConfig;
         if (typeof savedConfig === "object" && savedConfig !== null && "payload" in savedConfig) {
-          payload = (savedConfig as { payload: unknown }).payload;
+          payload = (savedConfig as { payload: any }).payload;
         }
-        const parsed = ModelConfigSchema.safeParse(payload);
-        if (parsed.success) {
-          return parsed.data;
+        if (payload && typeof payload === "object") {
+          let resolvedApiKey = currentModelConfig.apiKey || "";
+          if (payload.apiKeyEncrypted) {
+            resolvedApiKey = decryptCredential(payload.apiKeyEncrypted);
+          } else if (payload.apiKey && typeof payload.apiKey === "string") {
+            // Migración automática de texto plano legado a cifrado
+            resolvedApiKey = payload.apiKey;
+            const reEncrypted = encryptCredential(resolvedApiKey);
+            await adapter.put({
+              namespace: "gov/settings",
+              key: "model_config",
+              payload: {
+                activeProvider: payload.activeProvider,
+                apiKeyEncrypted: reEncrypted,
+                baseUrl: payload.baseUrl,
+                modelName: payload.modelName,
+              },
+              metadata: { updatedAtMs: Date.now(), migrated: true },
+            });
+          }
+          currentModelConfig.apiKey = resolvedApiKey;
+          currentModelConfig.activeProvider = payload.activeProvider || currentModelConfig.activeProvider;
+          currentModelConfig.baseUrl = payload.baseUrl || currentModelConfig.baseUrl;
+          currentModelConfig.modelName = payload.modelName || currentModelConfig.modelName;
+
+          return {
+            activeProvider: currentModelConfig.activeProvider,
+            baseUrl: currentModelConfig.baseUrl,
+            modelName: currentModelConfig.modelName,
+            apiKey: maskApiKey(resolvedApiKey),
+          };
         }
       }
     } catch {
       // noop
     }
-    return currentModelConfig;
+    return {
+      activeProvider: currentModelConfig.activeProvider,
+      baseUrl: currentModelConfig.baseUrl,
+      modelName: currentModelConfig.modelName,
+      apiKey: maskApiKey(currentModelConfig.apiKey || ""),
+    };
   });
 
   ipcMain.handle("ipc.settings.saveModelConfig", async (_e, rawReq: unknown) => {
@@ -1198,25 +1306,53 @@ export async function createWindow(): Promise<void> {
     if (!parseResult.success) {
       throw new Error(`[IPC Security] Configuración de modelo inválida: ${parseResult.error.message}`);
     }
-    const config = parseResult.data;
-    applyModelConfig(modelRouter, config);
+    const incoming = parseResult.data;
+
+    // Si la clave recibida es una máscara o viene vacía, conservar la clave real en memoria si el proveedor coincide
+    let effectiveApiKey = incoming.apiKey || "";
+    const isMasked = effectiveApiKey.includes("...") || effectiveApiKey.includes("••••");
+    if (isMasked && currentModelConfig.apiKey && incoming.activeProvider === currentModelConfig.activeProvider) {
+      effectiveApiKey = currentModelConfig.apiKey;
+    }
+
+    const effectiveConfig: ModelConfig = {
+      ...incoming,
+      apiKey: effectiveApiKey,
+    };
+
+    applyModelConfig(modelRouter, effectiveConfig);
+
+    // Cifrar la clave antes de persistir en VantaDB. NUNCA almacenar en texto plano.
+    const encryptedKey = effectiveApiKey ? encryptCredential(effectiveApiKey) : undefined;
+    const payloadToStore = {
+      activeProvider: effectiveConfig.activeProvider,
+      apiKeyEncrypted: encryptedKey,
+      baseUrl: effectiveConfig.baseUrl,
+      modelName: effectiveConfig.modelName,
+    };
 
     await adapter.put({
       namespace: "gov/settings",
       key: "model_config",
-      payload: config,
+      payload: payloadToStore,
       metadata: { updatedAtMs: Date.now() },
     });
 
     eventBus?.emit("settings.model_updated" as any, {
-      activeProvider: config.activeProvider,
+      activeProvider: effectiveConfig.activeProvider,
       timestamp: Date.now(),
     }, {
       source: "desktop.ipc.settings.saveModelConfig",
       severity: "info",
     });
 
-    return { ok: true, config };
+    // Enmascarar la API key en la respuesta hacia el Renderer
+    const maskedConfig = {
+      ...effectiveConfig,
+      apiKey: maskApiKey(effectiveConfig.apiKey || ""),
+    };
+
+    return { ok: true, config: maskedConfig };
   });
 
   // 6. Decision Intelligence Layer IPC (DEC-01..DEC-08)
