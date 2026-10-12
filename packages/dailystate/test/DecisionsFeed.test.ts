@@ -71,4 +71,25 @@ describe("DecisionsFeed (DS-03 / COUC-09)", () => {
     expect(markdown).toContain("`ego.nucleus`");
     expect(markdown).toContain("Desacoplar Dynamic Workspace");
   });
+
+  it("usa metadata.ts/agent_id reales vía list() (anti-fallback C03-list)", async () => {
+    const TS = 1728570000000;
+    mockAdapter.list.mockResolvedValueOnce([
+      {
+        key: "dec-meta-1",
+        payload: { id: "dec-meta-1", title: "Decisión vía metadata" },
+        metadata: { ts: TS, agent_id: "subego.meta" },
+      },
+    ]);
+
+    const feed = new DecisionsFeed(mockAdapter);
+    const decisions = await feed.getDecisions();
+
+    expect(decisions).toHaveLength(1);
+    // Anti-fallback: con metadata tagged sin desenvolver, timestamp caería a
+    // Date.now() y subEgoId a "ego.nucleus".
+    expect(decisions[0].timestamp).toBe(TS);
+    expect(decisions[0].subEgoId).toBe("subego.meta");
+    expect(decisions[0].subEgoId).not.toBe("ego.nucleus");
+  });
 });

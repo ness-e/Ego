@@ -79,4 +79,30 @@ describe('DecisionAuditor (DEC-07 - Inmutabilidad en gov/audit)', () => {
 
     expect(key).toBeDefined();
   });
+
+  it('lista veredictos recientes vía list() con metadata desenvuelta (C03-list)', async () => {
+    const listMock = vi.fn().mockResolvedValue([
+      {
+        key: 'verdict:550e8400-e29b-41d4-a716-446655440000:1728570000000',
+        payload: { type: 'decision_verdict', verdict: mockVerdict },
+        metadata: {
+          run_id: '550e8400-e29b-41d4-a716-446655440000',
+          domain: 'engineering',
+          confidence: 0.96,
+          ts: 1728570000000
+        }
+      }
+    ]);
+    const mockAdapter = {
+      list: listMock
+    } as unknown as EgoMemoryAdapter;
+
+    const auditor = new DecisionAuditor(mockAdapter);
+    const verdicts = await auditor.listRecentVerdicts();
+
+    // PAYLOAD-ONLY: la metadata desenvuelta está presente pero se ignora; el payload manda.
+    expect(verdicts).toHaveLength(1);
+    expect(verdicts[0].domain).toBe('engineering');
+    expect(verdicts[0].confidence).toBe(0.96);
+  });
 });

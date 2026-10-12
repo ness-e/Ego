@@ -147,4 +147,29 @@ describe("SelfImprovementLoop — Closed Learning Loop y Auto-Reflexión (SUB-12
     expect(promptBlock).toContain("Verificar siempre URLs y referencias primarias");
     expect(promptBlock).toContain("[Confianza: 70%]");
   });
+
+  it("6. recallLessons opera sobre list() con metadata desenvuelta (C03-list)", async () => {
+    const candidate: LearningCandidate = {
+      subEgoId: "researcher",
+      trigger: "verification_failure",
+      context: "Metadatos de list()",
+      insight: "list() retorna metadata desenvuelta tras C03-list",
+      actionableRule: "Leer la metadata de list() como primitivas.",
+      tags: ["metadata"],
+    };
+
+    await loop.recordLesson(candidate);
+
+    // Evidencia de shape: metadata desenvuelta (primitivas, no tagged {String}/{Float}).
+    const raw = await adapter.list("egos/researcher/lessons", 10);
+    expect(raw.length).toBe(1);
+    const meta = raw[0].metadata ?? {};
+    expect(typeof meta["confidence"]).toBe("number");
+    expect(typeof meta["subEgoId"]).toBe("string");
+
+    // El lector PAYLOAD-ONLY opera sobre el mismo list() sin depender de metadata.
+    const recalled = await loop.recallLessons("researcher");
+    expect(recalled.length).toBe(1);
+    expect(recalled[0].actionableRule).toBe(candidate.actionableRule);
+  });
 });

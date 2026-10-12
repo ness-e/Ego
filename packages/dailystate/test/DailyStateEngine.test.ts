@@ -129,4 +129,26 @@ describe("DailyStateEngine (DS-01 / COUC-06 / OCLW-07)", () => {
     expect(summary.estimatedCostUsd).toBe(0.008);
     expect(summary.p99LatencyMs).toBe(340);
   });
+
+  it("usa metadata.ts/agent_id reales de gov/audit vía list() (anti-fallback C03-list)", async () => {
+    const TS = 1728570000000;
+    storeMap.set("gov/audit", [
+      {
+        key: "dec-meta-1",
+        payload: { id: "dec-meta-1", title: "Decisión vía metadata" },
+        metadata: { ts: TS, agent_id: "subego.meta" },
+      },
+    ]);
+
+    const engine = new DailyStateEngine(mockAdapter);
+    const summary = await engine.synthesize({ date: "2026-10-10" });
+
+    expect(summary.decisionsCount).toBe(1);
+    // Anti-fallback: con metadata tagged sin desenvolver, timestamp caería a
+    // now (Date.now()) y subEgoId a "ego.nucleus".
+    expect(summary.recentDecisions).toHaveLength(1);
+    expect(summary.recentDecisions[0].timestamp).toBe(TS);
+    expect(summary.recentDecisions[0].subEgoId).toBe("subego.meta");
+    expect(summary.recentDecisions[0].subEgoId).not.toBe("ego.nucleus");
+  });
 });
