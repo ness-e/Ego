@@ -1,10 +1,13 @@
 import { EgoMemoryAdapter } from "@ego/memory";
 import { Fact, FactSchema } from "./schemas/knowledge.js";
+import { unwrapTaggedMetadata } from "./cursorListing.js";
 
 export interface PromotionOptions {
   promotedBy?: string;
   notes?: string;
 }
+
+export type LifecycleAuditAction = "promote" | "supersede" | "retire";
 
 /**
  * Gestor del ciclo de vida y versionado inmutable de hechos (KB-08, ADR-028).
@@ -23,6 +26,18 @@ export class FactLifecycle {
 
   /**
    * Promueve un hecho de quarantine/pending a kb/facts de forma atómica.
+   *
+   * M11: la metadata de origen se desenvuelve (VDB-BUG-02) antes de
+   * reinsertar y el registro `kb/facts` se construye canónico — sin
+   * propagar campos de cuarentena (`quarantine_reason`, `expires_at`, …)
+   * ni valores doblemente etiquetados.
+   *
+   * Ventana no atómica documentada: VantaDB no ofrece transacciones entre
+   * namespaces, así que un crash entre el `put` en `kb/facts` y el `delete`
+   * en `quarantine/pending` deja un duplicado benigno (mismo `fact_id` en
+   * ambos lados). El orden put→audit→delete minimiza el riesgo (nunca hay
+   * pérdida) y el registro `kb/audit` permite reconciliar; re-ejecutar la
+   * promoción es idempotente (sobrescribe `kb/facts` y reintenta el delete).
    */
   public async promoteFromQuarantine(
     factId: string,
@@ -38,7 +53,7 @@ export class FactLifecycle {
       throw new Error(`Hecho no encontrado en cuarentena: ${factId}`);
     }
 
-    const meta = quarantined?.metadata ?? {};
+    const meta = unwrapTaggedMetadata(quarantined?.metadata);
     const now = Date.now();
 
     const promotedFact: Fact = {
@@ -57,22 +72,39 @@ export class FactLifecycle {
 
     FactSchema.parse(promotedFact);
 
-    // 1. Inserción en kb/facts
+    // 1. Inserción en kb/facts con metadata canónica (sin campos de cuarentena)
     await this.adapter.put({
       namespace: "kb/facts",
       key: factId,
       payload: `${promotedFact.subject} ${promotedFact.predicate} ${promotedFact.object}`,
       metadata: {
-        ...meta,
+        fact_id: promotedFact.id,
+        subject: promotedFact.subject,
+        predicate: promotedFact.predicate,
+        object: promotedFact.object,
+        confidence: promotedFact.confidence,
+        temporal_scope: promotedFact.temporalScope,
+        source: promotedFact.source,
+        valid_at: promotedFact.validAt,
+        invalid_at: -1,
         state: "active",
         is_latest: true,
         promoted_at: now,
         promoted_by: options.promotedBy || "user_approval",
         promotion_notes: options.notes || "",
+        promoted_from: "quarantine/pending",
       },
     });
 
-    // 2. Eliminación de la cola de cuarentena
+    // 2. Auditoría best-effort (permite reconciliar la ventana no atómica)
+    await this.writeAudit({
+      action: "promote",
+      factId,
+      actor: options.promotedBy || "user_approval",
+      detail: options.notes || "",
+    });
+
+    // 3. Eliminación de la cola de cuarentena
     await this.adapter.delete("quarantine/pending", factId);
 
     return promotedFact;
@@ -116,7 +148,8 @@ export class FactLifecycle {
       } | null;
 
       if (existing) {
-        const oldMeta = existing?.metadata ?? {};
+        // M11: desenvolver antes de reinsertar (evita doble etiquetado).
+        const oldMeta = unwrapTaggedMetadata(existing?.metadata);
         await this.adapter.put({
           namespace: "kb/facts",
           key: oldFactKey,
@@ -134,6 +167,13 @@ export class FactLifecycle {
     } catch (err) {
       console.warn(`[FactLifecycle] Error marcando hecho superseded ${oldFactKey}:`, err);
     }
+
+    await this.writeAudit({
+      action: "supersede",
+      factId: oldFactKey,
+      actor: "system",
+      detail: `superseded_by=${newFact.id}`,
+    });
   }
 
   /**
@@ -206,7 +246,8 @@ export class FactLifecycle {
           } | null;
 
           if (existing) {
-            const oldMeta = existing?.metadata ?? {};
+            // M11: desenvolver antes de reinsertar (evita doble etiquetado).
+            const oldMeta = unwrapTaggedMetadata(existing?.metadata);
             await this.adapter.put({
               namespace: "kb/facts",
               key: oldFactId,
@@ -221,6 +262,12 @@ export class FactLifecycle {
             });
             processedFactIds.push(oldFactId);
             retiredCount++;
+            await this.writeAudit({
+              action: "retire",
+              factId: oldFactId,
+              actor: "system",
+              detail: "consolidateMemories",
+            });
           }
         } catch (err) {
           console.warn(`[FactLifecycle] Error retirando hecho ${oldFactId}:`, err);
@@ -234,5 +281,37 @@ export class FactLifecycle {
       retiredCount,
       processedFactIds,
     };
+  }
+
+  /**
+   * Registra una transición del ciclo de vida en `kb/audit` (M11).
+   * Best-effort con aviso: la auditoría es observabilidad para reconciliar
+   * la ventana no atómica put→delete, nunca un gate que bloquee la
+   * transición principal si el motor falla al escribirla.
+   */
+  private async writeAudit(entry: {
+    action: LifecycleAuditAction;
+    factId: string;
+    actor: string;
+    detail: string;
+  }): Promise<void> {
+    const now = Date.now();
+    try {
+      await this.adapter.put({
+        namespace: "kb/audit",
+        key: `audit_${now}_${entry.action}_${entry.factId}`,
+        payload: `${entry.action} ${entry.factId} by ${entry.actor}`,
+        metadata: {
+          action: entry.action,
+          fact_id: entry.factId,
+          actor: entry.actor,
+          detail: entry.detail,
+          ts: now,
+          state: "audited",
+        },
+      });
+    } catch (err) {
+      console.warn(`[FactLifecycle] No se pudo registrar auditoría ${entry.action} ${entry.factId}:`, err);
+    }
   }
 }

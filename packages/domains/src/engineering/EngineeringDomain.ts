@@ -3,7 +3,12 @@ import { promisify } from "node:util";
 import path from "node:path";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
-import { WorktreeManager, type WorktreeInfo } from "./WorktreeManager.js";
+import {
+  WorktreeManager,
+  validateTargetRef,
+  type MutationApproval,
+  type WorktreeInfo,
+} from "./WorktreeManager.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -190,7 +195,7 @@ export class EngineeringDomain {
   }
 
   /**
-   * Obtiene el diff de Git (staged o un-staged).
+   * Obtiene el diff de Git (staged o un-staged). Solo lectura.
    */
   public async getGitDiff(
     workspaceRoot: string,
@@ -198,6 +203,10 @@ export class EngineeringDomain {
   ): Promise<string> {
     const isGit = await this.worktreeManager.isGitRepository(workspaceRoot);
     if (!isGit) return "";
+
+    if (options?.pathFilter?.includes("\0")) {
+      throw new Error("[EngineeringDomain] pathFilter inválido: contiene byte nulo.");
+    }
 
     const args = ["diff"];
     if (options?.staged) args.push("--staged");
@@ -215,42 +224,57 @@ export class EngineeringDomain {
 
   /**
    * Crea un espacio de trabajo aislado (Worktree) para realizar mutaciones de software seguras (HERM-17).
+   * Mutación: exige approval HITL (propagada a `WorktreeManager.createWorktree`).
    */
   public async createIsolatedWorkspace(
     repoRoot: string,
-    taskSlug: string
+    taskSlug: string,
+    opts?: MutationApproval
   ): Promise<WorktreeInfo> {
     const branchName = `ego-task-${taskSlug.toLowerCase().replace(/[^a-z0-9_-]/g, "-")}`;
-    return this.worktreeManager.createWorktree(repoRoot, branchName);
+    return this.worktreeManager.createWorktree(repoRoot, branchName, undefined, opts);
   }
 
   /**
    * Limpia un entorno de desarrollo aislado cuando la tarea concluye.
+   * Mutación: exige approval HITL (propagada a `WorktreeManager.removeWorktree`).
    */
   public async cleanupIsolatedWorkspace(
     repoRoot: string,
-    worktreePath: string
+    worktreePath: string,
+    opts?: MutationApproval
   ): Promise<boolean> {
-    return this.worktreeManager.removeWorktree(repoRoot, worktreePath, true);
+    return this.worktreeManager.removeWorktree(repoRoot, worktreePath, true, opts);
   }
 
   /**
    * Genera una propuesta de cambio formal comparando el worktree aislado con la rama base.
+   * Solo lectura (`git diff`): no exige approval, pero valida `targetBranch`
+   * como ref (cierra inyección de opciones en argv).
    */
   public async proposeChanges(
     isolatedWorktreePath: string,
     targetBranch: string
   ): Promise<ChangeProposal> {
+    if (
+      typeof isolatedWorktreePath !== "string" ||
+      isolatedWorktreePath.length === 0 ||
+      isolatedWorktreePath.includes("\0")
+    ) {
+      throw new Error("[EngineeringDomain] isolatedWorktreePath inválido.");
+    }
+    const safeRef = validateTargetRef(targetBranch);
+    const cwd = path.resolve(isolatedWorktreePath);
     const { stdout: diffOut } = await execFileAsync(
       "git",
-      ["diff", `${targetBranch}...HEAD`],
-      { cwd: isolatedWorktreePath }
+      ["diff", `${safeRef}...HEAD`],
+      { cwd }
     );
 
     const { stdout: filesOut } = await execFileAsync(
       "git",
-      ["diff", "--name-only", `${targetBranch}...HEAD`],
-      { cwd: isolatedWorktreePath }
+      ["diff", "--name-only", `${safeRef}...HEAD`],
+      { cwd }
     );
 
     const filesChanged = filesOut
@@ -263,7 +287,7 @@ export class EngineeringDomain {
     return {
       proposalId: `prop_${Date.now()}`,
       sourceWorktree: path.resolve(isolatedWorktreePath),
-      targetBranch,
+      targetBranch: safeRef,
       diffSummary: diffOut,
       filesChanged,
       checksum,

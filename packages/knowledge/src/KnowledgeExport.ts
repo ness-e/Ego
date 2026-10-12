@@ -1,6 +1,11 @@
 import * as fs from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { EgoMemoryAdapter } from "@ego/memory";
+import { EgoMemoryAdapter, type EgoPut } from "@ego/memory";
+import {
+  flushBestEffort,
+  listAllNamespaceRecords,
+  unwrapTaggedMetadata,
+} from "./cursorListing.js";
 
 export interface ExportPackage {
   version: string;
@@ -16,6 +21,48 @@ export interface ExportPackage {
   }>;
 }
 
+/** Tamaño de página para listar namespaces durante el export. */
+const EXPORT_PAGE_SIZE = 500;
+/** Tamaño de lote para escribir imports (acota picos de memoria y round-trips). */
+const IMPORT_BATCH_SIZE = 200;
+
+/**
+ * Ordena recursivamente las claves de un valor JSON (M14). Los arrays
+ * conservan su orden; los registros se ordenan por separado en
+ * `canonicalExportChecksum`. Idempotente.
+ */
+export function sortJsonKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJsonKeys);
+  }
+  if (value !== null && typeof value === "object") {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[key] = sortJsonKeys((value as Record<string, unknown>)[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
+function compareRecords(
+  a: ExportPackage["records"][number],
+  b: ExportPackage["records"][number]
+): number {
+  const ka = `${a.namespace}:${a.key}`;
+  const kb = `${b.namespace}:${b.key}`;
+  return ka < kb ? -1 : ka > kb ? 1 : 0;
+}
+
+/**
+ * Checksum SHA-256 canónico de un conjunto de registros (M14): ordena por
+ * `namespace:key` y serializa con claves ordenadas, de modo que reordenar
+ * registros o claves no cambia el digest ni rompe la verificación.
+ */
+export function canonicalExportChecksum(records: ExportPackage["records"]): string {
+  const canonical = [...records].sort(compareRecords).map((r) => sortJsonKeys(r));
+  return createHash("sha256").update(JSON.stringify(canonical), "utf8").digest("hex");
+}
 /**
  * Utilidad de portabilidad mnemónica: exportación e importación de datasets de conocimiento (KB-10).
  * Preserva soberanía de datos del usuario (Principio Innegociable §9) con verificación SHA-256.
@@ -33,6 +80,10 @@ export class KnowledgeExport {
 
   /**
    * Exporta todo el conocimiento de un proyecto hacia un objeto serializable o archivo.
+   *
+   * M14: pagina cada namespace con cursor hasta agotar (sin ventana fija de
+   * 500 que truncaba DBs grandes), ordena los registros por
+   * `namespace:key` y firma con checksum canónico (insensible al orden).
    */
   public async exportPackage(
     projectId: string = "default",
@@ -43,7 +94,7 @@ export class KnowledgeExport {
 
     for (const ns of namespaces) {
       try {
-        const records = await this.adapter.list(ns, 500);
+        const records = await listAllNamespaceRecords(this.adapter, ns, EXPORT_PAGE_SIZE);
         for (const rec of records) {
           allRecords.push({
             namespace: ns,
@@ -57,8 +108,8 @@ export class KnowledgeExport {
       }
     }
 
-    const payloadString = JSON.stringify(allRecords);
-    const checksum = createHash("sha256").update(payloadString, "utf8").digest("hex");
+    allRecords.sort(compareRecords);
+    const checksum = canonicalExportChecksum(allRecords);
 
     const pkg: ExportPackage = {
       version: "1.0.0",
@@ -78,6 +129,12 @@ export class KnowledgeExport {
 
   /**
    * Importa un paquete de conocimiento restaurándolo en VantaDB tras verificar el checksum.
+   *
+   * M14: verifica con checksum canónico (tolera reordenamientos inocuos),
+   * normaliza metadata tagged legacy en el borde de importación (evita que
+   * las claves auditadas de `putMulti` caigan a sus defaults) y escribe por
+   * lotes acotados (`putMulti` + `flush`) en vez de N puts secuenciales.
+   * Compatibilidad: sin `putMulti` degrada a puts secuenciales (mocks legacy).
    */
   public async importPackage(packageOrPath: ExportPackage | string): Promise<{ imported: number }> {
     let pkg: ExportPackage;
@@ -89,25 +146,33 @@ export class KnowledgeExport {
       pkg = packageOrPath;
     }
 
-    // Validación de integridad criptográfica
-    const payloadString = JSON.stringify(pkg.records);
-    const calculatedChecksum = createHash("sha256").update(payloadString, "utf8").digest("hex");
+    // Validación de integridad criptográfica (canónica: insensible al orden)
+    const calculatedChecksum = canonicalExportChecksum(pkg.records ?? []);
 
     if (calculatedChecksum !== pkg.checksum) {
       throw new Error("Fallo de integridad: Checksum SHA-256 no coincide. Archivo potencialmente corrupto.");
     }
 
-    let imported = 0;
-    for (const rec of pkg.records) {
-      await this.adapter.put({
-        namespace: rec.namespace,
-        key: rec.key,
-        payload: rec.payload,
-        metadata: rec.metadata,
-      });
-      imported++;
+    const pending: EgoPut[] = (pkg.records ?? []).map((rec) => ({
+      namespace: rec.namespace,
+      key: rec.key,
+      payload: rec.payload,
+      metadata: rec.metadata ? unwrapTaggedMetadata(rec.metadata) : undefined,
+    }));
+
+    const maybe = this.adapter as unknown as { putMulti?: unknown };
+    if (typeof maybe.putMulti === "function") {
+      const putMulti = maybe.putMulti as (items: EgoPut[]) => Promise<void>;
+      for (let i = 0; i < pending.length; i += IMPORT_BATCH_SIZE) {
+        await putMulti.call(this.adapter, pending.slice(i, i + IMPORT_BATCH_SIZE));
+      }
+      await flushBestEffort(this.adapter, "importPackage");
+    } else {
+      for (const item of pending) {
+        await this.adapter.put(item);
+      }
     }
 
-    return { imported };
+    return { imported: pending.length };
   }
 }

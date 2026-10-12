@@ -2,18 +2,21 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
-import { createHash } from "node:crypto";
 import { EgoMemoryAdapter } from "@ego/memory";
-import { KnowledgeExport, type ExportPackage } from "../src/KnowledgeExport.js";
+import {
+  KnowledgeExport,
+  canonicalExportChecksum,
+  type ExportPackage,
+} from "../src/KnowledgeExport.js";
 
 /**
  * C03-list Task 5 — round-trip de KnowledgeExport con shape desenvuelto.
  *
- * `KnowledgeExport.exportPackage` lista vía `adapter.list` (desenvuelto desde
- * Task 2: primitivas, no objetos tagged {String}/{Float}/{Bool}). Este test
- * prueba con adaptadores reales que export→import conserva el checksum y los
+ * `KnowledgeExport.exportPackage` lista vía cursor con metadata desenvuelta
+ * (primitivas, no objetos tagged {String}/{Float}/{Bool}). Este test prueba
+ * con adaptadores reales que export→import conserva el checksum y los
  * registros íntegros, y que los dumps legacy (tagged) siguen siendo
- * importables pero se normalizan al re-exportar (evidencia de migración).
+ * importables y se normalizan en el borde de importación (F2T5/M14).
  *
  * Fixtures con patrón VDB-BUG-04: metadata plana (números/strings/bools) +
  * anidado serializado como string JSON (`*_json`).
@@ -45,7 +48,8 @@ describe("C03-list Task 5 — round-trip KnowledgeExport con shape desenvuelto (
   });
 
   function sha256(records: ExportPackage["records"]): string {
-    return createHash("sha256").update(JSON.stringify(records), "utf8").digest("hex");
+    // F2T5/M14: checksum canónico (registros ordenados + claves ordenadas).
+    return canonicalExportChecksum(records);
   }
 
   function sortedByKey(records: ExportPackage["records"]): ExportPackage["records"] {
@@ -180,25 +184,21 @@ describe("C03-list Task 5 — round-trip KnowledgeExport con shape desenvuelto (
     expect(rec?.metadata?.["valid_at"]).toBe(1000);
     expect(typeof rec?.metadata?.["valid_at"]).toBe("number");
 
-    // …pero las claves de auditoría que `putMulti` normaliza (`confidence`,
-    // `state`, `ts`, `org_id`, `agent_id`) NO se autocorrigen: la normalización
-    // solo acepta primitivas (`typeof === "number"`), así que el objeto tagged
-    // `{Float: 0.9}` cae al default 1.0. Evidencia de incompatibilidad legacy.
-    // Si una migración futura normaliza (unwrap) en el borde de importación,
-    // este assert debe actualizarse a la expectativa sana (0.9).
-    expect(rec?.metadata?.["confidence"]).toBe(1.0);
-    expect(rec?.metadata?.["confidence"]).not.toBe(0.9);
+    // F2T5/M14: el borde de importación normaliza (unwrap) la metadata tagged
+    // ANTES del `put`, donde la normalización de auditoría de `putMulti` ya
+    // solo acepta primitivas. Las claves auditadas conservan sus valores
+    // reales (`confidence` 0.9, no el default 1.0 de la corrupción previa).
+    expect(rec?.metadata?.["confidence"]).toBe(0.9);
+    expect(typeof rec?.metadata?.["confidence"]).toBe("number");
 
-    // Migración: al re-exportar, el shape se normaliza (primitivas) y el
-    // checksum cambia — los checksums pre/post C03-list no son comparables.
-    // Ruta de migración (para Task 6 / Backlog): los dumps legacy con metadata
-    // tagged requieren unwrap en el borde de importación (antes del `put`,
-    // donde la normalización de auditoría ya solo acepta primitivas) y luego
-    // re-exportar para normalizar. Importar un dump legacy tal cual conserva
-    // el checksum pero CORROMPE las claves auditadas (confidence→1.0).
+    // Migración: al re-exportar, el shape ya está normalizado (primitivas).
+    // El checksum del re-export difiere del legacy solo por la canonicalización
+    // (claves ordenadas): los checksums pre/post F2T5 no son comparables
+    // byte a byte, pero el contenido semántico se preserva íntegro.
     const rePkg = await exporterDst.exportPackage("legacy");
     expect(rePkg.totalRecords).toBe(1);
     expect(typeof rePkg.records[0].metadata?.["confidence"]).toBe("number");
+    expect(rePkg.records[0].metadata?.["confidence"]).toBe(0.9);
     expect(rePkg.checksum).not.toBe(legacyPkg.checksum);
   });
 });

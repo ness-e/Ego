@@ -22,10 +22,10 @@ describe("EngineeringDomain & WorktreeManager (DOM-01 / HERM-17)", () => {
     expect(path.resolve(mainWt!.worktreePath)).toBe(path.resolve(repoRoot));
   });
 
-  it("debe impedir la eliminación del worktree principal", async () => {
-    await expect(worktreeMgr.removeWorktree(repoRoot, repoRoot)).rejects.toThrow(
-      /Protección innegociable/
-    );
+  it("debe impedir la eliminación del worktree principal (con approval para llegar al gate)", async () => {
+    await expect(
+      worktreeMgr.removeWorktree(repoRoot, repoRoot, true, { approved: true })
+    ).rejects.toThrow(/Protección innegociable/);
   });
 
   it("debe escanear el workspace detectando stack Node, manifiesto y testers", async () => {
