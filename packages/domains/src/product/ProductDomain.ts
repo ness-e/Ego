@@ -34,9 +34,21 @@ export interface GeneratePrdInput {
   outOfScope?: string[];
 }
 
+export interface ProductHydrateReport {
+  backlogItems: number;
+  epics: number;
+  prds: number;
+  skipped: number;
+}
+
 /**
  * Dominio de Producto (DOM-02 / ADR-050).
  * Gestiona backlog, épicas y PRDs estructurados persistidos en VantaDB.
+ *
+ * Persistencia (H07 — F2T4): cada escritura se espeja en VantaDB
+ * (`product/backlog`, `product/epics`, `product/prds`). Al arrancar, llamar a
+ * `hydrate()` (o usar `ProductDomain.open(memory)`) para rehidratar los mapas
+ * en memoria tras un reinicio. Los corruptos se omiten con aviso.
  */
 export class ProductDomain {
   private memory?: EgoMemoryAdapter;
@@ -46,6 +58,72 @@ export class ProductDomain {
 
   constructor(memory?: EgoMemoryAdapter) {
     this.memory = memory;
+  }
+
+  /**
+   * Fábrica de arranque: construye el dominio y rehidrata desde VantaDB.
+   */
+  public static async open(memory: EgoMemoryAdapter): Promise<ProductDomain> {
+    const domain = new ProductDomain(memory);
+    await domain.hydrate();
+    return domain;
+  }
+
+  /**
+   * Rehidrata backlog, épicas y PRDs desde VantaDB (H07).
+   */
+  public async hydrate(): Promise<ProductHydrateReport> {
+    const report: ProductHydrateReport = { backlogItems: 0, epics: 0, prds: 0, skipped: 0 };
+    if (!this.memory) return report;
+
+    const namespaces = ["product/backlog", "product/epics", "product/prds"] as const;
+    const pages: Array<Array<{ key: string; payload: unknown }>> = [];
+    for (const ns of namespaces) {
+      try {
+        pages.push(await this.memory.list(ns, 1000));
+      } catch (err) {
+        console.warn(`[ProductDomain] hydrate: fallo list(${ns}):`, err);
+        pages.push([]);
+      }
+    }
+
+    for (const rec of pages[0]) {
+      const parsed = BacklogItemSchema.safeParse(ProductDomain.parsePayload(rec.payload));
+      if (!parsed.success) {
+        report.skipped++;
+        continue;
+      }
+      this.inMemoryBacklog.set(parsed.data.id, parsed.data);
+      report.backlogItems++;
+    }
+    for (const rec of pages[1]) {
+      const parsed = EpicSchema.safeParse(ProductDomain.parsePayload(rec.payload));
+      if (!parsed.success) {
+        report.skipped++;
+        continue;
+      }
+      this.inMemoryEpics.set(parsed.data.id, parsed.data);
+      report.epics++;
+    }
+    for (const rec of pages[2]) {
+      const parsed = ProductPrdSchema.safeParse(ProductDomain.parsePayload(rec.payload));
+      if (!parsed.success) {
+        report.skipped++;
+        continue;
+      }
+      this.inMemoryPrds.set(parsed.data.id, parsed.data);
+      report.prds++;
+    }
+    return report;
+  }
+
+  private static parsePayload(payload: unknown): unknown {
+    if (typeof payload !== "string") return payload;
+    try {
+      return JSON.parse(payload) as unknown;
+    } catch {
+      return payload;
+    }
   }
 
   /**
@@ -76,6 +154,15 @@ export class ProductDomain {
       if (epic && !epic.itemIds.includes(id)) {
         epic.itemIds.push(id);
         epic.updatedAt = now;
+        // H07: el vínculo épica→ítem también debe espejarse en VantaDB;
+        // sin este put, la rehidratación pierde itemIds (espejo divergente).
+        if (this.memory) {
+          await this.memory.put({
+            namespace: "product/epics",
+            key: epic.id,
+            payload: JSON.stringify(epic),
+          });
+        }
       }
     }
 

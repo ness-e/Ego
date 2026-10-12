@@ -1,4 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as fs from "node:fs/promises";
+import { EgoMemoryAdapter } from "../EgoMemoryAdapter.js";
 import { SessionTimelineRewind } from "../SessionTimelineRewind.js";
 
 describe("HERM-14: SessionTimelineRewind (Inmutabilidad y Branching sobre VantaDB)", () => {
@@ -56,5 +60,67 @@ describe("HERM-14: SessionTimelineRewind (Inmutabilidad y Branching sobre VantaD
     const mainTimeline = timeline.getActiveTimeline();
     expect(mainTimeline).toHaveLength(2);
     expect(mainTimeline[1].content).toBe("Respuesta rama principal");
+  });
+
+  describe("F2T4 persistencia vía adapter (H08)", () => {
+    let dir: string;
+    let adapter: EgoMemoryAdapter | undefined;
+
+    afterEach(async () => {
+      if (adapter?.ready) await adapter.close();
+      adapter = undefined;
+      if (dir) {
+        try {
+          await fs.rm(dir, { recursive: true, force: true });
+        } catch {
+          // Ignorar bloqueos de Windows
+        }
+      }
+    });
+
+    it("save/load round-trip preserva turnos y ramas tras reinicio", async () => {
+      dir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-f2t4-tl-"));
+      adapter = new EgoMemoryAdapter(dir);
+      await adapter.init();
+
+      const t1 = new SessionTimelineRewind("sess-reboot", adapter);
+      t1.appendTurn("user", "Hola");
+      t1.appendTurn("assistant", "Hola, ¿en qué te ayudo?");
+      const pivot = t1.appendTurn("user", "Pivote");
+      t1.rewindToTurn(pivot.turnId, { forkBranch: true, branchName: "Alt" });
+      t1.appendTurn("assistant", "Rama alternativa");
+      await t1.save();
+      await adapter.flush();
+      await adapter.close();
+
+      adapter = new EgoMemoryAdapter(dir);
+      await adapter.init();
+      const t2 = await SessionTimelineRewind.open("sess-reboot", adapter);
+
+      const active = t2.getActiveTimeline();
+      expect(active).toHaveLength(4);
+      expect(active[0].content).toBe("Hola");
+      expect(active[2].content).toBe("Pivote");
+      expect(active[3].content).toBe("Rama alternativa");
+      expect(t2.getState().turns).toHaveLength(4);
+    });
+
+    it("load retorna false si no hay nada persistido (arranque limpio)", async () => {
+      dir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-f2t4-tlclean-"));
+      adapter = new EgoMemoryAdapter(dir);
+      await adapter.init();
+
+      const t = new SessionTimelineRewind("sess-nueva", adapter);
+      expect(await t.load()).toBe(false);
+      expect(t.getActiveTimeline()).toHaveLength(0);
+    });
+
+    it("save/load sin adapter lanzan (efímera explícita, no silenciosa)", async () => {
+      const t = new SessionTimelineRewind("sess-mem");
+      t.appendTurn("user", "solo memoria");
+      await expect(t.save()).rejects.toThrow();
+      await expect(t.load()).rejects.toThrow();
+      expect(t.getActiveTimeline()).toHaveLength(1);
+    });
   });
 });

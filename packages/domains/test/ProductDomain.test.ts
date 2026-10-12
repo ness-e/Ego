@@ -1,4 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as fs from "node:fs/promises";
+import { EgoMemoryAdapter } from "@ego/memory";
 import { ProductDomain } from "../src/product/ProductDomain.js";
 
 describe("ProductDomain (DOM-02)", () => {
@@ -87,5 +91,60 @@ describe("ProductDomain (DOM-02)", () => {
     expect(markdown).toContain("## 1. Declaración del Problema");
     expect(markdown).toContain("- [ ] Vistas reactivas según dominio activo");
     expect(markdown).toContain("## 5. Fuera de Alcance (Out of Scope)");
+  });
+
+  describe("F2T4 cold-reboot (H07)", () => {
+    let dir: string;
+    let adapter: EgoMemoryAdapter | undefined;
+
+    afterEach(async () => {
+      if (adapter?.ready) await adapter.close();
+      adapter = undefined;
+      if (dir) {
+        try {
+          await fs.rm(dir, { recursive: true, force: true });
+        } catch {
+          // Ignorar bloqueos de Windows
+        }
+      }
+    });
+
+    it("rehidrata backlog, épicas y PRDs tras reinicio", async () => {
+      dir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-f2t4-prod-"));
+      adapter = new EgoMemoryAdapter(dir);
+      await adapter.init();
+
+      const d1 = new ProductDomain(adapter);
+      const epic = await d1.createEpic({ title: "Épica reboot", description: "Desc" });
+      const item = await d1.createBacklogItem({
+        title: "Ítem reboot",
+        description: "Desc",
+        epicId: epic.id,
+      });
+      const prd = await d1.generatePrd({
+        title: "PRD reboot",
+        problemStatement: "P",
+        solutionOverview: "S",
+        acceptanceCriteria: ["C1"],
+      });
+      await adapter.flush();
+      await adapter.close();
+
+      adapter = new EgoMemoryAdapter(dir);
+      await adapter.init();
+      const d2 = await ProductDomain.open(adapter);
+
+      const items = await d2.listBacklogItems();
+      expect(items.length).toBe(1);
+      expect(items[0].id).toBe(item.id);
+
+      const epics = await d2.listEpics();
+      expect(epics.length).toBe(1);
+      expect(epics[0].id).toBe(epic.id);
+      expect(epics[0].itemIds).toContain(item.id);
+
+      const markdown = d2.exportPrdToMarkdown(prd);
+      expect(markdown).toContain("PRD reboot");
+    });
   });
 });

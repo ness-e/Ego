@@ -1,4 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as fs from "node:fs/promises";
+import { EgoMemoryAdapter } from "@ego/memory";
 import { CrmDomain } from "../src/crm/CrmDomain.js";
 
 describe("CrmDomain (DOM-05)", () => {
@@ -115,5 +119,55 @@ describe("CrmDomain (DOM-05)", () => {
     // Orden descendente cronológico
     expect(timeline[0].kind).toBe("email");
     expect(timeline[1].kind).toBe("meeting");
+  });
+
+  describe("F2T4 cold-reboot (H07)", () => {
+    let dir: string;
+    let adapter: EgoMemoryAdapter | undefined;
+
+    afterEach(async () => {
+      if (adapter?.ready) await adapter.close();
+      adapter = undefined;
+      if (dir) {
+        try {
+          await fs.rm(dir, { recursive: true, force: true });
+        } catch {
+          // Ignorar bloqueos de Windows
+        }
+      }
+    });
+
+    it("rehidrata contactos, deals e interacciones tras reinicio", async () => {
+      dir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-f2t4-crm-"));
+      adapter = new EgoMemoryAdapter(dir);
+      await adapter.init();
+
+      const d1 = new CrmDomain(adapter);
+      const contact = await d1.createContact({ name: "Reboot User", email: "reboot@corp.io" });
+      const deal = await d1.createDeal({ title: "Deal reboot", valueUsd: 5000, contactId: contact.id });
+      await d1.recordInteraction({ contactId: contact.id, kind: "note", summary: "Nota reboot" });
+      await adapter.flush();
+      await adapter.close();
+
+      adapter = new EgoMemoryAdapter(dir);
+      await adapter.init();
+      const d2 = await CrmDomain.open(adapter);
+
+      const contacts = await d2.listContacts();
+      expect(contacts.length).toBe(1);
+      expect(contacts[0].email).toBe("reboot@corp.io");
+
+      const deals = await d2.listDeals();
+      expect(deals.length).toBe(1);
+      expect(deals[0].id).toBe(deal.id);
+
+      const timeline = await d2.getTimelineForContact(contact.id);
+      expect(timeline.length).toBe(1);
+      expect(timeline[0].summary).toBe("Nota reboot");
+
+      // get por clave también lee VantaDB si el snapshot no lo tiene
+      const d3 = new CrmDomain(adapter);
+      expect(await d3.getContact(contact.id)).toBeDefined();
+    });
   });
 });

@@ -4,7 +4,16 @@
  *
  * Principio: Inmutabilidad estricta. Nunca se borran registros físicamente de VantaDB Fjall LSM.
  * Al rebobinar a un turno anterior, se bifurca en un branch o se marca el estado activo sin pérdida.
+ *
+ * Persistencia (H08 — F2T4): el timeline es efímero en memoria por defecto;
+ * con adapter, `save()` persiste el estado completo en `sessions/timelines`
+ * (clave = sessionId) y `load()` / `open()` lo restauran. La decisión es
+ * explícita: sin adapter no hay persistencia (el constructor no falla).
  */
+
+import type { EgoMemoryAdapter } from "./EgoMemoryAdapter.js";
+
+export const TIMELINE_NAMESPACE = "sessions/timelines";
 
 export interface TimelineTurn {
   turnId: string;
@@ -35,8 +44,9 @@ export interface SessionTimelineState {
 
 export class SessionTimelineRewind {
   private state: SessionTimelineState;
+  private adapter?: EgoMemoryAdapter;
 
-  constructor(sessionId: string) {
+  constructor(sessionId: string, adapter?: EgoMemoryAdapter) {
     this.state = {
       sessionId,
       activeBranchId: "main",
@@ -51,6 +61,143 @@ export class SessionTimelineRewind {
       },
       turns: [],
     };
+    this.adapter = adapter;
+  }
+
+  /**
+   * Fábrica de arranque: construye el timeline y restaura desde VantaDB si existe.
+   */
+  public static async open(
+    sessionId: string,
+    adapter: EgoMemoryAdapter
+  ): Promise<SessionTimelineRewind> {
+    const timeline = new SessionTimelineRewind(sessionId, adapter);
+    await timeline.load();
+    return timeline;
+  }
+
+  /**
+   * Persiste el estado completo del timeline en VantaDB (H08).
+   * Requiere adapter; sin adapter lanza (persistencia explícita, no silenciosa).
+   */
+  public async save(): Promise<void> {
+    if (!this.adapter) {
+      throw new Error(
+        "[SessionTimelineRewind] save() requiere un EgoMemoryAdapter (timeline efímero en memoria por defecto)."
+      );
+    }
+    await this.adapter.put({
+      namespace: TIMELINE_NAMESPACE,
+      key: this.state.sessionId,
+      payload: this.state,
+      metadata: {
+        session_id: this.state.sessionId,
+        active_branch: this.state.activeBranchId,
+        turns_count: this.state.turns.length,
+        ts: Date.now(),
+      },
+    });
+  }
+
+  /**
+   * Restaura el estado desde VantaDB. Retorna true si existía, false si no hay
+   * nada persistido (arranque limpio). Requiere adapter.
+   */
+  public async load(): Promise<boolean> {
+    if (!this.adapter) {
+      throw new Error(
+        "[SessionTimelineRewind] load() requiere un EgoMemoryAdapter (timeline efímero en memoria por defecto)."
+      );
+    }
+    let raw: unknown;
+    try {
+      const rec = await this.adapter.get(TIMELINE_NAMESPACE, this.state.sessionId);
+      if (!rec) return false;
+      raw = rec.payload;
+    } catch {
+      return false;
+    }
+    const parsed = SessionTimelineRewind.parseState(raw, this.state.sessionId);
+    if (!parsed) return false;
+    this.state = parsed;
+    return true;
+  }
+
+  private static parseState(payload: unknown, sessionId: string): SessionTimelineState | null {
+    const root: unknown =
+      typeof payload === "string" ? SessionTimelineRewind.tryJson(payload) : payload;
+    if (typeof root !== "object" || root === null) return null;
+    const obj = root as Record<string, unknown>;
+    if (obj["sessionId"] !== sessionId) return null;
+    if (typeof obj["activeBranchId"] !== "string") return null;
+    if (typeof obj["branches"] !== "object" || obj["branches"] === null) return null;
+    if (!Array.isArray(obj["turns"])) return null;
+
+    const branches: Record<string, SessionBranch> = {};
+    for (const [k, v] of Object.entries(obj["branches"] as Record<string, unknown>)) {
+      if (typeof v !== "object" || v === null) return null;
+      const b = v as Record<string, unknown>;
+      if (
+        typeof b["branchId"] !== "string" ||
+        typeof b["sessionId"] !== "string" ||
+        typeof b["forkSequence"] !== "number" ||
+        typeof b["name"] !== "string" ||
+        typeof b["createdAt"] !== "number"
+      ) {
+        return null;
+      }
+      branches[k] = {
+        branchId: b["branchId"] as string,
+        sessionId: b["sessionId"] as string,
+        parentBranchId: typeof b["parentBranchId"] === "string" ? (b["parentBranchId"] as string) : undefined,
+        forkSequence: b["forkSequence"] as number,
+        name: b["name"] as string,
+        createdAt: b["createdAt"] as number,
+      };
+    }
+    if (!branches[obj["activeBranchId"] as string]) return null;
+
+    const turns: TimelineTurn[] = [];
+    for (const t of obj["turns"] as Array<unknown>) {
+      if (typeof t !== "object" || t === null) return null;
+      const r = t as Record<string, unknown>;
+      if (
+        typeof r["turnId"] !== "string" ||
+        typeof r["sessionId"] !== "string" ||
+        typeof r["sequence"] !== "number" ||
+        (r["role"] !== "user" && r["role"] !== "assistant" && r["role"] !== "system") ||
+        typeof r["content"] !== "string" ||
+        typeof r["timestamp"] !== "number" ||
+        typeof r["branchId"] !== "string"
+      ) {
+        return null;
+      }
+      turns.push({
+        turnId: r["turnId"] as string,
+        sessionId: r["sessionId"] as string,
+        sequence: r["sequence"] as number,
+        role: r["role"] as "user" | "assistant" | "system",
+        content: r["content"] as string,
+        timestamp: r["timestamp"] as number,
+        branchId: r["branchId"] as string,
+        superseded: r["superseded"] === true,
+      });
+    }
+
+    return {
+      sessionId,
+      activeBranchId: obj["activeBranchId"] as string,
+      branches,
+      turns,
+    };
+  }
+
+  private static tryJson(raw: string): unknown {
+    try {
+      return JSON.parse(raw) as unknown;
+    } catch {
+      return raw;
+    }
   }
 
   /**

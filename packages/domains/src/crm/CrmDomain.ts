@@ -37,9 +37,22 @@ export interface CreateInteractionInput {
   timestamp?: string;
 }
 
+export interface CrmHydrateReport {
+  contacts: number;
+  deals: number;
+  interactions: number;
+  skipped: number;
+}
+
 /**
  * Dominio de CRM y Pipeline de Ventas (DOM-05 / ADR-050).
  * Administra contactos, embudo comercial e historial cronológico de interacciones.
+ *
+ * Persistencia (H07 — F2T4): cada escritura se espeja en VantaDB vía adapter
+ * (`crm/contacts`, `crm/deals`, `crm/interactions`). Al arrancar, llamar a
+ * `hydrate()` (o usar `CrmDomain.open(memory)`) para rehidratar los mapas en
+ * memoria tras un reinicio. `getContact` reintenta por clave contra el adapter
+ * si el snapshot no contiene el ID; los corruptos se omiten con aviso.
  */
 export class CrmDomain {
   private memory?: EgoMemoryAdapter;
@@ -49,6 +62,76 @@ export class CrmDomain {
 
   constructor(memory?: EgoMemoryAdapter) {
     this.memory = memory;
+  }
+
+  /**
+   * Fábrica de arranque: construye el dominio y rehidrata desde VantaDB.
+   */
+  public static async open(memory: EgoMemoryAdapter): Promise<CrmDomain> {
+    const domain = new CrmDomain(memory);
+    await domain.hydrate();
+    return domain;
+  }
+
+  /**
+   * Rehidrata contactos, deals e interacciones desde VantaDB (H07).
+   */
+  public async hydrate(): Promise<CrmHydrateReport> {
+    const report: CrmHydrateReport = { contacts: 0, deals: 0, interactions: 0, skipped: 0 };
+    if (!this.memory) return report;
+
+    const namespaces = ["crm/contacts", "crm/deals", "crm/interactions"] as const;
+    const pages: Array<Array<{ key: string; payload: unknown }>> = [];
+    for (const ns of namespaces) {
+      try {
+        pages.push(await this.memory.list(ns, 1000));
+      } catch (err) {
+        console.warn(`[CrmDomain] hydrate: fallo list(${ns}):`, err);
+        pages.push([]);
+      }
+    }
+
+    for (const rec of pages[0]) {
+      const parsed = CrmContactSchema.safeParse(CrmDomain.parsePayload(rec.payload));
+      if (!parsed.success) {
+        report.skipped++;
+        continue;
+      }
+      this.contacts.set(parsed.data.id, parsed.data);
+      report.contacts++;
+    }
+    for (const rec of pages[1]) {
+      const parsed = CrmDealSchema.safeParse(CrmDomain.parsePayload(rec.payload));
+      if (!parsed.success) {
+        report.skipped++;
+        continue;
+      }
+      this.deals.set(parsed.data.id, parsed.data);
+      report.deals++;
+    }
+    const seen = new Set(this.interactions.map((i) => i.id));
+    for (const rec of pages[2]) {
+      const parsed = CrmInteractionSchema.safeParse(CrmDomain.parsePayload(rec.payload));
+      if (!parsed.success) {
+        report.skipped++;
+        continue;
+      }
+      if (!seen.has(parsed.data.id)) {
+        seen.add(parsed.data.id);
+        this.interactions.push(parsed.data);
+        report.interactions++;
+      }
+    }
+    return report;
+  }
+
+  private static parsePayload(payload: unknown): unknown {
+    if (typeof payload !== "string") return payload;
+    try {
+      return JSON.parse(payload) as unknown;
+    } catch {
+      return payload;
+    }
   }
 
   /**
@@ -92,10 +175,23 @@ export class CrmDomain {
   }
 
   /**
-   * Obtiene un contacto por su ID.
+   * Obtiene un contacto por su ID: snapshot primero, VantaDB después (H07).
    */
   public async getContact(id: string): Promise<CrmContact | undefined> {
-    return this.contacts.get(id);
+    const cached = this.contacts.get(id);
+    if (cached) return cached;
+    if (!this.memory) return undefined;
+
+    try {
+      const rec = await this.memory.get("crm/contacts", id);
+      if (!rec) return undefined;
+      const parsed = CrmContactSchema.safeParse(CrmDomain.parsePayload(rec.payload));
+      if (!parsed.success) return undefined;
+      this.contacts.set(id, parsed.data);
+      return parsed.data;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
