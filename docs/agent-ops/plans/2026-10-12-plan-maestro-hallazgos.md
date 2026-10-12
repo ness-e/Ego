@@ -88,8 +88,22 @@ Relaciones Backlog: `KB-07`, `KB-08`, `KB-09`, `KB-10`, `KB-11`, `DOM-03`; `VDB-
 
 ---
 
-## ÉPICA F3 — Core/decision/runtime (H01, H02, H03, M01, M03, M04, M02, L01, L02)
+### Task F2T6: Gateway memoria — getDb, deps, errores, workarounds
 
+- **Ruta:** ego-worker
+- **Estado:** ⬜ PENDING
+- **Contrato:** suite `memory` en verde + `pnpm install --frozen-lockfile` limpio en `packages/memory`
+
+**Files:**
+- Modify: `packages/memory/EgoMemoryAdapter.ts` (`getDb()`: eliminar o handle read-only + auditar llamadores — H04; `list/delete/searchMulti`: propagar `Result` o log estructurado + test fallo inyectado — M07; citas `// Workaround: VDB-XXX` en put-fallback/cursor/graph/texto-vacío — M09; comentario auto-embed → BM25 puro — M06)
+- Modify: `packages/memory/EgoMemoryLifecycle.ts:172` + `docs/engineering/vantadb-readiness-plan.md §2` (corregir auto-embed — M06)
+- Modify: `packages/memory/SessionCheckpointPolicy.ts:40` (fail-closed coherente — M08)
+- Modify: `packages/memory/package.json` (una dep canónica, fuera `file:`, bloquear wasm + smoke test init — H05/M05)
+- Skills: `test-driven-development`, `doubt-driven-development` (H04/M07)
+- Verify: suite + typecheck + install limpio. DoD gate 7: cada workaround con ID y registro verificado.
+- Relaciones: `CORE-06`, `CORE-08`, `VDB-INC-01`, `VDB-BUG-01`.
+
+## ÉPICA F3 — Core/decision/runtime (H01, H02, H03, M01, M03, M04, M02, L01, L02)
 Relaciones Backlog: `DEC-02`, `DEC-03`, `DEC-05`, `DEC-08`, `CORE-03`. Docs: `docs/architecture/jev.md`, `vision-general.md` §Model Router.
 
 ### Task 6: Contratos de decisión unificados
