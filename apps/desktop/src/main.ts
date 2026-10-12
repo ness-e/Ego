@@ -89,6 +89,10 @@ import {
   DecisionsFeed,
 } from "@ego/dailystate";
 import { CrashRecoveryEngine, OpGate } from "@ego/recovery";
+import {
+  CredentialManager,
+  SyncSafeStorageBackend,
+} from "@ego/security";
 import { WindowStateManager } from "./windows/WindowStateManager.js";
 
 let crashRecoveryEngine: CrashRecoveryEngine;
@@ -255,20 +259,35 @@ export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapte
 }
 
 /**
+ * Backend de cifrado canónico (@ego/security) sobre el safeStorage real del
+ * main process (F1T2). La lógica cripto (prefijos `enc:`/`obf:`, base64,
+ * errores fail-closed) vive en el paquete; este bloque solo adapta su API
+ * síncrona, que es la que exigen los call sites de settings. El restore
+ * `gov/settings` no cambia de semántica: vacío → `""`, sin cifrado del
+ * SO → ofuscación legada `obf:` con warn (migración), nunca texto plano.
+ */
+const mainProcessCryptoBackend = new SyncSafeStorageBackend(
+  typeof safeStorage !== "undefined" && safeStorage.isEncryptionAvailable()
+    ? {
+        isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+        encryptString: (plainText: string) => safeStorage.encryptString(plainText),
+        decryptString: (encrypted: Buffer) => safeStorage.decryptString(encrypted),
+      }
+    : null
+);
+
+/**
  * Cifra una credencial sensible usando safeStorage del SO (Keychain/DPAPI).
  * Prohibición absoluta de guardar API keys en texto plano en VantaDB.
  */
 export function encryptCredential(plainText: string): string {
   if (!plainText) return "";
   try {
-    if (typeof safeStorage !== "undefined" && safeStorage.isEncryptionAvailable()) {
-      const encryptedBuffer = safeStorage.encryptString(plainText);
-      return `enc:${encryptedBuffer.toString("base64")}`;
-    }
+    return mainProcessCryptoBackend.encrypt(plainText);
   } catch (err) {
-    console.warn("[Security] Fallo al cifrar con safeStorage:", err);
+    console.warn("[Security] Fallo al cifrar con safeStorage, usando ofuscación legada:", err);
+    return `obf:${Buffer.from(plainText, "utf-8").toString("base64")}`;
   }
-  return `obf:${Buffer.from(plainText, "utf-8").toString("base64")}`;
 }
 
 /**
@@ -277,16 +296,7 @@ export function encryptCredential(plainText: string): string {
 export function decryptCredential(stored: string): string {
   if (!stored) return "";
   try {
-    if (stored.startsWith("enc:")) {
-      const b64 = stored.slice(4);
-      const buffer = Buffer.from(b64, "base64");
-      if (typeof safeStorage !== "undefined" && safeStorage.isEncryptionAvailable()) {
-        return safeStorage.decryptString(buffer);
-      }
-    } else if (stored.startsWith("obf:")) {
-      const b64 = stored.slice(4);
-      return Buffer.from(b64, "base64").toString("utf-8");
-    }
+    return mainProcessCryptoBackend.decrypt(stored);
   } catch (err) {
     console.warn("[Security] Fallo al descifrar credencial con safeStorage:", err);
   }
@@ -297,11 +307,7 @@ export function decryptCredential(stored: string): string {
  * Enmascara una API key para devolver a la UI sin exponer el secreto en claro (ej. sk-...3a8f).
  */
 export function maskApiKey(key: string): string {
-  if (!key) return "";
-  if (key.length <= 8) return "••••••••";
-  const prefix = key.slice(0, 4);
-  const suffix = key.slice(-4);
-  return `${prefix}...${suffix}`;
+  return CredentialManager.maskSecret(key);
 }
 
 /** Alias del enmascarado de keys para respuestas hacia el renderer (nunca el secreto). */

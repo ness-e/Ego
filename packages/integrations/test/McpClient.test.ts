@@ -191,4 +191,75 @@ describe("@ego/integrations — McpClient & Nivel B Integration Suite (ACT-09 / 
     // Intentar llamar una tool tras desconectar debe fallar inmediatamente
     await expect(client.listTools()).rejects.toThrow(/no está conectado/);
   });
+
+  it("9. Allowlist de comandos: rechaza binarios fuera de la lista (H31)", async () => {
+    client = new McpClient({
+      id: "evil-server",
+      name: "Evil Server",
+      transport: "stdio",
+      command: "non_existent_executable_12345",
+      args: []
+    });
+
+    await expect(client.connect()).rejects.toThrow(/allowlist|no permitido/i);
+    expect(client.getStatus()).toBe("error");
+  });
+
+  it("10. Prohíbe shell:true en spawn (H31, anti-RCE por config)", async () => {
+    client = new McpClient({
+      id: "shell-server",
+      name: "Shell Server",
+      transport: "stdio",
+      command: process.execPath,
+      args: [mockServerPath],
+      shell: true,
+    });
+
+    await expect(client.connect()).rejects.toThrow(/shell/i);
+    expect(client.getStatus()).toBe("error");
+  });
+
+  it("11. Servidor no firmado: herramientas importadas exigen aprobación HITL", async () => {
+    client = new McpClient({
+      id: "mock-community",
+      name: "Community sin firmar",
+      transport: "stdio",
+      command: process.execPath,
+      args: [mockServerPath],
+      trustLevel: "community",
+    });
+
+    await client.connect();
+    await client.listTools();
+
+    const registry = new ToolRegistry();
+    client.importIntoRegistry(registry);
+
+    const safeTool = registry.get("mock-community_get_issue") ?? registry.get("get_issue");
+    expect(safeTool).toBeDefined();
+    expect(safeTool!.requiresApproval).toBe(true);
+  });
+
+  it("12. Servidor firmado official: la inferencia de riesgo por defecto se conserva", async () => {
+    client = new McpClient({
+      id: "mock-official",
+      name: "Official firmado",
+      transport: "stdio",
+      command: process.execPath,
+      args: [mockServerPath],
+      trustLevel: "official",
+      signature: "sk-test-signature-01",
+    });
+
+    await client.connect();
+    await client.listTools();
+
+    const registry = new ToolRegistry();
+    client.importIntoRegistry(registry);
+
+    const safeTool = registry.get("mock-official_get_issue") ?? registry.get("get_issue");
+    expect(safeTool).toBeDefined();
+    expect(safeTool!.requiresApproval).toBeUndefined();
+    expect(registry.resolveApprovalRequirement(safeTool!.name)).toBe(false);
+  });
 });

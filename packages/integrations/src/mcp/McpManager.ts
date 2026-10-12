@@ -1,6 +1,6 @@
 import { ToolRegistry, type ToolDefinition, type ToolRiskLevel } from "@ego/tools";
 import { McpClient } from "./McpClient.js";
-import type { McpServerConfig, McpToolDefinition, McpClientStatus } from "./types.js";
+import type { McpServerConfig, McpToolDefinition, McpClientStatus, McpTokenStore } from "./types.js";
 
 export interface McpServerRuntimeState {
   id: string;
@@ -9,8 +9,19 @@ export interface McpServerRuntimeState {
   status: McpClientStatus;
   enabled: boolean;
   toolsCount: number;
+  /** Result explícito (F1T2): `ok:false` + `lastError` en vez de estado tragado. */
+  ok: boolean;
   lastError?: string;
   tools: McpToolDefinition[];
+}
+
+export interface McpManagerOptions {
+  /**
+   * Fuente de secretos para PATs/tokens (orden prod: Credential Manager).
+   * Los conectores la resuelven vía `getTokenStore()`; `process.env` queda
+   * solo como fallback documentado en tests.
+   */
+  tokenStore?: McpTokenStore;
 }
 
 interface ManagedServerEntry {
@@ -24,9 +35,18 @@ interface ManagedServerEntry {
 export class McpManager {
   private readonly registry?: ToolRegistry;
   private readonly servers = new Map<string, ManagedServerEntry>();
+  private readonly tokenStore?: McpTokenStore;
 
-  constructor(registry?: ToolRegistry) {
+  constructor(registry?: ToolRegistry, options: McpManagerOptions = {}) {
     this.registry = registry;
+    this.tokenStore = options.tokenStore;
+  }
+
+  /**
+   * Fuente de secretos del gestor (Credential Manager en prod).
+   */
+  public getTokenStore(): McpTokenStore | undefined {
+    return this.tokenStore;
   }
 
   /**
@@ -56,7 +76,7 @@ export class McpManager {
       return await this.connectServer(config.id);
     }
 
-    return this.toRuntimeState(entry);
+    return this.toRuntimeState(entry, true);
   }
 
   /**
@@ -93,12 +113,12 @@ export class McpManager {
         });
       }
 
-      return this.toRuntimeState(entry);
+      return this.toRuntimeState(entry, true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       entry.lastError = errorMessage;
       this.cleanImportedTools(entry);
-      return this.toRuntimeState(entry);
+      return this.toRuntimeState(entry, false);
     }
   }
 
@@ -120,7 +140,7 @@ export class McpManager {
       console.warn(`[McpManager] Error al desconectar servidor '${id}':`, err);
     }
 
-    return this.toRuntimeState(entry);
+    return this.toRuntimeState(entry, true);
   }
 
   /**
@@ -149,7 +169,7 @@ export class McpManager {
    * Obtiene el listado de servidores gestionados y su estado en tiempo real.
    */
   public listServers(): McpServerRuntimeState[] {
-    return Array.from(this.servers.values()).map((entry) => this.toRuntimeState(entry));
+    return Array.from(this.servers.values()).map((entry) => this.toRuntimeState(entry, this.isHealthy(entry)));
   }
 
   /**
@@ -157,7 +177,7 @@ export class McpManager {
    */
   public getServer(id: string): McpServerRuntimeState | undefined {
     const entry = this.servers.get(id);
-    return entry ? this.toRuntimeState(entry) : undefined;
+    return entry ? this.toRuntimeState(entry, this.isHealthy(entry)) : undefined;
   }
 
   /**
@@ -219,7 +239,11 @@ export class McpManager {
     entry.importedToolNames.clear();
   }
 
-  private toRuntimeState(entry: ManagedServerEntry): McpServerRuntimeState {
+  private isHealthy(entry: ManagedServerEntry): boolean {
+    return entry.lastError === undefined && entry.client.getStatus() !== "error";
+  }
+
+  private toRuntimeState(entry: ManagedServerEntry, ok: boolean): McpServerRuntimeState {
     const cached = entry.client.getCachedTools();
     return {
       id: entry.config.id,
@@ -228,6 +252,7 @@ export class McpManager {
       status: entry.client.getStatus(),
       enabled: entry.enabled,
       toolsCount: cached.length,
+      ok,
       lastError: entry.lastError,
       tools: cached,
     };

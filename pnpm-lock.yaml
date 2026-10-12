@@ -50,6 +50,9 @@ importers:
       '@ego/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@ego/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@ego/subegos':
         specifier: workspace:*
         version: link:../../packages/subegos

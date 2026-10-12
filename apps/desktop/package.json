@@ -26,6 +26,7 @@
     "@ego/dailystate": "workspace:*",
     "@ego/domains": "workspace:*",
     "@ego/recovery": "workspace:*",
+    "@ego/security": "workspace:*",
     "vantadb": "0.8.0",
     "vantadb-node": "file:../../../VantaDB/vantadb-node",
     "zod": "^3.23.8"

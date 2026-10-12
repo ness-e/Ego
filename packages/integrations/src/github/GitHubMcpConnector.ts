@@ -1,4 +1,4 @@
-import type { McpServerConfig } from "../mcp/types.js";
+import type { McpServerConfig, McpTokenStore } from "../mcp/types.js";
 import type { McpManager, McpServerRuntimeState } from "../mcp/McpManager.js";
 
 export interface GitHubConnectorOptions {
@@ -6,6 +6,10 @@ export interface GitHubConnectorOptions {
   toolPrefix?: string;
   timeoutMs?: number;
 }
+
+/** Coordenadas del PAT de GitHub en el Credential Manager (prod). */
+export const GITHUB_CREDENTIAL_SERVICE = "github";
+export const GITHUB_CREDENTIAL_ACCOUNT = "mcp-pat";
 
 export const GITHUB_OFFICIAL_MCP_PACKAGE = "@modelcontextprotocol/server-github";
 
@@ -25,6 +29,10 @@ export const KNOWN_GITHUB_MCP_TOOLS = [
 
 /**
  * Crea la configuración canónica para el servidor oficial MCP de GitHub (DOM-07 / AGENTS.md §7).
+ *
+ * El token se recibe explícito (resuelto por el llamador vía Credential
+ * Manager en prod). El default `process.env` es fallback documentado solo
+ * para tests/dev: `registerAndConnect` lo advierte cuando lo usa.
  */
 export function createGitHubMcpConfig(options: GitHubConnectorOptions): McpServerConfig {
   const token = options.personalAccessToken || process.env.GITHUB_PERSONAL_ACCESS_TOKEN || "";
@@ -40,7 +48,12 @@ export function createGitHubMcpConfig(options: GitHubConnectorOptions): McpServe
     },
     toolPrefix: options.toolPrefix ?? "github_",
     timeoutMs: options.timeoutMs ?? 30000,
+    trustLevel: "official",
   };
+}
+
+function isNonEmptyToken(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 /**
@@ -74,14 +87,43 @@ export class GitHubMcpConnector {
 
   /**
    * Registra y conecta el servidor MCP de GitHub en el McpManager central.
+   *
+   * Orden de resolución del PAT (F1T2): token explícito → Credential
+   * Manager (`tokenStore` param o `mcpManager.getTokenStore()`, prod) →
+   * `process.env` (fallback documentado solo tests/dev, con warn). Sin
+   * token en ninguna fuente: lanza en vez de arrancar sin auth.
    */
   public async registerAndConnect(
     mcpManager: McpManager,
-    token?: string
+    token?: string,
+    tokenStore?: McpTokenStore
   ): Promise<McpServerRuntimeState> {
-    const effectiveToken = token || this.token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+    if (isNonEmptyToken(token)) {
+      this.token = token;
+    }
 
-    if (!effectiveToken) {
+    let effectiveToken = this.token;
+    if (!isNonEmptyToken(effectiveToken)) {
+      const store = tokenStore ?? mcpManager.getTokenStore?.();
+      if (store) {
+        const stored = await store.getSecret(GITHUB_CREDENTIAL_SERVICE, GITHUB_CREDENTIAL_ACCOUNT);
+        if (isNonEmptyToken(stored)) {
+          effectiveToken = stored;
+        }
+      }
+    }
+
+    if (!isNonEmptyToken(effectiveToken)) {
+      const envToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (isNonEmptyToken(envToken)) {
+        console.warn(
+          "[GitHubMcpConnector] Usando fallback documentado GITHUB_PERSONAL_ACCESS_TOKEN de process.env (solo tests/dev). En producción el PAT debe resolverse vía Credential Manager."
+        );
+        effectiveToken = envToken;
+      }
+    }
+
+    if (!isNonEmptyToken(effectiveToken)) {
       throw new Error(
         "[GitHubMcpConnector] GITHUB_PERSONAL_ACCESS_TOKEN no encontrado. Configure el token en Credential Manager o variables de entorno."
       );

@@ -107,4 +107,52 @@ describe("McpManager (Orquestación multicliente MCP y SafeConfigMutation - COUC
     expect(state.lastError).toBeDefined();
     expect(manager.listServers()).toHaveLength(1);
   });
+
+  it("debe exponer Result explícito ok:true al conectar y ok:false al fallar (F1T2)", async () => {
+    const okState = await manager.registerServer(validConfig, true);
+    expect(okState.ok).toBe(true);
+    expect(okState.lastError).toBeUndefined();
+
+    const invalidConfig: McpServerConfig = {
+      id: "failing-result",
+      name: "Servidor Inválido",
+      transport: "stdio",
+      command: "binario_absolutamente_inexistente_12345",
+      timeoutMs: 1000,
+    };
+    const failState = await manager.registerServer(invalidConfig, true);
+    expect(failState.ok).toBe(false);
+    expect(failState.lastError).toBeDefined();
+  });
+
+  it("debe auditar overrideExisting:true en vez de sobrescribir en silencio (F1T2)", async () => {
+    const warnings: unknown[] = [];
+    const warnSpy = (...args: unknown[]) => {
+      warnings.push(args);
+    };
+    const originalWarn = console.warn;
+    console.warn = warnSpy;
+    try {
+      // Pre-registrar una herramienta que colisiona con la importación MCP.
+      const { z } = await import("zod");
+      registry.register({
+        name: "mock_get_issue",
+        description: "preexistente",
+        category: "system",
+        riskLevel: "safe",
+        origin: "native",
+        inputSchema: z.object({}),
+        execute: async () => "preexistente",
+      });
+
+      await manager.registerServer(validConfig, true);
+
+      const auditHits = warnings.filter((args) =>
+        Array.isArray(args) && args.some((a) => typeof a === "string" && a.includes("overrideExisting"))
+      );
+      expect(auditHits.length).toBeGreaterThan(0);
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
 });

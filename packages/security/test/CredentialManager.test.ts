@@ -136,3 +136,141 @@ describe("StoredCredentialSchema", () => {
     ).toBe(false);
   });
 });
+
+describe("SyncSafeStorageBackend (F1T2 — cifrado síncrono en main)", () => {
+  const makeFakeSafeStorage = () => ({
+    isEncryptionAvailable: () => true,
+    encryptString: (plain: string) => Buffer.from(`enc-bytes:${plain}`, "utf-8"),
+    decryptString: (enc: Buffer) => enc.toString("utf-8").replace(/^enc-bytes:/, ""),
+  });
+
+  it("round-trip síncrono con prefijo enc: vía safeStorage inyectado", async () => {
+    const { SyncSafeStorageBackend } = await import("../src/CredentialManager.js");
+    const backend = new SyncSafeStorageBackend(makeFakeSafeStorage());
+    expect(backend.isAvailable()).toBe(true);
+    const enc = backend.encrypt("sk-test-sync");
+    expect(enc.startsWith("enc:")).toBe(true);
+    expect(enc).not.toContain("sk-test-sync");
+    expect(backend.decrypt(enc)).toBe("sk-test-sync");
+  });
+
+  it("falla cerrado sin store: isAvailable=false y encrypt/decrypt lanzan", async () => {
+    const { SyncSafeStorageBackend } = await import("../src/CredentialManager.js");
+    const backend = new SyncSafeStorageBackend(null);
+    expect(backend.isAvailable()).toBe(false);
+    expect(backend.isHardwareProtected()).toBe(false);
+    expect(() => backend.encrypt("sk-test-absent")).toThrow(/safeStorage/i);
+    expect(() => backend.decrypt("enc:eA==")).toThrow(/safeStorage/i);
+  });
+
+  it("lee payloads legacy obf: pero solo emite enc:", async () => {
+    const { SyncSafeStorageBackend } = await import("../src/CredentialManager.js");
+    const backend = new SyncSafeStorageBackend(makeFakeSafeStorage());
+    const legacy = `obf:${Buffer.from("sk-test-legacy", "utf-8").toString("base64")}`;
+    expect(backend.decrypt(legacy)).toBe("sk-test-legacy");
+    expect(backend.encrypt("sk-test-fresh").startsWith("enc:")).toBe(true);
+  });
+});
+
+describe("Vault HMAC + versión (M17)", () => {
+  const HMAC_KEY = "sk-test-hmac-key-01";
+
+  const makeManagerWithSecrets = async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mgr = new CredentialManager(new InMemoryCryptoBackend());
+      await mgr.storeSecret("svc-test", "acct-test", "sk-test-vault-value");
+      return mgr;
+    } finally {
+      warn.mockRestore();
+    }
+  };
+
+  it("export firmado porta versión + HMAC e import lo verifica (round-trip)", async () => {
+    const mgr = await makeManagerWithSecrets();
+    const envelope = mgr.exportVaultSigned(HMAC_KEY);
+    expect(envelope.version).toBe(1);
+    expect(typeof envelope.hmac).toBe("string");
+    expect(envelope.hmac.length).toBeGreaterThan(0);
+    expect(envelope.credentials).toHaveLength(1);
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mgr2 = new CredentialManager(new InMemoryCryptoBackend());
+      mgr2.importVault(envelope, HMAC_KEY);
+      await expect(mgr2.getSecret("svc-test", "acct-test")).resolves.toBe("sk-test-vault-value");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("rechaza import si el payload fue manipulado (HMAC inválido)", async () => {
+    const mgr = await makeManagerWithSecrets();
+    const envelope = mgr.exportVaultSigned(HMAC_KEY);
+    const tampered = {
+      ...envelope,
+      credentials: [
+        { ...envelope.credentials[0], encryptedPayload: "obf:dGFtcGVyZWQ=" },
+      ],
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mgr2 = new CredentialManager(new InMemoryCryptoBackend());
+      expect(() => mgr2.importVault(tampered, HMAC_KEY)).toThrow(/hmac|integridad/i);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("rechaza import con clave HMAC incorrecta", async () => {
+    const mgr = await makeManagerWithSecrets();
+    const envelope = mgr.exportVaultSigned(HMAC_KEY);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mgr2 = new CredentialManager(new InMemoryCryptoBackend());
+      expect(() => mgr2.importVault(envelope, "sk-test-wrong-key")).toThrow(/hmac|integridad/i);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("rechaza envelope con versión desconocida", async () => {
+    const mgr = await makeManagerWithSecrets();
+    const envelope = mgr.exportVaultSigned(HMAC_KEY);
+    const future = { ...envelope, version: 999 };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mgr2 = new CredentialManager(new InMemoryCryptoBackend());
+      expect(() => mgr2.importVault(future, HMAC_KEY)).toThrow(/versi[oó]n/i);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("export sin clave falla cerrado y el import de envelope exige clave", async () => {
+    const mgr = await makeManagerWithSecrets();
+    expect(() => mgr.exportVaultSigned("")).toThrow(/clave|key/i);
+    const envelope = mgr.exportVaultSigned(HMAC_KEY);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mgr2 = new CredentialManager(new InMemoryCryptoBackend());
+      expect(() => mgr2.importVault(envelope)).toThrow(/clave|key/i);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("importVault legacy (array plano) sigue funcionando sin clave", async () => {
+    const mgr = await makeManagerWithSecrets();
+    const legacy = mgr.exportVault();
+    expect(Array.isArray(legacy)).toBe(true);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mgr2 = new CredentialManager(new InMemoryCryptoBackend());
+      mgr2.importVault(legacy);
+      await expect(mgr2.getSecret("svc-test", "acct-test")).resolves.toBe("sk-test-vault-value");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

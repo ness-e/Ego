@@ -223,3 +223,25 @@ Relaciones: Backlog roadmap (SIN cambiar Estados; H28 formalización con owner),
 **Files:** L03 callId unicidad, L04 ZodLiteral/Date, L05 contextFactory, L06/L07 layout memory/tsconfig, L08 (si no cubierto en T5), L09 excepción contrato documentada, L10 `unknown`+narrowing + `getErrorParts`, L11 dep knowledge/models, L12 heartbeat atómico, L13 tsconfigs, L14 links `file:///`+SEC-06 gates+dots legacy+`obf:` aviso+dev script
 - Skills: `test-driven-development`
 - Verify: typecheck + suites + grep `any` con justificación.
+
+=== RECITATION F1T1 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: SafeStorageBackend + flags honestos, 10/10 + typecheck. Commit 75f3691.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F1T2 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: in progress
+Última acción: Estado actualizado a IN PROGRESS
+Resultado: Inicio F1T2: cableado + MCP
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===

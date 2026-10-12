@@ -22,6 +22,50 @@ interface PendingRequest {
 }
 
 /**
+ * Allowlist de binarios spawnables por servidores MCP (H31). El spawn es
+ * el sumidero RCE: solo runtimes/lanzadores conocidos. Sin override por
+ * config (fail-closed); ampliarla exige cambio de código + revisión.
+ */
+export const MCP_COMMAND_ALLOWLIST: readonly string[] = [
+  "node",
+  "npx",
+  "python",
+  "python3",
+  "uv",
+  "uvx",
+  "bun",
+  "deno",
+];
+
+function normalizeCommandName(command: string): string {
+  const base = command.split(/[/\\]/).pop() ?? command;
+  return base.toLowerCase().replace(/\.(exe|cmd|bat)$/, "");
+}
+
+function isCommandAllowlisted(command: string): boolean {
+  return (MCP_COMMAND_ALLOWLIST as readonly string[]).includes(normalizeCommandName(command));
+}
+
+/**
+ * Valida la config antes de `spawn` (H31): prohíbe `shell:true` y exige
+ * comando en allowlist. Punto único de estrangulamiento: cubre configs
+ * construidas en código y persistidas sin tipar (`gov/mcp_servers`).
+ */
+function assertSafeSpawnConfig(config: McpServerConfig): void {
+  const raw = config as unknown as Record<string, unknown>;
+  if (raw["shell"] === true || config.shell === true) {
+    throw new Error(
+      `[McpClient:H31] shell:true prohibido en el servidor MCP "${config.id}": el spawn debe ser directo sin intérprete de comandos.`
+    );
+  }
+  if (typeof config.command !== "string" || !isCommandAllowlisted(config.command)) {
+    throw new Error(
+      `[McpClient:H31] comando "${config.command}" no permitido por allowlist en el servidor MCP "${config.id}".`
+    );
+  }
+}
+
+/**
  * McpClient — Cliente universal MCP de nivel de producción sobre transporte stdio (ACT-09).
  *
  * Implementa:
@@ -56,6 +100,15 @@ export class McpClient extends EventEmitter {
 
   public getConfig(): Readonly<McpServerConfig> {
     return this.config;
+  }
+
+  /**
+   * Servidor firmado: `trustLevel` official/verified (H31). Ausente u otro
+   * nivel = no firmado (fail-closed): sus herramientas importadas exigen
+   * aprobación HITL explícita.
+   */
+  public isSignedServer(): boolean {
+    return this.config.trustLevel === "official" || this.config.trustLevel === "verified";
   }
 
   /**
@@ -191,19 +244,32 @@ export class McpClient extends EventEmitter {
 
   /**
    * Importa las herramientas descubiertas en el ToolRegistry de Ego.
+   *
+   * H31: los servidores no firmados importan con `requiresApproval: true`
+   * (HITL obligatorio aunque la herramienta sea "safe"). `overrideExisting`
+   * se audita con warn explícito por herramienta sobrescrita, nunca en
+   * silencio.
    */
   public importIntoRegistry(
     registry: ToolRegistry,
     options: McpImportOptions = {}
   ): number {
     const prefix = options.prefix ?? this.config.toolPrefix;
+    const allowOverride = options.overrideExisting === true;
+    const unsigned = !this.isSignedServer();
     let registeredCount = 0;
 
     for (const mcpTool of this.cachedTools) {
       const toolName = prefix ? `${prefix}_${mcpTool.name}` : mcpTool.name;
 
-      if (!options.overrideExisting && registry.has(toolName)) {
+      if (!allowOverride && registry.has(toolName)) {
         continue;
+      }
+
+      if (allowOverride && registry.has(toolName)) {
+        console.warn(
+          `[McpClient] overrideExisting:true — sobrescribiendo herramienta "${toolName}" del servidor MCP "${this.config.id}". Revisar auditoría: el reemplazo puede cambiar comportamiento aprobado.`
+        );
       }
 
       const riskLevel = this.inferRiskLevel(mcpTool.name, options.defaultRiskLevel);
@@ -214,6 +280,7 @@ export class McpClient extends EventEmitter {
         description: mcpTool.description || `Herramienta MCP: ${mcpTool.name}`,
         category: "mcp",
         riskLevel,
+        requiresApproval: unsigned ? true : undefined,
         origin: "mcp",
         mcpServerId: this.config.id,
         inputSchema: zodSchema,
@@ -243,7 +310,7 @@ export class McpClient extends EventEmitter {
         }
       };
 
-      registry.register(toolDef);
+      registry.register(toolDef, { allowOverride });
       registeredCount++;
     }
 
@@ -253,6 +320,7 @@ export class McpClient extends EventEmitter {
   // --- MÉTODOS PRIVADOS DE INFRAESTRUCTURA Y PROTOCOLO ---
 
   private spawnProcess(): void {
+    assertSafeSpawnConfig(this.config);
     const { command, args = [], cwd, env } = this.config;
 
     this.process = spawn(command, args, {

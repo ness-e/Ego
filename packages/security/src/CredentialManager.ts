@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createHmac, timingSafeEqual } from "node:crypto";
 // Nota: los tipos mínimos de "electron" viven en `./electron-shim.d.ts`
 // (solo tipos; en runtime se resuelve vía import dinámico guarded).
 
@@ -80,6 +81,62 @@ export const StoredCredentialSchema = z.object({
 });
 
 export type StoredCredential = z.infer<typeof StoredCredentialSchema>;
+
+/**
+ * Versión del formato de vault firmado (M17). El import rechaza cualquier
+ * versión distinta: sin negociación silenciosa de formatos.
+ */
+export const VAULT_FORMAT_VERSION = 1 as const;
+
+export const VaultExportSchema = z.object({
+  version: z.number().int(),
+  exportedAtMs: z.number().int().positive(),
+  credentials: z.array(StoredCredentialSchema),
+  hmac: z.string().min(1),
+});
+
+export type VaultExport = z.infer<typeof VaultExportSchema>;
+
+interface VaultPayload {
+  version: number;
+  exportedAtMs: number;
+  credentials: StoredCredential[];
+}
+
+function isVaultExport(value: unknown): value is VaultExport {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return "version" in record && "credentials" in record && "hmac" in record;
+}
+
+function canonicalVaultPayload(input: VaultPayload): string {
+  return JSON.stringify({
+    version: input.version,
+    exportedAtMs: input.exportedAtMs,
+    credentials: input.credentials,
+  });
+}
+
+function computeVaultHmac(canonical: string, hmacKey: string): string {
+  return createHmac("sha256", hmacKey).update(canonical, "utf-8").digest("hex");
+}
+
+function verifyVaultHmac(canonical: string, expectedHex: string, hmacKey: string): boolean {
+  const actual = computeVaultHmac(canonical, hmacKey);
+  const actualBuf = Buffer.from(actual, "utf-8");
+  const expectedBuf = Buffer.from(expectedHex, "utf-8");
+  if (actualBuf.length !== expectedBuf.length) return false;
+  return timingSafeEqual(actualBuf, expectedBuf);
+}
+
+function requireHmacKey(hmacKey: string | undefined, operation: string): string {
+  if (typeof hmacKey !== "string" || hmacKey.trim().length === 0) {
+    throw new Error(
+      `[CredentialManager] ${operation} de vault firmado exige una clave HMAC no vacía (fail-closed).`
+    );
+  }
+  return hmacKey;
+}
 
 /**
  * @testOnly — Backend en memoria con ofuscación base64, SIN cifrado real.
@@ -210,6 +267,67 @@ export class SafeStorageBackend implements CryptoStorageBackend, HardwareProtect
 }
 
 /**
+ * Backend síncrono sobre el llavero del SO para el main process de Electron
+ * (F1T2 — `Electron.safeStorage` expone API síncrona y los call sites de
+ * `apps/desktop/src/main.ts` exigen cifrado síncrono).
+ *
+ * - Misma semántica fail-closed que `SafeStorageBackend`: sin store
+ *   disponible `isAvailable()` es `false` y `encrypt`/`decrypt` lanzan en
+ *   vez de degradar a ofuscación silenciosa.
+ * - Solo emite payloads `enc:` (cifrado real). Acepta `obf:` legacy solo
+ *   en lectura para migración.
+ */
+export class SyncSafeStorageBackend implements CryptoStorageBackend, HardwareProtectionProbe {
+  constructor(private readonly store: SafeStorageLike | null) {}
+
+  private activeStore(): SafeStorageLike | null {
+    if (!this.store) return null;
+    try {
+      return this.store.isEncryptionAvailable() ? this.store : null;
+    } catch {
+      return null;
+    }
+  }
+
+  isAvailable(): boolean {
+    return this.activeStore() !== null;
+  }
+
+  isHardwareProtected(): boolean {
+    return this.activeStore() !== null;
+  }
+
+  public encrypt(plainText: string): string {
+    if (!plainText) {
+      throw new Error("[SyncSafeStorageBackend] No se puede cifrar un texto vacío.");
+    }
+    const store = this.activeStore();
+    if (!store) {
+      throw new Error(
+        "[SyncSafeStorageBackend] safeStorage no disponible para cifrar (fuera del main process o cifrado del SO desactivado)."
+      );
+    }
+    return `enc:${Buffer.from(store.encryptString(plainText)).toString("base64")}`;
+  }
+
+  public decrypt(encryptedText: string): string {
+    if (encryptedText.startsWith("obf:")) {
+      return Buffer.from(encryptedText.slice(4), "base64").toString("utf-8");
+    }
+    if (!encryptedText.startsWith("enc:")) {
+      throw new Error("[SyncSafeStorageBackend] Formato no soportado: se esperaba payload `enc:` u `obf:` legacy.");
+    }
+    const store = this.activeStore();
+    if (!store) {
+      throw new Error(
+        "[SyncSafeStorageBackend] safeStorage no disponible para descifrar (fuera del main process o cifrado del SO desactivado)."
+      );
+    }
+    return store.decryptString(Buffer.from(encryptedText.slice(4), "base64"));
+  }
+}
+
+/**
  * CredentialManager Canónico de Ego (SEC-03 / DSEK-05).
  * Centraliza el almacenamiento seguro de API keys y secretos del usuario,
  * desacoplando el almacenamiento de VantaDB del acceso en claro.
@@ -317,10 +435,56 @@ export class CredentialManager {
   }
 
   /**
-   * Importa credenciales verificando integridad de esquemas.
+   * Exporta el vault en envelope versionado y firmado con HMAC-SHA256 (M17).
+   * El HMAC cubre `{version, exportedAtMs, credentials}` en forma canónica
+   * JSON; sin clave HMAC falla cerrado (nunca exporta sin firmar).
    */
-  public importVault(credentials: StoredCredential[]): void {
-    for (const cred of credentials) {
+  public exportVaultSigned(hmacKey: string): VaultExport {
+    const key = requireHmacKey(hmacKey, "exportVaultSigned: el export");
+    const envelope: VaultPayload = {
+      version: VAULT_FORMAT_VERSION,
+      exportedAtMs: Date.now(),
+      credentials: this.exportVault(),
+    };
+    const signed: VaultExport = {
+      ...envelope,
+      hmac: computeVaultHmac(canonicalVaultPayload(envelope), key),
+    };
+    return VaultExportSchema.parse(signed);
+  }
+
+  /**
+   * Importa credenciales verificando integridad de esquemas.
+   *
+   * Acepta el formato legacy (array plano, sin firma — solo para migración)
+   * o el envelope firmado `{version, exportedAtMs, credentials, hmac}`.
+   * El envelope exige `hmacKey`: verifica versión exacta + HMAC en tiempo
+   * constante y rechaza el import ante cualquier manipulación.
+   */
+  public importVault(credentials: StoredCredential[]): void;
+  public importVault(envelope: VaultExport, hmacKey: string): void;
+  public importVault(input: StoredCredential[] | VaultExport, hmacKey?: string): void {
+    if (isVaultExport(input)) {
+      const parsed = VaultExportSchema.parse(input);
+      if (parsed.version !== VAULT_FORMAT_VERSION) {
+        throw new Error(
+          `[CredentialManager] Versión de vault no soportada: ${parsed.version} (se esperaba ${VAULT_FORMAT_VERSION}).`
+        );
+      }
+      const key = requireHmacKey(hmacKey, "importVault: el import de envelope firmado");
+      const canonical = canonicalVaultPayload(parsed);
+      if (!verifyVaultHmac(canonical, parsed.hmac, key)) {
+        throw new Error(
+          "[CredentialManager] HMAC del vault inválido: integridad comprometida, import rechazado."
+        );
+      }
+      for (const cred of parsed.credentials) {
+        const valid = StoredCredentialSchema.parse(cred);
+        this.vault.set(this.buildKey(valid.service, valid.account), valid);
+      }
+      return;
+    }
+    for (const cred of input) {
       const parsed = StoredCredentialSchema.parse(cred);
       this.vault.set(this.buildKey(parsed.service, parsed.account), parsed);
     }

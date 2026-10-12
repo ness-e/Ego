@@ -103,6 +103,27 @@ export interface McpCallToolResult {
 }
 
 /**
+ * Niveles de confianza de un servidor MCP (docs/engineering/integraciones.md
+ * §Catálogo). Solo `official`/`verified` cuentan como firmados: el resto
+ * exige aprobación HITL en las herramientas que importa (H31).
+ */
+export type McpServerTrustLevel =
+  | "official"
+  | "verified"
+  | "community"
+  | "custom"
+  | "experimental";
+
+/**
+ * Fuente de secretos para PATs/tokens (orden prod: Credential Manager).
+ * Interfaz estructural: `CredentialManager` de `@ego/security` la satisface
+ * sin crear dependencia entre paquetes.
+ */
+export interface McpTokenStore {
+  getSecret(service: string, account: string): Promise<string | null>;
+}
+
+/**
  * Configuración declarativa de conexión a un servidor MCP local sobre stdio.
  */
 export interface McpServerConfig {
@@ -115,6 +136,16 @@ export interface McpServerConfig {
   cwd?: string;
   toolPrefix?: string;
   timeoutMs?: number;
+  /**
+   * Debe ser `false`/ausente siempre. `shell:true` se rechaza en spawn
+   * (H31): el spawn es directo sin intérprete para cerrar RCE por config,
+   * incluidas configs persistidas sin tipar (`gov/mcp_servers`).
+   */
+  shell?: boolean;
+  /** Nivel de confianza del servidor; ausente = no firmado (fail-closed). */
+  trustLevel?: McpServerTrustLevel;
+  /** Firma del servidor cuando el nivel es `official`/`verified`. */
+  signature?: string;
 }
 
 /**
