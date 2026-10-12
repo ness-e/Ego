@@ -485,3 +485,11 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 | `DIST-10` | 🔴 Crítica | **Smoke Electron headless con asarUnpack en CI (lado Ego de DIST-21)** | `.github/workflows/` · `apps/desktop/electron-builder.yml` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Test en Windows x64 que carga el `.node` empaquetado, hace `connect()` sobre disco y falla ante ABI drift. Sin esto `DIST-02` es configuración sin verificar. | Origen: VantaDB `DIST-21` · Compuerta: `HERM-15` | Dep: `DIST-01`, `DIST-02` |
 | `DIST-11` | 🟡 Media | **Lint real con gate o retirar el claim de AGENTS.md** | `eslint.config.*` · `package.json` | 🟢 0.5-1d | 🟠 P1 | 🆕 Pendiente | ESLint flat o Biome con gate en CI, o borrar `Lint: pnpm lint` de `AGENTS.md`. Hoy `pnpm lint` es `echo + typecheck`: pasa siempre sin lintear nada. | Ver: `AGENTS.md` §3 | — |
 | `DIST-12` | 🟡 Media | **Dev concurrente desktop+renderer con VITE_DEV_SERVER_URL** | `package.json` · `apps/desktop/src/main.ts` | 🟢 0.5-1d | 🟠 P1 | 🆕 Pendiente | Lanzar Vite y Electron juntos en `pnpm dev` (concurrently) con `VITE_DEV_SERVER_URL` cableado; documentar el loop. Hoy `pnpm dev` solo lanza `electron .` sin dev-server. | Ver: `DIST-01` | Dep: `DIST-01` |
+
+## Hallazgos pendientes de reportes
+
+Esquema canónico de 10 columnas. IDs `EGO-FIND-NN` (prefijo Ego para no colisionar con `FIND-xxx` upstream de VantaDB). Origen en Relaciones. Ninguna fila de esta sección cambia Estados de tareas canónicas.
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `EGO-FIND-01` | 🟡 Media | **Migración de dumps legacy con metadata tagged** | `packages/knowledge/src/KnowledgeExport.ts` | 🟢 0.5d | 🟠 P1 | 🆕 Pendiente | Dumps exportados pre-C03-list traen metadata etiquetada (`{Float}`); al importar, `putMulti` normaliza `confidence` a default 1.0 en vez del valor real. Requiere unwrap en borde de importación + re-export. Evidencia: `packages/knowledge/test/ExportUnwrapRoundtrip.test.ts`. | Origen: `docs/review/revision-proyecto/revision-proyecto-2026-10-12.md` (C03) · Ver: `VDB-BUG-02` | `KB-07`, `KB-08` |
