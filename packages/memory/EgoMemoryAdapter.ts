@@ -184,7 +184,8 @@ export class EgoMemoryAdapter {
       return page.records.map((r: MemoryRecord) => ({
         key: r.key,
         payload: this.parseRecord(r),
-        metadata: r.metadata as Record<string, unknown>,
+        // Workaround: VDB-BUG-02
+        metadata: unwrapMetadata(r.metadata as Record<string, unknown>),
       }));
     } catch {
       return [];
