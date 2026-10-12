@@ -9,7 +9,7 @@ import { EventBus } from "@ego/events";
 import { ApprovalEngine, ExecutionManager } from "@ego/execution";
 import { ToolExecutionLoop } from "@ego/runtime";
 import { setupModelProviders, handleLlmStream, applyModelConfig, resolveEnvModelKeys, resolvePersistedModelKeys, mergeModelKeys, encryptCredential, maskApiKey } from "../src/main.js";
-import type { ModelConfig } from "../src/ipc/schema.js";
+import { ModelConfigSchema, type ModelConfig } from "../src/ipc/schema.js";
 
 const PROVIDER_ENV_VARS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_BASE_URL", "DEEPSEEK_BASE_URL", "OLLAMA_BASE_URL"] as const;
 
@@ -318,6 +318,56 @@ describe("@ego/desktop — Fast-Path ToolExecutionLoop & Real Providers Integrat
       applyModelConfig(standard, { activeProvider: "openai", apiKey: "sk-test-1234567890" });
       const innerStd = standard as unknown as { providers: Map<string, { constructor: { name: string } }> };
       expect(innerStd.providers.get("openai")?.constructor.name).toBe("AiSdkOpenAIProvider");
+    });
+
+    it("Task 10: ModelConfigSchema rechaza anthropicKey/googleKey vacías o de tipo inválido", () => {
+      // Key vacía → rechazada (contrato: payload sin schema válido es rechazado).
+      expect(ModelConfigSchema.safeParse({ activeProvider: "anthropic", anthropicKey: "" }).success).toBe(false);
+      expect(ModelConfigSchema.safeParse({ activeProvider: "google", googleKey: "" }).success).toBe(false);
+      // Tipo inválido → rechazado.
+      expect(
+        ModelConfigSchema.safeParse({ activeProvider: "anthropic", anthropicKey: 123 }).success
+      ).toBe(false);
+      expect(
+        ModelConfigSchema.safeParse({ activeProvider: "google", googleKey: { k: 1 } }).success
+      ).toBe(false);
+      // Payload sin schema (sin activeProvider / proveedor desconocido) → rechazado.
+      expect(ModelConfigSchema.safeParse({ anthropicKey: "sk-ant-test-1234567890" }).success).toBe(false);
+      expect(
+        ModelConfigSchema.safeParse({ activeProvider: "nope", anthropicKey: "sk-ant-test-1" }).success
+      ).toBe(false);
+      // Keys válidas no vacías → aceptadas.
+      expect(
+        ModelConfigSchema.safeParse({ activeProvider: "anthropic", anthropicKey: "sk-ant-test-1234567890" }).success
+      ).toBe(true);
+      expect(
+        ModelConfigSchema.safeParse({ activeProvider: "google", googleKey: "AIza-test-1234567890" }).success
+      ).toBe(true);
+      // Ausentes (undefined) → aceptadas (el main conserva el secreto guardado).
+      expect(ModelConfigSchema.safeParse({ activeProvider: "anthropic" }).success).toBe(true);
+    });
+
+    it("Task 10: el getter nunca retorna la key completa (respuesta enmascarada)", () => {
+      const anthropicFull = "sk-ant-SECRETO-XYZ-1234567890";
+      const googleFull = "AIza-SECRETO-XYZ-1234567890";
+      // Mismo enmascarado que `toMaskedModelConfigResponse` en main (maskKey).
+      const maskedResponse = {
+        activeProvider: "anthropic",
+        apiKey: maskApiKey(""),
+        openaiKey: maskApiKey(""),
+        anthropicKey: maskApiKey(anthropicFull),
+        googleKey: maskApiKey(googleFull),
+        deepseekKey: maskApiKey(""),
+      };
+      for (const value of Object.values(maskedResponse)) {
+        expect(value).not.toContain(anthropicFull);
+        expect(value).not.toContain(googleFull);
+        expect(value).not.toContain("SECRETO-XYZ");
+      }
+      expect(maskedResponse.anthropicKey).not.toBe(anthropicFull);
+      expect(maskedResponse.googleKey).not.toBe(googleFull);
+      expect(maskedResponse.anthropicKey).toContain("...");
+      expect(maskedResponse.googleKey).toContain("...");
     });
 
     it("ninguna key en claro sale del main: sin logs con secreto y respuestas enmascaradas", () => {

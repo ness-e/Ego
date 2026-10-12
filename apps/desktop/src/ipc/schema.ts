@@ -216,12 +216,26 @@ export const SelectProjectSchema = z.object({
 export type SelectProjectRequest = z.infer<typeof SelectProjectSchema>;
 
 /**
- * Esquema de configuración de proveedores de modelos y BYOK (INT-02)
+ * Esquema de configuración de proveedores de modelos y BYOK (INT-02 + Task 10).
+ * Forma canónica por proveedor: `<p>Key` (solo escritura por IPC; el main la
+ * cifra con `encryptCredential` y persiste `<p>KeyEncrypted`). El getter NUNCA
+ * retorna el secreto: solo `maskKey`. `apiKey`/`baseUrl` se conservan como
+ * legado de clave única (compat: `""` = sin key, fallback mock intacto).
+ * Las keys por proveedor exigen no-vacío cuando están presentes: `""` se
+ * rechaza (contrato Task 10: payload sin schema o con key vacía/tipo
+ * inválido es rechazado).
  */
 export const ModelConfigSchema = z.object({
-  activeProvider: z.enum(["openai", "deepseek", "ollama", "mock"]),
+  activeProvider: z.enum(["openai", "anthropic", "google", "deepseek", "ollama", "mock"]),
   apiKey: z.string().optional(),
+  openaiKey: z.string().min(1, "La clave de OpenAI no puede estar vacía").optional(),
+  anthropicKey: z.string().min(1, "La clave de Anthropic no puede estar vacía").optional(),
+  googleKey: z.string().min(1, "La clave de Google no puede estar vacía").optional(),
+  deepseekKey: z.string().min(1, "La clave de DeepSeek no puede estar vacía").optional(),
   baseUrl: z.string().optional(),
+  openaiBaseURL: z.string().optional(),
+  deepseekBaseURL: z.string().optional(),
+  ollamaBaseURL: z.string().optional(),
   modelName: z.string().optional(),
 });
 

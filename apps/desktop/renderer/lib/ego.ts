@@ -140,9 +140,16 @@ export interface SubEgoDetailInfo {
 }
 
 export interface ModelConfigInfo {
-  activeProvider: "openai" | "deepseek" | "ollama" | "mock";
+  activeProvider: "openai" | "anthropic" | "google" | "deepseek" | "ollama" | "mock";
   apiKey?: string;
+  openaiKey?: string;
+  anthropicKey?: string;
+  googleKey?: string;
+  deepseekKey?: string;
   baseUrl?: string;
+  openaiBaseURL?: string;
+  deepseekBaseURL?: string;
+  ollamaBaseURL?: string;
   modelName?: string;
 }
 

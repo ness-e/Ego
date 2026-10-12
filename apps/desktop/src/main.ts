@@ -444,9 +444,12 @@ export let currentModelConfig: ModelConfig = {
 };
 
 /**
- * Aplica una configuración de modelo validada al ModelRouter (INT-02).
- * Valida con `ModelConfigSchema` (zod) y exige key no vacía para openai/deepseek:
- * sin key válida no registra nada y el fallback mock queda intacto.
+ * Aplica una configuración de modelo validada al ModelRouter (INT-02 + Task 10).
+ * Valida con `ModelConfigSchema` (zod) y exige key no vacía para openai/
+ * anthropic/google/deepseek: sin key válida no registra nada y el fallback
+ * mock queda intacto. Resuelve la key efectiva por proveedor (`<p>Key` con
+ * fallback al legado `apiKey` cuando el proveedor activo coincide) y la
+ * baseURL efectiva (`<p>BaseURL` con fallback al legado `baseUrl`).
  */
 export function applyModelConfig(router: ModelRouter, config: ModelConfig): void {
   const parsed = ModelConfigSchema.safeParse(config);
@@ -455,24 +458,41 @@ export function applyModelConfig(router: ModelRouter, config: ModelConfig): void
   }
   const valid = parsed.data;
   currentModelConfig = { ...valid };
+  const legacyKey = isNonEmptyKey(valid.apiKey) ? valid.apiKey : undefined;
+  const legacyBase = isNonEmptyKey(valid.baseUrl) ? valid.baseUrl : undefined;
   if (valid.activeProvider === "openai") {
-    if (!isNonEmptyKey(valid.apiKey)) return;
-    registerOpenAIProvider(router, valid.apiKey, valid.baseUrl);
+    const key = isNonEmptyKey(valid.openaiKey) ? valid.openaiKey : legacyKey;
+    if (!key) return;
+    const base = isNonEmptyKey(valid.openaiBaseURL) ? valid.openaiBaseURL : legacyBase;
+    registerOpenAIProvider(router, key, base);
+  } else if (valid.activeProvider === "anthropic") {
+    const key = isNonEmptyKey(valid.anthropicKey) ? valid.anthropicKey : legacyKey;
+    if (!key) return;
+    router.registerProvider(new AiSdkAnthropicProvider({ apiKey: key }));
+  } else if (valid.activeProvider === "google") {
+    const key = isNonEmptyKey(valid.googleKey) ? valid.googleKey : legacyKey;
+    if (!key) return;
+    router.registerProvider(new AiSdkGoogleProvider({ apiKey: key }));
   } else if (valid.activeProvider === "deepseek") {
-    if (!isNonEmptyKey(valid.apiKey)) return;
+    const key = isNonEmptyKey(valid.deepseekKey) ? valid.deepseekKey : legacyKey;
+    if (!key) return;
+    const base = isNonEmptyKey(valid.deepseekBaseURL) ? valid.deepseekBaseURL : legacyBase;
     router.registerProvider(
       new AiSdkOpenAICompatibleProvider({
         providerId: "deepseek",
-        apiKey: valid.apiKey,
-        ...(isNonEmptyKey(valid.baseUrl) ? { baseURL: valid.baseUrl } : {}),
+        apiKey: key,
+        ...(base ? { baseURL: base } : {}),
       })
     );
   } else if (valid.activeProvider === "ollama") {
+    const base = isNonEmptyKey(valid.ollamaBaseURL)
+      ? valid.ollamaBaseURL
+      : (legacyBase ?? OLLAMA_DEFAULT_BASE_URL);
     router.registerProvider(
       new AiSdkOpenAICompatibleProvider({
         providerId: "ollama",
         apiKey: "ollama",
-        baseURL: isNonEmptyKey(valid.baseUrl) ? valid.baseUrl : OLLAMA_DEFAULT_BASE_URL,
+        baseURL: base,
       })
     );
   }
@@ -1422,57 +1442,108 @@ export async function createWindow(): Promise<void> {
     operational: adapter.ready,
   }));
 
-  // 5. Configuración de Modelos y BYOK (INT-02 / Cifrado Seguro con safeStorage)
+  // 5. Configuración de Modelos y BYOK (INT-02 / Cifrado Seguro con safeStorage + Task 10 multi-proveedor)
+  // Contrato Task 10 (M25/M26 para estos canales): el payload se valida con
+  // `ModelConfigSchema` (zod, sin schema → rechazado); el getter NUNCA retorna
+  // un secreto en claro (solo `maskKey`); el saver cifra cada key por
+  // proveedor con `encryptCredential` y persiste `<p>KeyEncrypted`.
+  // Helpers locales del bloque settings (no duplican Task 9: reutilizan
+  // `decryptCredential`/`encryptCredential`/`maskKey`/`applyModelConfig`).
+  const isMaskedValue = (v: unknown): v is string =>
+    typeof v === "string" && (v.includes("...") || v.includes("••••"));
+  const PROVIDER_KEY_FIELDS = ["openaiKey", "anthropicKey", "googleKey", "deepseekKey"] as const;
+  type ProviderKeyField = (typeof PROVIDER_KEY_FIELDS)[number];
+  const toMaskedModelConfigResponse = (cfg: ModelConfig) => ({
+    activeProvider: cfg.activeProvider,
+    apiKey: maskApiKey(cfg.apiKey || ""),
+    openaiKey: maskApiKey(cfg.openaiKey || ""),
+    anthropicKey: maskApiKey(cfg.anthropicKey || ""),
+    googleKey: maskApiKey(cfg.googleKey || ""),
+    deepseekKey: maskApiKey(cfg.deepseekKey || ""),
+    baseUrl: cfg.baseUrl,
+    openaiBaseURL: cfg.openaiBaseURL,
+    deepseekBaseURL: cfg.deepseekBaseURL,
+    ollamaBaseURL: cfg.ollamaBaseURL,
+    modelName: cfg.modelName,
+  });
+  const unwrapSettingsPayload = (saved: unknown): Record<string, unknown> | null => {
+    let payload: unknown = saved;
+    if (typeof saved === "object" && saved !== null && "payload" in saved) {
+      payload = (saved as { payload: unknown }).payload;
+    }
+    if (payload && typeof payload === "object") return payload as Record<string, unknown>;
+    return null;
+  };
+
   ipcMain.handle("ipc.settings.getModelConfig", async () => {
     try {
       const savedConfig = await adapter.get("gov/settings", "model_config");
-      if (savedConfig) {
-        let payload: any = savedConfig;
-        if (typeof savedConfig === "object" && savedConfig !== null && "payload" in savedConfig) {
-          payload = (savedConfig as { payload: any }).payload;
-        }
-        if (payload && typeof payload === "object") {
-          let resolvedApiKey = currentModelConfig.apiKey || "";
-          if (payload.apiKeyEncrypted) {
-            resolvedApiKey = decryptCredential(payload.apiKeyEncrypted);
-          } else if (payload.apiKey && typeof payload.apiKey === "string") {
-            // Migración automática de texto plano legado a cifrado
-            resolvedApiKey = payload.apiKey;
-            const reEncrypted = encryptCredential(resolvedApiKey);
-            await adapter.put({
-              namespace: "gov/settings",
-              key: "model_config",
-              payload: {
-                activeProvider: payload.activeProvider,
-                apiKeyEncrypted: reEncrypted,
-                baseUrl: payload.baseUrl,
-                modelName: payload.modelName,
-              },
-              metadata: { updatedAtMs: Date.now(), migrated: true },
-            });
+      const payload = unwrapSettingsPayload(savedConfig);
+      if (payload) {
+        // Migración plano→cifrado de campos por proveedor (el saver Task 10 ya
+        // escribe el shape nuevo; esto solo tolera restos legados en plano).
+        // Se conserva el resto del payload (spread): nunca se dropean campos.
+        const nextPayload: Record<string, unknown> = { ...payload };
+        let needsPersist = false;
+        for (const field of [...PROVIDER_KEY_FIELDS, "apiKey"] as const) {
+          const plainValue = nextPayload[field];
+          if (typeof plainValue === "string" && plainValue.length > 0 && !isMaskedValue(plainValue)) {
+            nextPayload[`${field}Encrypted`] = encryptCredential(plainValue);
+            delete nextPayload[field];
+            needsPersist = true;
           }
-          currentModelConfig.apiKey = resolvedApiKey;
-          currentModelConfig.activeProvider = payload.activeProvider || currentModelConfig.activeProvider;
-          currentModelConfig.baseUrl = payload.baseUrl || currentModelConfig.baseUrl;
-          currentModelConfig.modelName = payload.modelName || currentModelConfig.modelName;
-
-          return {
-            activeProvider: currentModelConfig.activeProvider,
-            baseUrl: currentModelConfig.baseUrl,
-            modelName: currentModelConfig.modelName,
-            apiKey: maskApiKey(resolvedApiKey),
-          };
         }
+        if (needsPersist) {
+          await adapter.put({
+            namespace: "gov/settings",
+            key: "model_config",
+            payload: nextPayload,
+            metadata: { updatedAtMs: Date.now(), migrated: true },
+          });
+        }
+        const stored = needsPersist ? nextPayload : payload;
+
+        // Resolver cada key descifrada SOLO en main (nunca sale en claro).
+        // `activeProvider` se acepta solo si pertenece al enum canónico.
+        const ACTIVE_PROVIDERS = ["openai", "anthropic", "google", "deepseek", "ollama", "mock"] as const;
+        const storedProvider = typeof stored.activeProvider === "string" ? stored.activeProvider : "";
+        const resolved: ModelConfig = {
+          activeProvider: (ACTIVE_PROVIDERS as readonly string[]).includes(storedProvider)
+            ? (storedProvider as ModelConfig["activeProvider"])
+            : currentModelConfig.activeProvider,
+          baseUrl:
+            typeof stored.baseUrl === "string" ? stored.baseUrl : currentModelConfig.baseUrl,
+          modelName:
+            typeof stored.modelName === "string" ? stored.modelName : currentModelConfig.modelName,
+          openaiBaseURL:
+            typeof stored.openaiBaseURL === "string" ? stored.openaiBaseURL : currentModelConfig.openaiBaseURL,
+          deepseekBaseURL:
+            typeof stored.deepseekBaseURL === "string" ? stored.deepseekBaseURL : currentModelConfig.deepseekBaseURL,
+          ollamaBaseURL:
+            typeof stored.ollamaBaseURL === "string" ? stored.ollamaBaseURL : currentModelConfig.ollamaBaseURL,
+        };
+        for (const field of [...PROVIDER_KEY_FIELDS, "apiKey"] as const) {
+          const enc = stored[`${field}Encrypted`];
+          if (typeof enc === "string" && enc.length > 0) {
+            const decrypted = decryptCredential(enc);
+            if (isNonEmptyKey(decrypted)) {
+              (resolved as Record<string, unknown>)[field] = decrypted;
+            }
+          }
+        }
+        // Sin `...Encrypted` persistido, conservar el valor en memoria.
+        for (const field of [...PROVIDER_KEY_FIELDS, "apiKey"] as const) {
+          if (!(resolved as Record<string, unknown>)[field] && isNonEmptyKey(currentModelConfig[field])) {
+            (resolved as Record<string, unknown>)[field] = currentModelConfig[field];
+          }
+        }
+        currentModelConfig = { ...currentModelConfig, ...resolved };
+        return toMaskedModelConfigResponse(currentModelConfig);
       }
     } catch {
       // noop
     }
-    return {
-      activeProvider: currentModelConfig.activeProvider,
-      baseUrl: currentModelConfig.baseUrl,
-      modelName: currentModelConfig.modelName,
-      apiKey: maskApiKey(currentModelConfig.apiKey || ""),
-    };
+    return toMaskedModelConfigResponse(currentModelConfig);
   });
 
   ipcMain.handle("ipc.settings.saveModelConfig", async (_e, rawReq: unknown) => {
@@ -1482,27 +1553,95 @@ export async function createWindow(): Promise<void> {
     }
     const incoming = parseResult.data;
 
-    // Si la clave recibida es una máscara o viene vacía, conservar la clave real en memoria si el proveedor coincide
-    let effectiveApiKey = incoming.apiKey || "";
-    const isMasked = effectiveApiKey.includes("...") || effectiveApiKey.includes("••••");
-    if (isMasked && currentModelConfig.apiKey && incoming.activeProvider === currentModelConfig.activeProvider) {
-      effectiveApiKey = currentModelConfig.apiKey;
+    // Fallback persistido descifrado (solo main): un campo por proveedor no
+    // provisto (undefined) o enmascarado NUNCA borra el secreto guardado.
+    let persisted: Record<string, unknown> = {};
+    try {
+      const saved = await adapter.get("gov/settings", "model_config");
+      persisted = unwrapSettingsPayload(saved) ?? {};
+    } catch {
+      // noop: sin persistido, el fallback es la memoria
+    }
+    const persistedDecrypted = (field: string): string | undefined => {
+      const enc = persisted[`${field}Encrypted`];
+      if (typeof enc === "string" && enc.length > 0) {
+        const decrypted = decryptCredential(enc);
+        if (isNonEmptyKey(decrypted)) return decrypted;
+      }
+      const plain = persisted[field];
+      if (typeof plain === "string" && isNonEmptyKey(plain) && !isMaskedValue(plain)) return plain;
+      return undefined;
+    };
+    const keepOrIncoming = (field: ProviderKeyField | "apiKey"): string | undefined => {
+      const v = incoming[field];
+      if (isNonEmptyKey(v) && !isMaskedValue(v)) return v;
+      // Máscara o ausente: conservar el secreto guardado (memoria o disco).
+      // NUNCA se persiste ni retorna la máscara como si fuera el secreto.
+      if (isNonEmptyKey(currentModelConfig[field])) return currentModelConfig[field];
+      return persistedDecrypted(field);
+    };
+
+    const effectiveProviderKeys: Record<ProviderKeyField, string | undefined> = {
+      openaiKey: keepOrIncoming("openaiKey"),
+      anthropicKey: keepOrIncoming("anthropicKey"),
+      googleKey: keepOrIncoming("googleKey"),
+      deepseekKey: keepOrIncoming("deepseekKey"),
+    };
+    // `""` explícito en el legado = limpiar (compat con el fallback mock);
+    // máscara o ausente = conservar. Una máscara con proveedor distinto NUNCA
+    // se almacena (evita persistir `sk-t...7890` como si fuera el secreto).
+    let effectiveApiKey: string | undefined;
+    const rawLegacy = incoming.apiKey;
+    if (isNonEmptyKey(rawLegacy) && !isMaskedValue(rawLegacy)) {
+      effectiveApiKey = rawLegacy;
+    } else if (rawLegacy === "") {
+      effectiveApiKey = undefined;
+    } else {
+      effectiveApiKey =
+        incoming.activeProvider === currentModelConfig.activeProvider && isNonEmptyKey(currentModelConfig.apiKey)
+          ? currentModelConfig.apiKey
+          : persistedDecrypted("apiKey");
     }
 
     const effectiveConfig: ModelConfig = {
       ...incoming,
+      ...effectiveProviderKeys,
       apiKey: effectiveApiKey,
     };
 
     applyModelConfig(modelRouter, effectiveConfig);
+    // Registrar también las keys no activas para multi-proveedor (reúso Task 9).
+    setupModelProviders(modelRouter, {
+      ...(isNonEmptyKey(effectiveProviderKeys.openaiKey) ? { openai: effectiveProviderKeys.openaiKey } : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.anthropicKey) ? { anthropic: effectiveProviderKeys.anthropicKey } : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.googleKey) ? { google: effectiveProviderKeys.googleKey } : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.deepseekKey) ? { deepseek: effectiveProviderKeys.deepseekKey } : {}),
+      ...(isNonEmptyKey(effectiveConfig.openaiBaseURL) ? { openaiBaseURL: effectiveConfig.openaiBaseURL } : {}),
+      ...(isNonEmptyKey(effectiveConfig.deepseekBaseURL) ? { deepseekBaseURL: effectiveConfig.deepseekBaseURL } : {}),
+      ...(isNonEmptyKey(effectiveConfig.ollamaBaseURL) ? { ollamaBaseURL: effectiveConfig.ollamaBaseURL } : {}),
+    });
 
-    // Cifrar la clave antes de persistir en VantaDB. NUNCA almacenar en texto plano.
-    const encryptedKey = effectiveApiKey ? encryptCredential(effectiveApiKey) : undefined;
-    const payloadToStore = {
+    // Cifrar cada key por proveedor antes de persistir. NUNCA texto plano ni máscaras.
+    const payloadToStore: Record<string, unknown> = {
       activeProvider: effectiveConfig.activeProvider,
-      apiKeyEncrypted: encryptedKey,
-      baseUrl: effectiveConfig.baseUrl,
-      modelName: effectiveConfig.modelName,
+      ...(isNonEmptyKey(effectiveApiKey) ? { apiKeyEncrypted: encryptCredential(effectiveApiKey) } : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.openaiKey)
+        ? { openaiKeyEncrypted: encryptCredential(effectiveProviderKeys.openaiKey) }
+        : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.anthropicKey)
+        ? { anthropicKeyEncrypted: encryptCredential(effectiveProviderKeys.anthropicKey) }
+        : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.googleKey)
+        ? { googleKeyEncrypted: encryptCredential(effectiveProviderKeys.googleKey) }
+        : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.deepseekKey)
+        ? { deepseekKeyEncrypted: encryptCredential(effectiveProviderKeys.deepseekKey) }
+        : {}),
+      ...(isNonEmptyKey(effectiveConfig.baseUrl) ? { baseUrl: effectiveConfig.baseUrl } : {}),
+      ...(isNonEmptyKey(effectiveConfig.openaiBaseURL) ? { openaiBaseURL: effectiveConfig.openaiBaseURL } : {}),
+      ...(isNonEmptyKey(effectiveConfig.deepseekBaseURL) ? { deepseekBaseURL: effectiveConfig.deepseekBaseURL } : {}),
+      ...(isNonEmptyKey(effectiveConfig.ollamaBaseURL) ? { ollamaBaseURL: effectiveConfig.ollamaBaseURL } : {}),
+      ...(isNonEmptyKey(effectiveConfig.modelName) ? { modelName: effectiveConfig.modelName } : {}),
     };
 
     await adapter.put({
@@ -1520,13 +1659,8 @@ export async function createWindow(): Promise<void> {
       severity: "info",
     });
 
-    // Enmascarar la API key en la respuesta hacia el Renderer
-    const maskedConfig = {
-      ...effectiveConfig,
-      apiKey: maskApiKey(effectiveConfig.apiKey || ""),
-    };
-
-    return { ok: true, config: maskedConfig };
+    // Respuesta enmascarada hacia el Renderer (ningún secreto en claro).
+    return { ok: true, config: toMaskedModelConfigResponse({ ...effectiveConfig, apiKey: effectiveApiKey }) };
   });
 
   // 6. Decision Intelligence Layer IPC (DEC-01..DEC-08)

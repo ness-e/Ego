@@ -68,14 +68,28 @@ export function Sidebar({
   const [projectError, setProjectError] = useState<string | null>(null);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"models" | "memory" | "gov">("models");
   const [modelConfig, setModelConfig] = useState<{
-    activeProvider: "openai" | "deepseek" | "ollama" | "mock";
+    activeProvider: "openai" | "anthropic" | "google" | "deepseek" | "ollama" | "mock";
     apiKey: string;
+    openaiKey: string;
+    anthropicKey: string;
+    googleKey: string;
+    deepseekKey: string;
     baseUrl: string;
+    openaiBaseURL: string;
+    deepseekBaseURL: string;
+    ollamaBaseURL: string;
     modelName: string;
   }>({
     activeProvider: "mock",
     apiKey: "",
+    openaiKey: "",
+    anthropicKey: "",
+    googleKey: "",
+    deepseekKey: "",
     baseUrl: "",
+    openaiBaseURL: "",
+    deepseekBaseURL: "",
+    ollamaBaseURL: "",
     modelName: "",
   });
   const [isSavingModelConfig, setIsSavingModelConfig] = useState(false);
@@ -86,9 +100,16 @@ export function Sidebar({
       const cfg = await ego().settings.getModelConfig();
       if (cfg) {
         setModelConfig({
-          activeProvider: cfg.activeProvider || "mock",
+          activeProvider: (cfg.activeProvider as typeof modelConfig.activeProvider) || "mock",
           apiKey: cfg.apiKey || "",
+          openaiKey: cfg.openaiKey || "",
+          anthropicKey: cfg.anthropicKey || "",
+          googleKey: cfg.googleKey || "",
+          deepseekKey: cfg.deepseekKey || "",
           baseUrl: cfg.baseUrl || "",
+          openaiBaseURL: cfg.openaiBaseURL || "",
+          deepseekBaseURL: cfg.deepseekBaseURL || "",
+          ollamaBaseURL: cfg.ollamaBaseURL || "",
           modelName: cfg.modelName || "",
         });
       }
@@ -107,10 +128,27 @@ export function Sidebar({
     setIsSavingModelConfig(true);
     setModelConfigSuccess(null);
     try {
-      await ego().settings.saveModelConfig(modelConfig);
+      // El getter retorna máscaras (nunca el secreto): se reenvían tal cual y
+      // el main las detecta y conserva la key real. Los campos por proveedor
+      // vacíos se envían como `undefined` (el schema rechaza `""` en keys).
+      const emptyToUndefined = (v: string): string | undefined =>
+        v.trim().length > 0 ? v : undefined;
+      await ego().settings.saveModelConfig({
+        activeProvider: modelConfig.activeProvider,
+        ...(modelConfig.apiKey ? { apiKey: modelConfig.apiKey } : {}),
+        ...(emptyToUndefined(modelConfig.openaiKey) ? { openaiKey: modelConfig.openaiKey } : {}),
+        ...(emptyToUndefined(modelConfig.anthropicKey) ? { anthropicKey: modelConfig.anthropicKey } : {}),
+        ...(emptyToUndefined(modelConfig.googleKey) ? { googleKey: modelConfig.googleKey } : {}),
+        ...(emptyToUndefined(modelConfig.deepseekKey) ? { deepseekKey: modelConfig.deepseekKey } : {}),
+        ...(modelConfig.baseUrl ? { baseUrl: modelConfig.baseUrl } : {}),
+        ...(emptyToUndefined(modelConfig.openaiBaseURL) ? { openaiBaseURL: modelConfig.openaiBaseURL } : {}),
+        ...(emptyToUndefined(modelConfig.deepseekBaseURL) ? { deepseekBaseURL: modelConfig.deepseekBaseURL } : {}),
+        ...(emptyToUndefined(modelConfig.ollamaBaseURL) ? { ollamaBaseURL: modelConfig.ollamaBaseURL } : {}),
+        ...(modelConfig.modelName ? { modelName: modelConfig.modelName } : {}),
+      });
       setModelConfigSuccess("Configuración guardada en VantaDB exitosamente.");
       setTimeout(() => setModelConfigSuccess(null), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Sidebar] Error al guardar configuración de modelos:", err);
     } finally {
       setIsSavingModelConfig(false);
@@ -662,6 +700,8 @@ export function Sidebar({
                           className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-ink/50"
                         >
                           <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                          <option value="anthropic">Anthropic (Claude)</option>
+                          <option value="google">Google (Gemini)</option>
                           <option value="deepseek">DeepSeek (DeepSeek-Chat / Coder)</option>
                           <option value="ollama">Ollama Local (Offline)</option>
                           <option value="mock">Mock Determinista (Pruebas sin coste)</option>

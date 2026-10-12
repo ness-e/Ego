@@ -49,8 +49,19 @@ contextBridge.exposeInMainWorld("ego", {
   },
   settings: {
     getModelConfig: () => ipcRenderer.invoke("ipc.settings.getModelConfig"),
-    saveModelConfig: (config: { activeProvider: string; apiKey?: string; baseUrl?: string; modelName?: string }) =>
-      ipcRenderer.invoke("ipc.settings.saveModelConfig", config),
+    saveModelConfig: (config: {
+      activeProvider: "openai" | "anthropic" | "google" | "deepseek" | "ollama" | "mock";
+      apiKey?: string;
+      openaiKey?: string;
+      anthropicKey?: string;
+      googleKey?: string;
+      deepseekKey?: string;
+      baseUrl?: string;
+      openaiBaseURL?: string;
+      deepseekBaseURL?: string;
+      ollamaBaseURL?: string;
+      modelName?: string;
+    }) => ipcRenderer.invoke("ipc.settings.saveModelConfig", config),
   },
   onProjectChanged: (callback: (data: { activeProjectId: string }) => void) => {
     const sub = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
