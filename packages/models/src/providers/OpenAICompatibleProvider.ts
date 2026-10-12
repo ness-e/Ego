@@ -64,6 +64,20 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
     if (options.responseFormat === "json") {
       payload.response_format = { type: "json_object" };
     }
+    if (options.tools?.length) {
+      payload.tools = options.tools.map((t) => ({
+        type: "function",
+        function: { name: t.name, description: t.description, parameters: t.parameters },
+      }));
+      payload.tool_choice =
+        options.toolChoice === "none"
+          ? "none"
+          : options.toolChoice === "required"
+            ? "required"
+            : options.toolChoice && typeof options.toolChoice === "object"
+              ? { type: "function", function: { name: options.toolChoice.name } }
+              : "auto";
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -86,7 +100,13 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
     }
 
     const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
+      choices?: Array<{
+        message?: {
+          content?: string;
+          tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+        };
+        finish_reason?: string;
+      }>;
       usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
     };
 
@@ -95,6 +115,30 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
     const promptTokens = data.usage?.prompt_tokens || 0;
     const completionTokens = data.usage?.completion_tokens || 0;
     const totalTokens = data.usage?.total_tokens || promptTokens + completionTokens;
+
+    const rawCalls = choice?.message?.tool_calls ?? [];
+    const toolCalls = rawCalls.map((c: { id: string; function: { name: string; arguments: string } }) => {
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(c.function.arguments || "{}") as Record<string, unknown>;
+      } catch {
+        args = { _raw: c.function.arguments };
+      }
+      return { id: c.id, name: c.function.name, arguments: args };
+    });
+    if (choice?.finish_reason === "tool_calls" || toolCalls.length > 0) {
+      return {
+        text,
+        finishReason: "tool_calls",
+        toolCalls,
+        usage: {
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          estimatedCostUsd: 0.0, // Calculado por ModelRouter según descriptor
+        },
+      };
+    }
 
     return {
       text,
@@ -128,6 +172,20 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
     if (options.maxTokens) {
       payload.max_tokens = options.maxTokens;
     }
+    if (options.tools?.length) {
+      payload.tools = options.tools.map((t) => ({
+        type: "function",
+        function: { name: t.name, description: t.description, parameters: t.parameters },
+      }));
+      payload.tool_choice =
+        options.toolChoice === "none"
+          ? "none"
+          : options.toolChoice === "required"
+            ? "required"
+            : options.toolChoice && typeof options.toolChoice === "object"
+              ? { type: "function", function: { name: options.toolChoice.name } }
+              : "auto";
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -153,6 +211,7 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
     const decoder = new TextDecoder();
     let accumulatedText = "";
     let finishReason = "stop";
+    const toolCallAcc: Array<{ id: string; name: string; args: string }> = [];
 
     try {
       while (true) {
@@ -170,12 +229,40 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
 
           try {
             const parsed = JSON.parse(dataStr) as {
-              choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>;
+              choices?: Array<{
+                delta?: {
+                  content?: string;
+                  tool_calls?: Array<{
+                    index: number;
+                    id?: string;
+                    function?: { name?: string; arguments?: string };
+                  }>;
+                };
+                finish_reason?: string;
+              }>;
             };
             const deltaContent = parsed.choices?.[0]?.delta?.content;
             if (deltaContent) {
               accumulatedText += deltaContent;
               onChunk({ type: "text-delta", delta: deltaContent });
+            }
+            const deltaToolCalls = parsed.choices?.[0]?.delta?.tool_calls;
+            if (deltaToolCalls) {
+              for (const tc of deltaToolCalls) {
+                while (toolCallAcc.length <= tc.index) {
+                  toolCallAcc.push({ id: "", name: "", args: "" });
+                }
+                const entry = toolCallAcc[tc.index];
+                if (tc.id) {
+                  entry.id = tc.id;
+                }
+                if (tc.function?.name) {
+                  entry.name = tc.function.name;
+                }
+                if (tc.function?.arguments) {
+                  entry.args += tc.function.arguments;
+                }
+              }
             }
             if (parsed.choices?.[0]?.finish_reason) {
               finishReason = parsed.choices[0].finish_reason;
@@ -198,11 +285,27 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
       estimatedCostUsd: 0.0,
     };
 
+    const builtToolCalls = toolCallAcc
+      .filter((e) => e.id !== "" || e.name !== "" || e.args !== "")
+      .map((e) => {
+        let parsedArgs: Record<string, unknown> = {};
+        try {
+          parsedArgs = JSON.parse(e.args || "{}") as Record<string, unknown>;
+        } catch {
+          parsedArgs = { _raw: e.args };
+        }
+        return { id: e.id, name: e.name, arguments: parsedArgs };
+      });
+    if (builtToolCalls.length > 0) {
+      finishReason = "tool_calls";
+    }
+
     onChunk({ type: "finish", finishReason, usage });
 
     return {
       text: accumulatedText,
       finishReason,
+      ...(builtToolCalls.length > 0 ? { toolCalls: builtToolCalls } : {}),
       usage,
     };
   }
