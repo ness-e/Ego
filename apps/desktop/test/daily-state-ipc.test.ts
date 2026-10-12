@@ -34,7 +34,8 @@ describe("Daily State Desktop IPC Integration (DS-01..DS-08 / ADR-049)", () => {
         inMemoryStorage.set(`${namespace}:${key}`, payload);
       }),
       get: vi.fn().mockImplementation(async (namespace, key) => {
-        return inMemoryStorage.get(`${namespace}:${key}`) || null;
+        const stored = inMemoryStorage.get(`${namespace}:${key}`);
+        return stored === undefined ? null : { key, payload: stored, metadata: {} };
       }),
       list: vi.fn().mockImplementation(async (namespace) => {
         const results = [];
@@ -135,7 +136,7 @@ describe("Daily State Desktop IPC Integration (DS-01..DS-08 / ADR-049)", () => {
 
     const record = await mockAdapter.get("journal", getReq.date);
     expect(record).not.toBeNull();
-    expect((record as any).content).toContain("Fase 08 Daily State");
+    expect((record?.payload as any).content).toContain("Fase 08 Daily State");
   });
 
   it("DS-07: Valida DailyStateResolveApprovalsBatchSchema para aprobaciones en lote", () => {

@@ -172,3 +172,12 @@ Subconjuntos operativos para Tasks 4–5:
 2. `main.ts:1012` (IPC passthrough) cambia de shape para el renderer sin cambiar código:
    coordinar con consumidores IPC en Task 5.
 3. Sin commit (ruta ego-arch: solo lectura + inventario).
+
+## Addendum Task 5 (sitios GAP fuera del inventario inicial)
+
+Patrón `storage.get(` omitido en el barrido inicial, migrados en Task 5 con unwrap tolerante estilo paquete (`'payload' in`), cero cambio de comportamiento:
+
+- `packages/subegos/src/SubEgoRegistry.ts:242,512` (PAYLOAD)
+- `packages/subegos/src/SharedMemory.ts:489,572` (PAYLOAD)
+
+Inventario corregido: 86 total, 0 sin clasificar.

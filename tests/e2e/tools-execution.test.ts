@@ -246,11 +246,11 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
     expect(restoredAdapter.ready).toBe(true);
 
     // 1. Recuperar turno persistido
-    const restoredTurn = (await restoredAdapter.get(`turns/${sessionId}`, "turn:001")) as {
+    const restoredTurn = ((await restoredAdapter.get(`turns/${sessionId}`, "turn:001"))?.payload as {
       sessionId: string;
       toolExecutions: Array<{ toolName: string; output: { success: boolean; path: string } }>;
       messages: unknown[];
-    };
+    });
     expect(restoredTurn).toBeDefined();
     expect(restoredTurn.sessionId).toBe(sessionId);
     expect(restoredTurn.toolExecutions[0].toolName).toBe("fs_write_file");
@@ -259,19 +259,19 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
     expect(restoredTurn.messages.length).toBe(loopResult.messages.length);
 
     // 2. Recuperar artefacto persistido
-    const restoredArtifact = (await restoredAdapter.get("projects/default/artifacts", `artifact:${targetFilePath}`)) as {
+    const restoredArtifact = ((await restoredAdapter.get("projects/default/artifacts", `artifact:${targetFilePath}`))?.payload as {
       path: string;
       sha256: string;
-    };
+    });
     expect(restoredArtifact).toBeDefined();
     expect(restoredArtifact.path).toBe(targetFilePath);
     expect(restoredArtifact.sha256).toBe(artifactSha256);
 
     // 3. Recuperar auditoría de gobernanza
-    const restoredAudit = (await restoredAdapter.get("gov/audit/actions", `audit:${requestedApproval!.approvalId}`)) as {
+    const restoredAudit = ((await restoredAdapter.get("gov/audit/actions", `audit:${requestedApproval!.approvalId}`))?.payload as {
       decision: string;
       operator: string;
-    };
+    });
     expect(restoredAudit).toBeDefined();
     expect(restoredAudit.decision).toBe("approved");
 
@@ -360,7 +360,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
       }
     });
 
-    const recorded = await activeAdapter.get("gov/audit/actions", `audit:${pendingReq!.approvalId}`);
+    const recorded = (await activeAdapter.get("gov/audit/actions", `audit:${pendingReq!.approvalId}`))?.payload;
     expect(recorded).toBeDefined();
     expect((recorded as any).decision).toBe("rejected");
 

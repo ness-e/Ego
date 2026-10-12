@@ -111,7 +111,7 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
     // ══════════════════════════════════════════════════════════════════════
     // PASO 4: Ego guarda en VantaDB (Verificación en caliente)
     // ══════════════════════════════════════════════════════════════════════
-    const savedContextHot = await adapter.get(`proj/${projectId}`, "architecture_context");
+    const savedContextHot = (await adapter.get(`proj/${projectId}`, "architecture_context"))?.payload;
     expect(savedContextHot).toEqual(projectContext);
 
     // ══════════════════════════════════════════════════════════════════════
@@ -133,8 +133,8 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
     // ══════════════════════════════════════════════════════════════════════
     // PASO 7: Recuperar contexto (Verificación de durabilidad)
     // ══════════════════════════════════════════════════════════════════════
-    const recoveredProject = (await adapter.get("gov/projects", projectId)) as typeof projectManifest;
-    const recoveredContext = (await adapter.get(`proj/${projectId}`, "architecture_context")) as typeof projectContext;
+    const recoveredProject = ((await adapter.get("gov/projects", projectId))?.payload as typeof projectManifest);
+    const recoveredContext = ((await adapter.get(`proj/${projectId}`, "architecture_context"))?.payload as typeof projectContext);
     expect(recoveredProject.id).toBe(projectId);
     expect(recoveredContext.spec).toBe(projectContext.spec);
 
@@ -346,11 +346,11 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
     // PASO 20: Recuperar proyecto, tareas, memoria, auditoría y workspace
     // ══════════════════════════════════════════════════════════════════════
     // A. Recuperar Proyecto
-    const finalProject = (await adapter.get("gov/projects", projectId)) as typeof projectManifest;
+    const finalProject = ((await adapter.get("gov/projects", projectId))?.payload as typeof projectManifest);
     expect(finalProject.id).toBe(projectId);
 
     // B. Recuperar Memoria de Proyecto
-    const finalContext = (await adapter.get(`proj/${projectId}`, "architecture_context")) as typeof projectContext;
+    const finalContext = ((await adapter.get(`proj/${projectId}`, "architecture_context"))?.payload as typeof projectContext);
     expect(finalContext.techStack).toContain("VantaDB");
 
     // C. Recuperar Veredicto Inmutable de Auditoría en gov/audit (DEC-07)
@@ -360,12 +360,12 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
     expect(finalAuditVerdict?.domain).toBe("engineering");
 
     // D. Recuperar Tarea y Resultado de Run
-    const finalRunResult = (await adapter.get(`projects/${projectId}/runs`, verdict.admittedRunContext.runId)) as typeof workResult;
+    const finalRunResult = ((await adapter.get(`projects/${projectId}/runs`, verdict.admittedRunContext.runId))?.payload as typeof workResult);
     expect(finalRunResult.status).toBe("completed");
     expect(finalRunResult.assignedTo).toBe("ego.dev");
 
     // E. Recuperar Estado Completo del Canvas y Verificar Cambio Aplicado
-    const rawSavedCanvas = await adapter.get("workspace", CanvasPersistenceManager.getVantaKey(projectId));
+    const rawSavedCanvas = (await adapter.get("workspace", CanvasPersistenceManager.getVantaKey(projectId)))?.payload;
     expect(rawSavedCanvas).not.toBeNull();
 
     const recoveredCanvas = CanvasPersistenceManager.deserialize(rawSavedCanvas, projectId);

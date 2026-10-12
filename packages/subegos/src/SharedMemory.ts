@@ -486,7 +486,11 @@ export class SharedMemory {
     let previousVersion = 0;
     let createdAtMs = now;
     try {
-      const existingRaw = await this.storage.get(namespace, key);
+      const existingEnvelope = await this.storage.get(namespace, key);
+      const existingRaw =
+        typeof existingEnvelope === "object" && existingEnvelope !== null && "payload" in existingEnvelope
+          ? (existingEnvelope as { payload: unknown }).payload
+          : existingEnvelope;
       if (existingRaw) {
         const parsed = typeof existingRaw === "string" ? JSON.parse(existingRaw) : existingRaw;
         if (parsed && typeof parsed === "object") {
@@ -569,7 +573,15 @@ export class SharedMemory {
     this.validateKey(key);
 
     const namespace = this.getCanonicalNamespace(projectId);
-    const raw = await this.storage.get(namespace, key);
+    const envelope = await this.storage.get(namespace, key);
+    if (!envelope) {
+      return null;
+    }
+
+    const raw =
+      typeof envelope === "object" && envelope !== null && "payload" in envelope
+        ? (envelope as { payload: unknown }).payload
+        : envelope;
     if (!raw) {
       return null;
     }

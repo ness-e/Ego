@@ -17,7 +17,7 @@
 ### Task 1: Blast-radius — inventario total de `adapter.get`
 
 - **Ruta:** ego-arch
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `docs/agent-ops/tasks/C02-blast-radius.md` existe con 0 callers sin clasificar (verificado contra grep)
 
 **Files:**
@@ -45,7 +45,7 @@ git commit -m "docs: blast radius inventory for C02 get() envelope"
 ### Task 2: `unwrapMetadata()` + unit tests
 
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/memory test -- unwrap` PASS (archivo nuevo `packages/memory/test/unwrap-metadata.test.ts`)
 
 **Files:**
@@ -63,7 +63,7 @@ git commit -m "docs: blast radius inventory for C02 get() envelope"
 ### Task 3: `get()` a envelope + tests del paquete memory
 
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/memory test` + `typecheck` exit 0
 
 **Files:**
@@ -79,7 +79,7 @@ git commit -m "docs: blast radius inventory for C02 get() envelope"
 ### Task 4: Migrar callers de knowledge
 
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/knowledge test` exit 0
 
 **Files (del inventario):**
@@ -130,9 +130,53 @@ git commit -m "docs: blast radius inventory for C02 get() envelope"
 === RECITATION 1 ===
 Campaign ID: 
 Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Inventario 82 callers (76 payload/2 metadata/4 mixtos/0 sin clasificar). Commit 1c86755.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 2 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: unwrapMetadata + 8 tests, suite 57/57. Commit 33025c8.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 3 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: get() envelope + tests memory 57/57. Commit 8a8a2e6. Deuda C03: list() sigue tagged.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 4 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: 6 sitios knowledge migrados, suite 29/29. Commit 5f13137.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 5 ===
+Campaign ID: 
+Objetivo activo: 
 Estado: in progress
 Última acción: Estado actualizado a IN PROGRESS
-Resultado: Inicio C02 Task 1: inventario blast-radius
+Resultado: Inicio C02 Task 5: migrar resto de callers
 Próxima acción: 
 Contrato: 
 Próxima tarea si completa: 

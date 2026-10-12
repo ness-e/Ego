@@ -57,10 +57,10 @@ export class DecisionAuditor {
    */
   public async getVerdict(key: string): Promise<DecisionVerdict | null> {
     try {
-      const stored = (await this.adapter.get(this.namespace, key)) as {
+      const stored = ((await this.adapter.get(this.namespace, key))?.payload as {
         type?: string;
         verdict?: unknown;
-      } | null;
+      } | null);
 
       if (!stored?.verdict) {
         return null;

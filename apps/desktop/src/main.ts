@@ -1876,7 +1876,7 @@ export async function createWindow(): Promise<void> {
     }
     const req = parseResult.data;
     if (req.action === "get") {
-      const record = await adapter.get("journal", req.date);
+      const record = (await adapter.get("journal", req.date))?.payload;
       let content = "";
       if (record && typeof record === "object" && "content" in record) {
         content = String((record as { content: unknown }).content || "");

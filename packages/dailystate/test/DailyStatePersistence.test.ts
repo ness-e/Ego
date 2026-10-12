@@ -14,7 +14,8 @@ describe("DailyStatePersistence (DS-08 / COUC-09)", () => {
         storeMap.set(`${item.namespace}:${item.key}`, item.payload);
       }),
       get: vi.fn(async (namespace: string, key: string) => {
-        return storeMap.get(`${namespace}:${key}`) ?? null;
+        const stored = storeMap.get(`${namespace}:${key}`);
+        return stored === undefined ? null : { key, payload: stored, metadata: {} };
       }),
       list: vi.fn(async (namespace: string, limit?: number) => {
         const results: Array<{ key: string; payload: unknown }> = [];

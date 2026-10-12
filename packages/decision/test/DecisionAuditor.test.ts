@@ -48,8 +48,12 @@ describe('DecisionAuditor (DEC-07 - Inmutabilidad en gov/audit)', () => {
 
   it('recupera y valida un veredicto existente desde gov/audit', async () => {
     const getMock = vi.fn().mockResolvedValue({
-      type: 'decision_verdict',
-      verdict: mockVerdict
+      key: 'verdict:550e8400-e29b-41d4-a716-446655440000:1728570000000',
+      payload: {
+        type: 'decision_verdict',
+        verdict: mockVerdict
+      },
+      metadata: {}
     });
 
     const mockAdapter = {

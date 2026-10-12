@@ -13,7 +13,8 @@ describe('TaskMemory (TASK-02 / OCLW-13)', () => {
         storeMap.set(`${item.namespace}:${item.key}`, item.payload);
       }),
       get: vi.fn(async (ns: string, key: string) => {
-        return storeMap.get(`${ns}:${key}`) ?? null;
+        const stored = storeMap.get(`${ns}:${key}`);
+        return stored === undefined ? null : { key, payload: stored, metadata: {} };
       }),
     };
     taskMemory = new TaskMemory(mockAdapter);

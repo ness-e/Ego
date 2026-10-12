@@ -75,7 +75,7 @@ export class DailyStatePersistence {
     if (!raw) return null;
 
     try {
-      const record = DailySnapshotRecordSchema.parse(raw);
+      const record = DailySnapshotRecordSchema.parse(raw.payload);
       // Validar integridad SHA-256
       const actualChecksum = DailyStatePersistence.computeChecksum(record.summary);
       if (actualChecksum !== record.checksum) {

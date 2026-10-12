@@ -90,7 +90,7 @@ export class TaskMemory {
 
   public async getSnapshot(taskId: string): Promise<TaskMemoryData | null> {
     const ns = this.getNamespace(taskId);
-    const result = await this.memoryAdapter.get(ns, 'state');
+    const result = (await this.memoryAdapter.get(ns, 'state'))?.payload;
     if (!result) {
       return null;
     }

@@ -143,7 +143,7 @@ describe("@ego/desktop — Fast-Path ToolExecutionLoop & Real Providers Integrat
       await lifecycle.syncTurn("sess_test_1", "turn_1", "Hola", result.finalText!, []);
 
       // Verificar que se persistió en VantaDB bajo session/turns
-      const storedTurn = (await adapter.get("session/turns", "sess_test_1:turn_1")) as any;
+      const storedTurn = ((await adapter.get("session/turns", "sess_test_1:turn_1"))?.payload as any);
       expect(storedTurn).toBeDefined();
       expect(storedTurn.userPrompt).toBe("Hola");
       expect(storedTurn.assistantReply).toBe(result.finalText);

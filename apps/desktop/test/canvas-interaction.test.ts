@@ -195,7 +195,7 @@ describe("CANV-10: Golden Path Alpha (Pasos 15 al 20) — Dynamic Workspace & Ca
     expect(adapter.ready).toBe(true);
 
     // Recuperar el registro de Canvas
-    const stored = (await adapter.get(`projects/${projectId}`, vantaKey)) as any;
+    const stored = ((await adapter.get(`projects/${projectId}`, vantaKey))?.payload as any);
     expect(stored).not.toBeNull();
     expect(stored?.data).toBeDefined();
 

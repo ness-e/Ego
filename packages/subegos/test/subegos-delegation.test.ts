@@ -240,10 +240,10 @@ describe("Golden Path Alpha — Delegación Multi-Sub-Ego y Cooperación E2E (SU
     expect(recalledLessons[0].actionableRule).toContain("Utilizar siempre claves con prefijo canónico");
 
     // 4. Turno integrado del proyecto persiste intacto
-    const restoredTurn = (await coldAdapter.get(`projects/${projectId}/turns`, "turn:001")) as {
+    const restoredTurn = ((await coldAdapter.get(`projects/${projectId}/turns`, "turn:001"))?.payload as {
       resultSummary: string;
       delegatedWorker: string;
-    };
+    });
     expect(restoredTurn).not.toBeNull();
     expect(restoredTurn.delegatedWorker).toBe("ego.researcher");
     expect(restoredTurn.resultSummary).toBe("Diagnóstico completado con éxito");

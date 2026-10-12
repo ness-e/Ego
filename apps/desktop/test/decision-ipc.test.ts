@@ -27,7 +27,8 @@ describe('Decision Intelligence Layer Desktop Integration (DEC-01..DEC-08)', () 
         inMemoryStorage.set(`${namespace}:${key}`, payload);
       }),
       get: vi.fn().mockImplementation(async (namespace, key) => {
-        return inMemoryStorage.get(`${namespace}:${key}`) || null;
+        const stored = inMemoryStorage.get(`${namespace}:${key}`);
+        return stored === undefined ? null : { key, payload: stored, metadata: {} };
       }),
       list: vi.fn().mockImplementation(async (namespace) => {
         const results = [];

@@ -149,7 +149,7 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
       metadata: { name: validatedProject.name, rootPath: validatedProject.rootPath },
     });
 
-    const storedProject = (await adapter.get("gov/projects", validatedProject.id)) as ProjectManifest;
+    const storedProject = ((await adapter.get("gov/projects", validatedProject.id))?.payload as ProjectManifest);
     expect(storedProject).toBeDefined();
     expect(storedProject.id).toBe("proj_anchor_01");
 
@@ -306,7 +306,7 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     const coldRegistry = new SubEgoRegistry(coldAdapter);
 
     // 1. El proyecto y sus metadatos se restauran idénticos
-    const restoredProject = (await coldAdapter.get("gov/projects", "proj_anchor_01")) as ProjectManifest;
+    const restoredProject = ((await coldAdapter.get("gov/projects", "proj_anchor_01"))?.payload as ProjectManifest);
     expect(restoredProject).not.toBeNull();
     expect(restoredProject.name).toBe("Proyecto Software Ancla");
     expect(restoredProject.activeSubEgoId).toBe("ego.code-reviewer");
@@ -322,19 +322,19 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     expect(persistedFileContent).toBe(serviceContent);
 
     // 4. El artefacto del Canvas persiste en el namespace del proyecto
-    const restoredArtifact = (await coldAdapter.get(
+    const restoredArtifact = ((await coldAdapter.get(
       `projects/${updatedProject.id}/artifacts`,
       "service_module"
-    )) as { summary: string; path: string };
+    ))?.payload as { summary: string; path: string });
     expect(restoredArtifact).not.toBeNull();
     expect(restoredArtifact.path).toBe(fileToWrite);
     expect(restoredArtifact.summary).toContain("Módulo de servicio");
 
     // 5. El registro de auditoría HITL persiste en gov/audit
-    const restoredAudit = (await coldAdapter.get("gov/audit", `hitl:${approvalId}`)) as {
+    const restoredAudit = ((await coldAdapter.get("gov/audit", `hitl:${approvalId}`))?.payload as {
       action: string;
       toolName: string;
-    };
+    });
     expect(restoredAudit).not.toBeNull();
     expect(restoredAudit.action).toBe("approved");
     expect(restoredAudit.toolName).toBe("fs_write_file");

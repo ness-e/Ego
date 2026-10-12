@@ -239,7 +239,15 @@ export class SubEgoRegistry {
     await this.ensureStorageReady();
 
     try {
-      const raw = await this.storage.get(SubEgoRegistry.NAMESPACE, id);
+      const envelope = await this.storage.get(SubEgoRegistry.NAMESPACE, id);
+      if (!envelope) {
+        return null;
+      }
+
+      const raw =
+        typeof envelope === "object" && envelope !== null && "payload" in envelope
+          ? (envelope as { payload: unknown }).payload
+          : envelope;
       if (!raw) {
         return null;
       }
@@ -511,7 +519,11 @@ export class SubEgoRegistry {
       for (const id of this.knownIds) {
         const found = await this.storage.get(SubEgoRegistry.NAMESPACE, id);
         if (found) {
-          const parsed = typeof found === "string" ? JSON.parse(found) : found;
+          const payload =
+            typeof found === "object" && found !== null && "payload" in found
+              ? (found as { payload: unknown }).payload
+              : found;
+          const parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
           recovered.push(parsed);
         }
       }

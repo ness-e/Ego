@@ -31,7 +31,8 @@ describe("Knowledge & Data Desktop Main Integration (Fase 06 / KB-01..11)", () =
         inMemoryStorage.set(`${namespace}:${key}`, { payload, metadata });
       }),
       get: vi.fn().mockImplementation(async (namespace, key) => {
-        return inMemoryStorage.get(`${namespace}:${key}`) || null;
+        const entry = inMemoryStorage.get(`${namespace}:${key}`);
+        return entry ? { key, payload: entry.payload, metadata: entry.metadata ?? {} } : null;
       }),
       delete: vi.fn().mockImplementation(async (namespace, key) => {
         return inMemoryStorage.delete(`${namespace}:${key}`);
