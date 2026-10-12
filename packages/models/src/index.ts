@@ -5,3 +5,5 @@ export * from "./providers/OpenAICompatibleProvider.js";
 export * from "./providers/AiSdkOpenAIProvider.js";
 export * from "./providers/AiSdkAnthropicProvider.js";
 export * from "./providers/AiSdkGoogleProvider.js";
+export * from "./providers/AiSdkOpenAICompatibleProvider.js";
+export * from "./createProductionRouter.js";
