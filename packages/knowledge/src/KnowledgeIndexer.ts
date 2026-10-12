@@ -1,4 +1,4 @@
-import { EgoMemoryAdapter } from "@ego/memory";
+import { EgoMemoryAdapter, type EgoPut } from "@ego/memory";
 import type { Fact, ParsedDocument } from "./schemas/knowledge.js";
 
 export interface IndexDocResult {
@@ -41,9 +41,10 @@ export class KnowledgeIndexer {
 
     let indexed = 0;
     let skipped = 0;
+    const namespace = `kb/docs/${doc.id}`;
+    const pending: EgoPut[] = [];
 
     for (const chunk of doc.chunks) {
-      const namespace = `kb/docs/${doc.id}`;
       const key = `chunk_${chunk.index}`;
 
       // Verificar idempotencia por contentHash para evitar duplicados en reprocesamiento
@@ -65,7 +66,7 @@ export class KnowledgeIndexer {
       }
 
       // Adherencia a VDB-BUG-04: serializar arrays o mapas anidados como string JSON en metadata
-      await this.adapter.put({
+      pending.push({
         namespace,
         key,
         payload: chunk.content,
@@ -88,6 +89,14 @@ export class KnowledgeIndexer {
 
       indexed++;
     }
+
+    // M13: un solo batch por documento (put delega a putMulti: misma normalización,
+    // 1 round-trip en vez de N). Sin pendientes no se escribe nada.
+    if (pending.length > 0) {
+      await this.adapter.putMulti(pending);
+    }
+    // M13: barrera de durabilidad — todo lo indexado queda sincronizado a disco.
+    await this.adapter.flush();
 
     return {
       docId: doc.id,

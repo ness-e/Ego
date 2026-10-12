@@ -9,6 +9,8 @@ describe("KnowledgeIndexer (KB-03)", () => {
   beforeEach(() => {
     mockAdapter = {
       put: vi.fn().mockResolvedValue(undefined),
+      putMulti: vi.fn().mockResolvedValue(undefined),
+      flush: vi.fn().mockResolvedValue(undefined),
       get: vi.fn().mockResolvedValue(null),
     };
     indexer = new KnowledgeIndexer(mockAdapter);
@@ -40,9 +42,12 @@ describe("KnowledgeIndexer (KB-03)", () => {
 
     expect(res.indexedChunks).toBe(1);
     expect(res.skippedDuplicates).toBe(0);
-    expect(mockAdapter.put).toHaveBeenCalledTimes(1);
+    expect(mockAdapter.putMulti).toHaveBeenCalledTimes(1);
+    expect(mockAdapter.flush).toHaveBeenCalledTimes(1);
 
-    const putCall = mockAdapter.put.mock.calls[0][0];
+    const batch = mockAdapter.putMulti.mock.calls[0][0];
+    expect(batch).toHaveLength(1);
+    const putCall = batch[0];
     expect(putCall.namespace).toBe("kb/docs/doc_test_1");
     expect(putCall.key).toBe("chunk_0");
     expect(putCall.metadata.heading_path_json).toBe(JSON.stringify(["Capítulo 1", "Sección A"]));
