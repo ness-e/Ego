@@ -1,4 +1,4 @@
-import { type AdmittedRunContext } from './schemas/verdict.js';
+import { type DecisionRunContext } from './schemas/verdict.js';
 
 export interface DelegationTraceEntry {
   runId: string;
@@ -46,7 +46,7 @@ export class LoopBreaker {
   public evaluate(
     subEgoId: string,
     intentDigest: string,
-    runContext: AdmittedRunContext,
+    runContext: DecisionRunContext,
     confidence: number
   ): LoopBreakCheckResult {
     const entry: DelegationTraceEntry = {

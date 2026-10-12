@@ -1,5 +1,18 @@
 import { z } from 'zod';
+import { validateAdmittedRunContext, toDecisionRunContext } from '@ego/execution';
 import { EgoDomainSchema, PreconditionSchema, AdmittedRunContextSchema } from './verdict.js';
+
+/**
+ * Normaliza el contexto de corrida entrante al wire de decisión (F3T6/H01).
+ * Acepta el `AdmittedRunContext` operativo de `@ego/execution` y lo
+ * proyecta con el adaptador explícito; el resto pasa al esquema Zod.
+ */
+function normalizeRunContextInput(input: unknown): unknown {
+  if (validateAdmittedRunContext(input)) {
+    return toDecisionRunContext(input);
+  }
+  return input;
+}
 
 /**
  * Esquema de petición de evaluación de intención.
@@ -9,11 +22,20 @@ export const IntentRequestSchema = z.object({
   projectId: z.string().default('default'),
   workspacePath: z.string().optional(),
   activeSubEgoId: z.string().default('ego.nucleus'),
-  runContext: AdmittedRunContextSchema.optional(),
+  runContext: z.preprocess(normalizeRunContextInput, AdmittedRunContextSchema).optional(),
   metadata: z.record(z.unknown()).optional()
 });
 
 export type IntentRequest = z.infer<typeof IntentRequestSchema>;
+
+/**
+ * Entrada aceptada por `DecisionRouter.decide` y `DecisionCascade.evaluate`:
+ * igual que `IntentRequest` pero `runContext` admite además el
+ * `AdmittedRunContext` operativo de `@ego/execution` (se normaliza vía
+ * adaptador antes de validar). Las firmas públicas aceptan este tipo
+ * para no exigir casts a los llamadores.
+ */
+export type IntentRequestInput = z.input<typeof IntentRequestSchema>;
 
 /**
  * Entidad extraída de la intención.

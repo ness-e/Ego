@@ -12,8 +12,10 @@ describe('IntentClassifier (DEC-02, COUC-03)', () => {
     });
 
     expect(result.primaryDomain).toBe('engineering');
-    expect(result.suggestedTools).toContain('fs');
-    expect(result.suggestedTools).toContain('git');
+    expect(result.suggestedTools).toContain('fs_read_file');
+    expect(result.suggestedTools).toContain('fs_write_file');
+    expect(result.suggestedTools).toContain('git_status');
+    expect(result.suggestedTools).toContain('git_diff');
     expect(result.confidence).toBeGreaterThanOrEqual(0.9);
     expect(result.intentDigest).toHaveLength(64);
     expect(result.entities.some(e => e.type === 'file' && e.value === 'src/main.ts')).toBe(true);

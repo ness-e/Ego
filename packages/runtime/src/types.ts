@@ -1,5 +1,13 @@
 import type { ModelMessage, ModelRole, ToolCall } from "@ego/models";
 import type { ToolCategory, ToolExecutionContext, ToolRiskLevel } from "@ego/tools";
+import type { ApprovalDecision } from "@ego/execution";
+
+/**
+ * Decisión de aprobación (HITL).
+ * Fuente única: `@ego/execution` (F3T6/M01). Se re-exporta para
+ * compatibilidad de importadores de `@ego/runtime`.
+ */
+export type { ApprovalDecision };
 
 /**
  * Estado terminal o de suspensión del loop cognitivo de ejecución.
@@ -24,15 +32,6 @@ export interface ApprovalRequest {
   sessionId: string;
   subEgoId?: string;
   timestamp: number;
-}
-
-/**
- * Decisión emitida por el usuario o motor de gobernanza.
- */
-export interface ApprovalDecision {
-  approved: boolean;
-  reason?: string;
-  modifiedArguments?: Record<string, unknown>;
 }
 
 /**

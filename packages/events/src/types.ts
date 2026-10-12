@@ -48,7 +48,10 @@ export type EgoEventType =
 
   // Eventos de telemetría de bajo nivel (Nivel A)
   | "fs.write_attempted"
-  | "terminal.output_chunk";
+  | "terminal.output_chunk"
+
+  // Telemetría de ciclo de decisión (DEC-08, F3T6/H03)
+  | "metrics.turn";
 
 /**
  * Severidad o nivel de impacto del evento.
@@ -120,6 +123,8 @@ export interface CanonicalEventPayloadMap {
 
   "fs.write_attempted": { path: string; sizeBytes: number; isAtomic: boolean; backupCreated: boolean };
   "terminal.output_chunk": { pid: number; chunkLength: number; isThrottled: boolean };
+
+  "metrics.turn": { runId: string; latencyMs: number; stage: string; withinBudget: boolean };
 }
 
 /**

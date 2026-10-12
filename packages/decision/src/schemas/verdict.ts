@@ -1,18 +1,29 @@
 import { z } from 'zod';
+import type { DecisionRunContext } from '@ego/execution';
+
+export type { DecisionRunContext };
 
 /**
- * Esquema de contexto inmutable de admisión (OCLW-01).
- * Traza la autoridad de ejecución, profundidad recursiva e identidad de corrida.
+ * Alias histórico de `DecisionRunContext` (F3T6/H01).
+ * El tipo canónico vive en `@ego/execution` (fuente única); este esquema
+ * Zod valida en runtime que el wire lo cumple exactamente.
+ *
+ * @deprecated Usar `DecisionRunContext` importado de `@ego/execution`.
  */
-export const AdmittedRunContextSchema = z.object({
+export type AdmittedRunContext = DecisionRunContext;
+
+/**
+ * Esquema del contexto inmutable de admisión (OCLW-01).
+ * Traza la autoridad de ejecución, profundidad recursiva e identidad de corrida.
+ * Valida exactamente `DecisionRunContext` (ver anotación `ZodType`).
+ */
+export const AdmittedRunContextSchema: z.ZodType<DecisionRunContext, z.ZodTypeDef, unknown> = z.object({
   runId: z.string().uuid(),
   timestamp: z.number().int().positive(),
   depth: z.number().int().min(0).default(0),
   parentRunId: z.string().uuid().optional(),
   origin: z.enum(['user_prompt', 'subego_delegation', 'background_task', 'system']).default('user_prompt')
 });
-
-export type AdmittedRunContext = z.infer<typeof AdmittedRunContextSchema>;
 
 /**
  * Esquema de precondición causal (COUC-03).

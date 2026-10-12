@@ -12,7 +12,7 @@ describe('DecisionAuditor (DEC-07 - Inmutabilidad en gov/audit)', () => {
     namespaceTargets: ['proj/test-1', 'agent/ego.dev'],
     requiresApproval: false,
     llmTier: 'fast',
-    toolsEnabled: ['fs', 'git'],
+    toolsEnabled: ['fs_read_file', 'git_status'],
     confidence: 0.96,
     decidedBy: 'deterministic_rule',
     preconditions: [{ name: 'project_active', satisfied: true }],

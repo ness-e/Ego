@@ -35,6 +35,116 @@ export interface AdmittedRunContext {
   readonly metadata: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * Origen de decisión canónico: proyección wire mínima de `AdmissionSource`
+ * que viaja en los veredictos de la Decision Intelligence Layer (F3T6/H01).
+ *
+ * Fuente única del vocabulario: las tablas `ADMISSION_SOURCE_TO_ORIGIN` y
+ * `ORIGIN_TO_ADMISSION_SOURCE` de este módulo. `packages/decision` valida
+ * esta forma con Zod (`AdmittedRunContextSchema`) pero NO re-declara el tipo:
+ * lo re-exporta desde aquí.
+ */
+export type DecisionRunOrigin =
+  | "user_prompt"
+  | "subego_delegation"
+  | "background_task"
+  | "system";
+
+/**
+ * Proyección wire mínima del contexto admitido que viaja en veredictos.
+ * Tipo canónico compartido por `@ego/execution` y `@ego/decision`.
+ */
+export interface DecisionRunContext {
+  readonly runId: string;
+  readonly timestamp: number;
+  readonly depth: number;
+  readonly parentRunId?: string;
+  readonly origin: DecisionRunOrigin;
+}
+
+/**
+ * Mapeo canónico AdmissionSource → DecisionRunOrigin (inyectivo salvo
+ * orígenes de sistema, que colapsan a `system`).
+ */
+export const ADMISSION_SOURCE_TO_ORIGIN: Record<AdmissionSource, DecisionRunOrigin> = {
+  "user-chat": "user_prompt",
+  "sub-ego": "subego_delegation",
+  "background-task": "background_task",
+  "system-hook": "system",
+  "operator-schedule": "system",
+  "requester-schedule": "system",
+};
+
+/**
+ * Mapeo canónico inverso DecisionRunOrigin → AdmissionSource.
+ */
+export const ORIGIN_TO_ADMISSION_SOURCE: Record<DecisionRunOrigin, AdmissionSource> = {
+  user_prompt: "user-chat",
+  subego_delegation: "sub-ego",
+  background_task: "background-task",
+  system: "system-hook",
+};
+
+/**
+ * Claves de metadata que preservan la proyección de decisión al re-admitir
+ * un `DecisionRunContext` como `AdmittedRunContext` operativo.
+ */
+export const DECISION_DEPTH_METADATA_KEY = "decisionDepth";
+export const DECISION_ORIGIN_METADATA_KEY = "decisionOrigin";
+export const DECISION_TIMESTAMP_METADATA_KEY = "decisionTimestamp";
+
+/**
+ * Proyecta un contexto de ejecución admitido al wire de decisión.
+ * No lanza: la profundidad ausente o inválida degrada a 0.
+ */
+export function toDecisionRunContext(ctx: AdmittedRunContext): DecisionRunContext {
+  const rawDepth: unknown = ctx.metadata[DECISION_DEPTH_METADATA_KEY];
+  const depth =
+    typeof rawDepth === "number" && Number.isInteger(rawDepth) && rawDepth >= 0
+      ? rawDepth
+      : 0;
+  return {
+    runId: ctx.operationalRunInstance.runId,
+    timestamp: ctx.createdAt,
+    depth,
+    parentRunId: ctx.parentRunId,
+    origin: ADMISSION_SOURCE_TO_ORIGIN[ctx.admissionSource],
+  };
+}
+
+export interface FromDecisionRunContextOverrides {
+  readonly instanceId?: string;
+  readonly traceId?: string;
+  readonly priority?: number;
+  readonly metadata?: Record<string, unknown>;
+}
+
+/**
+ * Re-admite un contexto de decisión como contexto operativo de ejecución.
+ * Acto de admisión nuevo (nuevo token e `instanceId` salvo override):
+ * preserva `runId`, `parentRunId` y origen, y porta `depth`/`origin`/
+ * `timestamp` en metadata para que `toDecisionRunContext` los recupere.
+ */
+export function fromDecisionRunContext(
+  dec: DecisionRunContext,
+  overrides: FromDecisionRunContextOverrides = {}
+): AdmittedRunContext {
+  return createAdmittedRunContext({
+    instanceId: overrides.instanceId,
+    runId: dec.runId,
+    admissionSource: ORIGIN_TO_ADMISSION_SOURCE[dec.origin],
+    traceId: overrides.traceId,
+    parentRunId: dec.parentRunId,
+    priority: overrides.priority ?? 0,
+    metadata: {
+      ...(overrides.metadata ?? {}),
+      [DECISION_DEPTH_METADATA_KEY]: dec.depth,
+      [DECISION_ORIGIN_METADATA_KEY]: dec.origin,
+      [DECISION_TIMESTAMP_METADATA_KEY]: dec.timestamp,
+    },
+  });
+}
+
 export interface CreateAdmittedRunContextOptions {
   instanceId?: string;
   runId?: string;

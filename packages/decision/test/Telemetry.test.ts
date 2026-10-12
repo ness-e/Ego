@@ -1,8 +1,36 @@
 import { describe, it, expect, vi } from 'vitest';
 import { DecisionTelemetry } from '../src/Telemetry.js';
-import { type EventBus } from '@ego/events';
+import { type EventBus, type CanonicalEventPayloadMap } from '@ego/events';
 
 describe('DecisionTelemetry (DEC-08 — Medición de Latencias y Percentiles)', () => {
+  it('emite metrics.turn conforme al mapa canónico de eventos (F3T6/H03)', () => {
+    const emitMock = vi.fn();
+    const mockBus = { emit: emitMock } as unknown as EventBus;
+
+    const telemetry = new DecisionTelemetry(mockBus);
+    telemetry.record({
+      runId: 'run-1',
+      intentId: 'intent-1',
+      classifyMs: 2,
+      subEgoSelectMs: 1,
+      preconditionsMs: 1,
+      totalDecisionMs: 14,
+      decidedBy: 'deterministic_rule'
+    });
+
+    const expectedPayload: CanonicalEventPayloadMap['metrics.turn'] = {
+      runId: 'run-1',
+      latencyMs: 14,
+      stage: 'decision_layer',
+      withinBudget: true
+    };
+    expect(emitMock).toHaveBeenCalledWith(
+      'metrics.turn',
+      expectedPayload,
+      expect.objectContaining({ severity: 'info' })
+    );
+  });
+
   it('registra métricas dentro de presupuesto (<= 150ms) y emite evento al EventBus', () => {
     const emitMock = vi.fn();
     const mockBus = { emit: emitMock } as unknown as EventBus;

@@ -1,4 +1,6 @@
 import { type EgoDomain } from '../schemas/verdict.js';
+import { resolveSubEgoId } from '../routing/domainSubEgoMap.js';
+import { FS_TOOLS, GIT_TOOLS, TERMINAL_EXEC_TOOL } from '../canonicalTools.js';
 
 export interface DeterministicRuleMatch {
   domain: EgoDomain;
@@ -18,8 +20,8 @@ export class DeterministicRules {
     if (/^(git\s+|hacer\s+commit|crear\s+rama|hacer\s+push|hacer\s+pull|revisar\s+diff)/.test(text)) {
       return {
         domain: 'engineering',
-        subEgoId: 'ego.dev',
-        tools: ['fs', 'git', 'terminal'],
+        subEgoId: resolveSubEgoId('engineering'),
+        tools: [...FS_TOOLS, ...GIT_TOOLS, TERMINAL_EXEC_TOOL],
         confidence: 1.0
       };
     }
@@ -28,8 +30,8 @@ export class DeterministicRules {
     if (/^(pnpm|npm|yarn|cargo|node|tsc|pytest|vitest|build|compilar|ejecutar\s+tests?)\b/.test(text)) {
       return {
         domain: 'engineering',
-        subEgoId: 'ego.dev',
-        tools: ['fs', 'terminal'],
+        subEgoId: resolveSubEgoId('engineering'),
+        tools: [...FS_TOOLS, TERMINAL_EXEC_TOOL],
         confidence: 1.0
       };
     }
@@ -38,7 +40,7 @@ export class DeterministicRules {
     if (/^(buscar|consultar|recuperar|memoria|qué\s+es|definición\s+de|documentación\s+de)\b/.test(text)) {
       return {
         domain: 'knowledge',
-        subEgoId: 'ego.research',
+        subEgoId: resolveSubEgoId('knowledge'),
         tools: [],
         confidence: 1.0
       };
@@ -48,7 +50,7 @@ export class DeterministicRules {
     if (/^(backlog|roadmap|plan\s+de|especificación|user\s+story|crear\s+tarea)\b/.test(text)) {
       return {
         domain: 'product',
-        subEgoId: 'ego.pm',
+        subEgoId: resolveSubEgoId('product'),
         tools: [],
         confidence: 0.95
       };
@@ -58,7 +60,7 @@ export class DeterministicRules {
     if (/^(métrica|analytics|telemetría|latencia|graficar|kpis?)\b/.test(text)) {
       return {
         domain: 'analytics',
-        subEgoId: 'ego.analyst',
+        subEgoId: resolveSubEgoId('analytics'),
         tools: [],
         confidence: 0.95
       };

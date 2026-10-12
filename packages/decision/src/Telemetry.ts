@@ -50,7 +50,7 @@ export class DecisionTelemetry {
 
     if (this.eventBus) {
       this.eventBus.emit(
-        'metrics.turn' as unknown as any,
+        'metrics.turn',
         {
           runId: fullMetrics.runId,
           latencyMs: fullMetrics.totalDecisionMs,

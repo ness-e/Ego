@@ -13,8 +13,8 @@ describe('SubEgoSelector (DEC-05)', () => {
     description: 'Especialista en código, terminal y git',
     systemPrompt: 'Eres un ingeniero de software senior.',
     responsibilities: ['Escribir código'],
-    capabilities: ['fs', 'git', 'terminal'],
-    tools: ['fs', 'git', 'terminal'],
+    capabilities: ['fs_read_file', 'fs_write_file', 'git_status', 'git_diff', 'terminal_exec'],
+    tools: ['fs_read_file', 'fs_write_file', 'git_status', 'git_diff', 'terminal_exec'],
     permissions: [],
     namespaces: { read: [], write: [] },
     behavior: { tone: 'analytical', proactivity: 'moderate', verbosity: 'balanced' },
@@ -63,7 +63,7 @@ describe('SubEgoSelector (DEC-05)', () => {
       urgency: 'normal',
       confidence: 0.95,
       entities: [],
-      suggestedTools: ['fs', 'git'],
+      suggestedTools: ['fs_read_file', 'git_status'],
       preconditions: [],
       requiresApproval: false
     };
@@ -71,7 +71,7 @@ describe('SubEgoSelector (DEC-05)', () => {
     const result = selector.select(intent, [mockDevSubEgo, mockResearchSubEgo]);
     expect(result.selectedSubEgoId).toBe('ego.dev');
     expect(result.affinityScore).toBeGreaterThanOrEqual(0.70);
-    expect(result.allowedTools).toEqual(['fs', 'git']);
+    expect(result.allowedTools).toEqual(['fs_read_file', 'git_status']);
   });
 
   it('ignora Sub-Egos pausados o inactivos', () => {
@@ -83,7 +83,7 @@ describe('SubEgoSelector (DEC-05)', () => {
       urgency: 'normal',
       confidence: 0.95,
       entities: [],
-      suggestedTools: ['fs'],
+      suggestedTools: ['fs_read_file'],
       preconditions: [],
       requiresApproval: false
     };

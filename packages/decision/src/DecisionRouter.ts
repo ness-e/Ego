@@ -1,15 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import {
   type DecisionVerdict,
-  type AdmittedRunContext,
+  type DecisionRunContext,
   DecisionVerdictSchema
 } from './schemas/verdict.js';
 import {
   type IntentRequest,
+  type IntentRequestInput,
   type ClassifiedIntent,
   IntentRequestSchema
 } from './schemas/intent.js';
 import { IntentClassifier } from './IntentClassifier.js';
+import { DOMAIN_SUB_EGO_MAP, DEFAULT_SUB_EGO_ID } from './routing/domainSubEgoMap.js';
 
 export interface DecisionRouterOptions {
   classifier?: IntentClassifier;
@@ -23,34 +25,29 @@ export class DecisionRouter {
   constructor(options: DecisionRouterOptions = {}) {
     this.classifier = options.classifier ?? new IntentClassifier();
     this.subEgoMapping = options.defaultSubEgoMapping ?? {
-      engineering: 'ego.dev',
-      knowledge: 'ego.research',
-      product: 'ego.pm',
-      analytics: 'ego.analyst',
-      crm: 'ego.crm',
-      general: 'ego.nucleus'
+      ...DOMAIN_SUB_EGO_MAP
     };
   }
 
   /**
    * Evalúa y decide deterministamente el enrutamiento de una solicitud de usuario o tarea (DEC-01).
    */
-  public async decide(rawRequest: IntentRequest): Promise<DecisionVerdict> {
-    const request = IntentRequestSchema.parse(rawRequest);
+  public async decide(rawRequest: IntentRequestInput): Promise<DecisionVerdict> {
+    const request: IntentRequest = IntentRequestSchema.parse(rawRequest);
 
     // 1. Clasificación causal e identificación (COUC-03)
     const classified: ClassifiedIntent = this.classifier.classify(request);
 
     // 2. Contexto de admisión inmutable (OCLW-01)
-    const admittedRunContext: AdmittedRunContext = request.runContext ?? {
+    const admittedRunContext: DecisionRunContext = request.runContext ?? {
       runId: randomUUID(),
       timestamp: Date.now(),
       depth: 0,
       origin: 'user_prompt'
     };
 
-    // 3. Resolución de Sub-Ego sugerido por dominio
-    const subEgoId = this.subEgoMapping[classified.primaryDomain] ?? 'ego.nucleus';
+    // 3. Resolución de Sub-Ego sugerido por dominio (tabla única F3T6/M03)
+    const subEgoId = this.subEgoMapping[classified.primaryDomain] ?? DEFAULT_SUB_EGO_ID;
 
     // 4. Configuración de namespaces de memoria
     const namespaceTargets = [

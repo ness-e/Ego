@@ -1,17 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import {
   type DecisionVerdict,
-  type AdmittedRunContext,
+  type DecisionRunContext,
   type EgoDomain,
   DecisionVerdictSchema
 } from './schemas/verdict.js';
 import {
   type IntentRequest,
+  type IntentRequestInput,
   type ClassifiedIntent,
   IntentRequestSchema
 } from './schemas/intent.js';
 import { IntentClassifier } from './IntentClassifier.js';
 import { DeterministicRules } from './rules/DeterministicRules.js';
+import { resolveSubEgoId } from './routing/domainSubEgoMap.js';
 import { type DecisionScorerProvider } from './providers/DecisionScorerProvider.js';
 
 export interface DecisionCascadeOptions {
@@ -45,11 +47,11 @@ export class DecisionCascade {
     this.llmFallbackFn = options.llmFallbackFn;
   }
 
-  public async evaluate(rawRequest: IntentRequest): Promise<DecisionVerdict> {
-    const request = IntentRequestSchema.parse(rawRequest);
+  public async evaluate(rawRequest: IntentRequestInput): Promise<DecisionVerdict> {
+    const request: IntentRequest = IntentRequestSchema.parse(rawRequest);
     const classified: ClassifiedIntent = this.classifier.classify(request);
 
-    const admittedRunContext: AdmittedRunContext = request.runContext ?? {
+    const admittedRunContext: DecisionRunContext = request.runContext ?? {
       runId: randomUUID(),
       timestamp: Date.now(),
       depth: 0,
@@ -99,7 +101,7 @@ export class DecisionCascade {
 
         if (scorerResult && scorerResult.confidence >= 0.75) {
           const domain = (scorerResult.chosenOption as EgoDomain) || classified.primaryDomain;
-          const subEgoId = domain === 'engineering' ? 'ego.dev' : domain === 'knowledge' ? 'ego.research' : 'ego.nucleus';
+          const subEgoId = resolveSubEgoId(domain);
 
           return DecisionVerdictSchema.parse({
             intentId: classified.intentId,
@@ -161,7 +163,7 @@ export class DecisionCascade {
       intentId: classified.intentId,
       intentDigest: classified.intentDigest,
       domain: classified.primaryDomain,
-      subEgoId: classified.primaryDomain === 'engineering' ? 'ego.dev' : 'ego.nucleus',
+      subEgoId: resolveSubEgoId(classified.primaryDomain),
       namespaceTargets,
       requiresApproval: classified.requiresApproval,
       llmTier: 'advanced',

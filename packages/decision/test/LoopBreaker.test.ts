@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LoopBreaker } from '../src/LoopBreaker.js';
-import { type AdmittedRunContext } from '../src/schemas/verdict.js';
+import { type DecisionRunContext } from '../src/schemas/verdict.js';
 
 describe('LoopBreaker (DEC-06, OCLW-02, HERM-03)', () => {
   let breaker: LoopBreaker;
@@ -9,7 +9,7 @@ describe('LoopBreaker (DEC-06, OCLW-02, HERM-03)', () => {
     breaker = new LoopBreaker({ maxDepth: 4 });
   });
 
-  const createContext = (depth: number, runId = '550e8400-e29b-41d4-a716-446655440000'): AdmittedRunContext => ({
+  const createContext = (depth: number, runId = '550e8400-e29b-41d4-a716-446655440000'): DecisionRunContext => ({
     runId,
     timestamp: Date.now(),
     depth,

@@ -14,7 +14,8 @@ describe('DecisionCascade (DEC-03 — Reglas -> Jev -> LLM)', () => {
     expect(verdict.decidedBy).toBe('deterministic_rule');
     expect(verdict.domain).toBe('engineering');
     expect(verdict.subEgoId).toBe('ego.dev');
-    expect(verdict.toolsEnabled).toContain('git');
+    expect(verdict.toolsEnabled).toContain('git_status');
+    expect(verdict.toolsEnabled).toContain('fs_read_file');
     expect(verdict.confidence).toBe(1.0);
   });
 

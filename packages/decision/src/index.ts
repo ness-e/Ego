@@ -1,5 +1,7 @@
 export * from './schemas/verdict.js';
 export * from './schemas/intent.js';
+export * from './routing/domainSubEgoMap.js';
+export * from './canonicalTools.js';
 export * from './IntentClassifier.js';
 export * from './DecisionRouter.js';
 export * from './DecisionCascade.js';

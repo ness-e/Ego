@@ -6,6 +6,7 @@ import {
   ClassifiedIntentSchema
 } from './schemas/intent.js';
 import { type Precondition, type EgoDomain } from './schemas/verdict.js';
+import { FS_TOOLS, GIT_TOOLS, TERMINAL_EXEC_TOOL } from './canonicalTools.js';
 
 export interface IntentClassifierOptions {
   strictPreconditions?: boolean;
@@ -111,10 +112,10 @@ export class IntentClassifier {
 
     const tools: string[] = [];
     if (hasFiles || hasGit) {
-      tools.push('fs');
-      if (hasGit) tools.push('git');
+      tools.push(...FS_TOOLS);
+      if (hasGit) tools.push(...GIT_TOOLS);
       if (/\b(terminal|npm|pnpm|cargo|test|build|ejecutar|run)\b/.test(normalizedPrompt)) {
-        tools.push('terminal');
+        tools.push(TERMINAL_EXEC_TOOL);
       }
     }
 
@@ -192,7 +193,7 @@ export class IntentClassifier {
       return true;
     }
     // Modificación de archivos o ejecución de comandos en terminal
-    if (suggestedTools.includes('terminal') || /\b(escribir|modificar|actualizar|sobrescribir|write)\b/.test(normalizedPrompt)) {
+    if (suggestedTools.includes(TERMINAL_EXEC_TOOL) || /\b(escribir|modificar|actualizar|sobrescribir|write)\b/.test(normalizedPrompt)) {
       return true;
     }
     return false;
@@ -210,7 +211,10 @@ export class IntentClassifier {
     });
 
     // Precondición 2: Workspace disponible para herramientas de disco
-    if (suggestedTools.includes('fs') || suggestedTools.includes('git') || suggestedTools.includes('terminal')) {
+    const needsWorkspace = suggestedTools.some(
+      (tool) => FS_TOOLS.includes(tool) || GIT_TOOLS.includes(tool) || tool === TERMINAL_EXEC_TOOL
+    );
+    if (needsWorkspace) {
       const hasWorkspace = Boolean(request.workspacePath && request.workspacePath.trim().length > 0);
       preconditions.push({
         name: 'workspace_available',
