@@ -58,9 +58,12 @@ export interface ModelGenerateOptions {
 }
 
 export interface ModelStreamChunk {
-  type: "text-delta" | "reasoning-delta" | "error" | "finish";
+  type: "text-delta" | "reasoning-delta" | "tool-call-delta" | "error" | "finish";
   delta?: string;
   finishReason?: string;
+  toolCallId?: string;
+  toolName?: string;
+  argsDelta?: string;
   usage?: {
     promptTokens: number;
     completionTokens: number;

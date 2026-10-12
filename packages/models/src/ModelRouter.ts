@@ -193,6 +193,32 @@ export class ModelRouter {
       isLocal: true,
     });
 
+    // 5. Gemini 2.0 Flash (Cloud via AI SDK @ai-sdk/google, Task 7)
+    // Coste 0 pendiente de confirmación contra registry (ver Task 4 notes).
+    this.registerModel({
+      id: "gemini-2.0-flash",
+      provider: "google",
+      displayName: "Gemini 2.0 Flash",
+      contextWindow: 1048576,
+      costPerInputTokenUsd: 0,
+      costPerOutputTokenUsd: 0,
+      capabilities: new Set(["text", "vision", "tool_calling", "streaming"]),
+      isLocal: false,
+    });
+
+    // 6. DeepSeek Chat (Cloud OpenAI-compatible, Task 8)
+    // Coste 0 pendiente de confirmación contra registry (ver Task 4 notes).
+    this.registerModel({
+      id: "deepseek-chat",
+      provider: "deepseek",
+      displayName: "DeepSeek Chat",
+      contextWindow: 64000,
+      costPerInputTokenUsd: 0,
+      costPerOutputTokenUsd: 0,
+      capabilities: new Set(["text", "tool_calling", "streaming", "coding.high"]),
+      isLocal: false,
+    });
+
     // Asignación de candidatos prioritarios por rol
     this.bindRole("fast-classifier", ["llama3.2:3b", "gpt-4o", "mock-core"]);
     this.bindRole("reasoning-heavy", ["claude-3-5-sonnet-20241022", "gpt-4o", "mock-core"]);
