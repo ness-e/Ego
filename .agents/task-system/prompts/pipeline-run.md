@@ -88,7 +88,7 @@ estancadas.
       | ego-chaos | `ego-chaos` |
       | ego-docs | `ego-docs` |
       | ego-lead / CI / release / packaging | `ego-lead` |
-      | (sin Ruta o desconocida) | `campaign_detect_task_type` (MCP) → rust: `ego-worker`, frontend: `general`, python/ts: `ego-worker`, server/security: `ego-audit`, docs: `ego-docs`, default: `general` |
+      | (sin Ruta o desconocida) | `campaign_detect_task_type` (MCP) → rust: `ego-worker`, frontend: `general`, python/ts: `ego-worker`, server/security: `ego-audit`, docs: `ego-docs`, default: `general` — el fallback a `general` exige el paquete de 10 bloques COMPLETO (§6.f); sin packet es ⚠️ SIN-FORMATO |
 
       Si la `Ruta` trae paréntesis (ej: "ego-worker (con revisión ego-audit)"),
       tomá SOLO el primer token. La revisión secundaria la hace tu post-check (paso i).

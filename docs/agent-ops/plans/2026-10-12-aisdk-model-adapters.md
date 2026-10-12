@@ -13,6 +13,9 @@
 ---
 
 ### Task 1: Reproducir C01 con test de contrato (TDD rojo)
+- **Ruta:** ego-worker
+- **Estado:** ✅ COMPLETED
+- **Contrato:** `pnpm --filter @ego/models test -- ProviderToolCalling` → 1 failed (rojo TDD)
 
 **Files:**
 - Create: `packages/models/test/ProviderToolCalling.contract.test.ts`
@@ -66,6 +69,9 @@ git commit -m "test: add failing C01 tool-calling contract"
 ---
 
 ### Task 2: Fix mínimo C01 en `OpenAICompatibleProvider` (adaptador directo legacy)
+- **Ruta:** ego-worker
+- **Estado:** ✅ COMPLETED
+- **Contrato:** `pnpm --filter @ego/models test -- ProviderToolCalling` PASS + `pnpm --filter @ego/models typecheck` exit 0 + suite 13/13
 
 **Files:**
 - Modify: `packages/models/src/providers/OpenAICompatibleProvider.ts:54-108` (generate), `:121-208` (stream)
@@ -114,6 +120,9 @@ git commit -m "fix: wire tools/tool_calls in OpenAICompatibleProvider (C01)"
 ---
 
 ### Task 3: Pinear deps AI SDK en `@ego/models`
+- **Ruta:** ego-lead
+- **Estado:** ⬜ PENDING
+- **Contrato:** `pnpm --filter @ego/models typecheck` exit 0 con deps AI SDK instaladas
 
 **Files:**
 - Modify: `packages/models/package.json:19-26`
@@ -151,6 +160,9 @@ git commit -m "chore: pin ai sdk adapters in @ego/models"
 ---
 
 ### Task 4: Extender tipos (chunk `tool-call-delta` + descriptores Google/DeepSeek)
+- **Ruta:** ego-arch
+- **Estado:** ⬜ PENDING
+- **Contrato:** `pnpm --filter @ego/models typecheck` exit 0 (chunk tool-call-delta aditivo)
 
 **Files:**
 - Modify: `packages/models/src/types.ts:60-69,12`
@@ -188,6 +200,9 @@ git commit -m "feat: extend stream chunk with tool-call-delta and google/deepsee
 ---
 
 ### Task 5: `AiSdkOpenAIProvider` (OpenAI + baseURL custom)
+- **Ruta:** ego-worker
+- **Estado:** ⬜ PENDING
+- **Contrato:** `pnpm --filter @ego/models test -- AiSdkProviders` PASS + typecheck exit 0
 
 **Files:**
 - Create: `packages/models/src/providers/AiSdkOpenAIProvider.ts`
@@ -278,6 +293,9 @@ git commit -m "feat: add AiSdkOpenAIProvider with tool calling"
 ---
 
 ### Task 6: `AiSdkAnthropicProvider` (Claude, formato nativo vía SDK)
+- **Ruta:** ego-worker
+- **Estado:** ⬜ PENDING
+- **Contrato:** test providerId anthropic PASS + typecheck exit 0
 
 **Files:**
 - Create: `packages/models/src/providers/AiSdkAnthropicProvider.ts`
@@ -286,6 +304,9 @@ git commit -m "feat: add AiSdkOpenAIProvider with tool calling"
 Igual estructura que Task 5 con `createAnthropic({ apiKey, baseURL })`. El SDK absorbe la diferencia `tool_use` vs `tool_calls`; el borde Ego es idéntico (mismos `toTools/toMessages/toToolChoice`, mismo parseo). Añadir test `providerId === "anthropic"` + indisponible sin key. Commit `feat: add AiSdkAnthropicProvider`.
 
 ### Task 7: `AiSdkGoogleProvider` (Gemini)
+- **Ruta:** ego-worker
+- **Estado:** ⬜ PENDING
+- **Contrato:** test providerId google PASS + typecheck exit 0
 
 **Files:**
 - Create: `packages/models/src/providers/AiSdkGoogleProvider.ts`
@@ -294,6 +315,9 @@ Igual estructura que Task 5 con `createAnthropic({ apiKey, baseURL })`. El SDK a
 Igual con `createGoogleGenerativeAI({ apiKey, baseURL })`, `providerId "google"`. Commit `feat: add AiSdkGoogleProvider`.
 
 ### Task 8: Compatibles (DeepSeek/Ollama/LMStudio) vía SDK + factory
+- **Ruta:** ego-worker
+- **Estado:** ⬜ PENDING
+- **Contrato:** `pnpm --filter @ego/models test -- createProductionRouter` PASS (sin keys → mock)
 
 **Files:**
 - Create: `packages/models/src/providers/AiSdkOpenAICompatibleProvider.ts` (wrapper `providerId` param: `deepseek | ollama`, `baseURL` + `apiKey`, delegado interno a `AiSdkOpenAIProvider`)
@@ -306,6 +330,9 @@ Commits: `feat: add openai-compatible SDK wrapper` + `feat: add createProduction
 ---
 
 ### Task 9: Recablear `main.ts` (keys en main, nunca renderer)
+- **Ruta:** ego-desktop
+- **Estado:** ⬜ PENDING
+- **Contrato:** `pnpm --filter @ego/desktop typecheck` + `test -- ipc-tool-loop` PASS sin keys reales
 
 **Files:**
 - Modify: `apps/desktop/src/main.ts:308-382` (`setupModelProviders`, `applyModelConfig`, `currentModelConfig`), `:596-612` (init + restore `gov/settings` cifrado), `:1251` (IPC settings)
@@ -332,6 +359,9 @@ git commit -m "feat: wire AI SDK providers with safeStorage BYOK in main"
 ---
 
 ### Task 10: Settings/IPC/preload para nuevas keys (zod + masked)
+- **Ruta:** ego-desktop
+- **Estado:** ⬜ PENDING
+- **Contrato:** settings rechaza payload sin schema y nunca retorna key completa
 
 **Files:**
 - Modify: `apps/desktop/src/main.ts:1251` (canales settings), `apps/desktop/src/preload.ts:8`, `apps/desktop/src/ipc.ts:2`, `apps/desktop/renderer/lib/ego.ts`, `apps/desktop/renderer/components/*settings*`
@@ -342,6 +372,9 @@ Añadir campos `anthropicKey/googleKey` opcionales al schema existente, guardar 
 ---
 
 ### Task 11: `ToolExecutionLoop` + streaming turno a turno (sin tocar Runtime)
+- **Ruta:** ego-engine
+- **Estado:** ⬜ PENDING
+- **Contrato:** `pnpm --filter @ego/runtime test -- ToolExecutionLoop-ai-sdk` PASS sin SIMULATE_TOOL
 
 **Files:**
 - Modify: none en Runtime (ya pasa `tools` y repara texto). Solo verificar.
@@ -354,6 +387,9 @@ Expected: PASS. Commit `test: prove real toolCalls path without SIMULATE_TOOL`.
 ---
 
 ### Task 12: Puerta de calidad + deuda
+- **Ruta:** ego-lead
+- **Estado:** ⬜ PENDING
+- **Contrato:** `pnpm typecheck && pnpm -r test && pnpm build` exit 0
 
 **Files:**
 - Modify: `docs/roadmap/Backlog.md` (nota en `INT-02`: superseded por AI SDK, mantiene bootstrap env; link a `SEC-03` para Credential Manager con `keytar`)
@@ -376,9 +412,20 @@ Commit final: `docs: record AI SDK adapters superseding INT-02 direct wiring`.
 === RECITATION 1 ===
 Campaign ID: 
 Objetivo activo: 
-Estado: in progress
-Última acción: Estado actualizado a IN PROGRESS
-Resultado: Inicio Task 1: test contrato C01 (TDD rojo)
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Test contrato C01 creado y verificado en rojo (body.tools undefined). Commit e4f37b9.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 2 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Fix C01 verificado: contract PASS, typecheck exit 0, suite 13/13. Commit 54a6a8c.
 Próxima acción: 
 Contrato: 
 Próxima tarea si completa: 

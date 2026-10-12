@@ -134,6 +134,8 @@ Task ID: {id extraído después de "task "}
       búsqueda puntual). NO fragmentar por step: la delegación cubre la fase
       pesada completa (R4: SARL RESUME ya conserva contexto del ejecutor).
    5. Delegate: `task(subagent_type="ego-<area>", prompt="...")` con entry point, acceptance criteria, y verification command, usando la plantilla completa de `prompts/pipeline-run.md` §6.f (Contexto verificado + Estado del task file)
+
+   **4b. DISPATCH PACKET obligatorio (no salteable):** todo `task()` lleva los 10 bloques de `pipeline-run.md` §6.f (TAREA, ARCHIVOS, DEPENDENCIAS, REFERENCIAS, SKILLS, HERRAMIENTAS+MCP, INV-CÓDIGO, INV-PROBLEMA, INV-INTERNET, VALIDACIÓN+CIERRE) + checklist pre-spawn §6 (cero placeholders, WIP prohibido, contrato mecánico exacto). Un dispatch sin los 10 bloques es ⚠️ SIN-FORMATO: el worker debe pedirlo vía RESUME antes de codificar. Fallback a `general` exige paquete COMPLETO (es cuando más se necesita). Prohibido prompt inline.
 5. Review: el sub-agente devuelve resultado, revisalo. Si el resultado es INCOMPLETO,
        FAILED, vacío o "se detuvo solo" → aplicá la escalera `prompts/subagent-recovery.md`
        (RESUME misma sesión con `task_id` → RETRY fresco → STRATEGY → ESCALATE). Nunca rehagas
