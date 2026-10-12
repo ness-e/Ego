@@ -1,7 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HybridSearch } from "../src/HybridSearch.js";
-import { CosineThresholdFilter } from "../src/filters/CosineThresholdFilter.js";
+import { ScoreThresholdFilter } from "../src/filters/ScoreThresholdFilter.js";
 import { FactExtractor } from "../src/extractors/FactExtractor.js";
+import type { SearchHit } from "@ego/memory";
+
+const hit = (key: string, score: number): SearchHit =>
+  ({
+    record: {
+      namespace: "kb/docs",
+      key,
+      payload: `Contenido ${key}`,
+      metadata: {},
+      created_at_ms: 0,
+      updated_at_ms: 0,
+      version: 1,
+      node_id: key,
+    },
+    score,
+  }) as SearchHit;
 
 describe("HybridSearch & Retrieval Components (KB-04)", () => {
   let mockAdapter: any;
@@ -14,16 +30,11 @@ describe("HybridSearch & Retrieval Components (KB-04)", () => {
     hybridSearch = new HybridSearch(mockAdapter);
   });
 
-  describe("CosineThresholdFilter (KHOJ-03)", () => {
-    const filter = new CosineThresholdFilter({ minConfidence: 0.70 });
+  describe("ScoreThresholdFilter (KHOJ-03, H10)", () => {
+    const filter = new ScoreThresholdFilter({ minScore: 0.7, mode: "absolute" });
 
-    it("descarta candidatos con score inferior a 0.70", () => {
-      const hits: any[] = [
-        { record: { key: "1", payload: "Alto" }, score: 0.88 },
-        { record: { key: "2", payload: "Límite" }, score: 0.70 },
-        { record: { key: "3", payload: "Bajo" }, score: 0.65 },
-        { record: { key: "4", payload: "Muy bajo" }, score: 0.30 },
-      ];
+    it("descarta candidatos con score inferior a 0.70 en modo absoluto", () => {
+      const hits = [hit("1", 0.88), hit("2", 0.7), hit("3", 0.65), hit("4", 0.3)];
 
       const filtered = filter.filter(hits);
       expect(filtered).toHaveLength(2);
@@ -65,27 +76,60 @@ describe("HybridSearch & Retrieval Components (KB-04)", () => {
     });
   });
 
-  describe("HybridSearch RRF & MMR", () => {
-    it("aplica fusión RRF a los resultados federados", async () => {
-      mockAdapter.searchMulti.mockResolvedValueOnce([
-        { record: { namespace: "kb/docs", key: "doc_1", payload: "Contenido 1" }, score: 0.9 },
-        { record: { namespace: "kb/facts", key: "fact_1", payload: "Contenido 2" }, score: 0.85 },
-      ]);
+  describe("HybridSearch re-rank honesto (H09)", () => {
+    it("ordena resultados federados preservando el score original", async () => {
+      mockAdapter.searchMulti.mockResolvedValueOnce([hit("doc_1", 0.9), hit("fact_1", 0.85)]);
 
       const hits = await hybridSearch.search("consulta sobre arquitectura", {
         topK: 2,
-        minConfidence: 0.70,
+        minConfidence: 0.0,
       });
 
       expect(hits.length).toBe(2);
-      expect(hits[0].score).toBeGreaterThan(0);
       expect(hits[0].record?.key).toBe("doc_1");
+      // H09: el score original del motor se preserva, no se sobrescribe.
+      expect(hits[0].score).toBe(0.9);
+      expect(hits[1].score).toBe(0.85);
     });
 
     it("retorna array vacío si la consulta está vacía", async () => {
       const hits = await hybridSearch.search("   ");
       expect(hits).toEqual([]);
       expect(mockAdapter.searchMulti).not.toHaveBeenCalled();
+    });
+
+    it("NO aplica fallback silencioso: si el umbral descarta todo, retorna vacío por defecto (H09)", async () => {
+      mockAdapter.searchMulti.mockResolvedValueOnce([hit("ruido_1", 0.2), hit("ruido_2", 0.1)]);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const hits = await hybridSearch.search("consulta sin buenos candidatos", {
+        topK: 2,
+        minConfidence: 0.99,
+        scoreMode: "absolute",
+      });
+
+      // Guarda KHOJ-03: nada que supere el umbral → nada al contexto.
+      expect(hits).toEqual([]);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("fallback explícito solo con flag: registra warn y preserva scores originales", async () => {
+      mockAdapter.searchMulti.mockResolvedValueOnce([hit("ruido_1", 0.2), hit("ruido_2", 0.1)]);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const hits = await hybridSearch.search("consulta sin buenos candidatos", {
+        topK: 2,
+        minConfidence: 0.99,
+        scoreMode: "absolute",
+        allowUnfilteredFallback: true,
+      });
+
+      expect(hits.length).toBe(2);
+      expect(hits[0].score).toBe(0.2);
+      expect(hits[1].score).toBe(0.1);
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
     });
   });
 });

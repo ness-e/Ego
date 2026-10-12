@@ -1,19 +1,24 @@
 import { EgoMemoryAdapter, SearchHit } from "@ego/memory";
-import { CosineThresholdFilter } from "./filters/CosineThresholdFilter.js";
+import { ScoreThresholdFilter } from "./filters/ScoreThresholdFilter.js";
 import { KnowledgeSearchOptions, KnowledgeSearchOptionsSchema } from "./schemas/knowledge.js";
 
 /**
- * Motor de búsqueda híbrida combinada con fusión RRF y reordenamiento MMR (KB-04).
+ * Motor de búsqueda híbrida con reordenamiento MMR (KB-04).
  * Combina recuperación léxica BM25 y búsqueda de memoria federada en VantaDB.
- * Aplica corte de umbral coseno (KHOJ-03) para eliminar ruido antes de inyectar al contexto.
+ * Aplica corte de umbral calibrado (KHOJ-03) para eliminar ruido antes de inyectar al contexto.
+ *
+ * Nota de honestidad (H09): con retrieval federado mono-llamada (`searchMulti`)
+ * no hay múltiples listas que fusionar, así que no se reclama RRF canónico:
+ * el paso de ordenamiento es un re-rank mono-lista que preserva el score
+ * original del motor. Si el umbral descarta todo, se retorna vacío por defecto
+ * (guarda anti-alucinación KHOJ-03); el fallback sin filtrar exige el flag
+ * explícito `allowUnfilteredFallback` y queda registrado con `console.warn`.
  */
 export class HybridSearch {
   private adapter: EgoMemoryAdapter;
-  private readonly thresholdFilter: CosineThresholdFilter;
 
   constructor(adapter: EgoMemoryAdapter) {
     this.adapter = adapter;
-    this.thresholdFilter = new CosineThresholdFilter();
   }
 
   /**
@@ -24,7 +29,7 @@ export class HybridSearch {
   }
 
   /**
-   * Ejecuta búsqueda híbrida federada multi-namespace con fusión RRF y filtro de corte.
+   * Ejecuta búsqueda híbrida federada multi-namespace con re-rank y filtro de corte.
    */
   public async search(
     query: string,
@@ -39,7 +44,7 @@ export class HybridSearch {
 
     // 1. Recuperar candidatos de los namespaces configurados vía searchMulti
     const rawHits = await this.adapter.searchMulti(options.namespaces, query, {
-      topK: topK * 2, // Recuperar pool ampliado para RRF y filtrado
+      topK: topK * 2, // Recuperar pool ampliado para re-rank y filtrado
       excludeSuperseded: options.excludeSuperseded,
     });
 
@@ -47,36 +52,32 @@ export class HybridSearch {
       return [];
     }
 
-    // 2. Aplicar filtro de umbral dinámico (KHOJ-03) para descartar ruido
-    const filteredHits = this.thresholdFilter.filter(rawHits, options.minConfidence);
+    // 2. Aplicar filtro de umbral calibrado (KHOJ-03/H10) para descartar ruido.
+    // H09: sin fallback silencioso. Si el filtro descarta todo, se retorna
+    // vacío salvo flag explícito (con warn) que asume el bypass del umbral.
+    // El modo de score viaja por opción: normalized (defecto, relativo a la
+    // distribución BM25 del lote) o absolute (semántica coseno [0,1]).
+    const thresholdFilter = new ScoreThresholdFilter({ mode: options.scoreMode });
+    const filteredHits = thresholdFilter.filter(rawHits, options.minConfidence);
 
-    // Si el filtro descarta todo pero teníamos candidatos léxicos razonables, o si se requiere fallback:
-    const candidates = filteredHits.length > 0 ? filteredHits : rawHits.slice(0, topK);
+    let candidates: SearchHit[];
+    if (filteredHits.length > 0) {
+      candidates = filteredHits;
+    } else if (options.allowUnfilteredFallback) {
+      console.warn(
+        `[HybridSearch] El umbral ${options.minConfidence} descartó los ${rawHits.length} candidatos; ` +
+          `retornando top-${topK} sin filtrar (allowUnfilteredFallback=true). Guarda KHOJ-03 explícitamente omitida.`
+      );
+      candidates = rawHits.slice(0, topK);
+    } else {
+      return [];
+    }
 
-    // 3. Fusión Reciprocal Rank Fusion (RRF) canónica
-    const rrfScores = new Map<string, number>();
-    const k = 60; // Constante canónica RRF
+    // 3. Re-rank mono-lista honesto: orden estable por score original
+    // descendente, preservando el score del motor (no se sobrescribe).
+    const rankedHits = [...candidates].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-    candidates.forEach((hit, rank) => {
-      const key = hit.record ? `${hit.record.namespace}:${hit.record.key}` : String(rank);
-      const rrfContribution = 1 / (k + (rank + 1));
-      const current = rrfScores.get(key) ?? 0;
-      rrfScores.set(key, current + rrfContribution);
-    });
-
-    // 4. Asignar scores RRF normalizados y ordenar
-    const rankedHits = candidates.map((hit, rank) => {
-      const key = hit.record ? `${hit.record.namespace}:${hit.record.key}` : String(rank);
-      const rrfScore = rrfScores.get(key) ?? (hit.score ?? 0);
-      return {
-        ...hit,
-        score: Number(rrfScore.toFixed(6)),
-      };
-    });
-
-    rankedHits.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-
-    // 5. Aplicar reordenamiento por diversidad Maximal Marginal Relevance (MMR) si está habilitado
+    // 4. Aplicar reordenamiento por diversidad Maximal Marginal Relevance (MMR) si está habilitado
     if (options.useMmr && rankedHits.length > 2) {
       return this.applyMmrDiversity(rankedHits, topK, options.mmrLambda);
     }

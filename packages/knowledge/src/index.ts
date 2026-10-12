@@ -4,7 +4,7 @@ export * from "./ingest/MarkdownExtractor.js";
 export * from "./ingest/DocumentParser.js";
 export * from "./ingest/PythonSidecarBridge.js";
 export * from "./KnowledgeIndexer.js";
-export * from "./filters/CosineThresholdFilter.js";
+export * from "./filters/ScoreThresholdFilter.js";
 export * from "./extractors/FactExtractor.js";
 export * from "./HybridSearch.js";
 export * from "./GraphRagEngine.js";

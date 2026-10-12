@@ -61,11 +61,13 @@ export type Fact = z.infer<typeof FactSchema>;
  */
 export const KnowledgeSearchOptionsSchema = z.object({
   topK: z.number().int().positive().default(10),
-  minConfidence: z.number().min(0).max(1).default(0.70).describe("Corte de umbral coseno (KHOJ-03)"),
+  minConfidence: z.number().min(0).max(1).default(0.70).describe("Corte de umbral calibrado (KHOJ-03/H10: normalizado min-max por lote salvo modo absoluto)"),
+  scoreMode: z.enum(["normalized", "absolute"]).default("normalized").describe("H10: normalized calibra contra la distribución BM25 del lote; absolute conserva semántica coseno [0,1]"),
   namespaces: z.array(z.string()).default(["kb/docs", "kb/facts"]),
   excludeSuperseded: z.boolean().default(true),
   useMmr: z.boolean().default(true).describe("Diversificación Maximal Marginal Relevance"),
   mmrLambda: z.number().min(0).max(1).default(0.7),
+  allowUnfilteredFallback: z.boolean().default(false).describe("H09: si el umbral descarta todo, retornar topK sin filtrar con warn (bypass explícito de la guarda KHOJ-03)"),
 });
 
 export type KnowledgeSearchOptions = z.infer<typeof KnowledgeSearchOptionsSchema>;
