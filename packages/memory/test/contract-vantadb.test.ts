@@ -227,9 +227,9 @@ describe("CORE-15 — NativeVantaDB ↔ EgoMemoryAdapter Contract Suite", () => 
       const qKey = "crm/leads:lead_unverified_42";
       await adapter.promote(qKey, "crm/verified_leads", "lead_verified_42");
 
-      const promoted = (await adapter.get("crm/verified_leads", "lead_verified_42")) as {
+      const promoted = ((await adapter.get("crm/verified_leads", "lead_verified_42"))?.payload as {
         email: string;
-      };
+      });
       expect(promoted).toBeDefined();
       expect(promoted.email).toBe("unverified@example.com");
 
@@ -252,7 +252,7 @@ describe("CORE-15 — NativeVantaDB ↔ EgoMemoryAdapter Contract Suite", () => 
         payload: { version: 2, title: "Revised specs" },
       });
 
-      const newVersion = (await adapter.get(ns, "arch_v2")) as { version: number };
+      const newVersion = ((await adapter.get(ns, "arch_v2"))?.payload as { version: number });
       expect(newVersion.version).toBe(2);
 
       // Verificar que el anterior aún existe y tiene metadatos superseded
@@ -286,9 +286,9 @@ describe("CORE-15 — NativeVantaDB ↔ EgoMemoryAdapter Contract Suite", () => 
       const importReport = await restoreAdapter.importDump(dumpFilePath);
       expect(importReport.recordsImported).toBe(exportReport.recordsExported);
 
-      const restoredItem = (await restoreAdapter.get("projects/ego/specs", "arch_v2")) as {
+      const restoredItem = ((await restoreAdapter.get("projects/ego/specs", "arch_v2"))?.payload as {
         version: number;
-      };
+      });
       expect(restoredItem).toBeDefined();
       expect(restoredItem.version).toBe(2);
 

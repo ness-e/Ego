@@ -54,11 +54,11 @@ describe("@ego/memory — Integration Test Suite", () => {
       },
     ]);
 
-    const doc1 = (await adapter.get("kb/test", "doc:1")) as { title: string };
+    const doc1 = ((await adapter.get("kb/test", "doc:1"))?.payload as { title: string });
     expect(doc1).toBeDefined();
     expect(doc1.title).toBe("VantaDB Core");
 
-    const doc2 = await adapter.get("kb/test", "doc:2");
+    const doc2 = (await adapter.get("kb/test", "doc:2"))?.payload;
     expect(doc2).toBe("Segundo documento de prueba");
   });
 
@@ -82,7 +82,7 @@ describe("@ego/memory — Integration Test Suite", () => {
     const qKey = "kb/untrusted:unverified:1";
     await adapter.promote(qKey, "kb/verified", "fact:1");
 
-    const promoted = await adapter.get("kb/verified", "fact:1");
+    const promoted = (await adapter.get("kb/verified", "fact:1"))?.payload;
     expect(promoted).toBe("Dato pendiente de validación");
   });
 
@@ -99,7 +99,7 @@ describe("@ego/memory — Integration Test Suite", () => {
       payload: "Versión 2 de la directiva",
     });
 
-    const newFact = await adapter.get("kb/facts", "version:new");
+    const newFact = (await adapter.get("kb/facts", "version:new"))?.payload;
     expect(newFact).toBe("Versión 2 de la directiva");
   });
 
@@ -120,7 +120,7 @@ describe("@ego/memory — Integration Test Suite", () => {
     const importReport = await restoreAdapter.importDump(dumpFile);
     expect(importReport.recordsImported).toBe(exportReport.recordsExported);
 
-    const restoredDoc = (await restoreAdapter.get("kb/test", "doc:1")) as { title: string };
+    const restoredDoc = ((await restoreAdapter.get("kb/test", "doc:1"))?.payload as { title: string });
     expect(restoredDoc.title).toBe("VantaDB Core");
 
     await restoreAdapter.close();
@@ -142,9 +142,9 @@ describe("@ego/memory — Integration Test Suite", () => {
       recalledKeys: preTurn.recallStatus.hits.map((f) => f.key),
     });
 
-    const turn = (await adapter.get("session/turns", "sess_unit_01:turn:1")) as {
+    const turn = ((await adapter.get("session/turns", "sess_unit_01:turn:1"))?.payload as {
       userMessage: string;
-    };
+    });
     expect(turn).toBeDefined();
     expect(turn.userMessage).toBe("¿Qué es VantaDB?");
   });

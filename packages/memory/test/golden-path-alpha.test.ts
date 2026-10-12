@@ -113,10 +113,10 @@ describe("Golden Path Alpha — Durabilidad y Recuperación E2E (CORE-11)", () =
     expect(activeAdapter.ready).toBe(true);
 
     // Paso 7: Recuperar proyecto intacto tras reinicio
-    const projRecord = (await activeAdapter.get("projects/default", "project:metadata")) as {
+    const projRecord = ((await activeAdapter.get("projects/default", "project:metadata"))?.payload as {
       id: string;
       name: string;
-    };
+    });
     expect(projRecord).toBeDefined();
     expect(projRecord.name).toBe("Proyecto Alpha");
 
@@ -145,9 +145,9 @@ describe("Golden Path Alpha — Durabilidad y Recuperación E2E (CORE-11)", () =
     const importReport = await restoreAdapter.importDump(dumpPath);
     expect(importReport.recordsImported).toBeGreaterThanOrEqual(4);
 
-    const restoredProj = (await restoreAdapter.get("projects/default", "project:metadata")) as {
+    const restoredProj = ((await restoreAdapter.get("projects/default", "project:metadata"))?.payload as {
       name: string;
-    };
+    });
     expect(restoredProj.name).toBe("Proyecto Alpha");
 
     await restoreAdapter.close();

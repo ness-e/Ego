@@ -8,6 +8,7 @@ import type { NativeVantaDB } from "vantadb/native";
 import type { SearchHit, MemoryRecord } from "vantadb/types";
 export type { SearchHit, MemoryRecord };
 import { SubEgoManifest, validateSubEgoAccess } from "./sub-egos.js";
+import { unwrapMetadata } from "./unwrapMetadata.js";
 
 export interface EgoPut {
   namespace: string;
@@ -162,11 +163,12 @@ export class EgoMemoryAdapter {
   /**
    * Obtiene un registro por namespace y clave
    */
-  async get(namespace: string, key: string): Promise<unknown> {
+  async get(namespace: string, key: string): Promise<{ key: string; payload: unknown; metadata: Record<string, unknown> } | null> {
     const db = this.ensureReady();
     const record = await db.get({ namespace, key });
     if (!record) return null;
-    return this.parseRecord(record);
+    // Workaround: VDB-BUG-02 (metadata etiquetada en putMulti; aquí se desenvuelve)
+    return { key, payload: this.parseRecord(record), metadata: unwrapMetadata(record.metadata as Record<string, unknown>) };
   }
 
   /**

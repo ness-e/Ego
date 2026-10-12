@@ -142,8 +142,8 @@ describe("Career-Ops Review Suite — DataContract (CARP-01) & UntrustedContentS
       // Verificar que el hecho quedó guardado en quarantine/pending
       const quarantined = await adapter.get("quarantine/pending", routeResult.destinationKey);
       expect(quarantined).toBeDefined();
-      expect((quarantined as any).rawText).toBe(attackText);
-      expect((quarantined as any).threatScore).toBeGreaterThanOrEqual(0.7);
+      expect((quarantined?.payload as { rawText: string }).rawText).toBe(attackText);
+      expect((quarantined?.payload as { threatScore: number }).threatScore).toBeGreaterThanOrEqual(0.7);
     });
 
     it("permite el guardado directo con envoltura si el texto es seguro", async () => {
@@ -159,7 +159,7 @@ describe("Career-Ops Review Suite — DataContract (CARP-01) & UntrustedContentS
       expect(routeResult.routedTo).toBe("live");
       expect(routeResult.destinationNamespace).toBe("kb/papers");
 
-      const saved = (await adapter.get("kb/papers", "consensus_paper")) as any;
+      const saved = ((await adapter.get("kb/papers", "consensus_paper"))?.payload as { isSanitized: boolean; content: string });
       expect(saved).toBeDefined();
       expect(saved.isSanitized).toBe(true);
       expect(saved.content).toContain("<untrusted_content");

@@ -40,7 +40,7 @@ describe("SessionCheckpointPolicy — Durabilidad Fail-Closed y Checkpoints de S
     expect(decision.error).toBeUndefined();
 
     // Comprobar que existe la entrada pendiente en gov/audit
-    const auditRecord = (await adapter.get("gov/audit", `tool_dispatch:${toolCallId}`)) as any;
+    const auditRecord = ((await adapter.get("gov/audit", `tool_dispatch:${toolCallId}`))?.payload as { toolName: string; sessionId: string; status: string });
     expect(auditRecord).toBeDefined();
     expect(auditRecord.toolName).toBe("run_command");
     expect(auditRecord.sessionId).toBe(sessionId);
@@ -66,7 +66,7 @@ describe("SessionCheckpointPolicy — Durabilidad Fail-Closed y Checkpoints de S
     expect(t3.checkpointId?.startsWith("snap_")).toBe(true);
 
     // Verificar en VantaDB
-    const snapshot = (await adapter.get("system/snapshots", `checkpoint:${sessionId}:${t3.checkpointId}`)) as any;
+    const snapshot = ((await adapter.get("system/snapshots", `checkpoint:${sessionId}:${t3.checkpointId}`))?.payload as { sessionId: string; turnCount: number; summary: { summary: string } });
     expect(snapshot).toBeDefined();
     expect(snapshot.sessionId).toBe(sessionId);
     expect(snapshot.turnCount).toBe(3);
