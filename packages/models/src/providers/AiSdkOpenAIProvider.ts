@@ -1,12 +1,6 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import {
-  generateText,
-  jsonSchema,
-  streamText,
-  tool,
-  type JSONSchema7,
-  type ModelMessage,
-} from "ai";
+import type { createOpenAI as CreateOpenAIFn } from "@ai-sdk/openai";
+import type * as Ai from "ai";
+import type { JSONSchema7, ModelMessage } from "ai";
 import type {
   EgoModelInterface,
   ModelGenerateOptions,
@@ -14,6 +8,7 @@ import type {
   ModelProviderId,
   ModelStreamChunk,
 } from "../types.js";
+import { loadEsm } from "./esm-loader.js";
 
 export interface AiSdkOpenAIProviderOptions {
   apiKey?: string;
@@ -29,15 +24,28 @@ export interface AiSdkOpenAIProviderOptions {
 export class AiSdkOpenAIProvider implements EgoModelInterface {
   readonly providerId: ModelProviderId = "openai";
   private readonly apiKey: string;
-  private readonly client: ReturnType<typeof createOpenAI>;
+  private readonly baseURL?: string;
+  private readonly fetchFn?: typeof fetch;
+  private clientPromise?: Promise<ReturnType<typeof CreateOpenAIFn>>;
 
   constructor(opts: AiSdkOpenAIProviderOptions = {}) {
     this.apiKey = opts.apiKey ?? "";
-    this.client = createOpenAI({
-      apiKey: this.apiKey,
-      baseURL: opts.baseURL,
-      fetch: opts.fetch,
-    });
+    this.baseURL = opts.baseURL;
+    this.fetchFn = opts.fetch;
+  }
+
+  private getClient(): Promise<ReturnType<typeof CreateOpenAIFn>> {
+    this.clientPromise ??= (async () => {
+      const { createOpenAI } = await loadEsm<{ createOpenAI: typeof CreateOpenAIFn }>(
+        "@ai-sdk/openai",
+      );
+      return createOpenAI({
+        apiKey: this.apiKey,
+        baseURL: this.baseURL,
+        fetch: this.fetchFn,
+      });
+    })();
+    return this.clientPromise;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -45,12 +53,14 @@ export class AiSdkOpenAIProvider implements EgoModelInterface {
   }
 
   async generate(modelId: string, options: ModelGenerateOptions): Promise<ModelGenerateResult> {
-    const result = await generateText({
+    const ai = await loadEsm<typeof Ai>("ai");
+    const client = await this.getClient();
+    const result = await ai.generateText({
       // .chat() = Chat Completions (/chat/completions), no Responses API:
       // compatible con endpoints OpenAI-compatibles (DeepSeek, Ollama, LMStudio).
-      model: this.client.chat(modelId),
+      model: client.chat(modelId),
       messages: this.toMessages(options),
-      tools: this.toTools(options),
+      tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
       temperature: options.temperature ?? 0.7,
       maxOutputTokens: options.maxTokens,
@@ -83,11 +93,13 @@ export class AiSdkOpenAIProvider implements EgoModelInterface {
     options: ModelGenerateOptions,
     onChunk: (chunk: ModelStreamChunk) => void,
   ): Promise<ModelGenerateResult> {
-    const result = streamText({
+    const ai = await loadEsm<typeof Ai>("ai");
+    const client = await this.getClient();
+    const result = ai.streamText({
       // .chat() = Chat Completions SSE, compatible con endpoints OpenAI-compatibles.
-      model: this.client.chat(modelId),
+      model: client.chat(modelId),
       messages: this.toMessages(options),
-      tools: this.toTools(options),
+      tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
       temperature: options.temperature ?? 0.7,
       maxOutputTokens: options.maxTokens,
@@ -144,14 +156,14 @@ export class AiSdkOpenAIProvider implements EgoModelInterface {
     };
   }
 
-  private toTools(options: ModelGenerateOptions) {
+  private toTools(ai: typeof Ai, options: ModelGenerateOptions) {
     if (!options.tools?.length) return undefined;
     return Object.fromEntries(
       options.tools.map((t) => [
         t.name,
-        tool({
+        ai.tool({
           description: t.description,
-          inputSchema: jsonSchema(t.parameters as unknown as JSONSchema7),
+          inputSchema: ai.jsonSchema(t.parameters as unknown as JSONSchema7),
         }),
       ]),
     );

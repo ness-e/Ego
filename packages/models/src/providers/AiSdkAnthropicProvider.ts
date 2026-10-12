@@ -1,12 +1,6 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
-import {
-  generateText,
-  jsonSchema,
-  streamText,
-  tool,
-  type JSONSchema7,
-  type ModelMessage,
-} from "ai";
+import type { createAnthropic as CreateAnthropicFn } from "@ai-sdk/anthropic";
+import type * as Ai from "ai";
+import type { JSONSchema7, ModelMessage } from "ai";
 import type {
   EgoModelInterface,
   ModelGenerateOptions,
@@ -14,6 +8,7 @@ import type {
   ModelProviderId,
   ModelStreamChunk,
 } from "../types.js";
+import { loadEsm } from "./esm-loader.js";
 
 export interface AiSdkAnthropicProviderOptions {
   apiKey?: string;
@@ -34,15 +29,28 @@ export interface AiSdkAnthropicProviderOptions {
 export class AiSdkAnthropicProvider implements EgoModelInterface {
   readonly providerId: ModelProviderId = "anthropic";
   private readonly apiKey: string;
-  private readonly client: ReturnType<typeof createAnthropic>;
+  private readonly baseURL?: string;
+  private readonly fetchFn?: typeof fetch;
+  private clientPromise?: Promise<ReturnType<typeof CreateAnthropicFn>>;
 
   constructor(opts: AiSdkAnthropicProviderOptions = {}) {
     this.apiKey = opts.apiKey ?? "";
-    this.client = createAnthropic({
-      apiKey: this.apiKey,
-      baseURL: opts.baseURL,
-      fetch: opts.fetch,
-    });
+    this.baseURL = opts.baseURL;
+    this.fetchFn = opts.fetch;
+  }
+
+  private getClient(): Promise<ReturnType<typeof CreateAnthropicFn>> {
+    this.clientPromise ??= (async () => {
+      const { createAnthropic } = await loadEsm<{ createAnthropic: typeof CreateAnthropicFn }>(
+        "@ai-sdk/anthropic",
+      );
+      return createAnthropic({
+        apiKey: this.apiKey,
+        baseURL: this.baseURL,
+        fetch: this.fetchFn,
+      });
+    })();
+    return this.clientPromise;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -50,12 +58,14 @@ export class AiSdkAnthropicProvider implements EgoModelInterface {
   }
 
   async generate(modelId: string, options: ModelGenerateOptions): Promise<ModelGenerateResult> {
-    const result = await generateText({
+    const ai = await loadEsm<typeof Ai>("ai");
+    const client = await this.getClient();
+    const result = await ai.generateText({
       // Entrada nativa Messages API (/messages): el SDK absorbe la
       // diferencia `tool_use` (Anthropic) vs `tool_calls` (OpenAI).
-      model: this.client(modelId),
+      model: client(modelId),
       messages: this.toMessages(options),
-      tools: this.toTools(options),
+      tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
       temperature: options.temperature ?? 0.7,
       maxOutputTokens: options.maxTokens,
@@ -88,11 +98,13 @@ export class AiSdkAnthropicProvider implements EgoModelInterface {
     options: ModelGenerateOptions,
     onChunk: (chunk: ModelStreamChunk) => void,
   ): Promise<ModelGenerateResult> {
-    const result = streamText({
+    const ai = await loadEsm<typeof Ai>("ai");
+    const client = await this.getClient();
+    const result = ai.streamText({
       // Entrada nativa Messages API SSE; mismo borde que el resto de providers.
-      model: this.client(modelId),
+      model: client(modelId),
       messages: this.toMessages(options),
-      tools: this.toTools(options),
+      tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
       temperature: options.temperature ?? 0.7,
       maxOutputTokens: options.maxTokens,
@@ -149,14 +161,14 @@ export class AiSdkAnthropicProvider implements EgoModelInterface {
     };
   }
 
-  private toTools(options: ModelGenerateOptions) {
+  private toTools(ai: typeof Ai, options: ModelGenerateOptions) {
     if (!options.tools?.length) return undefined;
     return Object.fromEntries(
       options.tools.map((t) => [
         t.name,
-        tool({
+        ai.tool({
           description: t.description,
-          inputSchema: jsonSchema(t.parameters as unknown as JSONSchema7),
+          inputSchema: ai.jsonSchema(t.parameters as unknown as JSONSchema7),
         }),
       ]),
     );

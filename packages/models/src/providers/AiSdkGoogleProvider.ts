@@ -1,12 +1,6 @@
-import { createGoogle } from "@ai-sdk/google";
-import {
-  generateText,
-  jsonSchema,
-  streamText,
-  tool,
-  type JSONSchema7,
-  type ModelMessage,
-} from "ai";
+import type { createGoogle as CreateGoogleFn } from "@ai-sdk/google";
+import type * as Ai from "ai";
+import type { JSONSchema7, ModelMessage } from "ai";
 import type {
   EgoModelInterface,
   ModelGenerateOptions,
@@ -14,6 +8,7 @@ import type {
   ModelProviderId,
   ModelStreamChunk,
 } from "../types.js";
+import { loadEsm } from "./esm-loader.js";
 
 export interface AiSdkGoogleProviderOptions {
   apiKey?: string;
@@ -34,15 +29,28 @@ export interface AiSdkGoogleProviderOptions {
 export class AiSdkGoogleProvider implements EgoModelInterface {
   readonly providerId: ModelProviderId = "google";
   private readonly apiKey: string;
-  private readonly client: ReturnType<typeof createGoogle>;
+  private readonly baseURL?: string;
+  private readonly fetchFn?: typeof fetch;
+  private clientPromise?: Promise<ReturnType<typeof CreateGoogleFn>>;
 
   constructor(opts: AiSdkGoogleProviderOptions = {}) {
     this.apiKey = opts.apiKey ?? "";
-    this.client = createGoogle({
-      apiKey: this.apiKey,
-      baseURL: opts.baseURL,
-      fetch: opts.fetch,
-    });
+    this.baseURL = opts.baseURL;
+    this.fetchFn = opts.fetch;
+  }
+
+  private getClient(): Promise<ReturnType<typeof CreateGoogleFn>> {
+    this.clientPromise ??= (async () => {
+      const { createGoogle } = await loadEsm<{ createGoogle: typeof CreateGoogleFn }>(
+        "@ai-sdk/google",
+      );
+      return createGoogle({
+        apiKey: this.apiKey,
+        baseURL: this.baseURL,
+        fetch: this.fetchFn,
+      });
+    })();
+    return this.clientPromise;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -50,12 +58,14 @@ export class AiSdkGoogleProvider implements EgoModelInterface {
   }
 
   async generate(modelId: string, options: ModelGenerateOptions): Promise<ModelGenerateResult> {
-    const result = await generateText({
+    const ai = await loadEsm<typeof Ai>("ai");
+    const client = await this.getClient();
+    const result = await ai.generateText({
       // Entrada nativa GenerateContent: el SDK absorbe la diferencia
       // `functionCall` (Gemini) vs `tool_calls` (OpenAI).
-      model: this.client(modelId),
+      model: client(modelId),
       messages: this.toMessages(options),
-      tools: this.toTools(options),
+      tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
       temperature: options.temperature ?? 0.7,
       maxOutputTokens: options.maxTokens,
@@ -88,11 +98,13 @@ export class AiSdkGoogleProvider implements EgoModelInterface {
     options: ModelGenerateOptions,
     onChunk: (chunk: ModelStreamChunk) => void,
   ): Promise<ModelGenerateResult> {
-    const result = streamText({
+    const ai = await loadEsm<typeof Ai>("ai");
+    const client = await this.getClient();
+    const result = ai.streamText({
       // Entrada nativa streamGenerateContent SSE; mismo borde que el resto de providers.
-      model: this.client(modelId),
+      model: client(modelId),
       messages: this.toMessages(options),
-      tools: this.toTools(options),
+      tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
       temperature: options.temperature ?? 0.7,
       maxOutputTokens: options.maxTokens,
@@ -149,14 +161,14 @@ export class AiSdkGoogleProvider implements EgoModelInterface {
     };
   }
 
-  private toTools(options: ModelGenerateOptions) {
+  private toTools(ai: typeof Ai, options: ModelGenerateOptions) {
     if (!options.tools?.length) return undefined;
     return Object.fromEntries(
       options.tools.map((t) => [
         t.name,
-        tool({
+        ai.tool({
           description: t.description,
-          inputSchema: jsonSchema(t.parameters as unknown as JSONSchema7),
+          inputSchema: ai.jsonSchema(t.parameters as unknown as JSONSchema7),
         }),
       ]),
     );
