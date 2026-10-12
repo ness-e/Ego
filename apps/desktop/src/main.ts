@@ -7,7 +7,7 @@ import {
   SubEgoManifest,
   createSubEgoId,
 } from "@ego/memory";
-import { ModelRouter, ModelMessage, OpenAICompatibleProvider } from "@ego/models";
+import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL } from "@ego/models";
 import { ToolRegistry, registerNativeTools, type ToolExecutionContext } from "@ego/tools";
 import { McpManager, SkillScanner } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
@@ -304,8 +304,137 @@ export function maskApiKey(key: string): string {
   return `${prefix}...${suffix}`;
 }
 
+/** Alias del enmascarado de keys para respuestas hacia el renderer (nunca el secreto). */
+export const maskKey = maskApiKey;
+
 /**
- * Registra proveedores reales y BYOK en el ModelRouter (INT-02).
+ * Claves de proveedor resueltas SOLO en main (BYOK vía bootstrap env + gov/settings
+ * cifrado con safeStorage). Este objeto nunca sale del main process: no se loguea,
+ * no se envía por IPC, y las respuestas al renderer usan `maskKey`.
+ */
+export interface ResolvedModelKeys {
+  openai?: string;
+  anthropic?: string;
+  google?: string;
+  deepseek?: string;
+  openaiBaseURL?: string;
+  deepseekBaseURL?: string;
+  ollamaBaseURL?: string;
+}
+
+const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
+
+function isNonEmptyKey(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * Bootstrap documentado INT-02, solo en main: lee `process.env` como fuente
+ * inicial (`OPENAI_API_KEY`/`DEEPSEEK_API_KEY`/`OLLAMA_BASE_URL` más
+ * `ANTHROPIC_API_KEY`/`GOOGLE_API_KEY` y base URLs custom). Sin keys → `{}` y
+ * todo resuelve a mock (fallback seguro, nunca lanza).
+ */
+export function resolveEnvModelKeys(env: NodeJS.ProcessEnv = process.env): ResolvedModelKeys {
+  const keys: ResolvedModelKeys = {};
+  if (isNonEmptyKey(env.OPENAI_API_KEY)) keys.openai = env.OPENAI_API_KEY;
+  if (isNonEmptyKey(env.ANTHROPIC_API_KEY)) keys.anthropic = env.ANTHROPIC_API_KEY;
+  if (isNonEmptyKey(env.GOOGLE_API_KEY)) keys.google = env.GOOGLE_API_KEY;
+  if (isNonEmptyKey(env.DEEPSEEK_API_KEY)) keys.deepseek = env.DEEPSEEK_API_KEY;
+  if (isNonEmptyKey(env.OPENAI_BASE_URL)) keys.openaiBaseURL = env.OPENAI_BASE_URL;
+  if (isNonEmptyKey(env.DEEPSEEK_BASE_URL)) keys.deepseekBaseURL = env.DEEPSEEK_BASE_URL;
+  if (isNonEmptyKey(env.OLLAMA_BASE_URL)) keys.ollamaBaseURL = env.OLLAMA_BASE_URL;
+  return keys;
+}
+
+/**
+ * Resuelve keys desde el payload `gov/settings/model_config` (ya cargado en main).
+ * Tolera el shape nuevo por proveedor (`<p>KeyEncrypted`/`<p>Key` + baseURLs) y el
+ * legado de clave única (`apiKeyEncrypted`/`apiKey` + `activeProvider`/`baseUrl`).
+ * Descifra con `decryptCredential` (safeStorage). Nunca lanza: payload
+ * desconocido → `{}`.
+ */
+export function resolvePersistedModelKeys(payload: unknown): ResolvedModelKeys {
+  if (!payload || typeof payload !== "object") return {};
+  const p = payload as Record<string, unknown>;
+  const keys: ResolvedModelKeys = {};
+  const pick = (encrypted: unknown, plain: unknown): string | undefined => {
+    if (typeof encrypted === "string" && encrypted.length > 0) {
+      const decrypted = decryptCredential(encrypted);
+      if (isNonEmptyKey(decrypted)) return decrypted;
+    }
+    if (isNonEmptyKey(plain)) return plain;
+    return undefined;
+  };
+  const openai = pick(p.openaiKeyEncrypted, p.openaiKey);
+  if (openai) keys.openai = openai;
+  const anthropic = pick(p.anthropicKeyEncrypted, p.anthropicKey);
+  if (anthropic) keys.anthropic = anthropic;
+  const google = pick(p.googleKeyEncrypted, p.googleKey);
+  if (google) keys.google = google;
+  const deepseek = pick(p.deepseekKeyEncrypted, p.deepseekKey);
+  if (deepseek) keys.deepseek = deepseek;
+
+  // Legado de clave única: pertenece al activeProvider (openai/deepseek).
+  const active = typeof p.activeProvider === "string" ? p.activeProvider : "";
+  const legacy = pick(p.apiKeyEncrypted, p.apiKey);
+  if (legacy && (active === "openai" || active === "deepseek") && !keys[active]) {
+    keys[active] = legacy;
+  }
+
+  if (isNonEmptyKey(p.ollamaBaseURL)) {
+    keys.ollamaBaseURL = p.ollamaBaseURL;
+  } else if (active === "ollama" && isNonEmptyKey(p.baseUrl)) {
+    keys.ollamaBaseURL = p.baseUrl;
+  }
+  if (isNonEmptyKey(p.openaiBaseURL)) {
+    keys.openaiBaseURL = p.openaiBaseURL;
+  } else if (active === "openai" && isNonEmptyKey(p.baseUrl)) {
+    keys.openaiBaseURL = p.baseUrl;
+  }
+  if (isNonEmptyKey(p.deepseekBaseURL)) {
+    keys.deepseekBaseURL = p.deepseekBaseURL;
+  } else if (active === "deepseek" && isNonEmptyKey(p.baseUrl)) {
+    keys.deepseekBaseURL = p.baseUrl;
+  }
+  return keys;
+}
+
+/**
+ * Fusiona keys con precedencia explícita: lo persistido por UI (BYOK cifrado)
+ * gana sobre el bootstrap env. Campos vacíos no pisan valores existentes.
+ */
+export function mergeModelKeys(base: ResolvedModelKeys, override: ResolvedModelKeys): ResolvedModelKeys {
+  const merged: ResolvedModelKeys = { ...base };
+  for (const [field, value] of Object.entries(override) as Array<[keyof ResolvedModelKeys, string | undefined]>) {
+    if (isNonEmptyKey(value)) merged[field] = value;
+  }
+  return merged;
+}
+
+function isCustomBaseURL(url: string | undefined, def: string): url is string {
+  return isNonEmptyKey(url) && url.replace(/\/+$/, "") !== def.replace(/\/+$/, "");
+}
+
+function registerOpenAIProvider(router: ModelRouter, apiKey: string, baseURL?: string): void {
+  if (isCustomBaseURL(baseURL, OPENAI_DEFAULT_BASE_URL)) {
+    // Endpoint custom (p. ej. LMStudio/proxy): adaptador directo legacy.
+    router.registerProvider(
+      new OpenAICompatibleProvider({ providerId: "openai", baseUrl: baseURL, apiKey })
+    );
+  } else {
+    router.registerProvider(
+      new AiSdkOpenAIProvider({ apiKey, ...(isNonEmptyKey(baseURL) ? { baseURL } : {}) })
+    );
+  }
+}
+
+/**
+ * Registra proveedores AI SDK y BYOK en el ModelRouter (INT-02 + AI SDK adapters).
+ * Solo main: combina el bootstrap env documentado con las keys persistidas
+ * (gov/settings descifrado, segundo parámetro). Registra un `AiSdk*Provider`
+ * por key presente, el legacy `OpenAICompatibleProvider` solo para custom
+ * `baseUrl`, Ollama local por defecto y siempre `MockProvider` como fallback.
+ * Ninguna key sale del main (sin logs de secretos, sin eventos al renderer).
  */
 export let currentModelConfig: ModelConfig = {
   activeProvider: process.env.OPENAI_API_KEY ? "openai" : process.env.DEEPSEEK_API_KEY ? "deepseek" : "mock",
@@ -315,70 +444,85 @@ export let currentModelConfig: ModelConfig = {
 };
 
 /**
- * Aplica una configuración de modelo al ModelRouter registrando el proveedor adecuado (INT-02).
+ * Aplica una configuración de modelo validada al ModelRouter (INT-02).
+ * Valida con `ModelConfigSchema` (zod) y exige key no vacía para openai/deepseek:
+ * sin key válida no registra nada y el fallback mock queda intacto.
  */
 export function applyModelConfig(router: ModelRouter, config: ModelConfig): void {
-  currentModelConfig = { ...config };
-  if (config.activeProvider === "openai" && config.apiKey) {
+  const parsed = ModelConfigSchema.safeParse(config);
+  if (!parsed.success) {
+    throw new Error(`[IPC Security] Configuración de modelo inválida: ${parsed.error.message}`);
+  }
+  const valid = parsed.data;
+  currentModelConfig = { ...valid };
+  if (valid.activeProvider === "openai") {
+    if (!isNonEmptyKey(valid.apiKey)) return;
+    registerOpenAIProvider(router, valid.apiKey, valid.baseUrl);
+  } else if (valid.activeProvider === "deepseek") {
+    if (!isNonEmptyKey(valid.apiKey)) return;
     router.registerProvider(
-      new OpenAICompatibleProvider({
-        providerId: "openai",
-        baseUrl: config.baseUrl || "https://api.openai.com/v1",
-        apiKey: config.apiKey,
-      })
-    );
-  } else if (config.activeProvider === "deepseek" && config.apiKey) {
-    router.registerProvider(
-      new OpenAICompatibleProvider({
+      new AiSdkOpenAICompatibleProvider({
         providerId: "deepseek",
-        baseUrl: config.baseUrl || "https://api.deepseek.com",
-        apiKey: config.apiKey,
+        apiKey: valid.apiKey,
+        ...(isNonEmptyKey(valid.baseUrl) ? { baseURL: valid.baseUrl } : {}),
       })
     );
-  } else if (config.activeProvider === "ollama") {
+  } else if (valid.activeProvider === "ollama") {
     router.registerProvider(
-      new OpenAICompatibleProvider({
+      new AiSdkOpenAICompatibleProvider({
         providerId: "ollama",
-        baseUrl: config.baseUrl || "http://localhost:11434/v1",
-        apiKey: config.apiKey || "ollama",
+        apiKey: "ollama",
+        baseURL: isNonEmptyKey(valid.baseUrl) ? valid.baseUrl : OLLAMA_DEFAULT_BASE_URL,
       })
     );
   }
+  // mock: nada que registrar (MockProvider siempre presente vía setup/ctor).
 }
 
 /**
- * Registra proveedores reales y BYOK en el ModelRouter (INT-02).
+ * Registra proveedores reales y BYOK en el ModelRouter (INT-02 + AI SDK adapters).
  */
-export function setupModelProviders(router: ModelRouter): void {
-  // 1. OpenAI (BYOK vía OPENAI_API_KEY)
-  if (process.env.OPENAI_API_KEY) {
-    router.registerProvider(
-      new OpenAICompatibleProvider({
-        providerId: "openai",
-        baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
-        apiKey: process.env.OPENAI_API_KEY,
-      })
-    );
+export function setupModelProviders(router: ModelRouter, extraKeys: ResolvedModelKeys = {}): void {
+  // 1. Bootstrap env documentado (INT-02 stop-condition) + keys persistidas (BYOK UI).
+  const keys = mergeModelKeys(resolveEnvModelKeys(), extraKeys);
+
+  // 2. OpenAI (BYOK vía key presente; legacy solo para custom baseUrl).
+  if (isNonEmptyKey(keys.openai)) {
+    registerOpenAIProvider(router, keys.openai, keys.openaiBaseURL);
   }
 
-  // 2. DeepSeek (BYOK vía DEEPSEEK_API_KEY)
-  if (process.env.DEEPSEEK_API_KEY) {
+  // 3. Anthropic (Claude, formato nativo vía SDK).
+  if (isNonEmptyKey(keys.anthropic)) {
+    router.registerProvider(new AiSdkAnthropicProvider({ apiKey: keys.anthropic }));
+  }
+
+  // 4. Google (Gemini, formato nativo vía SDK).
+  if (isNonEmptyKey(keys.google)) {
+    router.registerProvider(new AiSdkGoogleProvider({ apiKey: keys.google }));
+  }
+
+  // 5. DeepSeek (BYOK vía key presente, OpenAI-compatible vía SDK).
+  if (isNonEmptyKey(keys.deepseek)) {
     router.registerProvider(
-      new OpenAICompatibleProvider({
+      new AiSdkOpenAICompatibleProvider({
         providerId: "deepseek",
-        baseUrl: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
-        apiKey: process.env.DEEPSEEK_API_KEY,
+        apiKey: keys.deepseek,
+        ...(isNonEmptyKey(keys.deepseekBaseURL) ? { baseURL: keys.deepseekBaseURL } : {}),
       })
     );
   }
 
-  // 3. Ollama (Local Offline por defecto)
+  // 6. Ollama (Local Offline por defecto; dummy key sin secreto real).
   router.registerProvider(
-    new OpenAICompatibleProvider({
+    new AiSdkOpenAICompatibleProvider({
       providerId: "ollama",
-      baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434/v1",
+      apiKey: "ollama",
+      baseURL: keys.ollamaBaseURL ?? OLLAMA_DEFAULT_BASE_URL,
     })
   );
+
+  // 7. Mock siempre: fallback determinista sin keys ni red.
+  router.registerProvider(new MockProvider());
 }
 
 /**
@@ -597,6 +741,7 @@ export async function createWindow(): Promise<void> {
   setupModelProviders(modelRouter);
 
   // Restaurar configuración persistida de modelos BYOK si existe (gov/settings)
+  // Solo main: las keys descifradas con safeStorage nunca salen de este proceso.
   try {
     const savedConfig = await adapter.get("gov/settings", "model_config");
     if (savedConfig) {
@@ -605,6 +750,34 @@ export async function createWindow(): Promise<void> {
         payload = (savedConfig as { payload: any }).payload;
       }
       if (payload && typeof payload === "object") {
+        // Migración plano→cifrado de campos por proveedor (Task 10 escribe el shape nuevo).
+        const plainProviderFields = ["openaiKey", "anthropicKey", "googleKey", "deepseekKey"];
+        let needsPersist = false;
+        const nextPayload: Record<string, unknown> = { ...(payload as Record<string, unknown>) };
+        for (const field of plainProviderFields) {
+          const plainValue = nextPayload[field];
+          if (typeof plainValue === "string" && plainValue.length > 0) {
+            nextPayload[`${field}Encrypted`] = encryptCredential(plainValue);
+            delete nextPayload[field];
+            needsPersist = true;
+          }
+        }
+        if (needsPersist) {
+          await adapter.put({
+            namespace: "gov/settings",
+            key: "model_config",
+            payload: nextPayload,
+            metadata: { updatedAtMs: Date.now(), migrated: true },
+          });
+          payload = nextPayload;
+        }
+
+        // Keys por proveedor (anthropic/google/openai/deepseek persistidos por UI).
+        const persistedKeys = resolvePersistedModelKeys(payload);
+        if (Object.keys(persistedKeys).length > 0) {
+          setupModelProviders(modelRouter, persistedKeys);
+        }
+
         let resolvedKey = "";
         if (payload.apiKeyEncrypted) {
           resolvedKey = decryptCredential(payload.apiKeyEncrypted);
@@ -616,6 +789,7 @@ export async function createWindow(): Promise<void> {
             namespace: "gov/settings",
             key: "model_config",
             payload: {
+              ...(payload as Record<string, unknown>),
               activeProvider: payload.activeProvider,
               apiKeyEncrypted: reEncrypted,
               baseUrl: payload.baseUrl,

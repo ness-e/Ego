@@ -8,7 +8,32 @@ import { ToolRegistry, registerNativeTools } from "@ego/tools";
 import { EventBus } from "@ego/events";
 import { ApprovalEngine, ExecutionManager } from "@ego/execution";
 import { ToolExecutionLoop } from "@ego/runtime";
-import { setupModelProviders, handleLlmStream } from "../src/main.js";
+import { setupModelProviders, handleLlmStream, applyModelConfig, resolveEnvModelKeys, resolvePersistedModelKeys, mergeModelKeys, encryptCredential, maskApiKey } from "../src/main.js";
+import type { ModelConfig } from "../src/ipc/schema.js";
+
+const PROVIDER_ENV_VARS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_BASE_URL", "DEEPSEEK_BASE_URL", "OLLAMA_BASE_URL"] as const;
+
+function snapshotEnv(): Record<string, string | undefined> {
+  const snap: Record<string, string | undefined> = {};
+  for (const v of PROVIDER_ENV_VARS) snap[v] = process.env[v];
+  return snap;
+}
+
+function clearProviderEnv(): void {
+  for (const v of PROVIDER_ENV_VARS) delete process.env[v];
+}
+
+function restoreEnv(snap: Record<string, string | undefined>): void {
+  for (const v of PROVIDER_ENV_VARS) {
+    if (snap[v] === undefined) delete process.env[v];
+    else process.env[v] = snap[v];
+  }
+}
+
+function registeredProviderIds(router: ModelRouter): string[] {
+  const inner = router as unknown as { providers: Map<string, { isAvailable(): Promise<boolean> }> };
+  return [...inner.providers.keys()];
+}
 
 describe("@ego/desktop — Fast-Path ToolExecutionLoop & Real Providers Integration (INT-01, INT-02)", () => {
   let tmpDir: string;
@@ -198,6 +223,120 @@ describe("@ego/desktop — Fast-Path ToolExecutionLoop & Real Providers Integrat
       expect(loopResult.finalText).toContain("Contenido secreto del proyecto Ego 2026");
       expect(eventsTracked).toContain("tool.started");
       expect(eventsTracked).toContain("tool.executed");
+    });
+  });
+
+  describe("3. Task 9: AI SDK wiring main-only (BYOK cifrado, sin keys reales)", () => {
+    let envSnap: Record<string, string | undefined>;
+
+    beforeEach(() => {
+      envSnap = snapshotEnv();
+      clearProviderEnv();
+    });
+
+    afterEach(() => {
+      restoreEnv(envSnap);
+    });
+
+    it("registra anthropic con key fake y resuelve claude para reasoning-heavy", async () => {
+      const router = new ModelRouter();
+      setupModelProviders(router, { anthropic: "sk-ant-test-1234567890" });
+      expect(registeredProviderIds(router)).toContain("anthropic");
+      const desc = await router.resolveModel("reasoning-heavy");
+      expect(desc.provider).toBe("anthropic");
+      expect(desc.id).toBe("claude-3-5-sonnet-20241022");
+    });
+
+    it("registra google con key fake sin ninguna llamada de red", async () => {
+      const router = new ModelRouter();
+      setupModelProviders(router, { google: "AIza-test-1234567890" });
+      const inner = router as unknown as { providers: Map<string, { isAvailable(): Promise<boolean> }> };
+      expect(inner.providers.has("google")).toBe(true);
+      await expect(inner.providers.get("google")!.isAvailable()).resolves.toBe(true);
+    });
+
+    it("sin keys → no registra cloud y resuelve fallback mock/ollama sin lanzar", async () => {
+      const router = new ModelRouter();
+      setupModelProviders(router);
+      const ids = registeredProviderIds(router);
+      expect(ids).not.toContain("openai");
+      expect(ids).not.toContain("anthropic");
+      expect(ids).not.toContain("google");
+      expect(ids).not.toContain("deepseek");
+      expect(ids).toContain("mock");
+      const resolved = await router.resolveModel("general-chat");
+      expect(["mock-core", "llama3.2:3b"]).toContain(resolved.id);
+    });
+
+    it("resolvePersistedModelKeys descifra por proveedor y tolera el legado de clave única", () => {
+      const persisted = resolvePersistedModelKeys({
+        anthropicKeyEncrypted: encryptCredential("sk-ant-test-1234567890"),
+        googleKeyEncrypted: encryptCredential("AIza-test-1234567890"),
+      });
+      expect(persisted.anthropic).toBe("sk-ant-test-1234567890");
+      expect(persisted.google).toBe("AIza-test-1234567890");
+
+      const legacy = resolvePersistedModelKeys({
+        activeProvider: "openai",
+        apiKeyEncrypted: encryptCredential("sk-test-1234567890"),
+      });
+      expect(legacy.openai).toBe("sk-test-1234567890");
+      expect(resolvePersistedModelKeys(null)).toEqual({});
+      expect(resolvePersistedModelKeys("basura")).toEqual({});
+    });
+
+    it("mergeModelKeys: lo persistido por UI gana sobre el bootstrap env", () => {
+      process.env.ANTHROPIC_API_KEY = "sk-env-1234567890";
+      const merged = mergeModelKeys(resolveEnvModelKeys(), { anthropic: "sk-ui-1234567890" });
+      expect(merged.anthropic).toBe("sk-ui-1234567890");
+      const kept = mergeModelKeys(resolveEnvModelKeys(), { anthropic: "" });
+      expect(kept.anthropic).toBe("sk-env-1234567890");
+    });
+
+    it("applyModelConfig valida con zod y exige key no vacía (sin key → fallback intacto)", async () => {
+      const router = new ModelRouter();
+      setupModelProviders(router);
+      const cfg: ModelConfig = { activeProvider: "openai", apiKey: "" };
+      expect(() => applyModelConfig(router, cfg)).not.toThrow();
+      const fallback = await router.resolveModel("general-chat");
+      expect(["mock-core", "llama3.2:3b"]).toContain(fallback.id);
+
+      applyModelConfig(router, { activeProvider: "openai", apiKey: "sk-test-1234567890" });
+      const resolved = await router.resolveModel("general-chat");
+      expect(resolved.id).toBe("gpt-4o");
+
+      expect(() => applyModelConfig(router, { activeProvider: "nope" } as unknown as ModelConfig)).toThrow(/inválida/);
+    });
+
+    it("custom baseUrl openai usa el legacy OpenAICompatibleProvider; si no, AiSdk", () => {
+      const custom = new ModelRouter();
+      applyModelConfig(custom, { activeProvider: "openai", apiKey: "sk-test-1234567890", baseUrl: "http://localhost:1234/v1" });
+      const innerCustom = custom as unknown as { providers: Map<string, { constructor: { name: string } }> };
+      expect(innerCustom.providers.get("openai")?.constructor.name).toBe("OpenAICompatibleProvider");
+
+      const standard = new ModelRouter();
+      applyModelConfig(standard, { activeProvider: "openai", apiKey: "sk-test-1234567890" });
+      const innerStd = standard as unknown as { providers: Map<string, { constructor: { name: string } }> };
+      expect(innerStd.providers.get("openai")?.constructor.name).toBe("AiSdkOpenAIProvider");
+    });
+
+    it("ninguna key en claro sale del main: sin logs con secreto y respuestas enmascaradas", () => {
+      const secret = "sk-ant-SECRETO-XYZ-1234567890";
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        setupModelProviders(new ModelRouter(), { anthropic: secret });
+        applyModelConfig(new ModelRouter(), { activeProvider: "deepseek", apiKey: secret });
+        const leaked = [...logSpy.mock.calls, ...warnSpy.mock.calls].flat().join(" ");
+        expect(leaked).not.toContain(secret);
+        expect(leaked).not.toContain("SECRETO-XYZ");
+      } finally {
+        logSpy.mockRestore();
+        warnSpy.mockRestore();
+      }
+      const masked = maskApiKey(secret);
+      expect(masked).not.toContain(secret);
+      expect(masked).toContain("...");
     });
   });
 });
