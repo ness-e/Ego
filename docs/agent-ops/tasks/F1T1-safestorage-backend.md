@@ -30,3 +30,5 @@ archivos: `packages/security/src/CredentialManager.ts`, `test/CredentialManager.
 ## Review (P2-01)
 
 Revisor distinto al implementador antes de COMPLETED.
+
+**Protocolo aplicable:** Plan Maestro §Protocolo C01/C02 (10 pasos obligatorios: cuestionar, verificar, HITL, blast-radius, TDD, packet, verify, SARL, deuda, cierre).

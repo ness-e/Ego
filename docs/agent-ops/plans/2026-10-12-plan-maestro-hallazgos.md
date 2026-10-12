@@ -12,6 +12,19 @@
 
 **MCP por defecto en toda task:** `codegraph_explore` (blast radius antes de editar), `detect_changes`, `task_validate_scope`, `task_verify_cmd`, `check_index_coverage`. Skills base: SDP al dispatch + las fijadas por task.
 
+## Protocolo C01/C02 (obligatorio en toda task — destilado de la ejecución real)
+
+1. **Cuestionar la recomendación:** verificar en código + docs antes de aceptar el cómo del reporte. La fuente manda sobre el sketch.
+2. **Lectura de verificación:** leer archivos implicados + grep de uso real + docs/backlog (relaciones, decisiones, compuertas) antes de decidir enfoque.
+3. **HITL:** ninguna decisión no declarada se asume; o está en docs o se pregunta (contexto + opciones + recomendada).
+4. **Blast radius (Regla 0):** inventario completo antes de la primera edición; divergencias se reportan, no se ocultan.
+5. **TDD rojo→verde** en lógica nueva; tests que prueban el path real, no el mock.
+6. **Dispatch con paquete de 10 bloques** (§6.f); SIN-FORMATO → RESUME.
+7. **Verify mecánico del lead** (`verify_cmd`) + revisión del diff + secret-scan si toca keys + rebuild de `dist/` si el paquete lo usa; sin verify no hay commit.
+8. **SARL** ante fallos (RESUME → RETRY → STRATEGY → ESCALATE); rate-limit = retry, no estrategia nueva.
+9. **Divergencias y deuda** se registran (plan/state/Backlog), nunca se inventan ni se ocultan.
+10. **Cierre:** `update_state` con SHA + recitation; push solo con orden explícita.
+
 ---
 
 ## ÉPICA F1 — Seguridad real (C04, C06, C07, C08, H31, M15, M17)

@@ -30,3 +30,5 @@ Suites + typecheck. Sin commit.
 ## Review (P2-01)
 
 Revisor distinto (`ego-audit` para M16).
+
+**Protocolo aplicable:** Plan Maestro §Protocolo C01/C02 (10 pasos obligatorios: cuestionar, verificar, HITL, blast-radius, TDD, packet, verify, SARL, deuda, cierre).

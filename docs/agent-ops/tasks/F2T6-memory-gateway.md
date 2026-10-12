@@ -31,3 +31,5 @@ Suite + typecheck + `pnpm install --frozen-lockfile` en clon limpio (o `--filter
 ## Review (P2-01)
 
 Revisor distinto (`ego-audit` para H04/M07).
+
+**Protocolo aplicable:** Plan Maestro §Protocolo C01/C02 (10 pasos obligatorios: cuestionar, verificar, HITL, blast-radius, TDD, packet, verify, SARL, deuda, cierre).

@@ -32,3 +32,5 @@ Suites + typecheck + `floor-guard.ps1`. Sin commit.
 ## Review (P2-01)
 
 Revisor distinto (ideal `ego-audit` sobre el diff).
+
+**Protocolo aplicable:** Plan Maestro §Protocolo C01/C02 (10 pasos obligatorios: cuestionar, verificar, HITL, blast-radius, TDD, packet, verify, SARL, deuda, cierre).
