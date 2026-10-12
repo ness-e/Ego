@@ -27,6 +27,7 @@ describe("Bitemporal, Export & Project Graph (KB-09, KB-10, KB-11)", () => {
             subject: "Arquitectura",
             predicate: "usa",
             object: "SQLite",
+            confidence: 0.9,
             valid_at: 1000,
             invalid_at: 2000, // Expiró en t=2000
           },
@@ -39,6 +40,7 @@ describe("Bitemporal, Export & Project Graph (KB-09, KB-10, KB-11)", () => {
             subject: "Arquitectura",
             predicate: "usa",
             object: "VantaDB",
+            confidence: 0.95,
             valid_at: 2000,
             invalid_at: -1, // Sigue vigente
           },
@@ -49,24 +51,55 @@ describe("Bitemporal, Export & Project Graph (KB-09, KB-10, KB-11)", () => {
       const pastFacts = await bitemporal.asOf(1500);
       expect(pastFacts).toHaveLength(1);
       expect(pastFacts[0].object).toBe("SQLite");
+      // Anti-fallback (C03-list): con metadata tagged sin desenvolver,
+      // valid_at caería a 0, confidence a 0.8 y subject a "General".
+      expect(pastFacts[0].id).toBe("fact_1");
+      expect(pastFacts[0].subject).toBe("Arquitectura");
+      expect(pastFacts[0].validAt).toBe(1000);
+      expect(pastFacts[0].validAt).not.toBe(0);
+      expect(pastFacts[0].confidence).toBe(0.9);
+      expect(pastFacts[0].confidence).not.toBe(0.8);
 
       // Consulta en t=2500 (debe retornar Versión 2 VantaDB)
       mockAdapter.list.mockResolvedValueOnce([
         {
           key: "fact_1",
           payload: "Versión 1",
-          metadata: { valid_at: 1000, invalid_at: 2000 },
+          metadata: {
+            fact_id: "fact_1",
+            subject: "Arquitectura",
+            predicate: "usa",
+            object: "SQLite",
+            confidence: 0.9,
+            valid_at: 1000,
+            invalid_at: 2000,
+          },
         },
         {
           key: "fact_2",
           payload: "Versión 2",
-          metadata: { valid_at: 2000, invalid_at: -1, object: "VantaDB" },
+          metadata: {
+            fact_id: "fact_2",
+            subject: "Arquitectura",
+            predicate: "usa",
+            object: "VantaDB",
+            confidence: 0.95,
+            valid_at: 2000,
+            invalid_at: -1,
+          },
         },
       ]);
 
       const presentFacts = await bitemporal.asOf(2500);
       expect(presentFacts).toHaveLength(1);
       expect(presentFacts[0].object).toBe("VantaDB");
+      // Anti-fallback (C03-list): valores reales, no defaults.
+      expect(presentFacts[0].id).toBe("fact_2");
+      expect(presentFacts[0].subject).toBe("Arquitectura");
+      expect(presentFacts[0].validAt).toBe(2000);
+      expect(presentFacts[0].validAt).not.toBe(0);
+      expect(presentFacts[0].confidence).toBe(0.95);
+      expect(presentFacts[0].confidence).not.toBe(0.8);
     });
   });
 

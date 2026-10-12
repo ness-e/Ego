@@ -149,4 +149,61 @@ describe("QuarantineManager & FactLifecycle (KB-07, KB-08 / CARP-04, DSEK-01)", 
     expect(result.processedFactIds).toContain("fact_create_1");
     expect(result.processedFactIds).toContain("fact_super_2");
   });
+
+  it("lista pendientes con valores reales vía list() (anti-fallback C03-list)", async () => {
+    const now = Date.now();
+    mockAdapter.list.mockResolvedValueOnce([
+      {
+        key: "fact_test_1",
+        payload: "Usuario preferencia_idioma Español",
+        metadata: {
+          fact_id: "fact_test_1",
+          subject: "Usuario",
+          predicate: "preferencia_idioma",
+          object: "Español",
+          confidence: 0.55,
+          temporal_scope: "persistent",
+          source: "chat_turn",
+          valid_at: now - 1000,
+          invalid_at: -1,
+          state: "quarantined",
+        },
+      },
+    ]);
+
+    const pending = await quarantine.listPending();
+    expect(pending).toHaveLength(1);
+    // Anti-fallback: con metadata tagged sin desenvolver, estos caerían a
+    // "Unknown" / 0.5 / Date.now() / rec.key.
+    expect(pending[0].id).toBe("fact_test_1");
+    expect(pending[0].subject).toBe("Usuario");
+    expect(pending[0].predicate).toBe("preferencia_idioma");
+    expect(pending[0].object).toBe("Español");
+    expect(pending[0].confidence).toBe(0.55);
+    expect(pending[0].confidence).not.toBe(0.5);
+    expect(pending[0].validAt).toBe(now - 1000);
+    expect(pending[0].source).toBe("chat_turn");
+  });
+
+  it("purga expirados usando expires_at real vía list() (anti-fallback C03-list)", async () => {
+    const now = Date.now();
+    mockAdapter.list.mockResolvedValueOnce([
+      {
+        key: "fact_expired",
+        payload: "viejo",
+        metadata: { fact_id: "fact_expired", expires_at: now - 1000 },
+      },
+      {
+        key: "fact_active",
+        payload: "vigente",
+        metadata: { fact_id: "fact_active", expires_at: now + 100000 },
+      },
+    ]);
+
+    const purged = await quarantine.purgeExpired();
+    // Con tagged sin desenvolver, expires_at caería a 0 y la purga sería inoperante (0).
+    expect(purged).toBe(1);
+    expect(mockAdapter.delete).toHaveBeenCalledWith("quarantine/pending", "fact_expired");
+    expect(mockAdapter.delete).not.toHaveBeenCalledWith("quarantine/pending", "fact_active");
+  });
 });
