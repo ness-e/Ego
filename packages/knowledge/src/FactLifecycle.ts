@@ -29,15 +29,16 @@ export class FactLifecycle {
     options: PromotionOptions = {}
   ): Promise<Fact> {
     const quarantined = (await this.adapter.get("quarantine/pending", factId)) as {
-      payload?: unknown;
-      metadata?: Record<string, unknown>;
+      key: string;
+      payload: unknown;
+      metadata: Record<string, unknown>;
     } | null;
 
     if (!quarantined) {
       throw new Error(`Hecho no encontrado en cuarentena: ${factId}`);
     }
 
-    const meta = quarantined.metadata || {};
+    const meta = quarantined?.metadata ?? {};
     const now = Date.now();
 
     const promotedFact: Fact = {
@@ -109,12 +110,13 @@ export class FactLifecycle {
     // 2. Actualizar el hecho previo marcándolo como superseded sin borrado destructivo
     try {
       const existing = (await this.adapter.get("kb/facts", oldFactKey)) as {
-        payload?: unknown;
-        metadata?: Record<string, unknown>;
+        key: string;
+        payload: unknown;
+        metadata: Record<string, unknown>;
       } | null;
 
       if (existing) {
-        const oldMeta = existing.metadata || {};
+        const oldMeta = existing?.metadata ?? {};
         await this.adapter.put({
           namespace: "kb/facts",
           key: oldFactKey,
@@ -198,12 +200,13 @@ export class FactLifecycle {
       for (const oldFactId of updates.retire) {
         try {
           const existing = (await this.adapter.get("kb/facts", oldFactId)) as {
-            payload?: unknown;
-            metadata?: Record<string, unknown>;
+            key: string;
+            payload: unknown;
+            metadata: Record<string, unknown>;
           } | null;
 
           if (existing) {
-            const oldMeta = existing.metadata || {};
+            const oldMeta = existing?.metadata ?? {};
             await this.adapter.put({
               namespace: "kb/facts",
               key: oldFactId,

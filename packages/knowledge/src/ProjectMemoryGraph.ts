@@ -91,8 +91,9 @@ export class ProjectMemoryGraph {
 
     const traceId = String(matchingRef.payload);
     const traceRecord = (await this.adapter.get("proj/traces", traceId)) as {
-      payload?: unknown;
-      metadata?: Record<string, unknown>;
+      key: string;
+      payload: unknown;
+      metadata: Record<string, unknown>;
     } | null;
 
     if (!traceRecord || !traceRecord.metadata) {

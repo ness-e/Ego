@@ -49,10 +49,12 @@ export class KnowledgeIndexer {
       // Verificar idempotencia por contentHash para evitar duplicados en reprocesamiento
       try {
         const existing = (await this.adapter.get(namespace, key)) as {
-          metadata?: Record<string, unknown>;
+          key: string;
+          payload: unknown;
+          metadata: Record<string, unknown>;
         } | null;
         if (existing) {
-          const meta = existing.metadata;
+          const meta = existing?.metadata;
           if (meta && meta["content_hash"] === chunk.contentHash) {
             skipped++;
             continue;
@@ -139,8 +141,9 @@ export class KnowledgeIndexer {
    */
   public async getFact(factId: string): Promise<Record<string, unknown> | null> {
     const res = (await this.adapter.get("kb/facts", factId)) as {
-      payload?: unknown;
-      metadata?: Record<string, unknown>;
+      key: string;
+      payload: unknown;
+      metadata: Record<string, unknown>;
     } | null;
     if (!res) return null;
     return {
