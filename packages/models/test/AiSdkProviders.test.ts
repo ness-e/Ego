@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { AiSdkOpenAIProvider } from "../src/providers/AiSdkOpenAIProvider.js";
 import { AiSdkAnthropicProvider } from "../src/providers/AiSdkAnthropicProvider.js";
+import { AiSdkGoogleProvider } from "../src/providers/AiSdkGoogleProvider.js";
 import type { ModelStreamChunk } from "../src/types.js";
 
 const TOOL_DEF = {
@@ -341,6 +342,152 @@ describe("AiSdkAnthropic", () => {
     const toolDeltas = chunks.filter((c) => c.type === "tool-call-delta");
     expect(toolDeltas.length).toBeGreaterThan(0);
     expect(toolDeltas[0].toolCallId).toBe("toolu_1");
+    expect(toolDeltas[0].toolName).toBe("fs_read_file");
+    expect(toolDeltas.map((c) => c.argsDelta ?? "").join("")).toContain("src/main.ts");
+
+    const finish = chunks.filter((c) => c.type === "finish");
+    expect(finish).toHaveLength(1);
+    expect(finish[0].finishReason).toBe("tool_calls");
+    expect(finish[0].usage?.totalTokens).toBe(15);
+
+    expect(res.finishReason).toBe("tool_calls");
+    expect(res.toolCalls?.[0]?.name).toBe("fs_read_file");
+    expect(res.toolCalls?.[0]?.arguments).toEqual({ path: "src/main.ts" });
+    expect(res.text).toContain("Hola");
+  });
+});
+
+function googleGenerateResponse() {
+  return new Response(
+    JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              { text: "Hola" },
+              {
+                functionCall: {
+                  id: "call_1",
+                  name: "fs_read_file",
+                  args: { path: "src/main.ts" },
+                },
+              },
+            ],
+          },
+          finishReason: "STOP",
+        },
+      ],
+      usageMetadata: {
+        promptTokenCount: 10,
+        candidatesTokenCount: 5,
+        totalTokenCount: 15,
+      },
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
+
+function googleStreamResponse() {
+  const body =
+    sseFrame({
+      candidates: [{ content: { parts: [{ text: "Hola" }] } }],
+    }) +
+    sseFrame({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                functionCall: {
+                  id: "call_1",
+                  name: "fs_read_file",
+                  args: { path: "src/main.ts" },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }) +
+    sseFrame({
+      candidates: [{ finishReason: "STOP" }],
+      usageMetadata: {
+        promptTokenCount: 10,
+        candidatesTokenCount: 5,
+        totalTokenCount: 15,
+      },
+    });
+  return new Response(body, {
+    status: 200,
+    headers: { "Content-Type": "text/event-stream" },
+  });
+}
+
+describe("AiSdkGoogle", () => {
+  it("expone providerId google y está indisponible sin key (sin red)", async () => {
+    const fetchSpy = vi.fn(async () => {
+      throw new Error("isAvailable no debe usar red");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+    const p = new AiSdkGoogleProvider({ apiKey: "" });
+    expect(p.providerId).toBe("google");
+    expect(await p.isAvailable()).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("está disponible con key configurada (sin red)", async () => {
+    const p = new AiSdkGoogleProvider({ apiKey: "AIza-test-1234567890" });
+    expect(await p.isAvailable()).toBe(true);
+  });
+
+  it("generate envía tools y parsea functionCall contra modelo stub", async () => {
+    const seen: Array<{ url: unknown; body: string }> = [];
+    const stubFetch = async (url: string | URL | Request, init?: RequestInit) => {
+      seen.push({ url, body: (init?.body as string) ?? "" });
+      return googleGenerateResponse();
+    };
+    const p = new AiSdkGoogleProvider({ apiKey: "AIza-test-1234567890", fetch: stubFetch });
+
+    const res = await p.generate("gemini-2.0-flash", {
+      messages: [{ role: "user", content: "lee src/main.ts" }],
+      tools: [TOOL_DEF],
+      toolChoice: "auto",
+    });
+
+    expect(seen).toHaveLength(1);
+    expect(String(seen[0].url)).toContain(":generateContent");
+    const body = JSON.parse(seen[0].body) as {
+      tools: Array<{ functionDeclarations: Array<{ name: string }> }>;
+    };
+    expect(body.tools[0].functionDeclarations[0].name).toBe("fs_read_file");
+    expect(res.finishReason).toBe("tool_calls");
+    expect(res.toolCalls?.[0]?.name).toBe("fs_read_file");
+    expect(res.toolCalls?.[0]?.id).toBe("call_1");
+    expect(res.toolCalls?.[0]?.arguments).toEqual({ path: "src/main.ts" });
+    expect(res.usage.promptTokens).toBe(10);
+    expect(res.usage.completionTokens).toBe(5);
+    expect(res.usage.totalTokens).toBe(15);
+  });
+
+  it("stream reenvía text-delta y tool-call-delta y cierra con finish", async () => {
+    const stubFetch = async () => googleStreamResponse();
+    const p = new AiSdkGoogleProvider({ apiKey: "AIza-test-1234567890", fetch: stubFetch });
+
+    const chunks: ModelStreamChunk[] = [];
+    const res = await p.stream(
+      "gemini-2.0-flash",
+      {
+        messages: [{ role: "user", content: "lee src/main.ts" }],
+        tools: [TOOL_DEF],
+      },
+      (c) => chunks.push(c),
+    );
+
+    const textDeltas = chunks.filter((c) => c.type === "text-delta");
+    expect(textDeltas.map((c) => c.delta).join("")).toContain("Hola");
+    const toolDeltas = chunks.filter((c) => c.type === "tool-call-delta");
+    expect(toolDeltas.length).toBeGreaterThan(0);
+    expect(toolDeltas[0].toolCallId).toBe("call_1");
     expect(toolDeltas[0].toolName).toBe("fs_read_file");
     expect(toolDeltas.map((c) => c.argsDelta ?? "").join("")).toContain("src/main.ts");
 
