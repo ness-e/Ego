@@ -90,4 +90,42 @@ describe("SessionCheckpointPolicy — Durabilidad Fail-Closed y Checkpoints de S
     expect(decision.proceed).toBe(false);
     expect(decision.error).toContain("Disk full");
   });
+
+  it("F2T6/M08 — beforeModelStream retorna proceed:true tras flush exitoso", async () => {
+    const decision = await policy.beforeModelStream("sess_test_123");
+    expect(decision.proceed).toBe(true);
+    expect(decision.error).toBeUndefined();
+  });
+
+  it("F2T6/M08 — beforeModelStream es fail-closed coherente si el flush falla", async () => {
+    const brokenAdapter = {
+      flush: async () => {
+        throw new Error("IO error: Disk full");
+      },
+    } as unknown as EgoMemoryAdapter;
+
+    const strictPolicy = new SessionCheckpointPolicy(brokenAdapter, {
+      failClosedOnToolFlushError: true,
+    });
+
+    const decision = await strictPolicy.beforeModelStream("sess_999");
+    expect(decision.proceed).toBe(false);
+    expect(decision.error).toContain("Disk full");
+  });
+
+  it("F2T6/M08 — beforeModelStream respeta fail-open explícito sin ocultar el error", async () => {
+    const brokenAdapter = {
+      flush: async () => {
+        throw new Error("IO error: Disk full");
+      },
+    } as unknown as EgoMemoryAdapter;
+
+    const lenientPolicy = new SessionCheckpointPolicy(brokenAdapter, {
+      failClosedOnToolFlushError: false,
+    });
+
+    const decision = await lenientPolicy.beforeModelStream("sess_999");
+    expect(decision.proceed).toBe(true);
+    expect(decision.error).toContain("Disk full");
+  });
 });

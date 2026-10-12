@@ -26,7 +26,7 @@ Este documento establece el **contrato de evolución coordinada** entre Ego (el 
 │  • Fast Path: NativeVantaDB (in-process vía napi-rs, Fjall LSM)       │
 │  • Cognitive Path: vantadb-mcp (subprocess stdio, 88 tools)            │
 │  • Búsqueda híbrida: BM25 + HNSW + RRF federado                        │
-│  • Embeddings: Auto-embed interno (ONNX multilingual-e5-small)         │
+│  • Embeddings: BM25 puro en fast path (VDB-INC-01; denso vía mcp)      │
 │  • Gobernanza: Cuarentena (ADR-046) y Supersesión (ADR-028)           │
 ├────────────────────────────────────────────────────────────────────────┤
 │ FASE 03–07: SUB-EGOS, WORKSPACE, DECISION & KNOWLEDGE (P1)             │

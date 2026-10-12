@@ -33,12 +33,22 @@ export class SessionCheckpointPolicy {
   /**
    * Asegura que todo el historial acumulado en la sesión quede persistido
    * antes de iniciar un nuevo stream de inferencia con el modelo (LLM).
+   * F2T6/M08: fail-closed coherente con `beforeToolDispatch` — el fallo de
+   * flush NUNCA es silencioso: se propaga como `CheckpointDecision`
+   * (`proceed:false` salvo fail-open explícito, que conserva el error).
    */
-  public async beforeModelStream(sessionId: string): Promise<void> {
+  public async beforeModelStream(sessionId: string): Promise<CheckpointDecision> {
     try {
       await this.adapter.flush();
-    } catch (err: any) {
-      console.warn(`[SessionCheckpointPolicy] Advertencia en flush previo a model stream para ${sessionId}:`, err);
+      return { proceed: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      const errorMsg = `[SessionCheckpointPolicy] Fallo al asegurar durabilidad previa a model stream para ${sessionId}: ${message}`;
+      console.error(errorMsg);
+      if (this.failClosedOnToolFlushError) {
+        return { proceed: false, error: errorMsg };
+      }
+      return { proceed: true, error: errorMsg };
     }
   }
 
@@ -67,8 +77,9 @@ export class SessionCheckpointPolicy {
 
       await this.adapter.flush();
       return { proceed: true };
-    } catch (err: any) {
-      const errorMsg = `[SessionCheckpointPolicy] Fallo al asegurar durabilidad previa a tool ${toolName}: ${err.message}`;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      const errorMsg = `[SessionCheckpointPolicy] Fallo al asegurar durabilidad previa a tool ${toolName}: ${message}`;
       console.error(errorMsg);
 
       if (this.failClosedOnToolFlushError) {

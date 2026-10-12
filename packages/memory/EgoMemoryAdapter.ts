@@ -1,6 +1,9 @@
 // EgoMemoryAdapter — Implementación oficial de acceso único a VantaDB
 // IMPORTANTE: Usa NativeVantaDB (napi-rs in-process) para persistencia real.
 // NUNCA usar Client de "vantadb" (WASM en memoria, sin persistencia en disco).
+// Vía única de import: "vantadb/native" + "vantadb/types" (dep canónica
+// versionada `vantadb`; F2T6/H05+M05). Prohibido importar `vantadb-wasm`,
+// el entry bare "vantadb" o "vantadb-node" directo desde este paquete.
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
@@ -36,6 +39,29 @@ export interface EgoImportReport {
   recordsImported: number;
   namespaces: string[];
   durationMs: number;
+}
+
+/**
+ * Handle restringido de SOLO-LECTURA al binding nativo (F2T6/H04).
+ * `getDb()` expone este subconjunto a nivel de tipos: lectura y barridos
+ * (`get/list/search/listNamespaces/capabilities/flush`). Sin `put/putBatch/
+ * delete/close`: toda escritura pasa por el adapter (normalización, auditoría,
+ * cuarentena). El objeto runtime sigue siendo el binding completo — esta es
+ * una barrera de compilación + auditoría, no revocación de runtime.
+ */
+export type ReadOnlyDbHandle = Pick<
+  NativeVantaDB,
+  "get" | "list" | "listNamespaces" | "search" | "capabilities" | "flush"
+>;
+
+export interface EgoListPage {
+  records: Array<{ key: string; payload: unknown; metadata?: Record<string, unknown> }>;
+  nextCursor?: number | string;
+}
+
+/** Mensaje de error seguro para logs estructurados (err: unknown, sin `any`). */
+function describeError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 export interface VersionNode {
@@ -81,7 +107,20 @@ export class EgoMemoryAdapter {
     return this.isInitialized && this.db !== null;
   }
 
-  public getDb(): NativeVantaDB | null {
+  /**
+   * Escape hatch restringido de SOLO-LECTURA al binding nativo (F2T6/H04).
+   *
+   * NO eliminar: 3 consumidores verificados (2026-10-12) dependen de la
+   * paginación con cursor REAL para barridos completos —
+   * - `packages/knowledge/src/BitemporalQueries.ts` (`listAllRecords`, F2T3),
+   * - `packages/knowledge/src/cursorListing.ts` (`listAllNamespaceRecords`, F2T5),
+   * - `packages/recovery/src/ProjectExport.ts` (`listNamespaces`).
+   * Eliminar el acceso crudo los rompería; la restricción es por tipo
+   * (`ReadOnlyDbHandle`: sin put/putBatch/delete/close) + esta auditoría.
+   * Regla: lecturas/cursor aquí, escrituras SOLO vía `put/putMulti`.
+   * Vía de migración futura: `listPaged()` en este gateway (F2T6).
+   */
+  public getDb(): ReadOnlyDbHandle | null {
     return this.db;
   }
 
@@ -94,7 +133,9 @@ export class EgoMemoryAdapter {
 
   /**
    * Escritura en lote con normalización obligatoria de metadatos de auditoría.
-   * NativeVantaDB auto-genera embeddings via ONNX Runtime si no se provee vector.
+   * Fast path BM25 puro (VDB-INC-01): el binding in-process napi-rs NO
+   * auto-genera embeddings densos (sin inferencia ONNX en `put`); la vía
+   * densa vive en el cognitive path `vantadb-mcp` (capas L0-L3).
    */
   async putMulti(items: EgoPut[]): Promise<void> {
     const db = this.ensureReady();
@@ -103,6 +144,8 @@ export class EgoMemoryAdapter {
         typeof item.payload === "string" ? item.payload : JSON.stringify(item.payload);
 
       const metadata: Record<string, unknown> = {};
+      // Workaround: VDB-BUG-02 (números JS son f64 IEEE-754; el binding espera
+      // variantes etiquetadas `{Float|String|Bool}` / `'Null'`; ver registro).
       if (item.metadata) {
         for (const [k, v] of Object.entries(item.metadata)) {
           if (typeof v === "number") {
@@ -146,7 +189,12 @@ export class EgoMemoryAdapter {
     try {
       await db.putBatch(records);
     } catch (e) {
-      // Fallback a escritura secuencial si putBatch tiene restricciones
+      // Defensive fallback (engine-agnostic; NO implica defecto VDB registrado,
+      // sin ID upstream): si putBatch rechaza el lote, reintentar secuencial
+      // para no perder escrituras. Si el secuencial también falla, propaga.
+      console.error(
+        `[EgoMemoryAdapter] putMulti putBatch falló, reintentando secuencial: ${describeError(e)}`
+      );
       for (const rec of records) {
         await db.put(rec);
       }
@@ -172,7 +220,9 @@ export class EgoMemoryAdapter {
   }
 
   /**
-   * Lista registros por namespace usando la API de listado nativa de VantaDB
+   * Lista registros por namespace usando la API de listado nativa de VantaDB.
+   * Firma intacta (F2T6/M07): ante fallo del motor retorna `[]` PERO con log
+   * estructurado — vacío NUNCA es silencioso (ver `test/gateway-errors.test.ts`).
    */
   async list(
     namespace: string,
@@ -187,20 +237,60 @@ export class EgoMemoryAdapter {
         // Workaround: VDB-BUG-02
         metadata: unwrapMetadata(r.metadata as Record<string, unknown>),
       }));
-    } catch {
+    } catch (err) {
+      console.error(
+        `[EgoMemoryAdapter] list(${namespace}, limit=${limit}) falló, retornando []: ${describeError(err)}`
+      );
       return [];
     }
   }
 
   /**
-   * Elimina un registro por namespace y clave
+   * Una página del listado nativo con cursor opaco (F2T6/H04).
+   * Vía canónica del gateway para barridos completos sin escapar vía `getDb()`.
+   */
+  async listPaged(
+    namespace: string,
+    limit: number = 100,
+    cursor?: number | string
+  ): Promise<EgoListPage> {
+    const db = this.ensureReady();
+    // Workaround: VDB-BUG-01 (cursor:undefined se serializa como Null y el
+    // binding rechaza con "cursor must be a number"): omitir la clave salvo
+    // number/string válidos.
+    const page =
+      cursor === undefined
+        ? await db.list({ namespace, limit })
+        : await db.list({ namespace, limit, cursor });
+    const next = page.next_cursor;
+    return {
+      records: page.records.map((r: MemoryRecord) => ({
+        key: r.key,
+        payload: this.parseRecord(r),
+        // Workaround: VDB-BUG-02
+        metadata: unwrapMetadata(r.metadata as Record<string, unknown>),
+      })),
+      nextCursor:
+        typeof next === "number" || (typeof next === "string" && next !== "")
+          ? next
+          : undefined,
+    };
+  }
+
+  /**
+   * Elimina un registro por namespace y clave.
+   * Firma intacta (F2T6/M07): ante fallo retorna `false` PERO con log
+   * estructurado (ver `test/gateway-errors.test.ts`).
    */
   async delete(namespace: string, key: string): Promise<boolean> {
     const db = this.ensureReady();
     try {
       await db.delete({ namespace, key });
       return true;
-    } catch {
+    } catch (err) {
+      console.error(
+        `[EgoMemoryAdapter] delete(${namespace}, ${key}) falló, retornando false: ${describeError(err)}`
+      );
       return false;
     }
   }
@@ -208,6 +298,8 @@ export class EgoMemoryAdapter {
   /**
    * Búsqueda híbrida multi-namespace con RRF (BM25 + HNSW).
    * VantaDB soporta searchMulti nativo — no iterar manualmente.
+   * Firma intacta (F2T6/M07): la degradación por namespace emite log
+   * estructurado vía console.error (ver `test/gateway-errors.test.ts`).
    */
   async searchMulti(
     namespaces: string[],
@@ -217,9 +309,20 @@ export class EgoMemoryAdapter {
     const db = this.ensureReady();
     const topK = options.topK ?? 10;
 
+    // Workaround: VDB-BUG-05 (guards.js evalúa text_query:"" como falsy y exige
+    // query_vector denso). Barridos sin término léxico deben usar list()/listPaged().
+    if (query.trim().length === 0) {
+      console.error(
+        `[EgoMemoryAdapter] searchMulti(${namespaces.join(",")}) rechazado: texto vacío (VDB-BUG-05); usar list()/listPaged() para barridos`
+      );
+      return [];
+    }
+
     // Si algún namespace incluye comodín (*), expandir dinámicamente contra los namespaces existentes
     let targetNamespaces = namespaces;
     if (namespaces.some((ns) => ns.includes("*"))) {
+      // Workaround: VDB-REQ-01 (search_multi nativo sin soporte de comodines):
+      // expandir `prefijo/*` contra listNamespaces() antes de delegar a Rust.
       try {
         const existing = await db.listNamespaces();
         const expanded: string[] = [];
@@ -248,13 +351,17 @@ export class EgoMemoryAdapter {
         return await db.search({
           namespace: ns,
           text_query: query,
+          // Workaround: VDB-REQ-02 (guards.js exige array aunque la búsqueda
+          // sea BM25 léxica pura en fast path): enviar `[]` explícito.
           query_vector: [],
           top_k: topK,
           exclude_superseded: options.excludeSuperseded ?? true,
           min_confidence: options.minConfidence,
         });
       } catch (nsErr) {
-        console.warn(`[EgoMemoryAdapter] Error en búsqueda de namespace ${ns}:`, nsErr);
+        console.error(
+          `[EgoMemoryAdapter] searchMulti namespace ${ns} falló, degradando a []: ${describeError(nsErr)}`
+        );
         return [];
       }
     });
@@ -281,6 +388,7 @@ export class EgoMemoryAdapter {
       const hits = await db.search({
         namespace,
         text_query: keyOrQuery,
+        // Workaround: VDB-REQ-02 (ver searchMulti): `[]` para BM25 léxica pura.
         query_vector: [],
         top_k: 1,
         exclude_superseded: true,
@@ -292,7 +400,9 @@ export class EgoMemoryAdapter {
 
       return null;
     } catch (err) {
-      console.warn(`[EgoMemoryAdapter] Error en recall (${namespace}, ${keyOrQuery}):`, err);
+      console.error(
+        `[EgoMemoryAdapter] recall(${namespace}, ${keyOrQuery}) falló, retornando null: ${describeError(err)}`
+      );
       return null;
     }
   }
@@ -571,7 +681,10 @@ export class EgoMemoryAdapter {
   }
 
   /**
-   * Consultas IQL (Integrated Query Language v4)
+   * Consultas IQL (Integrated Query Language v4).
+   * Capability probe (NO es workaround VDB: el binding napi-rs aún no expone
+   * motor IQL, sin ID upstream registrado): si falta, degradar a objeto de
+   * error explícito en vez de lanzar.
    */
   async graphQuery(queryStr: string): Promise<unknown> {
     const db = this.ensureReady();
@@ -638,7 +751,10 @@ export class EgoMemoryAdapter {
     try {
       const page = await db.list({ namespace: "gov/sub_egos", limit: 100 });
       return page.records.map((r: MemoryRecord) => this.parseRecord(r) as SubEgoManifest);
-    } catch {
+    } catch (err) {
+      console.error(
+        `[EgoMemoryAdapter] listSubEgos() falló, retornando []: ${describeError(err)}`
+      );
       return [];
     }
   }
@@ -710,6 +826,8 @@ export class EgoMemoryAdapter {
           namespace: ns,
           limit: 100,
         };
+        // Workaround: VDB-BUG-01 (cursor:undefined → Null → "cursor must be a
+        // number"): inyectar la clave SOLO cuando es number válido.
         if (typeof cursor === "number") {
           listOpts.cursor = cursor;
         }

@@ -98,6 +98,8 @@ export class EgoMemoryLifecycle {
     ];
 
     const cleanPrompt = prompt.replace(/[¿?¡!.,;:()]/g, " ").trim();
+    // Workaround: VDB-REQ-03 (tokenizador BM25 sin filtro de puntuación
+    // española; ver registro): sanitizar el prompt antes de searchMulti.
 
     const hits: SearchHit[] = await this.adapter.searchMulti(namespaces, cleanPrompt || prompt, {
       topK: 5,
@@ -169,7 +171,8 @@ export class EgoMemoryLifecycle {
 
   /**
    * FASE 4: Post-Turn Synchronization (`sync_turn`)
-   * Al culminar el streaming, persiste el turno de forma inmutable en VantaDB con auto-embed ONNX en Rust.
+   * Al culminar el streaming, persiste el turno de forma inmutable en VantaDB
+   * (fast path BM25 puro, VDB-INC-01: sin auto-embed ONNX en napi-rs).
    */
   async syncTurn(
     sessionId: string,
