@@ -1,9 +1,73 @@
 import { z } from "zod";
+// Nota: los tipos mínimos de "electron" viven en `./electron-shim.d.ts`
+// (solo tipos; en runtime se resuelve vía import dinámico guarded).
 
 export interface CryptoStorageBackend {
   isAvailable(): boolean;
   encrypt(plainText: string): Promise<string> | string;
   decrypt(encryptedText: string): Promise<string> | string;
+}
+
+/**
+ * Sonda opcional de protección hardware. Los backends reales
+ * (`SafeStorageBackend`) la implementan; el manager la usa para
+ * flags honestos en vez de asumir `isAvailable()`.
+ */
+export interface HardwareProtectionProbe {
+  isHardwareProtected(): boolean;
+}
+
+function hasHardwareProbe(backend: unknown): backend is CryptoStorageBackend & HardwareProtectionProbe {
+  if (typeof backend !== "object" || backend === null) return false;
+  const probe = (backend as { isHardwareProtected?: unknown }).isHardwareProtected;
+  return typeof probe === "function";
+}
+
+/**
+ * Forma mínima de `Electron.safeStorage` que `SafeStorageBackend` necesita.
+ * Se inyecta en tests; en main se resuelve vía `import("electron")` dinámico.
+ */
+export interface SafeStorageLike {
+  isEncryptionAvailable(): boolean;
+  encryptString(plainText: string): Buffer;
+  decryptString(encrypted: Buffer): string;
+}
+
+function isSafeStorageLike(value: unknown): value is SafeStorageLike {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record["isEncryptionAvailable"] === "function" &&
+    typeof record["encryptString"] === "function" &&
+    typeof record["decryptString"] === "function"
+  );
+}
+
+function extractSafeStorage(moduleValue: unknown): SafeStorageLike | null {
+  if (typeof moduleValue !== "object" || moduleValue === null) return null;
+  const record = moduleValue as Record<string, unknown>;
+  const direct = record["safeStorage"];
+  if (isSafeStorageLike(direct)) return direct;
+  const def = record["default"];
+  if (typeof def === "object" && def !== null) {
+    const nested = (def as Record<string, unknown>)["safeStorage"];
+    if (isSafeStorageLike(nested)) return nested;
+  }
+  return null;
+}
+
+/**
+ * Resuelve `safeStorage` de Electron sin declararlo como dependencia del
+ * paquete: fuera del main process (tests, renderer) el import dinámico
+ * falla y se devuelve `null` (falla suave, sin excepciones).
+ */
+async function loadElectronSafeStorage(): Promise<SafeStorageLike | null> {
+  try {
+    const electronModule: unknown = await import("electron");
+    return extractSafeStorage(electronModule);
+  } catch {
+    return null;
+  }
 }
 
 export const StoredCredentialSchema = z.object({
@@ -18,16 +82,25 @@ export const StoredCredentialSchema = z.object({
 export type StoredCredential = z.infer<typeof StoredCredentialSchema>;
 
 /**
- * Backend en memoria seguro con ofuscación para entornos de prueba o cuando el SO
- * no dispone de llavero activo.
+ * @testOnly — Backend en memoria con ofuscación base64, SIN cifrado real.
+ * Solo para tests. Nunca en producción (C06): los payloads `obf:` son
+ * reversibles por cualquiera que lea el vault.
  */
 export class InMemoryCryptoBackend implements CryptoStorageBackend {
-  // NOTA (deuda abierta P0-C05/C06): sin cifrado real, solo ofuscación para tests.
-  // El parámetro se conserva por compatibilidad API; el cifrado real (SEC-03) queda pendiente.
-  constructor(_sessionKey?: string) {}
+  // El parámetro se conserva por compatibilidad API; el cifrado real vive
+  // en SafeStorageBackend (SEC-03).
+  constructor(_sessionKey?: string) {
+    console.warn(
+      "[InMemoryCryptoBackend] TEST-ONLY: ofuscación base64 sin cifrado real. No usar en producción."
+    );
+  }
 
   isAvailable(): boolean {
     return true;
+  }
+
+  isHardwareProtected(): boolean {
+    return false;
   }
 
   encrypt(plainText: string): string {
@@ -41,6 +114,98 @@ export class InMemoryCryptoBackend implements CryptoStorageBackend {
       return Buffer.from(b64, "base64").toString("utf-8");
     }
     return encryptedText;
+  }
+}
+
+/**
+ * Backend real sobre el llavero del SO vía `Electron.safeStorage`
+ * (macOS Keychain, Windows DPAPI, Linux Secret Service).
+ *
+ * - Vive en `@ego/security` con `import("electron")` dinámico guarded:
+ *   fuera del main process (tests, renderer) `isAvailable()` es `false`
+ *   explícito y `encrypt`/`decrypt` fallan cerrados en vez de degradar
+ *   a ofuscación silenciosa.
+ * - Solo emite payloads `enc:` (cifrado real). Acepta `obf:` legacy solo
+ *   en lectura para migración.
+ * - Para tests, inyectar un `SafeStorageLike` falso por constructor.
+ */
+export class SafeStorageBackend implements CryptoStorageBackend, HardwareProtectionProbe {
+  private readonly injected: SafeStorageLike | null;
+  private resolved: SafeStorageLike | null = null;
+  private resolutionAttempted = false;
+
+  constructor(injectedSafeStorage?: SafeStorageLike | null) {
+    this.injected = injectedSafeStorage ?? null;
+  }
+
+  private encryptionAvailable(store: SafeStorageLike): boolean {
+    try {
+      return store.isEncryptionAvailable();
+    } catch {
+      return false;
+    }
+  }
+
+  private activeStoreSync(): SafeStorageLike | null {
+    const candidate = this.injected ?? this.resolved;
+    if (!candidate) return null;
+    return this.encryptionAvailable(candidate) ? candidate : null;
+  }
+
+  isAvailable(): boolean {
+    return this.activeStoreSync() !== null;
+  }
+
+  isHardwareProtected(): boolean {
+    return this.activeStoreSync() !== null;
+  }
+
+  /**
+   * Intenta resolver `safeStorage` de Electron (una sola vez). Devuelve
+   * `true` si quedó cifrado real disponible. Sin `electron` (tests,
+   * renderer) devuelve `false` sin lanzar.
+   */
+  public async ensureLoaded(): Promise<boolean> {
+    if (this.injected) return this.encryptionAvailable(this.injected);
+    if (this.resolved) return this.encryptionAvailable(this.resolved);
+    if (this.resolutionAttempted) return false;
+    this.resolutionAttempted = true;
+    const loaded = await loadElectronSafeStorage();
+    this.resolved = loaded;
+    return loaded !== null && this.encryptionAvailable(loaded);
+  }
+
+  private async requireStore(operation: string): Promise<SafeStorageLike> {
+    const fromSync = this.activeStoreSync();
+    if (fromSync) return fromSync;
+    const loaded = await this.ensureLoaded();
+    const store = this.injected ?? this.resolved;
+    if (!loaded || !store) {
+      throw new Error(
+        `[SafeStorageBackend] safeStorage no disponible para ${operation} (fuera del main process o cifrado del SO desactivado).`
+      );
+    }
+    return store;
+  }
+
+  public async encrypt(plainText: string): Promise<string> {
+    if (!plainText) {
+      throw new Error("[SafeStorageBackend] No se puede cifrar un texto vacío.");
+    }
+    const store = await this.requireStore("cifrar");
+    const encrypted = store.encryptString(plainText);
+    return `enc:${Buffer.from(encrypted).toString("base64")}`;
+  }
+
+  public async decrypt(encryptedText: string): Promise<string> {
+    if (encryptedText.startsWith("obf:")) {
+      return Buffer.from(encryptedText.slice(4), "base64").toString("utf-8");
+    }
+    if (!encryptedText.startsWith("enc:")) {
+      throw new Error("[SafeStorageBackend] Formato no soportado: se esperaba payload `enc:` u `obf:` legacy.");
+    }
+    const store = await this.requireStore("descifrar");
+    return store.decryptString(Buffer.from(encryptedText.slice(4), "base64"));
   }
 }
 
@@ -62,6 +227,13 @@ export class CredentialManager {
   }
 
   public isHardwareProtected(): boolean {
+    if (hasHardwareProbe(this.backend)) {
+      try {
+        return this.backend.isHardwareProtected();
+      } catch {
+        return false;
+      }
+    }
     return this.backend.isAvailable();
   }
 
@@ -87,7 +259,7 @@ export class CredentialManager {
       encryptedPayload: encrypted,
       createdAtMs: this.vault.has(key) ? this.vault.get(key)!.createdAtMs : now,
       updatedAtMs: now,
-      isHardwareProtected: this.backend.isAvailable(),
+      isHardwareProtected: this.isHardwareProtected(),
     };
 
     StoredCredentialSchema.parse(credential);
