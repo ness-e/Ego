@@ -1,4 +1,5 @@
 export * from "./EgoMemoryAdapter.js";
+export * from "./unwrapMetadata.js";
 export * from "./sub-egos.js";
 export * from "./EgoMemoryLifecycle.js";
 export * from "./OpaqueId.js";
