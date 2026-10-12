@@ -92,10 +92,10 @@ importers:
     dependencies:
       '@assistant-ui/react':
         specifier: 0.15.23
-        version: 0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0))
+        version: 0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(ai@7.0.137(zod@4.6.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0))
       '@assistant-ui/react-streamdown':
         specifier: ^0.3.19
-        version: 0.3.19(@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0)))(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        version: 0.3.19(@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(ai@7.0.137(zod@4.6.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0)))(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@ego/ui-runtime':
         specifier: workspace:*
         version: link:../../../packages/ui-runtime
@@ -326,6 +326,18 @@ importers:
 
   packages/models:
     dependencies:
+      '@ai-sdk/anthropic':
+        specifier: 4.0.78
+        version: 4.0.78(zod@3.25.76)
+      '@ai-sdk/google':
+        specifier: 4.0.93
+        version: 4.0.93(zod@3.25.76)
+      '@ai-sdk/openai':
+        specifier: 4.0.91
+        version: 4.0.91(zod@3.25.76)
+      ai:
+        specifier: 7.0.137
+        version: 7.0.137(zod@3.25.76)
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -379,6 +391,22 @@ importers:
       '@ego/tools':
         specifier: workspace:*
         version: link:../tools
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.8.0
+        version: 22.20.5
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.2
+        version: 2.1.9(@types/node@22.20.5)(happy-dom@20.14.6)(lightningcss@1.32.0)
+
+  packages/security:
+    dependencies:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -485,6 +513,40 @@ packages:
 
   7zip-bin@5.2.0:
     resolution: {integrity: sha512-ukTPVhqG4jNzMro2qA9HSCSSVJN3aN7tlb+hfqYCt3ER0yWroeA2VR38MNrOHLQ/cVj+DaIMad0kFCtWWowh/A==}
+
+  '@ai-sdk/anthropic@4.0.78':
+    resolution: {integrity: sha512-lVMxa9tLM5WoB72bqxjzWEWQlCwtBTo1L3yIKxAefowWATd+1YKohrINey6wTn8gtGEqyYm79z4DUGJBYauUFw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/gateway@4.0.110':
+    resolution: {integrity: sha512-5IwnOR6v7KC+D9eddUqsCobXl/FbLUVb2LaQc/uyuQdpP3/n9s0YLc9zl4/W3IS/R2pjHrqUfCzEAeOu7bFLoQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/google@4.0.93':
+    resolution: {integrity: sha512-hubOUxbG2W7oD3acdCxxnrQ84NlnLqfzcHe9uWMmwkglHxq/rwsbjloPhvebeQlcQ2G0gaX+akDF1Ddm/fNAnQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai@4.0.91':
+    resolution: {integrity: sha512-Nk382R6us0GNxI1cGJUXMryz1XHpyrmC3K/Rmqdx9tIsqAlc7UtuO/hC9dd31F41w8uzoS362HJSDXgAI7zKbA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@5.0.58':
+    resolution: {integrity: sha512-iXSwKR/7LpHzAlyrUl+bTinwzmZ3Nmup1viwPisM5Gn5cogRdIG4rV9w1ZDuKFcrXyu/AeVs42E1CX/0aNwrfQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider@4.0.26':
+    resolution: {integrity: sha512-BZ443uBEq6HuMA+Z4b7Hpm65GpZSo7pWqnYqpf/7tAO3C48JbtvAhOE2JnODFj+jodsZzfRHkAyQb64xuD2tZQ==}
+    engines: {node: '>=22'}
 
   '@assistant-ui/core@0.3.24':
     resolution: {integrity: sha512-uyWSPtQqD1whFfH1L+MPObJYeL8HYQtNaEuPbwCjuE7ejZWllA2pXFERqTvw5E+uAkBMH+l1LYKAL1f5d3KqUQ==}
@@ -2302,6 +2364,10 @@ packages:
   '@ungap/structured-clone@1.4.0':
     resolution: {integrity: sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ==}
 
+  '@vercel/oidc@3.2.0':
+    resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
+    engines: {node: '>= 20'}
+
   '@vitejs/plugin-react@4.7.0':
     resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
     engines: {node: ^14.18.0 || >=16.0.0}
@@ -2337,6 +2403,9 @@ packages:
   '@vitest/utils@2.1.9':
     resolution: {integrity: sha512-v0psaMSkNJ3A2NMrUEHFRzJtDPFn+/VWZ5WxImB21T9fjucJRmS7xCS3ppEnARb9y11OAzaD+P2Ps+b+BGX5iQ==}
 
+  '@workflow/serde@4.1.0':
+    resolution: {integrity: sha512-pav4F2BoirECWR7Nf1TKt+2eETcBj7jj4cBefQ8VXQCA6NPkaKeLfj/zMgi+3zYV5ZIBT4GuUiphsj0/b9hPQQ==}
+
   '@xmldom/xmldom@0.9.12':
     resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
     engines: {node: '>=14.6'}
@@ -2359,6 +2428,12 @@ packages:
   aggregate-error@3.1.0:
     resolution: {integrity: sha512-4I7Td01quW/RpocfNayFdFVk1qSuoh0E7JrbRJ16nH01HhKFQ88INq9Sd+nd72zqRySlr9BmDA8xlEJ6vJMrYA==}
     engines: {node: '>=8'}
+
+  ai@7.0.137:
+    resolution: {integrity: sha512-JxrPkSQknxIN/gYqS3UQksExS6eWI23QMPBrKMGXeeFHhru6xFtF4MuMq17WaHD+lXPh0lne6H0BM2Z2VMW9EQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
 
   ajv-keywords@3.5.2:
     resolution: {integrity: sha512-5p6WTN0DdTGVQk6VjcEju19IgaHudalcfabD7yhDGeA6bcQnmL+CpveLJq/3hvfwd1aof6L386Ougkx6RfyMIQ==}
@@ -2950,6 +3025,10 @@ packages:
   eventemitter3@4.0.7:
     resolution: {integrity: sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==}
 
+  eventsource-parser@3.1.1:
+    resolution: {integrity: sha512-EKN1vKAMcZ8MlYMpaNuxN6R9yakzH6uajHcHVTqWJzvu5pWw9DyhbP35HH8MVBQ+dZjAfDxk+A8NiR9KWaXiyQ==}
+    engines: {node: '>=18.0.0'}
+
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
@@ -3308,6 +3387,9 @@ packages:
 
   json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
+
+  json-schema@0.4.0:
+    resolution: {integrity: sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA==}
 
   json-stringify-safe@5.0.1:
     resolution: {integrity: sha512-ZClg6AaYvamvYEE82d3Iyd3vSSIjQ+odgjaTzRuO3s7toCdFKczob2i0zCh7JE8kWn17yvAWhUVxvqGwUalsRA==}
@@ -4320,6 +4402,10 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  undici@7.30.0:
+    resolution: {integrity: sha512-dkrQXeHSaoamnItlYbmzG0wFYrM0ZwDxCIg0A7aKjTyyhh9svRzCNFEzV+Vm05/yehjCzjDZ31KXfGEjYSztDQ==}
+    engines: {node: '>=20.18.1'}
+
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
 
@@ -4666,7 +4752,63 @@ snapshots:
 
   7zip-bin@5.2.0: {}
 
-  '@assistant-ui/core@0.3.24(@assistant-ui/store@0.3.17(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(react@19.0.0))(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(assistant-cloud@0.2.5)(react@19.0.0)':
+  '@ai-sdk/anthropic@4.0.78(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.26
+      '@ai-sdk/provider-utils': 5.0.58(zod@3.25.76)
+      zod: 3.25.76
+
+  '@ai-sdk/gateway@4.0.110(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.26
+      '@ai-sdk/provider-utils': 5.0.58(zod@3.25.76)
+      '@vercel/oidc': 3.2.0
+      zod: 3.25.76
+
+  '@ai-sdk/gateway@4.0.110(zod@4.6.5)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.26
+      '@ai-sdk/provider-utils': 5.0.58(zod@4.6.5)
+      '@vercel/oidc': 3.2.0
+      zod: 4.6.5
+    optional: true
+
+  '@ai-sdk/google@4.0.93(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.26
+      '@ai-sdk/provider-utils': 5.0.58(zod@3.25.76)
+      zod: 3.25.76
+
+  '@ai-sdk/openai@4.0.91(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.26
+      '@ai-sdk/provider-utils': 5.0.58(zod@3.25.76)
+      zod: 3.25.76
+
+  '@ai-sdk/provider-utils@5.0.58(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.26
+      '@standard-schema/spec': 1.1.0
+      '@workflow/serde': 4.1.0
+      eventsource-parser: 3.1.1
+      undici: 7.30.0
+      zod: 3.25.76
+
+  '@ai-sdk/provider-utils@5.0.58(zod@4.6.5)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.26
+      '@standard-schema/spec': 1.1.0
+      '@workflow/serde': 4.1.0
+      eventsource-parser: 3.1.1
+      undici: 7.30.0
+      zod: 4.6.5
+    optional: true
+
+  '@ai-sdk/provider@4.0.26':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@assistant-ui/core@0.3.24(@assistant-ui/store@0.3.17(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(react@19.0.0))(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(assistant-cloud@0.2.5(ai@7.0.137(zod@4.6.5)))(react@19.0.0)':
     dependencies:
       '@assistant-ui/store': 0.3.17(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(react@19.0.0)
       '@assistant-ui/tap': 0.9.21(@types/react@19.0.0)(react@19.0.0)
@@ -4674,15 +4816,15 @@ snapshots:
       nanoid: 6.0.2
     optionalDependencies:
       '@types/react': 19.0.0
-      assistant-cloud: 0.2.5
+      assistant-cloud: 0.2.5(ai@7.0.137(zod@4.6.5))
       react: 19.0.0
     transitivePeerDependencies:
       - ioredis
       - redis
 
-  '@assistant-ui/react-markdown@0.14.19(@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0)))(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@assistant-ui/react-markdown@0.14.19(@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(ai@7.0.137(zod@4.6.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0)))(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@assistant-ui/react': 0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0))
+      '@assistant-ui/react': 0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(ai@7.0.137(zod@4.6.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0))
       '@radix-ui/react-primitive': 2.1.11(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@radix-ui/react-use-callback-ref': 1.1.4(@types/react@19.0.0)(react@19.0.0)
       '@types/hast': 3.0.5
@@ -4697,10 +4839,10 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@assistant-ui/react-streamdown@0.3.19(@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0)))(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@assistant-ui/react-streamdown@0.3.19(@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(ai@7.0.137(zod@4.6.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0)))(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@assistant-ui/react': 0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0))
-      '@assistant-ui/react-markdown': 0.14.19(@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0)))(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@assistant-ui/react': 0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(ai@7.0.137(zod@4.6.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0))
+      '@assistant-ui/react-markdown': 0.14.19(@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(ai@7.0.137(zod@4.6.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0)))(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@types/hast': 3.0.5
       micromark-util-html-tag-name: 2.0.1
       react: 19.0.0
@@ -4717,12 +4859,12 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0))':
+  '@assistant-ui/react@0.15.23(@types/react-dom@19.0.0)(@types/react@19.0.0)(ai@7.0.137(zod@4.6.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(use-sync-external-store@1.7.0(react@19.0.0))':
     dependencies:
-      '@assistant-ui/core': 0.3.24(@assistant-ui/store@0.3.17(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(react@19.0.0))(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(assistant-cloud@0.2.5)(react@19.0.0)
+      '@assistant-ui/core': 0.3.24(@assistant-ui/store@0.3.17(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(react@19.0.0))(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(assistant-cloud@0.2.5(ai@7.0.137(zod@4.6.5)))(react@19.0.0)
       '@assistant-ui/store': 0.3.17(@assistant-ui/tap@0.9.21(@types/react@19.0.0)(react@19.0.0))(@types/react@19.0.0)(react@19.0.0)
       '@assistant-ui/tap': 0.9.21(@types/react@19.0.0)(react@19.0.0)
-      assistant-cloud: 0.2.5
+      assistant-cloud: 0.2.5(ai@7.0.137(zod@4.6.5))
       assistant-stream: 0.3.48
       radix-ui: 1.7.0(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react: 19.0.0
@@ -6360,6 +6502,8 @@ snapshots:
 
   '@ungap/structured-clone@1.4.0': {}
 
+  '@vercel/oidc@3.2.0': {}
+
   '@vitejs/plugin-react@4.7.0(vite@6.4.4(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1))':
     dependencies:
       '@babel/core': 7.29.7
@@ -6412,6 +6556,8 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 1.2.0
 
+  '@workflow/serde@4.1.0': {}
+
   '@xmldom/xmldom@0.9.12': {}
 
   abbrev@1.1.1: {}
@@ -6432,6 +6578,21 @@ snapshots:
     dependencies:
       clean-stack: 2.2.0
       indent-string: 4.0.0
+
+  ai@7.0.137(zod@3.25.76):
+    dependencies:
+      '@ai-sdk/gateway': 4.0.110(zod@3.25.76)
+      '@ai-sdk/provider': 4.0.26
+      '@ai-sdk/provider-utils': 5.0.58(zod@3.25.76)
+      zod: 3.25.76
+
+  ai@7.0.137(zod@4.6.5):
+    dependencies:
+      '@ai-sdk/gateway': 4.0.110(zod@4.6.5)
+      '@ai-sdk/provider': 4.0.26
+      '@ai-sdk/provider-utils': 5.0.58(zod@4.6.5)
+      zod: 4.6.5
+    optional: true
 
   ajv-keywords@3.5.2(ajv@6.15.0):
     dependencies:
@@ -6550,9 +6711,11 @@ snapshots:
 
   assertion-error@2.0.1: {}
 
-  assistant-cloud@0.2.5:
+  assistant-cloud@0.2.5(ai@7.0.137(zod@4.6.5)):
     dependencies:
       assistant-stream: 0.3.48
+    optionalDependencies:
+      ai: 7.0.137(zod@4.6.5)
     transitivePeerDependencies:
       - ioredis
       - redis
@@ -7142,6 +7305,8 @@ snapshots:
 
   eventemitter3@4.0.7: {}
 
+  eventsource-parser@3.1.1: {}
+
   expect-type@1.4.0: {}
 
   exponential-backoff@3.1.3: {}
@@ -7581,6 +7746,8 @@ snapshots:
   json-buffer@3.0.1: {}
 
   json-schema-traverse@0.4.1: {}
+
+  json-schema@0.4.0: {}
 
   json-stringify-safe@5.0.1:
     optional: true
@@ -8934,6 +9101,8 @@ snapshots:
   typescript@5.9.3: {}
 
   undici-types@6.21.0: {}
+
+  undici@7.30.0: {}
 
   unified@11.0.5:
     dependencies:
