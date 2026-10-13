@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AnsiText } from "../components/assistant-ui/ansi-text.js";
 import { MessageRenderBoundary } from "../components/assistant-ui/message-render-boundary.js";

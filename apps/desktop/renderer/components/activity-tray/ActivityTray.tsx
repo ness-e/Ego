@@ -57,6 +57,7 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
       });
       return unsubscribe;
     }
+    return;
   }, [propTasks]);
 
   const activeTasks = tasks.filter((t) => t.status === "running" || t.status === "queued");

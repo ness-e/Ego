@@ -51,9 +51,9 @@ export function App() {
   useEffect(() => {
     // Al abrir Ego: si es el primer inicio del día, abrir en Daily State (COUC-06).
     // Si no, restaurar última pestaña ("canvas" por defecto).
-    const ego = (window as any).ego;
+    const ego = window.ego;
     if (ego?.daily?.isFirstLaunch) {
-      ego.daily.isFirstLaunch().then((res: any) => {
+      ego.daily.isFirstLaunch().then((res) => {
         if (res?.ok && res.isFirstLaunch) {
           setActiveWorkspaceTab("daily");
         } else {

@@ -30,7 +30,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
     async function loadDailyData() {
       try {
         setLoading(true);
-        const ego = (window as any).ego;
+        const ego = window.ego;
         if (!ego?.daily) {
           // Fallback seguro si ego.daily no está expuesto
           setSummary({
@@ -103,7 +103,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   const handleRefineGoalsWithAI = async () => {
     setIsRefiningGoals(true);
     try {
-      const ego = (window as any).ego;
+      const ego = window.ego;
       if (ego?.daily?.refineGoals) {
         const res = await ego.daily.refineGoals({ date: summary?.date });
         if (res?.ok && res.goals) {
@@ -121,7 +121,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   };
 
   const handleSaveJournal = async (date: string, content: string) => {
-    const ego = (window as any).ego;
+    const ego = window.ego;
     if (ego?.daily?.journal) {
       await ego.daily.journal({ action: "save", date, content });
       setJournalContent(content);
@@ -136,7 +136,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   };
 
   const handleResolveApproval = async (approvalId: string, approved: boolean) => {
-    const ego = (window as any).ego;
+    const ego = window.ego;
     if (ego?.daily?.resolveApprovalsBatch) {
       await ego.daily.resolveApprovalsBatch({
         approvals: [{ approvalId, approved }],
@@ -152,7 +152,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   const handleResolveApprovalsBatch = async (
     items: Array<{ approvalId: string; approved: boolean }>
   ) => {
-    const ego = (window as any).ego;
+    const ego = window.ego;
     if (ego?.daily?.resolveApprovalsBatch) {
       await ego.daily.resolveApprovalsBatch({ approvals: items });
       const resolvedIds = new Set(items.map((i) => i.approvalId));
@@ -165,7 +165,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   };
 
   const handleSaveDailySnapshot = async () => {
-    const ego = (window as any).ego;
+    const ego = window.ego;
     if (ego?.daily?.saveSnapshot) {
       await ego.daily.saveSnapshot();
       setIsFirstLaunch(false);

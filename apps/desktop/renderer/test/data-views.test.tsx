@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { RecordView } from "../components/canvas/data/RecordView";
 import { QueryView } from "../components/canvas/data/QueryView";

@@ -14,7 +14,7 @@
 El cliente principal de Ego para escritorio se construye sobre las siguientes tecnologías:
 - **Electron**: Contenedor principal de la aplicación de escritorio.
 - **React + TypeScript**: Framework de UI.
-- **Vite (vía electron-vite)**: Bundler y herramientas de desarrollo (reemplaza a Next.js para el renderer de escritorio).
+- **Vite**: Bundler y herramientas de desarrollo del renderer (build real: `tsc` en main + `vite build` en renderer; F5T11/M28: `electron-vite` no es dependencia — migración no hecha).
 
 *Nota: Next.js NO se utiliza para la aplicación de escritorio.*
 
@@ -85,5 +85,5 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 - El código se ejecuta en un sandbox seguro, no en el renderer de Electron.
 
 ## Build y Distribución
-- **Empaquetado**: electron-vite.
+- **Empaquetado**: electron-builder (config `apps/desktop/electron-builder.config.cjs`; F5T11/M28: `electron-vite` no se usa).
 - **Distribución**: Electron Builder o Forge.

@@ -12,7 +12,7 @@
 
 ## Propuesta P0 desktop
 
-Ego Electron solo desktop (ver [stack-tecnico.md](./stack-tecnico.md)): main Node + preload IPC + renderer React + Vite (electron-vite). P0 = Adapter + KB + CRM mínimo + cuarentena/TTL/supersede + export/import locales. Requisitos del sistema en P0: Node.js 22 instalado (Python opcional para scripts de ingesta masiva).
+Ego Electron solo desktop (ver [stack-tecnico.md](./stack-tecnico.md)): main Node + preload IPC + renderer React + Vite (build `tsc` + `vite build`, sin electron-vite — F5T11/M28). P0 = Adapter + KB + CRM mínimo + cuarentena/TTL/supersede + export/import locales. Requisitos del sistema en P0: Node.js 22 instalado (Python opcional para scripts de ingesta masiva).
 
 ## Tabla de componentes y lenguajes
 

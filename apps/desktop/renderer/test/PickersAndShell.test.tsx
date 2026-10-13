@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { ModelPicker, CANONICAL_MODELS } from "../components/ModelPicker.js";
+import { ModelPicker } from "../components/ModelPicker.js";
 import { SessionPicker } from "../components/SessionPicker.js";
 import { SplitPane } from "../components/PaneShell.js";
 

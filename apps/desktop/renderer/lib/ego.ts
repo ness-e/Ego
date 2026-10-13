@@ -136,7 +136,7 @@ export interface SubEgoDetailInfo {
     maxDailyCostUsd?: number;
     requiresApprovalAboveUsd?: number;
   };
-  character?: any;
+  character?: Record<string, unknown>;
 }
 
 export interface ModelConfigInfo {
@@ -151,6 +151,154 @@ export interface ModelConfigInfo {
   deepseekBaseURL?: string;
   ollamaBaseURL?: string;
   modelName?: string;
+}
+
+/**
+ * Formas de respuesta de los canales `ipc.daily.*` (F5T11/M26).
+ * Espejos locales de los retornos reales de `main.ts` (no se importan tipos de
+ * `@ego/*` para no añadir dependencias al renderer). Sobre el `{ok}` uniforme:
+ * en `ok:false` solo `error` está garantizado; los campos de éxito describen
+ * la respuesta `ok:true`.
+ */
+export interface DailySummaryPayload {
+  date: string;
+  pendingApprovalsCount: number;
+  [key: string]: unknown;
+}
+
+export interface DailySummaryResult {
+  ok: boolean;
+  error?: string;
+  summary: DailySummaryPayload;
+}
+
+export interface DailyGoalsResult {
+  ok: boolean;
+  error?: string;
+  goals: unknown;
+}
+
+export interface DailyDecisionEntry {
+  id: string;
+  title: string;
+  timestamp: number;
+  subEgoId: string;
+  impact?: string;
+  [key: string]: unknown;
+}
+
+export interface DailyDecisionsResult {
+  ok: boolean;
+  error?: string;
+  decisions: DailyDecisionEntry[];
+}
+
+export interface DailySnapshotResult {
+  ok: boolean;
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface DailyFirstLaunchResult {
+  ok: boolean;
+  error?: string;
+  isFirstLaunch: boolean;
+}
+
+export interface DailyJournalResult {
+  ok: boolean;
+  error?: string;
+  date: string;
+  content: string;
+}
+
+export interface DailyBatchResolveResult {
+  ok: boolean;
+  error?: string;
+  resolved: Array<{ approvalId: string; ok: boolean }>;
+}
+
+/**
+ * Formas de respuesta de los canales `ipc.domains.*` (F5T11/M26).
+ * Espejos locales de `GitStatusSummary`, `WorkspaceInspection`, `WorktreeInfo`
+ * (`packages/domains/src/engineering/`) y de `BacklogItem`/`Epic`
+ * (`packages/domains/src/product/types.ts`).
+ */
+export interface EngineeringGitStatus {
+  branch: string;
+  clean: boolean;
+  staged: string[];
+  unstaged: string[];
+  untracked: string[];
+}
+
+export interface EngineeringInspection {
+  workspaceRoot: string;
+  isGitRepo: boolean;
+  currentBranch?: string;
+  projectType: "node" | "rust" | "python" | "go" | "generic";
+  manifestFiles: string[];
+  detectedLinters: string[];
+  detectedFormatters: string[];
+  detectedTesters: string[];
+}
+
+export interface EngineeringWorktree {
+  id: string;
+  repoRoot: string;
+  branch: string;
+  worktreePath: string;
+  createdAt: string;
+  isMain: boolean;
+}
+
+export interface ProductBacklogItem {
+  id: string;
+  title: string;
+  description: string;
+  epicId?: string;
+  status: string;
+  priority: string;
+  acceptanceCriteria: string[];
+  assignedSubEgoId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductEpic {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  targetQuarter?: string;
+  itemIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DomainsResult {
+  ok: boolean;
+  error?: string;
+  domains?: Array<Record<string, unknown>>;
+  domain?: unknown;
+  domainId?: string;
+  activeViewId?: string;
+  defaultSubEgoId?: string;
+  workspaceRoot?: string;
+  inspection?: EngineeringInspection;
+  gitStatus?: EngineeringGitStatus;
+  worktrees?: EngineeringWorktree[];
+  items?: ProductBacklogItem[];
+  epics?: ProductEpic[];
+  item?: ProductBacklogItem;
+  results?: unknown[];
+  series?: unknown[];
+  modelDistribution?: unknown[];
+  namespaceStats?: unknown[];
+  deals?: unknown[];
+  contacts?: unknown[];
+  summary?: unknown;
+  deal?: unknown;
 }
 
 export interface EgoBridge {
@@ -198,7 +346,7 @@ export interface EgoBridge {
   };
   mcp: {
     listServers: () => Promise<McpServerInfo[]>;
-    addServer: (req: { config: any; enabled?: boolean }) => Promise<McpServerInfo>;
+    addServer: (req: { config: McpServerInfo["config"]; enabled?: boolean }) => Promise<McpServerInfo>;
     removeServer: (req: { id: string }) => Promise<{ success: boolean; id: string }>;
     toggleServer: (req: { id: string; enabled: boolean }) => Promise<McpServerInfo>;
     listTools: (filter?: { query?: string; riskLevel?: string; serverId?: string }) => Promise<ToolSummaryInfo[]>;
@@ -211,27 +359,27 @@ export interface EgoBridge {
     saveModelConfig: (config: ModelConfigInfo) => Promise<{ ok: boolean; config: ModelConfigInfo }>;
   };
   daily?: {
-    getSummary: (req?: { date?: string }) => Promise<any>;
-    refineGoals: (req?: { date?: string }) => Promise<any>;
-    getDecisions: (req?: { limit?: number; since?: number; subEgoId?: string }) => Promise<any>;
-    saveSnapshot: () => Promise<any>;
-    getSnapshot: (date?: string) => Promise<any>;
-    listSnapshots: (limit?: number) => Promise<any>;
-    isFirstLaunch: (req?: { date?: string }) => Promise<any>;
-    journal: (req: { action: "get" | "save"; date: string; content?: string }) => Promise<any>;
+    getSummary: (req?: { date?: string }) => Promise<DailySummaryResult>;
+    refineGoals: (req?: { date?: string }) => Promise<DailyGoalsResult>;
+    getDecisions: (req?: { limit?: number; since?: number; subEgoId?: string }) => Promise<DailyDecisionsResult>;
+    saveSnapshot: () => Promise<DailySnapshotResult>;
+    getSnapshot: (date?: string) => Promise<DailySnapshotResult>;
+    listSnapshots: (limit?: number) => Promise<DailySnapshotResult>;
+    isFirstLaunch: (req?: { date?: string }) => Promise<DailyFirstLaunchResult>;
+    journal: (req: { action: "get" | "save"; date: string; content?: string }) => Promise<DailyJournalResult>;
     resolveApprovalsBatch: (req: {
       approvals: Array<{ approvalId: string; approved: boolean; reason?: string }>;
-    }) => Promise<any>;
+    }) => Promise<DailyBatchResolveResult>;
   };
   domains?: {
-    list: () => Promise<{ ok: boolean; domains: any[] }>;
-    get: (domainId: string) => Promise<{ ok: boolean; domain?: any; error?: string }>;
-    switch: (domainId: string, viewId?: string) => Promise<{ ok: boolean; domainId: string; activeViewId: string; defaultSubEgoId: string; error?: string }>;
-    getEngineeringStatus: (workspaceRoot?: string) => Promise<{ ok: boolean; workspaceRoot: string; inspection: any; gitStatus: any; worktrees: any[] }>;
-    productBacklog: (req: { action: "list" | "create" | "updateStatus"; payload?: any }) => Promise<{ ok: boolean; items?: any[]; epics?: any[]; item?: any }>;
-    knowledgeSearch: (query: string, limit?: number) => Promise<{ ok: boolean; results: any[] }>;
-    analyticsSeries: (days?: number) => Promise<{ ok: boolean; series: any[]; modelDistribution: any[]; namespaceStats: any[] }>;
-    crmDeals: (req?: { action: "list" | "create" | "updateStage" | "summary"; payload?: any }) => Promise<{ ok: boolean; deals?: any[]; contacts?: any[]; summary?: any; deal?: any }>;
+    list: () => Promise<DomainsResult>;
+    get: (domainId: string) => Promise<DomainsResult>;
+    switch: (domainId: string, viewId?: string) => Promise<DomainsResult>;
+    getEngineeringStatus: (workspaceRoot?: string) => Promise<DomainsResult>;
+    productBacklog: (req: { action: "list" | "create" | "updateStatus"; payload?: unknown }) => Promise<DomainsResult>;
+    knowledgeSearch: (query: string, limit?: number) => Promise<DomainsResult>;
+    analyticsSeries: (days?: number) => Promise<DomainsResult>;
+    crmDeals: (req?: { action: "list" | "create" | "updateStage" | "summary"; payload?: unknown }) => Promise<DomainsResult>;
   };
   // F5T10/H25: puentea ipc.decision.* e ipc.knowledge.* (antes sin preload).
   decision?: {
@@ -255,7 +403,7 @@ export interface EgoBridge {
   onApprovalRequest?: (callback: (req: PendingApprovalInfo) => void) => () => void;
   onProjectChanged?: (callback: (data: { activeProjectId: string }) => void) => () => void;
   onSubEgosChanged?: (callback: (data: { subEgoId: string; action: string; state?: string }) => void) => () => void;
-  onEvent?: (callback: (event: any) => void) => () => void;
+  onEvent?: (callback: (event: unknown) => void) => () => void;
 }
 
 const mockSubEgos: SubEgoSummary[] = [
@@ -403,7 +551,12 @@ const mock: EgoBridge = {
         defaultBudget: { maxTokensPerCall: 4000, maxDailyCostUsd: 3.0, requiresApprovalAboveUsd: 0.5 },
       },
     ],
-    create: async (req: any) => {
+    create: async (req: {
+      name?: string;
+      role?: string;
+      instructions?: string;
+      tools?: string[];
+    }) => {
       const id = `ego.${req.name ? req.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : "custom"}`;
       const nuevo: SubEgoDetailInfo = {
         id,
@@ -416,7 +569,7 @@ const mock: EgoBridge = {
       };
       return nuevo;
     },
-    toggleState: async ({ subEgoId, state }: any) => {
+    toggleState: async ({ subEgoId, state }: { subEgoId: string; state: "active" | "paused" }) => {
       return {
         id: subEgoId,
         name: subEgoId,

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import React, { act } from "react";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget.js";
 import { ego } from "../lib/ego.js";

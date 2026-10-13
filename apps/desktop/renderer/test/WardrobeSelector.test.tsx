@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { WardrobeSelector } from "../components/character/wardrobe/WardrobeSelector.js";
 import { TraitRegistry } from "../components/character/traits/TraitRegistry.js";

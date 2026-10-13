@@ -1,5 +1,5 @@
-import { vi } from "vitest";
-import type { EgoBridge, SubEgoSummary, ProjectInfo, ModelConfigInfo } from "../lib/ego.js";
+import { vi, beforeEach } from "vitest";
+import type { EgoBridge, SubEgoSummary, ProjectInfo, ModelConfigInfo, McpServerInfo, PendingApprovalInfo } from "../lib/ego.js";
 
 // Habilitar soporte de act() de React 19 en entorno headless
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -9,14 +9,14 @@ import type { EgoBridge, SubEgoSummary, ProjectInfo, ModelConfigInfo } from "../
  */
 export function createMockEgoBridge(): EgoBridge & {
   emitEvent: (event: unknown) => void;
-  emitApprovalRequest: (req: unknown) => void;
+  emitApprovalRequest: (req: PendingApprovalInfo) => void;
   listeners: {
     event: Set<(e: unknown) => void>;
-    approval: Set<(r: unknown) => void>;
+    approval: Set<(r: PendingApprovalInfo) => void>;
   };
 } {
   const eventListeners = new Set<(e: unknown) => void>();
-  const approvalListeners = new Set<(r: unknown) => void>();
+  const approvalListeners = new Set<(r: PendingApprovalInfo) => void>();
 
   const subEgos: SubEgoSummary[] = [
     {
@@ -55,7 +55,7 @@ export function createMockEgoBridge(): EgoBridge & {
     emitEvent: (event: unknown) => {
       eventListeners.forEach((cb) => cb(event));
     },
-    emitApprovalRequest: (req: unknown) => {
+    emitApprovalRequest: (req: PendingApprovalInfo) => {
       approvalListeners.forEach((cb) => cb(req));
     },
     memory: vi.fn().mockResolvedValue({ ok: true }),
@@ -131,9 +131,25 @@ export function createMockEgoBridge(): EgoBridge & {
     },
     mcp: {
       listServers: vi.fn().mockResolvedValue([]),
-      addServer: vi.fn().mockResolvedValue({} as any),
+      addServer: vi.fn().mockResolvedValue({
+        id: "srv",
+        name: "srv",
+        config: { id: "srv", name: "srv", transport: "stdio", command: "node" },
+        status: "connected",
+        enabled: true,
+        toolsCount: 0,
+        tools: [],
+      } satisfies McpServerInfo),
       removeServer: vi.fn().mockResolvedValue({ success: true, id: "srv" }),
-      toggleServer: vi.fn().mockResolvedValue({} as any),
+      toggleServer: vi.fn().mockResolvedValue({
+        id: "srv",
+        name: "srv",
+        config: { id: "srv", name: "srv", transport: "stdio", command: "node" },
+        status: "connected",
+        enabled: true,
+        toolsCount: 0,
+        tools: [],
+      } satisfies McpServerInfo),
       listTools: vi.fn().mockResolvedValue([]),
     },
     skills: {
@@ -152,7 +168,7 @@ export function createMockEgoBridge(): EgoBridge & {
         eventListeners.delete(cb);
       };
     },
-    onApprovalRequest: (cb) => {
+    onApprovalRequest: (cb: (req: PendingApprovalInfo) => void) => {
       approvalListeners.add(cb);
       return () => {
         approvalListeners.delete(cb);

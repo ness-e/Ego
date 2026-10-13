@@ -20,6 +20,7 @@ const SAMPLE_COMPONENTS: CanvasComponentManifest[] = [
       id: "c1",
       title: "Tarea Inicial",
       description: "Hacer sync bidireccional",
+      actions: [],
     },
   },
 ];

@@ -1,18 +1,26 @@
 {
+  // F5T11/M31: extiende la base canónica (strict + NodeNext por defecto) y
+  // re-declara solo lo propio del bundler web (ESNext/bundler/JSX/DOM/sin
+  // emit). El `include` cubre `hooks/` y `test/` para que el typecheck de CI
+  // los audite (antes solo entraban por importación transitiva).
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "skipLibCheck": true,
+    "types": ["node"],
 
     /* Bundler mode */
+    "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": false,
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
     "isolatedModules": true,
     "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
     "jsx": "react-jsx",
 
     /* Linting */
@@ -26,5 +34,5 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "components", "lib"]
+  "include": ["src", "components", "lib", "hooks", "test"]
 }

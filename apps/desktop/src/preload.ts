@@ -1,54 +1,96 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { McpServerConfigRequest } from "./ipc/schema.js";
+import type { PendingApproval } from "@ego/execution";
 
 /**
  * Puente tipado de IPC (Preload seguro).
  * El Renderer opera aislado (contextIsolation=true, sandbox=true) y nunca accede
- * directamente a Node.js ni a VantaDB.
+ * directamente a Node.js ni a VantaDB. Sin `any`: cada canal expone su payload
+ * exacto y cada evento push su forma suscrita (F5T11/M26).
  */
-contextBridge.exposeInMainWorld("ego", {
-  memory: (payload: { op: string; args: unknown[] }) => ipcRenderer.invoke("ipc.memory", payload),
-  llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string }) =>
-    ipcRenderer.invoke("ipc.llm.stream", req),
-  approve: (req: { actionId: string; confirmed: boolean; notes?: string }) =>
-    ipcRenderer.invoke("ipc.gov.approve", req),
-  resolveApproval: (req: {
-    approvalId: string;
-    approved: boolean;
-    reason?: string;
-    modifiedArguments?: Record<string, unknown>;
-  }) => ipcRenderer.invoke("ipc.approval.resolve", req),
-  snapshots: () => ipcRenderer.invoke("ipc.snapshots"),
-  listSubEgos: () => ipcRenderer.invoke("ipc.subegos.list"),
-  createSubEgo: (req: unknown) => ipcRenderer.invoke("ipc.subegos.create", req),
+export interface MemoryBridgeRequest {
+  op: string;
+  args: unknown[];
+}
+
+export interface LlmStreamBridgeRequest {
+  prompt: string;
+  sessionId?: string;
+  systemPrompt?: string;
+}
+
+export interface ApproveBridgeRequest {
+  actionId: string;
+  confirmed: boolean;
+  notes?: string;
+}
+
+export interface ResolveApprovalBridgeRequest {
+  approvalId: string;
+  approved: boolean;
+  reason?: string;
+  modifiedArguments?: Record<string, unknown>;
+}
+
+export interface ToggleSubEgoBridgeRequest {
+  subEgoId: string;
+  state: "active" | "paused";
+}
+
+export interface McpMutateBridgeRequest {
+  config: McpServerConfigRequest;
+  enabled?: boolean;
+}
+
+export interface ProjectChangedEvent {
+  activeProjectId: string;
+}
+
+export interface SubEgosChangedEvent {
+  subEgoId: string;
+  action: string;
+  state?: string;
+}
+
+export interface ChatErrorEvent {
+  turnId?: string;
+  error: string;
+  timestamp?: number;
+}
+
+export interface EgoPreloadBridge {
+  memory: (payload: MemoryBridgeRequest) => Promise<unknown>;
+  llmStream: (req: LlmStreamBridgeRequest) => Promise<unknown>;
+  approve: (req: ApproveBridgeRequest) => Promise<unknown>;
+  resolveApproval: (req: ResolveApprovalBridgeRequest) => Promise<unknown>;
+  snapshots: () => Promise<unknown>;
+  listSubEgos: () => Promise<unknown>;
+  createSubEgo: (req: unknown) => Promise<unknown>;
   subegos: {
-    list: () => ipcRenderer.invoke("ipc.subegos.list"),
-    getTemplates: () => ipcRenderer.invoke("ipc.subegos.getTemplates"),
-    create: (req: unknown) => ipcRenderer.invoke("ipc.subegos.create", req),
-    toggleState: (req: { subEgoId: string; state: "active" | "paused" }) =>
-      ipcRenderer.invoke("ipc.subegos.toggleState", req),
-  },
+    list: () => Promise<unknown>;
+    getTemplates: () => Promise<unknown>;
+    create: (req: unknown) => Promise<unknown>;
+    toggleState: (req: ToggleSubEgoBridgeRequest) => Promise<unknown>;
+  };
   mcp: {
-    listServers: () => ipcRenderer.invoke("ipc.mcp.listServers"),
-    addServer: (req: { config: any; enabled?: boolean }) => ipcRenderer.invoke("ipc.mcp.addServer", req),
-    removeServer: (req: { id: string }) => ipcRenderer.invoke("ipc.mcp.removeServer", req),
-    toggleServer: (req: { id: string; enabled: boolean }) => ipcRenderer.invoke("ipc.mcp.toggleServer", req),
-    listTools: (filter?: { query?: string; riskLevel?: string; serverId?: string }) =>
-      ipcRenderer.invoke("ipc.mcp.listTools", filter),
-  },
+    listServers: () => Promise<unknown>;
+    addServer: (req: McpMutateBridgeRequest) => Promise<unknown>;
+    removeServer: (req: { id: string }) => Promise<unknown>;
+    toggleServer: (req: { id: string; enabled: boolean }) => Promise<unknown>;
+    listTools: (filter?: { query?: string; riskLevel?: string; serverId?: string }) => Promise<unknown>;
+  };
   skills: {
-    listLocal: (req?: { searchPaths?: string[]; projectRoot?: string }) =>
-      ipcRenderer.invoke("ipc.skills.listLocal", req),
-  },
+    listLocal: (req?: { searchPaths?: string[]; projectRoot?: string }) => Promise<unknown>;
+  };
   projects: {
-    list: () => ipcRenderer.invoke("ipc.projects.list"),
-    create: (req: { name: string; rootPath: string; description?: string; activeSubEgoId?: string }) =>
-      ipcRenderer.invoke("ipc.projects.create", req),
-    select: (id: string) => ipcRenderer.invoke("ipc.projects.select", { id }),
-    getActive: () => ipcRenderer.invoke("ipc.projects.getActive"),
-    selectFolder: () => ipcRenderer.invoke("ipc.projects.selectFolder"),
-  },
+    list: () => Promise<unknown>;
+    create: (req: { name: string; rootPath: string; description?: string; activeSubEgoId?: string }) => Promise<unknown>;
+    select: (id: string) => Promise<unknown>;
+    getActive: () => Promise<unknown>;
+    selectFolder: () => Promise<unknown>;
+  };
   settings: {
-    getModelConfig: () => ipcRenderer.invoke("ipc.settings.getModelConfig"),
+    getModelConfig: () => Promise<unknown>;
     saveModelConfig: (config: {
       activeProvider: "openai" | "anthropic" | "google" | "deepseek" | "ollama" | "mock";
       apiKey?: string;
@@ -61,105 +103,186 @@ contextBridge.exposeInMainWorld("ego", {
       deepseekBaseURL?: string;
       ollamaBaseURL?: string;
       modelName?: string;
-    }) => ipcRenderer.invoke("ipc.settings.saveModelConfig", config),
+    }) => Promise<unknown>;
+  };
+  onProjectChanged: (callback: (data: ProjectChangedEvent) => void) => () => void;
+  onSubEgosChanged: (callback: (data: SubEgosChangedEvent) => void) => () => void;
+  onChatDelta: (callback: (chunk: unknown) => void) => () => void;
+  onRecallStatus: (callback: (status: unknown) => void) => () => void;
+  onChatError: (callback: (err: ChatErrorEvent) => void) => () => void;
+  onApprovalRequest: (callback: (req: PendingApproval) => void) => () => void;
+  onEvent: (callback: (event: unknown) => void) => () => void;
+  // F5T10/H25: los handlers ipc.decision.* e ipc.knowledge.* existían en main
+  // sin puente al renderer (superficie muerta). Se puentean con validación
+  // Zod en main; el renderer nunca compone secretos en estos canales.
+  decision: {
+    evaluate: (req: unknown) => Promise<unknown>;
+    listAudits: (limit?: number) => Promise<unknown>;
+    telemetry: () => Promise<unknown>;
+  };
+  knowledge: {
+    ingest: (req: unknown) => Promise<unknown>;
+    hybridSearch: (req: unknown) => Promise<unknown>;
+    graphRag: (req: unknown) => Promise<unknown>;
+    quarantine: (req: unknown) => Promise<unknown>;
+    asOf: (req: unknown) => Promise<unknown>;
+    explainArtifact: (req: unknown) => Promise<unknown>;
+    exportPackage: (projectId?: string) => Promise<unknown>;
+    importPackage: (pkg: unknown) => Promise<unknown>;
+  };
+  daily: {
+    getSummary: (req?: { date?: string }) => Promise<unknown>;
+    refineGoals: (req?: { date?: string }) => Promise<unknown>;
+    getDecisions: (req?: { limit?: number; since?: number; subEgoId?: string }) => Promise<unknown>;
+    saveSnapshot: () => Promise<unknown>;
+    getSnapshot: (date?: string) => Promise<unknown>;
+    listSnapshots: (limit?: number) => Promise<unknown>;
+    isFirstLaunch: (req?: { date?: string }) => Promise<unknown>;
+    journal: (req: { action: "get" | "save"; date: string; content?: string }) => Promise<unknown>;
+    resolveApprovalsBatch: (req: {
+      approvals: Array<{ approvalId: string; approved: boolean; reason?: string }>;
+    }) => Promise<unknown>;
+  };
+  domains: {
+    list: () => Promise<unknown>;
+    get: (domainId: string) => Promise<unknown>;
+    switch: (domainId: string, viewId?: string) => Promise<unknown>;
+    getEngineeringStatus: (workspaceRoot?: string) => Promise<unknown>;
+    productBacklog: (req: { action: "list" | "create" | "updateStatus"; payload?: unknown }) => Promise<unknown>;
+    knowledgeSearch: (query: string, limit?: number) => Promise<unknown>;
+    analyticsSeries: (days?: number) => Promise<unknown>;
+    crmDeals: (req?: { action: "list" | "create" | "updateStage" | "summary"; payload?: unknown }) => Promise<unknown>;
+  };
+}
+
+declare global {
+  interface Window {
+    ego: EgoPreloadBridge;
+  }
+}
+
+const egoBridge: EgoPreloadBridge = {
+  memory: (payload) => ipcRenderer.invoke("ipc.memory", payload),
+  llmStream: (req) => ipcRenderer.invoke("ipc.llm.stream", req),
+  approve: (req) => ipcRenderer.invoke("ipc.gov.approve", req),
+  resolveApproval: (req) => ipcRenderer.invoke("ipc.approval.resolve", req),
+  snapshots: () => ipcRenderer.invoke("ipc.snapshots"),
+  listSubEgos: () => ipcRenderer.invoke("ipc.subegos.list"),
+  createSubEgo: (req) => ipcRenderer.invoke("ipc.subegos.create", req),
+  subegos: {
+    list: () => ipcRenderer.invoke("ipc.subegos.list"),
+    getTemplates: () => ipcRenderer.invoke("ipc.subegos.getTemplates"),
+    create: (req) => ipcRenderer.invoke("ipc.subegos.create", req),
+    toggleState: (req) => ipcRenderer.invoke("ipc.subegos.toggleState", req),
   },
-  onProjectChanged: (callback: (data: { activeProjectId: string }) => void) => {
-    const sub = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+  mcp: {
+    listServers: () => ipcRenderer.invoke("ipc.mcp.listServers"),
+    addServer: (req) => ipcRenderer.invoke("ipc.mcp.addServer", req),
+    removeServer: (req) => ipcRenderer.invoke("ipc.mcp.removeServer", req),
+    toggleServer: (req) => ipcRenderer.invoke("ipc.mcp.toggleServer", req),
+    listTools: (filter?) => ipcRenderer.invoke("ipc.mcp.listTools", filter),
+  },
+  skills: {
+    listLocal: (req?) => ipcRenderer.invoke("ipc.skills.listLocal", req),
+  },
+  projects: {
+    list: () => ipcRenderer.invoke("ipc.projects.list"),
+    create: (req) => ipcRenderer.invoke("ipc.projects.create", req),
+    select: (id) => ipcRenderer.invoke("ipc.projects.select", { id }),
+    getActive: () => ipcRenderer.invoke("ipc.projects.getActive"),
+    selectFolder: () => ipcRenderer.invoke("ipc.projects.selectFolder"),
+  },
+  settings: {
+    getModelConfig: () => ipcRenderer.invoke("ipc.settings.getModelConfig"),
+    saveModelConfig: (config) => ipcRenderer.invoke("ipc.settings.saveModelConfig", config),
+  },
+  onProjectChanged: (callback) => {
+    const sub = (_event: Electron.IpcRendererEvent, data: ProjectChangedEvent) => callback(data);
     ipcRenderer.on("ipc.projects.changed", sub);
     return () => {
       ipcRenderer.removeListener("ipc.projects.changed", sub);
     };
   },
-  onSubEgosChanged: (callback: (data: { subEgoId: string; action: string; state?: string }) => void) => {
-    const sub = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+  onSubEgosChanged: (callback) => {
+    const sub = (_event: Electron.IpcRendererEvent, data: SubEgosChangedEvent) => callback(data);
     ipcRenderer.on("ipc.subegos.changed", sub);
     return () => {
       ipcRenderer.removeListener("ipc.subegos.changed", sub);
     };
   },
-  onChatDelta: (callback: (chunk: unknown) => void) => {
+  onChatDelta: (callback) => {
     const sub = (_event: Electron.IpcRendererEvent, chunk: unknown) => callback(chunk);
     ipcRenderer.on("ipc.chat.delta", sub);
     return () => {
       ipcRenderer.removeListener("ipc.chat.delta", sub);
     };
   },
-  onRecallStatus: (callback: (status: unknown) => void) => {
+  onRecallStatus: (callback) => {
     const sub = (_event: Electron.IpcRendererEvent, status: unknown) => callback(status);
     ipcRenderer.on("ipc.chat.recall_status", sub);
     return () => {
       ipcRenderer.removeListener("ipc.chat.recall_status", sub);
     };
   },
-  onChatError: (callback: (err: { turnId?: string; error: string; timestamp?: number }) => void) => {
-    const sub = (_event: Electron.IpcRendererEvent, err: any) => callback(err);
+  onChatError: (callback) => {
+    const sub = (_event: Electron.IpcRendererEvent, err: ChatErrorEvent) => callback(err);
     ipcRenderer.on("ipc.chat.error", sub);
     return () => {
       ipcRenderer.removeListener("ipc.chat.error", sub);
     };
   },
-  onApprovalRequest: (callback: (req: any) => void) => {
-    const sub = (_event: Electron.IpcRendererEvent, req: any) => callback(req);
+  onApprovalRequest: (callback) => {
+    const sub = (_event: Electron.IpcRendererEvent, req: PendingApproval) => callback(req);
     ipcRenderer.on("ipc.approval.request", sub);
     return () => {
       ipcRenderer.removeListener("ipc.approval.request", sub);
     };
   },
-  onEvent: (callback: (event: unknown) => void) => {
+  onEvent: (callback) => {
     const sub = (_event: Electron.IpcRendererEvent, egoEvent: unknown) => callback(egoEvent);
     ipcRenderer.on("ipc.event", sub);
     return () => {
       ipcRenderer.removeListener("ipc.event", sub);
     };
   },
-  // F5T10/H25: los handlers ipc.decision.* e ipc.knowledge.* existían en main
-  // sin puente al renderer (superficie muerta). Se puentean con validación
-  // Zod en main; el renderer nunca compone secretos en estos canales.
   decision: {
-    evaluate: (req: unknown) => ipcRenderer.invoke("ipc.decision.evaluate", req),
-    listAudits: (limit?: number) => ipcRenderer.invoke("ipc.decision.listAudits", limit),
+    evaluate: (req) => ipcRenderer.invoke("ipc.decision.evaluate", req),
+    listAudits: (limit?) => ipcRenderer.invoke("ipc.decision.listAudits", limit),
     telemetry: () => ipcRenderer.invoke("ipc.decision.telemetry"),
   },
   knowledge: {
-    ingest: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.ingest", req),
-    hybridSearch: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.hybridSearch", req),
-    graphRag: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.graphRag", req),
-    quarantine: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.quarantine", req),
-    asOf: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.asOf", req),
-    explainArtifact: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.explainArtifact", req),
-    exportPackage: (projectId?: string) => ipcRenderer.invoke("ipc.knowledge.export", projectId),
-    importPackage: (pkg: unknown) => ipcRenderer.invoke("ipc.knowledge.import", pkg),
+    ingest: (req) => ipcRenderer.invoke("ipc.knowledge.ingest", req),
+    hybridSearch: (req) => ipcRenderer.invoke("ipc.knowledge.hybridSearch", req),
+    graphRag: (req) => ipcRenderer.invoke("ipc.knowledge.graphRag", req),
+    quarantine: (req) => ipcRenderer.invoke("ipc.knowledge.quarantine", req),
+    asOf: (req) => ipcRenderer.invoke("ipc.knowledge.asOf", req),
+    explainArtifact: (req) => ipcRenderer.invoke("ipc.knowledge.explainArtifact", req),
+    exportPackage: (projectId?) => ipcRenderer.invoke("ipc.knowledge.export", projectId),
+    importPackage: (pkg) => ipcRenderer.invoke("ipc.knowledge.import", pkg),
   },
   daily: {
-    getSummary: (req?: { date?: string }) => ipcRenderer.invoke("ipc.daily.getSummary", req),
-    refineGoals: (req?: { date?: string }) => ipcRenderer.invoke("ipc.daily.refineGoals", req),
-    getDecisions: (req?: { limit?: number; since?: number; subEgoId?: string }) =>
-      ipcRenderer.invoke("ipc.daily.getDecisions", req),
+    getSummary: (req?) => ipcRenderer.invoke("ipc.daily.getSummary", req),
+    refineGoals: (req?) => ipcRenderer.invoke("ipc.daily.refineGoals", req),
+    getDecisions: (req?) => ipcRenderer.invoke("ipc.daily.getDecisions", req),
     saveSnapshot: () => ipcRenderer.invoke("ipc.daily.saveSnapshot"),
-    getSnapshot: (date?: string) => ipcRenderer.invoke("ipc.daily.getSnapshot", date),
-    listSnapshots: (limit?: number) => ipcRenderer.invoke("ipc.daily.listSnapshots", limit),
-    isFirstLaunch: (req?: { date?: string }) => ipcRenderer.invoke("ipc.daily.isFirstLaunch", req),
-    journal: (req: { action: "get" | "save"; date: string; content?: string }) =>
-      ipcRenderer.invoke("ipc.daily.journal", req),
-    resolveApprovalsBatch: (req: {
-      approvals: Array<{ approvalId: string; approved: boolean; reason?: string }>;
-    }) => ipcRenderer.invoke("ipc.daily.resolveApprovalsBatch", req),
+    getSnapshot: (date?) => ipcRenderer.invoke("ipc.daily.getSnapshot", date),
+    listSnapshots: (limit?) => ipcRenderer.invoke("ipc.daily.listSnapshots", limit),
+    isFirstLaunch: (req?) => ipcRenderer.invoke("ipc.daily.isFirstLaunch", req),
+    journal: (req) => ipcRenderer.invoke("ipc.daily.journal", req),
+    resolveApprovalsBatch: (req) => ipcRenderer.invoke("ipc.daily.resolveApprovalsBatch", req),
   },
   domains: {
     list: () => ipcRenderer.invoke("ipc.domains.list"),
-    get: (domainId: string) => ipcRenderer.invoke("ipc.domains.get", { domainId }),
-    switch: (domainId: string, viewId?: string) =>
-      ipcRenderer.invoke("ipc.domains.switch", { domainId, viewId }),
-    getEngineeringStatus: (workspaceRoot?: string) =>
+    get: (domainId) => ipcRenderer.invoke("ipc.domains.get", { domainId }),
+    switch: (domainId, viewId?) => ipcRenderer.invoke("ipc.domains.switch", { domainId, viewId }),
+    getEngineeringStatus: (workspaceRoot?) =>
       ipcRenderer.invoke("ipc.domains.engineering.status", { workspaceRoot }),
-    productBacklog: (req: { action: "list" | "create" | "updateStatus"; payload?: unknown }) =>
-      ipcRenderer.invoke("ipc.domains.product.backlog", req),
-    knowledgeSearch: (query: string, limit?: number) =>
+    productBacklog: (req) => ipcRenderer.invoke("ipc.domains.product.backlog", req),
+    knowledgeSearch: (query, limit?) =>
       ipcRenderer.invoke("ipc.domains.knowledge.search", { query, limit }),
-    analyticsSeries: (days?: number) =>
-      ipcRenderer.invoke("ipc.domains.analytics.series", { days }),
-    crmDeals: (req?: { action: "list" | "create" | "updateStage" | "summary"; payload?: unknown }) =>
-      ipcRenderer.invoke("ipc.domains.crm.deals", req),
+    analyticsSeries: (days?) => ipcRenderer.invoke("ipc.domains.analytics.series", { days }),
+    crmDeals: (req?) => ipcRenderer.invoke("ipc.domains.crm.deals", req),
   },
-});
+};
 
+contextBridge.exposeInMainWorld("ego", egoBridge);

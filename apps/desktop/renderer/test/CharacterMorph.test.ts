@@ -60,11 +60,13 @@ describe("CHAR-09: CharacterMorph — Interpolación y Transiciones de Identidad
       let mockNow = 1000;
       vi.spyOn(performance, "now").mockImplementation(() => mockNow);
 
-      let animCallback: ((time: number) => void) | null = null;
-      vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
-        animCallback = cb;
-        return 123;
-      });
+      const rafCapture: { cb: ((time: number) => void) | null } = { cb: null };
+      vi.spyOn(window, "requestAnimationFrame").mockImplementation(
+        ((cb: (time: number) => void): number => {
+          rafCapture.cb = cb;
+          return 123;
+        }) as (...args: Array<unknown>) => number
+      );
 
       controller.start(
         targetA,
@@ -77,7 +79,7 @@ describe("CHAR-09: CharacterMorph — Interpolación y Transiciones de Identidad
 
       // Avanzar a la mitad del tiempo (225ms)
       mockNow = 1225;
-      animCallback?.(mockNow);
+      rafCapture.cb?.(mockNow);
 
       expect(updates.length).toBeGreaterThan(0);
       const mid = updates[updates.length - 1];
@@ -85,7 +87,7 @@ describe("CHAR-09: CharacterMorph — Interpolación y Transiciones de Identidad
 
       // Avanzar al final del tiempo (450ms)
       mockNow = 1500;
-      animCallback?.(mockNow);
+      rafCapture.cb?.(mockNow);
 
       expect(controller.isActive()).toBe(false);
       expect(onComplete).toHaveBeenCalled();

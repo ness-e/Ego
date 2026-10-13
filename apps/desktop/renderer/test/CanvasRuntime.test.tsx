@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { CanvasRuntime } from "../components/canvas/CanvasRuntime";
 import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
@@ -18,6 +18,7 @@ const TEST_MANIFESTS: CanvasComponentManifest[] = [
       id: "card-1",
       title: "Tarjeta de Prueba",
       description: "Contenido de descripción de la tarjeta de prueba",
+      actions: [],
     },
   },
   {
@@ -32,13 +33,14 @@ const TEST_MANIFESTS: CanvasComponentManifest[] = [
       id: "table-1",
       title: "Tabla de Telemetría",
       columns: [
-        { key: "name", label: "Nombre", sortable: true },
-        { key: "status", label: "Estado", type: "badge" },
+        { key: "name", label: "Nombre", type: "text", sortable: true },
+        { key: "status", label: "Estado", type: "badge", sortable: false },
       ],
       rows: [
         { name: "Alpha", status: "Activo" },
         { name: "Beta", status: "Inactivo" },
       ],
+      actions: [],
     },
   },
 ];

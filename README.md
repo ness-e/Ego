@@ -48,7 +48,7 @@ Main Process (Node.js 22)
 
 ## 🛠️ Stack Tecnológico
 
-* **Desktop Runtime:** Electron 33 + electron-vite (Main en Node.js 22, Renderer en Chromium).
+* **Desktop Runtime:** Electron 33 + electron-builder (Main compilado con `tsc`, Renderer con `vite build`; sin `electron-vite` — ver F5T11/M28).
 * **Frontend:** React 19 + TypeScript (strict) + Tailwind CSS + `@assistant-ui/react`.
 * **Memoria y Recuperación:** VantaDB 0.8.0 (`NativeVantaDB` de `"vantadb/native"` in-process) + subproceso `vantadb-mcp`.
 * **Modelos & LLM:** Vercel AI SDK v7 como adaptador de protocolo + Model Router multidimensional propio.
