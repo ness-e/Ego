@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CharacterProfileSchema } from "./CharacterProfile.js";
+import type { SubEgoManifest as MemorySubEgoManifest } from "@ego/memory";
 import type {
   SubEgoManifest,
   SubEgoCreateInput,
@@ -152,6 +153,17 @@ export function validateSubEgoManifest(data: unknown): z.SafeParseReturnType<unk
  */
 export function parseSubEgoManifest(data: unknown): SubEgoManifest {
   return SubEgoManifestSchema.parse(data) as SubEgoManifest;
+}
+
+/**
+ * Promueve un manifiesto legacy mínimo en forma de persistencia de
+ * `@ego/memory` (`gov/sub_egos`) al tipo canónico `SubEgoManifest`
+ * (HIG-03-F2). Los campos ausentes se rellenan con los defaults del
+ * esquema y el resultado queda estrictamente validado; lanza
+ * `z.ZodError` ante datos inválidos, igual que `SubEgoRegistry.register`.
+ */
+export function fromMemoryManifest(source: MemorySubEgoManifest): SubEgoManifest {
+  return parseSubEgoManifest(source);
 }
 
 /**

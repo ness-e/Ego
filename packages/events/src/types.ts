@@ -16,6 +16,10 @@ export type EgoEventType =
   | "subego.delegated"
   | "subego.completed"
 
+  // Ciclo de vida de Sub-Egos (canonizado HIG-03-F1)
+  | "subego.registered"
+  | "subego.state_changed"
+
   // Ejecución de herramientas locales y MCP
   | "tool.started"
   | "tool.progress"
@@ -39,7 +43,11 @@ export type EgoEventType =
 
   // Proyecto Vivo y Operaciones
   | "project.changed"
+  | "project.switched"
   | "system.alert"
+
+  // Configuración del escritorio (canonizado HIG-03-F1)
+  | "settings.model_updated"
 
   // Daily State y Sesión Diaria (Fase 08)
   | "daily.state.synthesized"
@@ -98,6 +106,9 @@ export interface CanonicalEventPayloadMap {
   "subego.delegated": { delegatorId: string; delegateeId: string; taskId: string; instructions: string };
   "subego.completed": { subEgoId: string; outcome: unknown };
 
+  "subego.registered": { subEgoId: string; name: string; role: string; createdAt: number };
+  "subego.state_changed": { subEgoId: string; state: "active" | "paused"; timestamp: number };
+
   "tool.started": { callId: string; toolName: string; input: unknown; riskLevel?: string };
   "tool.progress": { callId: string; toolName: string; deltaOutput?: string; percent?: number; status?: string };
   "tool.executed": { callId: string; toolName: string; durationMs: number; result: unknown };
@@ -116,7 +127,10 @@ export interface CanonicalEventPayloadMap {
   "artifact.modified": { artifactId: string; changeType: "edit" | "append" | "revert" };
 
   "project.changed": { projectId: string; path: string; name: string };
+  "project.switched": { projectId: string; timestamp: number };
   "system.alert": { code: string; message: string; details?: unknown };
+
+  "settings.model_updated": { activeProvider: string; timestamp: number };
 
   "daily.state.synthesized": unknown;
   "daily.decision.recorded": { id: string; title: string; timestamp: number; subEgoId: string };

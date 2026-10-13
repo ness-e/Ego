@@ -17,7 +17,12 @@ export interface SubEgoManifest {
   role: string;
   description: string;
   systemPrompt: string;
-  creator: "user" | "ego-nucleus";
+  // Subconjunto compatible con persistencia. El tipo canónico completo vive
+  // en `@ego/subegos` (`SubEgoManifest` + `SubEgoManifestSchema`); la
+  // promoción legacy→canónica (defaults incluidos) es `fromMemoryManifest`.
+  // HIG-03-F2: se admite "template" para que el canónico sea asignable aquí
+  // (`SubEgoFactory.fromTemplate` crea con `creator: "template"`).
+  creator: "user" | "ego-nucleus" | "template";
   createdAtMs: number;
   namespaces: SubEgoNamespaces;
   tools: string[];

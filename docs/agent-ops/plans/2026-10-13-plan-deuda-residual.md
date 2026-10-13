@@ -36,13 +36,13 @@
 
 ### Task 1: HIG-01 — tsc en tests/
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/e2e-tests typecheck` (o script equivalente) exit 0 con los 57 errores resueltos o acotados con justificación por archivo.
 - **Files:** `tests/` (fix por archivo) + script en `tests/package.json`. **Skills:** `test-driven-development`. **Verify:** typecheck + `pnpm test:e2e` verde.
 
 ### Task 2: HIG-02 — gate dist/
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** suite que consuma `dist/` falla en rojo si el dist está obsoleto, o pre-test reconstruye automáticamente; 0 regresiones.
 - **Files:** script pre-test o cambio de resolución a `src/` en tests desktop. **Skills:** `systematic-debugging`. **Verify:** KnowledgeIndexer-style: romper dist a propósito → gate lo detecta.
 
@@ -135,3 +135,36 @@
 - **Ruta:** ego-desktop
 - **Estado:** ⬜ PENDING
 - **Contrato:** `concurrently` + `VITE_DEV_SERVER_URL` + docs del loop.
+
+=== RECITATION 1 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: tsc 0 errores + e2e 45/45. Commit 6fa17be.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 2 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Gate pre-test dist, 5/5 + suites verdes. Commit 4646cbe.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 3 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: in progress
+Última acción: Estado actualizado a IN PROGRESS
+Resultado: Inicio HIG-03: any en main
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===

@@ -4,8 +4,8 @@ import { stat } from "node:fs/promises";
 import {
   EgoMemoryAdapter,
   EgoMemoryLifecycle,
-  SubEgoManifest,
   createSubEgoId,
+  type EgoRecallStatus,
 } from "@ego/memory";
 import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL } from "@ego/models";
 import { ToolRegistry, registerNativeTools, type ToolExecutionContext } from "@ego/tools";
@@ -16,6 +16,9 @@ import { ApprovalEngine, ExecutionManager, type PendingApproval } from "@ego/exe
 import {
   SubEgoRegistry,
   SubEgoFactory,
+  fromMemoryManifest,
+  type SubEgoCreateInput,
+  type SubEgoManifest,
 } from "@ego/subegos";
 import {
   DecisionRouter,
@@ -75,6 +78,10 @@ import {
   KnowledgeDomain,
   AnalyticsDomain,
   CrmDomain,
+  BacklogItemStatusSchema,
+  DealStageSchema,
+  type CreateBacklogItemInput,
+  type CreateDealInput,
 } from "@ego/domains";
 import {
   KnowledgeIndexer,
@@ -955,8 +962,8 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
   ok: boolean;
   turnId: string;
   text: string;
-  recallStatus: any;
-  usage?: any;
+  recallStatus: EgoRecallStatus;
+  usage?: LoopExecutionResult["usage"];
   status: string;
 }> {
   const parseResult = ChatStreamSchema.safeParse(rawReq);
@@ -1114,8 +1121,8 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       usage: loopResult.usage,
       status: loopResult.status
     };
-  } catch (err: any) {
-    const errorMsg = err?.message || String(err);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
     if (win && !win.isDestroyed()) {
       win.webContents.send("ipc.chat.error", { turnId, error: errorMsg });
     }
@@ -1167,9 +1174,9 @@ export async function createWindow(): Promise<void> {
   try {
     const savedConfig = await adapter.get("gov/settings", "model_config");
     if (savedConfig) {
-      let payload: any = savedConfig;
+      let payload: unknown = savedConfig;
       if (typeof savedConfig === "object" && savedConfig !== null && "payload" in savedConfig) {
-        payload = (savedConfig as { payload: any }).payload;
+        payload = (savedConfig as { payload: unknown }).payload;
       }
       if (payload && typeof payload === "object") {
         // Migración plano→cifrado de campos por proveedor (Task 10 escribe el shape nuevo).
@@ -1193,39 +1200,41 @@ export async function createWindow(): Promise<void> {
           });
           payload = nextPayload;
         }
+        const record: Record<string, unknown> = payload as Record<string, unknown>;
 
         // Keys por proveedor (anthropic/google/openai/deepseek persistidos por UI).
-        const persistedKeys = resolvePersistedModelKeys(payload);
+        const persistedKeys = resolvePersistedModelKeys(record);
         if (Object.keys(persistedKeys).length > 0) {
           setupModelProviders(modelRouter, persistedKeys);
         }
 
         let resolvedKey = "";
-        if (payload.apiKeyEncrypted) {
-          resolvedKey = decryptCredential(payload.apiKeyEncrypted);
-        } else if (payload.apiKey && typeof payload.apiKey === "string") {
+        const storedApiKeyEncrypted = record.apiKeyEncrypted;
+        if (typeof storedApiKeyEncrypted === "string" && storedApiKeyEncrypted.length > 0) {
+          resolvedKey = decryptCredential(storedApiKeyEncrypted);
+        } else if (typeof record.apiKey === "string" && record.apiKey.length > 0) {
           // Migración automática de legado plano a cifrado con safeStorage
-          resolvedKey = payload.apiKey;
+          resolvedKey = record.apiKey;
           const reEncrypted = encryptCredential(resolvedKey);
           await adapter.put({
             namespace: "gov/settings",
             key: "model_config",
             payload: {
-              ...(payload as Record<string, unknown>),
-              activeProvider: payload.activeProvider,
+              ...record,
+              activeProvider: record.activeProvider,
               apiKeyEncrypted: reEncrypted,
-              baseUrl: payload.baseUrl,
-              modelName: payload.modelName,
+              baseUrl: record.baseUrl,
+              modelName: record.modelName,
             },
             metadata: { updatedAtMs: Date.now(), migrated: true },
           });
         }
 
         const restoredConfig: ModelConfig = {
-          activeProvider: payload.activeProvider || "mock",
+          activeProvider: (record.activeProvider as ModelConfig["activeProvider"]) || "mock",
           apiKey: resolvedKey,
-          baseUrl: payload.baseUrl,
-          modelName: payload.modelName,
+          baseUrl: record.baseUrl as ModelConfig["baseUrl"],
+          modelName: record.modelName as ModelConfig["modelName"],
         };
         applyModelConfig(modelRouter, restoredConfig);
       }
@@ -1528,13 +1537,15 @@ export async function createWindow(): Promise<void> {
     if ("mode" in req && req.mode === "template") {
       manifest = SubEgoFactory.fromTemplate(req.templateId, {
         name: req.name,
-        ...(req.overrides as any),
-      }) as unknown as SubEgoManifest;
+        ...(req.overrides as Partial<SubEgoCreateInput>),
+      });
     } else if ("mode" in req && req.mode === "declaration") {
-      manifest = SubEgoFactory.fromRawDeclaration(req.rawText, req.format) as unknown as SubEgoManifest;
+      manifest = SubEgoFactory.fromRawDeclaration(req.rawText, req.format);
     } else {
       const subEgoId = createSubEgoId(req.name);
-      manifest = {
+      // Rama custom: construye la forma mínima de persistencia y la promueve
+      // al tipo canónico vía `fromMemoryManifest` (HIG-03-F2, sin casts).
+      manifest = fromMemoryManifest({
         id: subEgoId,
         name: req.name,
         role: req.role,
@@ -1554,17 +1565,19 @@ export async function createWindow(): Promise<void> {
         },
         trigger: "manual",
         state: "active",
-      };
+      });
     }
 
-    await subEgoRegistry.register(manifest as any);
+    // El registry valida en runtime (`validateSubEgoManifest`); el manifiesto
+    // ya es del tipo canónico `@ego/subegos` (HIG-03-F2).
+    await subEgoRegistry.register(manifest);
     try {
-      await adapter.registerSubEgo(manifest as any);
+      await adapter.registerSubEgo(manifest);
     } catch {
       // noop
     }
 
-    eventBus?.emit("subego.registered" as any, {
+    eventBus?.emit("subego.registered", {
       subEgoId: manifest.id,
       name: manifest.name,
       role: manifest.role,
@@ -1594,12 +1607,12 @@ export async function createWindow(): Promise<void> {
 
     let updated: SubEgoManifest;
     if (state === "active") {
-      updated = (await subEgoRegistry.enable(subEgoId)) as unknown as SubEgoManifest;
+      updated = await subEgoRegistry.enable(subEgoId);
     } else {
-      updated = (await subEgoRegistry.disable(subEgoId)) as unknown as SubEgoManifest;
+      updated = await subEgoRegistry.disable(subEgoId);
     }
 
-    eventBus?.emit("subego.state_changed" as any, {
+    eventBus?.emit("subego.state_changed", {
       subEgoId,
       state,
       timestamp: Date.now(),
@@ -1893,8 +1906,9 @@ export async function createWindow(): Promise<void> {
       if (!stats.isDirectory()) {
         throw new Error(`La ruta '${rootPath}' no es un directorio válido.`);
       }
-    } catch (fsErr: any) {
-      throw new Error(`Ruta de directorio inaccesible o inexistente: ${fsErr.message}`);
+    } catch (fsErr) {
+      const detail = fsErr instanceof Error ? fsErr.message : String(fsErr);
+      throw new Error(`Ruta de directorio inaccesible o inexistente: ${detail}`);
     }
 
     const slug = name
@@ -1950,7 +1964,7 @@ export async function createWindow(): Promise<void> {
       win.webContents.send("ipc.projects.changed", { activeProjectId: id });
     }
 
-    eventBus?.emit("project.switched" as any, {
+    eventBus?.emit("project.switched", {
       projectId: id,
       timestamp: Date.now()
     }, {
@@ -2207,7 +2221,7 @@ export async function createWindow(): Promise<void> {
       metadata: { updatedAtMs: Date.now() },
     });
 
-    eventBus?.emit("settings.model_updated" as any, {
+    eventBus?.emit("settings.model_updated", {
       activeProvider: effectiveConfig.activeProvider,
       timestamp: Date.now(),
     }, {
@@ -2322,8 +2336,9 @@ export async function createWindow(): Promise<void> {
           promotedBy: req.promotedBy,
         });
         return { ok: true, promoted };
-      } catch (err: any) {
-        return { ok: false, error: err?.message || "Error al promover fact" };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { ok: false, error: message || "Error al promover fact" };
       }
     }
     if (req.action === "reject" && req.factId) {
@@ -2580,11 +2595,15 @@ export async function createWindow(): Promise<void> {
     const { action, payload } = parseResult.data;
 
     if (action === "create" && payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const item = await productDomain.createBacklogItem(payload as any);
+      const item = await productDomain.createBacklogItem(payload as CreateBacklogItemInput);
       return { ok: true, item };
     } else if (action === "updateStatus" && payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const p = payload as { id: string; status: any };
-      const item = await productDomain.updateBacklogItemStatus(p.id, p.status);
+      const p = payload as { id: string; status: unknown };
+      const parsedStatus = BacklogItemStatusSchema.safeParse(p.status);
+      if (!parsedStatus.success) {
+        throw new Error(`[IPC Security] Estado de backlog inválido: ${parsedStatus.error.message}`);
+      }
+      const item = await productDomain.updateBacklogItemStatus(p.id, parsedStatus.data);
       return { ok: true, item };
     } else {
       const items = await productDomain.listBacklogItems();
@@ -2630,11 +2649,15 @@ export async function createWindow(): Promise<void> {
     const { action, payload } = parseResult.data;
 
     if (action === "create" && payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const deal = await crmDomain.createDeal(payload as any);
+      const deal = await crmDomain.createDeal(payload as CreateDealInput);
       return { ok: true, deal };
     } else if (action === "updateStage" && payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const p = payload as { id: string; stage: any };
-      const deal = await crmDomain.updateDealStage(p.id, p.stage);
+      const p = payload as { id: string; stage: unknown };
+      const parsedStage = DealStageSchema.safeParse(p.stage);
+      if (!parsedStage.success) {
+        throw new Error(`[IPC Security] Etapa de deal inválida: ${parsedStage.error.message}`);
+      }
+      const deal = await crmDomain.updateDealStage(p.id, parsedStage.data);
       return { ok: true, deal };
     } else if (action === "summary") {
       const summary = await crmDomain.getPipelineSummary();
