@@ -6,6 +6,7 @@
   "description": "Suites E2E y de resiliencia del Golden Path Alpha (antes huerfanas: fuera del workspace, nunca corrian en CI — C09)",
   "scripts": {
     "test": "vitest run",
+    "pretest": "node ../scripts/ensure-fresh-dist.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
