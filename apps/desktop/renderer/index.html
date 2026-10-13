@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- SEC-01: CSP estricta del renderer aislado (defensa en profundidad junto a
+         sandbox:true + contextIsolation:true + nodeIntegration:false). Permite
+         HMR de Vite en dev (ws:/wss:, estilos inline de Tailwind) y bloquea
+         scripts remotos, object/embed y framing. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    />
     <title>Ego — Sistema Operativo Cognitivo</title>
   </head>
   <body class="bg-paper text-ink font-sans antialiased overflow-hidden select-none">
