@@ -32,7 +32,7 @@
 ### Task 1: SEC-01 — Sandboxing y Context Isolation
 
 - **Ruta:** ego-audit (veredicto) + ego-desktop (fix si hay)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** auditoría PASS + `floor-guard.ps1` verde + 0 APIs Node/VantaDB en renderer
 
 **Files:** `apps/desktop/src/main.ts:42` (BrowserWindows), `preload.ts`, compuertas `CARP-03`, `HERM-19`.
@@ -43,7 +43,7 @@
 ### Task 2: SEC-02 — IPC validado con Zod en Main
 
 - **Ruta:** ego-desktop
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** todo handler IPC valida schema + test de payload inválido rechazado
 
 **Files:** `apps/desktop/src/ipc/handlers.ts` (verificar ruta real en DISCOVERY; el Backlog puede estar stale), esquemas `ipc/schema.ts`.
@@ -138,3 +138,36 @@
 **Relaciones:** `CORE-01` ✅. Docs: `docs/operations/despliegue.md`. Compuerta: `HERM-14`.
 **Skills:** `ci-cd-and-automation`.
 **Verify:** build + artefactos + typecheck. Sin firmados (DIST-04) ni installers (DIST-03) en esta task.
+
+=== RECITATION SEC-01 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: CSP estricta + 5 tests, floor verde. Commit 30b6aa1.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION SEC-02 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: 50/50 handlers validados, 5 gaps cerrados. Commit 8daba8f.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION SEC-03 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: in progress
+Última acción: Estado actualizado a IN PROGRESS
+Resultado: Inicio SEC-03: Credential Manager Keychain
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===

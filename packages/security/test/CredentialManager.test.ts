@@ -118,6 +118,18 @@ describe("CredentialManager flags honestos", () => {
       warn.mockRestore();
     }
   });
+
+  it("round-trip guardar/leer/borrar (SEC-03): has → get → delete → get null", async () => {
+    const mgr = new CredentialManager(new SafeStorageBackend(makeFakeSafeStorage()));
+    expect(mgr.hasSecret("svc-rt", "acct-rt")).toBe(false);
+    await mgr.storeSecret("svc-rt", "acct-rt", "sk-test-rt-value");
+    expect(mgr.hasSecret("svc-rt", "acct-rt")).toBe(true);
+    await expect(mgr.getSecret("svc-rt", "acct-rt")).resolves.toBe("sk-test-rt-value");
+    expect(mgr.deleteSecret("svc-rt", "acct-rt")).toBe(true);
+    expect(mgr.hasSecret("svc-rt", "acct-rt")).toBe(false);
+    await expect(mgr.getSecret("svc-rt", "acct-rt")).resolves.toBeNull();
+    expect(mgr.deleteSecret("svc-rt", "acct-rt")).toBe(false);
+  });
 });
 
 describe("StoredCredentialSchema", () => {
