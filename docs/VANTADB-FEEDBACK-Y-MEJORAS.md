@@ -33,6 +33,8 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
 | `VDB-REQ-05` | Petición de Mejora | 🟠 Media | Core `vanta-vector` / HNSW | *Vacuum* y desfragmentación periódica de grafos HNSW (purga de *tombstones*) |
 | `VDB-REQ-06` | Petición de Mejora | 🟡 Media | Core `Temporal` | Soporte nativo de consultas bitemporales (`AS OF <timestamp>` sobre intervalos `[valid_at, invalid_at)`) |
 | `VDB-REQ-07` | Petición de Mejora | 🟠 Media | Core `graphragSearch` | Poda y límite configurable de grado de conectividad en expansión de grafos para evitar sobrecarga de memoria |
+| `VDB-REQ-08` | Petición de Mejora | 🔴 Alta | Core `Fjall` LSM / at-rest | Cifrado en reposo (FIND-249): namespaces cifrados o motor con key del SO |
+| `VDB-REQ-09` | Petición de Mejora | 🔴 Alta | `vantadb-node` / packaging | Publicar binding Node versionado en registry (`npm view vantadb-node` hoy 404) |
 
 ---
 
@@ -234,5 +236,38 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
       pub min_edge_weight: f32,
   }
   ```
+---
 
+### `VDB-REQ-08`: Cifrado en reposo (FIND-249)
+* **Componente:** Motor Fjall LSM / capa de almacenamiento
+* **Petición:** Cifrado at-rest: namespaces cifrados con key del SO o motor con soporte de clave (equivalente a lo que Ego hace en memoria con `safeStorage`).
+* **Situación Actual:** VantaDB 0.8.0 persiste todo en claro en disco. La cuarentena por defecto de Ego (SEC-09) redirige namespaces sensibles a `quarantine/pending`, pero el contenido sigue legible a nivel filesystem.
+* **Impacto en Ego:** SEC-09 es stopgap: sin cifrado del motor, "cuarentena" no es confidencialidad. La relajación de SEC-09 está bloqueada hasta el cierre de FIND-249.
+* **Solución recomendada en VantaDB:** Cifrado por namespace con clave externa (Keychain/DPAPI) o flag de cifrado a nivel `connect()`, con rotación documentada.
 
+---
+
+### `VDB-REQ-09`: Publicar `vantadb-node` versionado en registry
+* **Componente:** Packaging / distribución del binding NAPI-RS
+* **Petición:** Publicar `vantadb-node` con versiones semánticas en el registry de npm (verificado 2026-10-12/13: `npm view vantadb-node` → 404).
+* **Situación Actual:** El único consumo posible es `file:../../../VantaDB/vantadb-node` (checkout hermano frágil) más stub ficticio en CI. Instalación irreproducible, sin pin real, sin verificación del binding en pipeline.
+* **Impacto en Ego:** Bloquea H05/M05/H23/H24 y DIST-09 (pin VantaDB). Cada máquina necesita el checkout hermano en la ruta exacta.
+* **Solución recomendada en VantaDB:** Publicar el binding (o documentar el canal oficial de distribución: scope, tag o artefacto) y declarar su ABI/compatibilidad N-API por versión de Electron/Node.
+
+---
+
+### `VDB-INC-04`: Borrado físico no garantizado (tombstones legibles)
+* **Componente:** Fjall LSM / `delete` + `vanta-vector` / HNSW
+* **Síntoma:** Tras `delete`, los datos dejan de listarse pero permanecen recuperables a nivel disco hasta compactación/vacuum (que no existe: ver `VDB-REQ-05`).
+* **Situación Actual:** El borrado es lógico (tombstone). La purga criptográfica de Ego (SEC-07) solo puede garantizar borrado a nivel API (sobrescritura + rotación de claves + verificación de lectura), no físico.
+* **Impacto en Ego:** `CryptoErasure` documenta `physicalErasure: api-level-only` como límite honesto. Sin vacuum con purga, "borrar" no borra.
+* **Solución recomendada en VantaDB:** Vacuum con purga física de tombstones (conectar con `VDB-REQ-05`) o API de borrado seguro que reescriba los segmentos afectados.
+
+---
+
+### `VDB-BUG-06`: `dist/native.js` resuelve `vantadb-node` como devDependency
+* **Componente:** `vantadb/dist/native.js` (import dinámico del binding)
+* **Síntoma:** El entry productivo del paquete `vantadb` hace import dinámico de `vantadb-node`, declarado solo como devDependency. En instalaciones limpias o empaquetados estrictos (asarUnpack) la resolución es frágil.
+* **Situación Actual:** Funciona por accidente de layout `node_modules`, no por declaración. Evidencia en Ego: F2T6 (el `file:` externo existe precisamente para proveer ese módulo).
+* **Impacto en Ego:** Acopla la instalación al checkout hermano; cualquier `npm prune --production` o empaquetado puede romper `init()`.
+* **Solución recomendada en VantaDB:** Declarar el binding como dependencia real (o peer con rango) u ofrecer `native.js` por variante de plataforma sin import cruzado.
