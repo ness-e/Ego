@@ -13,6 +13,8 @@
     "build:renderer": "pnpm --filter @ego/renderer build",
     "build:desktop": "pnpm --filter @ego/desktop build",
     "build": "pnpm --filter @ego/renderer build && pnpm --filter @ego/desktop build",
+    "build:verify": "pnpm --filter @ego/desktop build:verify",
+    "dist": "pnpm --filter @ego/desktop dist",
     "typecheck": "pnpm -r typecheck",
     "lint": "oxlint --ignore-path .gitignore apps packages tests && pnpm run typecheck",
     "test": "pnpm -r test",

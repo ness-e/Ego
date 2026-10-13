@@ -5,7 +5,10 @@
   "main": "dist/src/main.js",
   "scripts": {
     "build:main": "tsc -p tsconfig.json",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/verify-dist.cjs",
+    "build:verify": "node scripts/verify-dist.cjs",
+    "dist": "electron-builder --config electron-builder.config.cjs",
+    "pack": "electron-builder --dir --config electron-builder.config.cjs",
     "dev": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
