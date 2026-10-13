@@ -3,6 +3,7 @@
 !.gitignore
 !.github/
 !.agents/
+!.oxlintrc.json
 .agents/node_modules/
 .agents/**/node_modules/
 

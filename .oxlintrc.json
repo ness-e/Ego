@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "rules": {
+    "eslint/no-debugger": "deny",
+    "eslint/no-duplicate-case": "deny",
+    "eslint/no-self-assign": "deny",
+    "eslint/no-unsafe-finally": "deny",
+    "eslint/no-sparse-arrays": "deny",
+    "eslint/no-ex-assign": "deny",
+    "eslint/no-fallthrough": "deny"
+  }
+}
