@@ -225,89 +225,136 @@ Relaciones: Backlog roadmap (SIN cambiar Estados; H28 formalización con owner),
 - Verify: typecheck + suites + grep `any` con justificación.
 
 === RECITATION F1T1 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: F1T1 — SafeStorageBackend real
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: SafeStorageBackend + flags honestos, 10/10 + typecheck. Commit 75f3691.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 75f3691 + task_update_state COMPLETED
+Resultado: ✅ SafeStorageBackend fail-closed + flags honestos, 10/10 + typecheck. Commit 75f3691.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: F1T2 (cableado + MCP)
+Contrato: pnpm --filter @ego/security test PASS + typecheck exit 0
+Invariantes: electron import dinámico guarded; fixtures sk-test-*; InMemory@testOnly
+Comandos de verificación: tests 10/10; typecheck exit 0; adversarial 2 fugas
+Deuda: F1T2 sigue (index.ts + delegación main)
+Próxima tarea si completa: F1T2
+last-synced: 2026-10-12T18:01:14-04:00
 === END RECITATION ===
 
 === RECITATION F1T2 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: F1T2 — cableado @ego/security + MCP
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: Package cableado + MCP endurecido (35/35+20/20), floor verde, mock knowledge-ipc colateral arreglado. Commit 24e7277.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 24e7277 + task_update_state COMPLETED
+Resultado: ✅ Package importable + spawn con allowlist + vault HMAC (35/35+20/20), floor verde. Commit 24e7277.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: F2T3 (bitemporal + hybrid)
+Contrato: suites security/integrations PASS + floor-guard.ps1 verde
+Invariantes: PAT vía Credential Manager; overrideExisting auditado; colateral knowledge-ipc mock arreglado
+Comandos de verificación: security 20/20; integrations 35/35; floor 5/5; desktop typecheck exit 0
+Deuda: PAT persistido en gov/mcp_servers → follow-up F5
+Próxima tarea si completa: F2T3
+last-synced: 2026-10-12T18:11:46-04:00
 === END RECITATION ===
 
 === RECITATION F2T3 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: F2T3 — bitemporal + HybridSearch
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: Bitemporal cursor + rerank honesto + threshold, 50/50. Commit 850464d. Restricción F2T6: BitemporalQueries usa getDb() para cursor real.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 850464d + task_update_state COMPLETED
+Resultado: ✅ Cursor real + rerank honesto + threshold calibrado, 50/50. Commit 850464d.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: F2T4 (dominios)
+Contrato: pnpm --filter @ego/knowledge test PASS con asOf sobre 250+ registros + historical
+Invariantes: Cursor real vía getDb (restricción para F2T6); sin RRF ficticio; rename con grep 0 rotos
+Comandos de verificación: suite 50/50; typecheck exit 0
+Deuda: citas 0.70 en Backlog/khoj/fase-06 fuera de alcance (reportadas)
+Próxima tarea si completa: F2T4
+last-synced: 2026-10-12T18:17:49-04:00
 === END RECITATION ===
 
 === RECITATION F2T4 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: F2T4 — schema + rehydrate + timeline
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: Schema canónico + hydrate + timeline, suites verdes. Commit 757ce32.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 757ce32 + task_update_state COMPLETED
+Resultado: ✅ Fact canónico + hydrate + save/load timeline, suites verdes. Commit 757ce32.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: F2T5 (graph/lifecycle/export)
+Contrato: suites knowledge/domains/memory verdes + cold-reboot por dominio
+Invariantes: Tolerancia 3 formas + contador migratedLegacy; DTO público intacto; adapter intacto
+Comandos de verificación: knowledge 50/50; domains 51/51; memory 60/60
+Deuda: bug itemIds hallado y corregido en el mismo commit
+Próxima tarea si completa: F2T5
+last-synced: 2026-10-12T18:23:35-04:00
 === END RECITATION ===
 
 === RECITATION F2T5 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: F2T5 — graph/lifecycle/export/git/sidecar
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: 5 slices, suites 65/65 ambas. Commit 5f1116f.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 5f1116f + task_update_state COMPLETED
+Resultado: ✅ 5 slices, suites 65/65 ambas. Commit 5f1116f.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: F2T6 (gateway)
+Contrato: suites knowledge/domains en verde
+Invariantes: Un fix+test por slice; M16 fail-closed antes de git; L08 guard __dirname (CJS)
+Comandos de verificación: knowledge 65/65; domains 65/65; typechecks exit 0
+Deuda: approval a nivel código (HITL humano vive en runtime); path edge Windows
+Próxima tarea si completa: F2T6
+last-synced: 2026-10-12T18:36:56-04:00
 === END RECITATION ===
 
 === RECITATION F2T6 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: F2T6 — gateway memoria
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: Gateway restringido + logs + fail-closed + guard deps, 74/74. Commit 8e2be47. Divergencia: file: retenida (sin internet para reemplazo).
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 8e2be47 + task_update_state COMPLETED
+Resultado: ✅ getDb restringido + logs + fail-closed + guard deps, 74/74. Commit 8e2be47.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: F3T6 (contratos decisión)
+Contrato: suite memory verde + install limpio + 0 workarounds sin cita
+Invariantes: getDb RESTRINGIDO (no eliminado: cursor real en 3 usos) + listPaged(); errores con log estructurado (firmas intactas)
+Comandos de verificación: suite 74/74; typechecks 6 paquetes; frozen install exit 0
+Deuda: file: retenida (sin internet para reemplazo); wasm bloqueado por test
+Próxima tarea si completa: F3T6
+last-synced: 2026-10-12T18:43:31-04:00
 === END RECITATION ===
 
 === RECITATION F3T6 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: F3T6 — contratos decisión
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: Contratos unificados, 36/36/49. Commit 2660da0. Deuda: lockfile sin regen (F3T7).
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 2660da0 + task_update_state COMPLETED
+Resultado: ✅ Tipos canónicos + herramientas canónicas, 36/36/49. Commit 2660da0.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: F3T7 (higiene + lockfile)
+Contrato: suites decision/execution/runtime verdes + test coherencia registry
+Invariantes: Adaptadores explícitos sin casts; cambio conductual Cascade intencional (analyst/research)
+Comandos de verificación: decision 36/36; execution 36/36; runtime 49/49
+Deuda: lockfile sin regen → F3T7
+Próxima tarea si completa: F3T7
+last-synced: 2026-10-12T18:54:15-04:00
 === END RECITATION ===
 
 === RECITATION F3T7 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: F3T7 — higiene + lockfile
+Estado: completed
+Última acción: Commit 6c9195e + task_update_state COMPLETED (sesión retomada tras rate-limit)
+Resultado: ✅ Warn provider + ErrorHandler + deps + frozen exit 0, models 34/34. Commit 6c9195e.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: F4T8 (motor tareas, background)
+Contrato: suites models/runtime/execution/decision + pnpm install --frozen-lockfile exit 0
+Invariantes: Pins ai@7/providers@4 intactos; zod en decision conservado (sí se usa); EPERM .bin fuera de contrato
+Comandos de verificación: models 34/34; frozen exit 0
+Deuda: peers con NodeNext redundante → F6T13
+Próxima tarea si completa: F4T8
+last-synced: 2026-10-12T21:57:21-04:00
+=== END RECITATION ===
+
+=== RECITATION F4T8 ===
+Objetivo activo: F4T8 — motor de tareas
 Estado: in progress
-Última acción: Estado actualizado a IN PROGRESS
-Resultado: Inicio F3T7: higiene models/runtime + lockfile
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: task_update_state IN PROGRESS; subagente background ses_ecd053c59ffeaR7U4wADVidvWO
+Resultado: ⏳ En ejecución en background (reintento tras rate-limit).
+State: IN PROGRESS (desde PENDING)
+Próxima acción: Esperar RESULTADO → verify → commit → F4T9
+Contrato: pnpm --filter @ego/tasks test PASS + test pause/resume real
+Invariantes: Sin pisar archivos del worker; no duplicar su trabajo
+Comandos de verificación: pendiente (al cierre del worker)
+Deuda: ninguna aún
+Próxima tarea si completa: F4T9 (tras F4T8)
+last-synced: 2026-10-12T21:57:32-04:00
 === END RECITATION ===

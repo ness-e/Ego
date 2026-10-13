@@ -121,7 +121,7 @@ git commit -m "fix: wire tools/tool_calls in OpenAICompatibleProvider (C01)"
 
 ### Task 3: Pinear deps AI SDK en `@ego/models`
 - **Ruta:** ego-lead
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/models typecheck` exit 0 con deps AI SDK instaladas
 
 **Files:**
@@ -161,7 +161,7 @@ git commit -m "chore: pin ai sdk adapters in @ego/models"
 
 ### Task 4: Extender tipos (chunk `tool-call-delta` + descriptores Google/DeepSeek)
 - **Ruta:** ego-arch
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/models typecheck` exit 0 (chunk tool-call-delta aditivo)
 
 **Files:**
@@ -201,7 +201,7 @@ git commit -m "feat: extend stream chunk with tool-call-delta and google/deepsee
 
 ### Task 5: `AiSdkOpenAIProvider` (OpenAI + baseURL custom)
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/models test -- AiSdkProviders` PASS + typecheck exit 0
 
 **Files:**
@@ -294,7 +294,7 @@ git commit -m "feat: add AiSdkOpenAIProvider with tool calling"
 
 ### Task 6: `AiSdkAnthropicProvider` (Claude, formato nativo vía SDK)
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** test providerId anthropic PASS + typecheck exit 0
 
 **Files:**
@@ -305,7 +305,7 @@ Igual estructura que Task 5 con `createAnthropic({ apiKey, baseURL })`. El SDK a
 
 ### Task 7: `AiSdkGoogleProvider` (Gemini)
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** test providerId google PASS + typecheck exit 0
 
 **Files:**
@@ -316,7 +316,7 @@ Igual con `createGoogleGenerativeAI({ apiKey, baseURL })`, `providerId "google"`
 
 ### Task 8: Compatibles (DeepSeek/Ollama/LMStudio) vía SDK + factory
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/models test -- createProductionRouter` PASS (sin keys → mock)
 
 **Files:**
@@ -331,7 +331,7 @@ Commits: `feat: add openai-compatible SDK wrapper` + `feat: add createProduction
 
 ### Task 9: Recablear `main.ts` (keys en main, nunca renderer)
 - **Ruta:** ego-desktop
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/desktop typecheck` + `test -- ipc-tool-loop` PASS sin keys reales
 
 **Files:**
@@ -360,7 +360,7 @@ git commit -m "feat: wire AI SDK providers with safeStorage BYOK in main"
 
 ### Task 10: Settings/IPC/preload para nuevas keys (zod + masked)
 - **Ruta:** ego-desktop
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** settings rechaza payload sin schema y nunca retorna key completa
 
 **Files:**
@@ -373,7 +373,7 @@ Añadir campos `anthropicKey/googleKey` opcionales al schema existente, guardar 
 
 ### Task 11: `ToolExecutionLoop` + streaming turno a turno (sin tocar Runtime)
 - **Ruta:** ego-engine
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm --filter @ego/runtime test -- ToolExecutionLoop-ai-sdk` PASS sin SIMULATE_TOOL
 
 **Files:**
@@ -388,7 +388,7 @@ Expected: PASS. Commit `test: prove real toolCalls path without SIMULATE_TOOL`.
 
 ### Task 12: Puerta de calidad + deuda
 - **Ruta:** ego-lead
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm typecheck && pnpm -r test && pnpm build` exit 0
 
 **Files:**
@@ -410,23 +410,181 @@ Commit final: `docs: record AI SDK adapters superseding INT-02 direct wiring`.
 - Streaming vs loop multi-turno → Task 11 (turno a turno + canales discretos).
 
 === RECITATION 1 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: Task 1 — test contrato C01 (TDD rojo)
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: Test contrato C01 creado y verificado en rojo (body.tools undefined). Commit e4f37b9.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit e4f37b9 + task_update_state COMPLETED
+Resultado: ✅ Test creado y verificado en rojo (body.tools undefined). Commit e4f37b9.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 2 (fix C01)
+Contrato: pnpm --filter @ego/models test -- ProviderToolCalling → 1 failed (rojo TDD)
+Invariantes: Sin implementación en esta task (solo test); sin secretos
+Comandos de verificación: pnpm --filter @ego/models test -- ProviderToolCalling → FAIL esperado con body.tools undefined
+Deuda: ninguna
+Próxima tarea si completa: Task 2
+last-synced: 2026-10-12T00:46:38-04:00
 === END RECITATION ===
 
 === RECITATION 2 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: Task 2 — fix C01 en OpenAICompatibleProvider
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: Fix C01 verificado: contract PASS, typecheck exit 0, suite 13/13. Commit 54a6a8c.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 54a6a8c + task_update_state COMPLETED
+Resultado: ✅ Contract PASS, typecheck exit 0, suite 13/13. Commit 54a6a8c.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 3 (deps AI SDK)
+Contrato: contract PASS + pnpm --filter @ego/models typecheck exit 0 + suite 13/13
+Invariantes: Sin any; payload/tools/tool_choice solo en generate/stream; SSE acumula tool_calls por índice
+Comandos de verificación: contract PASS; typecheck exit 0; suite 13/13 sin regresiones
+Deuda: ninguna
+Próxima tarea si completa: Task 3
+last-synced: 2026-10-12T00:50:00-04:00
+=== END RECITATION ===
+
+=== RECITATION 3 ===
+Objetivo activo: Task 3 — pinear deps AI SDK
+Estado: completed
+Última acción: Commit abdde3a + task_update_state COMPLETED
+Resultado: ✅ ai@7.0.137 + openai@4.0.91/anthropic@4.0.78/google@4.0.93 pineados vía registry; typecheck exit 0. Commit abdde3a.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 4 (tipos)
+Contrato: pnpm --filter @ego/models typecheck exit 0 con deps instaladas
+Invariantes: Versiones exactas sin carets; ejemplo ai@5 del plan superseded por lo impreso hoy
+Comandos de verificación: pnpm view ×4 (registry) + install + typecheck exit 0
+Deuda: ejemplo ai@5/providers@2 del plan superseded; costos por confirmar en registry
+Próxima tarea si completa: Task 4
+last-synced: 2026-10-12T01:03:18-04:00
+=== END RECITATION ===
+
+=== RECITATION 4 ===
+Objetivo activo: Task 4 — chunk tool-call-delta + descriptores
+Estado: completed
+Última acción: Commit 04a7404 + task_update_state COMPLETED
+Resultado: ✅ Chunk aditivo + gemini/deepseek registrados. Suite 13/13. Commit 04a7404.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 5 (AiSdkOpenAIProvider)
+Contrato: pnpm --filter @ego/models typecheck exit 0 (aditivo)
+Invariantes: EgoModelInterface intacto; descriptores nuevos se saltan sin providers (fallback mock)
+Comandos de verificación: typecheck exit 0; suite 13/13
+Deuda: costos gemini/deepseek en 0 pendientes de confirmación
+Próxima tarea si completa: Task 5
+last-synced: 2026-10-12T01:05:15-04:00
+=== END RECITATION ===
+
+=== RECITATION 5 ===
+Objetivo activo: Task 5 — AiSdkOpenAIProvider
+Estado: completed
+Última acción: Commit 4ebb592 + task_update_state COMPLETED
+Resultado: ✅ Provider OpenAI vía SDK con tool calling real. Suite 17/17. Commit 4ebb592.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 6 (Anthropic)
+Contrato: pnpm --filter @ego/models test -- AiSdkProviders PASS + typecheck exit 0
+Invariantes: Fuente manda: client.chat(modelId) Chat Completions; isAvailable sin red; tests sin red vía fetch inyectado
+Comandos de verificación: AiSdkProviders 4/4; suite 17/17; typecheck exit 0
+Deuda: 4 divergencias sketch ai@5→source ai@7 adaptadas y documentadas
+Próxima tarea si completa: Task 6
+last-synced: 2026-10-12T01:11:42-04:00
+=== END RECITATION ===
+
+=== RECITATION 6 ===
+Objetivo activo: Task 6 — AiSdkAnthropicProvider
+Estado: completed
+Última acción: Commit b90edb8 + task_update_state COMPLETED
+Resultado: ✅ Claude nativo vía SDK, borde Ego idéntico. Suite 21/21. Commit b90edb8.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 7 (Google)
+Contrato: test providerId anthropic PASS + typecheck exit 0
+Invariantes: Entrada client(modelId) verificada en source instalado; SDK absorbe tool_use vs tool_calls
+Comandos de verificación: AiSdkProviders 8/8; suite 21/21; typecheck exit 0
+Deuda: ninguna
+Próxima tarea si completa: Task 7
+last-synced: 2026-10-12T01:14:56-04:00
+=== END RECITATION ===
+
+=== RECITATION 7 ===
+Objetivo activo: Task 7 — AiSdkGoogleProvider
+Estado: completed
+Última acción: Commit a5e31fa + task_update_state COMPLETED
+Resultado: ✅ Gemini nativo vía SDK. Suite 25/25. Commit a5e31fa.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 8 (wrapper + factory)
+Contrato: test providerId google PASS + typecheck exit 0
+Invariantes: Entry client(modelId) verificado; wire :generateContent/:streamGenerateContent real en stubs
+Comandos de verificación: AiSdkProviders 12/12; suite 25/25; typecheck exit 0
+Deuda: ninguna
+Próxima tarea si completa: Task 8
+last-synced: 2026-10-12T01:18:22-04:00
+=== END RECITATION ===
+
+=== RECITATION 8 ===
+Objetivo activo: Task 8 — wrapper compatible + factory
+Estado: completed
+Última acción: Commit 46c0322 + task_update_state COMPLETED
+Resultado: ✅ DeepSeek/Ollama/LMStudio vía SDK + createProductionRouter. Suite 33/33. Commit 46c0322.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 9 (main.ts)
+Contrato: pnpm --filter @ego/models test -- createProductionRouter PASS (sin keys → mock)
+Invariantes: Factory NO lee process.env (keys por parámetro desde main); ollama solo con baseURL explícita
+Comandos de verificación: createProductionRouter 8/8; suite 33/33; typecheck exit 0
+Deuda: ninguna
+Próxima tarea si completa: Task 9
+last-synced: 2026-10-12T01:21:03-04:00
+=== END RECITATION ===
+
+=== RECITATION 9 ===
+Objetivo activo: Task 9 — recablear main.ts BYOK
+Estado: completed
+Última acción: Commit 86f401a + task_update_state COMPLETED
+Resultado: ✅ Keys solo en main (safeStorage + bootstrap env INT-02), 13/13 + adversarial. Commit 86f401a.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 10 (settings IPC)
+Contrato: pnpm --filter @ego/desktop typecheck + test -- ipc-tool-loop PASS sin keys reales
+Invariantes: Ninguna key sale del main; masked en retornos; Mock siempre como fallback
+Comandos de verificación: typecheck exit 0; ipc-tool-loop 13/13; adversarial 3 ataques mitigados
+Deuda: resolveModel prefiere llama3.2:3b sin servidor (cae a mock vía fallback existente)
+Próxima tarea si completa: Task 10
+last-synced: 2026-10-12T01:25:16-04:00
+=== END RECITATION ===
+
+=== RECITATION 10 ===
+Objetivo activo: Task 10 — settings/IPC/preload nuevas keys
+Estado: completed
+Última acción: Commit 59978b8 + task_update_state COMPLETED
+Resultado: ✅ anthropicKey/googleKey vía IPC tipado + masked, 15/15, sin secretos. Commit 59978b8.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 11 (loop real)
+Contrato: settings rechaza payload sin schema y nunca retorna key completa
+Invariantes: Renderer jamás ve secreto; saver cifra + getter masked + migración plano→cifrado
+Comandos de verificación: typecheck exit 0; ipc-tool-loop 15/15; secret-scan limpio
+Deuda: EgoIpc resto sin catalogar (deuda anotada, no de esta task)
+Próxima tarea si completa: Task 11
+last-synced: 2026-10-12T01:29:47-04:00
+=== END RECITATION ===
+
+=== RECITATION 11 ===
+Objetivo activo: Task 11 — loop con toolCalls reales
+Estado: completed
+Última acción: Commit d4fc2d7 + task_update_state COMPLETED
+Resultado: ✅ Path toolCalls reales sin SIMULATE_TOOL probado, 48/48. Commit d4fc2d7.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 12 (gate)
+Contrato: pnpm --filter @ego/runtime test -- ToolExecutionLoop-ai-sdk PASS sin SIMULATE_TOOL
+Invariantes: Sin cambios en runtime/src; stub devuelve toolCalls estructurales (propiedad negativa: steps=1 si se ignoraran)
+Comandos de verificación: ToolExecutionLoop-ai-sdk PASS; suite runtime 48/48
+Deuda: ninguna
+Próxima tarea si completa: Task 12
+last-synced: 2026-10-12T01:31:04-04:00
+=== END RECITATION ===
+
+=== RECITATION 12 ===
+Objetivo activo: Task 12 — puerta de calidad + deuda
+Estado: completed
+Última acción: Commit 96e582a + task_update_state COMPLETED
+Resultado: ✅ typecheck 19/19, ~759 tests por paquete, build exit 0, INT-02 superseded. Commit 96e582a.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Verificación en vivo pnpm dev (follow-up ESM 51acf7d)
+Contrato: pnpm typecheck && pnpm -r test && pnpm build exit 0
+Invariantes: Sin keys reales todo cae a mock (INT-02 DoD); colaterales security mínimos (<30min)
+Comandos de verificación: typecheck 19/19; suites por paquete verdes; build exit 0
+Deuda: ESM ERR_REQUIRE_ESM hallado en vivo → fix 51acf7d fuera de este plan
+Próxima tarea si completa: plan C02
+last-synced: 2026-10-12T01:59:16-04:00
 === END RECITATION ===

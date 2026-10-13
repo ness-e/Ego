@@ -93,7 +93,7 @@ git commit -m "docs: blast radius inventory for C02 get() envelope"
 ### Task 5: Migrar resto de callers (decision/dailystate/domains/runtime/apps/tests)
 
 - **Ruta:** ego-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** suites `decision,dailystate,domains,runtime,desktop` en verde + `typecheck` global exit 0
 
 **Files:** todos los payload-only del inventario → `(await get(...))?.payload as T` (cambio mecánico, sin lógica).
@@ -119,7 +119,7 @@ git commit -m "docs: blast radius inventory for C02 get() envelope"
 ### Task 7: Puerta de calidad + cierre
 
 - **Ruta:** ego-lead
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Contrato:** `pnpm typecheck` exit 0 + suites de paquetes tocados en verde + `pnpm build` exit 0
 
 **Files:**
@@ -128,56 +128,106 @@ git commit -m "docs: blast radius inventory for C02 get() envelope"
 - Commit final si hay restos; `task_update_state` COMPLETED por task con SHAs.
 
 === RECITATION 1 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: Task 1 — inventario blast-radius C02
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: Inventario 82 callers (76 payload/2 metadata/4 mixtos/0 sin clasificar). Commit 1c86755.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 1c86755 + task_update_state COMPLETED
+Resultado: ✅ 82 callers (76 payload/2 metadata/4 mixtos/0 sin clasificar). Commit 1c86755.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 2 (unwrapMetadata)
+Contrato: docs/agent-ops/tasks/C02-blast-radius.md existe con 0 sin clasificar
+Invariantes: Solo lectura + inventario; getDb crudo anotado fuera de alcance
+Comandos de verificación: grep exhaustivo + tabla archivo:línea|tipo|migración; totales cuadran
+Deuda: patrón storage.get omitido (hallado y cerrado en Task 5)
+Próxima tarea si completa: Task 2
+last-synced: 2026-10-12T02:25:32-04:00
 === END RECITATION ===
 
 === RECITATION 2 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: Task 2 — unwrapMetadata + tests
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: unwrapMetadata + 8 tests, suite 57/57. Commit 33025c8.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 33025c8 + task_update_state COMPLETED
+Resultado: ✅ Helper + 8 tests, suite 57/57. Commit 33025c8.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 3 (get a envelope)
+Contrato: pnpm --filter @ego/memory test -- unwrap PASS
+Invariantes: Función pura sin I/O; cita VDB-BUG-02; layout plano del paquete respetado
+Comandos de verificación: unwrap 8/8; suite 57/57; typecheck exit 0
+Deuda: ninguna
+Próxima tarea si completa: Task 3
+last-synced: 2026-10-12T02:27:23-04:00
 === END RECITATION ===
 
 === RECITATION 3 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: Task 3 — get() a envelope
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: get() envelope + tests memory 57/57. Commit 8a8a2e6. Deuda C03: list() sigue tagged.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 8a8a2e6 + task_update_state COMPLETED
+Resultado: ✅ Envelope + metadata desenvuelta, 57/57. Commit 8a8a2e6.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 4 (knowledge)
+Contrato: pnpm --filter @ego/memory test + typecheck exit 0
+Invariantes: null en clave inexistente preservado; list() intacto en esta task
+Comandos de verificación: suite 57/57; typecheck exit 0
+Deuda: list() sigue tagged → deuda C03
+Próxima tarea si completa: Task 4
+last-synced: 2026-10-12T02:31:03-04:00
 === END RECITATION ===
 
 === RECITATION 4 ===
-Campaign ID: 
-Objetivo activo: 
+Objetivo activo: Task 4 — migrar knowledge
 Estado: completed
-Última acción: Estado actualizado a COMPLETED
-Resultado: 6 sitios knowledge migrados, suite 29/29. Commit 5f13137.
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Última acción: Commit 5f13137 + task_update_state COMPLETED
+Resultado: ✅ 6 sitios migrados, suite 29/29. Commit 5f13137.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 5 (resto callers)
+Contrato: pnpm --filter @ego/knowledge test exit 0
+Invariantes: Cero lógica nueva; comparación content_hash directa (primitiva)
+Comandos de verificación: suite 29/29; typecheck exit 0
+Deuda: dist memory stale obligó casts exactos (rebuild en Task 7)
+Próxima tarea si completa: Task 5
+last-synced: 2026-10-12T02:35:22-04:00
 === END RECITATION ===
 
 === RECITATION 5 ===
-Campaign ID: 
-Objetivo activo: 
-Estado: in progress
-Última acción: Estado actualizado a IN PROGRESS
-Resultado: Inicio C02 Task 5: migrar resto de callers
-Próxima acción: 
-Contrato: 
-Próxima tarea si completa: 
+Objetivo activo: Task 5 — resto de callers
+Estado: completed
+Última acción: Commit c67aa20 + task_update_state COMPLETED
+Resultado: ✅ 86 callers migrados, suites verdes + typecheck global. Commit c67aa20.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 6 (M13)
+Contrato: suites decision/dailystate/domains/runtime/desktop verdes + pnpm typecheck exit 0
+Invariantes: Cambio mecánico ?.payload; 14 tolerantes intactos; getDb crudo fuera de alcance
+Comandos de verificación: 5 suites PASS; typecheck 19/19
+Deuda: inventario omitió storage.get (enmendado + migrado)
+Próxima tarea si completa: Task 6
+last-synced: 2026-10-12T02:55:33-04:00
+=== END RECITATION ===
+
+=== RECITATION 6 ===
+Objetivo activo: Task 6 (M13) — batch + flush + doble index
+Estado: completed
+Última acción: Commit c80fb88 + task_update_state COMPLETED
+Resultado: ✅ Idempotencia probada 30/30 (2ª pasada 0 puts). Commit c80fb88.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Task 7 (gate)
+Contrato: test doble indexación PASS (skipped===chunks, 0 puts, 0 duplicados en list)
+Invariantes: put delega a putMulti (misma normalización); flush incondicional; sin duplicados por otra causa
+Comandos de verificación: double-index PASS; suite 30/30; typecheck exit 0
+Deuda: ninguna; re-verifica claim dedup Fase-06
+Próxima tarea si completa: Task 7
+last-synced: 2026-10-12T02:58:17-04:00
+=== END RECITATION ===
+
+=== RECITATION 7 ===
+Objetivo activo: Task 7 — puerta de calidad + cierre
+Estado: completed
+Última acción: task_update_state COMPLETED (gate sin commit propio)
+Resultado: ✅ typecheck 19/19, suites memory57/knowledge30/decision29/dailystate17/domains45/runtime48/desktop102/subegos40/tasks40, dist reconstruidos.
+State: COMPLETED (desde IN PROGRESS)
+Próxima acción: Plan C03-list (deuda list tagged)
+Contrato: pnpm typecheck exit 0 + suites por paquete en verde + build
+Invariantes: Gate por paquete (global excede timeout verificador); H28 fuera de alcance, Backlog intacto
+Comandos de verificación: typecheck 19/19; suites verdes; dist memory+knowledge rebuild
+Deuda: C03-list (list tagged) → siguiente plan
+Próxima tarea si completa: plan C03-list
+last-synced: 2026-10-12T03:00:00-04:00
 === END RECITATION ===
