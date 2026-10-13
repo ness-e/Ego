@@ -22,6 +22,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ego/security": "workspace:*",
     "vantadb": "0.8.0",
     "vantadb-node": "file:../../../VantaDB/vantadb-node"
   },

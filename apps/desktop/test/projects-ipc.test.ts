@@ -87,6 +87,10 @@ describe("@ego/desktop — Project Entity & Dynamic Isolation (INT-03)", () => {
       expect(defaultProj.name).toBe("Ego Core");
       expect(defaultProj.activeSubEgoId).toBe("ego.nucleus");
 
+      // SEC-09 (promote supervisado): `gov/projects` se escribe en cuarentena
+      // por defecto; el consumidor real promueve antes de leer en live.
+      await adapter.promote("gov/projects:default", "gov/projects", "default");
+
       // Verificar persistencia en VantaDB
       const stored = await adapter.get("gov/projects", "default");
       expect(stored).toBeDefined();
@@ -109,6 +113,10 @@ describe("@ego/desktop — Project Entity & Dynamic Isolation (INT-03)", () => {
         key: "default",
         payload: customProject,
       });
+
+      // SEC-09 (promote supervisado): sin esto, `getOrCreateDefaultProject`
+      // (lectura live) no vería el custom e inicializaría el default.
+      await adapter.promote("gov/projects:default", "gov/projects", "default");
 
       const retrieved = await getOrCreateDefaultProject(adapter);
       expect(retrieved.id).toBe("default");

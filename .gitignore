@@ -29,5 +29,9 @@ Desktop.ini
 *.db
 !packages/**/*.db
 
+# Archive de planes y tareas completadas (histórico local, fuera de git)
+docs/agent-ops/plans/archive/
+docs/agent-ops/tasks/archive/
+
 # Repos de referencia (clones de terceros, no son código de Ego)
 repos-referencia/

@@ -310,6 +310,9 @@ importers:
 
   packages/memory:
     dependencies:
+      '@ego/security':
+        specifier: workspace:*
+        version: link:../security
       vantadb:
         specifier: 0.8.0
         version: 0.8.0

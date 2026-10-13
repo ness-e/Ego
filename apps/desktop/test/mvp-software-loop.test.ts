@@ -149,6 +149,10 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
       metadata: { name: validatedProject.name, rootPath: validatedProject.rootPath },
     });
 
+    // SEC-09 (promote supervisado): `gov/projects` vive en cuarentena por
+    // defecto; el consumidor real promueve antes de leer en live.
+    await adapter.promote(`gov/projects:${validatedProject.id}`, "gov/projects", validatedProject.id);
+
     const storedProject = ((await adapter.get("gov/projects", validatedProject.id))?.payload as ProjectManifest);
     expect(storedProject).toBeDefined();
     expect(storedProject.id).toBe("proj_anchor_01");
@@ -184,6 +188,10 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
       key: updatedProject.id,
       payload: updatedProject,
     });
+
+    // SEC-09 (promote supervisado): la actualización también cae en cuarentena;
+    // se promueve para que el cold reboot la restaure desde live.
+    await adapter.promote(`gov/projects:${updatedProject.id}`, "gov/projects", updatedProject.id);
 
     // Iniciar sesión y turno en memoria
     await lifecycle.startSession("sess_mvp_anchor", updatedProject.id);

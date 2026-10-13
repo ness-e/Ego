@@ -156,9 +156,10 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 2. Permisos estrictos de herramientas y límites para Sub-Egos.
 3. Gestión segura de secretos.
 4. Aprobación y Sandbox, auditoría total.
-- [ ] Ejecución en un entorno contenido, validación de IPC y llaves.
-- [ ] Registro de comandos y manejo explícito de permisos.
-**Criterio de aceptación:** El sistema es seguro para usar con modelos poco confiables, requiriendo autorización explícita para operaciones críticas.
+- [x] Ejecución en un entorno contenido, validación de IPC y llaves.
+- [x] Registro de comandos y manejo explícito de permisos.
+> **Estado actual:** 9 de 9 tareas completadas. **Fase 100% COMPLETADA**.
+**Criterio de aceptación:** El sistema es seguro para usar con modelos poco confiables, requiriendo autorización explícita para operaciones críticas — **100% COMPLETADO (SEC-01..09)**.
 
 ### Fase 12: Distribución
 **Objetivo:** Empaquetado final y lanzamiento multiplataforma.
@@ -168,6 +169,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 4. Actualización en segundo plano y binarios nativos.
 - [ ] Instaladores funcionales.
 - [ ] Auto-updater funciona correctamente.
+> **Estado actual:** 1 de 12 tareas completadas (`DIST-01`). Siguiente hito en curso: Configuración obligatoria de `asarUnpack: ["/*.node"]` (`DIST-02`).
 **Criterio de aceptación:** Ego puede ser distribuido, instalado y actualizado por usuarios finales de forma sencilla.
 
 ---
