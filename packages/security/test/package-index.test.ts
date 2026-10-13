@@ -6,6 +6,9 @@ import {
   StoredCredentialSchema,
   VaultExportSchema,
   VAULT_FORMAT_VERSION,
+  scanText,
+  sanitizeForLog,
+  scanEgoPut,
 } from "../src/index.js";
 
 describe("@ego/security — package index (F1T2/C04)", () => {
@@ -16,5 +19,12 @@ describe("@ego/security — package index (F1T2/C04)", () => {
     expect(typeof StoredCredentialSchema.parse).toBe("function");
     expect(typeof VaultExportSchema.parse).toBe("function");
     expect(VAULT_FORMAT_VERSION).toBe(1);
+  });
+
+  it("exporta SecretsFilter (SEC-04: barrera Zero Secrets)", () => {
+    expect(typeof scanText).toBe("function");
+    expect(typeof sanitizeForLog).toBe("function");
+    expect(typeof scanEgoPut).toBe("function");
+    expect(scanText("texto limpio").hasSecrets).toBe(false);
   });
 });

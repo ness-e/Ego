@@ -22,3 +22,18 @@ export type {
   StoredCredential,
   VaultExport,
 } from "./CredentialManager.js";
+export {
+  scanText,
+  redactText,
+  containsSecret,
+  assertNoSecrets,
+  sanitizeForLog,
+  scanEgoPut,
+} from "./SecretsFilter.js";
+export type {
+  SecretFinding,
+  ScanOptions,
+  TextScanResult,
+  EgoPutLike,
+  PutScanResult,
+} from "./SecretsFilter.js";
