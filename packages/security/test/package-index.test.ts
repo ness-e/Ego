@@ -9,6 +9,7 @@ import {
   scanText,
   sanitizeForLog,
   scanEgoPut,
+  evaluateToolCall,
 } from "../src/index.js";
 
 describe("@ego/security — package index (F1T2/C04)", () => {
@@ -26,5 +27,12 @@ describe("@ego/security — package index (F1T2/C04)", () => {
     expect(typeof sanitizeForLog).toBe("function");
     expect(typeof scanEgoPut).toBe("function");
     expect(scanText("texto limpio").hasSecrets).toBe(false);
+  });
+
+  it("exporta ToolPermissions (SEC-05: matriz de permisos)", () => {
+    expect(typeof evaluateToolCall).toBe("function");
+    expect(
+      evaluateToolCall({ toolName: "", category: "system" }, {}).decision
+    ).toBe("deny");
   });
 });

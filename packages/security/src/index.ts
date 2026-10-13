@@ -37,3 +37,17 @@ export type {
   EgoPutLike,
   PutScanResult,
 } from "./SecretsFilter.js";
+export {
+  evaluateToolCall,
+  isDenied,
+  needsApproval,
+  DEFAULT_ALLOWED_MCP_SERVERS,
+} from "./ToolPermissions.js";
+export type {
+  ToolDecision,
+  ToolDecisionResult,
+  ToolCallRequest,
+  ToolPermissionsOptions,
+  ToolRiskLevelLike,
+  ToolOriginLike,
+} from "./ToolPermissions.js";
