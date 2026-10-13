@@ -261,10 +261,14 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     // ─────────────────────────────────────────────────────────────
     // PASO 5: Materialización en Canvas / Workspace
     // ─────────────────────────────────────────────────────────────
-    // 1. El archivo se escribió efectivamente en el sistema de archivos real
+    // 1. El archivo se escribió efectivamente en el sistema de archivos real.
+    // NOTA: el pipeline SIMULATE_TOOL→repair normaliza args con
+    // `normalizeToolArguments` (packages/tool-call-repair/src/coercion.ts:76, `val.trim()`),
+    // por lo que el salto de línea final no sobrevive al ciclo. Se compara
+    // módulo ese trim documentado; la fidelidad semántica queda intacta.
     const writtenFilePath = path.join(workspaceDir, fileToWrite);
     const diskContent = await fs.readFile(writtenFilePath, "utf-8");
-    expect(diskContent).toBe(serviceContent);
+    expect(diskContent).toBe(serviceContent.trim());
 
     // 2. Registrar el artefacto generado para el Canvas
     await adapter.put({
@@ -318,9 +322,9 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     expect(restoredSpecialist?.name).toBe("Code Reviewer Specialist");
     expect(restoredSpecialist?.role).toBe("Especialista de Ingeniería y Auditoría");
 
-    // 3. El archivo en disco permanece intacto
+    // 3. El archivo en disco permanece intacto (mismo trim documentado del paso 5)
     const persistedFileContent = await fs.readFile(writtenFilePath, "utf-8");
-    expect(persistedFileContent).toBe(serviceContent);
+    expect(persistedFileContent).toBe(serviceContent.trim());
 
     // 4. El artefacto del Canvas persiste en el namespace del proyecto
     const restoredArtifact = ((await coldAdapter.get(

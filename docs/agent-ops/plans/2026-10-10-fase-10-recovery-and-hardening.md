@@ -28,12 +28,12 @@ Antes de iniciar la codificación, se integran y asimilan formalmente los patron
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Habilitadas | Acción Canónica en Ego |
 |:---:|---|---|---|---|---|
-| `DSEK-01` | deepseek-harness | Supersede atómico para resiliencia ante cierres abruptos | [`deepseek-harness.md`](docs/extractions/deepseek-harness.md) | `REC-01` | 📥 Detección de dirty shutdown y recuperación atómica sin corrupción en WAL de VantaDB Fjall LSM. |
-| `DSEK-02` | deepseek-harness | Reconstrucción de linaje histórico para time-travel recovery | [`deepseek-harness.md`](docs/extractions/deepseek-harness.md) | `REC-01` | 📥 Reconstitución de estados previos tras crash utilizando registros secuenciales en `system/snapshots`. |
-| `DSEK-04` | deepseek-harness | Migraciones de persistencia aditivas sin schema drop | [`deepseek-harness.md`](docs/extractions/deepseek-harness.md) | `REC-03`, `REC-06` | 📥 Retrocompatibilidad absoluta de esquemas y volcados `.vdbdump` sin destrucción de datos existentes. |
-| `CARP-01` | career-ops | Contrato de preservación incondicional de datos de usuario | [`career-ops.md`](docs/extractions/career-ops.md) | `REC-01`, `REC-03` | 📥 Blindaje absoluto de namespaces y archivos del usuario frente a reinicios o reseteos del sistema. |
-| `CARP-02` | career-ops | Exclusión mutua basada en lockfiles para restauraciones | [`career-ops.md`](docs/extractions/career-ops.md) | `REC-01`, `REC-04` | 📥 Impedir operaciones concurrentes y escrituras en caliente durante la restauración de datos. |
-| `HERM-04` | hermes-agent | Persistencia resiliente de geometría de ventana (`window-state`) | [`hermes-agent.md`](docs/extractions/hermes-agent.md) | `REC-01`, `WIDG-05` | 📥 Restauración exacta de tamaño, coordenadas y monitor de la aplicación tras reinicio y crash. |
+| `DSEK-01` | deepseek-harness | Supersede atómico para resiliencia ante cierres abruptos | [`deepseek-harness.md`](../../extractions/deepseek-harness.md) | `REC-01` | 📥 Detección de dirty shutdown y recuperación atómica sin corrupción en WAL de VantaDB Fjall LSM. |
+| `DSEK-02` | deepseek-harness | Reconstrucción de linaje histórico para time-travel recovery | [`deepseek-harness.md`](../../extractions/deepseek-harness.md) | `REC-01` | 📥 Reconstitución de estados previos tras crash utilizando registros secuenciales en `system/snapshots`. |
+| `DSEK-04` | deepseek-harness | Migraciones de persistencia aditivas sin schema drop | [`deepseek-harness.md`](../../extractions/deepseek-harness.md) | `REC-03`, `REC-06` | 📥 Retrocompatibilidad absoluta de esquemas y volcados `.vdbdump` sin destrucción de datos existentes. |
+| `CARP-01` | career-ops | Contrato de preservación incondicional de datos de usuario | [`career-ops.md`](../../extractions/career-ops.md) | `REC-01`, `REC-03` | 📥 Blindaje absoluto de namespaces y archivos del usuario frente a reinicios o reseteos del sistema. |
+| `CARP-02` | career-ops | Exclusión mutua basada en lockfiles para restauraciones | [`career-ops.md`](../../extractions/career-ops.md) | `REC-01`, `REC-04` | 📥 Impedir operaciones concurrentes y escrituras en caliente durante la restauración de datos. |
+| `HERM-04` | hermes-agent | Persistencia resiliente de geometría de ventana (`window-state`) | [`hermes-agent.md`](../../extractions/hermes-agent.md) | `REC-01`, `WIDG-05` | 📥 Restauración exacta de tamaño, coordenadas y monitor de la aplicación tras reinicio y crash. |
 
 ---
 

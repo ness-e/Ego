@@ -65,13 +65,19 @@ jobs:
           EOF
 
       - name: Install Dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
-      - name: Run Linter and Typecheck
-        run: pnpm lint
+      - name: Run Linter (oxlint pinned via devDependencies)
+        run: pnpm exec oxlint --ignore-path .gitignore apps packages tests
+
+      - name: Run Typecheck
+        run: pnpm typecheck
 
       - name: Run Test Suite
         run: pnpm test
 
       - name: Build Desktop and Renderer
         run: pnpm build
+
+      - name: Run E2E and Resilience Suites
+        run: pnpm test:e2e

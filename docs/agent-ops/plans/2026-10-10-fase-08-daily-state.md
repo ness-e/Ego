@@ -28,9 +28,9 @@ Antes de iniciar la codificación, se integran y asimilan formalmente los patron
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Habilitadas | Acción Canónica en Ego |
 |:---:|---|---|---|---|---|
-| `COUC-06` | coucou | Síntesis de estado de atención al arranque de la aplicación | [`coucou.md`](docs/extractions/coucou.md) | `DS-01`, `DS-02` | 📥 Síntesis contextual no invasiva: al iniciar la app, Ego presenta un briefing del estado del proyecto, tareas pendientes y alertas críticas sin bloquear la navegación. |
-| `COUC-09` | coucou | RunRecorder cronológico para auditoría de acciones del día | [`coucou.md`](docs/extractions/coucou.md) | `DS-03`, `DS-08` | 📥 Registro cronológico e inmutable de decisiones y acciones completadas durante la jornada, preservadas para trazabilidad y exportación. |
-| `OCLW-07` | openclaw | Inspección de revisiones acumuladas para briefing matutino | [`openclaw.md`](docs/extractions/openclaw.md) | `DS-01` | 📥 Análisis de cambios recientes de archivos en el workspace y estado de repositorios Git locales para contextualizar la sesión. |
+| `COUC-06` | coucou | Síntesis de estado de atención al arranque de la aplicación | [`coucou.md`](../../extractions/coucou.md) | `DS-01`, `DS-02` | 📥 Síntesis contextual no invasiva: al iniciar la app, Ego presenta un briefing del estado del proyecto, tareas pendientes y alertas críticas sin bloquear la navegación. |
+| `COUC-09` | coucou | RunRecorder cronológico para auditoría de acciones del día | [`coucou.md`](../../extractions/coucou.md) | `DS-03`, `DS-08` | 📥 Registro cronológico e inmutable de decisiones y acciones completadas durante la jornada, preservadas para trazabilidad y exportación. |
+| `OCLW-07` | openclaw | Inspección de revisiones acumuladas para briefing matutino | [`openclaw.md`](../../extractions/openclaw.md) | `DS-01` | 📥 Análisis de cambios recientes de archivos en el workspace y estado de repositorios Git locales para contextualizar la sesión. |
 
 ---
 

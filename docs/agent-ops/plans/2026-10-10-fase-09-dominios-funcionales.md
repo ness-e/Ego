@@ -28,8 +28,8 @@ Antes de iniciar la codificación, se integran y asimilan formalmente los patron
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Habilitadas | Acción Canónica en Ego |
 |:---:|---|---|---|---|---|
-| `HERM-17` | hermes-agent | Aislamiento de worktrees para desarrollo de software | [`hermes-agent.md`](docs/extractions/hermes-agent.md) | `DOM-01` | 📥 Entornos de desarrollo de software aislados (`git worktree` o rama temporal) para impedir que mutaciones de código en vuelo ensucien el directorio principal de trabajo del usuario. |
-| `COUC-10` | coucou | Mutación segura de configuraciones por dominio funcional | [`coucou.md`](docs/extractions/coucou.md) | `DOM-06`, `DOM-09` | 📥 Registro dinámico y tipado de dominios funcionales mediante manifiestos inmutables que no alteran el núcleo del Cognitive Runtime. |
+| `HERM-17` | hermes-agent | Aislamiento de worktrees para desarrollo de software | [`hermes-agent.md`](../../extractions/hermes-agent.md) | `DOM-01` | 📥 Entornos de desarrollo de software aislados (`git worktree` o rama temporal) para impedir que mutaciones de código en vuelo ensucien el directorio principal de trabajo del usuario. |
+| `COUC-10` | coucou | Mutación segura de configuraciones por dominio funcional | [`coucou.md`](../../extractions/coucou.md) | `DOM-06`, `DOM-09` | 📥 Registro dinámico y tipado de dominios funcionales mediante manifiestos inmutables que no alteran el núcleo del Cognitive Runtime. |
 
 ---
 

@@ -380,9 +380,20 @@ Próxima tarea si completa:
 === RECITATION F5T11 ===
 Campaign ID: 
 Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Contrato IPC 57 + preload tipado + renderer cubierto + docs alineados + build verde. Commit d218694. Deudas: PAT→Credential Manager, evento en events.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F6T12 ===
+Campaign ID: 
+Objetivo activo: 
 Estado: in progress
 Última acción: Estado actualizado a IN PROGRESS
-Resultado: Inicio F5T11: higiene desktop
+Resultado: Inicio F6T12: repo y docs
 Próxima acción: 
 Contrato: 
 Próxima tarea si completa: 

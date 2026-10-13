@@ -27,20 +27,20 @@ Antes de codificar cada tarea, se asimilan e integran los patrones de los reposi
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Habilitadas | Acción Canónica en Ego |
 |:---:|---|---|---|---|---|
-| `HERM-09` | hermes-agent | Arquitectura de paneles reajustables (`pane-shell`) | [`hermes-agent.md`](docs/extractions/hermes-agent.md) | `CANV-01` | 📥 Split-pane con colapso suave y persistente en React 19 |
-| `COUC-05` | coucou | Desacoplamiento de stores reactivos de UI | [`coucou.md`](docs/extractions/coucou.md) | `CANV-01`, `CANV-03` | 📥 Gestión de estado de Canvas sin suscripciones redundantes |
-| `COUC-15` | coucou | Mock IPC Bridge para pruebas aisladas de componentes | [`coucou.md`](docs/extractions/coucou.md) | `CANV-01`, `CANV-12` | 📥 Aislamiento de tests en React sin Electron vivo |
-| `OCLW-11` | openclaw | Renderizado reactivo y dinámico de diagramas Mermaid | [`openclaw.md`](docs/extractions/openclaw.md) | `CANV-01`, `CANV-03` | 📥 Componente de grafos y flujos en Canvas |
-| `HELM-03` | helmor | Almacén reactivo de sesiones CLI concurrentes | [`helmor.md`](docs/extractions/helmor.md) | `CANV-01`, `CANV-07` | 📥 Pestañas de consola desacopladas del árbol de UI |
-| `HERM-01` | hermes-agent | Primitivas de renderizado seguro de UI | [`hermes-agent.md`](docs/extractions/hermes-agent.md) | `CANV-02` | 📥 Renderizado seguro sin evaluar HTML crudo |
-| `COUC-08` | coucou | Indirección de datos por referencia (`PayloadRef`) | [`coucou.md`](docs/extractions/coucou.md) | `CANV-02`, `CANV-06` | 📥 No transferir megabytes de datos por IPC crudo |
-| `COUC-07` | coucou | Motor de diffs y ChangeSet atómico | [`coucou.md`](docs/extractions/coucou.md) | `CANV-03` | 📥 Sync reactivo bidireccional Chat <-> Canvas |
-| `OCLW-07` | openclaw | Grafo inmutable de revisiones y diffs de sesión | [`openclaw.md`](docs/extractions/openclaw.md) | `CANV-06` | 📥 Persistencia de versiones de artefactos en VantaDB |
-| `HERM-05` | hermes-agent | Renderizado seguro de streams de terminal y ANSI | [`hermes-agent.md`](docs/extractions/hermes-agent.md) | `CANV-07` | 📥 Visor de logs y consola enriquecida en Canvas |
-| `HELM-01` | helmor | Programador de salida PTY (16KB/tick) | [`helmor.md`](docs/extractions/helmor.md) | `CANV-07` | 📥 Scroll suave y 60 FPS en visor de consola |
-| `COUC-14` | coucou | Emulador sintético de runtime (`SyntheticRuntime`) | [`coucou.md`](docs/extractions/coucou.md) | `CANV-10` | 📥 Mock interactivo para pruebas de UI sin backend vivo |
-| `COUC-06` | coucou | Máquina de estados finitos de atención (Attention FSM) | [`coucou.md`](docs/extractions/coucou.md) | `CANV-11` | 📥 Ego Activity Widget con niveles de atención |
-| `OCLW-14` | openclaw | Bus de eventos de actividad de agentes en tiempo real | [`openclaw.md`](docs/extractions/openclaw.md) | `CANV-11` | 📥 Telemetría viva de agentes en Activity Widget |
+| `HERM-09` | hermes-agent | Arquitectura de paneles reajustables (`pane-shell`) | [`hermes-agent.md`](../../extractions/hermes-agent.md) | `CANV-01` | 📥 Split-pane con colapso suave y persistente en React 19 |
+| `COUC-05` | coucou | Desacoplamiento de stores reactivos de UI | [`coucou.md`](../../extractions/coucou.md) | `CANV-01`, `CANV-03` | 📥 Gestión de estado de Canvas sin suscripciones redundantes |
+| `COUC-15` | coucou | Mock IPC Bridge para pruebas aisladas de componentes | [`coucou.md`](../../extractions/coucou.md) | `CANV-01`, `CANV-12` | 📥 Aislamiento de tests en React sin Electron vivo |
+| `OCLW-11` | openclaw | Renderizado reactivo y dinámico de diagramas Mermaid | [`openclaw.md`](../../extractions/openclaw.md) | `CANV-01`, `CANV-03` | 📥 Componente de grafos y flujos en Canvas |
+| `HELM-03` | helmor | Almacén reactivo de sesiones CLI concurrentes | [`helmor.md`](../../extractions/helmor.md) | `CANV-01`, `CANV-07` | 📥 Pestañas de consola desacopladas del árbol de UI |
+| `HERM-01` | hermes-agent | Primitivas de renderizado seguro de UI | [`hermes-agent.md`](../../extractions/hermes-agent.md) | `CANV-02` | 📥 Renderizado seguro sin evaluar HTML crudo |
+| `COUC-08` | coucou | Indirección de datos por referencia (`PayloadRef`) | [`coucou.md`](../../extractions/coucou.md) | `CANV-02`, `CANV-06` | 📥 No transferir megabytes de datos por IPC crudo |
+| `COUC-07` | coucou | Motor de diffs y ChangeSet atómico | [`coucou.md`](../../extractions/coucou.md) | `CANV-03` | 📥 Sync reactivo bidireccional Chat <-> Canvas |
+| `OCLW-07` | openclaw | Grafo inmutable de revisiones y diffs de sesión | [`openclaw.md`](../../extractions/openclaw.md) | `CANV-06` | 📥 Persistencia de versiones de artefactos en VantaDB |
+| `HERM-05` | hermes-agent | Renderizado seguro de streams de terminal y ANSI | [`hermes-agent.md`](../../extractions/hermes-agent.md) | `CANV-07` | 📥 Visor de logs y consola enriquecida en Canvas |
+| `HELM-01` | helmor | Programador de salida PTY (16KB/tick) | [`helmor.md`](../../extractions/helmor.md) | `CANV-07` | 📥 Scroll suave y 60 FPS en visor de consola |
+| `COUC-14` | coucou | Emulador sintético de runtime (`SyntheticRuntime`) | [`coucou.md`](../../extractions/coucou.md) | `CANV-10` | 📥 Mock interactivo para pruebas de UI sin backend vivo |
+| `COUC-06` | coucou | Máquina de estados finitos de atención (Attention FSM) | [`coucou.md`](../../extractions/coucou.md) | `CANV-11` | 📥 Ego Activity Widget con niveles de atención |
+| `OCLW-14` | openclaw | Bus de eventos de actividad de agentes en tiempo real | [`openclaw.md`](../../extractions/openclaw.md) | `CANV-11` | 📥 Telemetría viva de agentes en Activity Widget |
 
 ---
 

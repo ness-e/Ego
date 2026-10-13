@@ -14,12 +14,14 @@
     "build:desktop": "pnpm --filter @ego/desktop build",
     "build": "pnpm --filter @ego/renderer build && pnpm --filter @ego/desktop build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "npx oxlint --ignore-path .gitignore apps packages && pnpm run typecheck",
+    "lint": "oxlint --ignore-path .gitignore apps packages tests && pnpm run typecheck",
     "test": "pnpm -r test",
-    "test:e2e": "pnpm --filter @ego/memory test"
+    "test:memory": "pnpm --filter @ego/memory test",
+    "test:e2e": "pnpm --filter @ego/e2e-tests test"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",
+    "oxlint": "1.87.0",
     "typescript": "^5.6.3"
   }
 }

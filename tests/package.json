@@ -1,0 +1,23 @@
+{
+  "name": "@ego/e2e-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Suites E2E y de resiliencia del Golden Path Alpha (antes huerfanas: fuera del workspace, nunca corrian en CI — C09)",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ego/decision": "workspace:*",
+    "@ego/events": "workspace:*",
+    "@ego/memory": "workspace:*",
+    "@ego/subegos": "workspace:*",
+    "@ego/tasks": "workspace:*",
+    "@ego/tools": "workspace:*",
+    "@ego/ui-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.8.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
+  }
+}

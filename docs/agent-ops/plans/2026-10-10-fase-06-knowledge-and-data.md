@@ -27,13 +27,13 @@ Antes de iniciar la codificación, se integran y asimilan formalmente los patron
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Habilitadas | Acción Canónica en Ego |
 |:---:|---|---|---|---|---|
-| `KHOJ-01` | khoj | Chunking de 256 tokens con solapamiento (32–64 tokens) y hash digest SHA-256 | [`khoj.md`](docs/extractions/khoj.md) | `KB-01`, `KB-02` | 📥 Segmentación determinista con deduplicación criptográfica previa a la indexación en VantaDB. |
-| `KHOJ-02` | khoj | Extracción jerárquica preservando encabezados de contexto (`heading_path`) | [`khoj.md`](docs/extractions/khoj.md) | `KB-01` | 📥 Inyección de linaje estructural jerárquico (`heading_path`) en los metadatos de los chunks en `kb/docs`. |
-| `KHOJ-03` | khoj | Filtrado por corte dinámico de umbral de similitud coseno (`min_score`) | [`khoj.md`](docs/extractions/khoj.md) | `KB-03`, `KB-04` | 📥 Descarte temprano de ruido semántico previo a la fusión recíproca RRF, evitando alucinaciones por baja relevancia. |
-| `KHOJ-04` | khoj | Extracción estructurada de hechos atómicos (`extract_facts`) en formato JSON | [`khoj.md`](docs/extractions/khoj.md) | `KB-04` | 📥 Extracción tipada de triples (`sujeto`, `predicado`, `objeto`, `certeza`, `temporalidad`) para `kb/facts`. |
-| `CARP-04` | career-ops | Cuarentena de payloads entrantes no verificados | [`career-ops.md`](docs/extractions/career-ops.md) | `KB-07` | 📥 Aislamiento en `quarantine/pending` con TTL estricto de 14 días hasta supervisión o promoción explícita. |
-| `DSEK-01` | deepseek-harness | Sustitución suave (*soft-replace*) y aristas `SUPERSEDED_BY` en grafo | [`deepseek-harness.md`](docs/extractions/deepseek-harness.md) | `KB-08` | 📥 Reemplazo no destructivo de hechos conservando linaje inmutable con `is_latest: false` y trazabilidad causal. |
-| `DSEK-02` | deepseek-harness | Árbol de versiones y reconstrucción temporal de estado | [`deepseek-harness.md`](docs/extractions/deepseek-harness.md) | `KB-09` | 📥 Consultas bitemporales con índices `valid_at` / `invalid_at` y soporte de consultas `AS OF <timestamp>`. |
+| `KHOJ-01` | khoj | Chunking de 256 tokens con solapamiento (32–64 tokens) y hash digest SHA-256 | [`khoj.md`](../../extractions/khoj.md) | `KB-01`, `KB-02` | 📥 Segmentación determinista con deduplicación criptográfica previa a la indexación en VantaDB. |
+| `KHOJ-02` | khoj | Extracción jerárquica preservando encabezados de contexto (`heading_path`) | [`khoj.md`](../../extractions/khoj.md) | `KB-01` | 📥 Inyección de linaje estructural jerárquico (`heading_path`) en los metadatos de los chunks en `kb/docs`. |
+| `KHOJ-03` | khoj | Filtrado por corte dinámico de umbral de similitud coseno (`min_score`) | [`khoj.md`](../../extractions/khoj.md) | `KB-03`, `KB-04` | 📥 Descarte temprano de ruido semántico previo a la fusión recíproca RRF, evitando alucinaciones por baja relevancia. |
+| `KHOJ-04` | khoj | Extracción estructurada de hechos atómicos (`extract_facts`) en formato JSON | [`khoj.md`](../../extractions/khoj.md) | `KB-04` | 📥 Extracción tipada de triples (`sujeto`, `predicado`, `objeto`, `certeza`, `temporalidad`) para `kb/facts`. |
+| `CARP-04` | career-ops | Cuarentena de payloads entrantes no verificados | [`career-ops.md`](../../extractions/career-ops.md) | `KB-07` | 📥 Aislamiento en `quarantine/pending` con TTL estricto de 14 días hasta supervisión o promoción explícita. |
+| `DSEK-01` | deepseek-harness | Sustitución suave (*soft-replace*) y aristas `SUPERSEDED_BY` en grafo | [`deepseek-harness.md`](../../extractions/deepseek-harness.md) | `KB-08` | 📥 Reemplazo no destructivo de hechos conservando linaje inmutable con `is_latest: false` y trazabilidad causal. |
+| `DSEK-02` | deepseek-harness | Árbol de versiones y reconstrucción temporal de estado | [`deepseek-harness.md`](../../extractions/deepseek-harness.md) | `KB-09` | 📥 Consultas bitemporales con índices `valid_at` / `invalid_at` y soporte de consultas `AS OF <timestamp>`. |
 
 ---
 

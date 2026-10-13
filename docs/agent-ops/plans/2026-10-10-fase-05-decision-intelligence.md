@@ -27,10 +27,10 @@ Antes de iniciar la codificación, se asimilan e integran los patrones de ingeni
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Habilitadas | Acción Canónica en Ego |
 |:---:|---|---|---|---|---|
-| `COUC-03` | coucou | Modelo causal de evaluación previa a acción (`ActionIdentity` y precondiciones) | [`coucou.md`](docs/extractions/coucou.md) | `DEC-01`, `DEC-02` | 📥 Validación previa de dependencias, permisos y cálculo de hash canónico de intención (`IntentDigest`) antes de emitir turnos. |
-| `OCLW-01` | openclaw | Admisión determinista de corridas y validación de contexto (`AdmittedRunContext`) | [`openclaw.md`](docs/extractions/openclaw.md) | `DEC-01`, `DEC-02` | 📥 Veredictos estructurados con contexto de admisión inmutable antes de despachar turnos al runtime o a Sub-Egos. |
-| `OCLW-02` | openclaw | Detección temprana de ciclos de delegación infinita (`LoopBreaker`) | [`openclaw.md`](docs/extractions/openclaw.md) | `DEC-06` | 📥 Rompedor de ciclos recursivos (profundidad > 4 o huellas de intención idénticas) con interrupción limpia. |
-| `HERM-03` | hermes-agent | Directivas de clarificación interactiva ante incertidumbre (`ask-directive`) | [`hermes-agent.md`](docs/extractions/hermes-agent.md) | `DEC-06` | 📥 Prompt interactivo tipado dirigido al usuario cuando el índice de confianza sea `< 0.60` o cuando un ciclo sea interceptado. |
+| `COUC-03` | coucou | Modelo causal de evaluación previa a acción (`ActionIdentity` y precondiciones) | [`coucou.md`](../../extractions/coucou.md) | `DEC-01`, `DEC-02` | 📥 Validación previa de dependencias, permisos y cálculo de hash canónico de intención (`IntentDigest`) antes de emitir turnos. |
+| `OCLW-01` | openclaw | Admisión determinista de corridas y validación de contexto (`AdmittedRunContext`) | [`openclaw.md`](../../extractions/openclaw.md) | `DEC-01`, `DEC-02` | 📥 Veredictos estructurados con contexto de admisión inmutable antes de despachar turnos al runtime o a Sub-Egos. |
+| `OCLW-02` | openclaw | Detección temprana de ciclos de delegación infinita (`LoopBreaker`) | [`openclaw.md`](../../extractions/openclaw.md) | `DEC-06` | 📥 Rompedor de ciclos recursivos (profundidad > 4 o huellas de intención idénticas) con interrupción limpia. |
+| `HERM-03` | hermes-agent | Directivas de clarificación interactiva ante incertidumbre (`ask-directive`) | [`hermes-agent.md`](../../extractions/hermes-agent.md) | `DEC-06` | 📥 Prompt interactivo tipado dirigido al usuario cuando el índice de confianza sea `< 0.60` o cuando un ciclo sea interceptado. |
 
 ---
 

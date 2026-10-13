@@ -27,10 +27,10 @@ Antes de iniciar la codificación, se integran y asimilan formalmente los patron
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Habilitadas | Acción Canónica en Ego |
 |:---:|---|---|---|---|---|
-| `OCLW-13` | openclaw | Sesiones en background desacopladas del hilo de chat principal | [`openclaw.md`](docs/extractions/openclaw.md) | `TASK-01`, `TASK-02` | 📥 Ejecución en segundo plano sin bloquear interfaz; la sesión del chat se mantiene reactiva mientras el motor gestiona tareas de larga duración en memoria dedicada `tasks/<task_id>`. |
-| `OCLW-15` | openclaw | Puntos de control de tarea con reanudación post-crash | [`openclaw.md`](docs/extractions/openclaw.md) | `TASK-03`, `TASK-10` | 📥 Checkpoints persistentes de variables y estado con snapshots inmutables guardados en VantaDB para recuperar el progreso ante reinicios o cierres abruptos. |
-| `COUC-06` | coucou | FSM de atención para notificaciones y telemetría no intrusiva | [`coucou.md`](docs/extractions/coucou.md) | `TASK-05`, `TASK-06`, `TASK-07`, `WIDG-03`, `WIDG-04` | 📥 Máquina de estados de atención (`idle`, `compact`, `expanded`, `alert`, `hitl_approval`) con timers de colapso automático y admisión con ACK ≤800 ms sin saturar al usuario. |
-| `KHOJ-05` | khoj | Consolidación periódica de memorias en periodos de inactividad | [`khoj.md`](docs/extractions/khoj.md) | `TASK-08` | 📥 "Dream Consolidation" periódica en VantaDB ejecutada in-process durante reposo de CPU/EventLoop: deduplicación, resolución de contradicciones y enfriamiento de memorias. |
+| `OCLW-13` | openclaw | Sesiones en background desacopladas del hilo de chat principal | [`openclaw.md`](../../extractions/openclaw.md) | `TASK-01`, `TASK-02` | 📥 Ejecución en segundo plano sin bloquear interfaz; la sesión del chat se mantiene reactiva mientras el motor gestiona tareas de larga duración en memoria dedicada `tasks/<task_id>`. |
+| `OCLW-15` | openclaw | Puntos de control de tarea con reanudación post-crash | [`openclaw.md`](../../extractions/openclaw.md) | `TASK-03`, `TASK-10` | 📥 Checkpoints persistentes de variables y estado con snapshots inmutables guardados en VantaDB para recuperar el progreso ante reinicios o cierres abruptos. |
+| `COUC-06` | coucou | FSM de atención para notificaciones y telemetría no intrusiva | [`coucou.md`](../../extractions/coucou.md) | `TASK-05`, `TASK-06`, `TASK-07`, `WIDG-03`, `WIDG-04` | 📥 Máquina de estados de atención (`idle`, `compact`, `expanded`, `alert`, `hitl_approval`) con timers de colapso automático y admisión con ACK ≤800 ms sin saturar al usuario. |
+| `KHOJ-05` | khoj | Consolidación periódica de memorias en periodos de inactividad | [`khoj.md`](../../extractions/khoj.md) | `TASK-08` | 📥 "Dream Consolidation" periódica en VantaDB ejecutada in-process durante reposo de CPU/EventLoop: deduplicación, resolución de contradicciones y enfriamiento de memorias. |
 
 ---
 

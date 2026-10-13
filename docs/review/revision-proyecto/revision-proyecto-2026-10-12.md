@@ -239,7 +239,7 @@ Añadir `tests/**` al workspace con su `package.json` (vitest) o mover E2E a un 
 Enlazan `docs/extractions/hermes-agent.md` con ruta relativa a raíz. Resueltos desde `docs/agent-ops/plans/` apuntan a `plans/docs/extractions/...` inexistente.
 
 **Por qué es un problema:**
-Toda la evidencia de compuertas Opción B (inspección previa) queda ilocalizable. Un revisor no puede verificar que la extracción se hizo. `scripts/fix_links.py` solo cubre `Ver docs/prd/`, no este caso.
+Toda la evidencia de compuertas Opción B (inspección previa) queda ilocalizable. Un revisor no puede verificar que la extracción se hizo. `scripts/fix_links.py` solo cubre `Ver ../prd/`, no este caso.
 
 **Cómo verificarlo:**
 Abrir cualquier plan Fase 04/07/10, clic en link extractions, o `grep -r "docs/extractions" docs/agent-ops/plans`.
