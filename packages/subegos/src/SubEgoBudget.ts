@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { EgoMemoryAdapter } from "@ego/memory";
+import { getQuarantineAware } from "@ego/memory";
 import type { SubEgoBudget } from "./types.js";
 
 /**
@@ -130,7 +131,9 @@ export class SubEgoBudgetTracker {
     }
 
     if (this.memory) {
-      const record = await this.memory.get(`egos/${subEgoId}`, "metrics_usage");
+      // Quarantine-aware (FIX-01 SEC-09): `egos/*` sin diferimiento —
+      // resuelve live + `quarantine/pending` (misma forma de sobre).
+      const record = await getQuarantineAware(this.memory, `egos/${subEgoId}`, "metrics_usage");
       if (record) {
         let raw: unknown = record;
         if (typeof record === "object" && record !== null && "payload" in record) {

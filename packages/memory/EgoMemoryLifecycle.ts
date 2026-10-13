@@ -1,5 +1,6 @@
 import type { EgoMemoryAdapter, EgoPut } from "./EgoMemoryAdapter.js";
 import type { SearchHit } from "vantadb/types";
+import { getQuarantineAware } from "./QuarantineAwareReads.js";
 
 /**
  * Estado determinista de recuperación de memoria previo al turno.
@@ -38,6 +39,14 @@ export interface MicroCheckpoint {
   taskId: string;
   timestamp: number;
   stateSnapshot: unknown;
+}
+
+/**
+ * Micro-checkpoint leído con marca explícita de procedencia (FIX-01 SEC-09).
+ */
+export interface MicroCheckpointRead extends MicroCheckpoint {
+  quarantined: boolean;
+  quarantineReason?: string;
 }
 
 /**
@@ -167,6 +176,43 @@ export class EgoMemoryLifecycle {
 
     await this.adapter.put(putItem);
     return checkpointId;
+  }
+
+  /**
+   * Lectura quarantine-aware de un micro-checkpoint (FIX-01 SEC-09).
+   * `system/checkpoints` ya no difiere su enforcement: lo escrito tras el
+   * retiro vive en `quarantine/pending` y esta es la vía canónica de
+   * resolución (live primero, cuarentena después, con marca explícita).
+   * Retorna `null` si no existe o el payload es ilegible.
+   */
+  async loadMicroCheckpoint(checkpointId: string): Promise<MicroCheckpointRead | null> {
+    let hit: { payload?: unknown; quarantined?: boolean; quarantineReason?: string } | null;
+    try {
+      hit = await getQuarantineAware(this.adapter, "system/checkpoints", checkpointId);
+    } catch {
+      return null;
+    }
+    if (!hit) return null;
+    const quarantined = hit.quarantined === true;
+    const quarantineReason = quarantined ? hit.quarantineReason : undefined;
+    const payload = hit.payload;
+    if (!payload || typeof payload !== "object") return null;
+    const p = payload as Record<string, unknown>;
+    if (
+      typeof p["checkpointId"] !== "string" ||
+      typeof p["taskId"] !== "string" ||
+      typeof p["timestamp"] !== "number"
+    ) {
+      return null;
+    }
+    return {
+      checkpointId: p["checkpointId"] as string,
+      taskId: p["taskId"] as string,
+      timestamp: p["timestamp"] as number,
+      stateSnapshot: p["snapshot"],
+      quarantined,
+      ...(quarantineReason ? { quarantineReason } : {}),
+    };
   }
 
   /**

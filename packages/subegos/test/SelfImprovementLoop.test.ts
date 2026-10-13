@@ -158,11 +158,16 @@ describe("SelfImprovementLoop — Closed Learning Loop y Auto-Reflexión (SUB-12
       tags: ["metadata"],
     };
 
-    await loop.recordLesson(candidate);
+    const { lesson: recorded } = await loop.recordLesson(candidate);
 
-    // Evidencia de shape: metadata desenvuelta (primitivas, no tagged {String}/{Float}).
-    const raw = await adapter.list("egos/researcher/lessons", 10);
+    // Evidencia de shape quarantine-aware (FIX-01 SEC-09): `egos/*` ya no
+    // difiere su enforcement — el live queda vacío y la copia en
+    // `quarantine/pending` porta metadata desenvuelta (primitivas, no
+    // tagged {String}/{Float}).
+    expect(await adapter.get("egos/researcher/lessons", `lesson:${recorded.id}`)).toBeNull();
+    const raw = await adapter.listWithQuarantine("egos/researcher/lessons", 10);
     expect(raw.length).toBe(1);
+    expect(raw[0].quarantined).toBe(true);
     const meta = raw[0].metadata ?? {};
     expect(typeof meta["confidence"]).toBe("number");
     expect(typeof meta["subEgoId"]).toBe("string");

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { EgoMemoryAdapter } from "@ego/memory";
+import { getQuarantineAware } from "@ego/memory";
 
 /**
  * Siluetas geométricas y morfológicas abstractas canónicas (CHAR-03 / CHAR-04).
@@ -281,6 +282,9 @@ export async function saveCharacterProfile(
 
 /**
  * Recupera el CharacterProfile de un Sub-Ego desde VantaDB.
+ * Quarantine-aware (FIX-01 SEC-09): `egos/*` ya no difiere su enforcement —
+ * resuelve live + `quarantine/pending` con la implementación única
+ * compartida (`getQuarantineAware`).
  *
  * @returns CharacterProfile validado o null si no existe
  */
@@ -288,7 +292,7 @@ export async function loadCharacterProfile(
   memory: EgoMemoryAdapter,
   subEgoId: string
 ): Promise<CharacterProfile | null> {
-  const record = await memory.get(`egos/${subEgoId}`, "character");
+  const record = await getQuarantineAware(memory, `egos/${subEgoId}`, "character");
   if (!record) return null;
 
   let raw: unknown = record;

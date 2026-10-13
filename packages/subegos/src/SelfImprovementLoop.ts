@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import type { EgoMemoryAdapter } from "@ego/memory";
+import { getQuarantineAware, listQuarantineAware, searchQuarantineAware } from "@ego/memory";
 import { createHash } from "node:crypto";
 
 /**
@@ -103,15 +104,13 @@ export class SelfImprovementLoop {
     const namespace = `egos/${candidate.subEgoId}/lessons`;
     const key = `lesson:${lessonId}`;
 
-    // 1. Verificar si ya existe una lección idéntica para reforzarla
+    // 1. Verificar si ya existe una lección idéntica para reforzarla.
+    // Quarantine-aware (FIX-01 SEC-09): `egos/*/lessons` sin diferimiento.
     let existingLesson: LessonLearned | null = null;
     try {
-      const stored = await this.adapter.get(namespace, key);
+      const stored = await getQuarantineAware(this.adapter, namespace, key);
       if (stored) {
-        const candidatePayload =
-          typeof stored === "object" && stored !== null && "payload" in stored
-            ? (stored as Record<string, unknown>).payload
-            : stored;
+        const candidatePayload = stored.payload;
         const parsed = LessonLearnedSchema.safeParse(candidatePayload);
         if (parsed.success) {
           existingLesson = parsed.data;
@@ -185,7 +184,8 @@ export class SelfImprovementLoop {
     const namespace = `egos/${subEgoId}/lessons`;
     try {
       if (query && query.trim().length > 0) {
-        const results = await this.adapter.searchMulti([namespace], query, { topK: limit });
+        // Quarantine-aware: live + `quarantine/pending` filtrada y marcada.
+        const results = await searchQuarantineAware(this.adapter, [namespace], query, { topK: limit });
 
         const lessons: LessonLearned[] = [];
         for (const r of results) {
@@ -207,8 +207,8 @@ export class SelfImprovementLoop {
         return lessons;
       }
 
-      // Recuperación directa mediante adapter.list
-      const items = await this.adapter.list(namespace, limit);
+      // Recuperación directa quarantine-aware (live + cuarentena marcada).
+      const items = await listQuarantineAware(this.adapter, namespace, limit);
       const lessons: LessonLearned[] = [];
       for (const item of items) {
         const parsed = LessonLearnedSchema.safeParse(item.payload);

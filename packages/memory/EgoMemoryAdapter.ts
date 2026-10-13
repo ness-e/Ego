@@ -12,6 +12,14 @@ import type { SearchHit, MemoryRecord } from "vantadb/types";
 export type { SearchHit, MemoryRecord };
 import { SubEgoManifest, validateSubEgoAccess } from "./sub-egos.js";
 import { unwrapMetadata } from "./unwrapMetadata.js";
+import { isSensitiveNamespace, isEnforcementDeferred } from "./SensitiveNamespaces.js";
+import {
+  getQuarantineAware,
+  listQuarantineAware,
+  type QuarantineAwareRecord,
+} from "./QuarantineAwareReads.js";
+import { sanitizeForLog, scanEgoPut } from "@ego/security";
+export type { QuarantineAwareRecord };
 
 export interface EgoPut {
   namespace: string;
@@ -20,6 +28,71 @@ export interface EgoPut {
   metadata?: Record<string, unknown>;
   ttl_ms?: number;
 }
+
+/**
+ * Opciones internas del borde de escritura (SEC-09).
+ * `skipSensitiveNamespaceQuarantine` SOLO lo usa `promote()`: la promoción
+ * es supervisión humana explícita (criterio de salida de KB-07), por lo que
+ * libera la cuarentena por defecto de namespace. La regla de secretos
+ * (SEC-04) NO se omite jamás, ni siquiera en promoción.
+ */
+export interface PutMultiOptions {
+  skipSensitiveNamespaceQuarantine?: boolean;
+}
+
+export type RouteDestination = "live" | "quarantine";
+
+/**
+ * Reporte de routing por ítem (SEC-09). `put/putMulti` lo retornan para que
+ * los llamantes (p. ej. el handler `ipc.memory` de main, sin cambios) puedan
+ * surfear el aviso por los canales existentes (`ipc.event`, lista de
+ * cuarentena). `notice` es texto listo-para-UI en español, sin valores
+ * sensibles (solo reglas y etiquetas `namespace:key`).
+ */
+export interface PutRouteReport {
+  namespace: string;
+  key: string;
+  routedTo: RouteDestination;
+  destinationNamespace: string;
+  destinationKey: string;
+  reason: string;
+  rules?: string[];
+  notice: string;
+  unencryptedAtRest: boolean;
+  /** true cuando el namespace es sensible pero su enforcement está diferido. */
+  deferred?: boolean;
+}
+
+/** Causa de cuarentena (SEC-09). `unreviewed_input` preserva el uso legacy. */
+export type QuarantineKind = "secret_detected" | "sensitive_namespace" | "unreviewed_input";
+
+export interface QuarantineOptions {
+  kind?: QuarantineKind;
+  /** Nombres de reglas SEC-04 (nunca valores). Solo con kind `secret_detected`. */
+  rules?: string[];
+  /** Aviso explícito listo-para-UI. Por defecto se construye desde `reason`. */
+  notice?: string;
+}
+
+/**
+ * Información de cuarentena para observabilidad (FIX-02 SEC-09).
+ * Solo etiquetas `namespace:key`, reglas y motivos — NUNCA valores ni
+ * payloads. El adapter la entrega al sink registrado (main la puentea al
+ * `EventBus` → `memory.quarantined` + `system.alert` → canal `ipc.event`).
+ */
+export interface QuarantinedEventInfo {
+  namespace: string;
+  key: string;
+  destinationNamespace: string;
+  destinationKey: string;
+  reason: string;
+  kind: QuarantineKind;
+  rules?: string[];
+  notice: string;
+}
+
+/** Sink de observabilidad de cuarentena (inyección sin dependencias). */
+export type QuarantineEventSink = (info: QuarantinedEventInfo) => void;
 
 export interface EgoSearchOptions {
   topK?: number;
@@ -162,8 +235,9 @@ export class EgoMemoryAdapter {
   private db: NativeVantaDB | null = null;
   private isInitialized = false;
   private storagePath: string;
+  private quarantineSink?: QuarantineEventSink;
 
-  constructor(storagePath: string) {
+  constructor(storagePath: string, opts?: { onQuarantined?: QuarantineEventSink }) {
     if (!storagePath || storagePath === ":memory:") {
       throw new Error(
         "[EgoMemoryAdapter] Se requiere una ruta de almacenamiento real. " +
@@ -171,6 +245,30 @@ export class EgoMemoryAdapter {
       );
     }
     this.storagePath = storagePath;
+    this.quarantineSink = opts?.onQuarantined;
+  }
+
+  /**
+   * Registra (o sustituye) el sink de observabilidad de cuarentena
+   * (FIX-02 SEC-09). Inversión de dependencias: el adapter no conoce el
+   * `EventBus` (cero aristas nuevas `@ego/memory → @ego/events`); el main
+   * process puentea el sink al bus. Los fallos del sink nunca rompen el
+   * routing (fire-and-forget defensivo).
+   */
+  public setQuarantineSink(sink: QuarantineEventSink | undefined): void {
+    this.quarantineSink = sink;
+  }
+
+  private emitQuarantined(info: QuarantinedEventInfo): void {
+    const sink = this.quarantineSink;
+    if (!sink) return;
+    try {
+      sink(info);
+    } catch (err) {
+      console.error(
+        `[EgoMemoryAdapter] quarantine sink falló (routing intacto): ${sanitizeForLog(describeError(err))}`
+      );
+    }
   }
 
   /**
@@ -217,8 +315,151 @@ export class EgoMemoryAdapter {
    * Fast path BM25 puro (VDB-INC-01): el binding in-process napi-rs NO
    * auto-genera embeddings densos (sin inferencia ONNX en `put`); la vía
    * densa vive en el cognitive path `vantadb-mcp` (capas L0-L3).
+   *
+   * Borde de enforcement SEC-09 (FIND-249): cada ítem se enruta ANTES de
+   * persistir — veredicto de contenido SEC-04 (`scanEgoPut`, sin excepciones)
+   * y detector de namespace sensible (`SensitiveNamespaces`). Retorna un
+   * reporte por ítem (los llamantes que ignoran el valor no se afectan).
    */
-  async putMulti(items: EgoPut[]): Promise<void> {
+  async putMulti(items: EgoPut[], opts?: PutMultiOptions): Promise<PutRouteReport[]> {
+    this.ensureReady();
+    const liveItems: EgoPut[] = [];
+    const reports: PutRouteReport[] = [];
+    for (const item of items) {
+      const routed = await this.routeOne(item, opts);
+      reports.push(routed.report);
+      if (routed.liveItem) liveItems.push(routed.liveItem);
+    }
+    if (liveItems.length > 0) {
+      await this.writeLive(liveItems);
+    }
+    return reports;
+  }
+
+  /**
+   * Enruta un ítem: `secret_detected` (bloqueo fail-closed + copia
+   * redactada), `sensitive_namespace` (cuarentena por defecto FIND-249) o
+   * `live`. Nunca persiste secretos; nunca hace eco de valores en avisos.
+   */
+  private async routeOne(
+    item: EgoPut,
+    opts?: PutMultiOptions
+  ): Promise<{ report: PutRouteReport; liveItem?: EgoPut }> {
+    const liveReport = (reason: string): PutRouteReport => ({
+      namespace: item.namespace,
+      key: item.key,
+      routedTo: "live",
+      destinationNamespace: item.namespace,
+      destinationKey: item.key,
+      reason,
+      notice: "",
+      unencryptedAtRest: false,
+    });
+
+    const secretScan = scanEgoPut({
+      namespace: item.namespace,
+      key: item.key,
+      payload: item.payload,
+      metadata: item.metadata,
+    });
+    if (secretScan.hasSecrets) {
+      const rules = [...new Set(secretScan.findings.map((f) => f.rule))].sort();
+      const reason = `secret_detected:${rules.join(",")}`;
+      const notice =
+        `⚠ [SEC-09] Secreto bloqueado en '${item.namespace}:${item.key}' ` +
+        `(reglas: ${rules.join(",")}). Original NO persistido; copia redactada ` +
+        `en quarantine/pending. Usa CredentialManager (keychain) para secretos.`;
+      await this.quarantine(
+        {
+          namespace: item.namespace,
+          key: item.key,
+          payload: secretScan.redactedPayload,
+          metadata: secretScan.redactedMetadata,
+          ttl_ms: item.ttl_ms,
+        },
+        reason,
+        { kind: "secret_detected", rules, notice }
+      );
+      console.warn(notice);
+      this.emitQuarantined({
+        namespace: item.namespace,
+        key: item.key,
+        destinationNamespace: "quarantine/pending",
+        destinationKey: `${item.namespace}:${item.key}`,
+        reason,
+        kind: "secret_detected",
+        rules,
+        notice,
+      });
+      return {
+        report: {
+          ...liveReport(reason),
+          routedTo: "quarantine",
+          destinationNamespace: "quarantine/pending",
+          destinationKey: `${item.namespace}:${item.key}`,
+          rules,
+          notice,
+          unencryptedAtRest: true,
+        },
+      };
+    }
+
+    const verdict = isSensitiveNamespace(item.namespace);
+    if (!opts?.skipSensitiveNamespaceQuarantine && verdict.sensitive) {
+      if (isEnforcementDeferred(item.namespace)) {
+        // Stopgap FIND-249: sensible pero con lectores operativos vivos sin
+        // flujo quarantine-aware (ver QUARANTINE_ENFORCEMENT_DEFERRALS).
+        // Vive con aviso explícito; la regla de secretos YA se aplicó arriba.
+        const reason = "deferred_quarantine_pending_domain_migration";
+        const notice =
+          `⚠ [SEC-09] '${item.namespace}:${item.key}' escribe en LIVE aunque el ` +
+          `namespace es sensible (${verdict.reason}) y no hay cifrado at-rest ` +
+          `(VantaDB FIND-249 pendiente). Enforcement diferido hasta lectores ` +
+          `quarantine-aware (FIX_PROPUESTO-SEC-09-01).`;
+        console.warn(notice);
+        return {
+          report: {
+            ...liveReport(reason),
+            notice,
+            unencryptedAtRest: true,
+            deferred: true,
+          },
+          liveItem: item,
+        };
+      }
+      const reason = "sensitive_namespace_no_at_rest_encryption";
+      const notice =
+        `⚠ [SEC-09] '${item.namespace}:${item.key}' → quarantine/pending: ` +
+        `namespace sensible (${verdict.reason}) sin cifrado at-rest ` +
+        `(VantaDB FIND-249 pendiente). Supervisión requerida para promover.`;
+      await this.quarantine(item, reason, { kind: "sensitive_namespace", notice });
+      console.warn(notice);
+      this.emitQuarantined({
+        namespace: item.namespace,
+        key: item.key,
+        destinationNamespace: "quarantine/pending",
+        destinationKey: `${item.namespace}:${item.key}`,
+        reason,
+        kind: "sensitive_namespace",
+        notice,
+      });
+      return {
+        report: {
+          ...liveReport(reason),
+          routedTo: "quarantine",
+          destinationNamespace: "quarantine/pending",
+          destinationKey: `${item.namespace}:${item.key}`,
+          notice,
+          unencryptedAtRest: true,
+        },
+      };
+    }
+
+    return { report: liveReport("live"), liveItem: item };
+  }
+
+  /** Escritura física del lote live (normalización + putBatch con fallback). */
+  private async writeLive(items: EgoPut[]): Promise<void> {
     const db = this.ensureReady();
     const records = items.map((item) => {
       const payloadStr =
@@ -273,8 +514,11 @@ export class EgoMemoryAdapter {
       // Defensive fallback (engine-agnostic; NO implica defecto VDB registrado,
       // sin ID upstream): si putBatch rechaza el lote, reintentar secuencial
       // para no perder escrituras. Si el secuencial también falla, propaga.
+      // FIX aplicado SEC-09 (diferido SEC-04, aprobado por el owner):
+      // sanitizeForLog evita que un mensaje del motor con eco del record
+      // filtre un secreto hacia los logs por esta vía lateral.
       console.error(
-        `[EgoMemoryAdapter] putMulti putBatch falló, reintentando secuencial: ${describeError(e)}`
+        `[EgoMemoryAdapter] putMulti putBatch falló, reintentando secuencial: ${sanitizeForLog(describeError(e))}`
       );
       for (const rec of records) {
         await db.put(rec);
@@ -283,10 +527,16 @@ export class EgoMemoryAdapter {
   }
 
   /**
-   * Escritura simple para un único ítem
+   * Escritura simple para un único ítem (SEC-09: retorna el reporte de
+   * routing; los llamantes que ignoran el valor no se ven afectados).
    */
-  async put(item: EgoPut): Promise<void> {
-    return this.putMulti([item]);
+  async put(item: EgoPut, opts?: PutMultiOptions): Promise<PutRouteReport> {
+    const reports = await this.putMulti([item], opts);
+    const report = reports[0];
+    if (!report) {
+      throw new Error("[EgoMemoryAdapter] put: routing interno sin reporte (inesperado).");
+    }
+    return report;
   }
 
   /**
@@ -298,6 +548,28 @@ export class EgoMemoryAdapter {
     if (!record) return null;
     // Workaround: VDB-BUG-02 (metadata etiquetada en putMulti; aquí se desenvuelve)
     return { key, payload: this.parseRecord(record), metadata: unwrapMetadata(record.metadata as Record<string, unknown>) };
+  }
+
+  /**
+   * Lectura quarantine-aware por clave (FIX-01 SEC-09).
+   * Implementación única en `QuarantineAwareReads.getQuarantineAware`:
+   * live primero, `quarantine/pending` después, con marca explícita.
+   */
+  async getWithQuarantine(namespace: string, key: string): Promise<QuarantineAwareRecord | null> {
+    return getQuarantineAware(this, namespace, key);
+  }
+
+  /**
+   * Listado quarantine-aware por namespace exacto (FIX-01 SEC-09).
+   * Implementación única en `QuarantineAwareReads.listQuarantineAware`.
+   * Ante fallo del barrido de cuarentena degrada al listado live con log.
+   */
+  async listWithQuarantine(namespace: string, limit: number = 100): Promise<QuarantineAwareRecord[]> {
+    return listQuarantineAware(this, namespace, limit, (err) => {
+      console.error(
+        `[EgoMemoryAdapter] listWithQuarantine(${namespace}) barrido de cuarentena falló, solo live: ${sanitizeForLog(describeError(err))}`
+      );
+    });
   }
 
   /**
@@ -320,7 +592,7 @@ export class EgoMemoryAdapter {
       }));
     } catch (err) {
       console.error(
-        `[EgoMemoryAdapter] list(${namespace}, limit=${limit}) falló, retornando []: ${describeError(err)}`
+        `[EgoMemoryAdapter] list(${namespace}, limit=${limit}) falló, retornando []: ${sanitizeForLog(describeError(err))}`
       );
       return [];
     }
@@ -370,7 +642,7 @@ export class EgoMemoryAdapter {
       return true;
     } catch (err) {
       console.error(
-        `[EgoMemoryAdapter] delete(${namespace}, ${key}) falló, retornando false: ${describeError(err)}`
+        `[EgoMemoryAdapter] delete(${namespace}, ${key}) falló, retornando false: ${sanitizeForLog(describeError(err))}`
       );
       return false;
     }
@@ -441,7 +713,7 @@ export class EgoMemoryAdapter {
         });
       } catch (nsErr) {
         console.error(
-          `[EgoMemoryAdapter] searchMulti namespace ${ns} falló, degradando a []: ${describeError(nsErr)}`
+          `[EgoMemoryAdapter] searchMulti namespace ${ns} falló, degradando a []: ${sanitizeForLog(describeError(nsErr))}`
         );
         return [];
       }
@@ -482,7 +754,7 @@ export class EgoMemoryAdapter {
       return null;
     } catch (err) {
       console.error(
-        `[EgoMemoryAdapter] recall(${namespace}, ${keyOrQuery}) falló, retornando null: ${describeError(err)}`
+        `[EgoMemoryAdapter] recall(${namespace}, ${keyOrQuery}) falló, retornando null: ${sanitizeForLog(describeError(err))}`
       );
       return null;
     }
@@ -492,8 +764,12 @@ export class EgoMemoryAdapter {
    * Envía un hecho a cuarentena con TTL controlado.
    * Usa la cuarentena nativa de VantaDB (ADR-046).
    */
-  async quarantine(item: EgoPut, reason: string = "unreviewed_input"): Promise<void> {
+  async quarantine(item: EgoPut, reason: string = "unreviewed_input", opts?: QuarantineOptions): Promise<void> {
     const ttlMs = item.ttl_ms || 14 * 24 * 60 * 60 * 1000; // 14 días
+    const notice =
+      opts?.notice ??
+      `⚠ [SEC-09] '${item.namespace}:${item.key}' → quarantine/pending (${reason}). ` +
+        `Sin cifrado at-rest (VantaDB FIND-249 pendiente).`;
     await this.putMulti([
       {
         namespace: "quarantine/pending",
@@ -504,6 +780,15 @@ export class EgoMemoryAdapter {
           original_namespace: item.namespace,
           original_key: item.key,
           quarantine_reason: reason,
+          quarantine_kind: opts?.kind ?? "unreviewed_input",
+          quarantine_rules: (opts?.rules ?? []).join(","),
+          // FIND-249: el motor no cifra at-rest; el aviso viaja con el
+          // registro para que la UI existente (lista de cuarentena vía
+          // `ipc.knowledge.quarantine`) lo muestre sin crear UI nueva.
+          unencrypted_at_rest: true,
+          upstream: "VDB-FIND-249",
+          ui_notice: notice,
+          expires_at: Date.now() + ttlMs,
           state: "quarantined",
           quarantined_at: Date.now(),
         },
@@ -527,23 +812,36 @@ export class EgoMemoryAdapter {
       throw new Error(`Hecho no encontrado en cuarentena: ${quarantineKey}`);
     }
 
-    const meta = quarantined.metadata as Record<string, unknown>;
+    const meta = this.unwrapMetadata(quarantined.metadata as Record<string, unknown>);
     const destinationNs = targetNamespace || String(meta.original_namespace || "kb/docs");
     const destinationKey = targetKey || String(meta.original_key || quarantineKey);
 
-    // 1. Escribir en destino
-    await this.putMulti([
-      {
-        namespace: destinationNs,
-        key: destinationKey,
-        payload: quarantined.payload,
-        metadata: {
-          ...(meta as Record<string, unknown>),
-          state: "validated",
-          promoted_at: Date.now(),
+    // 1. Escribir en destino. La promoción es supervisión humana explícita
+    // (criterio de salida de KB-07): omite la cuarentena por defecto de
+    // namespace, pero NUNCA la regla de secretos — si el destino contiene
+    // secretos, se bloquea fail-closed y la fuente se preserva.
+    const [destinationReport] = await this.putMulti(
+      [
+        {
+          namespace: destinationNs,
+          key: destinationKey,
+          payload: quarantined.payload,
+          metadata: {
+            ...(meta as Record<string, unknown>),
+            state: "validated",
+            promoted_at: Date.now(),
+          },
         },
-      },
-    ]);
+      ],
+      { skipSensitiveNamespaceQuarantine: true }
+    );
+    if (!destinationReport || destinationReport.routedTo === "quarantine") {
+      const rules = destinationReport?.rules?.join(",") ?? "unknown";
+      throw new Error(
+        `[EgoMemoryAdapter] promote bloqueado: el contenido destino contiene secretos ` +
+          `(reglas: ${rules}). Fuente preservada en cuarentena. Sanee el contenido y use CredentialManager.`
+      );
+    }
 
     // 2. Eliminar de cuarentena ({ namespace, key })
     await db.delete({ namespace: "quarantine/pending", key: quarantineKey });
@@ -636,7 +934,9 @@ export class EgoMemoryAdapter {
         ]);
       }
     } catch (e) {
-      console.warn("[EgoMemoryAdapter] VantaDB supersede versioning warning:", e);
+      console.warn(
+        `[EgoMemoryAdapter] VantaDB supersede versioning warning: ${sanitizeForLog(describeError(e))}`
+      );
     }
 
     // 3. Registrar auditoría (SEC-06: vía recordAudit → sha256 + subEgoId)
@@ -771,7 +1071,9 @@ export class EgoMemoryAdapter {
       }
       return { ok: false, error: "IQL query engine not exposed on NativeVantaDB binding yet" };
     } catch (err) {
-      console.warn("[EgoMemoryAdapter] Error ejecutando graphQuery:", err);
+      console.warn(
+        `[EgoMemoryAdapter] Error ejecutando graphQuery: ${sanitizeForLog(describeError(err))}`
+      );
       return { ok: false, error: String(err) };
     }
   }
@@ -830,7 +1132,7 @@ export class EgoMemoryAdapter {
       return page.records.map((r: MemoryRecord) => this.parseRecord(r) as SubEgoManifest);
     } catch (err) {
       console.error(
-        `[EgoMemoryAdapter] listSubEgos() falló, retornando []: ${describeError(err)}`
+        `[EgoMemoryAdapter] listSubEgos() falló, retornando []: ${sanitizeForLog(describeError(err))}`
       );
       return [];
     }
@@ -987,7 +1289,9 @@ export class EgoMemoryAdapter {
           });
         }
       } catch (e) {
-        console.warn(`[EgoMemoryAdapter] Línea ${i + 1} corrupta en ${sourceFilePath}:`, e);
+        console.warn(
+          `[EgoMemoryAdapter] Línea ${i + 1} corrupta en ${sourceFilePath}: ${sanitizeForLog(describeError(e))}`
+        );
       }
     }
 

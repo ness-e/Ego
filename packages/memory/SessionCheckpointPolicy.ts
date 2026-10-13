@@ -1,5 +1,6 @@
 import { EgoMemoryAdapter } from "./EgoMemoryAdapter.js";
 import { computeAuditDigest } from "./EgoMemoryAdapter.js";
+import { getQuarantineAware, listQuarantineAware } from "./QuarantineAwareReads.js";
 import { generateOpaqueId } from "./OpaqueId.js";
 
 export interface SessionCheckpointPolicyOptions {
@@ -16,6 +17,22 @@ export interface CheckpointDecision {
   proceed: boolean;
   checkpointId?: string;
   error?: string;
+}
+
+/**
+ * Checkpoint de sesión leído (FIX-01 SEC-09): el contenido más la marca
+ * explícita de procedencia. `quarantined=true` = el snapshot vive en
+ * `quarantine/pending` porque el enforcement lo enrutó allí.
+ */
+export interface SessionCheckpointRead {
+  checkpointId: string;
+  sessionId: string;
+  turnId: string;
+  turnCount: number;
+  timestamp: number;
+  summary: Record<string, unknown>;
+  quarantined: boolean;
+  quarantineReason?: string;
 }
 
 /**
@@ -173,6 +190,83 @@ export class SessionCheckpointPolicy {
    */
   public getTurnCount(sessionId: string): number {
     return this.turnCounters.get(sessionId) ?? 0;
+  }
+
+  /**
+   * Lectura quarantine-aware de un checkpoint de sesión (FIX-01 SEC-09).
+   * Resuelve live primero y `quarantine/pending` después, con marca
+   * explícita. Degrada a `adapter.get` cuando el gateway es un mock sin
+   * `getWithQuarantine`. Retorna `null` si no existe o el payload es
+   * ilegible (nunca lanza por datos corruptos).
+   */
+  public async loadCheckpoint(sessionId: string, checkpointId: string): Promise<SessionCheckpointRead | null> {
+    const key = `checkpoint:${sessionId}:${checkpointId}`;
+    let hit: { payload?: unknown; quarantined?: boolean; quarantineReason?: string } | null;
+    try {
+      hit = await getQuarantineAware(this.adapter, "system/snapshots", key);
+    } catch {
+      return null;
+    }
+    if (!hit) return null;
+    const quarantined = hit.quarantined === true;
+    return SessionCheckpointPolicy.parseCheckpointPayload(
+      hit.payload,
+      quarantined,
+      quarantined ? hit.quarantineReason : undefined
+    );
+  }
+
+  /**
+   * Lista checkpoints quarantine-aware de una sesión (o todas si se omite
+   * el filtro), ordenados por `turnCount` descendente.
+   */
+  public async listCheckpoints(sessionId?: string, limit: number = 50): Promise<SessionCheckpointRead[]> {
+    const rows = await listQuarantineAware(this.adapter, "system/snapshots", limit, (err) => {
+      console.warn(`[SessionCheckpointPolicy] listCheckpoints: barrido de cuarentena falló:`, err);
+    });
+    const out: SessionCheckpointRead[] = [];
+    for (const row of rows) {
+      if (sessionId && !row.key.includes(sessionId)) continue;
+      const parsed = SessionCheckpointPolicy.parseCheckpointPayload(
+        row.payload,
+        row.quarantined,
+        row.quarantined ? row.quarantineReason : undefined
+      );
+      if (parsed) out.push(parsed);
+    }
+    return out.sort((a, b) => b.turnCount - a.turnCount).slice(0, limit);
+  }
+
+  private static parseCheckpointPayload(
+    payload: unknown,
+    quarantined: boolean,
+    quarantineReason?: string
+  ): SessionCheckpointRead | null {
+    if (!payload || typeof payload !== "object") return null;
+    const p = payload as Record<string, unknown>;
+    if (
+      typeof p["checkpointId"] !== "string" ||
+      typeof p["sessionId"] !== "string" ||
+      typeof p["turnId"] !== "string" ||
+      typeof p["turnCount"] !== "number" ||
+      typeof p["timestamp"] !== "number"
+    ) {
+      return null;
+    }
+    const summary =
+      p["summary"] && typeof p["summary"] === "object"
+        ? (p["summary"] as Record<string, unknown>)
+        : {};
+    return {
+      checkpointId: p["checkpointId"] as string,
+      sessionId: p["sessionId"] as string,
+      turnId: p["turnId"] as string,
+      turnCount: p["turnCount"] as number,
+      timestamp: p["timestamp"] as number,
+      summary,
+      quarantined,
+      ...(quarantineReason ? { quarantineReason } : {}),
+    };
   }
 
   /**

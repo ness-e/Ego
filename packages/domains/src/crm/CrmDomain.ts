@@ -1,4 +1,5 @@
 import type { EgoMemoryAdapter } from "@ego/memory";
+import { getQuarantineAware, listQuarantineAware } from "@ego/memory";
 import {
   CrmContact,
   CrmContactSchema,
@@ -42,6 +43,14 @@ export interface CrmHydrateReport {
   deals: number;
   interactions: number;
   skipped: number;
+  /** Registros resueltos vía `quarantine/pending` (marca explícita FIX-01 SEC-09). */
+  quarantined: number;
+}
+
+interface CrmAwareRecord {
+  key: string;
+  payload: unknown;
+  quarantined: boolean;
 }
 
 /**
@@ -53,12 +62,18 @@ export interface CrmHydrateReport {
  * `hydrate()` (o usar `CrmDomain.open(memory)`) para rehidratar los mapas en
  * memoria tras un reinicio. `getContact` reintenta por clave contra el adapter
  * si el snapshot no contiene el ID; los corruptos se omiten con aviso.
+ *
+ * Quarantine-aware (FIX-01 SEC-09): `crm/*` ya no difiere su enforcement —
+ * las escrituras limpias van a `quarantine/pending` y las lecturas fusionan
+ * live + cuarentena con marca explícita (`isQuarantined()` + contador
+ * `quarantined` en el reporte). La regla de secretos SEC-04 sigue universal.
  */
 export class CrmDomain {
   private memory?: EgoMemoryAdapter;
   private contacts = new Map<string, CrmContact>();
   private deals = new Map<string, CrmDeal>();
   private interactions: CrmInteraction[] = [];
+  private quarantinedIds = new Set<string>();
 
   constructor(memory?: EgoMemoryAdapter) {
     this.memory = memory;
@@ -74,22 +89,30 @@ export class CrmDomain {
   }
 
   /**
-   * Rehidrata contactos, deals e interacciones desde VantaDB (H07).
+   * Rehidrata contactos, deals e interacciones desde VantaDB (H07),
+   * fusionando live + `quarantine/pending` con marca explícita (FIX-01).
    */
   public async hydrate(): Promise<CrmHydrateReport> {
-    const report: CrmHydrateReport = { contacts: 0, deals: 0, interactions: 0, skipped: 0 };
+    const report: CrmHydrateReport = { contacts: 0, deals: 0, interactions: 0, skipped: 0, quarantined: 0 };
     if (!this.memory) return report;
 
     const namespaces = ["crm/contacts", "crm/deals", "crm/interactions"] as const;
-    const pages: Array<Array<{ key: string; payload: unknown }>> = [];
+    const pages: CrmAwareRecord[][] = [];
     for (const ns of namespaces) {
       try {
-        pages.push(await this.memory.list(ns, 1000));
+        pages.push(await this.listAware(ns));
       } catch (err) {
         console.warn(`[CrmDomain] hydrate: fallo list(${ns}):`, err);
         pages.push([]);
       }
     }
+
+    const mark = (id: string, quarantined: boolean): void => {
+      if (quarantined) {
+        this.quarantinedIds.add(id);
+        report.quarantined++;
+      }
+    };
 
     for (const rec of pages[0]) {
       const parsed = CrmContactSchema.safeParse(CrmDomain.parsePayload(rec.payload));
@@ -98,6 +121,7 @@ export class CrmDomain {
         continue;
       }
       this.contacts.set(parsed.data.id, parsed.data);
+      mark(parsed.data.id, rec.quarantined);
       report.contacts++;
     }
     for (const rec of pages[1]) {
@@ -107,6 +131,7 @@ export class CrmDomain {
         continue;
       }
       this.deals.set(parsed.data.id, parsed.data);
+      mark(parsed.data.id, rec.quarantined);
       report.deals++;
     }
     const seen = new Set(this.interactions.map((i) => i.id));
@@ -119,10 +144,49 @@ export class CrmDomain {
       if (!seen.has(parsed.data.id)) {
         seen.add(parsed.data.id);
         this.interactions.push(parsed.data);
+        mark(parsed.data.id, rec.quarantined);
         report.interactions++;
       }
     }
     return report;
+  }
+
+  /**
+   * ¿El registro vive en `quarantine/pending` (marca explícita FIX-01)?
+   * Cubre lo rehidratado desde cuarentena y lo escrito con routing a
+   * cuarentena en esta sesión.
+   */
+  public isQuarantined(id: string): boolean {
+    return this.quarantinedIds.has(id);
+  }
+
+  /** IDs con marca de cuarentena en esta instancia. */
+  public listQuarantinedIds(): string[] {
+    return [...this.quarantinedIds];
+  }
+
+  /**
+   * Listado quarantine-aware (implementación única compartida en
+   * `@ego/memory`). El gateway es estructural: los mocks heredados sin
+   * `listWithQuarantine` funcionan igual (live + barrido de cuarentena).
+   */
+  private async listAware(namespace: string): Promise<CrmAwareRecord[]> {
+    if (!this.memory) return [];
+    const rows = await listQuarantineAware(this.memory, namespace, 1000, (err) => {
+      console.warn(`[CrmDomain] listAware: barrido de cuarentena falló (${namespace}):`, err);
+    });
+    return rows.map((r) => ({ key: r.key, payload: r.payload, quarantined: r.quarantined }));
+  }
+
+  /**
+   * Lectura por clave quarantine-aware (implementación única compartida).
+   */
+  private async getAware(namespace: string, key: string): Promise<{ payload: unknown } | null> {
+    if (!this.memory) return null;
+    const hit = await getQuarantineAware(this.memory, namespace, key);
+    if (!hit) return null;
+    if (hit.quarantined) this.quarantinedIds.add(key);
+    return { payload: hit.payload };
   }
 
   private static parsePayload(payload: unknown): unknown {
@@ -157,11 +221,12 @@ export class CrmDomain {
     this.contacts.set(id, validated);
 
     if (this.memory) {
-      await this.memory.put({
+      const report = await this.memory.put({
         namespace: "crm/contacts",
         key: id,
         payload: JSON.stringify(validated),
       });
+      if (report?.routedTo === "quarantine") this.quarantinedIds.add(id);
     }
 
     return validated;
@@ -175,7 +240,8 @@ export class CrmDomain {
   }
 
   /**
-   * Obtiene un contacto por su ID: snapshot primero, VantaDB después (H07).
+   * Obtiene un contacto por su ID: snapshot primero, VantaDB después (H07),
+   * resolviendo vía cuarentena con marca explícita (FIX-01).
    */
   public async getContact(id: string): Promise<CrmContact | undefined> {
     const cached = this.contacts.get(id);
@@ -183,7 +249,7 @@ export class CrmDomain {
     if (!this.memory) return undefined;
 
     try {
-      const rec = await this.memory.get("crm/contacts", id);
+      const rec = await this.getAware("crm/contacts", id);
       if (!rec) return undefined;
       const parsed = CrmContactSchema.safeParse(CrmDomain.parsePayload(rec.payload));
       if (!parsed.success) return undefined;
@@ -241,11 +307,12 @@ export class CrmDomain {
     this.deals.set(id, validated);
 
     if (this.memory) {
-      await this.memory.put({
+      const report = await this.memory.put({
         namespace: "crm/deals",
         key: id,
         payload: JSON.stringify(validated),
       });
+      if (report?.routedTo === "quarantine") this.quarantinedIds.add(id);
     }
 
     return validated;
@@ -267,11 +334,12 @@ export class CrmDomain {
     if (newStage === "lost") deal.probabilityPct = 0;
 
     if (this.memory) {
-      await this.memory.put({
+      const report = await this.memory.put({
         namespace: "crm/deals",
         key: id,
         payload: JSON.stringify(deal),
       });
+      if (report?.routedTo === "quarantine") this.quarantinedIds.add(id);
     }
 
     return deal;
@@ -308,11 +376,12 @@ export class CrmDomain {
     this.interactions.push(validated);
 
     if (this.memory) {
-      await this.memory.put({
+      const report = await this.memory.put({
         namespace: "crm/interactions",
         key: id,
         payload: JSON.stringify(validated),
       });
+      if (report?.routedTo === "quarantine") this.quarantinedIds.add(id);
     }
 
     return validated;

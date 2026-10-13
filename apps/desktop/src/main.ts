@@ -1241,6 +1241,43 @@ export async function createWindow(): Promise<void> {
   });
   structuredLogger.attachToEventBus(eventBus);
 
+  // Puente SEC-09 FIX-02: cada routing a cuarentena del borde del adapter
+  // emite `memory.quarantined` + `system.alert` al EventBus. El `onAny →
+  // ipc.event` existente los retransmite al renderer (0 UI nueva). Solo
+  // viajan etiquetas `namespace:key`, reglas y motivos — nunca valores.
+  adapter.setQuarantineSink((info) => {
+    eventBus.emit(
+      "memory.quarantined",
+      {
+        itemKey: `${info.namespace}:${info.key}`,
+        reason: info.kind === "secret_detected" ? info.reason : `sensitive_namespace:${info.reason}`,
+        ttlDays: 14,
+      },
+      {
+        source: "EgoMemoryAdapter",
+        severity: "warn",
+        metadata: {
+          destinationNamespace: info.destinationNamespace,
+          destinationKey: info.destinationKey,
+          ...(info.rules ? { rules: info.rules } : {}),
+        },
+      }
+    );
+    eventBus.emit(
+      "system.alert",
+      {
+        code: "SEC09_QUARANTINED",
+        message: info.notice,
+        details: {
+          itemKey: `${info.namespace}:${info.key}`,
+          kind: info.kind,
+          destinationNamespace: info.destinationNamespace,
+        },
+      },
+      { source: "EgoMemoryAdapter", severity: "warn" }
+    );
+  });
+
   toolRegistry = new ToolRegistry();
   registerNativeTools(toolRegistry, {
     workspacePath: process.env.EGO_WORKSPACE_PATH || process.cwd()

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import YAML from "yaml";
 import type { EgoPut } from "@ego/memory";
+import { getQuarantineAware } from "@ego/memory";
 import type { SubEgoManifest } from "./types.js";
 
 /**
@@ -446,6 +447,7 @@ export class SubEgoSoul {
 
   /**
    * Carga y deserializa el alma del Sub-Ego desde VantaDB bajo el namespace `egos/<id>/soul`.
+   * Quarantine-aware (FIX-01 SEC-09): resuelve live + `quarantine/pending`.
    *
    * @param storage Adaptador de memoria (EgoMemoryAdapter, SubEgoMemoryGuard o compatible)
    * @param id Identificador canónico del Sub-Ego
@@ -458,7 +460,7 @@ export class SubEgoSoul {
     key: string = "profile"
   ): Promise<SubEgoSoul | null> {
     const namespace = `egos/${id}/soul`;
-    const record = await storage.get(namespace, key);
+    const record = await getQuarantineAware(storage, namespace, key);
     if (!record) {
       return null;
     }
@@ -518,7 +520,8 @@ export class SubEgoSoul {
   }
 
   /**
-   * Comprueba si existe un registro de alma en VantaDB bajo `egos/<id>/soul`.
+   * Comprueba si existe un registro de alma en VantaDB bajo `egos/<id>/soul`
+   * (live o cuarentena).
    */
   static async exists(
     storage: SubEgoSoulStorageLike,
@@ -526,7 +529,7 @@ export class SubEgoSoul {
     key: string = "profile"
   ): Promise<boolean> {
     const namespace = `egos/${id}/soul`;
-    const record = await storage.get(namespace, key);
+    const record = await getQuarantineAware(storage, namespace, key);
     return record !== null && record !== undefined;
   }
 }

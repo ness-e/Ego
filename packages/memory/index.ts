@@ -1,4 +1,6 @@
 export * from "./EgoMemoryAdapter.js";
+export * from "./SensitiveNamespaces.js";
+export * from "./QuarantineAwareReads.js";
 export * from "./unwrapMetadata.js";
 export * from "./sub-egos.js";
 export * from "./EgoMemoryLifecycle.js";
