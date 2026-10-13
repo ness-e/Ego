@@ -129,3 +129,9 @@ Para cerrar la brecha entre los proyectos, el backlog técnico de VantaDB (`docs
 
 1. **`vantadb` WASM fuera de `@ego/desktop`:** ningún import directo en `apps/desktop` (verificado por grep 2026-10-12); el desktop accede a memoria solo vía `@ego/memory` → `NativeVantaDB`. Eliminado de `apps/desktop/package.json`.
 2. **`vantadb-node` sin reemplazo versionado:** el registry npm responde `404` a `vantadb-node@*` (evidencia 2026-10-12), por lo que `file:../../../VantaDB/vantadb-node` se retiene con justificación en `@ego/desktop` y `@ego/memory`. **Requisito upstream:** publicar `vantadb-node` en el registry (o canal versionado equivalente) para cerrar H05/M05/H23/H24 y lograr install 100% reproducible sin path local.
+
+---
+
+## 7. Vigilancia upstream (UP-01 — 2026-10-13, sin código)
+
+Verificación 2026-10-13: `vantadb-node` sigue 404; `vantadb@0.8.0` publicado. Estado: `FIND-249` (cifrado at-rest) abierto → SEC-09 sigue stopgap; `VDB-REQ-04/05/06` abiertos → emulaciones TS vigentes; `VDB-REQ-08/09`, `VDB-INC-04`, `VDB-BUG-06` registrados 2026-10-12 (`4758edd`). Próxima revisión: al planificar DIST-09.
