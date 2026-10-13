@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getErrorParts } from "../../error-parts.js";
 
 export interface FileLockOptions {
   timeoutMs?: number;
@@ -62,8 +63,8 @@ export class FileLockManager {
 
         fs.writeFileSync(lockPath, content, { flag: "wx" });
         return; // Lock adquirido exitosamente
-      } catch (err: any) {
-        if (err.code === "EEXIST") {
+      } catch (err: unknown) {
+        if (getErrorParts(err).code === "EEXIST") {
           // El lock ya existe. Verificar si es stale (huérfano/zombie)
           if (this.isLockStale(lockPath, staleTimeout)) {
             try {

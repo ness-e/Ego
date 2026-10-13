@@ -1,9 +1,13 @@
 import { execFileSync } from "node:child_process";
 
+export interface ExecFileSyncLike {
+  (file: string, args: readonly string[], options: { encoding: BufferEncoding; windowsHide?: boolean; timeout?: number }): string | Buffer;
+}
+
 export interface ReadEnvOptions {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
-  exec?: (file: string, args: string[], options: any) => string;
+  exec?: ExecFileSyncLike;
 }
 
 /**

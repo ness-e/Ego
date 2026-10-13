@@ -32,12 +32,14 @@ export class WindowStateHelper {
   /**
    * Sanea y valida un objeto de estado de ventana persistido.
    * Rechaza valores NaN, infinitos o malformados y aplica dimensiones mínimas.
+   * L10: `unknown` en el borde (JSON persistido no confiable) + narrowing local.
    */
-  public static sanitize(raw?: any): SanitizedWindowState | null {
+  public static sanitize(raw: unknown): SanitizedWindowState | null {
     if (!raw || typeof raw !== "object") return null;
+    const record = raw as Record<string, unknown>;
 
-    const width = Number(raw.width);
-    const height = Number(raw.height);
+    const width = Number(record.width);
+    const height = Number(record.height);
 
     if (!Number.isFinite(width) || !Number.isFinite(height)) {
       return null;
@@ -46,15 +48,15 @@ export class WindowStateHelper {
     const state: SanitizedWindowState = {
       width: Math.max(MIN_WINDOW_WIDTH, Math.round(width)),
       height: Math.max(MIN_WINDOW_HEIGHT, Math.round(height)),
-      isMaximized: raw.isMaximized === true,
+      isMaximized: record.isMaximized === true,
     };
 
-    if (raw.boundsCapturedFullScreen === true) {
+    if (record.boundsCapturedFullScreen === true) {
       state.boundsCapturedFullScreen = true;
     }
 
-    const x = Number(raw.x);
-    const y = Number(raw.y);
+    const x = Number(record.x);
+    const y = Number(record.y);
     if (Number.isFinite(x) && Number.isFinite(y)) {
       state.x = Math.round(x);
       state.y = Math.round(y);

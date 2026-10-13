@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import {
   ToolDefinition,
   ToolExecutionContext,
@@ -149,6 +150,8 @@ export class ToolRegistry {
 
   /**
    * Valida parámetros crudos de entrada contra el esquema Zod de la herramienta.
+   * L10 — Justificación del default `any`: el llamante que conoce el input lo
+   * fija (`validateInput<Foo>`); el default preserva la inferencia existente.
    */
   public validateInput<T = any>(
     name: string,
@@ -218,23 +221,48 @@ export class ToolRegistry {
 
   /**
    * Convierte las herramientas registradas en un mapa compatible con AI SDK v7 (`CoreTool`).
+   * L05: trazabilidad EventBus/Approval preservada —
+   * 1. `contextFactory` (por herramienta) tiene prioridad;
+   * 2. si no hay factory, se usa `baseContext` (sesión/proyecto reales);
+   * 3. solo como último recurso se genera un contexto efímero con `callId`
+   *    único (`randomUUID`) y `sessionId 'default_session'`, emitiendo un
+   *    `console.warn` para que la pérdida de trazabilidad sea visible.
    */
   public toAiSdkTools(
-    contextFactory?: (toolName: string) => ToolExecutionContext
+    contextFactory?: (toolName: string) => ToolExecutionContext,
+    options: { baseContext?: Partial<ToolExecutionContext> } = {}
   ): Record<string, AiSdkToolAdapter> {
     const result: Record<string, AiSdkToolAdapter> = {};
+    let fallbackWarned = false;
 
     for (const [name, tool] of this.tools.entries()) {
       result[name] = {
         description: tool.description,
         parameters: tool.inputSchema,
-        execute: async (args: any) => {
-          const context = contextFactory
-            ? contextFactory(name)
-            : {
-                callId: `call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                sessionId: "default_session"
-              };
+        execute: async (args: unknown) => {
+          if (contextFactory) {
+            return tool.execute(args, contextFactory(name));
+          }
+          if (options.baseContext) {
+            const base = options.baseContext;
+            return tool.execute(args, {
+              ...base,
+              callId: base.callId ?? randomUUID(),
+              sessionId: base.sessionId ?? "default_session"
+            });
+          }
+          if (!fallbackWarned) {
+            fallbackWarned = true;
+            console.warn(
+              "[ToolRegistry] toAiSdkTools sin contextFactory ni baseContext: " +
+                "usando contexto efímero (trazabilidad EventBus/Approval degradada). " +
+                "Proveer factory o baseContext con sessionId real."
+            );
+          }
+          const context: ToolExecutionContext = {
+            callId: randomUUID(),
+            sessionId: "default_session"
+          };
           return tool.execute(args, context);
         }
       };
@@ -270,11 +298,14 @@ export class ToolRegistry {
     if (!tool.description || typeof tool.description !== "string" || tool.description.trim().length === 0) {
       throw new Error(`[ToolRegistry] La herramienta "${tool.name}" debe tener una descripción válida.`);
     }
+    // L10: duck-check en runtime para definiciones construidas desde JS
+    // (sin tipos); el cast intermedio a `unknown` evita `any`.
+    const schema = tool.inputSchema as unknown as { safeParse?: unknown };
     if (
-      !tool.inputSchema ||
-      typeof tool.inputSchema !== "object" ||
-      !("safeParse" in tool.inputSchema) ||
-      typeof (tool.inputSchema as any).safeParse !== "function"
+      !schema ||
+      typeof schema !== "object" ||
+      !("safeParse" in schema) ||
+      typeof schema.safeParse !== "function"
     ) {
       throw new Error(`[ToolRegistry] La herramienta "${tool.name}" debe tener un inputSchema válido (ZodType o compatible con safeParse).`);
     }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { EgoMemoryAdapter, EgoPut, EgoSearchOptions } from "@ego/memory";
+import type { EgoMemoryAdapter, EgoPut, EgoSearchOptions, SearchHit } from "@ego/memory";
 
 /**
  * Clase base para errores del módulo SharedMemory.
@@ -165,7 +165,7 @@ export interface SharedMemoryStorage {
   putMulti?(items: EgoPut[]): Promise<void>;
   get(namespace: string, key: string): Promise<unknown>;
   delete(namespace: string, key: string): Promise<boolean>;
-  searchMulti?(namespaces: string[], query: string, options?: EgoSearchOptions): Promise<any[]>;
+  searchMulti?(namespaces: string[], query: string, options?: EgoSearchOptions): Promise<SearchHit[]>;
   recall?(keyOrQuery: string, namespace?: string): Promise<unknown>;
 }
 
@@ -492,13 +492,14 @@ export class SharedMemory {
           ? (existingEnvelope as { payload: unknown }).payload
           : existingEnvelope;
       if (existingRaw) {
-        const parsed = typeof existingRaw === "string" ? JSON.parse(existingRaw) : existingRaw;
+        const parsed: unknown = typeof existingRaw === "string" ? JSON.parse(existingRaw) : existingRaw;
         if (parsed && typeof parsed === "object") {
-          if ("version" in parsed && typeof (parsed as any).version === "number") {
-            previousVersion = (parsed as any).version;
+          const record = parsed as { version?: unknown; createdAtMs?: unknown };
+          if (typeof record.version === "number") {
+            previousVersion = record.version;
           }
-          if ("createdAtMs" in parsed && typeof (parsed as any).createdAtMs === "number") {
-            createdAtMs = (parsed as any).createdAtMs;
+          if (typeof record.createdAtMs === "number") {
+            createdAtMs = record.createdAtMs;
           }
         }
       }
@@ -586,10 +587,10 @@ export class SharedMemory {
       return null;
     }
 
-    let parsed: any = raw;
+    let parsed: unknown = raw;
     if (typeof raw === "string") {
       try {
-        parsed = JSON.parse(raw);
+        parsed = JSON.parse(raw) as unknown;
       } catch {
         // payload como string literal
       }

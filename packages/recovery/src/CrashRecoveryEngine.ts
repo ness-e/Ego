@@ -195,16 +195,46 @@ export class CrashRecoveryEngine {
     fs.writeFileSync(this.lockFilePath, JSON.stringify(record, null, 2), "utf8");
   }
 
+  /**
+   * L12: latido atómico. El read-modify-write directo sobre `ego.lock` podía
+   * dejar escrituras truncadas ante dos instancias o un kill en el instante
+   * preciso. Ahora: valida schema (no pisa corrupción ajena), escribe a un
+   * temporal con el PID en el nombre, hace `fsync` y publica con `rename`
+   * (atómico en POSIX y NTFS), limpiando el temporal ante cualquier fallo.
+   */
   private updateHeartbeat(timestamp: number): void {
-    if (!fs.existsSync(this.lockFilePath)) return;
-
+    let raw: string;
     try {
-      const raw = fs.readFileSync(this.lockFilePath, "utf8");
-      const record = JSON.parse(raw) as LockFileRecord;
-      record.lastHeartbeat = timestamp;
-      fs.writeFileSync(this.lockFilePath, JSON.stringify(record, null, 2), "utf8");
+      raw = fs.readFileSync(this.lockFilePath, "utf8");
     } catch {
-      // noop
+      return; // Lock liberado entre tanto; nada que latir
+    }
+
+    let record: LockFileRecord;
+    try {
+      record = LockFileRecordSchema.parse(JSON.parse(raw));
+    } catch {
+      return; // Contenido ajeno o corrupto: no pisarlo desde el heartbeat
+    }
+    record.lastHeartbeat = timestamp;
+
+    const tmpPath = `${this.lockFilePath}.${process.pid}.tmp`;
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(record, null, 2), "utf8");
+      // "r+" y no "r": en Windows, fsync sobre un fd de solo-lectura falla con EPERM.
+      const fd = fs.openSync(tmpPath, "r+");
+      try {
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+      fs.renameSync(tmpPath, this.lockFilePath);
+    } catch {
+      try {
+        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      } catch {
+        // noop: mejor un temporal huérfano que un lock truncado
+      }
     }
   }
 }

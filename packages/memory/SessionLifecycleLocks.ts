@@ -13,6 +13,12 @@ interface QueuedTask<T = unknown> {
  * Garantiza que mutaciones concurrentes sobre la misma sesión en VantaDB
  * (ej. mensajes del usuario vs tareas proactivas de background) no colisionen
  * ni produzcan intercalación corrupta de turnos de conversación.
+ *
+ * L10 — Justificación del `any` en `QueuedTask<any>`: cada sesión encola
+ * tareas de tipo heterogéneo (`runExclusive<T>` genérico por llamada); el
+ * borrado de tipo es intencional y seguro porque la resolución
+ * (`task.resolve(result)`) ocurre dentro del `Promise<T>` de la llamada que
+ * aportó `fn`, sin cruces entre tipos.
  */
 export class SessionLifecycleLocks {
   private readonly queues = new Map<string, Array<QueuedTask<any>>>();

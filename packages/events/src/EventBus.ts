@@ -170,7 +170,7 @@ export class EventBus {
     return new Promise((resolve, reject) => {
       let timer: NodeJS.Timeout | null = null;
 
-      const subscription = this.on(type, (event: EgoEvent<any>) => {
+      const subscription = this.on(type, (event: EgoEvent<CanonicalEventPayloadMap[K]>) => {
         if (!filter || filter(event)) {
           if (timer) clearTimeout(timer);
           subscription.unsubscribe();

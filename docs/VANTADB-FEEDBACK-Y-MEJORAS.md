@@ -51,7 +51,7 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
   }
   ```
   `obj.get("cursor")` retorna `Some(Value::Null)`. `c.as_u64()` devuelve `None` y dispara el error. Adicionalmente, la documentación indica que el backend WASM emite cursores como `string` decimal, pero el binding Node rechaza cadenas.
-* **Workaround en Ego:** [`EgoMemoryAdapter.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryAdapter.ts#L510) omite la clave `cursor` si es `undefined`, inyectándola únicamente cuando es de tipo `number`.
+* **Workaround en Ego:** [`EgoMemoryAdapter.ts`](../packages/memory/EgoMemoryAdapter.ts#L510) omite la clave `cursor` si es `undefined`, inyectándola únicamente cuando es de tipo `number`.
 * **Solución recomendada en VantaDB:**
   ```rust
   if let Some(c) = obj.get("cursor") {
@@ -72,7 +72,7 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
   VantaError: put: invalid metadata: invalid type: floating point 1791394643512.0, expected i64
   ```
 * **Causa Raíz:** Los números en V8 (JavaScript) son de punto flotante de doble precisión IEEE-754 (`f64`). NAPI-RS serde deserializa números JS como floats por defecto. Al empatar con la variante serde `VantaValue::Int(i64)`, serde falla si no encuentra un tipo entero estricto.
-* **Workaround en Ego:** [`EgoMemoryAdapter.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryAdapter.ts#L72) normaliza los tipos envolviendo valores primitivos en estructuras etiquetadas `{ Float: v }`, `{ String: v }`, `{ Bool: v }`, `'Null'`.
+* **Workaround en Ego:** [`EgoMemoryAdapter.ts`](../packages/memory/EgoMemoryAdapter.ts#L72) normaliza los tipos envolviendo valores primitivos en estructuras etiquetadas `{ Float: v }`, `{ String: v }`, `{ Bool: v }`, `'Null'`.
 * **Solución recomendada en VantaDB:** Implementar deserialización tolerante en Rust con coerción: si un `f64` no tiene parte fraccionaria (`val.fract() == 0.0`), deserializarlo automáticamente como `VantaValue::Int(val as i64)`.
 
 ---
@@ -109,7 +109,7 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
 * **Componente:** `src/sdk/search/multi.rs` y `validate_namespace`
 * **Petición:** Permitir expresiones de prefijo/comodín como `projects/default/*` o `kb/*` directamente en `Embedded::search_multi`.
 * **Situación Actual:** La función `validate_namespace` restringe los caracteres a `[A-Za-z0-9._/-]+`. Caracteres como `*` son rechazados con `VALIDATION_ERROR`.
-* **Workaround en Ego:** [`EgoMemoryAdapter.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryAdapter.ts#L157) consulta `listNamespaces()`, filtra manualmente con regex los namespaces coincidentes y los expande antes de enviarlos a Rust.
+* **Workaround en Ego:** [`EgoMemoryAdapter.ts`](../packages/memory/EgoMemoryAdapter.ts#L157) consulta `listNamespaces()`, filtra manualmente con regex los namespaces coincidentes y los expande antes de enviarlos a Rust.
 * **Solución recomendada en VantaDB:** Añadir el método `search_prefix(prefix: &str, request)` en el SDK de Rust que realice el escaneo del índice de particiones de forma nativa.
 
 ---
@@ -130,7 +130,7 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
 * **Componente:** Tokenizador léxico / Tantivy en `src/index/tokenizer.rs`
 * **Petición:** Mejorar el tokenizador para que elimine automáticamente signos de puntuación iniciales y finales en español (`¿`, `?`, `¡`, `!`, `«`, `»`).
 * **Situación Actual:** Si una consulta contiene `"¿Cuáles son los principios?"`, el token resultante puede ser `"¿cuáles"` o `"principios?"`. Si el documento indexado contiene `"principios"`, el match exacto de término falla debido al signo de interrogación adherido.
-* **Workaround en Ego:** [`EgoMemoryLifecycle.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryLifecycle.ts#L98) sanitiza el prompt antes de enviarlo a `searchMulti`:
+* **Workaround en Ego:** [`EgoMemoryLifecycle.ts`](../packages/memory/EgoMemoryLifecycle.ts#L98) sanitiza el prompt antes de enviarlo a `searchMulti`:
   ```ts
   const cleanPrompt = prompt.replace(/[¿?¡!.,;:()]/g, " ").trim();
   ```
@@ -178,7 +178,7 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
   VantaError: put: invalid metadata: expected primitive or string value
   ```
 * **Causa Raíz:** El tipo `VantaValue` en Rust modela valores primitivos (`String`, `Int`, `Float`, `Bool`) y arrays planos, pero no implementa una variante recursiva tipo `VantaValue::Map(HashMap<String, VantaValue>)` o `VantaValue::Json(serde_json::Value)` completa para metadatos jerárquicos arbitrarios.
-* **Workaround en Ego:** En [`packages/decision/src/DecisionAuditor.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/decision/src/DecisionAuditor.ts) y en [`EgoMemoryAdapter.ts`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryAdapter.ts), cualquier objeto o lista compleja anidada dentro de `metadata` debe aplanarse o convertirse explícitamente a cadena de texto mediante `JSON.stringify()` previo a la inserción, requiriendo `JSON.parse()` defensivo en el consumo.
+* **Workaround en Ego:** En [`packages/decision/src/DecisionAuditor.ts`](../packages/decision/src/DecisionAuditor.ts) y en [`EgoMemoryAdapter.ts`](../packages/memory/EgoMemoryAdapter.ts), cualquier objeto o lista compleja anidada dentro de `metadata` debe aplanarse o convertirse explícitamente a cadena de texto mediante `JSON.stringify()` previo a la inserción, requiriendo `JSON.parse()` defensivo en el consumo.
 * **Solución recomendada en VantaDB:** Agregar soporte para `serde_json::Value` arbitrario en los metadatos o enriquecer `VantaValue` con variantes `Map(HashMap<String, VantaValue>)` y `Array(Vec<VantaValue>)` que serialicen transparentemente desde y hacia objetos JavaScript anidados.
 
 ---
@@ -196,7 +196,7 @@ context: "Derivado de la integración real de Ego con VantaDB 0.8.0 y vantadb-no
   }
   ```
   Una cadena vacía `text_query: ""` se evalúa como falsy (`!text_query === true`), forzando de forma estricta la presencia de un vector denso o esparso.
-* **Workaround en Ego:** En `apps/desktop/src/main.ts` y en todos los servicios de dominio, no utilizar `searchMulti()` para barridos de namespaces sin término léxico; utilizar obligatoriamente la API nativa de paginación [`adapter.list(namespace, limit)`](file:///c:/Users/Eros/VantaDB%20Proyect/Ego/packages/memory/EgoMemoryAdapter.ts#L155).
+* **Workaround en Ego:** En `apps/desktop/src/main.ts` y en todos los servicios de dominio, no utilizar `searchMulti()` para barridos de namespaces sin término léxico; utilizar obligatoriamente la API nativa de paginación [`adapter.list(namespace, limit)`](../packages/memory/EgoMemoryAdapter.ts#L155).
 * **Solución recomendada en VantaDB:** Permitir `text_query: ""` como coincidencia total (*match-all / full namespace scan*) o proveer un método explícito `db.scan()` / documentar la prohibición de búsquedas sin vector en la API TypeScript.
 
 ---

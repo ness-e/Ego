@@ -9,6 +9,12 @@ import { EgoMemoryAdapter } from "../EgoMemoryAdapter.js";
  * CORE-15: Suite de contrato in-process EgoMemoryAdapter ↔ NativeVantaDB.
  * Pinea las firmas de tipos, comportamiento del binding NAPI-RS y garantías
  * de persistencia de Fjall LSM requeridas por Ego (contrapartida de MEMG-24).
+ *
+ * F6T13/L09 — Excepción documentada (CONTRACT-01) a "todo acceso por adapter":
+ * la sección 1 usa `NativeVantaDB` directo de forma intencional para fijar la
+ * superficie del binding (métodos canónicos, capabilities, paginación, BM25,
+ * delete) independientemente del adapter. La sección 2 valida el adapter.
+ * Sin este acceso directo, un cambio silencioso del binding pasaría inadvertido.
  */
 describe("CORE-15 — NativeVantaDB ↔ EgoMemoryAdapter Contract Suite", () => {
   const contractDir = path.join(os.tmpdir(), `ego-contract-vantadb-${Date.now()}`);

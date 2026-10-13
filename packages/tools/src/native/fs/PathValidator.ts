@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
+import { getErrorParts } from "../../error-parts.js";
 
 /**
  * Rutas reservadas críticas del sistema que NUNCA pueden ser tocadas por herramientas de Ego.
@@ -77,8 +78,8 @@ export class PathValidator {
           );
         }
       }
-    } catch (err: any) {
-      if (err.code !== "ENOENT") {
+    } catch (err: unknown) {
+      if (getErrorParts(err).code !== "ENOENT") {
         throw err;
       }
     }

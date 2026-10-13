@@ -44,7 +44,7 @@ HKEY_CURRENT_USER\\Environment
     const result = readWindowsUserEnvVar("PNPM_HOME", {
       platform: "win32",
       env: { USERPROFILE: "C:\\Users\\Alice" },
-      exec: mockExec as any,
+      exec: mockExec,
     });
     expect(result).toBe("C:\\Users\\Alice\\pnpm");
   });
@@ -61,7 +61,7 @@ HKEY_CURRENT_USER\\Environment
     const repaired = repairWindowsUserPath({
       platform: "win32",
       env: mockEnv,
-      exec: mockExec as any,
+      exec: mockExec,
     });
 
     expect(repaired).toBe(true);

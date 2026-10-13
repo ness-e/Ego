@@ -39,6 +39,10 @@ export interface ToolExecutionContext {
 
 /**
  * Contrato declarativo inmutable de una herramienta registrada en Ego.
+ * L10 — Justificación de los defaults `any`: `ToolDefinition` bare es el tipo
+ * del catálogo heterogéneo (cada herramienta fija su propio `TInput`/`TOutput`
+ * vía `z.infer`); `unknown` impediría despachar `execute(input, ctx)` sobre el
+ * catálogo sin casts en cada call site.
  */
 export interface ToolDefinition<TInput = any, TOutput = any> {
   readonly name: string;
@@ -83,6 +87,7 @@ export interface ToolJsonSchema {
 
 /**
  * Adaptador de compatibilidad para AI SDK v7 (`CoreTool`).
+ * L10 — Mismo default justificado que `ToolDefinition` (catálogo heterogéneo).
  */
 export interface AiSdkToolAdapter<TInput = any, TOutput = any> {
   description: string;

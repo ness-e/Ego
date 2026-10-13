@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { ToolDefinition, ToolExecutionContext } from "../../types.js";
+import { getErrorParts } from "../../error-parts.js";
 import { GitParser } from "./GitParser.js";
 import { PathValidator } from "../fs/PathValidator.js";
 
@@ -48,8 +49,8 @@ export function createGitStatusTool(options: NativeGitOptions = {}): ToolDefinit
         });
 
         return GitParser.parseStatus(stdout);
-      } catch (err: any) {
-        throw new Error(`Fallo ejecutando git status en '${cwd}': ${err.message || String(err)}`);
+      } catch (err: unknown) {
+        throw new Error(`Fallo ejecutando git status en '${cwd}': ${getErrorParts(err).message}`);
       }
     },
   };
@@ -92,8 +93,8 @@ export function createGitDiffTool(options: NativeGitOptions = {}): ToolDefinitio
         });
 
         return GitParser.parseDiff(stdout);
-      } catch (err: any) {
-        throw new Error(`Fallo ejecutando git diff en '${workspace}': ${err.message || String(err)}`);
+      } catch (err: unknown) {
+        throw new Error(`Fallo ejecutando git diff en '${workspace}': ${getErrorParts(err).message}`);
       }
     },
   };

@@ -19,7 +19,6 @@
   "dependencies": {
     "@ego/events": "workspace:*",
     "@ego/memory": "workspace:*",
-    "@ego/models": "workspace:*",
     "zod": "^3.23.8"
   },
   "devDependencies": {

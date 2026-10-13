@@ -11,6 +11,26 @@ export interface StorageHealthReport {
 }
 
 /**
+ * F6T13/L10 — narrowing local (sin `any`): `@ego/recovery` no depende de
+ * `@ego/tools`, por lo que no reutiliza su `getErrorParts`; la semántica es idéntica.
+ */
+function errorParts(err: unknown): { message: string; stack: string; code: string } {
+  if (err instanceof Error) {
+    const code = typeof (err as { code?: unknown }).code === "string" ? String((err as { code?: unknown }).code) : "";
+    return { message: err.message, stack: err.stack ?? "", code };
+  }
+  if (typeof err === "object" && err !== null) {
+    const record = err as Record<string, unknown>;
+    return {
+      message: typeof record.message === "string" ? record.message : String(err),
+      stack: typeof record.stack === "string" ? record.stack : "",
+      code: typeof record.code === "string" ? record.code : ""
+    };
+  }
+  return { message: String(err), stack: "", code: "" };
+}
+
+/**
  * StorageHealthLatch - Pestillo de salud del almacenamiento local a nivel de proceso (Patrón Hermes HERM-15).
  *
  * Registra de forma determinista si la base de datos VantaDB (Fjall LSM) o su almacenamiento
@@ -30,13 +50,11 @@ export class StorageHealthLatch {
    */
   public static isLockedError(error: unknown): boolean {
     if (!error) return false;
-    const msg = String((error as any).message || error);
-    const stack = String((error as any).stack || "");
-    const code = String((error as any).code || "");
+    const { message: msg, stack, code } = errorParts(error);
     return (
       msg.includes("FjallError: Locked") ||
       stack.includes("FjallError: Locked") ||
-      code === "VANTADB_IO_ERROR" && (msg.includes("Locked") || stack.includes("Locked"))
+      (code === "VANTADB_IO_ERROR" && (msg.includes("Locked") || stack.includes("Locked")))
     );
   }
 
@@ -45,7 +63,7 @@ export class StorageHealthLatch {
    */
   public static isStructuralCorruptionError(error: unknown): boolean {
     if (!error) return false;
-    const msg = String((error as any).message || error).toLowerCase();
+    const msg = errorParts(error).message.toLowerCase();
     return (
       msg.includes("corrupt") ||
       msg.includes("notadb") ||
@@ -86,7 +104,7 @@ export class StorageHealthLatch {
       this.markStorageState(
         dbPath,
         "corrupt",
-        `Daño estructural detectado en la base de datos: ${String((error as any).message || error)}`
+        `Daño estructural detectado en la base de datos: ${errorParts(error).message}`
       );
       return true;
     }
@@ -147,8 +165,8 @@ export class StorageHealthLatch {
       }
 
       return { ok: true };
-    } catch (err: any) {
-      const reason = `Error de acceso al directorio de almacenamiento '${resolved}': ${err.message}`;
+    } catch (err: unknown) {
+      const reason = `Error de acceso al directorio de almacenamiento '${resolved}': ${errorParts(err).message}`;
       this.markStorageState(resolved, "corrupt", reason);
       return { ok: false, reason };
     }

@@ -188,4 +188,32 @@ describe("@ego/execution — ExecutionManager (ACT-03)", () => {
     expect(res.error).toBe("Fallo forzado en herramienta");
     expect(events.some((e) => e.type === "failed" && e.callId === "call_fail")).toBe(true);
   });
+
+  it("9. L03: dos ejecuciones concurrentes con el mismo callId no se pisan", async () => {
+    const p1 = manager.execute(slowTool, { sleepMs: 80 }, mockContext("call_dup"));
+    const p2 = manager.execute(slowTool, { sleepMs: 80 }, mockContext("call_dup"));
+
+    await new Promise((r) => setTimeout(r, 20));
+    const active = manager.getActiveExecutions();
+    const dupEntries = active.filter((e) => e.callId.startsWith("call_dup"));
+    expect(dupEntries.length).toBe(2);
+    expect(new Set(dupEntries.map((e) => e.callId)).size).toBe(2);
+
+    const [r1, r2] = await Promise.all([p1, p2]);
+    expect(r1.status).toBe("success");
+    expect(r2.status).toBe("success");
+    expect(r1.callId).not.toBe(r2.callId);
+    expect(manager.getActiveExecutions().length).toBe(0);
+  });
+
+  it("10. L03: callId vacío genera un id interno único en vez de colisionar", async () => {
+    const r1 = await manager.execute(simpleTool, { input: "a" }, mockContext(""));
+    const r2 = await manager.execute(simpleTool, { input: "b" }, mockContext("   "));
+
+    expect(r1.status).toBe("success");
+    expect(r2.status).toBe("success");
+    expect(r1.callId.length).toBeGreaterThan(0);
+    expect(r2.callId.length).toBeGreaterThan(0);
+    expect(r1.callId).not.toBe(r2.callId);
+  });
 });

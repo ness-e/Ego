@@ -61,23 +61,26 @@ export class EventIngress {
 
   /**
    * Ingreso de eventos externos crudos (CLI, OpenCode, Claude Code, MCP hooks).
+   * L10: el crudo entra como `unknown`; el narrowing vive en `EventNormalizer`
+   * y en el `Record` local — nunca se propaga `any` al núcleo.
    */
   public async ingressRaw(
     rawEventName: string,
-    rawPayload: any,
+    rawPayload: unknown,
     options: IngressOptions = {}
   ): Promise<IngressResult> {
     const startedAt = Date.now();
     const canonicalType = EventNormalizer.normalizeType(rawEventName);
     const normalizedPayload = EventNormalizer.normalizePayload(rawEventName, rawPayload);
+    const raw = (rawPayload ?? {}) as Record<string, unknown>;
 
     const event: EgoEvent = {
-      id: (rawPayload?.id || `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`) as string,
+      id: (raw.id || `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`) as string,
       type: canonicalType,
       timestamp: startedAt,
-      source: options.source ?? (rawPayload?.source as string) ?? "edge-ingress",
-      sessionId: options.sessionId ?? (rawPayload?.sessionId as string),
-      traceId: options.traceId ?? (rawPayload?.traceId as string),
+      source: options.source ?? (raw.source as string) ?? "edge-ingress",
+      sessionId: options.sessionId ?? (raw.sessionId as string),
+      traceId: options.traceId ?? (raw.traceId as string),
       severity: this.inferSeverity(canonicalType, normalizedPayload),
       payload: normalizedPayload,
     };
@@ -200,9 +203,10 @@ export class EventIngress {
     this.pendingInteractions.clear();
   }
 
-  private inferSeverity(type: EgoEventType, payload: any): EventSeverity {
+  private inferSeverity(type: EgoEventType, payload: unknown): EventSeverity {
+    const p = (payload ?? {}) as Record<string, unknown>;
     if (type === "approval.required" || type === "system.alert" || type === "task.failed") {
-      return (payload?.riskLevel === "destructive" || payload?.severity === "critical") ? "critical" : "warn";
+      return (p.riskLevel === "destructive" || p.severity === "critical") ? "critical" : "warn";
     }
     if (type === "tool.failed") {
       return "warn";

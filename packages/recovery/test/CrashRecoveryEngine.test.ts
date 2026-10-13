@@ -81,4 +81,34 @@ describe("CrashRecoveryEngine (REC-01)", () => {
 
     engine.releaseLock();
   });
+
+  it("L12: el heartbeat escribe de forma atómica (temporal+rename) sin dejar restos", async () => {
+    const engine = new CrashRecoveryEngine({
+      storageDir: tmpDir,
+      heartbeatIntervalMs: 20,
+      staleThresholdMs: 10000
+    });
+    await engine.checkAndAcquireLock("test-heartbeat");
+
+    const lockPath = path.join(tmpDir, "ego.lock");
+    const before = JSON.parse(fs.readFileSync(lockPath, "utf8")) as { lastHeartbeat: number };
+    await new Promise((r) => setTimeout(r, 150));
+    engine.stopHeartbeat();
+
+    const after = JSON.parse(fs.readFileSync(lockPath, "utf8")) as {
+      lastHeartbeat: number;
+      pid: number;
+      sessionId: string;
+    };
+    expect(after.lastHeartbeat).toBeGreaterThan(before.lastHeartbeat);
+    expect(after.pid).toBe(process.pid);
+    expect(after.sessionId).toBe("test-heartbeat");
+
+    const leftovers = fs
+      .readdirSync(tmpDir)
+      .filter((f) => f !== "ego.lock" && (f.endsWith(".tmp") || f.includes("ego.lock.")));
+    expect(leftovers).toEqual([]);
+
+    engine.releaseLock();
+  });
 });

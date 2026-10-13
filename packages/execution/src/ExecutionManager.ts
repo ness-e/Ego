@@ -1,4 +1,6 @@
 import type { ToolDefinition, ToolExecutionContext } from "@ego/tools";
+import { getErrorParts } from "@ego/tools";
+import { randomUUID } from "node:crypto";
 import type {
   ExecutionEvent,
   ExecutionManagerConfig,
@@ -89,6 +91,8 @@ export class ExecutionManager {
 
   /**
    * Ejecuta una herramienta con supervisión estricta de timeouts, cuotas y cancelación.
+   * L10 — Justificación de los defaults `any`: el manager despacha herramientas
+   * heterogéneas (`ToolDefinition` bare); tipar aquí rompería el catálogo.
    */
   public async execute<TInput = any, TOutput = any>(
     tool: ToolDefinition<TInput, TOutput>,
@@ -96,12 +100,18 @@ export class ExecutionManager {
     context: ToolExecutionContext,
     options: ExecutionOptions = {}
   ): Promise<ExecutionResult<TOutput>> {
-    const callId = context.callId;
+    // L03: el `callId` lo provee el llamante sin garantía de unicidad.
+    // Vacío → id interno (aquí); colisión → sufijo `#n` al registrar
+    // (allí, porque dos `execute` concurrentes resuelven antes de registrar).
+    const requestedCallId = this.resolveCallId(context.callId);
     const timeoutMs = options.timeoutMs ?? this.config.defaultTimeoutMs;
     const maxOutputBytes = options.maxOutputSizeBytes ?? this.config.maxOutputSizeBytes;
 
     // Adquirir slot de concurrencia
     await this.acquireSlot();
+
+    // L03: reclamar clave única contra el mapa real en este instante.
+    const callId = this.claimCallId(requestedCallId);
 
     const startTime = Date.now();
     const abortController = new AbortController();
@@ -177,7 +187,7 @@ export class ExecutionManager {
       });
 
       return this.createResult(callId, tool.name, "success", output, undefined, durationMs, truncated);
-    } catch (err: any) {
+    } catch (err: unknown) {
       clearTimeout(timer);
       const durationMs = Date.now() - startTime;
 
@@ -197,7 +207,7 @@ export class ExecutionManager {
             ? reason
             : "Operación abortada";
       } else {
-        errorMsg = err instanceof Error ? err.message : String(err);
+        errorMsg = getErrorParts(err).message;
       }
 
       this.emitEvent({
@@ -215,6 +225,39 @@ export class ExecutionManager {
       this.activeExecutions.delete(callId);
       this.releaseSlot();
     }
+  }
+
+  /**
+   * L03: normaliza el `callId` del llamante (vacío → id interno único).
+   */
+  private resolveCallId(rawCallId: string): string {
+    const trimmed = typeof rawCallId === "string" ? rawCallId.trim() : "";
+    if (trimmed.length === 0) {
+      console.warn(
+        "[ExecutionManager] callId vacío del llamante: generando id interno para preservar unicidad."
+      );
+      return `call_internal_${randomUUID()}`;
+    }
+    return trimmed;
+  }
+
+  /**
+   * L03: reclama una clave única en `activeExecutions`, sufijando `#n` ante
+   * colisión para que `abortExecution` nunca mate a la ejecución equivocada.
+   */
+  private claimCallId(requested: string): string {
+    let candidate = requested;
+    let suffix = 1;
+    while (this.activeExecutions.has(candidate)) {
+      suffix += 1;
+      candidate = `${requested}#${suffix}`;
+    }
+    if (candidate !== requested) {
+      console.warn(
+        `[ExecutionManager] Colisión de callId '${requested}': registrada como '${candidate}'.`
+      );
+    }
+    return candidate;
   }
 
   /**

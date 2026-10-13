@@ -1,4 +1,12 @@
 {
+  // F6T13/L06+L07 — Decisión documentada: ALINEAR, no migrar.
+  // `packages/memory` conserva su layout histórico (fuentes en la raíz, sin `src/`,
+  // a diferencia del resto de paquetes). Migrar 12 fuentes + imports `../*.js` de
+  // la suite + decenas de referencias `packages/memory/*.ts` en docs/ excede un low
+  // y rompería los links estabilizados en F6T12. Alineación aplicada: `rootDir` e
+  // `include` explícitos + `exclude` de `dist`/`test`/`node_modules` (el riesgo
+  // citado en L07 — que `dist` entre al programa si cambia `exclude` — queda
+  // cubierto por este `exclude` explícito y verificado por `typecheck`).
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",

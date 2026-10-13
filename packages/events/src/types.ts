@@ -129,6 +129,10 @@ export interface CanonicalEventPayloadMap {
 
 /**
  * Función manejadora de eventos.
+ * L10 — Justificación del default `any`: es el alias no genérico del bus
+ * (`EventHandler` bare = cualquier payload); el mapa canónico
+ * `CanonicalEventPayloadMap` + `on<K>` proveen la vía tipada. Cambiar el
+ * default a `unknown` rompería la contravarianza de todos los suscriptores existentes.
  */
 export type EventHandler<T = any> = (event: EgoEvent<T>) => void | Promise<void>;
 

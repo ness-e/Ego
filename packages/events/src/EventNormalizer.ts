@@ -50,50 +50,52 @@ export class EventNormalizer {
 
   /**
    * Transforma una carga útil externa arbitraria a un payload estructurado compatible con Ego.
+   * L10: `unknown` en el borde — el núcleo nunca toca el crudo sin narrowing.
    */
-  public static normalizePayload(rawEventName: string, rawPayload: any): Record<string, unknown> {
+  public static normalizePayload(rawEventName: string, rawPayload: unknown): Record<string, unknown> {
     if (!rawPayload || typeof rawPayload !== "object") {
       return { raw: rawPayload };
     }
+    const payload = rawPayload as Record<string, unknown>;
 
     switch (rawEventName) {
       case "PreToolUse":
       case "tool_call_start":
         return {
-          callId: rawPayload.callId || rawPayload.id || `call_${Date.now()}`,
-          toolName: rawPayload.tool || rawPayload.name || "unknown_tool",
-          input: rawPayload.input || rawPayload.arguments || {},
-          riskLevel: rawPayload.riskLevel || "sensitive",
+          callId: payload.callId || payload.id || `call_${Date.now()}`,
+          toolName: payload.tool || payload.name || "unknown_tool",
+          input: payload.input || payload.arguments || {},
+          riskLevel: payload.riskLevel || "sensitive",
         };
 
       case "PostToolUse":
       case "tool_call_result":
         return {
-          callId: rawPayload.callId || rawPayload.id || `call_${Date.now()}`,
-          toolName: rawPayload.tool || rawPayload.name || "unknown_tool",
-          durationMs: rawPayload.durationMs || 0,
-          result: rawPayload.result ?? rawPayload.output,
+          callId: payload.callId || payload.id || `call_${Date.now()}`,
+          toolName: payload.tool || payload.name || "unknown_tool",
+          durationMs: payload.durationMs || 0,
+          result: payload.result ?? payload.output,
         };
 
       case "PostToolUseFailure":
       case "tool_call_error":
         return {
-          callId: rawPayload.callId || rawPayload.id || `call_${Date.now()}`,
-          toolName: rawPayload.tool || rawPayload.name || "unknown_tool",
-          durationMs: rawPayload.durationMs || 0,
-          error: String(rawPayload.error || rawPayload.message || "Unknown error"),
+          callId: payload.callId || payload.id || `call_${Date.now()}`,
+          toolName: payload.tool || payload.name || "unknown_tool",
+          durationMs: payload.durationMs || 0,
+          error: String(payload.error || payload.message || "Unknown error"),
         };
 
       case "PermissionRequest":
         return {
-          approvalId: rawPayload.requestId || `appr_${Date.now()}`,
-          action: rawPayload.action || rawPayload.tool || "sensitive_action",
-          riskLevel: rawPayload.riskLevel || "destructive",
-          details: rawPayload.details || rawPayload.parameters || {},
+          approvalId: payload.requestId || `appr_${Date.now()}`,
+          action: payload.action || payload.tool || "sensitive_action",
+          riskLevel: payload.riskLevel || "destructive",
+          details: payload.details || payload.parameters || {},
         };
 
       default:
-        return { ...rawPayload };
+        return { ...payload };
     }
   }
 }

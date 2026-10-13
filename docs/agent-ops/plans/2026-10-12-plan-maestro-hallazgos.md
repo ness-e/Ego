@@ -391,9 +391,20 @@ Próxima tarea si completa:
 === RECITATION F6T12 ===
 Campaign ID: 
 Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Repo/docs coherentes. Commit 0337e8f. H28: owner eligió revertir tareas a pendiente.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F6T13 ===
+Campaign ID: 
+Objetivo activo: 
 Estado: in progress
 Última acción: Estado actualizado a IN PROGRESS
-Resultado: Inicio F6T12: repo y docs
+Resultado: Inicio F6T13: barrido lows
 Próxima acción: 
 Contrato: 
 Próxima tarea si completa: 

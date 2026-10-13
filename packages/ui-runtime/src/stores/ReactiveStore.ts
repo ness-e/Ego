@@ -22,10 +22,12 @@ export class ReactiveStore<T extends Record<string, unknown>> {
     const patch = typeof updater === "function" ? updater(this.state) : updater;
     const nextState = { ...this.state, ...patch };
 
-    // Comparación superficial rápida
+    // Comparación superficial rápida (L10: indexado tipado, sin `any`)
+    const stateRecord = this.state as Record<string, unknown>;
+    const nextRecord = nextState as Record<string, unknown>;
     let hasChanged = false;
     for (const key of Object.keys(patch)) {
-      if ((this.state as any)[key] !== (nextState as any)[key]) {
+      if (stateRecord[key] !== nextRecord[key]) {
         hasChanged = true;
         break;
       }

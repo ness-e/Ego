@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
-import { ChangeSetService, FileDiff } from "@ego/tools";
+import { ChangeSetService, FileDiff, getErrorParts } from "@ego/tools";
 
 export interface ConfigMutationPlan {
   id: string;
@@ -39,9 +39,10 @@ export class SafeConfigMutationService {
     try {
       originalContent = await fs.readFile(resolvedPath, "utf8");
       exists = true;
-    } catch (err: any) {
-      if (err.code !== "ENOENT") {
-        throw new Error(`[SafeConfigMutation] Error leyendo archivo de destino: ${err.message}`);
+    } catch (err: unknown) {
+      const parts = getErrorParts(err);
+      if (parts.code !== "ENOENT") {
+        throw new Error(`[SafeConfigMutation] Error leyendo archivo de destino: ${parts.message}`);
       }
       originalContent = "";
       exists = false;
@@ -51,9 +52,9 @@ export class SafeConfigMutationService {
     if (exists && resolvedPath.endsWith(".json") && originalContent.trim().length > 0) {
       try {
         JSON.parse(originalContent);
-      } catch (err: any) {
+      } catch (err: unknown) {
         throw new Error(
-          `[SafeConfigMutation] El archivo original contiene JSON corrupto o malformado: ${err.message}`
+          `[SafeConfigMutation] El archivo original contiene JSON corrupto o malformado: ${getErrorParts(err).message}`
         );
       }
     }
@@ -68,9 +69,9 @@ export class SafeConfigMutationService {
     if (resolvedPath.endsWith(".json") && newContent.trim().length > 0) {
       try {
         JSON.parse(newContent);
-      } catch (err: any) {
+      } catch (err: unknown) {
         throw new Error(
-          `[SafeConfigMutation] La mutación propuesta genera un JSON inválido: ${err.message}`
+          `[SafeConfigMutation] La mutación propuesta genera un JSON inválido: ${getErrorParts(err).message}`
         );
       }
     }
@@ -136,8 +137,8 @@ export class SafeConfigMutationService {
     let currentOnDisk = "";
     try {
       currentOnDisk = await fs.readFile(plan.targetPath, "utf8");
-    } catch (err: any) {
-      if (err.code !== "ENOENT") throw err;
+    } catch (err: unknown) {
+      if (getErrorParts(err).code !== "ENOENT") throw err;
       currentOnDisk = "";
     }
 
@@ -171,7 +172,7 @@ export class SafeConfigMutationService {
       await fs.rename(tmpPath, plan.targetPath);
       plan.status = "applied";
       return { success: true, backupPath };
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Limpieza de temporal ante fallo
       try {
         await fs.unlink(tmpPath);
@@ -179,7 +180,7 @@ export class SafeConfigMutationService {
         // Ignorar si el temporal no se llegó a crear
       }
       plan.status = "failed";
-      throw new Error(`[SafeConfigMutation] Falló la escritura atómica: ${err.message}`);
+      throw new Error(`[SafeConfigMutation] Falló la escritura atómica: ${getErrorParts(err).message}`);
     }
   }
 
