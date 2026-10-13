@@ -11,6 +11,7 @@
     "pack": "electron-builder --dir --config electron-builder.config.cjs",
     "dev": "electron .",
     "pretest": "node ../../scripts/ensure-fresh-dist.cjs",
+    "smoke:native": "node scripts/smoke-native-packaged.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

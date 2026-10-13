@@ -1,0 +1,101 @@
+# DIST-10 — Smoke headless del binario nativo desempaquetado en CI (HERM-15).
+#
+# Qué valida: el `.node` de VantaDB carga bajo el runtime REAL de Electron
+# (ELECTRON_RUN_AS_NODE, headless, sin GUI) + `connect()` sobre disco con
+# roundtrip put/get. Falla ante ABI drift (NODE_MODULE_VERSION mismatch),
+# binario ausente/corrupto o regresión de `asarUnpack: ['**/*.node']`.
+#
+# Diseño (decisión DIST-10-01): workflow SEPARADO del fast gate `ci.yml`.
+# - Corre en windows-latest (el .node es win32-x64; ubuntu no puede cargarlo).
+# - Sin empaquetado completo: sin electron-builder, sin firmados (DIST-04),
+#   sin red extra salvo registros (pnpm + checkout) — mínimo viable del contrato.
+# - No bloqueante hasta el primer verde en GitHub (decisión DIST-10-02):
+#   el provisioning del binding real exige compilar `vantadb-node` (Rust +
+#   napi CLI) desde el checkout hermano; promover a required check solo con
+#   OK del owner tras verlo verde.
+# - Pin upstream: rama `develop` de ness-e/Vantadb (misma que usa DIST-09;
+#   verificado 2026-10-13 en el checkout local). Override vía workflow_dispatch.
+name: Smoke native (asarUnpack)
+
+on:
+  workflow_dispatch:
+    inputs:
+      vantadb_ref:
+        description: Ref de ness-e/Vantadb para compilar vantadb-node
+        default: develop
+        required: false
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - apps/desktop/**
+      - packages/memory/**
+      - .github/workflows/smoke-native.yml
+  push:
+    branches: [main]
+    paths:
+      - apps/desktop/**
+      - packages/memory/**
+      - .github/workflows/smoke-native.yml
+
+jobs:
+  smoke-native-win:
+    name: Smoke .node + connect() (win x64, Electron headless)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      ELECTRON_RUN_AS_NODE: "1"
+
+    steps:
+      - name: Checkout Ego
+        uses: actions/checkout@v4
+
+      - name: Checkout VantaDB (binding nativo real)
+        uses: actions/checkout@v4
+        with:
+          repository: ness-e/Vantadb
+          ref: ${{ inputs.vantadb_ref || 'develop' }}
+          path: upstream-VantaDB
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust (compilar vantadb-node napi)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: "Provision sibling VantaDB layout (file: dep)"
+        # `apps/desktop` + `packages/memory` dependen de
+        # `file:../../../VantaDB/vantadb-node` (hermano del repo Ego).
+        # Se replica ese layout copiando el subdir del checkout upstream.
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force ..\VantaDB | Out-Null
+          Copy-Item -Recurse -Force upstream-VantaDB/vantadb-node ..\VantaDB/vantadb-node
+          Get-ChildItem ..\VantaDB/vantadb-node/package.json
+
+      - name: Build vantadb-node (napi, release, plataforma del runner)
+        working-directory: ../VantaDB/vantadb-node
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Ego workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Electron binary present (headless mín. viable)
+        run: pnpm --filter @ego/desktop exec electron --version
+
+      - name: Smoke .node desempaquetado + connect() (gate ABI real)
+        # `pnpm --filter ... exec` fija CWD en apps/desktop → ruta relativa
+        # al paquete (verificado: con prefijo apps/desktop/ duplica el path).
+        run: >
+          pnpm --filter @ego/desktop exec electron
+          scripts/smoke-native-packaged.cjs --require-electron
