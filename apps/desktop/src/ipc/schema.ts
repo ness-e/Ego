@@ -395,3 +395,55 @@ export const DomainCrmDealsSchema = z.object({
 
 export type DomainCrmDealsRequest = z.infer<typeof DomainCrmDealsSchema>;
 
+/**
+ * Esquemas de validación para canales IPC sin schema dedicado (SEC-02).
+ * Cubren los 5 handlers que validaban con coerción manual (`typeof`)
+ * en vez de Zod: límites sin acotar, fechas sin formato, projectId
+ * vacío y paquetes de importación sin forma (estos últimos aceptaban
+ * `string`, lo que exponía `fs.readFile` a paths del renderer).
+ */
+export const DecisionListAuditsSchema = z.number().int().positive().max(500).optional();
+
+export type DecisionListAuditsRequest = z.infer<typeof DecisionListAuditsSchema>;
+
+export const KnowledgeExportSchema = z.string().min(1).max(128).optional();
+
+export type KnowledgeExportRequest = z.infer<typeof KnowledgeExportSchema>;
+
+export const KnowledgeImportSchema = z.object({
+  version: z.string().min(1),
+  projectId: z.string().min(1),
+  exportedAt: z.number().optional(),
+  checksum: z.string().min(1),
+  totalRecords: z.number().int().nonnegative().optional(),
+  records: z
+    .array(
+      z.object({
+        namespace: z.string().min(1),
+        key: z.string().min(1),
+        payload: z.unknown(),
+        metadata: z.record(z.unknown()).optional(),
+      })
+    )
+    .max(100000),
+});
+
+export type KnowledgeImportRequest = z.infer<typeof KnowledgeImportSchema>;
+
+export const DailyGetSnapshotSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((s) => {
+    const [y, m, d] = s.split("-").map(Number);
+    if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+  }, "Fecha calendario inválida")
+  .optional();
+
+export type DailyGetSnapshotRequest = z.infer<typeof DailyGetSnapshotSchema>;
+
+export const DailyListSnapshotsSchema = z.number().int().positive().max(500).optional();
+
+export type DailyListSnapshotsRequest = z.infer<typeof DailyListSnapshotsSchema>;
+

@@ -62,6 +62,11 @@ import {
   DomainKnowledgeSearchSchema,
   DomainAnalyticsSeriesSchema,
   DomainCrmDealsSchema,
+  DecisionListAuditsSchema,
+  KnowledgeExportSchema,
+  KnowledgeImportSchema,
+  DailyGetSnapshotSchema,
+  DailyListSnapshotsSchema,
 } from "./ipc/schema.js";
 import {
   DomainRegistry,
@@ -2202,8 +2207,12 @@ export async function createWindow(): Promise<void> {
     return { ok: true, verdict, auditKey };
   });
 
-  ipcMain.handle("ipc.decision.listAudits", async (_e, limit: unknown) => {
-    const lim = typeof limit === "number" ? limit : 50;
+  ipcMain.handle("ipc.decision.listAudits", async (_e, rawReq: unknown) => {
+    const parseResult = DecisionListAuditsSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const lim = parseResult.data ?? 50;
     const audits = await decisionAuditor.listRecentVerdicts(lim);
     return { ok: true, audits };
   });
@@ -2315,17 +2324,38 @@ export async function createWindow(): Promise<void> {
     return { ok: true, explanation };
   });
 
-  ipcMain.handle("ipc.knowledge.export", async (_e, projectId?: unknown) => {
-    const pId = typeof projectId === "string" ? projectId : activeProjectId;
+  ipcMain.handle("ipc.knowledge.export", async (_e, rawReq: unknown) => {
+    const parseResult = KnowledgeExportSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const pId = parseResult.data ?? activeProjectId;
     const pkg = await knowledgeExport.exportPackage(pId);
     return { ok: true, pkg };
   });
 
-  ipcMain.handle("ipc.knowledge.import", async (_e, pkg: unknown) => {
-    if (typeof pkg !== "object" || pkg === null) {
-      return { ok: false, error: "Paquete de importación inválido" };
+  ipcMain.handle("ipc.knowledge.import", async (_e, rawReq: unknown) => {
+    // SEC-02: solo se acepta paquete inline. Un `string` llegaría a
+    // `fs.readFile` dentro de `importPackage` (lectura arbitraria de
+    // archivos desde el renderer, que es untrusted).
+    const parseResult = KnowledgeImportSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
     }
-    const result = await knowledgeExport.importPackage(pkg as any);
+    const pkg = parseResult.data;
+    const result = await knowledgeExport.importPackage({
+      version: pkg.version,
+      projectId: pkg.projectId,
+      exportedAt: pkg.exportedAt ?? Date.now(),
+      checksum: pkg.checksum,
+      totalRecords: pkg.totalRecords ?? pkg.records.length,
+      records: pkg.records.map((rec) => ({
+        namespace: rec.namespace,
+        key: rec.key,
+        payload: rec.payload as unknown,
+        metadata: rec.metadata,
+      })),
+    });
     return { ok: true, result };
   });
 
@@ -2364,14 +2394,22 @@ export async function createWindow(): Promise<void> {
     return { ok: true, snapshot };
   });
 
-  ipcMain.handle("ipc.daily.getSnapshot", async (_e, date: unknown) => {
-    const dateStr = typeof date === "string" ? date : DailyStateEngine.getTodayDateString();
+  ipcMain.handle("ipc.daily.getSnapshot", async (_e, rawReq: unknown) => {
+    const parseResult = DailyGetSnapshotSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const dateStr = parseResult.data ?? DailyStateEngine.getTodayDateString();
     const snapshot = await dailyStatePersistence.getSnapshot(dateStr);
     return { ok: true, snapshot };
   });
 
-  ipcMain.handle("ipc.daily.listSnapshots", async (_e, limit?: unknown) => {
-    const lim = typeof limit === "number" ? limit : 30;
+  ipcMain.handle("ipc.daily.listSnapshots", async (_e, rawReq: unknown) => {
+    const parseResult = DailyListSnapshotsSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const lim = parseResult.data ?? 30;
     const snapshots = await dailyStatePersistence.listSnapshots(lim);
     return { ok: true, snapshots };
   });
@@ -2504,10 +2542,10 @@ export async function createWindow(): Promise<void> {
     }
     const { action, payload } = parseResult.data;
 
-    if (action === "create" && payload && typeof payload === "object") {
+    if (action === "create" && payload && typeof payload === "object" && !Array.isArray(payload)) {
       const item = await productDomain.createBacklogItem(payload as any);
       return { ok: true, item };
-    } else if (action === "updateStatus" && payload && typeof payload === "object") {
+    } else if (action === "updateStatus" && payload && typeof payload === "object" && !Array.isArray(payload)) {
       const p = payload as { id: string; status: any };
       const item = await productDomain.updateBacklogItemStatus(p.id, p.status);
       return { ok: true, item };
@@ -2554,10 +2592,10 @@ export async function createWindow(): Promise<void> {
     }
     const { action, payload } = parseResult.data;
 
-    if (action === "create" && payload && typeof payload === "object") {
+    if (action === "create" && payload && typeof payload === "object" && !Array.isArray(payload)) {
       const deal = await crmDomain.createDeal(payload as any);
       return { ok: true, deal };
-    } else if (action === "updateStage" && payload && typeof payload === "object") {
+    } else if (action === "updateStage" && payload && typeof payload === "object" && !Array.isArray(payload)) {
       const p = payload as { id: string; stage: any };
       const deal = await crmDomain.updateDealStage(p.id, p.stage);
       return { ok: true, deal };
