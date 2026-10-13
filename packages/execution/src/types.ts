@@ -141,6 +141,25 @@ export interface ApprovalPolicyRule {
 }
 
 /**
+ * Entrada de auditoría de una aprobación HITL (SEC-06). El engine no persiste
+ * en VantaDB (sin dependencia a @ego/memory por AGENTS.md §4): el consumidor
+ * vuelca estas entradas a `gov/audit` vía `EgoMemoryAdapter.recordAudit`.
+ * `inputDigest` es el SHA-256 canónico de los argumentos (COUC-03).
+ */
+export interface ApprovalAuditEntry {
+  approvalId: string;
+  phase: "requested" | "resolved" | "timed_out" | "aborted";
+  toolName: string;
+  sessionId: string;
+  subEgoId: string;
+  callId: string;
+  inputDigest: string;
+  approved?: boolean;
+  reason?: string;
+  timestamp: number;
+}
+
+/**
  * Configuración de inicialización del ApprovalEngine (ACT-06).
  */
 export interface ApprovalEngineConfig {
@@ -149,4 +168,9 @@ export interface ApprovalEngineConfig {
   rules?: ApprovalPolicyRule[];
   onApprovalRequested?: (req: PendingApproval) => void;
   onApprovalResolved?: (req: PendingApproval, decision: ApprovalDecision) => void;
+  /**
+   * Sumidero de auditoría best-effort (SEC-06): invocado en cada fase
+   * (requested/resolved/timed_out/aborted). Nunca lanza hacia el flujo.
+   */
+  auditSink?: (entry: ApprovalAuditEntry) => void | Promise<void>;
 }

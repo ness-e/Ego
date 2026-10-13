@@ -105,4 +105,26 @@ describe('DecisionAuditor (DEC-07 - Inmutabilidad en gov/audit)', () => {
     expect(verdicts[0].domain).toBe('engineering');
     expect(verdicts[0].confidence).toBe(0.96);
   });
+
+  it('SEC-06 H4 — el veredicto asentado incluye verdictDigest SHA-256 verificable', async () => {
+    const { computeVerdictDigest } = await import('../src/DecisionAuditor.js');
+    const putMock = vi.fn().mockResolvedValue(undefined);
+    const mockAdapter = {
+      put: putMock
+    } as unknown as EgoMemoryAdapter;
+
+    const auditor = new DecisionAuditor(mockAdapter);
+    await auditor.recordVerdict(mockVerdict);
+
+    const putArg = putMock.mock.calls[0][0] as {
+      payload: { verdictDigest?: unknown };
+      metadata?: { verdict_digest?: unknown };
+    };
+    const expected = computeVerdictDigest(mockVerdict);
+    expect(expected).toMatch(/^[0-9a-f]{64}$/);
+    expect(putArg.payload.verdictDigest).toBe(expected);
+    expect(putArg.metadata?.verdict_digest).toBe(expected);
+    // Sensible a manipulación: un veredicto alterado da otro digest
+    expect(computeVerdictDigest({ ...mockVerdict, confidence: 0.01 })).not.toBe(expected);
+  });
 });

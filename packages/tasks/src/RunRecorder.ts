@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { EgoMemoryAdapter } from "@ego/memory";
 import { EventBus, EgoEvent } from "@ego/events";
 
@@ -27,6 +28,33 @@ export interface RunSnapshot {
   durationMs?: number;
   status: "running" | "completed" | "failed" | "aborted";
   error?: string;
+}
+
+/**
+ * Serialización canónica determinista para digests de corrida (SEC-06 H6).
+ * Mismo algoritmo que `canonicalAuditJson` de `@ego/memory`: claves ordenadas.
+ */
+function canonicalRunJson(val: unknown): string {
+  if (val === null || val === undefined) return "null";
+  if (typeof val !== "object") return JSON.stringify(val) ?? "null";
+  if (Array.isArray(val)) return `[${val.map(canonicalRunJson).join(",")}]`;
+  const obj = val as Record<string, unknown>;
+  const pairs: string[] = [];
+  for (const k of Object.keys(obj).sort()) {
+    const v = obj[k];
+    if (v === undefined || typeof v === "function" || typeof v === "symbol") continue;
+    pairs.push(`${JSON.stringify(k)}:${canonicalRunJson(v)}`);
+  }
+  return `{${pairs.join(",")}}`;
+}
+
+/**
+ * Digest SHA-256 recomputable de un RunSnapshot finalizado (SEC-06 H6).
+ * El espejo en `gov/audit` lo referencia como `snapshotSha256`, ligando la
+ * entrada auditable al contenido exacto persistido en `projects/<id>/runs`.
+ */
+export function computeRunSnapshotDigest(snapshot: RunSnapshot): string {
+  return createHash("sha256").update(canonicalRunJson(snapshot), "utf8").digest("hex");
 }
 
 /**
@@ -194,6 +222,44 @@ export class RunRecorder {
       // Si la persistencia falla, conservamos el snapshot en activeRuns
       // para permitir reintento posterior.
       persisted = false;
+    }
+
+    // SEC-06 H6: espejo auditable best-effort en gov/audit con digest del
+    // snapshot + subEgoId. Nunca revierte ni bloquea el resultado principal.
+    try {
+      const subEgoId = run.subEgoId ?? "ego.nucleus";
+      const snapshotSha256 = computeRunSnapshotDigest(run);
+      const envelope = {
+        action: "run_finished",
+        actor: subEgoId,
+        target: run.runId,
+        subEgoId,
+        details: {
+          runId: run.runId,
+          projectId: run.projectId,
+          status: run.status,
+          actionCount: run.actions.length,
+          startedAt: run.startedAt,
+          endedAt: run.endedAt ?? null,
+          snapshotSha256,
+        },
+      };
+      const sha256 = createHash("sha256")
+        .update(canonicalRunJson(envelope), "utf8")
+        .digest("hex");
+      await this.memoryAdapter.put({
+        namespace: "gov/audit",
+        key: `run:${run.runId}`,
+        payload: { ...envelope, timestamp: now, sha256 },
+        metadata: {
+          audit_action: "run_finished",
+          sub_ego: subEgoId,
+          sha256,
+          ts: now,
+        },
+      });
+    } catch {
+      // Best-effort: la auditoría no compromete la corrida finalizada.
     }
 
     if (persisted) {

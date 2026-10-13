@@ -2,6 +2,7 @@ import * as crypto from "node:crypto";
 import type { ToolCategory, ToolDefinition, ToolExecutionContext, ToolRiskLevel } from "@ego/tools";
 import type {
   ActionIdentity,
+  ApprovalAuditEntry,
   ApprovalDecision,
   ApprovalEngineConfig,
   GovernanceMode,
@@ -71,9 +72,10 @@ interface PendingEntry {
  * - Auditoría inmutable de decisiones.
  */
 export class ApprovalEngine {
-  private readonly config: Required<Omit<ApprovalEngineConfig, "onApprovalRequested" | "onApprovalResolved">> & {
+  private readonly config: Required<Omit<ApprovalEngineConfig, "onApprovalRequested" | "onApprovalResolved" | "auditSink">> & {
     onApprovalRequested?: (req: PendingApproval) => void;
     onApprovalResolved?: (req: PendingApproval, decision: ApprovalDecision) => void;
+    auditSink?: (entry: ApprovalAuditEntry) => void | Promise<void>;
   };
   private readonly pendingMap = new Map<string, PendingEntry>();
 
@@ -83,8 +85,28 @@ export class ApprovalEngine {
       defaultTimeoutMs: config.defaultTimeoutMs ?? 120_000, // 2 minutos
       rules: config.rules ?? [],
       onApprovalRequested: config.onApprovalRequested,
-      onApprovalResolved: config.onApprovalResolved
+      onApprovalResolved: config.onApprovalResolved,
+      auditSink: config.auditSink
     };
+  }
+
+  /**
+   * Emite una entrada de auditoría al sink best-effort (SEC-06): un sink que
+   * lanza o rechaza NUNCA interrumpe el flujo de aprobación.
+   */
+  private emitAudit(entry: ApprovalAuditEntry): void {
+    const sink = this.config.auditSink;
+    if (!sink) return;
+    try {
+      const result = sink(entry);
+      if (result && typeof (result as Promise<void>).catch === "function") {
+        (result as Promise<void>).catch(() => {
+          // Best-effort: la auditoría no bloquea ni contamina el flujo.
+        });
+      }
+    } catch {
+      // Best-effort: ver test "un auditSink que lanza no rompe el flujo".
+    }
   }
 
   public get mode(): GovernanceMode {
@@ -211,6 +233,18 @@ export class ApprovalEngine {
             reason: `Timeout de aprobación humana excedido (${timeoutMs}ms). Acción cancelada por seguridad.`,
             timestamp: Date.now()
           };
+          this.emitAudit({
+            approvalId,
+            phase: "timed_out",
+            toolName: params.tool.name,
+            sessionId: actionIdentity.sessionId,
+            subEgoId: actionIdentity.subEgoId,
+            callId: actionIdentity.callId,
+            inputDigest: actionIdentity.inputDigest,
+            approved: false,
+            reason: decision.reason,
+            timestamp: Date.now()
+          });
           this.config.onApprovalResolved?.(entry.approval, decision);
           resolve(decision);
         }
@@ -221,6 +255,18 @@ export class ApprovalEngine {
         if (params.abortSignal.aborted) {
           clearTimeout(timer);
           pendingApproval.status = "aborted";
+          this.emitAudit({
+            approvalId,
+            phase: "aborted",
+            toolName: params.tool.name,
+            sessionId: actionIdentity.sessionId,
+            subEgoId: actionIdentity.subEgoId,
+            callId: actionIdentity.callId,
+            inputDigest: actionIdentity.inputDigest,
+            approved: false,
+            reason: "Operación abortada por señal de cancelación (AbortSignal).",
+            timestamp: Date.now()
+          });
           resolve({
             approved: false,
             reason: "Operación abortada por señal de cancelación (AbortSignal).",
@@ -242,6 +288,18 @@ export class ApprovalEngine {
                 reason: "Operación abortada por señal de cancelación (AbortSignal).",
                 timestamp: Date.now()
               };
+              this.emitAudit({
+                approvalId,
+                phase: "aborted",
+                toolName: params.tool.name,
+                sessionId: actionIdentity.sessionId,
+                subEgoId: actionIdentity.subEgoId,
+                callId: actionIdentity.callId,
+                inputDigest: actionIdentity.inputDigest,
+                approved: false,
+                reason: decision.reason,
+                timestamp: Date.now()
+              });
               this.config.onApprovalResolved?.(entry.approval, decision);
               resolve(decision);
             }
@@ -257,6 +315,16 @@ export class ApprovalEngine {
         timer
       });
 
+      this.emitAudit({
+        approvalId,
+        phase: "requested",
+        toolName: params.tool.name,
+        sessionId: actionIdentity.sessionId,
+        subEgoId: actionIdentity.subEgoId,
+        callId: actionIdentity.callId,
+        inputDigest: actionIdentity.inputDigest,
+        timestamp: Date.now()
+      });
       this.config.onApprovalRequested?.(pendingApproval);
     });
   }
@@ -299,6 +367,18 @@ export class ApprovalEngine {
       timestamp: Date.now()
     };
 
+    this.emitAudit({
+      approvalId,
+      phase: "resolved",
+      toolName: entry.approval.toolName,
+      sessionId: entry.approval.action.sessionId,
+      subEgoId: entry.approval.action.subEgoId,
+      callId: entry.approval.action.callId,
+      inputDigest: entry.approval.action.inputDigest,
+      approved: resolvedDecision.approved,
+      reason: resolvedDecision.reason,
+      timestamp: Date.now()
+    });
     this.config.onApprovalResolved?.(entry.approval, resolvedDecision);
     entry.resolve(resolvedDecision);
     return true;
@@ -335,6 +415,18 @@ export class ApprovalEngine {
     for (const [id, entry] of this.pendingMap.entries()) {
       clearTimeout(entry.timer);
       entry.approval.status = "aborted";
+      this.emitAudit({
+        approvalId: id,
+        phase: "aborted",
+        toolName: entry.approval.toolName,
+        sessionId: entry.approval.action.sessionId,
+        subEgoId: entry.approval.action.subEgoId,
+        callId: entry.approval.action.callId,
+        inputDigest: entry.approval.action.inputDigest,
+        approved: false,
+        reason,
+        timestamp: Date.now()
+      });
       entry.resolve({
         approved: false,
         reason,

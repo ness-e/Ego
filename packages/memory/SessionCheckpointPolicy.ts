@@ -1,9 +1,15 @@
 import { EgoMemoryAdapter } from "./EgoMemoryAdapter.js";
+import { computeAuditDigest } from "./EgoMemoryAdapter.js";
 import { generateOpaqueId } from "./OpaqueId.js";
 
 export interface SessionCheckpointPolicyOptions {
   checkpointIntervalTurns?: number;
   failClosedOnToolFlushError?: boolean;
+}
+
+export interface ToolDispatchAuditOptions {
+  subEgoId?: string;
+  args?: unknown;
 }
 
 export interface CheckpointDecision {
@@ -55,13 +61,31 @@ export class SessionCheckpointPolicy {
   /**
    * Barrera de despacho de herramientas: persiste el estado antes de invocar
    * el cuerpo de la herramienta. Si falla el flush y failClosed es true, aborta el despacho.
+   * SEC-06: la entrada `tool_dispatch` en gov/audit porta `sha256` (digest
+   * canónico de sesión+herramienta+args+subEgo) + `subEgoId` verificables.
    */
   public async beforeToolDispatch(
     sessionId: string,
     toolName: string,
-    toolCallId: string
+    toolCallId: string,
+    options?: ToolDispatchAuditOptions
   ): Promise<CheckpointDecision> {
     try {
+      const subEgoId = options?.subEgoId ?? "ego.nucleus";
+      const dispatchedAt = Date.now();
+      // Digest sobre el cuerpo auditable (sin dispatchedAt: recomputable).
+      const sha256 = computeAuditDigest({
+        action: "tool_dispatch",
+        actor: subEgoId,
+        target: toolCallId,
+        subEgoId,
+        details: {
+          sessionId,
+          toolName,
+          toolCallId,
+          args: options?.args ?? null,
+        },
+      });
       // Registrar llamada pendiente en namespace audit antes de la ejecución
       await this.adapter.put({
         namespace: "gov/audit",
@@ -70,8 +94,14 @@ export class SessionCheckpointPolicy {
           sessionId,
           toolName,
           toolCallId,
-          dispatchedAt: Date.now(),
+          subEgoId,
+          dispatchedAt,
           status: "pending_dispatch",
+          sha256,
+        },
+        metadata: {
+          sub_ego: subEgoId,
+          sha256,
         },
       });
 

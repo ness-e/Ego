@@ -64,6 +64,87 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/**
+ * Serialización canónica determinista para digests de auditoría (SEC-06).
+ * Claves de objeto ordenadas; `undefined`/funciones/símbolos se omiten
+ * (semántica JSON). Dos cuerpos iguales → mismo digest.
+ */
+export function canonicalAuditJson(val: unknown): string {
+  if (val === null || val === undefined) return "null";
+  if (typeof val !== "object") return JSON.stringify(val) ?? "null";
+  if (Array.isArray(val)) return `[${val.map(canonicalAuditJson).join(",")}]`;
+  const obj = val as Record<string, unknown>;
+  const pairs: string[] = [];
+  for (const k of Object.keys(obj).sort()) {
+    const v = obj[k];
+    if (v === undefined || typeof v === "function" || typeof v === "symbol") continue;
+    pairs.push(`${JSON.stringify(k)}:${canonicalAuditJson(v)}`);
+  }
+  return `{${pairs.join(",")}}`;
+}
+
+export interface AuditDigestInput {
+  action: string;
+  actor: string;
+  target?: string;
+  subEgoId: string;
+  details: Record<string, unknown>;
+}
+
+export interface AuditRecordPayload extends AuditDigestInput {
+  timestamp: number;
+  sha256: string;
+}
+
+/**
+ * Digest SHA-256 del cuerpo auditable (SEC-06). Excluye `timestamp`/`sha256`
+ * para que cualquier lector pueda recomputarlo desde los campos almacenados.
+ */
+export function computeAuditDigest(input: AuditDigestInput): string {
+  return crypto
+    .createHash("sha256")
+    .update(
+      canonicalAuditJson({
+        action: input.action,
+        actor: input.actor,
+        target: input.target ?? null,
+        subEgoId: input.subEgoId,
+        details: input.details,
+      }),
+      "utf8"
+    )
+    .digest("hex");
+}
+
+/**
+ * Verifica la integridad de un payload de `gov/audit` (SEC-06): recomputa el
+ * digest desde los campos almacenados y lo compara con `sha256`. Cualquier
+ * manipulación posterior (details, actor, subEgoId, target, action) → false.
+ */
+export function verifyAuditPayload(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const p = payload as Record<string, unknown>;
+  if (
+    typeof p.action !== "string" ||
+    typeof p.actor !== "string" ||
+    typeof p.subEgoId !== "string" ||
+    typeof p.sha256 !== "string" ||
+    typeof p.timestamp !== "number" ||
+    !p.details ||
+    typeof p.details !== "object"
+  ) {
+    return false;
+  }
+  const recomputed = computeAuditDigest({
+    action: p.action,
+    actor: p.actor,
+    target: typeof p.target === "string" ? p.target : undefined,
+    subEgoId: p.subEgoId,
+    details: p.details as Record<string, unknown>,
+  });
+  return recomputed === p.sha256;
+}
+
 export interface VersionNode {
   key: string;
   namespace: string;
@@ -467,19 +548,17 @@ export class EgoMemoryAdapter {
     // 2. Eliminar de cuarentena ({ namespace, key })
     await db.delete({ namespace: "quarantine/pending", key: quarantineKey });
 
-    // 3. Registrar auditoría inmutable
-    await this.putMulti([
+    // 3. Registrar auditoría inmutable (SEC-06: vía recordAudit → sha256 + subEgoId)
+    await this.recordAudit(
+      "promote",
+      "human_supervisor",
       {
-        namespace: "gov/audit",
-        key: `promote:${Date.now()}:${destinationKey}`,
-        payload: {
-          action: "promote",
-          from: "quarantine/pending",
-          to: `${destinationNs}:${destinationKey}`,
-          promoted_by: "human_supervisor",
-        },
+        from: "quarantine/pending",
+        to: `${destinationNs}:${destinationKey}`,
+        promoted_by: "human_supervisor",
       },
-    ]);
+      `${destinationNs}:${destinationKey}`
+    );
   }
 
   /**
@@ -560,20 +639,18 @@ export class EgoMemoryAdapter {
       console.warn("[EgoMemoryAdapter] VantaDB supersede versioning warning:", e);
     }
 
-    // 3. Registrar auditoría
-    await this.putMulti([
+    // 3. Registrar auditoría (SEC-06: vía recordAudit → sha256 + subEgoId)
+    await this.recordAudit(
+      "supersede",
+      "ego.nucleus",
       {
-        namespace: "gov/audit",
-        key: `supersede:${Date.now()}:${oldKey}`,
-        payload: {
-          action: "supersede",
-          namespace: newItem.namespace,
-          old_key: oldKey,
-          new_key: newItem.key,
-          superseded_at: Date.now(),
-        },
+        namespace: newItem.namespace,
+        old_key: oldKey,
+        new_key: newItem.key,
+        superseded_at: Date.now(),
       },
-    ]);
+      `${newItem.namespace}:${newItem.key}`
+    );
   }
 
   /**
@@ -779,27 +856,45 @@ export class EgoMemoryAdapter {
   }
 
   /**
-   * Registra una acción sensible en el log inmutable de auditoría (gov/audit)
+   * Registra una acción sensible en el log inmutable de auditoría (gov/audit).
+   * SEC-06: cada entrada porta `sha256` (digest canónico recomputable vía
+   * `verifyAuditPayload`) + `subEgoId` (por defecto `ego.nucleus`).
+   * Retorna la key asignada (`<action>:<ts>:<digest12>`) para verificación.
+   * Firma compatible: `target` y `subEgoId` opcionales posicionales.
    */
   async recordAudit(
     action: string,
     actor: string,
     details: Record<string, unknown>,
-    target?: string
-  ): Promise<void> {
+    target?: string,
+    subEgoId?: string
+  ): Promise<string> {
+    const resolvedSubEgo = subEgoId ?? "ego.nucleus";
+    const timestamp = Date.now();
+    const sha256 = computeAuditDigest({ action, actor, target, subEgoId: resolvedSubEgo, details });
+    const key = `${action}:${timestamp}:${sha256.slice(0, 12)}`;
     await this.putMulti([
       {
         namespace: "gov/audit",
-        key: `${action}:${Date.now()}`,
+        key,
         payload: {
           action,
           actor,
           target,
+          subEgoId: resolvedSubEgo,
           details,
-          timestamp: Date.now(),
+          timestamp,
+          sha256,
+        },
+        metadata: {
+          audit_action: action,
+          sub_ego: resolvedSubEgo,
+          sha256,
+          ts: timestamp,
         },
       },
     ]);
+    return key;
   }
 
   /**

@@ -114,4 +114,33 @@ describe("COUC-09: RunRecorder (RunSnapshot assembly & VantaDB persistence)", ()
     const loaded = await recorder.loadPersistedRun("proj_alpha", "run_gc_1");
     expect(loaded?.runId).toBe("run_gc_1");
   });
+
+  it("SEC-06 H6 — finishRun espeja un puntero auditable en gov/audit con digest + subEgoId", async () => {
+    const { computeRunSnapshotDigest } = await import("../src/RunRecorder.js");
+    recorder.startRun({
+      runId: "run_audit_1",
+      projectId: "proj_alpha",
+      sessionId: "sess_sec06",
+      subEgoId: "ego.worker",
+      goal: "Auditar corrida",
+    });
+    recorder.recordToolStart("run_audit_1", "fs_write_file", "call_1", { path: "a.txt" });
+    recorder.recordToolSuccess("run_audit_1", "call_1", "ok", 5);
+
+    await recorder.finishRun("run_audit_1", { status: "completed", finalMessage: "ok" });
+
+    const auditPuts = mockMemoryAdapter.put.mock.calls.filter(
+      (c: Array<{ namespace: string }>) => c[0].namespace === "gov/audit"
+    );
+    expect(auditPuts.length).toBe(1);
+    const payload = auditPuts[0][0].payload as Record<string, unknown>;
+    expect(payload.action).toBe("run_finished");
+    expect(payload.subEgoId).toBe("ego.worker");
+    expect(payload.sha256).toMatch(/^[0-9a-f]{64}$/);
+    const details = payload.details as Record<string, unknown>;
+    expect(details.runId).toBe("run_audit_1");
+    // El digest liga al contenido exacto persistido (recomputable)
+    const persisted = await recorder.loadPersistedRun("proj_alpha", "run_audit_1");
+    expect(details.snapshotSha256).toBe(computeRunSnapshotDigest(persisted!));
+  });
 });
