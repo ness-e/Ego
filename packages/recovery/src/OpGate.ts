@@ -51,6 +51,9 @@ export class OpGate {
     });
 
     const success = await drainWait;
+    // Camarero consumido: el waiter ya se resolvió; liberarlo permite
+    // distinguir "drain pendiente" de "drenado completado" en reset().
+    this.resolveDrain = null;
 
     if (timer) {
       clearTimeout(timer);
@@ -74,8 +77,21 @@ export class OpGate {
 
   /**
    * Restablece el estado de la compuerta (útil para pruebas o reinicios).
+   *
+   * Guard (M22): rechaza si hay operaciones en vuelo (las dejaría huérfanas:
+   * su `finally` decrementarïa un contador ya reseteado y un `drain()`
+   * posterior reportaría éxito con trabajo aún corriendo) o si hay un
+   * `drain()` pendiente (lo dejaría sin resolver). Drenar/liberar primero.
    */
   public reset(): void {
+    if (this.inFlightCount > 0) {
+      throw new Error(
+        `[OpGate] reset() rechazado: hay ${this.inFlightCount} operación(es) en vuelo. Drenar antes de restablecer.`
+      );
+    }
+    if (this.resolveDrain !== null) {
+      throw new Error("[OpGate] reset() rechazado: hay un drain() pendiente de resolución.");
+    }
     this.isDraining = false;
     this.inFlightCount = 0;
     this.resolveDrain = null;

@@ -100,15 +100,32 @@ export class MermaidRenderer {
 
   /**
    * Sanitiza y limpia el código fuente de Mermaid eliminando inyecciones y normalizando saltos de línea.
+   *
+   * (M18): reemplazo GLOBAL — `String.replace` con regex sin flag `g` solo
+   * elimina la primera ocurrencia; aquí se compila cada patrón con `g` para
+   * bloquear todas. Los patrones base se conservan sin `g` porque `RegExp`
+   * con `g` hace `.test()` stateful (`lastIndex`) y `validate()` los reutiliza.
    */
   public static sanitize(source: string): string {
     let sanitized = source.replace(/\r\n/g, "\n");
 
     for (const pattern of DANGEROUS_PATTERNS) {
-      sanitized = sanitized.replace(pattern, "/* blocked */");
+      const global = new RegExp(
+        pattern.source,
+        pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`
+      );
+      sanitized = sanitized.replace(global, "/* blocked */");
     }
 
     return sanitized.trim();
+  }
+
+  /**
+   * Escapa un token de tema antes de interpolarlo en la directiva Mermaid (M19).
+   * Sin esto, un token con `'` rompe el quoting y permite inyección de directivas.
+   */
+  private static escapeThemeToken(value: string): string {
+    return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/[\r\n]+/g, " ");
   }
 
   /**
@@ -116,6 +133,7 @@ export class MermaidRenderer {
    */
   public static generateThemeDirectives(tokens: MermaidThemeTokens): string {
     const themeName = tokens.darkMode ? "dark" : "default";
-    return `%%{init: {'theme': '${themeName}', 'themeVariables': { 'primaryColor': '${tokens.primary}', 'primaryTextColor': '${tokens.foreground}', 'primaryBorderColor': '${tokens.border}', 'lineColor': '${tokens.border}', 'secondaryColor': '${tokens.background}', 'tertiaryColor': '${tokens.background}' }}}%%`;
+    const t = MermaidRenderer.escapeThemeToken;
+    return `%%{init: {'theme': '${themeName}', 'themeVariables': { 'primaryColor': '${t(tokens.primary)}', 'primaryTextColor': '${t(tokens.foreground)}', 'primaryBorderColor': '${t(tokens.border)}', 'lineColor': '${t(tokens.border)}', 'secondaryColor': '${t(tokens.background)}', 'tertiaryColor': '${t(tokens.background)}' }}}%%`;
   }
 }

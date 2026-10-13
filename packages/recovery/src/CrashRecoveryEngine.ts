@@ -172,8 +172,13 @@ export class CrashRecoveryEngine {
       // process.kill(pid, 0) no mata el proceso, verifica si existe y si tenemos permiso
       process.kill(pid, 0);
       return true;
-    } catch (err: any) {
-      return err.code === "EPERM"; // EPERM significa que el proceso existe pero es de otro usuario
+    } catch (err: unknown) {
+      // EPERM significa que el proceso existe pero es de otro usuario
+      return (
+        typeof err === "object" &&
+        err !== null &&
+        (err as { code?: unknown }).code === "EPERM"
+      );
     }
   }
 

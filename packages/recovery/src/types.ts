@@ -148,13 +148,60 @@ export interface SnapshotManagerOptions {
 }
 
 /**
+ * Registro de memoria tal como lo expone el gateway (`EgoMemoryAdapter`).
+ */
+export interface RecoveryMemoryRecord {
+  key: string;
+  payload: unknown;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Página de listado con cursor opaco (compatible con `listPaged()`).
+ */
+export interface RecoveryListPage {
+  records: RecoveryMemoryRecord[];
+  nextCursor?: number | string;
+}
+
+/**
+ * Superficie mínima del adapter de memoria que necesita `recovery` (H20).
+ * Prohíbe `any`: lecturas vía `list` (+ `listPaged` cuando existe para
+ * barridos acotados), escrituras vía `put`/`putMulti`, namespaces vía
+ * `getDb()`. `getDb()` es solo-lectura (F2T6/H04): jamás escribir por esa vía.
+ */
+export interface RecoveryMemoryAdapter {
+  list(namespace: string, limit?: number): Promise<RecoveryMemoryRecord[]>;
+  listPaged?(
+    namespace: string,
+    limit?: number,
+    cursor?: number | string
+  ): Promise<RecoveryListPage>;
+  put(item: {
+    namespace: string;
+    key: string;
+    payload: unknown;
+    metadata?: Record<string, unknown>;
+  }): Promise<void>;
+  putMulti?(
+    items: Array<{
+      namespace: string;
+      key: string;
+      payload: unknown;
+      metadata?: Record<string, unknown>;
+    }>
+  ): Promise<void>;
+  getDb?(): { listNamespaces?: () => Promise<string[]> } | null;
+}
+
+/**
  * Paso de migración de esquema declarativo.
  */
 export interface SchemaMigrationStep {
   fromVersion: number;
   toVersion: number;
   description: string;
-  migrate: (adapter: any) => Promise<void>;
+  migrate: (adapter: RecoveryMemoryAdapter | undefined) => Promise<void>;
 }
 
 /**

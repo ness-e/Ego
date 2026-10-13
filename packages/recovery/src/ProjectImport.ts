@@ -10,10 +10,11 @@ import {
   VdbdumpManifestSchema,
   DumpRecord,
   DumpRecordSchema,
+  RecoveryMemoryAdapter,
 } from "./types.js";
 
 export class ProjectImport {
-  constructor(private readonly adapter: any) {}
+  constructor(private readonly adapter: RecoveryMemoryAdapter) {}
 
   /**
    * Importa y restaura un archivo .vdbdump hacia el almacenamiento de VantaDB.
@@ -80,8 +81,9 @@ export class ProjectImport {
           try {
             const rawManifest = JSON.parse(line);
             manifest = VdbdumpManifestSchema.parse(rawManifest);
-          } catch (parseErr: any) {
-            throw new Error(`[ProjectImport] Cabecera de manifiesto inválida o incompatible: ${parseErr.message}`);
+          } catch (parseErr: unknown) {
+            const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
+            throw new Error(`[ProjectImport] Cabecera de manifiesto inválida o incompatible: ${detail}`);
           }
 
           // Inicializar hashers por namespace según manifiesto

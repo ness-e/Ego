@@ -104,4 +104,101 @@ describe("CANV-03: CanvasBridge — Protocolo Bidireccional Chat <-> Canvas", ()
 
     expect(wildcardListener).toHaveBeenCalledTimes(2);
   });
+
+  it("insert con path crea el valor y retorna true (H16 honesto)", () => {
+    const bridge = new CanvasBridge([SAMPLE_CARD]);
+    const mutationListener = vi.fn();
+    bridge.on("canvas.mutation", mutationListener);
+
+    const ok = bridge.applyChangeSet({
+      id: "cs-ins-1",
+      componentId: "comp-card-1",
+      timestamp: Date.now(),
+      op: "insert",
+      path: "subtitle",
+      newValue: "Subtítulo insertado",
+      origin: "subego",
+    });
+
+    expect(ok).toBe(true);
+    expect(bridge.getComponent("comp-card-1")?.props.subtitle).toBe("Subtítulo insertado");
+    expect(mutationListener).toHaveBeenCalledTimes(1);
+  });
+
+  it("delete con path existente elimina y retorna true", () => {
+    const bridge = new CanvasBridge([SAMPLE_CARD]);
+    const mutationListener = vi.fn();
+    bridge.on("canvas.mutation", mutationListener);
+
+    const ok = bridge.applyChangeSet({
+      id: "cs-del-1",
+      componentId: "comp-card-1",
+      timestamp: Date.now(),
+      op: "delete",
+      path: "description",
+      newValue: null,
+      origin: "user",
+    });
+
+    expect(ok).toBe(true);
+    expect(bridge.getComponent("comp-card-1")?.props).not.toHaveProperty("description");
+    expect(mutationListener).toHaveBeenCalledTimes(1);
+  });
+
+  it("delete sobre path inexistente retorna false sin mutar ni emitir (H16)", () => {
+    const bridge = new CanvasBridge([SAMPLE_CARD]);
+    const mutationListener = vi.fn();
+    bridge.on("canvas.mutation", mutationListener);
+    const before = JSON.parse(JSON.stringify(bridge.getComponent("comp-card-1")?.props));
+
+    const ok = bridge.applyChangeSet({
+      id: "cs-del-2",
+      componentId: "comp-card-1",
+      timestamp: Date.now(),
+      op: "delete",
+      path: "no.existe",
+      newValue: null,
+      origin: "user",
+    });
+
+    expect(ok).toBe(false);
+    expect(bridge.getComponent("comp-card-1")?.props).toEqual(before);
+    expect(mutationListener).not.toHaveBeenCalled();
+  });
+
+  it("delete sin path retorna false (usar removeComponent) sin mutar", () => {
+    const bridge = new CanvasBridge([SAMPLE_CARD]);
+    const mutationListener = vi.fn();
+    bridge.on("canvas.mutation", mutationListener);
+
+    const ok = bridge.applyChangeSet({
+      id: "cs-del-3",
+      componentId: "comp-card-1",
+      timestamp: Date.now(),
+      op: "delete",
+      newValue: null,
+      origin: "user",
+    });
+
+    expect(ok).toBe(false);
+    expect(bridge.getComponent("comp-card-1")).toBeDefined();
+    expect(mutationListener).not.toHaveBeenCalled();
+  });
+
+  it("insert sin path y valor no-objeto retorna false sin mutar", () => {
+    const bridge = new CanvasBridge([SAMPLE_CARD]);
+    const before = JSON.parse(JSON.stringify(bridge.getComponent("comp-card-1")?.props));
+
+    const ok = bridge.applyChangeSet({
+      id: "cs-ins-2",
+      componentId: "comp-card-1",
+      timestamp: Date.now(),
+      op: "insert",
+      newValue: 42,
+      origin: "subego",
+    });
+
+    expect(ok).toBe(false);
+    expect(bridge.getComponent("comp-card-1")?.props).toEqual(before);
+  });
 });

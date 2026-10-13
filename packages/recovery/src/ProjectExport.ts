@@ -9,20 +9,41 @@ import {
   ProjectExportResult,
   VdbdumpManifest,
   DumpRecord,
+  RecoveryMemoryAdapter,
 } from "./types.js";
 
+/**
+ * Tamaño de página para barridos de exportación (H20).
+ * La exportación NUNCA usa `list(ns, 50000)`: pagina con cursor para
+ * mantener memoria acotada incluso con namespaces de decenas de miles.
+ */
+export const EXPORT_PAGE_SIZE = 500;
+
+/** Límite de respaldo cuando el adapter no expone `listPaged()` (mocks legacy). */
+const EXPORT_FALLBACK_LIMIT = 50000;
+
+function describeError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 export class ProjectExport {
-  constructor(private readonly adapter: any) {}
+  constructor(private readonly adapter: RecoveryMemoryAdapter) {}
 
   /**
    * Exporta soberanamente un proyecto y sus namespaces a un archivo .vdbdump
    * con streaming NDJSON, cabecera VDBJSON-V1 y sumas criptográficas SHA-256.
+   *
+   * Memoria acotada (H20): los registros se leen por páginas (`listPaged` +
+   * cursor) y se escriben en streaming a un cuerpo temporal; solo los hashes
+   * y conteos viven en memoria. El manifiesto se antepone al ensamblar el
+   * archivo final, con renombrado atómico.
    */
   public async exportProject(options: ProjectExportOptions): Promise<ProjectExportResult> {
     const startTime = Date.now();
     const compress = options.compress ?? true;
     const outputPath = options.outputPath;
     const tempPath = `${outputPath}.tmp`;
+    const bodyPath = `${outputPath}.body.tmp`;
     const targetProjectId = options.projectId ?? "project-ego-nucleus";
     const targetProjectName = options.projectName ?? "Ego Project Nucleus";
 
@@ -48,80 +69,60 @@ export class ProjectExport {
       }
     }
 
-    // Recolectar datos y calcular hashes por namespace
     const recordCounts: Record<string, number> = {};
     const checksums: Record<string, string> = {};
-    const recordsByNamespace: Map<string, DumpRecord[]> = new Map();
     let totalRecords = 0;
     const totalHasher = crypto.createHash("sha256");
-
-    for (const ns of namespaces) {
-      let items: any[] = [];
-      try {
-        items = await this.adapter.list(ns, 50000);
-      } catch (err: any) {
-        throw new Error(`[ProjectExport] Error al leer namespace '${ns}': ${err.message}`);
-      }
-
-      const nsRecords: DumpRecord[] = items.map((item: any) => ({
-        namespace: ns,
-        key: item.key,
-        payload: item.payload,
-        metadata: item.metadata,
-      }));
-
-      recordsByNamespace.set(ns, nsRecords);
-      recordCounts[ns] = nsRecords.length;
-      totalRecords += nsRecords.length;
-
-      const nsHasher = crypto.createHash("sha256");
-      for (const rec of nsRecords) {
-        const line = JSON.stringify(rec);
-        nsHasher.update(line);
-        totalHasher.update(line);
-      }
-      checksums[ns] = nsHasher.digest("hex");
-    }
-
-    const totalChecksum = totalHasher.digest("hex");
-
-    // Construir manifiesto de cabecera VDBJSON-V1
-    const manifest: VdbdumpManifest = {
-      format: "VDBJSON-V1",
-      projectId: targetProjectId,
-      projectName: targetProjectName,
-      createdAt: startTime,
-      version: "0.1.0",
-      namespaces,
-      recordCounts,
-      checksums,
-      totalChecksum,
-      totalRecords,
-    };
-
-    // Generar stream de líneas: manifiesto seguido de records NDJSON
-    async function* generateLines(): AsyncGenerator<string, void, unknown> {
-      // Primera línea: Manifiesto JSON
-      yield JSON.stringify(manifest) + "\n";
-
-      // Líneas subsecuentes: records en NDJSON
-      for (const ns of namespaces!) {
-        const records = recordsByNamespace.get(ns) || [];
-        for (const rec of records) {
-          yield JSON.stringify(rec) + "\n";
-        }
-      }
-    }
-
-    const inputStream = Readable.from(generateLines());
-    const fileWriteStream = fs.createWriteStream(tempPath);
+    let manifest: VdbdumpManifest;
 
     try {
+      // Etapa 1: volcar registros paginados al cuerpo temporal en streaming.
+      const bodyStream = fs.createWriteStream(bodyPath);
+      try {
+        for (const ns of namespaces) {
+          const nsHasher = crypto.createHash("sha256");
+          let nsCount = 0;
+          await this.dumpNamespace(ns, async (rec: DumpRecord) => {
+            const line = JSON.stringify(rec);
+            nsHasher.update(line);
+            totalHasher.update(line);
+            nsCount++;
+            await writeLine(bodyStream, line + "\n");
+          });
+          recordCounts[ns] = nsCount;
+          totalRecords += nsCount;
+          checksums[ns] = nsHasher.digest("hex");
+        }
+      } finally {
+        bodyStream.end();
+        await streamFinished(bodyStream);
+      }
+
+      const totalChecksum = totalHasher.digest("hex");
+
+      // Construir manifiesto de cabecera VDBJSON-V1
+      manifest = {
+        format: "VDBJSON-V1",
+        projectId: targetProjectId,
+        projectName: targetProjectName,
+        createdAt: startTime,
+        version: "0.1.0",
+        namespaces,
+        recordCounts,
+        checksums,
+        totalChecksum,
+        totalRecords,
+      };
+
+      // Etapa 2: manifiesto + cuerpo → archivo final (gz o plano), atómico.
+      const manifestLine = JSON.stringify(manifest) + "\n";
+      const combined = Readable.from(generateCombined(manifestLine, bodyPath));
+      const fileWriteStream = fs.createWriteStream(tempPath);
       if (compress) {
         const gzipStream = zlib.createGzip({ level: 6 });
-        await pipeline(inputStream, gzipStream, fileWriteStream);
+        await pipeline(combined, gzipStream, fileWriteStream);
       } else {
-        await pipeline(inputStream, fileWriteStream);
+        await pipeline(combined, fileWriteStream);
       }
 
       // Renombrado atómico para garantizar que nunca quede un archivo corrupto incompleto
@@ -130,14 +131,24 @@ export class ProjectExport {
       }
       fs.renameSync(tempPath, outputPath);
     } catch (exportErr) {
-      if (fs.existsSync(tempPath)) {
+      for (const p of [tempPath, bodyPath]) {
+        if (fs.existsSync(p)) {
+          try {
+            fs.unlinkSync(p);
+          } catch {
+            // ignore
+          }
+        }
+      }
+      throw exportErr;
+    } finally {
+      if (fs.existsSync(bodyPath)) {
         try {
-          fs.unlinkSync(tempPath);
+          fs.unlinkSync(bodyPath);
         } catch {
           // ignore
         }
       }
-      throw exportErr;
     }
 
     const stat = fs.statSync(outputPath);
@@ -151,4 +162,90 @@ export class ProjectExport {
       durationMs,
     };
   }
+
+  /**
+   * Lee un namespace por páginas acotadas e invoca `onRecord` por registro.
+   * Prefiere `listPaged()` con cursor; sin él, un único `list()` acotado
+   * (vía legacy para mocks, documentada como no-escalable).
+   */
+  private async dumpNamespace(
+    ns: string,
+    onRecord: (rec: DumpRecord) => Promise<void>
+  ): Promise<void> {
+    if (typeof this.adapter.listPaged === "function") {
+      let cursor: number | string | undefined;
+      for (;;) {
+        let page;
+        try {
+          page =
+            cursor === undefined
+              ? await this.adapter.listPaged(ns, EXPORT_PAGE_SIZE)
+              : await this.adapter.listPaged(ns, EXPORT_PAGE_SIZE, cursor);
+        } catch (err: unknown) {
+          throw new Error(`[ProjectExport] Error al leer namespace '${ns}': ${describeError(err)}`);
+        }
+        for (const item of page.records) {
+          await onRecord({
+            namespace: ns,
+            key: item.key,
+            payload: item.payload,
+            metadata: item.metadata,
+          });
+        }
+        if (page.nextCursor === undefined) break;
+        cursor = page.nextCursor;
+      }
+      return;
+    }
+
+    let items;
+    try {
+      items = await this.adapter.list(ns, EXPORT_FALLBACK_LIMIT);
+    } catch (err: unknown) {
+      throw new Error(`[ProjectExport] Error al leer namespace '${ns}': ${describeError(err)}`);
+    }
+    for (const item of items) {
+      await onRecord({
+        namespace: ns,
+        key: item.key,
+        payload: item.payload,
+        metadata: item.metadata,
+      });
+    }
+  }
+}
+
+/** Genera manifiesto seguido del cuerpo temporal, en streaming. */
+async function* generateCombined(
+  manifestLine: string,
+  bodyPath: string
+): AsyncGenerator<string, void, unknown> {
+  yield manifestLine;
+  const bodyIn = fs.createReadStream(bodyPath, { encoding: "utf8" });
+  try {
+    yield* bodyIn;
+  } finally {
+    bodyIn.destroy();
+  }
+}
+
+/** Escritura con backpressure en el stream del cuerpo. */
+function writeLine(stream: fs.WriteStream, chunk: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ok = stream.write(chunk, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+    if (!ok) {
+      stream.once("drain", () => resolve());
+    }
+  });
+}
+
+/** Espera al cierre del stream de escritura. */
+function streamFinished(stream: fs.WriteStream): Promise<void> {
+  return new Promise((resolve, reject) => {
+    stream.once("finish", () => resolve());
+    stream.once("error", (err) => reject(err));
+  });
 }

@@ -5,6 +5,7 @@ import {
   SnapshotRecord,
   SnapshotRecordSchema,
   ProjectImportResult,
+  RecoveryMemoryAdapter,
 } from "./types.js";
 import { ProjectExport } from "./ProjectExport.js";
 import { ProjectImport } from "./ProjectImport.js";
@@ -16,7 +17,7 @@ export class SnapshotManager {
 
   constructor(
     options: SnapshotManagerOptions,
-    private readonly adapter: any
+    private readonly adapter: RecoveryMemoryAdapter
   ) {
     this.snapshotsDir = options.snapshotsDir;
     this.maxSnapshots = options.maxSnapshots ?? 7;

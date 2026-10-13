@@ -42,4 +42,30 @@ describe("COUC-15: MockIPCBridge (Browser & Isolated UI Testing)", () => {
 
     unsub();
   });
+
+  it("strict por defecto (H17): rechaza ops de memoria desconocidas", async () => {
+    const api = MockIPCBridge.createMockApi();
+    await expect(api.memory({ op: "drop", args: [] })).rejects.toThrow(/strict/i);
+  });
+
+  it("strict (H19): rechaza apiKey en claro y jamás la expone", async () => {
+    const api = MockIPCBridge.createMockApi();
+    await expect(
+      api.settings.saveModelConfig({ activeProvider: "openai", apiKey: "sk-live-123" })
+    ).rejects.toThrow(/apiKey/i);
+
+    const cfg = (await api.settings.getModelConfig()) as Record<string, unknown>;
+    expect(cfg).not.toHaveProperty("apiKey");
+  });
+
+  it("strict (H18): valida entradas con zod", async () => {
+    const api = MockIPCBridge.createMockApi();
+    await expect(api.llmStream({ prompt: "" })).rejects.toThrow();
+    await expect(api.subegos.create("no-es-objeto" as never)).rejects.toThrow();
+  });
+
+  it("modo permisivo explícito: preserva compat legacy sin romper callers viejos", async () => {
+    const api = MockIPCBridge.createMockApi({ permissive: true });
+    await expect(api.memory({ op: "drop", args: [] })).resolves.toBeNull();
+  });
 });

@@ -76,12 +76,27 @@ export class DailyStatePersistence {
 
     try {
       const record = DailySnapshotRecordSchema.parse(raw.payload);
-      // Validar integridad SHA-256
+      // Validar integridad SHA-256 — fail-closed (H15): un mismatch significa
+      // manipulación o corrupción; NUNCA se retorna el registro alterado.
       const actualChecksum = DailyStatePersistence.computeChecksum(record.summary);
       if (actualChecksum !== record.checksum) {
-        console.warn(
-          `[DailyStatePersistence] Checksum discrepante en snapshot ${date}. Esperado: ${record.checksum}, Calculado: ${actualChecksum}`
-        );
+        const detail =
+          `[DailyStatePersistence] Checksum discrepante en snapshot ${date}. ` +
+          `Esperado: ${record.checksum}, Calculado: ${actualChecksum}`;
+        if (this.eventBus) {
+          this.eventBus.emit(
+            "system.alert",
+            {
+              code: "DAILY_CHECKSUM_MISMATCH",
+              message: `Integridad de snapshot diario ${date} comprometida: checksum SHA-256 no coincide.`,
+              details: { date, expected: record.checksum, actual: actualChecksum },
+            },
+            { source: "DailyStatePersistence", severity: "error" }
+          );
+        } else {
+          console.error(detail);
+        }
+        return null;
       }
 
       if (this.eventBus) {
@@ -107,6 +122,9 @@ export class DailyStatePersistence {
     for (const rec of records) {
       try {
         const parsed = DailySnapshotRecordSchema.parse(rec.payload);
+        // Fail-closed (H15): omitir registros con checksum inválido.
+        const actualChecksum = DailyStatePersistence.computeChecksum(parsed.summary);
+        if (actualChecksum !== parsed.checksum) continue;
         snapshots.push(parsed);
       } catch {
         // Ignorar registros corruptos

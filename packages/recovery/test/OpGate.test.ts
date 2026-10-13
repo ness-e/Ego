@@ -49,4 +49,50 @@ describe("OpGate (REC-02)", () => {
     expect(slowRes).toBe("done");
     expect(completed).toBe(true);
   });
+
+  it("reset() rechaza con ops en vuelo en vez de huérfanas (M22)", async () => {
+    const gate = new OpGate();
+    let release!: () => void;
+    const gateBlocker = new Promise<void>((r) => {
+      release = r;
+    });
+    const op = gate.withGate(async () => {
+      await gateBlocker;
+      return "done";
+    });
+
+    expect(() => gate.reset()).toThrow(/en vuelo/);
+
+    release();
+    await op;
+    // Sin ops en vuelo el reset vuelve a ser válido
+    gate.reset();
+    expect(gate.getStatus().inFlightCount).toBe(0);
+  });
+
+  it("reset() rechaza durante un drain pendiente y lo permite tras drenar", async () => {
+    const gate = new OpGate({ drainTimeoutMs: 1000 });
+    let release!: () => void;
+    const gateBlocker = new Promise<void>((r) => {
+      release = r;
+    });
+    const op = gate.withGate(async () => {
+      await gateBlocker;
+      return "done";
+    });
+    const drainPromise = gate.drain();
+
+    // Ambas guardas disparan (ops en vuelo + drain pendiente): lo que importa
+    // es que reset() NO silenciosamente rehabilita la compuerta a mitad de drain.
+    expect(() => gate.reset()).toThrow(/reset\(\) rechazado/);
+
+    release();
+    const drainRes = await Promise.all([drainPromise, op]);
+    expect(drainRes[0].drained).toBe(true);
+
+    // Tras drenar limpio, reset() rehabilita la compuerta
+    gate.reset();
+    expect(gate.getStatus().isDraining).toBe(false);
+    await expect(gate.withGate(async () => "ok")).resolves.toBe("ok");
+  });
 });

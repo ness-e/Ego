@@ -7,6 +7,7 @@ import {
   RecentDecision,
   SuggestedGoal,
 } from "./types.js";
+import { parseActorId } from "./actorId.js";
 
 export class DailyStateEngine {
   private memory: EgoMemoryAdapter;
@@ -59,22 +60,7 @@ export class DailyStateEngine {
             : typeof metadata.ts === "number"
             ? metadata.ts
             : now;
-        let subEgoId = "ego.nucleus";
-        if (typeof payload.subEgoId === "string" && payload.subEgoId.trim()) {
-          subEgoId = payload.subEgoId;
-        } else if (payload.subEgoId && typeof payload.subEgoId === "object") {
-          const s = payload.subEgoId as Record<string, unknown>;
-          if (typeof s.id === "string") subEgoId = s.id;
-          else if (typeof s.String === "string") subEgoId = s.String;
-        } else if (typeof payload.actor === "string" && payload.actor.trim()) {
-          subEgoId = payload.actor;
-        } else if (typeof metadata.agent_id === "string" && metadata.agent_id.trim()) {
-          subEgoId = metadata.agent_id;
-        } else if (metadata.agent_id && typeof metadata.agent_id === "object") {
-          const a = metadata.agent_id as Record<string, unknown>;
-          if (typeof a.String === "string") subEgoId = a.String;
-          else if (typeof a.id === "string") subEgoId = a.id;
-        }
+        const subEgoId = parseActorId(payload, metadata);
 
         recentDecisions.push({
           id,

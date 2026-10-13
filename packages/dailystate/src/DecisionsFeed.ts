@@ -1,7 +1,17 @@
 import * as crypto from "node:crypto";
 import type { EgoMemoryAdapter } from "@ego/memory";
-import type { EventBus } from "@ego/events";
+import type { EventBus, EgoEventType } from "@ego/events";
 import { RecentDecision, RecentDecisionSchema } from "./types.js";
+import { parseActorId } from "./actorId.js";
+
+/**
+ * Evento propio de registro de decisión (H21).
+ * `DecisionsFeed` JAMÁS emite `daily.state.synthesized` (propiedad de
+ * `DailyStateEngine`/`GoalPrioritizer`): colisionar hechos rompe la
+ * trazabilidad. El literal se castea porque el registro canónico del
+ * tipo vive en `@ego/events` (fuera del alcance de esta task).
+ */
+const DECISION_RECORDED_EVENT = "daily.decision.recorded" as unknown as EgoEventType;
 
 export interface DecisionQueryOptions {
   limit?: number;
@@ -44,22 +54,7 @@ export class DecisionsFeed {
           : typeof metadata.ts === "number"
           ? metadata.ts
           : Date.now();
-      let subEgoId = "ego.nucleus";
-      if (typeof payload.subEgoId === "string" && payload.subEgoId.trim()) {
-        subEgoId = payload.subEgoId;
-      } else if (payload.subEgoId && typeof payload.subEgoId === "object") {
-        const s = payload.subEgoId as Record<string, unknown>;
-        if (typeof s.id === "string") subEgoId = s.id;
-        else if (typeof s.String === "string") subEgoId = s.String;
-      } else if (typeof payload.actor === "string" && payload.actor.trim()) {
-        subEgoId = payload.actor;
-      } else if (typeof metadata.agent_id === "string" && metadata.agent_id.trim()) {
-        subEgoId = metadata.agent_id;
-      } else if (metadata.agent_id && typeof metadata.agent_id === "object") {
-        const a = metadata.agent_id as Record<string, unknown>;
-        if (typeof a.String === "string") subEgoId = a.String;
-        else if (typeof a.id === "string") subEgoId = a.id;
-      }
+      let subEgoId = parseActorId(payload, metadata);
       const impact = payload.impact as string | undefined;
 
       if (timestamp >= since) {
@@ -114,7 +109,7 @@ export class DecisionsFeed {
     });
 
     if (this.eventBus) {
-      this.eventBus.emit("daily.state.synthesized", validated, {
+      this.eventBus.emit(DECISION_RECORDED_EVENT, validated, {
         source: "DecisionsFeed",
       });
     }

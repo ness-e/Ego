@@ -114,8 +114,7 @@ describe("DailyStatePersistence (DS-08 / COUC-09)", () => {
     expect(list[2].date).toBe("2026-10-08");
   });
 
-  it("detecta correctamente si es el primer inicio del día (COUC-06)", async () => {
-    const persistence = new DailyStatePersistence(mockAdapter);
+  it("detecta correctamente si es el primer inicio del día (COUC-06)", async () => {    const persistence = new DailyStatePersistence(mockAdapter);
 
     // Antes de guardar: es el primer inicio
     const isFirstBefore = await persistence.isFirstLaunchOfDay("2026-10-10");
@@ -127,5 +126,49 @@ describe("DailyStatePersistence (DS-08 / COUC-09)", () => {
     // Después de guardar: ya no es el primer inicio
     const isFirstAfter = await persistence.isFirstLaunchOfDay("2026-10-10");
     expect(isFirstAfter).toBe(false);
+  });
+
+  it("fail-closed (H15): retorna null y emite system.alert ante checksum manipulado", async () => {
+    const persistence = new DailyStatePersistence(mockAdapter, { eventBus: mockEventBus });
+    await persistence.saveSnapshot(mockSummary);
+    mockEventBus.emit.mockClear();
+
+    // Manipular el payload almacenado (atacante / corrupción en disco)
+    const stored = await mockAdapter.list("system/snapshots/daily");
+    expect(stored).toHaveLength(1);
+    (stored[0].payload as { summary: DailyStateSummary }).summary.completedTasksCount = 999;
+
+    const retrieved = await persistence.getSnapshot("2026-10-10");
+
+    // Fail-closed: NUNCA retorna el registro manipulado
+    expect(retrieved).toBeNull();
+
+    // Alerta estructurada (no solo warn decorativo)
+    expect(mockEventBus.emit).toHaveBeenCalledWith(
+      "system.alert",
+      expect.objectContaining({ code: "DAILY_CHECKSUM_MISMATCH" }),
+      expect.objectContaining({ source: "DailyStatePersistence" })
+    );
+
+    // Y NO emite restored sobre datos corruptos
+    const restoredCalls = mockEventBus.emit.mock.calls.filter(
+      (c: unknown[]) => c[0] === "daily.snapshot.restored"
+    );
+    expect(restoredCalls).toHaveLength(0);
+  });
+
+  it("fail-closed (H15): listSnapshots omite registros con checksum inválido", async () => {
+    const persistence = new DailyStatePersistence(mockAdapter, { eventBus: mockEventBus });
+    await persistence.saveSnapshot({ ...mockSummary, date: "2026-10-10" });
+    await persistence.saveSnapshot({ ...mockSummary, date: "2026-10-09" });
+
+    const stored = await mockAdapter.list("system/snapshots/daily");
+    const tampered = stored.find(
+      (r: { payload: { date: string } }) => r.payload.date === "2026-10-09"
+    );
+    (tampered.payload as { summary: DailyStateSummary }).summary.pendingTasksCount = 4242;
+
+    const list = await persistence.listSnapshots();
+    expect(list.map((s) => s.date)).toEqual(["2026-10-10"]);
   });
 });

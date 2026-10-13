@@ -92,4 +92,25 @@ describe("DecisionsFeed (DS-03 / COUC-09)", () => {
     expect(decisions[0].subEgoId).toBe("subego.meta");
     expect(decisions[0].subEgoId).not.toBe("ego.nucleus");
   });
+
+  it("emite evento propio daily.decision.recorded (H21, sin colisión de hechos)", async () => {
+    const mockEventBus = { emit: vi.fn() };
+    const feed = new DecisionsFeed(mockAdapter, { eventBus: mockEventBus as never });
+    const recorded = await feed.recordDecision({
+      title: "Adoptar NativeVantaDB",
+      subEgoId: "ego.architect",
+    });
+
+    expect(mockEventBus.emit).toHaveBeenCalledWith(
+      "daily.decision.recorded",
+      expect.objectContaining({ id: recorded.id }),
+      expect.objectContaining({ source: "DecisionsFeed" })
+    );
+
+    // Sin colisión: JAMÁS reutiliza el evento de síntesis del motor
+    const synthesizedCalls = mockEventBus.emit.mock.calls.filter(
+      (c: unknown[]) => c[0] === "daily.state.synthesized"
+    );
+    expect(synthesizedCalls).toHaveLength(0);
+  });
 });

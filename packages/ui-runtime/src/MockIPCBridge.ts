@@ -2,7 +2,44 @@
  * Mock IPC Bridge para iteración aislada de la UI (Patrón Coucou COUC-15 / Mock Bridge).
  * Permite ejecutar y probar los componentes del Dynamic Workspace y la UI en un navegador
  * web estándar sin requerir arrancar Electron ni el proceso principal de Node.js.
+ *
+ * ⚠️ INSEGURO POR DISEÑO — SOLO TESTS / DEV BROWSER (H17/H18/H19):
+ * - Todo vive en memoria del hilo UI, SIN cifrado y SIN keychain.
+ * - JAMÁS usar en producción ni como referencia de seguridad.
+ * - JAMÁS pasar secretos reales (`apiKey`, tokens): el modo strict los RECHAZA.
+ *
+ * Modos:
+ * - strict (defecto): valida entradas con zod y rechaza operaciones/secretos
+ *   desconocidos con Error. Es el modo para tests nuevos.
+ * - permissive (`{ permissive: true }`, explícito): compat legacy para tests
+ *   viejos que dependen del mock permisivo; emite `console.warn` por llamada
+ *   degradada. Migrar esos tests a strict.
  */
+import { z } from "zod";
+
+export interface MockIPCBridgeOptions {
+  /** Opt-in explícito al comportamiento legacy permisivo. Defecto: false (strict). */
+  permissive?: boolean;
+}
+
+const MemoryOpSchema = z.object({
+  op: z.enum(["get", "put"]),
+  args: z.array(z.unknown()),
+});
+
+const LlmStreamSchema = z.object({
+  prompt: z.string().min(1),
+  sessionId: z.string().optional(),
+  systemPrompt: z.string().optional(),
+});
+
+const SubEgoCreateSchema = z.record(z.unknown());
+
+const ModelConfigSchema = z.object({
+  activeProvider: z.string().min(1),
+  baseUrl: z.string().optional(),
+  modelName: z.string().optional(),
+});
 
 export interface MockEgoAPI {
   memory: (payload: { op: string; args: unknown[] }) => Promise<unknown>;
@@ -25,7 +62,7 @@ export interface MockEgoAPI {
   };
   mcp: {
     listServers: () => Promise<unknown[]>;
-    addServer: (req: { config: any; enabled?: boolean }) => Promise<{ success: boolean }>;
+    addServer: (req: { config: Record<string, unknown>; enabled?: boolean }) => Promise<{ success: boolean }>;
     removeServer: (req: { id: string }) => Promise<{ success: boolean }>;
     toggleServer: (req: { id: string; enabled: boolean }) => Promise<{ success: boolean }>;
     listTools: (filter?: { query?: string; riskLevel?: string; serverId?: string }) => Promise<unknown[]>;
@@ -54,12 +91,30 @@ export class MockIPCBridge {
 
   /**
    * Genera una implementación en memoria de la API de Electron para el navegador.
+   * Strict por defecto; `{ permissive: true }` solo como puente de migración.
    */
-  public static createMockApi(): MockEgoAPI {
+  public static createMockApi(options?: MockIPCBridgeOptions): MockEgoAPI {
+    const strict = options?.permissive !== true;
     const memoryStore = new Map<string, unknown>();
     const projectListeners = new Set<(data: { activeProjectId: string }) => void>();
     const subEgoListeners = new Set<(data: { subEgoId: string; action: string; state?: string }) => void>();
     const chatListeners = new Set<(chunk: unknown) => void>();
+    let modelConfig: Record<string, unknown> = {
+      activeProvider: "mock-provider",
+      modelName: "mock-model-1",
+    };
+
+    const rejectOrWarn = (message: string): null => {
+      if (strict) {
+        throw new Error(`[MockIPCBridge:strict] ${message}`);
+      }
+      console.warn(`[MockIPCBridge:permissive] ${message} (modo legacy; migrar a strict)`);
+      return null;
+    };
+
+    const warnLegacy = (message: string): void => {
+      console.warn(`[MockIPCBridge:permissive] ${message} (modo legacy; migrar a strict)`);
+    };
 
     const activeProject = {
       id: "mock_proj_01",
@@ -70,17 +125,28 @@ export class MockIPCBridge {
 
     return {
       memory: async (payload) => {
-        if (payload.op === "get") {
-          return memoryStore.get(String(payload.args[0])) ?? null;
+        const parsed = MemoryOpSchema.safeParse(payload);
+        if (!parsed.success) {
+          rejectOrWarn(`memory: payload inválido (op esperada 'get'|'put'): ${parsed.error.message}`);
+          return null;
         }
-        if (payload.op === "put") {
-          memoryStore.set(String(payload.args[0]), payload.args[1]);
-          return { success: true };
+        if (parsed.data.op === "get") {
+          return memoryStore.get(String(parsed.data.args[0])) ?? null;
         }
-        return null;
+        memoryStore.set(String(parsed.data.args[0]), parsed.data.args[1]);
+        return { success: true };
       },
       llmStream: async (req) => {
-        return { text: `[Mock LLM Response for: "${req.prompt.slice(0, 40)}..."]` };
+        const parsed = LlmStreamSchema.safeParse(req);
+        if (!parsed.success) {
+          if (strict) {
+            throw new Error(`[MockIPCBridge:strict] llmStream: prompt requerido no vacío: ${parsed.error.message}`);
+          }
+          warnLegacy(`llmStream: prompt inválido: ${parsed.error.message}`);
+          const fallbackPrompt = typeof req?.prompt === "string" ? req.prompt : "";
+          return { text: `[Mock LLM Response for: "${fallbackPrompt.slice(0, 40)}..."]` };
+        }
+        return { text: `[Mock LLM Response for: "${parsed.data.prompt.slice(0, 40)}..."]` };
       },
       approve: async () => ({ approved: true }),
       resolveApproval: async () => ({ success: true }),
@@ -89,7 +155,17 @@ export class MockIPCBridge {
         { id: "subego_mock_1", name: "Researcher Sub-Ego", role: "researcher", state: "active" },
         { id: "subego_mock_2", name: "Developer Sub-Ego", role: "developer", state: "active" },
       ],
-      createSubEgo: async (req: any) => ({ id: `subego_${Date.now()}`, ...req }),
+      createSubEgo: async (req: unknown) => {
+        const parsed = SubEgoCreateSchema.safeParse(req);
+        if (!parsed.success) {
+          if (strict) {
+            throw new Error(`[MockIPCBridge:strict] createSubEgo: se esperaba objeto: ${parsed.error.message}`);
+          }
+          warnLegacy(`createSubEgo: entrada no-objeto: ${parsed.error.message}`);
+          return { id: `subego_${Date.now()}` };
+        }
+        return { id: `subego_${Date.now()}`, ...parsed.data };
+      },
       subegos: {
         list: async () => [
           { id: "subego_mock_1", name: "Researcher Sub-Ego", role: "researcher", state: "active" },
@@ -98,7 +174,17 @@ export class MockIPCBridge {
         getTemplates: async () => [
           { id: "template_code", name: "Software Engineer", role: "developer" },
         ],
-        create: async (req: any) => ({ id: `subego_${Date.now()}`, ...req }),
+        create: async (req: unknown) => {
+          const parsed = SubEgoCreateSchema.safeParse(req);
+          if (!parsed.success) {
+            if (strict) {
+              throw new Error(`[MockIPCBridge:strict] subegos.create: se esperaba objeto: ${parsed.error.message}`);
+            }
+            warnLegacy(`subegos.create: entrada no-objeto: ${parsed.error.message}`);
+            return { id: `subego_${Date.now()}` };
+          }
+          return { id: `subego_${Date.now()}`, ...parsed.data };
+        },
         toggleState: async (req) => {
           for (const l of subEgoListeners) {
             l({ subEgoId: req.subEgoId, action: "toggleState", state: req.state });
@@ -129,8 +215,35 @@ export class MockIPCBridge {
         selectFolder: async () => ({ canceled: false, filePaths: ["/mock/workspace"] }),
       },
       settings: {
-        getModelConfig: async () => ({ activeProvider: "mock-provider", modelName: "mock-model-1" }),
-        saveModelConfig: async () => ({ success: true }),
+        // NUNCA expone apiKey: el mock no custodia secretos (H19).
+        getModelConfig: async () => ({ ...modelConfig }),
+        saveModelConfig: async (config) => {
+          if (config && typeof config === "object" && "apiKey" in config && config.apiKey !== undefined) {
+            if (strict) {
+              throw new Error("[MockIPCBridge:strict] settings.saveModelConfig: apiKey en claro rechazada; el mock no custodia secretos.");
+            }
+            // Permissive legacy: warn + SANITIZAR (jamás persistir el secreto).
+            warnLegacy("settings.saveModelConfig: apiKey en claro ignorada; no se persiste.");
+            const { apiKey: _dropped, ...rest } = config as Record<string, unknown>;
+            const parsedRest = ModelConfigSchema.safeParse(rest);
+            if (parsedRest.success) {
+              const { activeProvider, baseUrl, modelName } = parsedRest.data;
+              modelConfig = { activeProvider, ...(baseUrl ? { baseUrl } : {}), ...(modelName ? { modelName } : {}) };
+            }
+            return { success: true };
+          }
+          const parsed = ModelConfigSchema.safeParse(config);
+          if (!parsed.success) {
+            if (strict) {
+              throw new Error(`[MockIPCBridge:strict] settings.saveModelConfig: config inválida: ${parsed.error.message}`);
+            }
+            warnLegacy(`settings.saveModelConfig: config inválida: ${parsed.error.message}`);
+            return { success: true };
+          }
+          const { activeProvider, baseUrl, modelName } = parsed.data;
+          modelConfig = { activeProvider, ...(baseUrl ? { baseUrl } : {}), ...(modelName ? { modelName } : {}) };
+          return { success: true };
+        },
       },
       onProjectChanged: (cb) => {
         projectListeners.add(cb);
@@ -151,7 +264,10 @@ export class MockIPCBridge {
    * Instala el MockIPCBridge en `window.ego` si no nos encontramos dentro de Electron.
    */
   public static installIfMissing(): boolean {
-    const globalObj = typeof globalThis !== "undefined" ? (globalThis as any) : undefined;
+    const globalObj =
+      typeof globalThis !== "undefined"
+        ? (globalThis as unknown as Record<string, unknown>)
+        : undefined;
     if (!globalObj) return false;
 
     if (globalObj.ego) {

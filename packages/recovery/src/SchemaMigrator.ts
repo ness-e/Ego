@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { SchemaMigrationStep } from "./types.js";
+import { SchemaMigrationStep, RecoveryMemoryAdapter } from "./types.js";
 import { SnapshotManager } from "./SnapshotManager.js";
 
 export interface NamespacesConfig {
@@ -20,7 +20,7 @@ export class SchemaMigrator {
   constructor(
     private readonly configPath: string,
     private readonly snapshotManager?: SnapshotManager,
-    private readonly adapter?: any
+    private readonly adapter?: RecoveryMemoryAdapter
   ) {}
 
   /**
@@ -142,7 +142,7 @@ export class SchemaMigrator {
         newVersion: current,
         appliedSteps: appliedCount,
       };
-    } catch (migrationErr: any) {
+    } catch (migrationErr: unknown) {
       // Rollback automático usando snapshot si está disponible
       if (preMigrationSnapshotId && this.snapshotManager) {
         try {
@@ -153,7 +153,9 @@ export class SchemaMigrator {
       }
 
       throw new Error(
-        `[SchemaMigrator] Falló la migración de esquemas en paso hacia v${current + 1}: ${migrationErr.message}`
+        `[SchemaMigrator] Falló la migración de esquemas en paso hacia v${current + 1}: ${
+          migrationErr instanceof Error ? migrationErr.message : String(migrationErr)
+        }`
       );
     }
   }
