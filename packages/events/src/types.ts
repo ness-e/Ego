@@ -43,6 +43,7 @@ export type EgoEventType =
 
   // Daily State y Sesión Diaria (Fase 08)
   | "daily.state.synthesized"
+  | "daily.decision.recorded"
   | "daily.snapshot.saved"
   | "daily.snapshot.restored"
 
@@ -118,6 +119,7 @@ export interface CanonicalEventPayloadMap {
   "system.alert": { code: string; message: string; details?: unknown };
 
   "daily.state.synthesized": unknown;
+  "daily.decision.recorded": { id: string; title: string; timestamp: number; subEgoId: string };
   "daily.snapshot.saved": unknown;
   "daily.snapshot.restored": unknown;
 

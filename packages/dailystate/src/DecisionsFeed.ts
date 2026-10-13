@@ -5,13 +5,12 @@ import { RecentDecision, RecentDecisionSchema } from "./types.js";
 import { parseActorId } from "./actorId.js";
 
 /**
- * Evento propio de registro de decisión (H21).
+ * Evento propio de registro de decisión (H21, canonizado en `@ego/events`).
  * `DecisionsFeed` JAMÁS emite `daily.state.synthesized` (propiedad de
  * `DailyStateEngine`/`GoalPrioritizer`): colisionar hechos rompe la
- * trazabilidad. El literal se castea porque el registro canónico del
- * tipo vive en `@ego/events` (fuera del alcance de esta task).
+ * trazabilidad.
  */
-const DECISION_RECORDED_EVENT = "daily.decision.recorded" as unknown as EgoEventType;
+const DECISION_RECORDED_EVENT: EgoEventType = "daily.decision.recorded";
 
 export interface DecisionQueryOptions {
   limit?: number;

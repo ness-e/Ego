@@ -9,7 +9,7 @@ import {
 } from "@ego/memory";
 import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL } from "@ego/models";
 import { ToolRegistry, registerNativeTools, type ToolExecutionContext } from "@ego/tools";
-import { McpManager, SkillScanner } from "@ego/integrations";
+import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
 import { ToolExecutionLoop, type LoopExecutionResult } from "@ego/runtime";
 import { ApprovalEngine, ExecutionManager, type PendingApproval } from "@ego/execution";
@@ -312,6 +312,397 @@ export function maskApiKey(key: string): string {
 
 /** Alias del enmascarado de keys para respuestas hacia el renderer (nunca el secreto). */
 export const maskKey = maskApiKey;
+
+// ---------------------------------------------------------------------------
+// Secretos de entorno MCP → Credential Manager (Deuda F1T2/F5T10).
+//
+// Decisión de diseño (evidencia + trade-offs explícitos):
+// - `AddMcpServerSchema.env` es `z.record(z.string())` libre: el schema NO
+//   distingue secreto de valor operativo. La heurística es por segmentos del
+//   NOMBRE (`KEY`/`TOKEN`/`SECRET`/`PAT`/…): cubre `GITHUB_TOKEN`,
+//   `GITHUB_PERSONAL_ACCESS_TOKEN`, `ANTHROPIC_API_KEY`. Comparación por
+//   segmento (no subcadena) para no clasificar `AUTHOR` como secreto.
+//   Trade-off conocido: un secreto en una var con nombre exótico (p. ej.
+//   `MY_VAR`) NO se vaultiza; documentado, no silencioso.
+// - Los valores NO secretos (`NODE_ENV`, `PORT`, `LOG_LEVEL`…) persisten en
+//   claro para permitir arranque degradado sin Manager (INV-PROBLEMA).
+// - VantaDB (`gov/mcp_servers`) solo guarda referencias: config saneada +
+//   `envRef { service, keys, encrypted }`. Los blobs `encrypted` son `enc:`
+//   de safeStorage (u `obf:` legado con warn, mismo patrón que models BYOK):
+//   un secret-scan del payload NUNCA ve el PAT en claro. Precedente aceptado
+//   en esta base: `gov/settings` persiste `*KeyEncrypted` (prohibido = texto
+//   plano, no criptotexto).
+// - Vault en memoria (`CredentialManager`, servicio `mcp/<id>/env`, cuenta =
+//   nombre de var) para resolución de sesión vía `McpTokenStore`; el cifrado
+//   da durabilidad entre reinicios. `storeSecret` es best-effort con warn:
+//   si el llavero no está disponible, el cifrado igual persiste.
+// - Las respuestas IPC al renderer NUNCA llevan secretos en claro: env de
+//   secretos enmascarado con `maskKey` (patrón `toMaskedModelConfigResponse`).
+// ---------------------------------------------------------------------------
+
+/** Segmentos de nombre de var de entorno que denotan secreto. */
+const MCP_SECRET_ENV_SEGMENTS: ReadonlySet<string> = new Set([
+  "KEY",
+  "KEYS",
+  "TOKEN",
+  "TOKENS",
+  "SECRET",
+  "SECRETS",
+  "PAT",
+  "PATS",
+  "PASSWORD",
+  "PASSWD",
+  "PWD",
+  "AUTH",
+  "CREDENTIAL",
+  "CREDENTIALS",
+  "PRIVATE",
+  "SIGNATURE",
+]);
+
+/**
+ * Heurística de secreto por nombre de variable de entorno (comparación por
+ * segmento en mayúsculas; ver bloque de diseño F1T2/F5T10).
+ */
+export function isMcpSecretEnvName(name: unknown): boolean {
+  if (typeof name !== "string" || name.length === 0) return false;
+  const segments = name.toUpperCase().split(/[^A-Z0-9]+/);
+  return segments.some((segment) => MCP_SECRET_ENV_SEGMENTS.has(segment));
+}
+
+/**
+ * Divide un `env` MCP en valores públicos (persisten en claro) y nombres de
+ * secretos (van al vault + `envRef`). Nunca registra ni retorna valores.
+ */
+export function splitMcpServerEnv(env: Record<string, string> | undefined): {
+  publicEnv: Record<string, string>;
+  secretNames: string[];
+} {
+  const publicEnv: Record<string, string> = {};
+  const secretNames: string[] = [];
+  if (!env) return { publicEnv, secretNames };
+  for (const [name, value] of Object.entries(env)) {
+    if (isMcpSecretEnvName(name)) {
+      secretNames.push(name);
+    } else if (typeof value === "string") {
+      publicEnv[name] = value;
+    }
+  }
+  return { publicEnv, secretNames };
+}
+
+/** Servicio del vault para un servidor: `mcp/<server-id>/env` (cuenta = var). */
+export function mcpEnvVaultService(serverId: string): string {
+  return `mcp/${serverId}/env`;
+}
+
+/**
+ * Detecta valores enmascarados para el renderer (`sk-t...7890`, `••••`).
+ * Una máscara NUNCA se almacena como secreto (patrón settings Task 10).
+ */
+export function isMaskedMcpEnvValue(value: unknown): boolean {
+  return (
+    typeof value === "string" && (value.includes("...") || value.includes("••••"))
+  );
+}
+
+/** Referencia persistida a los secretos de un servidor (sin texto plano). */
+export interface McpEnvSecretsRef {
+  service: string;
+  keys: string[];
+  encrypted: Record<string, string>;
+}
+
+/** Registro `gov/mcp_servers`: config saneada + referencia opaca a secretos. */
+export interface PersistedMcpServerRecord {
+  config: McpServerConfig;
+  enabled: boolean;
+  envRef?: McpEnvSecretsRef;
+}
+
+/**
+ * Superficie mínima del vault que los handlers MCP necesitan. `CredentialManager`
+ * la satisface estructuralmente (también `McpTokenStore.getSecret`).
+ */
+export interface McpEnvSecretVault {
+  storeSecret(service: string, account: string, secret: string): Promise<void>;
+  getSecret(service: string, account: string): Promise<string | null>;
+  deleteSecret(service: string, account: string): boolean | Promise<boolean>;
+}
+
+/**
+ * Secretos almacenables del env entrante: no vacíos y no enmascarados. Las
+ * máscaras del renderer se resuelven contra lo guardado, jamás se persisten.
+ */
+export function collectStorableMcpSecrets(
+  env: Record<string, string> | undefined
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!env) return out;
+  const { secretNames } = splitMcpServerEnv(env);
+  for (const name of secretNames) {
+    const value: unknown = env[name];
+    if (typeof value === "string" && value.length > 0 && !isMaskedMcpEnvValue(value)) {
+      out[name] = value;
+    }
+  }
+  return out;
+}
+
+/**
+ * Construye el payload persistible: config SIN secretos + `envRef` con blobs
+ * `enc:` opacos. `encrypt` se inyecta (prod: `encryptCredential`).
+ * Garantía: `JSON.stringify(resultado)` nunca contiene un secreto en claro.
+ */
+export function buildMcpPersistedRecord(
+  config: McpServerConfig,
+  enabled: boolean,
+  encrypt: (plainText: string) => string
+): PersistedMcpServerRecord {
+  const { publicEnv } = splitMcpServerEnv(config.env);
+  const secrets = collectStorableMcpSecrets(config.env);
+  const names = Object.keys(secrets);
+  const sanitized: McpServerConfig = { ...config };
+  if (Object.keys(publicEnv).length > 0) {
+    sanitized.env = publicEnv;
+  } else {
+    delete sanitized.env;
+  }
+  if (names.length === 0) {
+    return { config: sanitized, enabled };
+  }
+  const encrypted: Record<string, string> = {};
+  for (const name of names) {
+    const value: unknown = secrets[name];
+    if (typeof value === "string") {
+      encrypted[name] = encrypt(value);
+    }
+  }
+  return {
+    config: sanitized,
+    enabled,
+    envRef: { service: mcpEnvVaultService(config.id), keys: names, encrypted },
+  };
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (typeof value !== "object" || value === null) return false;
+  return Object.values(value as Record<string, unknown>).every(
+    (entry) => typeof entry === "string"
+  );
+}
+
+/**
+ * Tolera los shapes históricos de `gov/mcp_servers`: `{ config, enabled }`
+ * legado con env en claro, envelope de adapter `{ payload }` y JSON en
+ * string. Retorna `null` si no hay config válida. Sin `any`.
+ */
+export function extractPersistedMcpRecord(raw: unknown): PersistedMcpServerRecord | null {
+  let node: unknown = raw;
+  if (typeof node === "string") {
+    try {
+      node = JSON.parse(node) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof node === "object" && node !== null && "payload" in node) {
+    const envelope = node as { payload?: unknown };
+    if (typeof envelope.payload === "object" && envelope.payload !== null) {
+      node = envelope.payload;
+    } else if (typeof envelope.payload === "string") {
+      try {
+        node = JSON.parse(envelope.payload) as unknown;
+      } catch {
+        return null;
+      }
+    }
+  }
+  if (typeof node !== "object" || node === null) return null;
+  const record = node as Record<string, unknown>;
+  const rawConfig = record.config;
+  if (typeof rawConfig !== "object" || rawConfig === null) return null;
+  const cfg = rawConfig as Record<string, unknown>;
+  if (typeof cfg.id !== "string" || cfg.id.length === 0) return null;
+  if (typeof cfg.name !== "string" || typeof cfg.command !== "string") return null;
+  const config: McpServerConfig = {
+    id: cfg.id,
+    name: cfg.name,
+    transport: cfg.transport === "sse" ? "sse" : "stdio",
+    command: cfg.command,
+  };
+  if (
+    Array.isArray(cfg.args) &&
+    cfg.args.every((entry: unknown): entry is string => typeof entry === "string")
+  ) {
+    config.args = [...cfg.args];
+  }
+  if (isStringRecord(cfg.env)) {
+    config.env = { ...cfg.env };
+  }
+  if (typeof cfg.cwd === "string") config.cwd = cfg.cwd;
+  if (typeof cfg.toolPrefix === "string") config.toolPrefix = cfg.toolPrefix;
+  if (typeof cfg.timeoutMs === "number" && Number.isInteger(cfg.timeoutMs) && cfg.timeoutMs > 0) {
+    config.timeoutMs = cfg.timeoutMs;
+  }
+  const enabled = typeof record.enabled === "boolean" ? record.enabled : true;
+  const rawRef = record.envRef;
+  if (typeof rawRef === "object" && rawRef !== null) {
+    const ref = rawRef as Record<string, unknown>;
+    if (
+      typeof ref.service === "string" &&
+      Array.isArray(ref.keys) &&
+      ref.keys.every((entry: unknown): entry is string => typeof entry === "string")
+    ) {
+      const encrypted: Record<string, string> = {};
+      if (isStringRecord(ref.encrypted)) {
+        Object.assign(encrypted, ref.encrypted);
+      }
+      return { config, enabled, envRef: { service: ref.service, keys: [...ref.keys], encrypted } };
+    }
+  }
+  return { config, enabled };
+}
+
+/**
+ * Un registro necesita migración si trae secretos en claro en `config.env`
+ * sin `envRef` (deuda F1T2/F5T10). Patrón restore de models.
+ */
+export function needsMcpEnvMigration(persisted: PersistedMcpServerRecord): boolean {
+  if (persisted.envRef) return false;
+  const env = persisted.config.env;
+  if (!env) return false;
+  return Object.entries(env).some(
+    ([name, value]) =>
+      isMcpSecretEnvName(name) &&
+      typeof value === "string" &&
+      value.length > 0 &&
+      !isMaskedMcpEnvValue(value)
+  );
+}
+
+/**
+ * Rehidrata el env runtime: público en claro + secretos (vault primero,
+ * blob `enc:` como respaldo). Retorna `missingSecrets` para warn visible en
+ * vez de arranque a ciegas. `vaultGet` se inyecta (prod: Credential Manager).
+ */
+export async function resolveMcpRuntimeEnv(
+  persisted: PersistedMcpServerRecord,
+  decrypt: (stored: string) => string,
+  vaultGet?: (service: string, account: string) => Promise<string | null>
+): Promise<{ env?: Record<string, string>; missingSecrets: string[] }> {
+  const { publicEnv } = splitMcpServerEnv(persisted.config.env);
+  const keys = persisted.envRef?.keys ?? [];
+  const service = persisted.envRef?.service ?? mcpEnvVaultService(persisted.config.id);
+  const encrypted = persisted.envRef?.encrypted ?? {};
+  const merged: Record<string, string> = { ...publicEnv };
+  const missingSecrets: string[] = [];
+  for (const name of keys) {
+    let value: string | null = null;
+    if (vaultGet) {
+      try {
+        value = await vaultGet(service, name);
+      } catch (err) {
+        console.warn(`[Security] Vault inaccesible para MCP env '${name}':`, err);
+      }
+    }
+    if ((value === null || value.length === 0) && typeof encrypted[name] === "string") {
+      const blob: unknown = encrypted[name];
+      if (typeof blob === "string") {
+        try {
+          const decrypted = decrypt(blob);
+          if (decrypted.length > 0) value = decrypted;
+        } catch (err) {
+          console.warn(`[Security] No se pudo descifrar MCP env '${name}':`, err);
+        }
+      }
+    }
+    if (value !== null && value.length > 0) {
+      merged[name] = value;
+    } else {
+      missingSecrets.push(name);
+    }
+  }
+  return { env: Object.keys(merged).length > 0 ? merged : undefined, missingSecrets };
+}
+
+/**
+ * Claves del vault a borrar al eliminar un servidor (referencia o legado).
+ */
+export function mcpEnvKeysForCleanup(persisted: PersistedMcpServerRecord): string[] {
+  if (persisted.envRef) return [...persisted.envRef.keys];
+  return splitMcpServerEnv(persisted.config.env).secretNames;
+}
+
+/**
+ * Env para el renderer: secretos enmascarados, público intacto.
+ */
+export function maskMcpEnvForRenderer(
+  env: Record<string, string> | undefined
+): Record<string, string> | undefined {
+  if (!env) return undefined;
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(env)) {
+    out[name] = isMcpSecretEnvName(name) ? maskKey(value) : value;
+  }
+  return out;
+}
+
+/**
+ * Estado runtime para el renderer sin secretos en claro (fuga IPC cerrada).
+ */
+export function sanitizeMcpRuntimeStateForRenderer(
+  state: McpServerRuntimeState
+): McpServerRuntimeState {
+  const maskedEnv = maskMcpEnvForRenderer(state.config.env);
+  if (maskedEnv === undefined) return state;
+  return { ...state, config: { ...state.config, env: maskedEnv } };
+}
+
+/**
+ * Vault de sesión para env MCP sobre el llavero del SO (vía
+ * `mainProcessCryptoBackend`). Reutiliza `CredentialManager` canónico de
+ * `@ego/security`; no duplica cripto. `storeSecret` puede lanzar sin
+ * safeStorage: los handlers lo tratan best-effort con warn (el cifrado
+ * persiste igual).
+ */
+let mcpCredentialManager: CredentialManager | null = null;
+
+export function getMcpCredentialManager(): CredentialManager {
+  if (!mcpCredentialManager) {
+    mcpCredentialManager = new CredentialManager(mainProcessCryptoBackend);
+  }
+  return mcpCredentialManager;
+}
+
+/** Solo tests: inyecta un vault falso en el singleton de sesión. */
+export function setMcpCredentialManagerForTests(manager: CredentialManager | null): void {
+  mcpCredentialManager = manager;
+}
+
+/** Guarda secretos de un servidor en el vault (servicio `mcp/<id>/env`). */
+export async function storeMcpEnvSecrets(
+  vault: McpEnvSecretVault,
+  serverId: string,
+  secrets: Record<string, string>
+): Promise<void> {
+  const service = mcpEnvVaultService(serverId);
+  for (const [name, value] of Object.entries(secrets)) {
+    await vault.storeSecret(service, name, value);
+  }
+}
+
+/** Borra secretos de un servidor del vault (best-effort, propaga errores). */
+export async function deleteMcpEnvSecrets(
+  vault: McpEnvSecretVault,
+  serverId: string,
+  names: string[]
+): Promise<void> {
+  const service = mcpEnvVaultService(serverId);
+  for (const name of names) {
+    await vault.deleteSecret(service, name);
+  }
+}
 
 /**
  * Claves de proveedor resueltas SOLO en main (BYOK vía bootstrap env + gov/settings
@@ -875,22 +1266,56 @@ export async function createWindow(): Promise<void> {
   goalPrioritizer = new GoalPrioritizer({ eventBus });
   decisionsFeed = new DecisionsFeed(adapter, { eventBus });
 
-  // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers)
+  // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers).
+  // F1T2/F5T10: VantaDB solo guarda config saneada + `envRef`; los secretos se
+  // rehidratan desde el Credential Manager (vault de sesión) o del blob `enc:`
+  // con safeStorage. Registros legados con env en claro se migran al leer
+  // (patrón restore de models) y se re-persisten sin secretos.
   try {
     const savedServers = await adapter.list("gov/mcp_servers", 50);
     for (const record of savedServers) {
-      let rawPayload = record.payload;
-      if (typeof rawPayload === "string") {
+      const persisted = extractPersistedMcpRecord(record.payload);
+      if (!persisted) continue;
+      const serverId = persisted.config.id;
+      const vault = getMcpCredentialManager();
+      let active: PersistedMcpServerRecord = persisted;
+      if (needsMcpEnvMigration(persisted)) {
+        const legacySecrets = collectStorableMcpSecrets(persisted.config.env);
         try {
-          rawPayload = JSON.parse(rawPayload);
-        } catch {
-          // Si no es JSON plano, se ignora
+          await storeMcpEnvSecrets(vault, serverId, legacySecrets);
+        } catch (vaultErr) {
+          console.warn(
+            `[Ego Main] Vault no disponible al migrar MCP '${serverId}' (persiste cifrado):`,
+            vaultErr
+          );
         }
+        const migrated = buildMcpPersistedRecord(persisted.config, persisted.enabled, encryptCredential);
+        try {
+          await adapter.put({
+            namespace: "gov/mcp_servers",
+            key: serverId,
+            payload: migrated,
+            metadata: { updatedAtMs: Date.now(), migrated: true },
+          });
+        } catch (persistErr) {
+          console.warn(`[Ego Main] Error al migrar servidor MCP '${serverId}' en VantaDB:`, persistErr);
+        }
+        active = migrated;
       }
-      const item = rawPayload as { config?: any; enabled?: boolean } | undefined;
-      if (item && item.config) {
-        await mcpManager.registerServer(item.config, item.enabled ?? true);
+      const { env, missingSecrets } = await resolveMcpRuntimeEnv(
+        active,
+        decryptCredential,
+        (service, account) => vault.getSecret(service, account)
+      );
+      if (missingSecrets.length > 0) {
+        console.warn(
+          `[Ego Main] MCP '${serverId}' arranca sin secretos del vault: ${missingSecrets.join(", ")}`
+        );
       }
+      await mcpManager.registerServer(
+        { ...active.config, ...(env ? { env } : {}) },
+        active.enabled
+      );
     }
   } catch (err) {
     console.warn("[Ego Main] Advertencia al restaurar servidores MCP de VantaDB:", err);
@@ -1187,8 +1612,10 @@ export async function createWindow(): Promise<void> {
 
 
   // 4. Canales IPC de MCP Servers & Marketplace (ACT-11)
+  // F1T2/F5T10: ningún canal devuelve secretos en claro al renderer (env
+  // enmascarado) ni persiste `config.env` íntegro en VantaDB.
   ipcMain.handle("ipc.mcp.listServers", async () => {
-    return mcpManager.listServers();
+    return mcpManager.listServers().map(sanitizeMcpRuntimeStateForRenderer);
   });
 
   ipcMain.handle("ipc.mcp.addServer", async (_e, rawReq: unknown) => {
@@ -1198,23 +1625,76 @@ export async function createWindow(): Promise<void> {
     }
 
     const { config, enabled } = parseResult.data;
-    const runtimeState = await mcpManager.registerServer(config, enabled);
+    const vault = getMcpCredentialManager();
+    const service = mcpEnvVaultService(config.id);
+    // Secretos entrantes en claro (no máscaras) + conservación de lo guardado
+    // cuando el renderer reenvía una máscara (patrón settings Task 10).
+    const incomingSecrets = collectStorableMcpSecrets(config.env);
+    const { publicEnv } = splitMcpServerEnv(config.env);
+    const { secretNames } = splitMcpServerEnv(config.env);
+    const resolvedSecrets: Record<string, string> = { ...incomingSecrets };
+    const unresolvable: string[] = [];
+    for (const name of secretNames) {
+      if (resolvedSecrets[name] !== undefined) continue;
+      let kept: string | null = null;
+      try {
+        kept = await vault.getSecret(service, name);
+      } catch (err) {
+        console.warn(`[Ego Main] Vault inaccesible para MCP '${config.id}' var '${name}':`, err);
+      }
+      if (kept !== null && kept.length > 0) {
+        resolvedSecrets[name] = kept;
+        continue;
+      }
+      try {
+        const existing = await adapter.get("gov/mcp_servers", config.id);
+        const prev = extractPersistedMcpRecord(existing?.payload);
+        const blob: unknown = prev?.envRef?.encrypted[name];
+        if (typeof blob === "string") {
+          const decrypted = decryptCredential(blob);
+          if (decrypted.length > 0) {
+            resolvedSecrets[name] = decrypted;
+            continue;
+          }
+        }
+      } catch {
+        // noop: sin previo descifrable la var queda ausente (warn visible abajo)
+      }
+      unresolvable.push(name);
+    }
+    if (unresolvable.length > 0) {
+      console.warn(
+        `[Ego Main] MCP '${config.id}' sin valor para: ${unresolvable.join(", ")} (máscara sin secreto guardado)`
+      );
+    }
+    const fullEnv: Record<string, string> = { ...publicEnv, ...resolvedSecrets };
+    const runtimeConfig: McpServerConfig = {
+      ...config,
+      ...(Object.keys(fullEnv).length > 0 ? { env: fullEnv } : {}),
+    };
+    const runtimeState = await mcpManager.registerServer(runtimeConfig, enabled);
 
-    // DEUDA F5T10 (divergencia F1T2): se persiste el config MCP íntegro en
-    // gov/mcp_servers; si config.env porta PAT/token, queda en VantaDB en claro.
-    // Mover secretos a Credential Manager excede este bloque → follow-up F5T11.
     try {
+      await storeMcpEnvSecrets(vault, config.id, resolvedSecrets);
+    } catch (vaultErr) {
+      console.warn(
+        `[Ego Main] Vault no disponible para MCP '${config.id}' (persiste cifrado):`,
+        vaultErr
+      );
+    }
+    try {
+      const persisted = buildMcpPersistedRecord(runtimeConfig, enabled, encryptCredential);
       await adapter.put({
         namespace: "gov/mcp_servers",
         key: config.id,
-        payload: { config, enabled },
+        payload: persisted,
         metadata: { updatedAtMs: Date.now() },
       });
     } catch (persistErr) {
       console.warn(`[Ego Main] Error al persistir servidor MCP '${config.id}' en VantaDB:`, persistErr);
     }
 
-    return runtimeState;
+    return sanitizeMcpRuntimeStateForRenderer(runtimeState);
   });
 
   ipcMain.handle("ipc.mcp.removeServer", async (_e, rawReq: unknown) => {
@@ -1227,6 +1707,15 @@ export async function createWindow(): Promise<void> {
     const removed = await mcpManager.removeServer(id);
 
     try {
+      const existing = await adapter.get("gov/mcp_servers", id);
+      const prev = extractPersistedMcpRecord(existing?.payload);
+      if (prev) {
+        try {
+          await deleteMcpEnvSecrets(getMcpCredentialManager(), id, mcpEnvKeysForCleanup(prev));
+        } catch (vaultErr) {
+          console.warn(`[Ego Main] Error al borrar secretos del vault para MCP '${id}':`, vaultErr);
+        }
+      }
       await adapter.delete("gov/mcp_servers", id);
     } catch (delErr) {
       console.warn(`[Ego Main] Error al borrar servidor MCP '${id}' en VantaDB:`, delErr);
@@ -1245,22 +1734,38 @@ export async function createWindow(): Promise<void> {
     const state = await mcpManager.toggleServer(id, enabled);
 
     try {
-      const existing = (await adapter.get("gov/mcp_servers", id)) as { payload?: unknown } | null;
-      if (existing && existing.payload && typeof existing.payload === "object") {
-        const payload = existing.payload as { config: any; enabled?: boolean };
-        payload.enabled = enabled;
-        await adapter.put({
-          namespace: "gov/mcp_servers",
-          key: id,
-          payload,
-          metadata: { updatedAtMs: Date.now() },
-        });
+      const existing = await adapter.get("gov/mcp_servers", id);
+      const prev = extractPersistedMcpRecord(existing?.payload);
+      if (prev) {
+        if (needsMcpEnvMigration(prev)) {
+          const legacySecrets = collectStorableMcpSecrets(prev.config.env);
+          try {
+            await storeMcpEnvSecrets(getMcpCredentialManager(), id, legacySecrets);
+          } catch (vaultErr) {
+            console.warn(`[Ego Main] Vault no disponible al migrar MCP '${id}':`, vaultErr);
+          }
+          const migrated = buildMcpPersistedRecord(prev.config, enabled, encryptCredential);
+          await adapter.put({
+            namespace: "gov/mcp_servers",
+            key: id,
+            payload: migrated,
+            metadata: { updatedAtMs: Date.now(), migrated: true },
+          });
+        } else {
+          const next: PersistedMcpServerRecord = { ...prev, enabled };
+          await adapter.put({
+            namespace: "gov/mcp_servers",
+            key: id,
+            payload: next,
+            metadata: { updatedAtMs: Date.now() },
+          });
+        }
       }
     } catch (updateErr) {
       console.warn(`[Ego Main] Error al actualizar estado de servidor MCP '${id}' en VantaDB:`, updateErr);
     }
 
-    return state;
+    return sanitizeMcpRuntimeStateForRenderer(state);
   });
 
   ipcMain.handle("ipc.mcp.listTools", async (_e, rawReq: unknown) => {
