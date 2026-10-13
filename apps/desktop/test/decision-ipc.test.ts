@@ -62,8 +62,8 @@ describe('Decision Intelligence Layer Desktop Integration (DEC-01..DEC-08)', () 
     const verdict = await decisionRouter.decide(parseResult.data!);
     expect(verdict.domain).toBe('engineering');
     expect(verdict.subEgoId).toBe('ego.dev');
-    expect(verdict.toolsEnabled).toContain('fs');
-    expect(verdict.toolsEnabled).toContain('terminal');
+    expect(verdict.toolsEnabled).toContain('fs_read_file');
+    expect(verdict.toolsEnabled).toContain('terminal_exec');
     expect(verdict.confidence).toBeGreaterThanOrEqual(0.9);
     expect(verdict.admittedRunContext.depth).toBe(0);
   });

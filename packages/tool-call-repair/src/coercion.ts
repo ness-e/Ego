@@ -73,6 +73,23 @@ export function normalizeToolArguments(args: Record<string, unknown>): Record<st
     }
 
     if (typeof val === "string") {
+      // Payload verbatim (fix trim-content): las claves de contenido llevan
+      // bytes exactos (ej. trailing newline de fs_write_file) — ni trim,
+      // ni unquote, ni coerción. Coherente con la exención JSON de abajo
+      // ("nunca en content/body/code").
+      if (
+        cleanKey === "content" ||
+        cleanKey === "text" ||
+        cleanKey === "body" ||
+        cleanKey === "code" ||
+        cleanKey === "script" ||
+        cleanKey === "query" ||
+        cleanKey === "message" ||
+        cleanKey === "prompt"
+      ) {
+        normalized[cleanKey] = val;
+        continue;
+      }
       let strVal = val.trim();
       // Remover comillas envolventes erróneas o duplicadas (ej: '""valor""' -> 'valor')
       while (

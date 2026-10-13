@@ -92,6 +92,11 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
       metadata: { project_id: projectId }
     });
 
+    // SEC-09 (promote supervisado): `gov/projects` es sensible sin cifrado
+    // at-rest → el put vive en `quarantine/pending`; el consumidor real
+    // promueve a live antes de leer.
+    await adapter.promote(`gov/projects:${projectId}`, "gov/projects", projectId);
+
     // ══════════════════════════════════════════════════════════════════════
     // PASO 3: Escribir contexto del proyecto
     // ══════════════════════════════════════════════════════════════════════
@@ -156,7 +161,8 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
     const tDecision = Math.round(performance.now() - tStartDec);
 
     expect(verdict.domain).toBe("engineering");
-    expect(verdict.toolsEnabled).toContain("fs");
+    // F3T6/H02: el clasificador emite nombres canónicos de tools (fs_read_file, no "fs")
+    expect(verdict.toolsEnabled).toContain("fs_read_file");
     expect(verdict.confidence).toBeGreaterThanOrEqual(0.9);
     expect(verdict.intentDigest).toHaveLength(64);
 
@@ -183,8 +189,9 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
       role: "Software Engineer",
       creator: "ego-nucleus",
       instructions: "Implementar código y herramientas de desarrollo.",
-      capabilities: ["fs", "git", "terminal"],
-      tools: ["fs", "git", "terminal"]
+      // F3T6/H02: manifiestos con nombres canónicos de tools (no alias "fs"/"git"/"terminal")
+      capabilities: ["fs_read_file", "fs_write_file", "git_status", "git_diff", "terminal_exec"],
+      tools: ["fs_read_file", "fs_write_file", "git_status", "git_diff", "terminal_exec"]
     });
     devManifest.id = "ego.dev";
 
@@ -205,7 +212,7 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
     );
 
     expect(selection.selectedSubEgoId).toBe("ego.dev");
-    expect(selection.allowedTools).toContain("fs");
+    expect(selection.allowedTools).toContain("fs_read_file");
 
     // ══════════════════════════════════════════════════════════════════════
     // PASO 11: Sub-Ego consulta memoria
