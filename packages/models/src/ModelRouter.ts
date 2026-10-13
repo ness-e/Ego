@@ -88,7 +88,15 @@ export class ModelRouter {
       return desc;
     }
 
-    // Fallback a cualquier modelo mock o local disponible
+    // Fallback a cualquier modelo real disponible; mock solo como último recurso.
+    // (Antes el mock ganaba por orden de registro aunque hubiera BYOK real.)
+    for (const desc of this.models.values()) {
+      if (desc.provider === "mock") continue;
+      const provider = this.providers.get(desc.provider);
+      if (provider && (await provider.isAvailable())) {
+        return desc;
+      }
+    }
     for (const desc of this.models.values()) {
       const provider = this.providers.get(desc.provider);
       if (provider && (await provider.isAvailable())) {
@@ -226,10 +234,12 @@ export class ModelRouter {
       isLocal: false,
     });
 
-    // Asignación de candidatos prioritarios por rol
+    // Asignación de candidatos prioritarios por rol.
+    // gemini/deepseek van en los roles que sus capabilities cubren: sin key
+    // registrada el router los salta igual que al resto (sin cambio de conducta).
     this.bindRole("fast-classifier", ["llama3.2:3b", "gpt-4o", "mock-core"]);
-    this.bindRole("reasoning-heavy", ["claude-3-5-sonnet-20241022", "gpt-4o", "mock-core"]);
-    this.bindRole("coder", ["claude-3-5-sonnet-20241022", "gpt-4o", "mock-core"]);
-    this.bindRole("general-chat", ["gpt-4o", "claude-3-5-sonnet-20241022", "llama3.2:3b", "mock-core"]);
+    this.bindRole("reasoning-heavy", ["claude-3-5-sonnet-20241022", "gpt-4o", "gemini-2.0-flash", "mock-core"]);
+    this.bindRole("coder", ["claude-3-5-sonnet-20241022", "gpt-4o", "gemini-2.0-flash", "deepseek-chat", "mock-core"]);
+    this.bindRole("general-chat", ["gpt-4o", "claude-3-5-sonnet-20241022", "gemini-2.0-flash", "deepseek-chat", "llama3.2:3b", "mock-core"]);
   }
 }

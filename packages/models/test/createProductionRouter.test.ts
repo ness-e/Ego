@@ -28,6 +28,34 @@ describe("AiSdkOpenAICompatibleProvider", () => {
     expect(await p.isAvailable()).toBe(true);
   });
 
+  it("ollama con servidor caído no está disponible (fail-fast sin reintentos)", async () => {
+    const failingFetch = async () => {
+      throw new Error("connect ECONNREFUSED");
+    };
+    const p = new AiSdkOpenAICompatibleProvider({
+      providerId: "ollama",
+      apiKey: "ollama",
+      fetch: failingFetch,
+    });
+    expect(await p.isAvailable()).toBe(false);
+  });
+
+  it("ollama con servidor vivo está disponible (probe /api/tags)", async () => {
+    const seen: string[] = [];
+    const okFetch = async (url: string | URL | Request) => {
+      seen.push(String(url));
+      return new Response("{}", { status: 200 });
+    };
+    const p = new AiSdkOpenAICompatibleProvider({
+      providerId: "ollama",
+      apiKey: "ollama",
+      fetch: okFetch,
+    });
+    expect(await p.isAvailable()).toBe(true);
+    expect(seen[0]).toContain("/api/tags");
+    expect(seen[0]).not.toContain("/v1/v1");
+  });
+
   it("delega generate al endpoint baseURL custom vía SDK", async () => {
     const seen: Array<{ url: unknown; body: string }> = [];
     const stubFetch = async (url: string | URL | Request, init?: RequestInit) => {
@@ -104,6 +132,25 @@ describe("createProductionRouter", () => {
   it("ollama se registra solo con baseURL/key explícita (dummy sin key real)", async () => {
     const router = createProductionRouter({ ollamaBaseURL: "http://localhost:11434/v1" });
     expect(providerCount(router)).toBe(2);
+    // Sin servidor vivo el probe falla y cae a mock (no se elige un muerto).
+    const fast = await router.resolveModel("fast-classifier");
+    expect(fast.id).toBe("mock-core");
+  });
+
+  it("ollama con servidor vivo resuelve llama3.2:3b (probe /api/tags)", async () => {
+    const { AiSdkOpenAICompatibleProvider } = await import(
+      "../src/providers/AiSdkOpenAICompatibleProvider.js"
+    );
+    const { ModelRouter } = await import("../src/ModelRouter.js");
+    const router = new ModelRouter();
+    router.registerProvider(
+      new AiSdkOpenAICompatibleProvider({
+        providerId: "ollama",
+        apiKey: "ollama",
+        baseURL: "http://localhost:11434/v1",
+        fetch: (async () => new Response("{}", { status: 200 })) as typeof fetch,
+      })
+    );
     const fast = await router.resolveModel("fast-classifier");
     expect(fast.id).toBe("llama3.2:3b");
   });

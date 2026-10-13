@@ -31,20 +31,45 @@ export interface AiSdkOpenAICompatibleProviderOptions {
 export class AiSdkOpenAICompatibleProvider implements EgoModelInterface {
   readonly providerId: ModelProviderId;
   private readonly apiKey: string;
+  private readonly baseURL: string;
+  private readonly fetchFn?: typeof fetch;
   private readonly delegate: AiSdkOpenAIProvider;
 
   constructor(opts: AiSdkOpenAICompatibleProviderOptions) {
     this.providerId = opts.providerId;
     this.apiKey = opts.apiKey ?? "";
+    this.baseURL = opts.baseURL ?? defaultBaseURL(opts.providerId);
+    this.fetchFn = opts.fetch;
     this.delegate = new AiSdkOpenAIProvider({
       apiKey: this.apiKey,
-      baseURL: opts.baseURL ?? defaultBaseURL(opts.providerId),
+      baseURL: this.baseURL,
       fetch: opts.fetch,
     });
   }
 
   async isAvailable(): Promise<boolean> {
-    return this.apiKey.length > 0;
+    if (this.apiKey.length === 0) return false;
+    // Ollama es local: probar liveness rápido (fail-fast sin reintentos) para
+    // no elegir un servidor caído y colgar el turno en retries. Cloud (deepseek)
+    // se decide por key; el fallback del router cubre el fallo de red.
+    if (this.providerId !== "ollama") return true;
+    try {
+      const apiBase = this.baseURL.replace(/\/+$/, "").replace(/\/v1$/, "");
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1500);
+      try {
+        const doFetch = this.fetchFn ?? fetch;
+        const res = await doFetch(`${apiBase}/api/tags`, {
+          method: "GET",
+          signal: ctrl.signal,
+        });
+        return res.ok;
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch {
+      return false;
+    }
   }
 
   async generate(

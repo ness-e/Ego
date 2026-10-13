@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ModelRouter } from "../src/ModelRouter.js";
 import { MockProvider } from "../src/providers/MockProvider.js";
 import { OpenAICompatibleProvider } from "../src/providers/OpenAICompatibleProvider.js";
+import { AiSdkGoogleProvider } from "../src/providers/AiSdkGoogleProvider.js";
+import { AiSdkOpenAICompatibleProvider } from "../src/providers/AiSdkOpenAICompatibleProvider.js";
 import type { EgoModelInterface, ModelGenerateOptions, ModelGenerateResult, ModelProviderId } from "../src/types.js";
 
 describe("@ego/models — Comprehensive ModelRouter Test Suite", () => {
@@ -270,6 +272,31 @@ describe("@ego/models — Comprehensive ModelRouter Test Suite", () => {
       expect(result.finishReason).toBe("stop");
       expect(chunks.join("").trim()).toBe(result.text.trim());
       expect(result.usage.totalTokens).toBeGreaterThan(0);
+    });
+  });
+
+  describe("BYOK real resuelve antes que mock", () => {
+    it("resuelve gemini-2.0-flash en general-chat con Google registrado", async () => {
+      router.registerProvider(new AiSdkGoogleProvider({ apiKey: "sk-test-google-1234567890" }));
+      const desc = await router.resolveModel("general-chat");
+      expect(desc.id).toBe("gemini-2.0-flash");
+      expect(desc.provider).toBe("google");
+    });
+
+    it("resuelve deepseek-chat en coder con DeepSeek registrado", async () => {
+      router.registerProvider(
+        new AiSdkOpenAICompatibleProvider({ providerId: "deepseek", apiKey: "sk-test-deepseek-1234567890" })
+      );
+      const desc = await router.resolveModel("coder", ["text", "tool_calling"]);
+      expect(desc.id).toBe("deepseek-chat");
+      expect(desc.provider).toBe("deepseek");
+    });
+
+    it("el fallback prefiere proveedor real registrado antes que mock", async () => {
+      router.registerProvider(new AiSdkGoogleProvider({ apiKey: "sk-test-google-1234567890" }));
+      router.bindRole("general-chat", ["modelo-inexistente"]);
+      const desc = await router.resolveModel("general-chat");
+      expect(desc.provider).not.toBe("mock");
     });
   });
 });
