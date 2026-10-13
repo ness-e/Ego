@@ -64,6 +64,7 @@ export interface LoopStepEvent {
 
 import type { ExecutionManager, ApprovalEngine } from "@ego/execution";
 import type { EventBus } from "@ego/events";
+import type { ErrorHandler } from "./ErrorHandler.js";
 
 /**
  * Configuración para instanciar el ToolExecutionLoop.
@@ -74,7 +75,7 @@ export interface ToolExecutionLoopConfig {
   systemPrompt?: string;
   executionManager?: ExecutionManager;
   approvalEngine?: ApprovalEngine;
-  errorHandler?: any;
+  errorHandler?: ErrorHandler;
   errorHandlerConfig?: ErrorHandlerConfig;
   approvalHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   eventBus?: EventBus;
@@ -91,7 +92,7 @@ export interface LoopRunOptions {
   context: ToolExecutionContext;
   executionManager?: ExecutionManager;
   approvalEngine?: ApprovalEngine;
-  errorHandler?: any;
+  errorHandler?: ErrorHandler;
   role?: ModelRole;
   systemPrompt?: string;
   maxSteps?: number;

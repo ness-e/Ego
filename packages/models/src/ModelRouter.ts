@@ -68,7 +68,14 @@ export class ModelRouter {
       if (!desc) continue;
 
       const provider = this.providers.get(desc.provider);
-      if (!provider) continue;
+      if (!provider) {
+        // M04: salto explícito con warn — un candidato que referencia un
+        // provider no registrado indica mala configuración, no se silencia.
+        console.warn(
+          `[ModelRouter] Modelo candidato '${modelId}' referencia provider no registrado '${desc.provider}'; se omite.`
+        );
+        continue;
+      }
 
       // Verificar si el proveedor está listo (ej. API key configurada o servidor local activo)
       const available = await provider.isAvailable();

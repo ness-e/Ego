@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ModelRouter } from "../src/ModelRouter.js";
 import { MockProvider } from "../src/providers/MockProvider.js";
 import { OpenAICompatibleProvider } from "../src/providers/OpenAICompatibleProvider.js";
-import type { EgoModelInterface, ModelGenerateOptions, ModelGenerateResult } from "../src/types.js";
+import type { EgoModelInterface, ModelGenerateOptions, ModelGenerateResult, ModelProviderId } from "../src/types.js";
 
 describe("@ego/models — Comprehensive ModelRouter Test Suite", () => {
   let router: ModelRouter;
@@ -33,6 +33,29 @@ describe("@ego/models — Comprehensive ModelRouter Test Suite", () => {
       expect(desc).toBeDefined();
       expect(desc.provider).toBe("mock");
       expect(desc.id).toBe("mock-core");
+    });
+
+    it("emite warn cuando un modelo candidato referencia un provider no registrado (M04)", async () => {
+      router.registerModel({
+        id: "orphan-model",
+        provider: "unregistered-provider" as ModelProviderId,
+        displayName: "Orphan Model (provider ausente)",
+        contextWindow: 8000,
+        costPerInputTokenUsd: 0,
+        costPerOutputTokenUsd: 0,
+        capabilities: new Set(["text"]),
+        isLocal: false,
+      });
+      router.bindRole("coder", ["orphan-model", "mock-core"]);
+
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const desc = await router.resolveModel("coder");
+
+      expect(desc.id).toBe("mock-core");
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("unregistered-provider")
+      );
+      warnSpy.mockRestore();
     });
   });
 

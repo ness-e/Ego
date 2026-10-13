@@ -238,9 +238,75 @@ Próxima tarea si completa:
 === RECITATION F1T2 ===
 Campaign ID: 
 Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Package cableado + MCP endurecido (35/35+20/20), floor verde, mock knowledge-ipc colateral arreglado. Commit 24e7277.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F2T3 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Bitemporal cursor + rerank honesto + threshold, 50/50. Commit 850464d. Restricción F2T6: BitemporalQueries usa getDb() para cursor real.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F2T4 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Schema canónico + hydrate + timeline, suites verdes. Commit 757ce32.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F2T5 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: 5 slices, suites 65/65 ambas. Commit 5f1116f.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F2T6 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Gateway restringido + logs + fail-closed + guard deps, 74/74. Commit 8e2be47. Divergencia: file: retenida (sin internet para reemplazo).
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F3T6 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Contratos unificados, 36/36/49. Commit 2660da0. Deuda: lockfile sin regen (F3T7).
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F3T7 ===
+Campaign ID: 
+Objetivo activo: 
 Estado: in progress
 Última acción: Estado actualizado a IN PROGRESS
-Resultado: Inicio F1T2: cableado + MCP
+Resultado: Inicio F3T7: higiene models/runtime + lockfile
 Próxima acción: 
 Contrato: 
 Próxima tarea si completa: 

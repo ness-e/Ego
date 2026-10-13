@@ -20,8 +20,7 @@
     "ai": "7.0.137",
     "@ai-sdk/anthropic": "4.0.78",
     "@ai-sdk/google": "4.0.93",
-    "@ai-sdk/openai": "4.0.91",
-    "zod": "^3.23.8"
+    "@ai-sdk/openai": "4.0.91"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",

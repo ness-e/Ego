@@ -20,7 +20,6 @@
     "@ego/events": "workspace:*",
     "@ego/execution": "workspace:*",
     "@ego/memory": "workspace:*",
-    "@ego/models": "workspace:*",
     "@ego/subegos": "workspace:*",
     "zod": "^3.23.8"
   },
