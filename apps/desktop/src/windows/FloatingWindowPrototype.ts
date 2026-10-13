@@ -1,4 +1,5 @@
 import { BrowserWindow, screen, Display } from 'electron';
+import { join } from 'node:path';
 
 export interface FloatingWindowOptions {
   width?: number;
@@ -39,8 +40,10 @@ export class FloatingWindowPrototype {
       resizable: false,
       hasShadow: false,
       webPreferences: {
+        preload: join(__dirname, '..', 'preload.js'),
         nodeIntegration: false,
         contextIsolation: true,
+        sandbox: true,
       },
     });
 

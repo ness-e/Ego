@@ -233,6 +233,22 @@ export interface EgoBridge {
     analyticsSeries: (days?: number) => Promise<{ ok: boolean; series: any[]; modelDistribution: any[]; namespaceStats: any[] }>;
     crmDeals: (req?: { action: "list" | "create" | "updateStage" | "summary"; payload?: any }) => Promise<{ ok: boolean; deals?: any[]; contacts?: any[]; summary?: any; deal?: any }>;
   };
+  // F5T10/H25: puentea ipc.decision.* e ipc.knowledge.* (antes sin preload).
+  decision?: {
+    evaluate: (req: unknown) => Promise<unknown>;
+    listAudits: (limit?: number) => Promise<unknown>;
+    telemetry: () => Promise<unknown>;
+  };
+  knowledge?: {
+    ingest: (req: unknown) => Promise<unknown>;
+    hybridSearch: (req: unknown) => Promise<unknown>;
+    graphRag: (req: unknown) => Promise<unknown>;
+    quarantine: (req: unknown) => Promise<unknown>;
+    asOf: (req: unknown) => Promise<unknown>;
+    explainArtifact: (req: unknown) => Promise<unknown>;
+    exportPackage: (projectId?: string) => Promise<unknown>;
+    importPackage: (pkg: unknown) => Promise<unknown>;
+  };
   onChatDelta?: (callback: (chunk: { type: string; delta?: string }) => void) => () => void;
   onRecallStatus?: (callback: (status: RecallBadgeInfo) => void) => () => void;
   onChatError?: (callback: (err: ChatErrorInfo) => void) => () => void;
@@ -512,6 +528,21 @@ const mock: EgoBridge = {
       modelName: "mock-core",
     }),
     saveModelConfig: async (config) => ({ ok: true, config }),
+  },
+  decision: {
+    evaluate: async (req) => ({ ok: true, mock: true, req }),
+    listAudits: async () => ({ ok: true, mock: true, audits: [] }),
+    telemetry: async () => ({ ok: true, mock: true, summary: null }),
+  },
+  knowledge: {
+    ingest: async (req) => ({ ok: true, mock: true, req }),
+    hybridSearch: async () => ({ ok: true, mock: true, hits: [] }),
+    graphRag: async () => ({ ok: true, mock: true, context: null }),
+    quarantine: async (req) => ({ ok: true, mock: true, req }),
+    asOf: async () => ({ ok: true, mock: true, facts: [] }),
+    explainArtifact: async () => ({ ok: true, mock: true, explanation: null }),
+    exportPackage: async () => ({ ok: true, mock: true, pkg: null }),
+    importPackage: async (pkg) => ({ ok: true, mock: true, pkg }),
   },
   onEvent: () => () => {},
 };

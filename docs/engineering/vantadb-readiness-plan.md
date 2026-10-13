@@ -122,3 +122,10 @@ Para cerrar la brecha entre los proyectos, el backlog técnico de VantaDB (`docs
 
 1. **Ego arranca de inmediato:** La Fase 01 de Ego tiene todo lo necesario para operar con la versión actual de VantaDB.
 2. **Evolución paralela:** Las tareas `COGN-01`, `CONTRACT-01` y `ASYNC-01` pertenecen a la campaña de VantaDB para P1 y no impiden la construcción de los flujos de chat, herramientas locales ni diseño de Canvas en Ego.
+
+---
+
+## 6. Requisito de dependencias desktop (F5T10 — 2026-10-12)
+
+1. **`vantadb` WASM fuera de `@ego/desktop`:** ningún import directo en `apps/desktop` (verificado por grep 2026-10-12); el desktop accede a memoria solo vía `@ego/memory` → `NativeVantaDB`. Eliminado de `apps/desktop/package.json`.
+2. **`vantadb-node` sin reemplazo versionado:** el registry npm responde `404` a `vantadb-node@*` (evidencia 2026-10-12), por lo que `file:../../../VantaDB/vantadb-node` se retiene con justificación en `@ego/desktop` y `@ego/memory`. **Requisito upstream:** publicar `vantadb-node` en el registry (o canal versionado equivalente) para cerrar H05/M05/H23/H24 y lograr install 100% reproducible sin path local.

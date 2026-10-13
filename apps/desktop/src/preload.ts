@@ -112,6 +112,24 @@ contextBridge.exposeInMainWorld("ego", {
       ipcRenderer.removeListener("ipc.event", sub);
     };
   },
+  // F5T10/H25: los handlers ipc.decision.* e ipc.knowledge.* existían en main
+  // sin puente al renderer (superficie muerta). Se puentean con validación
+  // Zod en main; el renderer nunca compone secretos en estos canales.
+  decision: {
+    evaluate: (req: unknown) => ipcRenderer.invoke("ipc.decision.evaluate", req),
+    listAudits: (limit?: number) => ipcRenderer.invoke("ipc.decision.listAudits", limit),
+    telemetry: () => ipcRenderer.invoke("ipc.decision.telemetry"),
+  },
+  knowledge: {
+    ingest: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.ingest", req),
+    hybridSearch: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.hybridSearch", req),
+    graphRag: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.graphRag", req),
+    quarantine: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.quarantine", req),
+    asOf: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.asOf", req),
+    explainArtifact: (req: unknown) => ipcRenderer.invoke("ipc.knowledge.explainArtifact", req),
+    exportPackage: (projectId?: string) => ipcRenderer.invoke("ipc.knowledge.export", projectId),
+    importPackage: (pkg: unknown) => ipcRenderer.invoke("ipc.knowledge.import", pkg),
+  },
   daily: {
     getSummary: (req?: { date?: string }) => ipcRenderer.invoke("ipc.daily.getSummary", req),
     refineGoals: (req?: { date?: string }) => ipcRenderer.invoke("ipc.daily.refineGoals", req),

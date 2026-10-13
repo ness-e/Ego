@@ -81,6 +81,21 @@ describe('FloatingWindow & Prototype (WIDG-01 / WIDG-02)', () => {
       expect(screen.getDisplayNearestPoint).toHaveBeenCalledWith({ x: 100, y: 100 });
       expect(win.setPosition).toHaveBeenCalled();
     });
+
+    it('endurece webPreferences con sandbox:true + preload (F5T10/H26)', () => {
+      const prototype = new FloatingWindowPrototype({ width: 160, height: 160 });
+      prototype.createWindow();
+      expect(BrowserWindow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          webPreferences: expect.objectContaining({
+            nodeIntegration: false,
+            contextIsolation: true,
+            sandbox: true,
+            preload: expect.any(String),
+          }),
+        })
+      );
+    });
   });
 
   describe('FloatingWindowManager (WIDG-02)', () => {

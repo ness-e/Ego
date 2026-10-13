@@ -345,16 +345,34 @@ last-synced: 2026-10-12T21:57:21-04:00
 === END RECITATION ===
 
 === RECITATION F4T8 ===
-Objetivo activo: F4T8 — motor de tareas
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: Motor correcto 50/50 + typecheck. Commit 01a854d. Decisión: rename honesto (workers inviables por clausuras).
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F4T9 ===
+Campaign ID: 
+Objetivo activo: 
+Estado: completed
+Última acción: Estado actualizado a COMPLETED
+Resultado: 7/7 items, suites 33/42/71. Commit c780f28. Deuda: canonizar daily.decision.recorded en events.
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION F5T10 ===
+Campaign ID: 
+Objetivo activo: 
 Estado: in progress
-Última acción: task_update_state IN PROGRESS; subagente background ses_ecd053c59ffeaR7U4wADVidvWO
-Resultado: ⏳ En ejecución en background (reintento tras rate-limit).
-State: IN PROGRESS (desde PENDING)
-Próxima acción: Esperar RESULTADO → verify → commit → F4T9
-Contrato: pnpm --filter @ego/tasks test PASS + test pause/resume real
-Invariantes: Sin pisar archivos del worker; no duplicar su trabajo
-Comandos de verificación: pendiente (al cierre del worker)
-Deuda: ninguna aún
-Próxima tarea si completa: F4T9 (tras F4T8)
-last-synced: 2026-10-12T21:57:32-04:00
+Última acción: Estado actualizado a IN PROGRESS
+Resultado: Inicio F5T10: deps VantaDB + sandbox + IPC
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
 === END RECITATION ===

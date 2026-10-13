@@ -65,9 +65,6 @@ importers:
       '@ego/ui-runtime':
         specifier: workspace:*
         version: link:../../packages/ui-runtime
-      vantadb:
-        specifier: 0.8.0
-        version: 0.8.0
       vantadb-node:
         specifier: file:../../../VantaDB/vantadb-node
         version: file:../VantaDB/vantadb-node

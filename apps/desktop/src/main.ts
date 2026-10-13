@@ -1200,6 +1200,9 @@ export async function createWindow(): Promise<void> {
     const { config, enabled } = parseResult.data;
     const runtimeState = await mcpManager.registerServer(config, enabled);
 
+    // DEUDA F5T10 (divergencia F1T2): se persiste el config MCP íntegro en
+    // gov/mcp_servers; si config.env porta PAT/token, queda en VantaDB en claro.
+    // Mover secretos a Credential Manager excede este bloque → follow-up F5T11.
     try {
       await adapter.put({
         namespace: "gov/mcp_servers",
