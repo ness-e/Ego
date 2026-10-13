@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Ego placeholder icon (DIST-03). Diseño final pendiente del owner. -->
+  <rect x="30" y="30" width="452" height="452" rx="110" fill="#101116"/>
+  <rect x="154" y="133" width="38" height="246" fill="#EDEAE2"/>
+  <rect x="154" y="133" width="205" height="38" fill="#EDEAE2"/>
+  <rect x="154" y="237" width="205" height="38" fill="#EDEAE2"/>
+  <rect x="154" y="341" width="205" height="38" fill="#EDEAE2"/>
+  <circle cx="358" cy="154" r="28" fill="#C47834"/>
+</svg>

@@ -31,6 +31,9 @@ module.exports = {
       { target: 'zip', arch: ['x64'] },
     ],
     artifactName: '${productName}-Setup-${version}-${arch}.${ext}',
+    // DIST-03: iconos dedicados (placeholders reproducibles en assets/;
+    // diseño final pendiente del owner — ver assets/README.md).
+    icon: 'assets/icon.ico',
   },
   nsis: {
     oneClick: false,
@@ -47,6 +50,8 @@ module.exports = {
     artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
     hardenedRuntime: true,
     gatekeeperAssess: false,
+    // DIST-03: ver nota de iconos en win.icon.
+    icon: 'assets/icon.icns',
   },
   linux: {
     target: [
@@ -55,5 +60,7 @@ module.exports = {
     ],
     category: 'Development',
     artifactName: '${productName}-${version}-${arch}.${ext}',
+    // DIST-03: ver nota de iconos en win.icon.
+    icon: 'assets/icon.png',
   },
 };

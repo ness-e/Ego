@@ -3,7 +3,9 @@
 // Contrato: dist/src/main.js + dist/src/preload.js + renderer/dist/index.html
 // existen y no están vacíos; electron-builder.config.cjs carga y declara
 // asar + asarUnpack '**/*.node' (binarios napi-rs fuera del ASAR).
-// Alcance: SOLO verificación. Sin firmados (DIST-04), sin installers (DIST-03).
+// DIST-03 — además: targets NSIS/DMG/AppImage por OS + iconos dedicados
+// presentes y declarados + budget de chunks (sin chunk único de 1.48MB).
+// Alcance: SOLO verificación. Sin firmados (DIST-04), sin empaquetado real.
 'use strict';
 
 const fs = require('node:fs');
@@ -75,6 +77,68 @@ if (config) {
     fail(`directorio 'assets/' ausente en disco (F5T11)`);
   } else {
     ok(`buildResources 'assets/' existe en disco`);
+  }
+
+  // 3. DIST-03: targets de instaladores por OS (NSIS/DMG/AppImage).
+  const targetsOf = (section) =>
+    (Array.isArray(section?.target) ? section.target : []).map((t) =>
+      typeof t === 'string' ? t : t?.target,
+    );
+  const need = { win: 'nsis', mac: 'dmg', linux: 'AppImage' };
+  for (const [os, want] of Object.entries(need)) {
+    const got = targetsOf(config[os]);
+    if (!got.includes(want)) {
+      fail(`${os}.target debe incluir '${want}' (actual: ${JSON.stringify(got)})`);
+    } else {
+      ok(`${os}.target incluye '${want}' (${JSON.stringify(got)})`);
+    }
+  }
+
+  // 4. DIST-03: iconos dedicados presentes en disco y declarados en config.
+  const iconDecl = {
+    win: config.win?.icon,
+    mac: config.mac?.icon,
+    linux: config.linux?.icon,
+  };
+  const iconFiles = { win: 'icon.ico', mac: 'icon.icns', linux: 'icon.png' };
+  for (const [os, file] of Object.entries(iconFiles)) {
+    const abs = path.join(ROOT, 'assets', file);
+    if (!fs.existsSync(abs) || fs.statSync(abs).size === 0) {
+      fail(`icono ausente o vacío: assets/${file} (OS: ${os})`);
+      continue;
+    }
+    ok(`assets/${file} (${fs.statSync(abs).size} bytes)`);
+    const decl = iconDecl[os];
+    if (typeof decl !== 'string' || !decl.endsWith(file)) {
+      fail(`${os}.icon debe apuntar a 'assets/${file}' (actual: ${JSON.stringify(decl)})`);
+    } else if (!fs.existsSync(path.join(ROOT, decl))) {
+      fail(`${os}.icon declara '${decl}' pero no existe en disco`);
+    } else {
+      ok(`${os}.icon → '${decl}'`);
+    }
+  }
+
+  // 5. DIST-03: budget de chunks — ningún JS del renderer supera 1MB
+  // (baseline pre-split: index-*.js de 1 483 537 bytes).
+  const CHUNK_BUDGET = 1_000_000;
+  const assetsDir = path.join(ROOT, 'renderer', 'dist', 'assets');
+  if (!fs.existsSync(assetsDir)) {
+    fail(`ausente: renderer/dist/assets/ (ejecutar 'pnpm build' primero)`);
+  } else {
+    const js = fs.readdirSync(assetsDir).filter((f) => f.endsWith('.js'));
+    if (js.length < 2) {
+      fail(`code-splitting ausente: se esperaba >1 chunk JS (actual: ${js.length})`);
+    } else {
+      ok(`code-splitting: ${js.length} chunks JS`);
+    }
+    for (const f of js) {
+      const size = fs.statSync(path.join(assetsDir, f)).size;
+      if (size > CHUNK_BUDGET) {
+        fail(`chunk sobre budget: assets/${f} (${size} > ${CHUNK_BUDGET} bytes)`);
+      } else {
+        ok(`assets/${f} (${size} bytes ≤ budget)`);
+      }
+    }
   }
 }
 
