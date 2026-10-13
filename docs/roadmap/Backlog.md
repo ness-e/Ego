@@ -33,7 +33,7 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 | **Fase 09** | Dominios Funcionales | `DOM-01..09` | 9 | **P0-Beta** | 3-4 semanas | ✅ Completada (9/9) | Workspaces especializados (Engineering, Product, CRM, Analytics) |
 | **Fase 10** | Recovery & Hardening | `REC-01..09`, `CHAR-11`, `WIDG-05` | 11 | **P0-Beta** | 2 semanas | ✅ Completada (11/11) | Tolerancia total a crashes, snapshots y exportación `.vdbdump` |
 | **Fase 11** | Seguridad | `SEC-01..09` | 9 | **P0-Beta** | 2 semanas | 🟢 100% DONE | Sandboxing riguroso, validación IPC y gestión segura de secretos |
-| **Fase 12** | Distribución | `DIST-01..12` | 12 | **P0-Beta** | 2-3 semanas | 🟡 En curso (1/12) | Instaladores firmados (NSIS/DMG) con auto-updater y clean machine |
+| **Fase 12** | Distribución | `DIST-01..12` | 12 | **P0-Beta** | 2-3 semanas | 🟡 En curso (9/12) | Instaladores firmados (NSIS/DMG) con auto-updater y clean machine |
 | **TOTAL** | **13 Fases (12 + 03.1 MVP)** | — | **151** | **P0 Completo** | **~29–38 semanas** | — | **130/151 tareas completadas (86%) — Golden Path Beta multi-dominio** |
 
 > **Backlogs Especializados de Referencia y Extracción (7 Repositorios):**
@@ -148,9 +148,9 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Ego Habilitadas | Decisión / Acción Esperada | Estado |
 |:---:|---|---|---|---|---|:---:|
-| `HERM-12` | hermes-agent | Slash commands para invocación directa de especialistas | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SUB-01`, `SUB-02` | 📥 Comandos `/subego` integrados en el Chat | 🆕 Pendiente |
-| `HERM-17` | hermes-agent | Aislamiento de workspaces de agente vía Git Worktrees | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SUB-07` | 📥 Aislamiento físico de ramas sin clonar repos | 🆕 Pendiente |
-| `HERM-19` | hermes-agent | Linter de seguridad AST para capacidades de agentes | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SUB-05` | 📥 Control de acceso a namespaces autorizados | 🆕 Pendiente |
+| `HERM-12` | hermes-agent | Slash commands para invocación directa de especialistas | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SUB-01`, `SUB-02` | 📥 Comandos `/subego` integrados en el Chat | ✅ Completada (`SlashCommandParser.ts` + tests, veredicto H28) |
+| `HERM-17` | hermes-agent | Aislamiento de workspaces de agente vía Git Worktrees | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SUB-07` | 📥 Aislamiento físico de ramas sin clonar repos | ✅ Completada (`SubEgoWorktree.ts` + tests, veredicto H28) |
+| `HERM-19` | hermes-agent | Linter de seguridad AST para capacidades de agentes | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SUB-05` | 📥 Control de acceso a namespaces autorizados | ✅ Completada (`SkillLinter.ts` + tests, veredicto H28) |
 | `COUC-01` | coucou | Normalización de eventos estructurados inter-agente | [`coucou.md`](../extractions/coucou.md) | `SUB-06` | 📥 Bus de eventos de orquestación canónico | ✅ Completada |
 | `KHOJ-05` | khoj | Consolidación y refuerzo autónomo de memorias | [`khoj.md`](../extractions/khoj.md) | `SUB-12` | 📥 Closed learning loop y refuerzo en VantaDB | ✅ Completada |
 | `DSEK-03` | deepseek-harness | Identificadores opacos para entidades de Sub-Ego | [`deepseek-harness.md`](../extractions/deepseek-harness.md) | `SUB-01`, `SUB-04` | 📥 Claves inmutables prefijadas `sub_<id>` / `ego.<slug>` | ✅ Completada |
@@ -435,11 +435,11 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Ego Habilitadas | Decisión / Acción Esperada | Estado |
 |:---:|---|---|---|---|---|:---:|
-| `CARP-03` | career-ops | Whitelist y auditoría estricta de rutas de sistema permitidas | [`career-ops.md`](../extractions/career-ops.md) | `SEC-01`, `SEC-05` | 📥 Bloqueo en runtime de accesos fuera de workspace | 🆕 Pendiente |
-| `CARP-04` | career-ops | Desinfección y cuarentena de entradas externas no confiables | [`career-ops.md`](../extractions/career-ops.md) | `SEC-04` | 📥 Filtrado estricto contra inyecciones de payloads | 🆕 Pendiente |
-| `HERM-19` | hermes-agent | Linter AST de extensiones y verificación de sandbox | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SEC-01`, `SEC-05` | 📥 Verificación estricta de extensiones de terceros | 🆕 Pendiente |
-| `COUC-10` | coucou | Mutación gobernada de configuración sin bypass de permisos | [`coucou.md`](../extractions/coucou.md) | `SEC-05` | 📥 Aprobación humana para alterar permisos de tools | 🆕 Pendiente |
-| `DSEK-05` | deepseek-harness | Aislamiento y borrado criptográfico de credenciales | [`deepseek-harness.md`](../extractions/deepseek-harness.md) | `SEC-03`, `SEC-04` | 📥 Integración con Keychain y cero secretos en storage | 🆕 Pendiente |
+| `CARP-03` | career-ops | Whitelist y auditoría estricta de rutas de sistema permitidas | [`career-ops.md`](../extractions/career-ops.md) | `SEC-01`, `SEC-05` | 📥 Bloqueo en runtime de accesos fuera de workspace | ✅ Completada (`PathValidator.ts` + `ToolPermissions.ts` + tests, SEC-01/05 ✅) |
+| `CARP-04` | career-ops | Desinfección y cuarentena de entradas externas no confiables | [`career-ops.md`](../extractions/career-ops.md) | `SEC-04` | 📥 Filtrado estricto contra inyecciones de payloads | ✅ Completada (`QuarantineManager.ts` + `SecretsFilter.ts` + tests, SEC-04 ✅) |
+| `HERM-19` | hermes-agent | Linter AST de extensiones y verificación de sandbox | [`hermes-agent.md`](../extractions/hermes-agent.md) | `SEC-01`, `SEC-05` | 📥 Verificación estricta de extensiones de terceros | ✅ Completada (`SkillLinter.ts` + tests, veredicto H28) |
+| `COUC-10` | coucou | Mutación gobernada de configuración sin bypass de permisos | [`coucou.md`](../extractions/coucou.md) | `SEC-05` | 📥 Aprobación humana para alterar permisos de tools | ✅ Completada (`SafeConfigMutation.ts` + tests, SEC-05 ✅) |
+| `DSEK-05` | deepseek-harness | Aislamiento y borrado criptográfico de credenciales | [`deepseek-harness.md`](../extractions/deepseek-harness.md) | `SEC-03`, `SEC-04` | 📥 Integración con Keychain y cero secretos en storage | ✅ Completada (`CredentialManager.ts` + `CryptoErasure.ts` + tests, SEC-03/04/07 ✅) |
 
 ### Catálogo de Tareas Canónicas (Fase 11)
 
@@ -465,9 +465,9 @@ schema: "10-column canonical schema (.agents/references/backlog-format.md compat
 
 | ID Compuerta | Repo Origen | Patrón / Feature a Inspeccionar | Ficha Canónica | Tareas Ego Habilitadas | Decisión / Acción Esperada | Estado |
 |:---:|---|---|---|---|---|:---:|
-| `HERM-14` | hermes-agent | Pipeline automatizado de empaquetado con `electron-builder` | [`hermes-agent.md`](../extractions/hermes-agent.md) | `DIST-01`, `DIST-03` | 📥 Scripts de build multi-plataforma limpios | 🆕 Pendiente |
-| `HERM-15` | hermes-agent | Exclusión ASAR de binarios compilados `asarUnpack: ["**/*.node"]` | [`hermes-agent.md`](../extractions/hermes-agent.md) | `DIST-02` | 📥 Carga correcta de `vantadb/native` en binario final | 🆕 Pendiente |
-| `HERM-16` | hermes-agent | Infraestructura de firmado digital (Authenticode EV / Notary) | [`hermes-agent.md`](../extractions/hermes-agent.md) | `DIST-04` | 📥 Certificados y firma para evitar bloqueos del SO | 🆕 Pendiente |
+| `HERM-14` | hermes-agent | Pipeline automatizado de empaquetado con `electron-builder` | [`hermes-agent.md`](../extractions/hermes-agent.md) | `DIST-01`, `DIST-03` | 📥 Scripts de build multi-plataforma limpios | ✅ Completada (pipeline + `verify-dist` 9/9, DIST-01/03 ✅) |
+| `HERM-15` | hermes-agent | Exclusión ASAR de binarios compilados `asarUnpack: ["**/*.node"]` | [`hermes-agent.md`](../extractions/hermes-agent.md) | `DIST-02` | 📥 Carga correcta de `vantadb/native` en binario final | ✅ Completada (config + verify-dist + DIST-02 ✅) |
+| `HERM-16` | hermes-agent | Infraestructura de firmado digital (Authenticode EV / Notary) | [`hermes-agent.md`](../extractions/hermes-agent.md) | `DIST-04` | 📥 Certificados y firma para evitar bloqueos del SO | 🆕 Pendiente (BLOQUEO owner 2026-10-13: sin certificados, ver DIST-04) |
 
 ### Catálogo de Tareas Canónicas (Fase 12)
 
