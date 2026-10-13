@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
-import { EgoMemoryAdapter } from "../../packages/memory/EgoMemoryAdapter.js";
+import { EgoMemoryAdapter } from "../../packages/memory/dist/index.js";
 import {
   createSubEgoManifest,
   SubEgoRuntime,
@@ -167,12 +167,13 @@ describe("Golden Path Alpha — Delegación Multi-Sub-Ego y Cooperación E2E (SU
     });
 
     // Paso 13: Orquestador delega formalmente la tarea al especialista
+    // (forma canónica: task:string + input; ver DelegationRouter.test.ts)
     const delegationResult = await delegationRouter.delegate<{ task: string }, { status: string; summary: string }>({
       callerEgoId: "ego.nucleus",
       targetEgoId: "ego.researcher",
       projectId,
-      task: { task: "Diagnosticar índices LSM" },
-      contextPayload: { projectId },
+      task: "Diagnosticar índices LSM",
+      input: { task: "Diagnosticar índices LSM" },
     });
 
     expect(delegationResult.status).toBe("completed");
@@ -266,9 +267,11 @@ describe("Golden Path Alpha — Delegación Multi-Sub-Ego y Cooperación E2E (SU
     // Intento de auto-delegación directa (A -> A)
     await expect(
       delegationRouter.delegate({
+        projectId: "proj_alpha",
         callerEgoId: "ego.nucleus",
         targetEgoId: "ego.nucleus",
         task: "Loop",
+        input: "Loop",
       })
     ).rejects.toThrow(DelegationCycleError);
 
@@ -276,9 +279,11 @@ describe("Golden Path Alpha — Delegación Multi-Sub-Ego y Cooperación E2E (SU
     await expect(
       delegationRouter.delegate(
         {
+          projectId: "proj_alpha",
           callerEgoId: "ego.researcher",
           targetEgoId: "ego.nucleus",
           task: "Cycle loop",
+          input: "Cycle loop",
         },
         {
           depth: 1,
@@ -299,9 +304,11 @@ describe("Golden Path Alpha — Delegación Multi-Sub-Ego y Cooperación E2E (SU
     await expect(
       delegationRouter.delegate(
         {
+          projectId: "proj_alpha",
           callerEgoId: "ego.nucleus",
           targetEgoId: "ego.researcher",
           task: "Deep task",
+          input: "Deep task",
         },
         {
           depth: 2,

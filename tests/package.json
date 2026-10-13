@@ -2,9 +2,11 @@
   "name": "@ego/e2e-tests",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Suites E2E y de resiliencia del Golden Path Alpha (antes huerfanas: fuera del workspace, nunca corrian en CI — C09)",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@ego/decision": "workspace:*",

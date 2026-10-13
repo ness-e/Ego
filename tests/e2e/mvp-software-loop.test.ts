@@ -11,8 +11,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { EgoMemoryAdapter } from "../../packages/memory/EgoMemoryAdapter.js";
-import { EgoMemoryLifecycle } from "../../packages/memory/EgoMemoryLifecycle.js";
+import { EgoMemoryAdapter } from "../../packages/memory/dist/index.js";
+import { EgoMemoryLifecycle } from "../../packages/memory/dist/index.js";
 import { ModelRouter, MockProvider } from "../../packages/models/dist/index.js";
 import { ToolRegistry, registerNativeTools } from "../../packages/tools/dist/index.js";
 import { EventBus } from "../../packages/events/dist/index.js";
@@ -86,14 +86,9 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     subEgoRegistry = new SubEgoRegistry(adapter);
     subEgoRuntime = new SubEgoRuntime({ idleTtlMs: 5_000 });
 
-    // Router de modelos
-    modelRouter = new ModelRouter({
-      activeProviders: ["mock"],
-      defaultRoles: {
-        "general-chat": { provider: "mock", model: "mock-core" },
-        "code-review": { provider: "mock", model: "mock-core" },
-      },
-    });
+    // Router de modelos (MockProvider + bindings por defecto ya registrados
+    // en el constructor; cubren "coder" con fallback a mock-core)
+    modelRouter = new ModelRouter();
     const mockProvider = new MockProvider();
     modelRouter.registerProvider(mockProvider);
   });
@@ -113,7 +108,7 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     // ─────────────────────────────────────────────────────────────
     // PASO 1: Configurar & Conectar (BYOK / ModelRouter)
     // ─────────────────────────────────────────────────────────────
-    const resolvedModel = await modelRouter.resolveModel("code-review");
+    const resolvedModel = await modelRouter.resolveModel("coder");
     expect(resolvedModel).toBeDefined();
     expect(resolvedModel.id).toBe("mock-core");
 
@@ -149,6 +144,10 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
       payload: validatedProject,
       metadata: { name: validatedProject.name, rootPath: validatedProject.rootPath },
     });
+
+    // SEC-09 (promote supervisado): `gov/projects` vive en cuarentena por
+    // defecto; el consumidor real promueve antes de leer en live.
+    await adapter.promote(`gov/projects:${validatedProject.id}`, "gov/projects", validatedProject.id);
 
     const storedProject = ((await adapter.get("gov/projects", validatedProject.id))?.payload as ProjectManifest);
     expect(storedProject).toBeDefined();
@@ -186,6 +185,10 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
       payload: updatedProject,
     });
 
+    // SEC-09 (promote supervisado): la actualización también cae en cuarentena;
+    // se promueve para que el cold reboot la restaure desde live.
+    await adapter.promote(`gov/projects:${updatedProject.id}`, "gov/projects", updatedProject.id);
+
     // Iniciar sesión y turno en memoria
     await lifecycle.startSession("sess_mvp_anchor", updatedProject.id);
 
@@ -200,7 +203,7 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
       approvalEngine,
       eventBus,
       maxSteps: 5,
-      defaultRole: "code-review",
+      defaultRole: "coder",
     });
 
     const userPrompt =
@@ -213,12 +216,13 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     const runPromise = toolLoop.run({
       messages: [{ role: "user", content: userPrompt }],
       context: {
+        callId: "call_mvp_anchor_01",
         sessionId: "sess_mvp_anchor",
         workspacePath: workspaceDir,
         subEgoId: "ego.code-reviewer",
         projectId: updatedProject.id,
       },
-      role: "code-review",
+      role: "coder",
     });
 
     // Esperar a que el motor intercepte y emita el requerimiento de aprobación
@@ -262,13 +266,12 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     // PASO 5: Materialización en Canvas / Workspace
     // ─────────────────────────────────────────────────────────────
     // 1. El archivo se escribió efectivamente en el sistema de archivos real.
-    // NOTA: el pipeline SIMULATE_TOOL→repair normaliza args con
-    // `normalizeToolArguments` (packages/tool-call-repair/src/coercion.ts:76, `val.trim()`),
-    // por lo que el salto de línea final no sobrevive al ciclo. Se compara
-    // módulo ese trim documentado; la fidelidad semántica queda intacta.
+    // NOTA: `normalizeToolArguments` preserva bytes exactos en claves de
+    // contenido (`content`: fix trim-content en coercion.ts:76 / dist
+    // coercion.js:85-99) — el trailing newline sobrevive al ciclo.
     const writtenFilePath = path.join(workspaceDir, fileToWrite);
     const diskContent = await fs.readFile(writtenFilePath, "utf-8");
-    expect(diskContent).toBe(serviceContent.trim());
+    expect(diskContent).toBe(serviceContent);
 
     // 2. Registrar el artefacto generado para el Canvas
     await adapter.put({
@@ -284,18 +287,13 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     });
 
     // 3. Registrar el turno completado en el historial de sesión
+    // (syncTurnToDisk solo persiste mensaje/respuesta; el detalle de tool calls
+    // vive en el artefacto y la auditoría de arriba)
     await lifecycle.syncTurnToDisk({
       sessionId: "sess_mvp_anchor",
       turnIndex: 1,
       userMessage: "Crea el módulo de servicio con la función healthCheck",
       assistantResponse: "Módulo creado exitosamente en src/service.ts tras recibir tu aprobación.",
-      toolCalls: [
-        {
-          name: "fs_write_file",
-          params: { path: fileToWrite },
-          result: { success: true },
-        },
-      ],
     });
 
     // Cierre forzado del adaptador de memoria (simulando shutdown de la aplicación)
@@ -322,9 +320,9 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     expect(restoredSpecialist?.name).toBe("Code Reviewer Specialist");
     expect(restoredSpecialist?.role).toBe("Especialista de Ingeniería y Auditoría");
 
-    // 3. El archivo en disco permanece intacto (mismo trim documentado del paso 5)
+    // 3. El archivo en disco permanece intacto (bytes exactos, ver paso 5)
     const persistedFileContent = await fs.readFile(writtenFilePath, "utf-8");
-    expect(persistedFileContent).toBe(serviceContent.trim());
+    expect(persistedFileContent).toBe(serviceContent);
 
     // 4. El artefacto del Canvas persiste en el namespace del proyecto
     const restoredArtifact = ((await coldAdapter.get(

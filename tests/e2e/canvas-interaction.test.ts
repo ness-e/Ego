@@ -4,12 +4,11 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
-import { EgoMemoryAdapter } from "../../packages/memory/EgoMemoryAdapter.js";
+import { EgoMemoryAdapter } from "../../packages/memory/dist/index.js";
 import {
   CanvasBridge,
   CanvasPersistenceManager,
   CanvasComponentManifestSchema,
-  type CanvasComponentManifest,
   type CanvasWorkspaceState,
   type CanvasChangeSet,
 } from "../../packages/ui-runtime/src/index.js";

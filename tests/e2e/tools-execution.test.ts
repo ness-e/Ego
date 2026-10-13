@@ -6,7 +6,7 @@ import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import * as fsSync from "node:fs";
 import * as crypto from "node:crypto";
-import { EgoMemoryAdapter } from "../../packages/memory/EgoMemoryAdapter.js";
+import { EgoMemoryAdapter } from "../../packages/memory/dist/index.js";
 import { ModelRouter, MockProvider } from "../../packages/models/dist/index.js";
 import { ToolRegistry, registerNativeTools } from "../../packages/tools/dist/index.js";
 import { ApprovalEngine, ExecutionManager } from "../../packages/execution/dist/index.js";
@@ -61,14 +61,9 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
       }
     });
 
-    // 1. Configuración del subsistema de inferencia (ModelRouter con MockProvider)
-    const router = new ModelRouter({
-      activeProviders: ["mock"],
-      defaultRoles: {
-        "fast-chat": { provider: "mock", model: "mock-fast" },
-        "reasoning-heavy": { provider: "mock", model: "mock-reasoning" }
-      }
-    });
+    // 1. Configuración del subsistema de inferencia (ModelRouter con MockProvider
+    // y bindings por defecto del constructor; cubren "reasoning-heavy")
+    const router = new ModelRouter();
     const mockProvider = new MockProvider();
     router.registerProvider(mockProvider);
 
@@ -98,7 +93,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
 
     const executionManager = new ExecutionManager({
       defaultTimeoutMs: 10_000,
-      maxOutputBytes: 1024 * 1024
+      maxOutputSizeBytes: 1024 * 1024
     });
 
     const loop = new ToolExecutionLoop(router, registry, {
@@ -124,6 +119,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
       });
     const sessionId = "session_e2e_alpha_01";
     const context = {
+      callId: "call_e2e_alpha_01",
       sessionId,
       workspacePath: wsDir,
       subEgoId: "ego.architect"
@@ -289,10 +285,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
     activeAdapter = new EgoMemoryAdapter(vdbDir);
     await activeAdapter.init();
 
-    const router = new ModelRouter({
-      activeProviders: ["mock"],
-      defaultRoles: { "reasoning-heavy": { provider: "mock", model: "mock-reasoning" } }
-    });
+    const router = new ModelRouter();
     router.registerProvider(new MockProvider());
 
     const registry = new ToolRegistry();
@@ -316,7 +309,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
 
     const runPromise = loop.run({
       messages: [{ role: "user", content: userPrompt }],
-      context: { sessionId: "sess_reject_01", workspacePath: wsDir }
+      context: { callId: "call_reject_01", sessionId: "sess_reject_01", workspacePath: wsDir }
     });
 
     // Esperar a que quede pendiente
@@ -372,10 +365,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
     activeAdapter = new EgoMemoryAdapter(vdbDir);
     await activeAdapter.init();
 
-    const router = new ModelRouter({
-      activeProviders: ["mock"],
-      defaultRoles: { "reasoning-heavy": { provider: "mock", model: "mock-reasoning" } }
-    });
+    const router = new ModelRouter();
     router.registerProvider(new MockProvider());
 
     const registry = new ToolRegistry();
@@ -400,12 +390,16 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
 
     const runPromise = loop.run({
       messages: [{ role: "user", content: userPrompt }],
-      context: { sessionId: "sess_edit_01", workspacePath: wsDir }
+      context: { callId: "call_edit_01", sessionId: "sess_edit_01", workspacePath: wsDir }
     });
 
-    while (!pendingReq) {
+    // Espera acotada (fail-fast si la aprobación nunca llega, sin colgar la suite)
+    let attempts = 0;
+    while (!pendingReq && attempts < 50) {
       await new Promise((r) => setTimeout(r, 50));
+      attempts++;
     }
+    expect(pendingReq).not.toBeNull();
 
     // El usuario aprueba modificando los parámetros hacia la ruta segura
     approvalEngine.resolveApproval(pendingReq!.approvalId, {
@@ -451,13 +445,17 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
     const requestPromise = approvalEngine.requestApproval({
       tool,
       arguments: { path: "audit.log", content: "log_data" },
-      context: { sessionId: "sess_mitm", workspacePath: wsDir },
+      context: { callId: "call_mitm_01", sessionId: "sess_mitm", workspacePath: wsDir },
       callId: "call_mitm_01"
     });
 
-    while (!pendingReq) {
+    // Espera acotada (fail-fast si la aprobación nunca llega, sin colgar la suite)
+    let attempts = 0;
+    while (!pendingReq && attempts < 250) {
       await new Promise((r) => setTimeout(r, 20));
+      attempts++;
     }
+    expect(pendingReq).not.toBeNull();
 
     // Intento de resolver con un digest alterado (simulando ataque o manipulación de payload)
     expect(() => {

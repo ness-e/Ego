@@ -4,8 +4,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
-import { EgoMemoryAdapter } from "../../packages/memory/EgoMemoryAdapter.js";
-import { EgoMemoryLifecycle } from "../../packages/memory/EgoMemoryLifecycle.js";
+import { EgoMemoryAdapter } from "../../packages/memory/dist/index.js";
+import { EgoMemoryLifecycle } from "../../packages/memory/dist/index.js";
 
 describe("Golden Path Alpha — Durabilidad y Recuperación E2E (CORE-11)", () => {
   const testDir = path.join(os.tmpdir(), `ego-golden-path-${Date.now()}`);

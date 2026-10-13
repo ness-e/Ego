@@ -8,7 +8,6 @@ import { EgoMemoryAdapter } from "@ego/memory";
 import { EventBus } from "@ego/events";
 import { ToolRegistry, registerNativeTools } from "@ego/tools";
 import {
-  SubEgoRegistry,
   createSubEgoManifest,
   type SubEgoManifest
 } from "@ego/subegos";
@@ -61,7 +60,6 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
     const toolRegistry = new ToolRegistry();
     registerNativeTools(toolRegistry, { workspacePath });
 
-    const subEgoRegistry = new SubEgoRegistry(adapter);
     const decisionRouter = new DecisionRouter();
     let decisionAuditor = new DecisionAuditor(adapter);
     const decisionTelemetry = new DecisionTelemetry(eventBus);
@@ -91,6 +89,10 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
       payload: projectManifest,
       metadata: { project_id: projectId }
     });
+
+    // SEC-09 (promote supervisado): `gov/projects` vive en cuarentena por
+    // defecto; el consumidor real promueve antes de leer en live (pasos 7 y 20).
+    await adapter.promote(`gov/projects:${projectId}`, "gov/projects", projectId);
 
     // ══════════════════════════════════════════════════════════════════════
     // PASO 3: Escribir contexto del proyecto
@@ -275,14 +277,15 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
         id: "table-endpoints",
         title: "Endpoints de la API",
         columns: [
-          { key: "route", label: "Ruta" },
-          { key: "method", label: "Método" },
-          { key: "status", label: "Estado" }
+          { key: "route", label: "Ruta", type: "text", sortable: false },
+          { key: "method", label: "Método", type: "text", sortable: false },
+          { key: "status", label: "Estado", type: "text", sortable: false }
         ],
         rows: [
           { route: "/health", method: "GET", status: "Activo" },
           { route: "/v1/decision", method: "POST", status: "Planificado" }
-        ]
+        ],
+        actions: []
       }
     };
 
