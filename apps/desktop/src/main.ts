@@ -106,6 +106,7 @@ import {
   SyncSafeStorageBackend,
 } from "@ego/security";
 import { WindowStateManager } from "./windows/WindowStateManager.js";
+import { initAutoUpdater, resolveUpdateFeedUrl } from "./updater.js";
 
 let crashRecoveryEngine: CrashRecoveryEngine;
 let opGate: OpGate;
@@ -2694,6 +2695,42 @@ export async function createWindow(): Promise<void> {
   if (isDev) {
     win.setAlwaysOnTop(true);
     win.setAlwaysOnTop(false);
+  }
+
+  // DIST-05: auto-updater (esqueleto check + aviso discreto, sin firma).
+  // Solo en build empaquetada, primer chequeo diferido 30s para no competir
+  // con el arranque; cualquier fallo queda en warn, jamás tumba la app.
+  // El aviso viaja como `system.alert` → `ipc.event` (push ya existente,
+  // sin canales IPC nuevos). Descarga/install diferidas a DIST-04.
+  try {
+    const updater = initAutoUpdater({
+      currentVersion: app.getVersion(),
+      isPackaged: app.isPackaged,
+      feedUrl: resolveUpdateFeedUrl(),
+      fetchFeed: async (url: string) => {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`feed HTTP ${res.status}`);
+        return (await res.json()) as unknown;
+      },
+      notify: (notice) => {
+        eventBus?.emit(
+          "system.alert",
+          {
+            code: notice.code,
+            message: `Ego ${notice.latestVersion} disponible (actual: ${notice.currentVersion}). Reiniciá para actualizar cuando quieras.`,
+            details: {
+              currentVersion: notice.currentVersion,
+              latestVersion: notice.latestVersion,
+              ...(notice.url ? { url: notice.url } : {}),
+            },
+          },
+          { source: "desktop.updater", severity: "info" }
+        );
+      },
+    });
+    updater.checkSoon(30_000);
+  } catch (updaterErr) {
+    console.warn("[Ego Desktop] Auto-updater no iniciado:", updaterErr);
   }
 }
 

@@ -25,6 +25,18 @@ module.exports = {
     '**/node_modules/vantadb/**',
     '**/node_modules/vantadb-node/**',
   ],
+  // DIST-05: canal de auto-update. Pendiente de activación por el owner
+  // (requiere artefactos firmados DIST-04 + decisión del canal de releases;
+  // candidato natural: repo verificado `ness-e/Ego` vía GitHub Releases).
+  // Al activarlo, electron-updater provee la descarga diferencial (blockmap
+  // NSIS) automáticamente. `updater.ts` ya detecta + avisa sin esta sección.
+  // publish: [
+  //   {
+  //     provider: "github",
+  //     owner: "ness-e",
+  //     repo: "Ego",
+  //   },
+  // ],
   win: {
     target: [
       { target: 'nsis', arch: ['x64'] },
