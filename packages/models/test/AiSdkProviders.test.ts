@@ -142,8 +142,7 @@ describe("AiSdkOpenAI", () => {
     });
 
     expect(seen).toHaveLength(1);
-    expect(String(seen[0].url)).toContain("chat/completions");
-    const body = JSON.parse(seen[0].body) as {
+    expect(String(seen[0].url)).toContain("chat/completions");    const body = JSON.parse(seen[0].body) as {
       tools: Array<{ function: { name: string } }>;
     };
     expect(body.tools[0].function.name).toBe("fs_read_file");
@@ -154,6 +153,27 @@ describe("AiSdkOpenAI", () => {
     expect(res.usage.promptTokens).toBe(10);
     expect(res.usage.completionTokens).toBe(5);
     expect(res.usage.totalTokens).toBe(15);
+  });
+
+  it("envía systemPrompt vía instructions (ai@7 rechaza system en messages)", async () => {
+    const seen: Array<{ body: string }> = [];
+    const stubFetch = async (_url: string | URL | Request, init?: RequestInit) => {
+      seen.push({ body: (init?.body as string) ?? "" });
+      return chatCompletionResponse();
+    };
+    const p = new AiSdkOpenAIProvider({ apiKey: "sk-test-1234567890", fetch: stubFetch });
+
+    const res = await p.generate("gpt-4o", {
+      messages: [{ role: "user", content: "hola" }],
+      systemPrompt: "Eres Ego",
+    });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0].body).toContain("Eres Ego");
+    // El SDK convierte `instructions` a mensaje system en el wire (correcto);
+    // lo que no debe pasar es duplicarlo (systemPrompt + mensaje system).
+    expect(seen[0].body.match(/Eres Ego/g)?.length).toBe(1);
+    expect(res.finishReason).toBe("tool_calls");
   });
 
   it("stream reenvía text-delta y tool-call-delta y cierra con finish", async () => {

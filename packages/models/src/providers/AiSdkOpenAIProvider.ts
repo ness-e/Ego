@@ -59,6 +59,7 @@ export class AiSdkOpenAIProvider implements EgoModelInterface {
       // .chat() = Chat Completions (/chat/completions), no Responses API:
       // compatible con endpoints OpenAI-compatibles (DeepSeek, Ollama, LMStudio).
       model: client.chat(modelId),
+      ...toInstructions(options),
       messages: this.toMessages(options),
       tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
@@ -98,6 +99,7 @@ export class AiSdkOpenAIProvider implements EgoModelInterface {
     const result = ai.streamText({
       // .chat() = Chat Completions SSE, compatible con endpoints OpenAI-compatibles.
       model: client.chat(modelId),
+      ...toInstructions(options),
       messages: this.toMessages(options),
       tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
@@ -180,13 +182,9 @@ export class AiSdkOpenAIProvider implements EgoModelInterface {
 
   private toMessages(options: ModelGenerateOptions): ModelMessage[] {
     const msgs: ModelMessage[] = [];
-    if (options.systemPrompt && !options.messages.some((m) => m.role === "system")) {
-      msgs.push({ role: "system", content: options.systemPrompt });
-    }
     for (const m of options.messages) {
-      if (m.role === "system") {
-        msgs.push({ role: "system", content: m.content });
-      } else if (m.role === "user") {
+      if (m.role === "system") continue; // ai@7: system va en `instructions`, no en messages
+      if (m.role === "user") {
         msgs.push({ role: "user", content: m.content });
       } else if (m.role === "assistant") {
         if (m.toolCalls?.length) {
@@ -226,6 +224,16 @@ export class AiSdkOpenAIProvider implements EgoModelInterface {
 function mapFinishReason(reason: string, toolCallCount: number): string {
   if (reason === "tool-calls" || toolCallCount > 0) return "tool_calls";
   return reason;
+}
+
+// ai@7 rechaza mensajes `system` en `messages`: el prompt de sistema viaja
+// en la opción `instructions`. Se combina systemPrompt + mensajes system legacy.
+function toInstructions(options: ModelGenerateOptions): { instructions?: string } {
+  const parts = [
+    options.systemPrompt,
+    ...options.messages.filter((m) => m.role === "system").map((m) => m.content),
+  ].filter((s): s is string => typeof s === "string" && s.length > 0);
+  return parts.length > 0 ? { instructions: parts.join("\n") } : {};
 }
 
 function toRecord(input: unknown): Record<string, unknown> {
