@@ -172,3 +172,117 @@ describe("DailyStatePersistence (DS-08 / COUC-09)", () => {
     expect(list.map((s) => s.date)).toEqual(["2026-10-10"]);
   });
 });
+
+describe("DailyStatePersistence quarantine-aware (HIG-04 / SEC-09)", () => {
+  const NS = "system/snapshots/daily";
+  const QNS = "quarantine/pending";
+  const qkey = (date: string) => `${NS}:${date}`;
+  const ORIGINAL_META = {
+    original_namespace: NS,
+    quarantine_reason: "sensitive_namespace_no_at_rest_encryption",
+  };
+
+  const mockSummary: DailyStateSummary = {
+    date: "2026-10-10",
+    timestamp: 1728560000000,
+    completedTasksCount: 5,
+    pendingTasksCount: 2,
+    pendingApprovalsCount: 0,
+    decisionsCount: 3,
+    quarantineAlertsCount: 0,
+    totalTokensToday: 12500,
+    estimatedCostUsd: 0.025,
+    p99LatencyMs: 180,
+    recentDecisions: [],
+    suggestedGoals: [],
+  };
+
+  /**
+   * Mock que emula el enforcement SEC-09 ACTIVO (diferimiento retirado):
+   * `put` enruta a `quarantine/pending` con `original_namespace` /
+   * `original_key`, mientras `get`/`list` en el namespace lógico solo ven
+   * live. Un lector solo-live queda ciego; el lector quarantine-aware no.
+   */
+  function enforcingAdapter() {
+    const live = new Map<string, { payload: unknown; metadata: unknown }>();
+    const pending = new Map<string, { payload: unknown; metadata: unknown }>();
+    return {
+      put: vi.fn(async (item: { namespace: string; key: string; payload: unknown }) => {
+        if (item.namespace === NS || item.namespace.startsWith(`${NS}/`)) {
+          pending.set(`${QNS}:${qkey(item.key)}`, {
+            payload: item.payload,
+            metadata: { ...ORIGINAL_META, original_key: item.key },
+          });
+          return;
+        }
+        live.set(`${item.namespace}:${item.key}`, { payload: item.payload, metadata: {} });
+      }),
+      get: vi.fn(async (namespace: string, key: string) => {
+        const hit = live.get(`${namespace}:${key}`) ?? pending.get(`${namespace}:${key}`);
+        return hit === undefined ? null : { key, payload: hit.payload, metadata: hit.metadata };
+      }),
+      list: vi.fn(async (namespace: string, limit?: number) => {
+        const source = namespace === QNS ? pending : live;
+        const out: Array<{ key: string; payload: unknown; metadata: unknown }> = [];
+        for (const [k, v] of source.entries()) {
+          if (k.startsWith(`${namespace}:`)) {
+            out.push({ key: k.slice(namespace.length + 1), payload: v.payload, metadata: v.metadata });
+          }
+        }
+        return out.slice(0, limit);
+      }),
+    };
+  }
+
+  it("cold-reboot vía cuarentena: getSnapshot resuelve un snapshot enrutado a quarantine/pending", async () => {
+    const adapter = enforcingAdapter();
+    const writer = new DailyStatePersistence(adapter);
+    const saved = await writer.saveSnapshot(mockSummary);
+
+    // El enforcement activo deja el namespace lógico vacío (live ciego)…
+    expect(await adapter.get(NS, "2026-10-10")).toBeNull();
+
+    // …pero una instancia fresca (cold-reboot) lo recupera vía cuarentena.
+    const rebooted = new DailyStatePersistence(adapter);
+    const retrieved = await rebooted.getSnapshot("2026-10-10");
+    expect(retrieved).not.toBeNull();
+    expect(retrieved?.checksum).toBe(saved.checksum);
+    expect(retrieved?.summary.completedTasksCount).toBe(5);
+  });
+
+  it("cold-reboot vía cuarentena: listSnapshots fusiona live + cuarentena ordenados", async () => {
+    const adapter = enforcingAdapter();
+    const persistence = new DailyStatePersistence(adapter);
+    await persistence.saveSnapshot({ ...mockSummary, date: "2026-10-09" });
+    await persistence.saveSnapshot({ ...mockSummary, date: "2026-10-10" });
+
+    const list = await persistence.listSnapshots();
+    expect(list.map((s) => s.date)).toEqual(["2026-10-10", "2026-10-09"]);
+  });
+
+  it("cold-reboot vía cuarentena: isFirstLaunchOfDay es false con snapshot en cuarentena", async () => {
+    const adapter = enforcingAdapter();
+    const persistence = new DailyStatePersistence(adapter);
+    expect(await persistence.isFirstLaunchOfDay("2026-10-10")).toBe(true);
+    await persistence.saveSnapshot(mockSummary);
+    expect(await persistence.isFirstLaunchOfDay("2026-10-10")).toBe(false);
+  });
+
+  it("fail-closed en cuarentena: checksum manipulado en quarantine/pending retorna null", async () => {
+    const adapter = enforcingAdapter();
+    const mockEventBus = { emit: vi.fn() };
+    const persistence = new DailyStatePersistence(adapter, { eventBus: mockEventBus });
+    await persistence.saveSnapshot(mockSummary);
+
+    const pending = await adapter.list(QNS, 100);
+    expect(pending).toHaveLength(1);
+    (pending[0].payload as { summary: DailyStateSummary }).summary.completedTasksCount = 999;
+
+    expect(await persistence.getSnapshot("2026-10-10")).toBeNull();
+    expect(mockEventBus.emit).toHaveBeenCalledWith(
+      "system.alert",
+      expect.objectContaining({ code: "DAILY_CHECKSUM_MISMATCH" }),
+      expect.objectContaining({ source: "DailyStatePersistence" })
+    );
+  });
+});

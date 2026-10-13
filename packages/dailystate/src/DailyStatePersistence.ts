@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import type { EgoMemoryAdapter } from "@ego/memory";
+import { getQuarantineAware, listQuarantineAware } from "@ego/memory";
 import type { EventBus } from "@ego/events";
 import {
   DailyStateSummary,
@@ -68,11 +69,21 @@ export class DailyStatePersistence {
   }
 
   /**
-   * Recupera un snapshot histórico por fecha YYYY-MM-DD y valida su integridad
+   * Recupera un snapshot histórico por fecha YYYY-MM-DD y valida su integridad.
+   *
+   * Lectura quarantine-aware (HIG-04 / SEC-09): resuelve live primero y
+   * `quarantine/pending` después, para que el retiro del diferimiento de
+   * `system/snapshots` no invisibilice los snapshots diarios.
    */
   async getSnapshot(date: string): Promise<DailySnapshotRecord | null> {
-    const raw = await this.memory.get(DailyStatePersistence.NAMESPACE, date);
-    if (!raw) return null;
+    let hit: { payload: unknown } | null;
+    try {
+      hit = await getQuarantineAware(this.memory, DailyStatePersistence.NAMESPACE, date);
+    } catch {
+      return null;
+    }
+    if (!hit) return null;
+    const raw = { payload: hit.payload };
 
     try {
       const record = DailySnapshotRecordSchema.parse(raw.payload);
@@ -113,10 +124,21 @@ export class DailyStatePersistence {
   }
 
   /**
-   * Lista snapshots históricos ordenados cronológicamente descendente
+   * Lista snapshots históricos ordenados cronológicamente descendente.
+   *
+   * Lectura quarantine-aware (HIG-04 / SEC-09): fusiona live +
+   * `quarantine/pending` con la vía compartida, igual que
+   * `SessionCheckpointPolicy.listCheckpoints`.
    */
   async listSnapshots(limit: number = 30): Promise<DailySnapshotRecord[]> {
-    const records = await this.memory.list(DailyStatePersistence.NAMESPACE, limit);
+    const records = await listQuarantineAware(
+      this.memory,
+      DailyStatePersistence.NAMESPACE,
+      limit,
+      (err) => {
+        console.warn(`[DailyStatePersistence] listSnapshots: barrido de cuarentena falló:`, err);
+      }
+    );
     const snapshots: DailySnapshotRecord[] = [];
 
     for (const rec of records) {

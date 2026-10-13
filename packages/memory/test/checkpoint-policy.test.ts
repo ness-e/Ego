@@ -65,12 +65,14 @@ describe("SessionCheckpointPolicy — Durabilidad Fail-Closed y Checkpoints de S
     expect(t3.checkpointId).toBeDefined();
     expect(t3.checkpointId?.startsWith("snap_")).toBe(true);
 
-    // Verificar en VantaDB
-    const snapshot = ((await adapter.get("system/snapshots", `checkpoint:${sessionId}:${t3.checkpointId}`))?.payload as { sessionId: string; turnCount: number; summary: { summary: string } });
-    expect(snapshot).toBeDefined();
-    expect(snapshot.sessionId).toBe(sessionId);
-    expect(snapshot.turnCount).toBe(3);
-    expect(snapshot.summary.summary).toBe("Tercer mensaje completado");
+    // Verificar en VantaDB vía la lectura canónica quarantine-aware
+    // (HIG-04: system/snapshots ya no difiere el enforcement → live vacío).
+    const snapshot = await policy.loadCheckpoint(sessionId, t3.checkpointId as string);
+    expect(snapshot).not.toBeNull();
+    expect(snapshot?.sessionId).toBe(sessionId);
+    expect(snapshot?.turnCount).toBe(3);
+    expect(snapshot?.quarantined).toBe(true);
+    expect((snapshot?.summary as { summary: string }).summary).toBe("Tercer mensaje completado");
   });
 
   it("gestiona la política fail-closed si la persistencia falla antes del tool dispatch", async () => {

@@ -123,18 +123,14 @@ describe("SEC-09 — Detector de namespaces sensibles", () => {
     expect(isSensitiveNamespace("crm-leads").sensitive).toBe(false);
   });
 
-  it("diferimiento residual: solo system/snapshots sigue diferido (FIX-01 retiró crm/egos/checkpoints)", () => {
+  it("diferimiento residual: cero diferimientos (HIG-04 retiró system/snapshots; FIX-01 retiró crm/egos/checkpoints)", () => {
     // Retirados por lectores quarantine-aware (ver QUARANTINE_ENFORCEMENT_DEFERRALS):
-    // crm/* (CrmDomain), egos/* (SubEgoMemoryGuard), system/checkpoints (EgoMemoryLifecycle).
-    // system/snapshots sigue diferido: DailyStatePersistence (system/snapshots/daily,
-    // fuera del alcance del follow-up) aún lee solo live — evidencia en SEC-09 §FIX-01-seguimiento.
-    for (const ns of ["crm/contacts", "egos/abc/state", "system/checkpoints"]) {
+    // crm/* (CrmDomain), egos/* (SubEgoMemoryGuard), system/checkpoints (EgoMemoryLifecycle),
+    // system/snapshots + system/snapshots/daily (SessionCheckpointPolicy + DailyStatePersistence, HIG-04).
+    for (const ns of ["crm/contacts", "egos/abc/state", "system/checkpoints", "system/snapshots", "system/snapshots/daily"]) {
       expect(isSensitiveNamespace(ns).sensitive, ns).toBe(true);
       expect(isEnforcementDeferred(ns), ns).toBe(false);
     }
-    expect(isSensitiveNamespace("system/snapshots").sensitive).toBe(true);
-    expect(isEnforcementDeferred("system/snapshots")).toBe(true);
-    expect(isEnforcementDeferred("system/snapshots/daily")).toBe(true);
     expect(isEnforcementDeferred("finance/transactions")).toBe(false);
     expect(isEnforcementDeferred("kb/docs")).toBe(false);
   });
@@ -216,19 +212,19 @@ describe("SEC-09 — Routing en el borde put/putMulti", () => {
     expect((await adapter.get("gov/audit", "a:1"))?.payload).toEqual({ action: "test" });
   });
 
-  it("namespace diferido restante (system/snapshots): vive con aviso explícito, pero los secretos se bloquean igual", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("system/snapshots ya NO difiere (HIG-04): va a cuarentena con lectura quarantine-aware; los secretos se bloquean igual", async () => {
     const { adapter, store } = stubHarness();
 
-    const [live] = await adapter.putMulti([
+    const [routed] = await adapter.putMulti([
       { namespace: "system/snapshots", key: "checkpoint:sess:c1", payload: { turnCount: 5 } },
     ]);
-    expect(live.routedTo).toBe("live");
-    expect(live.deferred).toBe(true);
-    expect(live.unencryptedAtRest).toBe(true);
-    expect(((await adapter.get("system/snapshots", "checkpoint:sess:c1"))?.payload as { turnCount: number }).turnCount).toBe(5);
-    const warned = warnSpy.mock.calls.map((c) => String(c[0])).join("\n");
-    expect(warned).toMatch(/FIX_PROPUESTO-SEC-09-01/);
+    expect(routed.routedTo).toBe("quarantine");
+    expect(routed.deferred).toBeUndefined();
+    expect(await adapter.get("system/snapshots", "checkpoint:sess:c1")).toBeNull();
+    // …pero la vía canónica lo resuelve con marca explícita.
+    const hit = await adapter.getWithQuarantine("system/snapshots", "checkpoint:sess:c1");
+    expect(hit).not.toBeNull();
+    expect(hit?.quarantined).toBe(true);
 
     // crm/ ya NO difiere: tras FIX-01 va a cuarentena con lectura quarantine-aware.
     const [crmRouted] = await adapter.putMulti([

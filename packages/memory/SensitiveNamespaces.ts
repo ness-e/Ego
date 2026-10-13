@@ -143,21 +143,20 @@ export function quarantineExemption(ns: string): string | null {
  *   vía cuarentena con marca explícita.
  * - `system/checkpoints` → RETIRADO: `EgoMemoryLifecycle.loadMicroCheckpoint`
  *   lee vía cuarentena (sin lectores live previos que romper).
- * - `system/snapshots` → DIFERIDO RESTANTE: `SessionCheckpointPolicy` ya
- *   expone lectura quarantine-aware (`loadCheckpoint`), pero
- *   `DailyStatePersistence` (`system/snapshots/daily`, fuera del alcance de
- *   este follow-up) sigue leyendo solo live — retirar el prefijo hoy
- *   invisibilizaría los snapshots diarios hasta su migración. Evidencia en
- *   SEC-09 §FIX-01-seguimiento.
+ * - `system/snapshots` → RETIRADO (HIG-04, 2026-10-13):
+ *   `DailyStatePersistence.getSnapshot/listSnapshots` (`system/snapshots/daily`)
+ *   leen vía cuarentena (`getQuarantineAware`/`listQuarantineAware`) con la
+ *   misma vía compartida que `SessionCheckpointPolicy.loadCheckpoint`.
+ *   `system/snapshots` ya no difiere: el enforcement lo enruta a
+ *   `quarantine/pending` y ambos lectores lo resuelven con marca explícita.
+ *   Queda 0 diferimientos pendientes.
  * Mientras tanto rigen: (1) la regla de secretos SEC-04 es UNIVERSAL
  * (también aquí: 0 secretos en storage/logs); (2) cada escritura diferida
  * emite un aviso explícito con este motivo. Vía de cierre: lectores
  * quarantine-aware por dominio (FIX_PROPUESTO-SEC-09-01) o, mejor, el
  * cifrado at-rest real al cerrar VantaDB FIND-249 (disuelve el dilema).
  */
-export const QUARANTINE_ENFORCEMENT_DEFERRALS = [
-  "system/snapshots",
-] as const;
+export const QUARANTINE_ENFORCEMENT_DEFERRALS: readonly string[] = [];
 
 /** ¿El namespace difiere su enforcement (vive + aviso, sin cuarentenar)? */
 export function isEnforcementDeferred(raw: string): boolean {
