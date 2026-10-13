@@ -51,3 +51,18 @@ export type {
   ToolRiskLevelLike,
   ToolOriginLike,
 } from "./ToolPermissions.js";
+export {
+  CryptoErasure,
+  ScopeKeyRegistry,
+  ErasureVerificationError,
+} from "./CryptoErasure.js";
+export type {
+  ErasureStore,
+  ErasureStoreRecord,
+  ErasurePut,
+  DerivedKey,
+  SealedEnvelope,
+  ErasureStatus,
+  ErasureReceipt,
+  CryptoErasureOptions,
+} from "./CryptoErasure.js";
