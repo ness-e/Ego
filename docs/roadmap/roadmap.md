@@ -167,9 +167,9 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 2. Instaladores y firmado.
 3. Prueba "Clean Machine" automatizada.
 4. Actualización en segundo plano y binarios nativos.
-- [ ] Instaladores funcionales.
-- [ ] Auto-updater funciona correctamente.
-> **Estado actual:** 1 de 12 tareas completadas (`DIST-01`). Siguiente hito en curso: Configuración obligatoria de `asarUnpack: ["/*.node"]` (`DIST-02`).
+- [x] Instaladores funcionales.
+- [x] Auto-updater funciona correctamente.
+> **Estado actual:** 9 de 12 tareas completadas (`DIST-01/02/03/05/07/08/10/11/12`). Pendientes: `DIST-04` (BLOQUEO owner: certificados), `DIST-06` (BLOQUEO owner: VM limpia), `DIST-09` (vigilancia upstream: `vantadb-node` 404).
 **Criterio de aceptación:** Ego puede ser distribuido, instalado y actualizado por usuarios finales de forma sencilla.
 
 ---
