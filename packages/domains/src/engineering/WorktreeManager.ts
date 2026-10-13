@@ -98,7 +98,18 @@ export function assertInsideRoot(repoRoot: string, candidatePath: string): strin
   const resolvedRoot = path.resolve(repoRoot);
   const resolved = path.resolve(candidatePath);
   const rel = path.relative(resolvedRoot, resolved);
-  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
+  // HIG-05: el rechazo de `..` debe ser por segmento (exacto o seguido de
+  // separador), no por prefijo: un hijo llamado `..foo` vive DENTRO del root
+  // (rel `..foo`) y no es una parent-ref. Se cubren ambos separadores para
+  // que el gate sea correcto en win32 y posix.
+  if (
+    rel === "" ||
+    rel === ".." ||
+    rel.startsWith(`..${path.sep}`) ||
+    rel.startsWith("../") ||
+    rel.startsWith("..\\") ||
+    path.isAbsolute(rel)
+  ) {
     throw new Error(
       `[WorktreeManager] Path fuera del repositorio ('${candidatePath}' escapa de '${resolvedRoot}').`
     );

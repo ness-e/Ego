@@ -288,6 +288,12 @@ export class FactLifecycle {
    * Best-effort con aviso: la auditoría es observabilidad para reconciliar
    * la ventana no atómica put→delete, nunca un gate que bloquee la
    * transición principal si el motor falla al escribirla.
+   *
+   * HIG-05: la key lleva sufijo aleatorio. Sin él, dos eventos con igual
+   * (ms, action, factId) — p.ej. doble supersede del mismo hecho en un loop
+   * dentro del mismo milisegundo — colisionan y el segundo `put` sobrescribe
+   * al primero, perdiendo un registro. El prefijo `audit_<ms>_<action>_<fact>`
+   * se conserva para reconciliación manual.
    */
   private async writeAudit(entry: {
     action: LifecycleAuditAction;
@@ -296,10 +302,11 @@ export class FactLifecycle {
     detail: string;
   }): Promise<void> {
     const now = Date.now();
+    const nonce = Math.random().toString(36).slice(2, 10);
     try {
       await this.adapter.put({
         namespace: "kb/audit",
-        key: `audit_${now}_${entry.action}_${entry.factId}`,
+        key: `audit_${now}_${entry.action}_${entry.factId}_${nonce}`,
         payload: `${entry.action} ${entry.factId} by ${entry.actor}`,
         metadata: {
           action: entry.action,
