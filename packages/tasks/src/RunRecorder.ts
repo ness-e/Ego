@@ -40,6 +40,9 @@ export class RunRecorder {
   private readonly memoryAdapter: EgoMemoryAdapter;
   private readonly eventBus?: EventBus;
   private readonly activeRuns = new Map<string, RunSnapshot>();
+  /** Historial acotado de corridas finalizadas (F4T8 H14). */
+  private readonly recentRuns = new Map<string, RunSnapshot>();
+  private readonly maxRecentRuns = 100;
   private readonly maxActionsPerRun: number;
   private busUnsubscribe?: () => void;
 
@@ -174,6 +177,7 @@ export class RunRecorder {
 
     // Persistir en VantaDB bajo namespace de proyecto
     const namespace = `projects/${run.projectId}/runs`;
+    let persisted = true;
     try {
       await this.memoryAdapter.put({
         namespace,
@@ -188,16 +192,46 @@ export class RunRecorder {
       });
     } catch {
       // Si la persistencia falla, conservamos el snapshot en activeRuns
+      // para permitir reintento posterior.
+      persisted = false;
+    }
+
+    if (persisted) {
+      // Fuga corregida (F4T8 H14): el snapshot finalizado sale de activeRuns
+      // (getSnapshot() ya no miente devolviendo finalizados como activos) y
+      // pasa a un historial acotado con evicción FIFO.
+      this.activeRuns.delete(runId);
+      this.recentRuns.set(runId, run);
+      while (this.recentRuns.size > this.maxRecentRuns) {
+        const oldest = this.recentRuns.keys().next();
+        if (oldest.done) break;
+        this.recentRuns.delete(oldest.value);
+      }
     }
 
     return run;
   }
 
   /**
-   * Obtiene el snapshot en memoria de una corrida activa.
+   * Obtiene el snapshot de una corrida activa (solo no finalizadas).
+   */
+  public getActiveRun(runId: string): RunSnapshot | undefined {
+    return this.activeRuns.get(runId);
+  }
+
+  /**
+   * Cantidad de corridas activas retenidas (para detectar fugas, F4T8 H14).
+   */
+  public activeRunCount(): number {
+    return this.activeRuns.size;
+  }
+
+  /**
+   * Obtiene el snapshot de una corrida, activa o finalizada recientemente.
+   * Las finalizadas provienen del historial acotado, no de activeRuns.
    */
   public getSnapshot(runId: string): RunSnapshot | undefined {
-    return this.activeRuns.get(runId);
+    return this.activeRuns.get(runId) ?? this.recentRuns.get(runId);
   }
 
   /**
@@ -226,47 +260,77 @@ export class RunRecorder {
     if (!this.eventBus) return;
 
     const sub = this.eventBus.onAny((event: EgoEvent) => {
-      const payload = event.payload as any;
+      const payload = event.payload as Record<string, unknown> | null | undefined;
       if (!payload) return;
 
-      const runId = (payload.runId || payload.taskId || event.sessionId) as string;
-      if (!runId) return;
+      const rawRunId = payload["runId"] ?? payload["taskId"] ?? event.sessionId;
+      if (typeof rawRunId !== "string" || rawRunId.length === 0) return;
+      const runId: string = rawRunId;
+
+      const asString = (value: unknown): string | undefined =>
+        typeof value === "string" ? value : undefined;
 
       switch (event.type) {
         case "task.started":
           if (!this.activeRuns.has(runId)) {
             this.startRun({
               runId,
-              projectId: (payload.projectId as string) ?? "default",
+              projectId: asString(payload["projectId"]) ?? "default",
               sessionId: event.sessionId,
-              goal: payload.goal,
+              goal: asString(payload["goal"]),
             });
           }
           break;
 
         case "tool.started":
-          this.recordToolStart(runId, payload.toolName, payload.callId, payload.input);
+          if (asString(payload["toolName"]) && asString(payload["callId"])) {
+            this.recordToolStart(
+              runId,
+              payload["toolName"] as string,
+              payload["callId"] as string,
+              payload["input"]
+            );
+          }
           break;
 
         case "tool.executed":
-          this.recordToolSuccess(runId, payload.callId, payload.result, payload.durationMs);
+          if (asString(payload["callId"])) {
+            this.recordToolSuccess(
+              runId,
+              payload["callId"] as string,
+              payload["result"],
+              typeof payload["durationMs"] === "number" ? payload["durationMs"] : undefined
+            );
+          }
           break;
 
         case "tool.failed":
-          this.recordToolFailure(runId, payload.callId, payload.error, payload.durationMs);
+          if (asString(payload["callId"])) {
+            this.recordToolFailure(
+              runId,
+              payload["callId"] as string,
+              asString(payload["error"]) ?? "unknown tool error",
+              typeof payload["durationMs"] === "number" ? payload["durationMs"] : undefined
+            );
+          }
           break;
 
         case "task.completed":
           void this.finishRun(runId, {
             status: "completed",
-            finalMessage: typeof payload.result === "string" ? payload.result : undefined,
+            finalMessage: asString(payload["result"]),
+          }).catch(() => {
+            // Defensive: finishRun no rechaza por diseño, pero el bus nunca
+            // debe observar un rechazo no manejado.
           });
           break;
 
         case "task.failed":
           void this.finishRun(runId, {
             status: "failed",
-            error: payload.error,
+            error: asString(payload["error"]),
+          }).catch(() => {
+            // Defensive: ver rama anterior.
           });
           break;
       }

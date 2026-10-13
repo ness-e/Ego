@@ -14,6 +14,9 @@ export interface WorkerTaskPoolConfig {
   defaultTimeoutMs?: number;
 }
 
+/** Alias honesto de {@link LocalTaskPoolConfig} (retrocompatibilidad). */
+export type LocalTaskPoolConfig = WorkerTaskPoolConfig;
+
 export interface WorkerPoolMetrics {
   activeWorkers: number;
   queuedTasks: number;
@@ -21,18 +24,44 @@ export interface WorkerPoolMetrics {
   totalFailed: number;
 }
 
+/** Alias honesto de {@link WorkerPoolMetrics} (retrocompatibilidad). */
+export type LocalPoolMetrics = WorkerPoolMetrics;
+
+interface PooledTask {
+  id: string;
+  name: string;
+  run: () => Promise<unknown>;
+  resolve: (value: unknown) => void;
+  reject: (reason?: unknown) => void;
+  timeoutTimer?: NodeJS.Timeout;
+  /** true cuando la promesa externa ya se asentó (éxito, fallo o timeout). */
+  settled: boolean;
+  /** true mientras la tarea retiene un slot de ejecución. */
+  slotHeld: boolean;
+}
+
 /**
- * Pool de ejecución de tareas pesadas en worker threads (OCLW-10).
- * Extraído y adaptado de OpenClaw packages/worker-runtime.
+ * Pool local de ejecución cooperativa (antes `WorkerTaskPool`, OCLW-10).
  *
- * Evita el congelamiento del Event Loop del proceso Electron Main
- * ejecutando cómputo CPU-intensivo (indexación, diffs masivos, AST parsing)
- * de forma estrictamente paralela y con límites de cuota.
+ * ACLARACIÓN DE ALCANCE (F4T8 H11): esta clase NO usa `node:worker_threads`
+ * ni provee paralelismo real. Los handlers se despachan con `setImmediate`
+ * en el hilo principal del proceso y cooperan con el event loop: mientras un
+ * handler espera (I/O, timers) otros turnos avanzan, pero cómputo CPU-intensivo
+ * síncrono sigue bloqueando el hilo igual que sin pool.
+ *
+ * Se mantiene el nombre histórico `WorkerTaskPool` como alias por
+ * compatibilidad, pero el nombre canónico es `LocalTaskPool`.
+ *
+ * Migrar a `worker_threads` reales exigiría descriptores de trabajo
+ * serializables (los handlers actuales son clausuras arbitrarias, no
+ * transferibles entre hilos) y rompería la API; queda fuera del alcance de
+ * esta task por costo/evidencia. Para CPU-bound real, usar `worker_threads`
+ * con payloads serializables fuera de este pool.
  */
-export class WorkerTaskPool {
+export class LocalTaskPool {
   private readonly maxWorkers: number;
   private readonly defaultTimeoutMs: number;
-  private readonly queue: Array<WorkerTask<any, any>> = [];
+  private readonly queue: PooledTask[] = [];
   private activeWorkers = 0;
   private totalCompleted = 0;
   private totalFailed = 0;
@@ -45,7 +74,7 @@ export class WorkerTaskPool {
   }
 
   /**
-   * Despacha una tarea computacional al pool de workers.
+   * Despacha una tarea al pool local.
    */
   public async execute<TInput = unknown, TOutput = unknown>(
     name: string,
@@ -54,40 +83,46 @@ export class WorkerTaskPool {
     options: { timeoutMs?: number } = {}
   ): Promise<TOutput> {
     if (this.isTerminated) {
-      throw new Error("WorkerTaskPool se encuentra terminado.");
+      throw new Error("LocalTaskPool se encuentra terminado.");
     }
 
     const timeoutMs = options.timeoutMs ?? this.defaultTimeoutMs;
     const taskId = `wtask_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     return new Promise<TOutput>((resolve, reject) => {
-      const task: WorkerTask<TInput, TOutput> = {
+      const task: PooledTask = {
         id: taskId,
         name,
-        input,
-        resolve: (val) => {
-          if (task.timeoutTimer) clearTimeout(task.timeoutTimer);
-          this.totalCompleted++;
-          resolve(val);
-        },
-        reject: (err) => {
-          if (task.timeoutTimer) clearTimeout(task.timeoutTimer);
-          this.totalFailed++;
-          reject(err);
-        },
+        run: () => Promise.resolve().then(() => handler(input)),
+        resolve: () => undefined,
+        reject: () => undefined,
+        settled: false,
+        slotHeld: false,
+      };
+
+      task.resolve = (value: unknown) => {
+        if (task.settled) return;
+        task.settled = true;
+        if (task.timeoutTimer) clearTimeout(task.timeoutTimer);
+        this.totalCompleted++;
+        resolve(value as TOutput);
+      };
+
+      task.reject = (reason?: unknown) => {
+        if (task.settled) return;
+        task.settled = true;
+        if (task.timeoutTimer) clearTimeout(task.timeoutTimer);
+        this.totalFailed++;
+        reject(reason);
       };
 
       if (timeoutMs > 0) {
         task.timeoutTimer = setTimeout(() => {
-          task.reject(new Error(`Timeout de ${timeoutMs}ms excedido en tarea '${name}'.`));
+          this.handleTimeout(task, name, timeoutMs);
         }, timeoutMs);
       }
 
-      this.queue.push({
-        ...task,
-        fn: async () => handler(input),
-      } as any);
-
+      this.queue.push(task);
       this.scheduleNext();
     });
   }
@@ -111,8 +146,29 @@ export class WorkerTaskPool {
     this.isTerminated = true;
     while (this.queue.length > 0) {
       const task = this.queue.shift()!;
-      task.reject(new Error("WorkerTaskPool terminado por cierre del sistema."));
+      task.reject(new Error("LocalTaskPool terminado por cierre del sistema."));
     }
+  }
+
+  /**
+   * Timeout (F4T8 H12): asienta la tarea una sola vez, libera el slot que
+   * retenía (encolada o en ejecución) y deja que la resolución tardía del
+   * handler se ignore vía `settled`, sin doble conteo.
+   */
+  private handleTimeout(task: PooledTask, name: string, timeoutMs: number): void {
+    if (task.settled) return;
+
+    const queuedIndex = this.queue.indexOf(task);
+    if (queuedIndex >= 0) {
+      this.queue.splice(queuedIndex, 1);
+    }
+    if (task.slotHeld) {
+      task.slotHeld = false;
+      this.activeWorkers = Math.max(0, this.activeWorkers - 1);
+    }
+
+    task.reject(new Error(`Timeout de ${timeoutMs}ms excedido en tarea '${name}'.`));
+    this.scheduleNext();
   }
 
   private scheduleNext(): void {
@@ -120,20 +176,42 @@ export class WorkerTaskPool {
       return;
     }
 
-    const task = this.queue.shift()! as any;
+    const task = this.queue.shift()!;
+    if (task.settled) {
+      // Asentada mientras esperaba (p. ej. timeout encolado): saltar sin slot.
+      this.scheduleNext();
+      return;
+    }
     this.activeWorkers++;
+    task.slotHeld = true;
 
-    // Despachar en microtask / worker tick
+    // Despacho cooperativo en el hilo principal (NO es un worker thread).
     setImmediate(async () => {
       try {
-        const result = await task.fn();
+        const result = await task.run();
         task.resolve(result);
       } catch (err) {
         task.reject(err);
       } finally {
-        this.activeWorkers--;
+        if (task.slotHeld) {
+          task.slotHeld = false;
+          this.activeWorkers = Math.max(0, this.activeWorkers - 1);
+        }
         this.scheduleNext();
       }
     });
+  }
+}
+
+/**
+ * Nombre histórico del pool (OCLW-10).
+ *
+ * @deprecated Usar {@link LocalTaskPool}. El alias existe solo por
+ * compatibilidad: la ejecución es cooperativa en el hilo principal, no en
+ * worker threads (ver F4T8 H11).
+ */
+export class WorkerTaskPool extends LocalTaskPool {
+  constructor(config: WorkerTaskPoolConfig = {}) {
+    super(config);
   }
 }

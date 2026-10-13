@@ -95,4 +95,23 @@ describe("COUC-09: RunRecorder (RunSnapshot assembly & VantaDB persistence)", ()
     expect(snapshot!.actions[0].toolName).toBe("terminal_exec");
     expect(snapshot!.actions[0].status).toBe("success");
   });
+
+  it("elimina el snapshot de activeRuns tras persistir sin perder historial (F4T8 H14)", async () => {
+    recorder.startRun({ runId: "run_gc_1", projectId: "proj_alpha", goal: "g" });
+    expect(recorder.getActiveRun("run_gc_1")).toBeDefined();
+    expect(recorder.activeRunCount()).toBe(1);
+
+    await recorder.finishRun("run_gc_1", {
+      status: "completed",
+      finalMessage: "ok",
+    });
+
+    // Sin fuga: ya no figura como activa...
+    expect(recorder.getActiveRun("run_gc_1")).toBeUndefined();
+    expect(recorder.activeRunCount()).toBe(0);
+    // ...pero el historial acotado sigue disponible y lo persistido intacto.
+    expect(recorder.getSnapshot("run_gc_1")?.status).toBe("completed");
+    const loaded = await recorder.loadPersistedRun("proj_alpha", "run_gc_1");
+    expect(loaded?.runId).toBe("run_gc_1");
+  });
 });

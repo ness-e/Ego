@@ -9,6 +9,7 @@ import {
 export interface BackgroundEngineOptions {
   maxConcurrent?: number;
   defaultTimeoutMs?: number;
+  approvalPolicy?: TaskApprovalPolicy;
   onTaskEvent?: (event: {
     type: 'task:created' | 'task:started' | 'task:progress' | 'task:completed' | 'task:failed' | 'task:cancelled' | 'task:paused';
     task: TaskRecord;
@@ -19,14 +20,33 @@ export interface BackgroundEngineOptions {
   };
 }
 
+/**
+ * Policy hook de aprobación para ejecución de tareas (F4T8 H22, gap Fase 11).
+ *
+ * Gobernanza sin UI: antes de ejecutar el handler, el engine consulta
+ * `requiresApproval`. Si exige aprobación, la tarea queda `paused` con
+ * `progressMessage` explícito y NO se ejecuta el handler hasta un `resume()`
+ * posterior (p. ej. tras aprobación humana externa). Sin policy configurada
+ * el comportamiento es el histórico (ejecución directa).
+ *
+ * Fail-closed: si el hook lanza, la tarea también queda en espera.
+ */
+export interface TaskApprovalPolicy {
+  requiresApproval: (def: TaskDefinition) => boolean | Promise<boolean>;
+  onApprovalRequired?: (taskId: string, def: TaskDefinition) => void;
+}
+
 export class BackgroundEngine {
   private tasks = new Map<string, TaskRecord>();
   private definitions = new Map<string, TaskDefinition>();
   private abortControllers = new Map<string, AbortController>();
+  /** Tareas cuya pausa cooperativa fue solicitada (F4T8 H13). */
+  private pauseRequested = new Set<string>();
   private activeCount = 0;
   private queue: string[] = [];
   private maxConcurrent: number;
   private defaultTimeoutMs: number;
+  private approvalPolicy?: TaskApprovalPolicy;
   private onTaskEvent?: BackgroundEngineOptions['onTaskEvent'];
   private checkpointProvider?: BackgroundEngineOptions['checkpointProvider'];
   private isProcessing = false;
@@ -34,12 +54,17 @@ export class BackgroundEngine {
   constructor(options: BackgroundEngineOptions = {}) {
     this.maxConcurrent = options.maxConcurrent ?? 3;
     this.defaultTimeoutMs = options.defaultTimeoutMs ?? 60000;
+    this.approvalPolicy = options.approvalPolicy;
     this.onTaskEvent = options.onTaskEvent;
     this.checkpointProvider = options.checkpointProvider;
   }
 
   public setCheckpointProvider(provider: BackgroundEngineOptions['checkpointProvider']): void {
     this.checkpointProvider = provider;
+  }
+
+  public setApprovalPolicy(policy: TaskApprovalPolicy | undefined): void {
+    this.approvalPolicy = policy;
   }
 
   public submit<TInput = unknown, TOutput = unknown>(
@@ -104,7 +129,19 @@ export class BackgroundEngine {
         if (!task || task.status !== 'queued') continue;
 
         this.activeCount++;
-        this.runTask(nextId);
+        // F4T8 M23: runTask es fire-and-forget intencional; el .catch defensivo
+        // evita rechazos no observados si runTask llegara a lanzar ante un refactor.
+        void this.runTask(nextId).catch((err: unknown) => {
+          const pending = this.tasks.get(nextId);
+          if (pending && (pending.status === 'running' || pending.status === 'queued')) {
+            pending.status = 'failed';
+            pending.completedAt = Date.now();
+            pending.error = err instanceof Error ? err.message : String(err);
+            this.emitEvent('task:failed', pending);
+          }
+          this.activeCount = Math.max(0, this.activeCount - 1);
+          void this.processNext();
+        });
       }
     } finally {
       this.isProcessing = false;
@@ -117,6 +154,31 @@ export class BackgroundEngine {
     if (!task || !def) {
       this.activeCount = Math.max(0, this.activeCount - 1);
       return;
+    }
+
+    // Puerta de aprobación (F4T8 H22): el handler NO se ejecuta hasta que la
+    // policy lo permita. La tarea espera en 'paused' y un resume() posterior
+    // re-evalúa la policy (p. ej. tras aprobación externa).
+    if (this.approvalPolicy) {
+      let needsApproval = false;
+      try {
+        needsApproval = await this.approvalPolicy.requiresApproval(def);
+      } catch {
+        needsApproval = true;
+      }
+      if (needsApproval) {
+        task.status = 'paused';
+        task.progressMessage = 'Paused awaiting approval (policy hook)';
+        this.emitEvent('task:paused', task);
+        try {
+          this.approvalPolicy.onApprovalRequired?.(taskId, def);
+        } catch {
+          // Defensive: el callback de notificación no debe romper el loop.
+        }
+        this.activeCount = Math.max(0, this.activeCount - 1);
+        void this.processNext();
+        return;
+      }
     }
 
     const abortController = new AbortController();
@@ -153,7 +215,9 @@ export class BackgroundEngine {
       },
     };
 
-    let retriesLeft = def.maxRetries ?? 0;
+    // F4T8 M23: variable local en vez de `def.maxRetries!` (frágil a refactor).
+    const maxRetries = def.maxRetries ?? 0;
+    let retriesLeft = maxRetries;
     let success = false;
 
     while (!success) {
@@ -169,6 +233,14 @@ export class BackgroundEngine {
       } catch (err: unknown) {
         if (abortController.signal.aborted) {
           clearTimeout(timeoutHandle);
+          // Pausa cooperativa (F4T8 H13): si el abort proviene de pause(),
+          // el estado permanece 'paused' — NUNCA se sobrescribe a 'cancelled'.
+          // pause() ya emitió 'task:paused'; aquí solo se preserva el estado
+          // para que resume() pueda reanudar la tarea.
+          if (this.pauseRequested.delete(taskId)) {
+            task.status = 'paused';
+            break;
+          }
           task.status = 'cancelled';
           task.completedAt = Date.now();
           task.error = abortController.signal.reason?.message || 'Task was cancelled';
@@ -178,7 +250,7 @@ export class BackgroundEngine {
 
         if (retriesLeft > 0) {
           retriesLeft--;
-          task.progressMessage = `Reintentando tarea (${def.maxRetries! - retriesLeft}/${def.maxRetries})...`;
+          task.progressMessage = `Reintentando tarea (${maxRetries - retriesLeft}/${maxRetries})...`;
           continue;
         }
 
@@ -192,8 +264,9 @@ export class BackgroundEngine {
     }
 
     this.abortControllers.delete(taskId);
+    this.pauseRequested.delete(taskId);
     this.activeCount = Math.max(0, this.activeCount - 1);
-    this.processNext();
+    void this.processNext();
   }
 
   public cancel(taskId: string, reason = 'Cancelled by user'): boolean {
@@ -232,9 +305,15 @@ export class BackgroundEngine {
     }
 
     if (task.status === 'running') {
-      // Pause in-flight cooperatively by cancelling and keeping checkpoint
+      // Pausa cooperativa (F4T8 H13): se aborta para desbloquear al handler,
+      // pero runTask distingue este abort del de cancel/timeout mediante
+      // pauseRequested y preserva 'paused' (nunca 'cancelled').
+      // El handler DEBE observar `signal` y abortar su trabajo; si lo ignora
+      // y retorna, la tarea completará normalmente (limitación documentada).
+      // El reintento tras resume() puede usar save/loadCheckpoint.
       const controller = this.abortControllers.get(taskId);
       if (controller) {
+        this.pauseRequested.add(taskId);
         task.status = 'paused';
         controller.abort(new Error('Task paused'));
         this.emitEvent('task:paused', task);

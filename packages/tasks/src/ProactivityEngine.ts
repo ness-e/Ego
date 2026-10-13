@@ -21,10 +21,51 @@ export const FileWatchTriggerConfigSchema = z.object({
 
 export type FileWatchTriggerConfig = z.infer<typeof FileWatchTriggerConfigSchema>;
 
+export type ProactiveTriggerKind = 'cron' | 'file';
+
+export interface ProactiveApprovalInfo {
+  kind: ProactiveTriggerKind;
+  triggerId: string;
+  subEgoId: string;
+  filePath?: string;
+  taskTitle?: string;
+}
+
+/**
+ * Policy hook de aprobación para triggers proactivos (F4T8 H22, gap Fase 11).
+ *
+ * Gobernanza sin UI: antes de invocar el handler de un trigger (cron o
+ * file-watch), el engine consulta `requiresApproval`. Si exige aprobación, el
+ * handler NO se ejecuta y se notifica vía `onApprovalRequired` para que un
+ * flujo externo (humano u otra policy) decida. Sin policy, el comportamiento
+ * es el histórico (disparo directo). Fail-closed ante errores del hook.
+ */
+export interface ProactiveApprovalPolicy {
+  requiresApproval: (info: ProactiveApprovalInfo) => boolean | Promise<boolean>;
+  onApprovalRequired?: (info: ProactiveApprovalInfo) => void;
+}
+
+export interface ProactivityEngineOptions {
+  approvalPolicy?: ProactiveApprovalPolicy;
+}
+
+/** Tokens internos (no imprimibles) para traducir `**` sin colisiones. */
+const GLOBSTAR_TOKEN = '\u0000';
+const GLOBSTAR_SLASH_TOKEN = '\u0001';
+
 export class ProactivityEngine {
   private cronTriggers = new Map<string, { config: CronTriggerConfig; handler: (config: CronTriggerConfig) => Promise<void> | void }>();
   private watchTriggers = new Map<string, { config: FileWatchTriggerConfig; handler: (filePath: string) => Promise<void> | void }>();
   private watchDebounceTimers = new Map<string, NodeJS.Timeout>();
+  private approvalPolicy?: ProactiveApprovalPolicy;
+
+  constructor(options: ProactivityEngineOptions = {}) {
+    this.approvalPolicy = options.approvalPolicy;
+  }
+
+  public setApprovalPolicy(policy: ProactiveApprovalPolicy | undefined): void {
+    this.approvalPolicy = policy;
+  }
 
   public registerCronTrigger(
     config: CronTriggerConfig,
@@ -67,11 +108,11 @@ export class ProactivityEngine {
 
         const timer = setTimeout(() => {
           this.watchDebounceTimers.delete(id);
-          try {
-            void handler(filePath);
-          } catch {
-            // Defensive
-          }
+          // El handler puede ser asíncrono: los rechazos deben observarse
+          // (el try/catch síncrono anterior los perdía).
+          void this.fireWatchHandler(id, config, handler, filePath).catch(() => {
+            // Defensive: nunca romper el loop de debounce.
+          });
         }, config.debounceMs);
 
         this.watchDebounceTimers.set(id, timer);
@@ -91,16 +132,133 @@ export class ProactivityEngine {
       if (!config.enabled) continue;
 
       if (this.matchesCron(config.cronExpression, minute, hour, dayOfMonth, month, dayOfWeek)) {
-        triggeredCount++;
-        try {
-          void handler(config);
-        } catch {
-          // Defensive
+        if (this.fireCronHandler(config, handler)) {
+          triggeredCount++;
         }
       }
     }
 
     return triggeredCount;
+  }
+
+  /**
+   * Dispara un handler cron con gate de aprobación. Retorna true si el
+   * handler fue invocado (o quedó diferido por policy asíncrona que luego lo
+   * permite); false si la policy lo bloqueó de forma síncrona. Sin policy, el
+   * disparo es síncrono como históricamente (los handlers síncronos de los
+   * tests existentes siguen corriendo en el mismo tick).
+   */
+  private fireCronHandler(
+    config: CronTriggerConfig,
+    handler: (config: CronTriggerConfig) => Promise<void> | void
+  ): boolean {
+    if (this.approvalPolicy) {
+      let needsApproval: boolean | Promise<boolean> = false;
+      try {
+        needsApproval = this.approvalPolicy.requiresApproval({
+          kind: 'cron',
+          triggerId: config.id,
+          subEgoId: config.subEgoId,
+          taskTitle: config.taskTitle,
+        });
+      } catch {
+        needsApproval = true;
+      }
+      if (needsApproval instanceof Promise) {
+        void needsApproval
+          .then((needed) => {
+            if (needed) {
+              this.notifyApprovalRequired({
+                kind: 'cron',
+                triggerId: config.id,
+                subEgoId: config.subEgoId,
+                taskTitle: config.taskTitle,
+              });
+            } else {
+              this.invokeCronHandler(config, handler);
+            }
+          })
+          .catch(() => {
+            // Defensive: fallo del hook = no disparar.
+          });
+        return false;
+      }
+      if (needsApproval) {
+        this.notifyApprovalRequired({
+          kind: 'cron',
+          triggerId: config.id,
+          subEgoId: config.subEgoId,
+          taskTitle: config.taskTitle,
+        });
+        return false;
+      }
+    }
+    this.invokeCronHandler(config, handler);
+    return true;
+  }
+
+  /**
+   * Invocación síncrona con captura de rechazos asíncronos. El `try/catch`
+   * solo cubre el throw síncrono; si el handler retorna promesa se le
+   * adjunta `.catch` para no dejar rechazos no observados.
+   */
+  private invokeCronHandler(
+    config: CronTriggerConfig,
+    handler: (config: CronTriggerConfig) => Promise<void> | void
+  ): void {
+    try {
+      const result = handler(config);
+      if (result instanceof Promise) {
+        void result.catch(() => {
+          // Defensive: un trigger que falla no debe tumbar el tick.
+        });
+      }
+    } catch {
+      // Defensive
+    }
+  }
+
+  private async fireWatchHandler(
+    triggerId: string,
+    config: FileWatchTriggerConfig,
+    handler: (filePath: string) => Promise<void> | void,
+    filePath: string
+  ): Promise<void> {
+    try {
+      if (this.approvalPolicy) {
+        let needsApproval = false;
+        try {
+          needsApproval = await this.approvalPolicy.requiresApproval({
+            kind: 'file',
+            triggerId,
+            subEgoId: config.subEgoId,
+            filePath,
+          });
+        } catch {
+          needsApproval = true;
+        }
+        if (needsApproval) {
+          this.notifyApprovalRequired({
+            kind: 'file',
+            triggerId,
+            subEgoId: config.subEgoId,
+            filePath,
+          });
+          return;
+        }
+      }
+      await handler(filePath);
+    } catch {
+      // Defensive: nunca romper el loop de debounce.
+    }
+  }
+
+  private notifyApprovalRequired(info: ProactiveApprovalInfo): void {
+    try {
+      this.approvalPolicy?.onApprovalRequired?.(info);
+    } catch {
+      // Defensive: la notificación no debe romper el tick/debounce.
+    }
   }
 
   public matchesCron(
@@ -126,13 +284,15 @@ export class ProactivityEngine {
   }
 
   private matchesField(field: string, val: number, min: number, max: number): boolean {
+    if (val < min || val > max) return false;
     if (field === '*') return true;
 
-    // */step
+    // */step canónico (F4T8 M21): múltiplos del valor absoluto, no del
+    // desplazamiento al mínimo del rango (cron canónico: */2 en dom = 2,4,6...).
     if (field.startsWith('*/')) {
       const step = parseInt(field.slice(2), 10);
       if (isNaN(step) || step <= 0) return false;
-      return (val - min) % step === 0;
+      return val % step === 0;
     }
 
     // lista: 1,2,3
@@ -157,19 +317,32 @@ export class ProactivityEngine {
   public matchesPattern(filePath: string, pattern: string): boolean {
     if (pattern === '*' || pattern === '**/*') return true;
 
-    // Extensión simple: ej. "*.test.ts"
+    // Extensión simple (semántica basename): ej. "*.test.ts"
     if (pattern.startsWith('*.')) {
       const ext = pattern.slice(1);
       return filePath.endsWith(ext);
     }
 
-    // Regex aproximada para globs simples
-    const escaped = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*\*/g, '.*')
-      .replace(/\*/g, '[^/]*');
-    const regex = new RegExp(`^${escaped}$`);
-    return regex.test(filePath) || filePath.includes(pattern.replace(/\*/g, ''));
+    // F4T8 M20: regex estricta anclada, SIN fallback `includes` (producía
+    // falsos positivos por substring, ej. patrón 'docs' casaba 'my-docs/…').
+    return this.globToRegExp(pattern).test(filePath);
+  }
+
+  /**
+   * Traduce un glob simple a RegExp anclada: `*` no cruza `/`, `**` cruza
+   * cualquier nivel (incluido cero segmentos de directorio intermedios).
+   * Sin dependencias externas.
+   */
+  private globToRegExp(pattern: string): RegExp {
+    const withTokens = pattern.split('**').join(GLOBSTAR_TOKEN);
+    const escaped = withTokens.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+    const collapsed = escaped
+      .split(`${GLOBSTAR_TOKEN}/`)
+      .join(GLOBSTAR_SLASH_TOKEN)
+      .split(GLOBSTAR_TOKEN)
+      .join('.*');
+    const starred = collapsed.split('*').join('[^/]*').split(GLOBSTAR_SLASH_TOKEN).join('(?:.*/)?');
+    return new RegExp(`^${starred}$`);
   }
 
   public stopAll(): void {
