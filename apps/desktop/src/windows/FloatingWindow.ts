@@ -1,4 +1,7 @@
-import { FloatingWindowPrototype } from './FloatingWindowPrototype.js';
+import { FloatingWindow } from './FloatingWindowView.js';
+
+/** Re-export del nombre definitivo (WIDG-01): la vista vive en `FloatingWindowView.ts`. */
+export { FloatingWindow } from './FloatingWindowView.js';
 
 export interface FloatingWindowState {
   visible: boolean;
@@ -25,11 +28,11 @@ export function toTrayStatus(state: FloatingWindowState): TrayStatus {
 }
 
 export class FloatingWindowManager {
-  private prototype: FloatingWindowPrototype;
+  private prototype: FloatingWindow;
   private state: FloatingWindowState;
 
   constructor() {
-    this.prototype = new FloatingWindowPrototype({
+    this.prototype = new FloatingWindow({
       width: 180,
       height: 180,
       transparent: true,

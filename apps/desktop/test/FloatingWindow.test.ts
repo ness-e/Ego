@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FloatingWindowPrototype } from '../src/windows/FloatingWindowPrototype.js';
+import { FloatingWindow } from '../src/windows/FloatingWindowView.js';
 import { FloatingWindowManager } from '../src/windows/FloatingWindow.js';
 import { BrowserWindow, screen } from 'electron';
 
@@ -32,14 +32,14 @@ vi.mock('electron', () => {
   };
 });
 
-describe('FloatingWindow & Prototype (WIDG-01 / WIDG-02)', () => {
+describe('FloatingWindow & Manager (WIDG-01 / WIDG-02)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('FloatingWindowPrototype (WIDG-01)', () => {
+  describe('FloatingWindow (WIDG-01)', () => {
     it('crea BrowserWindow frameless, transparente y alwaysOnTop', () => {
-      const prototype = new FloatingWindowPrototype({
+      const prototype = new FloatingWindow({
         width: 160,
         height: 160,
         transparent: true,
@@ -61,7 +61,7 @@ describe('FloatingWindow & Prototype (WIDG-01 / WIDG-02)', () => {
     });
 
     it('alterna el modo click-through pasando eventos al escritorio', () => {
-      const prototype = new FloatingWindowPrototype();
+      const prototype = new FloatingWindow();
       const win = prototype.createWindow();
 
       prototype.setClickThrough(true);
@@ -74,7 +74,7 @@ describe('FloatingWindow & Prototype (WIDG-01 / WIDG-02)', () => {
     });
 
     it('reposiciona la ventana respetando el área de trabajo del monitor más cercano', () => {
-      const prototype = new FloatingWindowPrototype({ width: 180, height: 180 });
+      const prototype = new FloatingWindow({ width: 180, height: 180 });
       const win = prototype.createWindow();
 
       prototype.repositionToDisplay({ x: 100, y: 100 });
@@ -83,7 +83,7 @@ describe('FloatingWindow & Prototype (WIDG-01 / WIDG-02)', () => {
     });
 
     it('endurece webPreferences con sandbox:true + preload (F5T10/H26)', () => {
-      const prototype = new FloatingWindowPrototype({ width: 160, height: 160 });
+      const prototype = new FloatingWindow({ width: 160, height: 160 });
       prototype.createWindow();
       expect(BrowserWindow).toHaveBeenCalledWith(
         expect.objectContaining({

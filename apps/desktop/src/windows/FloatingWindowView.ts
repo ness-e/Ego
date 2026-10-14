@@ -1,6 +1,13 @@
 import { BrowserWindow, screen, Display } from 'electron';
 import { join } from 'node:path';
 
+/**
+ * FloatingWindow (WIDG-01).
+ *
+ * Ventana flotante frameless con click-through para la presencia persistente
+ * de Ego sobre el escritorio.
+ */
+
 export interface FloatingWindowOptions {
   width?: number;
   height?: number;
@@ -10,7 +17,7 @@ export interface FloatingWindowOptions {
   initialPosition?: 'top-right' | 'bottom-right' | 'dock';
 }
 
-export class FloatingWindowPrototype {
+export class FloatingWindow {
   private window: BrowserWindow | null = null;
   private isInteractive = false;
 

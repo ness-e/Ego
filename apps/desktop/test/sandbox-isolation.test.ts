@@ -21,7 +21,7 @@ describe("@ego/desktop — SEC-01 sandboxing y context isolation", () => {
   });
 
   it("ventana flotante replica el endurecimiento (sandbox:true + preload)", () => {
-    const floating = read("src/windows/FloatingWindowPrototype.ts");
+    const floating = read("src/windows/FloatingWindowView.ts");
     expect(floating).toMatch(/nodeIntegration:\s*false/);
     expect(floating).toMatch(/contextIsolation:\s*true/);
     expect(floating).toMatch(/sandbox:\s*true/);
