@@ -118,7 +118,17 @@ describe("T07 UI-04: snapshots base del árbol accesible (advisory visual pendie
   });
 
   it("SessionPicker abierto: dialog + buscador nombrado + opciones como botones", async () => {
-    await mount(<SessionPicker isOpen onClose={() => {}} onResumeSession={() => {}} />);
+    await mount(
+      <SessionPicker
+        isOpen
+        sessions={[
+          { id: "sess-snap-1", title: "Sesión snap uno", preview: "Vista...", subEgoId: "ego.nucleus", updatedAt: Date.now() },
+          { id: "sess-snap-2", title: "Sesión snap dos", preview: "Vista...", subEgoId: "ego.developer", updatedAt: Date.now() },
+        ]}
+        onClose={() => {}}
+        onResumeSession={() => {}}
+      />
+    );
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.body.querySelector("input[aria-label]")).not.toBeNull();
     const options = document.body.querySelectorAll('[role="option"]');

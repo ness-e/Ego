@@ -276,10 +276,10 @@ describe("@ego/models — Comprehensive ModelRouter Test Suite", () => {
   });
 
   describe("BYOK real resuelve antes que mock", () => {
-    it("resuelve gemini-2.0-flash en general-chat con Google registrado", async () => {
+    it("resuelve gemini-3.8-flash en general-chat con Google registrado", async () => {
       router.registerProvider(new AiSdkGoogleProvider({ apiKey: "sk-test-google-1234567890" }));
       const desc = await router.resolveModel("general-chat");
-      expect(desc.id).toBe("gemini-2.0-flash");
+      expect(desc.id).toBe("gemini-3.8-flash");
       expect(desc.provider).toBe("google");
     });
 

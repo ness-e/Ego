@@ -208,12 +208,13 @@ export class ModelRouter {
       isLocal: true,
     });
 
-    // 5. Gemini 2.0 Flash (Cloud via AI SDK @ai-sdk/google, Task 7)
-    // Coste 0 pendiente de confirmación contra registry (ver Task 4 notes).
+    // 5. Gemini 3.8 Flash (Cloud via AI SDK @ai-sdk/google).
+    // 2026-10-14: gemini-2.0-flash retirado por Google (404 NOT_FOUND; sugiere
+    // gemini-3.8-flash, estable). Coste 0 pendiente de confirmación.
     this.registerModel({
-      id: "gemini-2.0-flash",
+      id: "gemini-3.8-flash",
       provider: "google",
-      displayName: "Gemini 2.0 Flash",
+      displayName: "Gemini 3.8 Flash",
       contextWindow: 1048576,
       costPerInputTokenUsd: 0,
       costPerOutputTokenUsd: 0,
@@ -238,8 +239,8 @@ export class ModelRouter {
     // gemini/deepseek van en los roles que sus capabilities cubren: sin key
     // registrada el router los salta igual que al resto (sin cambio de conducta).
     this.bindRole("fast-classifier", ["llama3.2:3b", "gpt-4o", "mock-core"]);
-    this.bindRole("reasoning-heavy", ["claude-3-5-sonnet-20241022", "gpt-4o", "gemini-2.0-flash", "mock-core"]);
-    this.bindRole("coder", ["claude-3-5-sonnet-20241022", "gpt-4o", "gemini-2.0-flash", "deepseek-chat", "mock-core"]);
-    this.bindRole("general-chat", ["gpt-4o", "claude-3-5-sonnet-20241022", "gemini-2.0-flash", "deepseek-chat", "llama3.2:3b", "mock-core"]);
+    this.bindRole("reasoning-heavy", ["claude-3-5-sonnet-20241022", "gpt-4o", "gemini-3.8-flash", "mock-core"]);
+    this.bindRole("coder", ["claude-3-5-sonnet-20241022", "gpt-4o", "gemini-3.8-flash", "deepseek-chat", "mock-core"]);
+    this.bindRole("general-chat", ["gpt-4o", "claude-3-5-sonnet-20241022", "gemini-3.8-flash", "deepseek-chat", "llama3.2:3b", "mock-core"]);
   }
 }

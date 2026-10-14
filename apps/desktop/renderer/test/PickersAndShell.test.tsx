@@ -41,7 +41,7 @@ describe("HERM-09..12: Pickers, Slash Commands & Workspace Shell", () => {
       // Radix porta el contenido a document.body (T07: Modal con trap+Escape)
       expect(document.body.textContent).toContain("Claude 3.7 Sonnet");
       expect(document.body.textContent).toContain("GPT-4o");
-      expect(document.body.textContent).toContain("Gemini 2.5 Pro");
+      expect(document.body.textContent).toContain("Gemini 3.8 Flash");
       expect(document.body.textContent).toContain("Qwen 2.5 Coder 32B (Local)");
 
       // Filtrar por texto
@@ -62,11 +62,18 @@ describe("HERM-09..12: Pickers, Slash Commands & Workspace Shell", () => {
     it("renderiza sesiones y permite reanudar con onResumeSession", async () => {
       const handleResume = vi.fn();
       const handleClose = vi.fn();
+      // 2026-10-14: las sesiones son datos del test (el componente ya no
+      // inventa DEFAULT_SESSIONS; vacío honesto en producción).
+      const sessions = [
+        { id: "sess-test-arch", title: "Arquitectura del Cognitive Runtime", preview: "Revisión de adapters...", subEgoId: "ego.nucleus", updatedAt: Date.now() - 900000 },
+        { id: "sess-test-canvas", title: "Integración de Dynamic Workspace y Canvas", preview: "PayloadRef y DOM...", subEgoId: "ego.developer", updatedAt: Date.now() - 7200000 },
+      ];
 
       await act(async () => {
         root.render(
           <SessionPicker
             isOpen={true}
+            sessions={sessions}
             onClose={handleClose}
             onResumeSession={handleResume}
           />

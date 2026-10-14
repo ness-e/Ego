@@ -350,10 +350,16 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
         : "";
 
       const finalReply = badgePrefix + streamRes.text;
+      // 2026-10-14: el fallback a mock del router enmascaraba errores de
+      // proveedor (ej. modelo retirado 404) como respuesta real. Señal honesta.
+      const isSimulated = streamRes.text.startsWith("[MockResponse");
+      const visibleReply = isSimulated
+        ? `⚠️ Respuesta simulada (el proveedor falló; revisá tu key y el modelo en Ajustes).\n\n${finalReply}`
+        : finalReply;
 
       setMessages((prev) => {
         const body: { content: Msg["content"]; recall: RecallBadgeInfo } = {
-          content: [{ type: "text", text: finalReply }],
+          content: [{ type: "text", text: visibleReply }],
           recall: streamRes.recallStatus,
         };
         return prev.some((x) => x.id === a)

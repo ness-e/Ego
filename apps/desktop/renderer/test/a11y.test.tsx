@@ -110,10 +110,28 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
 
   it("SessionPicker: 0 violaciones + Escape llama onClose", async () => {
     const onClose = vi.fn();
-    await mount(<SessionPicker isOpen onClose={onClose} onResumeSession={() => {}} />);
+    await mount(
+      <SessionPicker
+        isOpen
+        sessions={[
+          { id: "sess-a11y-1", title: "Sesión a11y uno", preview: "Vista...", subEgoId: "ego.nucleus", updatedAt: Date.now() },
+          { id: "sess-a11y-2", title: "Sesión a11y dos", preview: "Vista...", subEgoId: "ego.developer", updatedAt: Date.now() },
+        ]}
+        onClose={onClose}
+        onResumeSession={() => {}}
+      />
+    );
     expect(fmt(await axeViolations())).toBe("");
     await pressEscape();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("SessionPicker vacío honesto: sin listbox sin opciones + 0 violaciones", async () => {
+    const onClose = vi.fn();
+    await mount(<SessionPicker isOpen sessions={[]} onClose={onClose} onResumeSession={() => {}} />);
+    expect(document.body.textContent).toContain("Sin sesiones recientes");
+    expect(document.body.querySelector('[role="listbox"]')).toBeNull();
+    expect(fmt(await axeViolations())).toBe("");
   });
 
   it("SubEgosView factory: modal con roles tab + 0 violaciones", async () => {

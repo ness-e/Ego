@@ -19,29 +19,10 @@ export interface SessionPickerProps {
   onResumeSession: (sessionId: string) => void;
 }
 
-const DEFAULT_SESSIONS: SessionItem[] = [
-  {
-    id: "sess-kernel-arch",
-    title: "Arquitectura del Cognitive Runtime",
-    preview: "Revisión de adapters NativeVantaDB y aislamiento de Fjall LSM...",
-    subEgoId: "ego.nucleus",
-    updatedAt: Date.now() - 1000 * 60 * 15,
-  },
-  {
-    id: "sess-canvas-sync",
-    title: "Integración de Dynamic Workspace y Canvas",
-    preview: "Discusión sobre PayloadRef y mitigación de sobrecoste DOM...",
-    subEgoId: "ego.developer",
-    updatedAt: Date.now() - 1000 * 60 * 120,
-  },
-  {
-    id: "sess-product-roadmap",
-    title: "Backlog Maestro y Fase 11 Security",
-    preview: "Verificación de los 10 principios innegociables y auditoría...",
-    subEgoId: "ego.product",
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24,
-  },
-];
+/**
+ * 2026-10-14: sin sesiones reales no se inventan (antes DEFAULT_SESSIONS
+ * mostraba 3 falsas). Vacío honesto hasta que exista canal de sesiones.
+ */
 
 function formatRelativeTime(timestamp: number): string {
   const diffMs = Date.now() - timestamp;
@@ -61,8 +42,8 @@ function formatRelativeTime(timestamp: number): string {
  */
 export const SessionPicker = memo(function SessionPicker({
   isOpen,
-  activeSessionId = "sess-kernel-arch",
-  sessions = DEFAULT_SESSIONS,
+  activeSessionId,
+  sessions = [],
   onClose,
   onResumeSession,
 }: SessionPickerProps) {
@@ -105,9 +86,16 @@ export const SessionPicker = memo(function SessionPicker({
         )}
       </div>
 
-      {/* Lista de sesiones */}
-      <div role="listbox" aria-label="Sesiones recientes" className="divide-y divide-hairline">
-        {rankedSessions.length === 0 ? (
+      {/* Lista de sesiones: role=listbox solo con opciones (axe
+          aria-required-children); el vacío honesto es bloque neutro. */}
+      <div className="divide-y divide-hairline">
+        {sessions.length === 0 ? (
+          <div className="p-8 text-center text-faint">
+            Sin sesiones recientes — aparecerán aquí al usar el chat.
+          </div>
+        ) : (
+          <div role="listbox" aria-label="Sesiones recientes" className="divide-y divide-hairline">
+            {rankedSessions.length === 0 ? (
           <div className="p-8 text-center text-faint">
             No se encontraron sesiones para &quot;{search}&quot;
           </div>
@@ -160,6 +148,8 @@ export const SessionPicker = memo(function SessionPicker({
               </button>
             );
           })
+        )}
+          </div>
         )}
       </div>
     </Modal>

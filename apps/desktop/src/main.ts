@@ -2492,7 +2492,24 @@ export async function createWindow(): Promise<void> {
   });
 
   ipcMain.handle("ipc.settings.saveModelConfig", async (_e, rawReq: unknown) => {
-    const parseResult = ModelConfigSchema.safeParse(rawReq);
+    // BUGFIX 2026-10-14 (save rechazado con "" ): el getter enmascarado emite
+    // `""` para keys ausentes y varios senders reenvían `cfg` con spread
+    // (`App.tsx:74`). `""` presente falla `min(1)` y tumba TODO el guardado
+    // (incluida la key válida). `""`/blanco = ausente: se normaliza ANTES del
+    // safeParse; el schema sigue rechazando tipos inválidos.
+    let sanitizedReq = rawReq;
+    if (sanitizedReq && typeof sanitizedReq === "object" && !Array.isArray(sanitizedReq)) {
+      const copy = { ...(sanitizedReq as Record<string, unknown>) };
+      for (const f of [
+        "apiKey", "openaiKey", "anthropicKey", "googleKey", "deepseekKey",
+        "baseUrl", "openaiBaseURL", "deepseekBaseURL", "ollamaBaseURL", "modelName",
+      ] as const) {
+        const v = copy[f];
+        if (typeof v === "string" && v.trim().length === 0) delete copy[f];
+      }
+      sanitizedReq = copy;
+    }
+    const parseResult = ModelConfigSchema.safeParse(sanitizedReq);
     if (!parseResult.success) {
       throw new Error(`[IPC Security] Configuración de modelo inválida: ${parseResult.error.message}`);
     }
