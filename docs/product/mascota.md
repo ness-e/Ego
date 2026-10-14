@@ -137,11 +137,11 @@ Adaptado del concepto de widget dinámico de Coucou, el **`Ego Activity Widget`*
 
 ---
 
-## 6. Los 4 Niveles de Presencia en la Interfaz
+## 6. Las 4 Superficies de Presencia en la Interfaz (D6: "superficies", no "niveles")
 
 | Nivel de Presencia | Superficie | Tamaño | Comportamiento |
 |---|---|:---:|---|
-| **1. Sistema Global** | Chrome Header | 28–36 px | Indicador de pulso y estado general de Ego. |
+| **1. Sistema Global** | Chrome Header (superficie `app-header`) | 28–36 px | Indicador de pulso y estado general de Ego. |
 | **2. Orador Activo** | Conversation River (Chat) | 32–48 px | Representa a la entidad que tiene la palabra en la conversación. |
 | **3. Ejecución & Control** | Ego Activity Widget | 40–90 px | Muestra tareas en progreso, telemetría y barreras de aprobación HITL. |
 | **4. Trabajo Ampliado** | Dynamic Canvas | 48–120 px | Acompaña dashboards, código o artefactos interactivos de gran tamaño. |

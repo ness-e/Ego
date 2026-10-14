@@ -14,8 +14,9 @@
 Ego y todos sus Sub-Egos son entidades cognitivas vivas, carismáticas y dinámicas, renderizadas analíticamente en **Canvas 2D a 60 FPS**, combinando calidez orgánica con rigor geométrico.
 
 ### Identidad Canónica de Ego y los Sub-Egos
-1. **Entidad Procedural Viva y Geometría Matemática:**
-   - Silueta **`delta-core` (Triángulo Delta Core)**: Silueta equilátera de esquinas redondeadas con simetría armónica $C_3$:
+1. **Entidad Procedural Viva y Geometría Matemática (D2: monolito por defecto, decisión owner 2026-10-14, implementado en `createDefaultCharacterProfile`):**
+   - Silueta base por defecto **`quantum-monolith` (Monolito)**: forma base neutra de la familia, sobria y sin rasgos adicionales.
+   - Silueta **`delta-core` (Triángulo Delta Core)** como variante geométrica: Silueta equilátera de esquinas redondeadas con simetría armónica $C_3$:
      $$\theta_{rot} = a + \frac{\pi}{2}, \quad k = \cos(3\theta_{rot}), \quad r(a) = 0.92 + 0.38k - 0.07(k^2 - 0.5)$$
    - Silueta **`squircle-core` / `coucou-mochi` (temporal hasta `COUC-23`)**: Superelipse de Lamé ($EXP = 2.7$):
      $$r(y) = (1 - |y|^{2.7})^{1/2.7}$$
@@ -49,9 +50,10 @@ Tanto el avatar grande de Dynamic Canvas como los mini-avatares HiDPI de chat (`
 │  - Halos difusos, anillos orbitales traseros, auras    │
 ├────────────────────────────────────────────────────────┤
 │  CAPA 1: Sombra y Volumen del Cuerpo (Geometría Base)  │
-│  - Silueta analítica (delta-core o squircle-core)      │
+│  - Silueta analítica (monolito por defecto, delta-core o squircle-core como variantes)      │
 │  - Gradiente lineal direccional + oclusión radial      │
 │  - Brillo especular superior                          │
+│  - Sub-paso 1b (D5): sombra dinámica — elipse difusa proyectada en la base del personaje │
 ├────────────────────────────────────────────────────────┤
 │  CAPA 2: Rostro y Expresión (Ojos y Boca)             │
 │  - Proyección esférica de mirada (yaw, pitch)          │
@@ -74,7 +76,7 @@ Tanto el avatar grande de Dynamic Canvas como los mini-avatares HiDPI de chat (`
 
 | Sub-Ego | Silueta Base | Color Primario | Color Sombra | Rasgo / Trait Sugerido | Ojos Habituales | Comportamiento |
 |---|---|---|---|---|---|---|
-| **Ego Nucleus** | `delta-core` / `coucou-mochi` | `#EDEDEF` | `#C4C5CA` | `aura-field` | `pill` | Sereno, respiración balanceada |
+| **Ego Nucleus** | `quantum-monolith` (defecto D2; `delta-core` / `coucou-mochi` como variantes) | `#EDEDEF` | `#C4C5CA` | `aura-field` | `pill` | Sereno, respiración balanceada |
 | **Engineering (Dev)** | `delta-core` | `#3B82F6` | `#1D4ED8` | `energy-cores` o `antennae` | `wide` / `line` | Rápido, inclinado hacia adelante |
 | **Finance / Legal** | `delta-core` | `#10B981` | `#047857` | `geometric-crest` | `dot` / `flat` | Sólido, mirada atenta y fija |
 | **Design / Creative** | `delta-core` | `#F59E0B` | `#D97706` | `floating-shards` | `happy` / `star` | Elástico, rebotes juguetones |

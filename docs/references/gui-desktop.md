@@ -12,6 +12,8 @@ Navegación izquierda estrecha + contenido central + inspector derecho colapsabl
 (VS Code: ActivityBar + Sidebars + Editor + Panel + StatusBar; Claude/Codex/Notion/Obsidian/Linear igual;
 Arc/1Password: rail + lista + detalle).
 
+> **Matiz D10 dark-first (decisión owner 2026-10-14):** Ego es dark-only en P0 (4 presets oscuros funcionales, ver `docs/design/design-system.md` §2). La regla 10 (seguir al OS) NO aplica: `nativeTheme` no gobierna el tema; el accent ámbar y `dim #8a8a92` son fijos del sistema. Seguir al OS queda como futuro documentado (`UserPrefs.theme`).
+
 ## 10 reglas
 
 1. Layout 3 zonas + StatusBar; no mezclar navegación y detalle. https://code.visualstudio.com/api/ux-guidelines/overview

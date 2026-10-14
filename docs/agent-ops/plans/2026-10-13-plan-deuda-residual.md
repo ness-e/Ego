@@ -16,10 +16,10 @@
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `HIG-01` | 🟡 Media | **Normalizar `tsc` en `tests/`** | `tests/` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | 57 errores tsc preexistentes + script typecheck ausente. Ver Task 1. | Plan §Task 1 | — |
-| `HIG-02` | 🟠 Alta | **Gate automático contra `dist/` obsoleto** | `apps/desktop/test/`, `packages/*/dist` | 🟢 1d | 🔴 P0 | 🆕 Pendiente | Rebuild pre-test o resolución vía src. Ya mordió 2 veces. Ver Task 2. | Plan §Task 2 | — |
-| `HIG-03` | 🟡 Media | **Eliminar 23 `any` en `main.ts`** | `apps/desktop/src/main.ts` | 🟡 1-2d | 🟠 P1 | 🆕 Pendiente | Narrowing + unknown. Ver Task 3. | Plan §Task 3 | — |
-| `HIG-04` | 🔴 Crítica | **Lectura quarantine-aware en `system/snapshots`** | `packages/dailystate/DailyStatePersistence.ts` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Último diferimiento SEC-09. Ver Task 4. | Plan §Task 4 | `SEC-09` |
+| `HIG-01` | 🟡 Media | **Normalizar `tsc` en `tests/`** | `tests/` | 🟡 1-2d | 🔴 P0 | ⏳ En curso | Task file `docs/agent-ops/tasks/HIG-01.md` EN PROGRESO (T09 sync; el `Pendiente` anterior estaba obsoleto). 57 errores alegados pendientes de verificación con `tsc --noEmit -p tests/tsconfig.json` en Task 1. | Plan §Task 1 | — |
+| `HIG-02` | 🟠 Alta | **Gate automático contra `dist/` obsoleto** | `apps/desktop/test/`, `packages/*/dist` | 🟢 1d | 🔴 P0 | ⏳ En curso | Task file `docs/agent-ops/tasks/HIG-02.md` EN PROGRESO (T09 sync). Gate obsoleto pendiente de cierre en Task 2. | Plan §Task 2 | — |
+| `HIG-03` | 🟡 Media | **Eliminar 23 `any` en `main.ts`** | `apps/desktop/src/main.ts` | 🟡 1-2d | 🟠 P1 | ⏳ En curso | Task file `docs/agent-ops/tasks/HIG-03.md` IN PROGRESS (T09 sync). Narrowing + unknown. Ver Task 3. | Plan §Task 3 | — |
+| `HIG-04` | 🔴 Crítica | **Lectura quarantine-aware en `system/snapshots`** | `packages/dailystate/DailyStatePersistence.ts` | 🟡 1-2d | 🔴 P0 | ✅ Completada | R9 reconciliado (T09): el código YA es quarantine-aware (`getSnapshot` resuelve live primero y `quarantine/pending` después vía `getQuarantineAware`, con comentario `HIG-04 / SEC-09` en el fuente) + task file `HIG-04.md` COMPLETED. Último diferimiento SEC-09 cerrado. | Plan §Task 4 | `SEC-09` |
 | `HIG-05` | 🟢 Baja | **Verificar residuales M16 (path edge, audit ms)** | `packages/domains/src/engineering/` | 🟢 0.5d | 🟢 P2 | 🆕 Pendiente | Tests que fijan los edges o aceptación documentada. Ver Task 5. | Plan §Task 5 | `M16` |
 | `UP-01` | 🟢 Baja | **Vigilancia upstream VantaDB** | `docs/engineering/vantadb-readiness-plan.md` | 🟢 0.5d | 🟢 P2 | 🆕 Pendiente | Verificar estado FIND-249 + REQ-04/05/06, documentar. Sin código. Ver Task 6. | Plan §Task 6 | — |
 | `DIST-02` | 🔴 Crítica | **Configuración `asarUnpack`** | `apps/desktop/electron-builder.yml` | 🟢 2h | 🔴 P0 | 🆕 Pendiente | Ver Backlog + Task 7. | Plan §Task 7 | `DIST-01` |

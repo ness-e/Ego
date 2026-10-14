@@ -46,7 +46,7 @@ Responde a 5 preguntas clave:
 - *"Al abrir Ego, el usuario debe recibir una representación viva del estado de su proyecto."*
 
 ## Elementos permanentes de la interfaz
-La interfaz se basa en Chat + Dynamic Workspace + Ego Activity Widget + superficies contextuales. La cantidad de paneles no forma parte de la identidad del producto (se descartan los modelos rígidos de 3 o 4 áreas fijas). Los elementos principales permanentes son:
+La interfaz se basa en Chat + Dynamic Workspace + Ego Activity Widget + superficies contextuales. La cantidad de paneles no forma parte de la identidad del producto (se descartan los modelos rígidos de 3 o 4 áreas fijas). Las 4 superficies canónicas son App Header, Chat, Activity Widget y Dynamic Canvas (ver [design-system.md](../design/design-system.md) §6 y [workspace-dinamico.md](../architecture/workspace-dinamico.md)).
 
 - **Chat (Conversation River):** El canal universal de comunicación e intención del usuario basado en la librería `@assistant-ui/react` (Thread, Composer, Message, Tool-UI). El usuario expresa objetivos y Ego enruta las peticiones internamente. El texto se renderiza fluidamente usando markdown vía `@assistant-ui/react-streamdown`. Rige la **Regla de Estabilidad Visual**: el avatar del Sub-Ego solo se renderiza en el primer mensaje de una intervención o ante un cambio explícito de orador, evitando saturación cinética.
 - **Canvas (Dynamic Workspace):** El área de trabajo principal y reactiva. Aquí los Sub-Egos proyectan interfaces interactivas en tiempo real según la tarea: datos interactivos, acciones a realizar, informes complejos, herramientas específicas o editores de código. Acompañado opcionalmente por la presencia del especialista en escala de trabajo (48–120px).
@@ -56,6 +56,12 @@ La interfaz se basa en Chat + Dynamic Workspace + Ego Activity Widget + superfic
   - *Aprobaciones HITL:* Se expande suavemente ante acciones sensibles retenidas para presentar opciones inmediatas (`[ ✓ Aprobar ]`, `[ ✗ Rechazar ]`, `[ 📄 Inspeccionar Diff ]`) con atajos de teclado rápidos (`Enter`, `Esc`).
   - *Concurrencia Multi-Agente / Pipelines:* Muestra clusters compactos (`[Dev] [Fin] [Mkt] +2`) para pipelines en ejecución paralela (Modo Narrativo).
 - **Background Activity & Proactivity:** Coordinada a través del Activity Widget y el Daily State. Sirve para mostrar el trabajo persistente en segundo plano y la actividad proactiva de los Sub-Egos sin interrumpir el flujo principal del usuario.
+
+### D1 — Sidebar dual + resizable (decisión owner 2026-10-14, reconciliada con workspace dinámico)
+La app usa sidebar dual: izquierda para navegación/proyectos/sesiones y derecha como inspector contextual colapsable, ambas redimensionables vía `SplitPane` (`App.tsx:61`). No es una barra de navegación rígida: son contenedores contextuales que el workspace llena según la tarea ("la interfaz sigue al trabajo"). Ver gui-desktop.md (patrón VS Code: ActivityBar + Sidebars + Editor + Panel + StatusBar) con matiz dark-first (D10).
+
+### D8 — Activity Widget vs System Tray (decisión owner 2026-10-14)
+Widget y Tray NO son lo mismo y se documentan por separado: el **Activity Widget** es telemetría de ejecución + aprobaciones HITL in-app (reposo `[ ● ]`, trabajo con %, HITL expandido, clusters multi-agente); el **System Tray** es el icono a nivel OS con código de color mínimo útil (verde idle / azul pensando / rojo HITL; click restaura, menú Mostrar/Salir, tooltip de estado). El resto COUC (sonido WAV, island completa) queda en backlog futuro priorizado, sin descartes.
 
 ## Explicabilidad contextual (Decisión P11)
 La explicabilidad no es un panel fijo de 320px ni un componente estático de la interfaz (descartado Canvas Causal R0 permanente en P0). Es una **capacidad transversal del sistema** integrada de forma contextual dentro del workspace:

@@ -130,7 +130,7 @@ Bajo la decisión P23 (variante D+), Ego adopta una estrategia de integración h
 - **Ego como MCP Server:** Expone las capacidades internas del sistema (`project_context`, `memory_search`, `knowledge_search`, `tasks`, `project_state`) a clientes y agentes externos (OpenCode, Claude Desktop, Cursor, Codex) de forma gobernada y local.
 
 ### Categorización formal de MCP en Ego
-- **MCP Interno (Subprocess stdio):** `vantadb-mcp` (88 tools) como puente cognitivo hacia `vanta-memory` (L0-L3) en P0. No es una integración de producto con un tercero, sino un mecanismo de interoperabilidad local entre procesos. Su objetivo en P1 es ser reemplazado por una fachada nativa vía napi-rs.
+- **MCP Interno (Subprocess stdio):** `vantadb-mcp` (88 tools — cifra declarada por el proyecto hermano VantaDB, no verificable desde Ego; R2 T09) como puente cognitivo hacia `vanta-memory` (L0-L3) en P0. No es una integración de producto con un tercero, sino un mecanismo de interoperabilidad local entre procesos. Su objetivo en P1 es ser reemplazado por una fachada nativa vía napi-rs.
 - **MCP Externo (Herramientas y SaaS):** Servidores MCP oficiales (GitHub) y de la comunidad para interactuar con herramientas y servicios externos.
 - **MCP Server de Ego:** Punto de exposición soberano del Proyecto Vivo hacia otros editores y herramientas.
 

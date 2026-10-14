@@ -6,13 +6,13 @@
 | Owner | ness-e |
 | Fecha | 2026-10-05 |
 | Fuente histórica | `../prd/07-6-arquitectura-general-y-pol-tica-de-lenguajes.md` §6.2 + `investigacion-de-diseño/` (v1 §6.2/§16, v2.0 §6.2 MANTENER, v2.1 §6.2) + `../architecture/vision-general.md` + `../engineering/stack-tecnico.md` desktop |
-| VantaDB verificado | 0.8.0 base dev; Adapter TS (`NativeVantaDB` de `"vantadb/native"` en main); subprocess `vantadb-mcp` stdio (88 tools); ingesta Python sidecar opcional (`vantadb-py`); motor Rust in-process |
+| VantaDB verificado | 0.8.0 base dev; Adapter TS (`NativeVantaDB` de `"vantadb/native"` en main); subprocess `vantadb-mcp` stdio (88 tools — cifra del proyecto hermano VantaDB, no verificable desde Ego; R2 T09); ingesta Python sidecar opcional (`vantadb-py`); motor Rust in-process |
 | Regla | Este archivo se edita; `../prd/07*` queda congelado como referencia histórica |
 | Decisión canónica | Desktop Electron + TypeScript único principal; Python sidecar opcional; TS main+preload+renderer IPC tipado |
 
 ## Propuesta P0 desktop
 
-Ego Electron solo desktop (ver [stack-tecnico.md](./stack-tecnico.md)): main Node + preload IPC + renderer React + Vite (build `tsc` + `vite build`, sin electron-vite — F5T11/M28). P0 = Adapter + KB + CRM mínimo + cuarentena/TTL/supersede + export/import locales. Requisitos del sistema en P0: Node.js 22 instalado (Python opcional para scripts de ingesta masiva).
+Ego Electron solo desktop (ver [stack-tecnico.md](./stack-tecnico.md)): main Node + preload IPC + renderer React + electron-vite 5.x (MIGRADO T11 `fa58b8c`; la nota anterior "sin electron-vite — F5T11/M28" quedó obsoleta). P0 = Adapter + KB + CRM mínimo + cuarentena/TTL/supersede + export/import locales. Requisitos del sistema en P0: Node.js 22 instalado (Python opcional para scripts de ingesta masiva).
 
 ## Tabla de componentes y lenguajes
 
@@ -22,7 +22,7 @@ Ego Electron solo desktop (ver [stack-tecnico.md](./stack-tecnico.md)): main Nod
 | Main + preload + IPC | TypeScript (Node.js 22 + preload `contextIsolation=true`, `sandbox=true`) | Main process orquesta la aplicación |
 | Cognitive Runtime, Decision Intelligence, Model Router, Sub-Egos | TypeScript en main (tipado estricto end-to-end) | Runtime cognitivo propio + AI SDK v7 (adaptador de integración) |
 | Adapter memoria (Fast Path) | TypeScript (`NativeVantaDB` de `"vantadb/native"`, napi-rs in-process) | Persistencia real en disco (Fjall LSM); `Client` WASM estrictamente PROHIBIDO |
-| Subprocess cognitivo (Cognitive Path) | Subproceso `vantadb-mcp` stdio (88 tools, Rust) | Consume `vanta-memory` (L0-L3) para auto-recall, context_assemble y dreams |
+| Subprocess cognitivo (Cognitive Path) | Subproceso `vantadb-mcp` stdio (88 tools — cifra del proyecto hermano VantaDB, no verificable desde Ego; R2 T09, Rust) | Consume `vanta-memory` (L0-L3) para auto-recall, context_assemble y dreams |
 | Ingesta documental masiva | Python del sistema (sidecar opcional) vía stdio → `bulk_import` | Solo para ingesta avanzada; no empaquetado |
 | Programados y background | TypeScript en main / timers y tareas de fondo Electron | Background Activity & Proactivity |
 

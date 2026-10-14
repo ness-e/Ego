@@ -89,8 +89,19 @@
 
 2. **`theme-presets.ts` y `translucency.ts`**
    - **Qué hace:** Manejo de paletas de color sobrias, contraste alto, soporte para translucidez nativa en Windows (Mica / Acrylic) y sincronización con las preferencias del sistema operativo.
-   - **Adaptación en Ego:** Integración en el sistema de diseño TailwindCSS de Ego (cumpliendo la regla de interfaz sobria B/N de `docs/product/ux-ui.md`).
+   - **Adaptación en Ego:** Integración en el sistema de diseño TailwindCSS de Ego (ver §5 Regla B/N formalizada + `docs/design/design-system.md`).
    - **Relación con Backlog Ego:** `CORE-01`, `CANV-01`.
+
+---
+
+## 5. Regla B/N formalizada (D9, decisión owner 2026-10-14)
+
+La "interfaz sobria B/N" citada en el Bloque C queda definida formalmente (cierra la cita huérfana):
+
+- **Base monocromática funcional:** superficies en escala neutra (`bg-paper/panel/raised`, `text-ink/faint/dim`, `border-hairline`).
+- **Color solo con significado:** accent ámbar `#f59e0b` para marca/acción primaria; emerald/amber/rose/cyan/purple exclusivamente para estados semánticos; cero decoración cromática.
+- **Dark-only:** sin tema claro en P0 (`UserPrefs.theme` = futuro documentado).
+- Fuente vigente: `docs/design/design-system.md` §§1–2.
 
 ---
 

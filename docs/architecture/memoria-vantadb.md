@@ -134,7 +134,7 @@ Ego distingue formalmente dos naturalezas de uso para el protocolo MCP (Model Co
 
 | Categoría | Propósito | Implementación | Alcance |
 |---|---|---|---|
-| **MCP Interno** | Interoperabilidad entre procesos locales para memoria cognitiva | `vantadb-mcp` (88 tools vía stdio) | Solo P0 (transitorio hacia P1) |
+| **MCP Interno** | Interoperabilidad entre procesos locales para memoria cognitiva | `vantadb-mcp` (88 tools vía stdio — cifra del proyecto hermano VantaDB, no verificable desde Ego; R2 T09) | Solo P0 (transitorio hacia P1) |
 | **MCP Externo** | Conexión con servicios, SaaS y herramientas externas | Servidores MCP oficiales (GitHub) y comunitarios | Permanente (Nivel B de integración) |
 | **Ego MCP Server** | Exposición soberana del contexto del Proyecto Vivo | Servidor stdio local expuesto a IDEs externos | Permanente |
 

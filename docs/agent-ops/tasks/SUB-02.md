@@ -1,7 +1,7 @@
 ---
 id: SUB-02
 title: "Fábrica Inteligente de Sub-Egos (3 modalidades)"
-status: pending
+status: completed # T09 sync: Backlog manda (fila SUB-02 ✅ Completada); el valor anterior `pending` estaba obsoleto
 phase: "Fase 03: Sub-Egos"
 priority: P0
 component: "@ego/subegos"

@@ -1,7 +1,7 @@
 ---
 id: SUB-04
 title: "Aislamiento de estado privado egos/<id>/* en VantaDB"
-status: pending
+status: completed # T09 sync: Backlog manda (fila SUB-04 ✅ Completada); el valor anterior `pending` estaba obsoleto
 phase: "Fase 03: Sub-Egos"
 priority: P0
 component: "@ego/subegos"

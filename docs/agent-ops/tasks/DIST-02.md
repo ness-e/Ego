@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | ⏳ IN PROGRESS (69e71751-dcf9-4d18-8b9b-b2e4e0a7b9c4 — no aplica; subagente sin MCP campaign) |
+| Estado | ✅ COMPLETED (T09 sync: Backlog manda — fila `DIST-02` ✅ Completada, SHA `c8c589b99330728f0810706658022761e2ecbe9d`; el estado anterior IN PROGRESS estaba obsoleto) |
 | Ruta | ego-lead (solo config; NO commit, NO tag, NO push) |
 | Contrato | config con `asarUnpack: ["**/*.node"]` verificada + Backlog `DIST-02` a ✅ con evidencia. Compuerta HERM-15 (tabla extracción `Backlog.md:469`) |
 | SDP | `ci-cd-and-automation` (skill cargada; resto base-only — tarea solo-config sin código nuevo) |

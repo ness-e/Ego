@@ -17,6 +17,8 @@
 - [`modulos.md`](product/modulos.md)
 - [`ux-ui.md`](product/ux-ui.md)
 - [`mascota.md`](product/mascota.md)
+- [`character-art-direction.md`](product/character-art-direction.md)
+- [`../design/design-system.md`](../design/design-system.md) — **Design System canónico** (tokens, dark-only 4 presets, kit Radix, 9 estados, catálogo 11 vs 13)
 - [`modelo-economico.md`](product/modelo-economico.md)
 
 **Architecture**

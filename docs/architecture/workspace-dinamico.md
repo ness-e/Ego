@@ -12,7 +12,8 @@ El usuario nunca debería preguntarse "¿a qué sección debo entrar para hacer 
 Ego utiliza una interfaz dinámica y componible. El usuario dispone de un espacio de trabajo central (workspace) y la interacción principal se realiza mediante conversación. El sistema se adapta y construye la superficie visual necesaria en función del contexto, la tarea, los datos y el resultado requerido.
 
 ## Elementos permanentes
-La arquitectura define 3 elementos permanentes (descartando paneles laterales rígidos de 320px o Canvas Causal fijo en P0):
+La arquitectura define 4 elementos permanentes (D7, decisión owner 2026-10-14):
+- **App Header / Chrome de ventana (D7):** marco nativo con indicador de pulso y estado general de Ego (superficie `app-header`, 28–36 px). Controles de ventana personalizados en modo frameless (`titleBarStyle: hidden` + `titleBarOverlay`, `app-region: drag`).
 - **Chat (Conversation River):** La interfaz universal de intención. El usuario expresa objetivos y Ego enruta internamente, respetando la regla de estabilidad visual del avatar.
 - **Canvas / Dynamic Workspace:** El área de trabajo principal donde los Sub-Egos activos proyectan interfaces dinámicamente (tablas, formularios, dashboards, editores, diffs, diagramas).
 - **Ego Activity Widget:** Componente permanente en el frame superior/dock para telemetría de ejecución en tiempo real, micro-animaciones reactivas a tools y resolución interactiva de aprobaciones HITL.
@@ -114,7 +115,7 @@ Al abrir Ego, el usuario no encuentra una plantilla de dashboard fija ni un chat
 ## Qué NO es la UI de Ego
 - NO son 23 departamentos mapeados a 23 pantallas fijas.
 - NO es un chatbot básico donde absolutamente todo es texto.
-- NO es una aplicación tradicional con una barra lateral de navegación rígida.
+- NO es una aplicación tradicional con una barra lateral de navegación rígida. (Matiz D1: la sidebar dual + resizable sí existe, pero como contenedores contextuales al servicio del workspace, no como destinos fijos de navegación.)
 - NO es un layout rígido con un panel fijo permanente de 320px para explicabilidad (Canvas Causal R0).
 
 ## Qué SÍ es

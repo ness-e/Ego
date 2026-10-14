@@ -16,7 +16,7 @@
    - Normalización de metadatos (`org_id`, `ts`, `agent_id`, `confidence`, `state`).
    - Pin estricto npm `"vantadb/native": "0.8.0"` (napi-rs in-process). Verificación de que `Client` de `"vantadb"` (WASM) está ausente de los bundles.
    - Verificación de Auto-Embed interno (ONNX Runtime, `multilingual-e5-small`, 384d) sin computación de vectores en TypeScript.
-   - Verificación de comunicación con el subprocess cognitivo `vantadb-mcp` (88 tools) vía stdio.
+   - Verificación de comunicación con el subprocess cognitivo `vantadb-mcp` (88 tools — cifra del proyecto hermano VantaDB, no verificable desde Ego; R2 T09) vía stdio.
 
 2. **Contratos de Sub-Egos y Aislamiento de Memoria:**
    - Modelo de memoria compartida de proyecto: Los Sub-Egos pueden **LEER** namespaces compartidos del proyecto (`kb/*`, `crm/*`, `dev/*`, `analytics/*`, etc.) según los permisos y capacidades definidos en su [`SubEgoManifest`](../architecture/agentes.md).

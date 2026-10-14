@@ -55,7 +55,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [ ] El Sub-Ego ejecuta una tarea independiente.
 - [ ] Los Sub-Egos comparten contexto a través de la Shared Memory.
 - [ ] El Sub-Ego reporta el resultado de su tarea.
-> **Estado actual:** 4 de 12 tareas completadas (`SUB-01`, `SUB-02`, `SUB-03`, `SUB-04`). Siguiente hito en curso: Registro y catálogo de Sub-Egos en namespace `gov/sub_egos` (`SUB-07`).
+> **Estado actual:** 12 de 12 tareas completadas (`SUB-01..SUB-12`). **Fase 100% COMPLETADA** (sincronizado con Backlog en T09; el texto anterior decía 4/12).
 **Criterio de aceptación:** Múltiples Sub-Egos cooperan para resolver una tarea sin que el usuario intervenga en la orquestación.
 
 ### Fase 03.1: Integración Operativa & Convergencia MVP
@@ -118,8 +118,8 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [x] Se programa una tarea persistente o basada en triggers.
 - [x] Las tareas en background no bloquean la interfaz.
 - [x] El sistema notifica resultados relevantes.
-> **Estado actual:** 11 de 11 tareas completadas. **Fase 100% COMPLETADA**.
-**Criterio de aceptación:** Ego trabaja en segundo plano mientras el usuario realiza otras actividades — **100% COMPLETADO (TASK-01..11)**.
+> **Estado actual:** 15 de 15 tareas completadas (`TASK-01..11` + `WIDG-01..04`). **Fase 100% COMPLETADA** (sincronizado con Backlog en T09; el texto anterior decía 11/11).
+**Criterio de aceptación:** Ego trabaja en segundo plano mientras el usuario realiza otras actividades — **100% COMPLETADO (TASK-01..11 + WIDG-01..04)**.
 
 ### Fase 08: Daily State
 **Objetivo:** Seguimiento del flujo de trabajo continuo y la atención.

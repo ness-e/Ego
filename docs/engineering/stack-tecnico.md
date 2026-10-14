@@ -14,7 +14,7 @@
 El cliente principal de Ego para escritorio se construye sobre las siguientes tecnologías:
 - **Electron**: Contenedor principal de la aplicación de escritorio.
 - **React + TypeScript**: Framework de UI.
-- **Vite**: Bundler y herramientas de desarrollo del renderer (build real: `tsc` en main + `vite build` en renderer; F5T11/M28: `electron-vite` no es dependencia — migración no hecha).
+- **Vite**: Bundler y herramientas de desarrollo del renderer vía **`electron-vite` 5.x (MIGRADO — T11 `fa58b8c`, layout `out/`, smoke nativo re-verificado; la nota anterior que decía "migración no hecha" quedó obsoleta). DevDeps verificadas: `electron-vite ^5.0.0`, `@vitejs/plugin-react ^4.3.4`, `@tailwindcss/vite`, `vitest`.
 
 *Nota: Next.js NO se utiliza para la aplicación de escritorio.*
 
@@ -36,7 +36,7 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 - **Empaquetado Electron**: `asarUnpack: ["**/*.node"]` obligatorio en `electron-builder.yml`.
 
 ### Capa Cognitiva (subprocess MCP)
-- **vantadb-mcp**: Servidor MCP (88 herramientas) ejecutado como subprocess stdio desde Electron main.
+- **vantadb-mcp**: Servidor MCP (88 herramientas — cifra declarada por el proyecto hermano VantaDB, no verificable desde Ego; ver R2 T09) ejecutado como subprocess stdio desde Electron main.
 - Consume internamente `vanta-memory` (pipeline cognitivo L0→L3: captura, dedup, escenas, persona, dream consolidation).
 - Proporciona: `context_assemble`, `memory_recall`, `dream_consolidate`, `scene_*`, `skill_*`, `code_*`.
 - `vanta-memory` está implementado en Rust puro y NO tiene bindings Node.js directos.
@@ -54,8 +54,8 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 - Política de Seguridad de Contenido (CSP) restrictiva.
 
 ## Interfaz de Usuario (UI)
-- **Navegación**: React Router.
-- **Primitivas UI**: Radix / shadcn.
+- **Navegación**: workspace dinámico componible (sin React Router en P0 — ver EGO-FIND-04 ⏳: o se instala Router o se retira esta línea; hoy la navegación la resuelve el workspace, no un router).
+- **Primitivas UI**: Radix (`@radix-ui/react-dialog`, `@radix-ui/react-tabs`) + kit propio `ui-kit/` (Button/Input/Modal/Tabs/Badge, cva+clsx+tailwind-merge) — instalados T06 `40fb103`.
 - **Editor de código**: Monaco Editor.
 - **Terminal**: xterm.js.
 - **Capa de Chat**: `@assistant-ui/react` (utilizado específicamente como capa de chat, no como framework de toda la app).
@@ -63,7 +63,7 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 
 ## Estado
 - **Datos del proyecto**: VantaDB (persistido).
-- **Estado de UI**: Store ligero, como Zustand.
+- **Estado de UI**: Zustand (`zustand ^5.0.15`, store `ui-kit/store.ts` — instalado T06 `40fb103`).
 - **Cuenta y Facturación**: Cloud Control Plane (remoto).
 
 ## Modelos de IA
@@ -85,5 +85,5 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 - El código se ejecuta en un sandbox seguro, no en el renderer de Electron.
 
 ## Build y Distribución
-- **Empaquetado**: electron-builder (config `apps/desktop/electron-builder.config.cjs`; F5T11/M28: `electron-vite` no se usa).
+- **Empaquetado**: electron-builder (config `apps/desktop/electron-builder.config.cjs`; loop de build/dev unificado con `electron-vite` tras T11).
 - **Distribución**: Electron Builder o Forge.

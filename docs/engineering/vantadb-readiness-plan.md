@@ -24,7 +24,7 @@ Este documento establece el **contrato de evolución coordinada** entre Ego (el 
 │ FASE 01–02: CORE COGNITIVO & ACCIÓN (P0)                               │
 │  Estado VantaDB: ✅ DISPONIBLE HOY (Arquitectura Híbrida)              │
 │  • Fast Path: NativeVantaDB (in-process vía napi-rs, Fjall LSM)       │
-│  • Cognitive Path: vantadb-mcp (subprocess stdio, 88 tools)            │
+│  • Cognitive Path: vantadb-mcp (subprocess stdio, 88 tools — cifra del proyecto hermano VantaDB, no verificable desde Ego; R2 T09)            │
 │  • Búsqueda híbrida: BM25 + HNSW + RRF federado                        │
 │  • Embeddings: BM25 puro en fast path (VDB-INC-01; denso vía mcp)      │
 │  • Gobernanza: Cuarentena (ADR-046) y Supersesión (ADR-028)           │

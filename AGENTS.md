@@ -1,7 +1,7 @@
 # Ego — Directrices del Agente
 
 > Ámbito: Ego es un Sistema Operativo Cognitivo (SOC) — aplicación desktop Electron. Fecha: 2026-10-06.
-> Derivado de 22 decisiones fundacionales (serie Q1–Q25 con Q6/Q8/Q17 ausentes — verificado 2026-10-12) en `Preguntas y respuestas.txt`.
+> Derivado de 22 decisiones fundacionales (serie Q1–Q25; Q6/Q8/Q17 SÍ existen —verificado 2026-10-14 en `Preguntas y respuestas.txt:1834,2323,6428`; la nota anterior que los declaraba ausentes era errónea, T09) en `Preguntas y respuestas.txt`.
 
 ## 1. STACK TECNOLÓGICO Y VERSIONES
 
@@ -94,7 +94,7 @@ Ego/
 ├── images/                   ← recursos gráficos
 ├── scripts/                  ← utilidades
 ├── repos-referencia/         ← clones de terceros para estudio (NO son código de Ego)
-└── Preguntas y respuestas.txt ← 22 decisiones fundacionales (Q6/Q8/Q17 ausentes)
+└── Preguntas y respuestas.txt ← 22 decisiones fundacionales (Q6/Q8/Q17 existen: líneas 1834/2323/6428 — T09)
 ```
 
 ### repos-referencia/ — qué extraer de cada uno
@@ -240,4 +240,4 @@ Vertical slice progresivo. Fases 01–05 = P0-Alpha. Fases 06–12 = P0-Beta.
 | `docs/roadmap/roadmap.md` | 12 fases con criterios de aceptación |
 | `docs/engineering/stack-tecnico.md` | Stack técnico detallado |
 | `docs/engineering/integraciones.md` | Arquitectura MCP + conectores |
-| `Preguntas y respuestas.txt` | 22 decisiones fundacionales (Q6/Q8/Q17 ausentes) |
+| `Preguntas y respuestas.txt` | 22 decisiones fundacionales (Q6/Q8/Q17 existen — T09) |
