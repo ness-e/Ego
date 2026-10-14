@@ -7,15 +7,16 @@ interface AnsiTextProps {
 }
 
 const COLOR_CLASSES: Record<AnsiColor, string> = {
-  black: "text-zinc-600 dark:text-zinc-400",
+  // T06: dark-only (4 presets, decisión T05) — sin variantes `dark:` muertas.
+  black: "text-dim",
   red: "text-red-600 dark:text-red-400",
   green: "text-emerald-600 dark:text-emerald-400",
   yellow: "text-amber-600 dark:text-amber-400",
   blue: "text-sky-600 dark:text-sky-400",
   magenta: "text-purple-600 dark:text-purple-400",
   cyan: "text-teal-600 dark:text-teal-400",
-  white: "text-zinc-200 dark:text-zinc-100",
-  "bright-black": "text-zinc-500 dark:text-zinc-400",
+  white: "text-ink",
+  "bright-black": "text-faint",
   "bright-red": "text-red-500 dark:text-red-300",
   "bright-green": "text-emerald-500 dark:text-emerald-300",
   "bright-yellow": "text-amber-500 dark:text-amber-300",

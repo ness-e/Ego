@@ -81,15 +81,15 @@ export function ActivityWidget() {
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-zinc-900 p-5 shadow-2xl text-zinc-100">
-            <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
+          <div className="w-full max-w-md rounded-xl border border-hairline bg-raised p-5 shadow-2xl text-ink">
+            <div className="flex items-center justify-between border-b border-hairline pb-3 mb-4">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={20} className="text-amber-400" />
                 <h3 className="font-semibold text-sm">Autorización Rápida de Operación</h3>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-zinc-500 hover:text-zinc-300"
+                className="text-dim hover:text-ink"
               >
                 <X size={16} />
               </button>
@@ -97,15 +97,15 @@ export function ActivityWidget() {
 
             <div className="space-y-3 text-xs">
               <div>
-                <span className="text-zinc-400">Herramienta: </span>
+                <span className="text-faint">Herramienta: </span>
                 <span className="font-mono font-bold text-amber-300">{currentApproval.toolName}</span>
               </div>
               <div>
-                <span className="text-zinc-400">Sub-Ego: </span>
-                <span className="font-medium text-zinc-200">{currentApproval.action.subEgoId}</span>
+                <span className="text-faint">Sub-Ego: </span>
+                <span className="font-medium text-ink">{currentApproval.action.subEgoId}</span>
               </div>
               <div>
-                <span className="text-zinc-400">Nivel de Riesgo: </span>
+                <span className="text-faint">Nivel de Riesgo: </span>
                 <span
                   className={`font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
                     currentApproval.riskLevel === "destructive"
@@ -118,17 +118,17 @@ export function ActivityWidget() {
               </div>
 
               <div>
-                <span className="text-zinc-400">Parámetros:</span>
-                <pre className="mt-1 max-h-36 overflow-auto rounded bg-zinc-950 p-2 font-mono text-[11px] text-zinc-300 border border-white/5">
+                <span className="text-faint">Parámetros:</span>
+                <pre className="mt-1 max-h-36 overflow-auto rounded bg-paper p-2 font-mono text-[11px] text-ink border border-hairline">
                   {JSON.stringify(currentApproval.arguments, null, 2)}
                 </pre>
               </div>
             </div>
 
-            <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-3">
-              <span className="text-[10px] text-zinc-500">
-                Atajos: <kbd className="px-1 py-0.5 bg-zinc-800 rounded font-mono">Enter</kbd> Aprobar,{" "}
-                <kbd className="px-1 py-0.5 bg-zinc-800 rounded font-mono">Esc</kbd> Cancelar
+            <div className="mt-5 flex items-center justify-between border-t border-hairline pt-3">
+              <span className="text-[10px] text-dim">
+                Atajos: <kbd className="px-1 py-0.5 bg-raised rounded font-mono">Enter</kbd> Aprobar,{" "}
+                <kbd className="px-1 py-0.5 bg-raised rounded font-mono">Esc</kbd> Cancelar
               </span>
               <div className="flex items-center gap-2">
                 <button

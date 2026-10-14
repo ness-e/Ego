@@ -232,7 +232,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
                     }`}
                   >
                     <div
-                      className="h-3.5 w-3.5 rounded-full shrink-0 border border-white/20"
+                      className="h-3.5 w-3.5 rounded-full shrink-0 border border-hairline"
                       style={{
                         background: `linear-gradient(to bottom, ${pal.colors[0]}, ${pal.colors[1]})`,
                       }}

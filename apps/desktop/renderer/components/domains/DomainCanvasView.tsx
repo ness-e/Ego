@@ -22,10 +22,119 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { ego } from "../../lib/ego";
+import {
+  ego,
+  type EngineeringWorktree,
+  type ProductBacklogItem,
+  type ProductEpic,
+} from "../../lib/ego";
 
 interface DomainCanvasViewProps {
   domainId: string;
+}
+
+/**
+ * T06: tipos de dominio (antes 8× `any`). Proyecciones mínimas de lo que
+ * renderiza la vista + guardas de frontera para respuestas IPC (`unknown`).
+ */
+export interface WorktreeStatusItem {
+  branch: string;
+  isMain: boolean;
+}
+
+export interface ProductListItem {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+}
+
+export interface ProductEpicItem {
+  id: string;
+  title: string;
+}
+
+export interface KnowledgeFact {
+  claim: string;
+  source: string;
+  confidence: number;
+}
+
+export interface CrmDealItem {
+  id: string;
+  title: string;
+  stage: string;
+  probabilityPct: number;
+  valueUsd: number;
+}
+
+export interface CrmSummary {
+  totalPipelineUsd: number;
+  weightedPipelineUsd: number;
+  dealsCount: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function flatMapValid<T>(arr: unknown[] | undefined, fn: (v: unknown) => T | null): T[] {
+  if (!arr) return [];
+  const out: T[] = [];
+  for (const v of arr) {
+    const m = fn(v);
+    if (m) out.push(m);
+  }
+  return out;
+}
+
+function toWorktreeItem(v: EngineeringWorktree): WorktreeStatusItem {
+  return { branch: v.branch, isMain: v.isMain };
+}
+
+function toProductItem(v: ProductBacklogItem): ProductListItem {
+  return { id: v.id, title: v.title, status: v.status, priority: v.priority };
+}
+
+function toEpicItem(v: ProductEpic): ProductEpicItem {
+  return { id: v.id, title: v.title };
+}
+
+function toKnowledgeFact(v: unknown): KnowledgeFact | null {
+  if (!isRecord(v) || typeof v.claim !== "string") return null;
+  return {
+    claim: v.claim,
+    source: asString(v.source, "desconocida"),
+    confidence: asNumber(v.confidence),
+  };
+}
+
+function toCrmDeal(v: unknown): CrmDealItem | null {
+  if (!isRecord(v) || typeof v.id !== "string") return null;
+  return {
+    id: v.id,
+    title: asString(v.title, v.id),
+    stage: asString(v.stage, "qualified"),
+    probabilityPct: asNumber(v.probabilityPct),
+    valueUsd: asNumber(v.valueUsd),
+  };
+}
+
+function toCrmSummary(v: unknown): CrmSummary {
+  const r = isRecord(v) ? v : {};
+  return {
+    totalPipelineUsd: asNumber(r.totalPipelineUsd, 48500),
+    weightedPipelineUsd: asNumber(r.weightedPipelineUsd, 32550),
+    dealsCount: asNumber(r.dealsCount, 3),
+  };
 }
 
 export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) => {
@@ -38,7 +147,7 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
     clean: boolean;
     staged: string[];
     unstaged: string[];
-    worktrees: any[];
+    worktrees: WorktreeStatusItem[];
   }>({
     branch: "master",
     clean: true,
@@ -48,22 +157,22 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
   });
 
   const [productData, setProductData] = useState<{
-    items: any[];
-    epics: any[];
+    items: ProductListItem[];
+    epics: ProductEpicItem[];
   }>({ items: [], epics: [] });
 
-  const [knowledgeData, setKnowledgeData] = useState<any[]>([]);
+  const [knowledgeData, setKnowledgeData] = useState<KnowledgeFact[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [analyticsData, setAnalyticsData] = useState<{
-    series: any[];
-    modelDistribution: any[];
+    series: Array<Record<string, unknown>>;
+    modelDistribution: Array<Record<string, unknown>>;
   }>({ series: [], modelDistribution: [] });
 
   const [crmData, setCrmData] = useState<{
-    deals: any[];
-    contacts: any[];
-    summary: any;
+    deals: CrmDealItem[];
+    contacts: Array<Record<string, unknown>>;
+    summary: CrmSummary;
   }>({
     deals: [],
     contacts: [],
@@ -84,46 +193,51 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               clean: res.gitStatus?.clean ?? true,
               staged: res.gitStatus?.staged || [],
               unstaged: res.gitStatus?.unstaged || [],
-              worktrees: res.worktrees || [],
+              worktrees: (res.worktrees ?? []).map(toWorktreeItem),
             });
           }
         } else if (domainId === "product") {
           const res = await bridge.domains?.productBacklog({ action: "list" });
           if (mounted && res?.ok) {
             setProductData({
-              items: res.items || [
-                { id: "1", title: "Aislamiento de Worktrees", status: "done", priority: "p0" },
-                { id: "2", title: "Selector Contextual de Dominio", status: "in_progress", priority: "p1" },
-                { id: "3", title: "Conector MCP Oficial GitHub", status: "done", priority: "p1" },
-                { id: "4", title: "Generación Asistida de PRDs", status: "backlog", priority: "p2" },
-              ],
-              epics: res.epics || [{ id: "e1", title: "Fase 09 — Dominios Funcionales" }],
+              items: res.items
+                ? res.items.map(toProductItem)
+                : [
+                    { id: "1", title: "Aislamiento de Worktrees", status: "done", priority: "p0" },
+                    { id: "2", title: "Selector Contextual de Dominio", status: "in_progress", priority: "p1" },
+                    { id: "3", title: "Conector MCP Oficial GitHub", status: "done", priority: "p1" },
+                    { id: "4", title: "Generación Asistida de PRDs", status: "backlog", priority: "p2" },
+                  ],
+              epics: res.epics
+                ? res.epics.map(toEpicItem)
+                : [{ id: "e1", title: "Fase 09 — Dominios Funcionales" }],
             });
           }
         } else if (domainId === "knowledge") {
           const res = await bridge.domains?.knowledgeSearch(searchQuery || "vanta");
           if (mounted && res?.ok) {
-            setKnowledgeData(res.results || []);
+            setKnowledgeData(flatMapValid(res.results, toKnowledgeFact));
           }
         } else if (domainId === "analytics") {
           const res = await bridge.domains?.analyticsSeries(7);
           if (mounted && res?.ok) {
             setAnalyticsData({
-              series: res.series || [],
-              modelDistribution: res.modelDistribution || [],
+              series: (res.series ?? []).filter(isRecord),
+              modelDistribution: (res.modelDistribution ?? []).filter(isRecord),
             });
           }
         } else if (domainId === "crm") {
           const res = await bridge.domains?.crmDeals({ action: "list" });
           if (mounted && res?.ok) {
+            const mappedDeals = res.deals ? flatMapValid(res.deals, toCrmDeal) : null;
             setCrmData({
-              deals: res.deals || [
+              deals: mappedDeals ?? [
                 { id: "d1", title: "Licencia Anual Ego SOC", valueUsd: 25000, stage: "proposal", probabilityPct: 60 },
                 { id: "d2", title: "Despliegue Local Privado", valueUsd: 8500, stage: "qualified", probabilityPct: 30 },
                 { id: "d3", title: "Consultoría de Arquitectura", valueUsd: 15000, stage: "won", probabilityPct: 100 },
               ],
-              contacts: res.contacts || [],
-              summary: res.summary || { totalPipelineUsd: 48500, weightedPipelineUsd: 32550, dealsCount: 3 },
+              contacts: (res.contacts ?? []).filter(isRecord),
+              summary: toCrmSummary(res.summary),
             });
           }
         }
@@ -142,9 +256,9 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
   }, [domainId, searchQuery]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-neutral-950 text-neutral-100 overflow-y-auto p-4 space-y-4">
+    <div className="flex-1 flex flex-col h-full bg-paper text-ink overflow-y-auto p-4 space-y-4">
       {loading && (
-        <div className="text-[10px] text-neutral-500 font-mono animate-pulse">
+        <div className="text-[10px] text-dim font-mono animate-pulse">
           Sincronizando estado de {domainId}...
         </div>
       )}
@@ -153,12 +267,12 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
       {/* ======================================================== */}
       {domainId === "engineering" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
             <div className="flex items-center gap-2">
               <Code size={20} className="text-cyan-400" />
               <h2 className="text-base font-semibold">Workspace de Ingeniería (ego.dev)</h2>
             </div>
-            <div className="flex items-center gap-2 text-xs bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded-md font-mono text-cyan-300">
+            <div className="flex items-center gap-2 text-xs bg-raised border border-hairline px-2.5 py-1 rounded-md font-mono text-cyan-300">
               <GitBranch size={14} />
               <span>{engData.branch}</span>
               <span className={`w-2 h-2 rounded-full ${engData.clean ? "bg-emerald-500" : "bg-amber-500"}`} />
@@ -167,8 +281,8 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Estado de Git */}
-            <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4">
-              <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+            <div className="bg-raised/60 border border-hairline rounded-xl p-4">
+              <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">
                 Estado del Working Tree
               </h3>
               <div className="text-sm">
@@ -190,27 +304,27 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
             </div>
 
             {/* Worktrees aislados (HERM-17) */}
-            <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4">
+            <div className="bg-raised/60 border border-hairline rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-faint uppercase tracking-wider flex items-center gap-1.5">
                   <ShieldCheck size={16} className="text-cyan-400" />
                   <span>Worktrees Aislados (HERM-17)</span>
                 </h3>
-                <span className="text-xs text-neutral-400">
+                <span className="text-xs text-faint">
                   {engData.worktrees.length} activos
                 </span>
               </div>
-              <p className="text-xs text-neutral-400 mb-3">
+              <p className="text-xs text-faint mb-3">
                 Las mutaciones de código en vuelo se aíslan en ramas temporales para no ensuciar el workspace del usuario.
               </p>
               <div className="space-y-2">
                 {engData.worktrees.map((wt, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between text-xs bg-neutral-950/80 border border-neutral-800 px-3 py-2 rounded-lg font-mono"
+                    className="flex items-center justify-between text-xs bg-paper/80 border border-hairline px-3 py-2 rounded-lg font-mono"
                   >
                     <span className="text-cyan-300 truncate max-w-[200px]">{wt.branch}</span>
-                    <span className="text-[10px] text-neutral-400">{wt.isMain ? "Principal" : "Aislado"}</span>
+                    <span className="text-[10px] text-faint">{wt.isMain ? "Principal" : "Aislado"}</span>
                   </div>
                 ))}
               </div>
@@ -224,7 +338,7 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
       {/* ======================================================== */}
       {domainId === "product" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
             <div className="flex items-center gap-2">
               <Kanban size={20} className="text-amber-400" />
               <h2 className="text-base font-semibold">Tablero de Producto & Backlog (ego.product)</h2>
@@ -247,12 +361,12 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               const colItems = productData.items.filter((i) => i.status === col);
 
               return (
-                <div key={col} className="bg-neutral-900/60 border border-neutral-800/80 rounded-xl p-3 flex flex-col min-h-[220px]">
+                <div key={col} className="bg-raised/60 border border-hairline/80 rounded-xl p-3 flex flex-col min-h-[220px]">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-neutral-300 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-ink uppercase tracking-wider">
                       {colTitles[col]}
                     </span>
-                    <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-mono">
+                    <span className="text-[10px] bg-raised text-faint px-1.5 py-0.5 rounded-full font-mono">
                       {colItems.length}
                     </span>
                   </div>
@@ -260,12 +374,12 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
                     {colItems.map((item) => (
                       <div
                         key={item.id}
-                        className="bg-neutral-950/80 border border-neutral-800/80 rounded-lg p-2.5 shadow-xs hover:border-neutral-700 transition-colors"
+                        className="bg-paper/80 border border-hairline/80 rounded-lg p-2.5 shadow-xs hover:border-dim transition-colors"
                       >
-                        <div className="text-xs font-medium text-neutral-200">{item.title}</div>
-                        <div className="flex items-center justify-between mt-2 text-[10px] text-neutral-400">
+                        <div className="text-xs font-medium text-ink">{item.title}</div>
+                        <div className="flex items-center justify-between mt-2 text-[10px] text-faint">
                           <span className="uppercase font-mono text-amber-400">{item.priority}</span>
-                          <span className="text-neutral-400">#item_{item.id}</span>
+                          <span className="text-faint">#item_{item.id}</span>
                         </div>
                       </div>
                     ))}
@@ -282,41 +396,41 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
       {/* ======================================================== */}
       {domainId === "knowledge" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
             <div className="flex items-center gap-2">
               <BookOpen size={20} className="text-purple-400" />
               <h2 className="text-base font-semibold">GraphRAG & Base de Conocimiento (ego.researcher)</h2>
             </div>
             <div className="relative w-64">
-              <MagnifyingGlass size={14} className="absolute left-2.5 top-2.5 text-neutral-400" />
+              <MagnifyingGlass size={14} className="absolute left-2.5 top-2.5 text-faint" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar facts o conceptos..."
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-neutral-200 placeholder-neutral-400 focus:outline-hidden focus:border-purple-500"
+                className="w-full bg-raised border border-hairline rounded-lg pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-hidden focus:border-brand"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4">
-              <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+            <div className="bg-raised/60 border border-hairline rounded-xl p-4">
+              <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">
                 Hechos Verificados en VantaDB (kb/facts)
               </h3>
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {knowledgeData.length === 0 ? (
-                  <p className="text-xs text-neutral-400 py-4 text-center">
+                  <p className="text-xs text-faint py-4 text-center">
                     No se encontraron hechos para la búsqueda activa.
                   </p>
                 ) : (
                   knowledgeData.map((fact, idx) => (
                     <div
                       key={idx}
-                      className="bg-neutral-950/80 border border-neutral-800/80 rounded-lg p-2.5 text-xs"
+                      className="bg-paper/80 border border-hairline/80 rounded-lg p-2.5 text-xs"
                     >
-                      <div className="text-neutral-200 font-medium">{fact.claim}</div>
-                      <div className="flex items-center justify-between mt-2 text-[10px] text-neutral-400">
+                      <div className="text-ink font-medium">{fact.claim}</div>
+                      <div className="flex items-center justify-between mt-2 text-[10px] text-faint">
                         <span className="font-mono text-purple-400 truncate max-w-[200px]">
                           Fuente: {fact.source}
                         </span>
@@ -328,15 +442,15 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               </div>
             </div>
 
-            <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 flex flex-col justify-between">
+            <div className="bg-raised/60 border border-hairline rounded-xl p-4 flex flex-col justify-between">
               <div>
-                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">
                   Grafo Conceptual GraphRAG
                 </h3>
-                <p className="text-xs text-neutral-400 mb-4">
+                <p className="text-xs text-faint mb-4">
                   Visualización bidimensional de aristas semánticas y entidades interconectadas.
                 </p>
-                <div className="h-44 border border-dashed border-neutral-800 rounded-lg flex items-center justify-center text-neutral-400 text-xs font-mono">
+                <div className="h-44 border border-dashed border-hairline rounded-lg flex items-center justify-center text-faint text-xs font-mono">
                   [Visualizador de Nodos GraphRAG: 3 conceptos vinculados]
                 </div>
               </div>
@@ -355,16 +469,16 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
       {/* ======================================================== */}
       {domainId === "analytics" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
             <div className="flex items-center gap-2">
               <ChartBar size={20} className="text-emerald-400" />
               <h2 className="text-base font-semibold">Telemetría y Métricas de Inferencia (ego.analyst)</h2>
             </div>
-            <span className="text-xs text-neutral-400 font-mono">Últimos 7 días</span>
+            <span className="text-xs text-faint font-mono">Últimos 7 días</span>
           </div>
 
-          <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4">
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+          <div className="bg-raised/60 border border-hairline rounded-xl p-4">
+            <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">
               Consumo de Tokens por Jornada
             </h3>
             <div className="h-56 w-full">
@@ -403,17 +517,17 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
       {/* ======================================================== */}
       {domainId === "crm" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
             <div className="flex items-center gap-2">
               <Users size={20} className="text-rose-400" />
               <h2 className="text-base font-semibold">CRM & Pipeline de Ventas (ego.crm)</h2>
             </div>
             <div className="flex items-center gap-4 text-xs font-mono">
-              <div className="flex items-center gap-1 text-neutral-300">
+              <div className="flex items-center gap-1 text-ink">
                 <CurrencyDollar size={16} className="text-emerald-400" />
                 <span>Total: ${crmData.summary.totalPipelineUsd.toLocaleString()} USD</span>
               </div>
-              <div className="text-neutral-400">
+              <div className="text-faint">
                 Ponderado: ${crmData.summary.weightedPipelineUsd.toLocaleString()} USD
               </div>
             </div>
@@ -423,24 +537,24 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
             {crmData.deals.map((deal) => (
               <div
                 key={deal.id}
-                className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 flex flex-col justify-between"
+                className="bg-raised/60 border border-hairline rounded-xl p-4 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-mono uppercase text-rose-400 font-semibold">
                       {deal.stage}
                     </span>
-                    <span className="text-[10px] text-neutral-400">
+                    <span className="text-[10px] text-faint">
                       {deal.probabilityPct}% prob
                     </span>
                   </div>
-                  <h4 className="text-sm font-semibold text-neutral-200">{deal.title}</h4>
+                  <h4 className="text-sm font-semibold text-ink">{deal.title}</h4>
                 </div>
-                <div className="mt-4 pt-3 border-t border-neutral-850 flex items-center justify-between">
+                <div className="mt-4 pt-3 border-t border-hairline flex items-center justify-between">
                   <span className="text-sm font-mono font-bold text-emerald-400">
                     ${deal.valueUsd.toLocaleString()} USD
                   </span>
-                  <button className="text-neutral-400 hover:text-white transition-colors">
+                  <button className="text-faint hover:text-white transition-colors">
                     <ArrowRight size={14} />
                   </button>
                 </div>

@@ -56,7 +56,7 @@ export const FileMentionBadge: React.FC<FileMentionBadgeProps> = ({
 
   // Icono y color semántico según la naturaleza del recurso
   let IconComponent = GenericFileIcon;
-  let iconColor = "text-zinc-400";
+  let iconColor = "text-faint";
   let badgeBorder = "border-hairline";
   let badgeBg = "bg-raised/70";
 
@@ -101,7 +101,7 @@ export const FileMentionBadge: React.FC<FileMentionBadgeProps> = ({
         <button
           type="button"
           onClick={() => onOpen(path)}
-          className="text-dim hover:text-ink transition-colors p-0.5 rounded hover:bg-white/10"
+          className="text-dim hover:text-ink transition-colors p-0.5 rounded hover:bg-raised"
           aria-label={`Abrir ${basename}`}
         >
           <ArrowSquareOut size={compact ? 10 : 12} />
@@ -115,7 +115,7 @@ export const FileMentionBadge: React.FC<FileMentionBadgeProps> = ({
             e.stopPropagation();
             onRemove();
           }}
-          className="text-dim hover:text-rose-400 transition-colors p-0.5 rounded hover:bg-white/10"
+          className="text-dim hover:text-rose-400 transition-colors p-0.5 rounded hover:bg-raised"
           aria-label={`Quitar ${basename}`}
         >
           <X size={compact ? 10 : 12} />
@@ -124,9 +124,9 @@ export const FileMentionBadge: React.FC<FileMentionBadgeProps> = ({
 
       {/* Tooltip con ruta completa */}
       {showTooltip && (
-        <span className="absolute bottom-full left-0 mb-1 z-50 whitespace-nowrap rounded bg-zinc-900 border border-zinc-700/60 px-2 py-1 text-[10px] text-zinc-200 shadow-lg pointer-events-none">
+        <span className="absolute bottom-full left-0 mb-1 z-50 whitespace-nowrap rounded bg-raised border border-hairline px-2 py-1 text-[10px] text-ink shadow-lg pointer-events-none">
           <span className="text-dim">Ruta: </span>
-          <span className="text-zinc-100 font-semibold">{path}</span>
+          <span className="text-ink font-semibold">{path}</span>
         </span>
       )}
     </span>

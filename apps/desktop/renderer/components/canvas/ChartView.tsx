@@ -5,6 +5,8 @@ interface ChartViewProps {
   props: ChartProps;
 }
 
+// T06: paleta categórica de datos (excepción documentada: sin equivalente en
+// tokens semánticos; Recharts → tokens vive en Task 8 con lazy).
 const PALETTE = ["#38bdf8", "#818cf8", "#34d399", "#fbbf24", "#f43f5e", "#a78bfa"];
 
 export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
@@ -101,7 +103,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
                     x={groupX + groupWidth / 2}
                     y={svgHeight - padding + 15}
                     textAnchor="middle"
-                    className="fill-zinc-400 text-[9px]"
+                    className="fill-dim text-[9px]"
                   >
                     {String(d[xKey]).slice(0, 8)}
                   </text>

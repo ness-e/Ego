@@ -56,7 +56,7 @@ export function McpManagerModal({
     }
   };
 
-  const handleAddServer = async (config: any) => {
+  const handleAddServer = async (config: McpServerInfo["config"]) => {
     await ego().mcp.addServer({ config, enabled: true });
     await loadData();
   };

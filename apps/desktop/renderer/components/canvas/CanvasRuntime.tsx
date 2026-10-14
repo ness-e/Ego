@@ -108,7 +108,7 @@ export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
       <div className="flex-1 overflow-y-auto space-y-4 pr-1">
         {filteredComponents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-dim border border-dashed border-hairline rounded-2xl p-8">
-            <Sparkle size={24} className="text-zinc-600 mb-2" />
+            <Sparkle size={24} className="text-dim mb-2" />
             <h4 className="font-medium text-xs text-ink">Espacio de trabajo vacío</h4>
             <p className="text-[11px] text-faint max-w-xs mt-1">
               Los Sub-Egos proyectarán tablas, diffs y artefactos estructurados aquí a medida que

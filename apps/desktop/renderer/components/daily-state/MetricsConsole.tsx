@@ -141,7 +141,7 @@ export function MetricsConsole({
                   color: "#f4f4f5",
                 }}
                 labelStyle={{ color: "#a1a1aa", marginBottom: "4px" }}
-                formatter={(value: any) => [`${Number(value).toLocaleString()} tokens`, "Tokens"]}
+                formatter={(value: unknown) => [`${Number(value).toLocaleString()} tokens`, "Tokens"]}
               />
               <Area
                 type="monotone"

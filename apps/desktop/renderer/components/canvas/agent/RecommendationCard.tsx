@@ -29,7 +29,7 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({ props, o
   };
 
   const impactColors = {
-    low: "text-zinc-400 bg-zinc-800/50 border-zinc-700",
+    low: "text-faint bg-raised/50 border-hairline",
     medium: "text-cyan-300 bg-cyan-950/40 border-cyan-800/40",
     high: "text-amber-300 bg-amber-950/40 border-amber-800/40",
     critical: "text-rose-300 bg-rose-950/40 border-rose-800/40",
@@ -77,7 +77,7 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({ props, o
       {props.tradeoffs && props.tradeoffs.length > 0 && (
         <div className="text-[11px] text-dim space-y-1">
           <span className="font-medium text-ink flex items-center gap-1">
-            <ShieldWarning size={12} className="text-zinc-400" />
+            <ShieldWarning size={12} className="text-faint" />
             <span>Trade-offs & Consideraciones:</span>
           </span>
           <ul className="list-disc list-inside space-y-0.5 pl-1 font-mono text-[10px]">

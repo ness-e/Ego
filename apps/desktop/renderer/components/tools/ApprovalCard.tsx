@@ -119,7 +119,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
         className={`my-3 rounded-lg border p-3 text-xs flex items-center justify-between ${
           wasApproved
             ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-200"
-            : "border-zinc-800 bg-zinc-900/40 text-zinc-400"
+            : "border-hairline bg-raised/40 text-faint"
         }`}
       >
         <div className="flex items-center gap-2">
@@ -130,10 +130,10 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
           )}
           <span>
             {wasApproved ? "Acción autorizada por el usuario:" : "Acción denegada por el usuario:"}{" "}
-            <strong className="font-mono text-zinc-100">{request.toolName}</strong>
+            <strong className="font-mono text-ink">{request.toolName}</strong>
           </span>
         </div>
-        <span className="font-mono text-[10px] text-zinc-500">ID: {request.approvalId.slice(0, 14)}…</span>
+        <span className="font-mono text-[10px] text-dim">ID: {request.approvalId.slice(0, 14)}…</span>
       </div>
     );
   }
@@ -142,12 +142,12 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
     <div
       className={`my-3 rounded-xl border p-4 shadow-lg transition-all ${
         isDestructive
-          ? "border-rose-500/40 bg-[#161214] text-rose-50 shadow-rose-950/20"
-          : "border-amber-500/40 bg-[#171410] text-amber-50 shadow-amber-950/20"
+          ? "border-rose-500/40 bg-rose-950/40 text-rose-50 shadow-rose-950/20"
+          : "border-amber-500/40 bg-amber-950/40 text-amber-50 shadow-amber-950/20"
       }`}
     >
       {/* Header con badge y metadatos */}
-      <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5 mb-3">
+      <div className="flex items-center justify-between gap-2 border-b border-hairline pb-2.5 mb-3">
         <div className="flex items-center gap-2 min-w-0">
           <ShieldWarning
             size={18}
@@ -155,9 +155,9 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
             className={isDestructive ? "text-rose-400 shrink-0" : "text-amber-400 shrink-0"}
           />
           <div className="truncate">
-            <span className="font-semibold text-xs text-white">Autorización Requerida (HITL)</span>
-            <span className="mx-1.5 text-zinc-500">•</span>
-            <span className="font-mono text-[11px] text-zinc-300">{request.toolName}</span>
+            <span className="font-semibold text-xs text-ink">Autorización Requerida (HITL)</span>
+            <span className="mx-1.5 text-dim">•</span>
+            <span className="font-mono text-[11px] text-ink">{request.toolName}</span>
           </div>
         </div>
 
@@ -177,27 +177,27 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
       {/* Previsualización de Acción (Comandos o Diffs) */}
       <div className="space-y-2 mb-3.5">
         {terminalCommand && (
-          <div className="rounded-lg bg-black/60 border border-white/10 p-2.5 font-mono text-xs text-emerald-400">
-            <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 mb-1">
+          <div className="rounded-lg bg-black/60 border border-hairline p-2.5 font-mono text-xs text-emerald-400">
+            <div className="flex items-center gap-1.5 text-[10px] text-dim mb-1">
               <Terminal size={12} />
               <span>Comando a ejecutar en host:</span>
             </div>
             <div className="overflow-x-auto whitespace-pre selection:bg-emerald-900">
-              <span className="text-zinc-600 select-none mr-2">$</span>
+              <span className="text-dim select-none mr-2">$</span>
               <span>{terminalCommand}</span>
             </div>
           </div>
         )}
 
         {filePath && (
-          <div className="rounded-lg bg-black/60 border border-white/10 p-2.5 font-mono text-xs">
-            <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 mb-1">
+          <div className="rounded-lg bg-black/60 border border-hairline p-2.5 font-mono text-xs">
+            <div className="flex items-center gap-1.5 text-[10px] text-dim mb-1">
               <FileText size={12} />
               <span>Archivo de destino:</span>
-              <span className="text-zinc-300 truncate">{filePath}</span>
+              <span className="text-ink truncate">{filePath}</span>
             </div>
             {fileContent !== null && (
-              <div className="mt-2 max-h-48 overflow-y-auto rounded bg-zinc-950/80 p-2 text-[11px] text-zinc-300 border border-white/5 whitespace-pre-wrap font-mono">
+              <div className="mt-2 max-h-48 overflow-y-auto rounded bg-paper/80 p-2 text-[11px] text-ink border border-hairline whitespace-pre-wrap font-mono">
                 {fileContent}
               </div>
             )}
@@ -205,9 +205,9 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
         )}
 
         {!terminalCommand && !filePath && (
-          <div className="rounded-lg bg-black/60 border border-white/10 p-2.5 font-mono text-xs">
-            <div className="text-[10px] text-zinc-500 mb-1">Parámetros solicitados:</div>
-            <pre className="max-h-40 overflow-y-auto text-[11px] text-zinc-300 whitespace-pre-wrap">
+          <div className="rounded-lg bg-black/60 border border-hairline p-2.5 font-mono text-xs">
+            <div className="text-[10px] text-dim mb-1">Parámetros solicitados:</div>
+            <pre className="max-h-40 overflow-y-auto text-[11px] text-ink whitespace-pre-wrap">
               {JSON.stringify(request.arguments, null, 2)}
             </pre>
           </div>
@@ -216,14 +216,14 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
         {/* Editor de Parámetros Inline */}
         {isEditing && (
           <div className="mt-2 space-y-1">
-            <label className="block text-[11px] text-zinc-400 font-medium">
+            <label className="block text-[11px] text-faint font-medium">
               Editar parámetros JSON antes de autorizar:
             </label>
             <textarea
               value={editedArgsText}
               onChange={(e) => setEditedArgsText(e.target.value)}
               rows={4}
-              className="w-full rounded-md bg-zinc-950 border border-white/20 p-2 font-mono text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-md bg-paper border border-hairline p-2 font-mono text-xs text-ink focus:outline-none focus:ring-1 focus:ring-amber-500"
             />
             {jsonError && <p className="text-[11px] text-rose-400 font-mono">{jsonError}</p>}
           </div>
@@ -237,15 +237,15 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
               placeholder="Motivo del rechazo (opcional)…"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              className="w-full rounded-md bg-zinc-950 border border-white/20 px-2.5 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none"
+              className="w-full rounded-md bg-paper border border-hairline px-2.5 py-1 text-xs text-ink placeholder:text-dim focus:outline-none"
             />
           </div>
         )}
       </div>
 
       {/* Footer con controles y ActionIdentity */}
-      <div className="flex items-center justify-between gap-3 pt-1 border-t border-white/5">
-        <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 truncate">
+      <div className="flex items-center justify-between gap-3 pt-1 border-t border-hairline">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono text-dim truncate">
           <Clock size={11} className="shrink-0" />
           <span className="truncate" title={request.action.inputDigest}>
             Digest: {request.action.inputDigest.slice(0, 10)}…
@@ -256,7 +256,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-1 rounded bg-white/5 hover:bg-white/10 px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors"
+            className="flex items-center gap-1 rounded bg-raised hover:bg-raised px-2 py-1 text-[11px] font-medium text-ink transition-colors"
           >
             <PencilSimple size={12} />
             <span>{isEditing ? "Cancelar edición" : "Editar"}</span>

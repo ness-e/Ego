@@ -63,7 +63,20 @@ export const ArtifactCard = memo(function ArtifactCard({
       onOpen(trimmed, { title: displayTitle, kind, language });
     } else {
       // Disparo por defecto al Canvas Bridge si existe
-      const egoGlobal = (window as any).ego;
+      const egoGlobal = (
+        window as unknown as {
+          ego?: {
+            canvas?: {
+              openArtifact?: (req: {
+                title: string;
+                content: string;
+                kind: ArtifactKind;
+                language: string;
+              }) => void;
+            };
+          };
+        }
+      ).ego;
       if (typeof egoGlobal?.canvas?.openArtifact === "function") {
         egoGlobal.canvas.openArtifact({
           title: displayTitle,

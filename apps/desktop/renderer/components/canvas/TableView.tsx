@@ -36,7 +36,7 @@ export const TableView: React.FC<TableViewProps> = ({ props, onAction }) => {
         }
         if (col.type === "boolean") {
           return (
-            <span className={val ? "text-emerald-400" : "text-zinc-500"}>
+            <span className={val ? "text-emerald-400" : "text-dim"}>
               {val ? "✓ Sí" : "✗ No"}
             </span>
           );

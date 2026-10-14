@@ -51,12 +51,12 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ props }) => {
         className="p-3 bg-black/90 font-mono text-[11px] leading-relaxed max-h-[360px] overflow-y-auto space-y-1"
       >
         {props.lines.length === 0 ? (
-          <div className="text-zinc-600 italic select-none">Sin salida de terminal</div>
+          <div className="text-dim italic select-none">Sin salida de terminal</div>
         ) : (
           props.lines.map((line, idx) => {
             if (typeof line === "string") {
               return (
-                <div key={idx} className="text-zinc-300 whitespace-pre-wrap break-all">
+                <div key={idx} className="text-ink whitespace-pre-wrap break-all">
                   {line}
                 </div>
               );
@@ -69,7 +69,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ props }) => {
               <div
                 key={idx}
                 className={`flex items-start gap-2 whitespace-pre-wrap break-all ${
-                  isErr ? "text-rose-400" : isInfo ? "text-cyan-400" : "text-zinc-300"
+                  isErr ? "text-rose-400" : isInfo ? "text-cyan-400" : "text-ink"
                 }`}
               >
                 <Circle size={6} weight="fill" className="mt-1.5 shrink-0 opacity-60" />

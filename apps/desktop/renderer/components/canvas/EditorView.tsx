@@ -47,13 +47,13 @@ export const EditorView: React.FC<EditorViewProps> = ({ props }) => {
       </div>
 
       {/* Code body with line numbers */}
-      <div className="p-3 bg-zinc-950 overflow-x-auto max-h-[420px] font-mono text-[12px] leading-relaxed text-zinc-200">
+      <div className="p-3 bg-paper overflow-x-auto max-h-[420px] font-mono text-[12px] leading-relaxed text-ink">
         <table className="w-full border-collapse">
           <tbody>
             {lines.map((line, idx) => (
-              <tr key={idx} className="hover:bg-white/5">
+              <tr key={idx} className="hover:bg-raised">
                 {props.lineNumbers !== false && (
-                  <td className="w-8 pr-3 text-right text-zinc-600 select-none text-[11px]">
+                  <td className="w-8 pr-3 text-right text-dim select-none text-[11px]">
                     {idx + 1}
                   </td>
                 )}

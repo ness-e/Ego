@@ -9,6 +9,7 @@ import {
   CaretUp,
   CaretDown,
 } from "@phosphor-icons/react";
+import { ego } from "../../lib/ego";
 
 export interface TaskItem {
   id: string;
@@ -26,6 +27,27 @@ export interface ActivityTrayProps {
   onCancelTask?: (taskId: string) => void;
 }
 
+/**
+ * T06: guarda de frontera para updates de tareas vía el bus de eventos.
+ * El preload expone `window.ego` (nunca `window.electronAPI`): la rama
+ * `electronAPI` anterior era código muerto y se eliminó.
+ */
+function isTaskUpdateEvent(
+  event: unknown,
+): event is { type: string; payload: TaskItem } {
+  if (typeof event !== "object" || event === null) return false;
+  const e = event as { type?: unknown; payload?: unknown };
+  if (typeof e.type !== "string" || !e.type.startsWith("task.")) return false;
+  const p = e.payload as Partial<TaskItem> | undefined;
+  return (
+    !!p &&
+    typeof p.id === "string" &&
+    typeof p.title === "string" &&
+    typeof p.status === "string" &&
+    typeof p.progress === "number"
+  );
+}
+
 export const ActivityTray: React.FC<ActivityTrayProps> = ({
   tasks: propTasks,
   onPauseTask,
@@ -41,23 +63,21 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
       return;
     }
 
-    // Suscripción al bridge IPC de Electron si está disponible
-    const api = (window as unknown as { electronAPI?: { onTaskUpdate?: (cb: (task: TaskItem) => void) => () => void } }).electronAPI;
-    if (api?.onTaskUpdate) {
-      const unsubscribe = api.onTaskUpdate((updatedTask: TaskItem) => {
-        setTasks((prev) => {
-          const index = prev.findIndex((t) => t.id === updatedTask.id);
-          if (index >= 0) {
-            const next = [...prev];
-            next[index] = updatedTask;
-            return next;
-          }
-          return [...prev, updatedTask];
-        });
+    // T06: suscripción al bus de eventos vivo (`ego().onEvent`).
+    const unsubscribe = ego().onEvent?.((event: unknown) => {
+      if (!isTaskUpdateEvent(event)) return;
+      const updatedTask = event.payload;
+      setTasks((prev) => {
+        const index = prev.findIndex((t) => t.id === updatedTask.id);
+        if (index >= 0) {
+          const next = [...prev];
+          next[index] = updatedTask;
+          return next;
+        }
+        return [...prev, updatedTask];
       });
-      return unsubscribe;
-    }
-    return;
+    });
+    return unsubscribe;
   }, [propTasks]);
 
   const activeTasks = tasks.filter((t) => t.status === "running" || t.status === "queued");

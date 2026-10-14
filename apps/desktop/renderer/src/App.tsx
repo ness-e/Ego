@@ -6,6 +6,10 @@ import { DesignSystemProvider, useDesignSystem } from "../components/canvas/Desi
 import { SubEgosView } from "../components/sub-egos";
 import { Sidebar } from "../components/sidebar";
 import { SubEgoSelector } from "../components/SubEgoSelector";
+import { ModelPicker, CANONICAL_MODELS, type ModelOption } from "../components/ModelPicker";
+import { SplitPane } from "../components/PaneShell";
+import { useUiStore } from "../components/ui-kit/store.js";
+import { ego } from "../lib/ego";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
 import { ActivityTray } from "../components/activity-tray/ActivityTray";
 import { DailyDashboard } from "../components/daily-state";
@@ -53,6 +57,36 @@ export function App() {
   const [activeDomainId, setActiveDomainId] = useState("engineering");
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"daily" | "domains" | "canvas" | "subegos">("daily");
   const [sessionNonce, setSessionNonce] = useState(0);
+  // T06: el SplitPane dimensiona el sidebar; el colapso lo notifica Sidebar.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const modelPickerOpen = useUiStore((s) => s.modelPickerOpen);
+  const activeModelId = useUiStore((s) => s.activeModelId);
+  const activeModelName =
+    CANONICAL_MODELS.find((m) => m.id === activeModelId)?.name ?? activeModelId;
+
+  const handleSelectModel = async (model: ModelOption) => {
+    useUiStore.getState().setActiveModelId(model.id);
+    // T06: persiste solo modelName (el provider lo gobierna BYOK/settings,
+    // Task 8). El ModelRouter real vive en main y lee esta config.
+    try {
+      const cfg = await ego().settings.getModelConfig();
+      await ego().settings.saveModelConfig({ ...cfg, modelName: model.id });
+    } catch {
+      // sin bridge: el store local conserva la selección
+    }
+  };
+
+  useEffect(() => {
+    // T06: restaura el modelo persistido si matchea el catálogo canónico.
+    ego()
+      .settings.getModelConfig()
+      .then((cfg) => {
+        if (cfg?.modelName && CANONICAL_MODELS.some((m) => m.id === cfg.modelName)) {
+          useUiStore.getState().setActiveModelId(cfg.modelName);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Al abrir Ego: si es el primer inicio del día, abrir en Daily State (COUC-06).
@@ -94,20 +128,48 @@ export function App() {
 
           {/* Indicadores Auxiliares */}
           <div className="flex items-center gap-3 text-xs text-faint app-region-no-drag">
+            {/* T06: ModelPicker montado en el header (proveedor real vía settings). */}
+            <button
+              type="button"
+              onClick={() => useUiStore.getState().openModelPicker()}
+              title="Selector de modelo (Model Router)"
+              className="flex max-w-[220px] items-center gap-1.5 rounded border border-hairline bg-raised px-2 py-0.5 font-mono text-[10px] text-dim transition-colors hover:text-ink"
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
+              <span className="truncate">{activeModelName}</span>
+            </button>
             <span className="font-mono text-[10px] text-dim">Local-First · NativeVantaDB</span>
           </div>
         </header>
+        <ModelPicker
+          isOpen={modelPickerOpen}
+          activeModelId={activeModelId}
+          onClose={() => useUiStore.getState().closeModelPicker()}
+          onSelectModel={(m) => void handleSelectModel(m)}
+        />
 
         {/* 2. Workspace Dinámico con Sidebar Integrado (Cognitive OS) */}
         <main className="flex flex-1 min-h-0 min-w-0 divide-x divide-hairline">
           {/* Panel 0: Cognitive Navigation Sidebar (Dual Rail & Drawer) */}
-          <Sidebar
-            activeProject={activeProject}
-            onSelectProject={(p) => setActiveProject(p)}
-            activeSubEgo={activeSubEgo}
-            onSelectSubEgo={(e) => setActiveSubEgo(e)}
-            onNewSession={handleNewSession}
-          />
+          {/* T06: SplitPane real con persistencia (antes solo en tests). El key
+              re-ancla el ancho al colapsar/expandir (documentado en T06.md). */}
+          <SplitPane
+            key={sidebarCollapsed ? "sidebar-rail" : "sidebar-full"}
+            id="app-sidebar"
+            side="left"
+            defaultWidth={sidebarCollapsed ? 54 : 260}
+            minWidth={sidebarCollapsed ? 54 : 200}
+            maxWidth={420}
+          >
+            <Sidebar
+              activeProject={activeProject}
+              onSelectProject={(p) => setActiveProject(p)}
+              activeSubEgo={activeSubEgo}
+              onSelectSubEgo={(e) => setActiveSubEgo(e)}
+              onNewSession={handleNewSession}
+              onCollapsedChange={setSidebarCollapsed}
+            />
+          </SplitPane>
 
           {/* Panel 1: Conversation River (Chat) */}
           <section className="flex flex-1 flex-col min-w-[380px] max-w-[550px] bg-paper">

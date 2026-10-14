@@ -51,7 +51,9 @@ export const AskDirective = memo(function AskDirective({
         onSelect(option);
       } else {
         // Fallback: Si no hay handler explícito, enviar al bus de Ego si está disponible
-        const egoGlobal = (window as any).ego;
+        const egoGlobal = (
+          window as unknown as { ego?: { sendChatMessage?: (msg: string) => void } }
+        ).ego;
         if (typeof egoGlobal?.sendChatMessage === "function") {
           egoGlobal.sendChatMessage(option);
         }

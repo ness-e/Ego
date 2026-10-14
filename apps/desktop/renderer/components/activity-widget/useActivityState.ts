@@ -9,6 +9,36 @@ export interface ActivityState {
   vantaDbOk: boolean;
 }
 
+/**
+ * T06: evento del bus de runtime (antes `(event: any)`). Solo se leen los
+ * campos usados; el resto del payload se ignora por diseño.
+ */
+interface EgoRuntimeEvent {
+  type: string;
+  payload?: {
+    subEgoId?: string;
+    agentId?: string;
+    toolName?: string;
+    task?: string;
+  };
+}
+
+function asRuntimeEvent(event: unknown): EgoRuntimeEvent | null {
+  if (typeof event !== "object" || event === null) return null;
+  const e = event as { type?: unknown; payload?: unknown };
+  if (typeof e.type !== "string") return null;
+  const p = (e.payload ?? {}) as NonNullable<EgoRuntimeEvent["payload"]>;
+  return {
+    type: e.type,
+    payload: {
+      subEgoId: typeof p.subEgoId === "string" ? p.subEgoId : undefined,
+      agentId: typeof p.agentId === "string" ? p.agentId : undefined,
+      toolName: typeof p.toolName === "string" ? p.toolName : undefined,
+      task: typeof p.task === "string" ? p.task : undefined,
+    },
+  };
+}
+
 export function useActivityState() {
   const [state, setState] = useState<ActivityState>({
     status: "idle",
@@ -23,14 +53,15 @@ export function useActivityState() {
 
   // Escuchar stream de eventos reales
   useEffect(() => {
-    const unsubEvents = ego().onEvent?.((event: any) => {
-      if (!event || !event.type) return;
+    const unsubEvents = ego().onEvent?.((event: unknown) => {
+      const e = asRuntimeEvent(event);
+      if (!e) return;
 
-      if (event.type === "task.started" || event.type === "tool.invoked") {
+      if (e.type === "task.started" || e.type === "tool.invoked") {
         if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
 
-        const subEgo = event.payload?.subEgoId || event.payload?.agentId || "Ego";
-        const action = event.payload?.toolName || event.payload?.task || "Procesando...";
+        const subEgo = e.payload?.subEgoId || e.payload?.agentId || "Ego";
+        const action = e.payload?.toolName || e.payload?.task || "Procesando...";
 
         setState((prev) => ({
           ...prev,
@@ -39,9 +70,9 @@ export function useActivityState() {
           currentAction: action,
         }));
       } else if (
-        event.type === "task.completed" ||
-        event.type === "task.failed" ||
-        event.type === "tool.completed"
+        e.type === "task.completed" ||
+        e.type === "task.failed" ||
+        e.type === "tool.completed"
       ) {
         if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
         resetTimerRef.current = setTimeout(() => {

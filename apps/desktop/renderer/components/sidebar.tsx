@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   SidebarSimple,
   Plus,
@@ -18,7 +18,9 @@ import {
   Folder,
 } from "@phosphor-icons/react";
 import { McpManagerModal } from "./mcp/McpManagerModal";
-import { ego } from "../lib/ego";
+import { SessionPicker, type SessionItem } from "./SessionPicker";
+import { useUiStore } from "./ui-kit/store.js";
+import { ego, type ModelConfigInfo } from "../lib/ego";
 
 export interface ProjectScopeItem {
   id: string;
@@ -48,6 +50,8 @@ interface SidebarProps {
   activeSubEgo: string;
   onSelectSubEgo: (subEgoId: string) => void;
   onNewSession: () => void;
+  /** T06: notifica colapsos para que App dimensione el SplitPane. */
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 export function Sidebar({
@@ -56,8 +60,18 @@ export function Sidebar({
   activeSubEgo,
   onSelectSubEgo,
   onNewSession,
+  onCollapsedChange,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const isCollapsedRef = useRef(false);
+  const notifyCollapsed = useCallback(
+    (next: boolean) => {
+      isCollapsedRef.current = next;
+      setIsCollapsed(next);
+      onCollapsedChange?.(next);
+    },
+    [onCollapsedChange],
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMcpOpen, setIsMcpOpen] = useState(false);
@@ -224,8 +238,8 @@ export function Sidebar({
       setIsNewProjectModalOpen(false);
       setNewProjectName("");
       setNewProjectPath("");
-    } catch (err: any) {
-      setProjectError(err?.message || "Error al crear el proyecto en VantaDB.");
+    } catch (err: unknown) {
+      setProjectError(err instanceof Error ? err.message : "Error al crear el proyecto en VantaDB.");
     } finally {
       setIsCreatingProject(false);
     }
@@ -236,7 +250,7 @@ export function Sidebar({
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
         e.preventDefault();
-        setIsCollapsed((prev) => !prev);
+        notifyCollapsed(!isCollapsedRef.current);
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
         e.preventDefault();
@@ -299,15 +313,35 @@ export function Sidebar({
     },
   ];
 
+  // T06: SessionPicker montado en el sidebar (sesiones reales del historial
+  // local; sin canal ipc.sessions.*, el estado vive en el store del kit).
+  const sessionPickerOpen = useUiStore((s) => s.sessionPickerOpen);
+  const sessionItems: SessionItem[] = sessions.map((s) => ({
+    id: s.id,
+    title: s.title,
+    preview: `Proyecto ${s.projectId} · ${s.timestamp}`,
+    subEgoId: activeSubEgo,
+    updatedAt: Date.now(),
+  }));
+  const sessionPicker = (
+    <SessionPicker
+      isOpen={sessionPickerOpen}
+      activeSessionId={useUiStore.getState().activeSessionId}
+      sessions={sessionItems}
+      onClose={() => useUiStore.getState().closeSessionPicker()}
+      onResumeSession={(id) => useUiStore.getState().setActiveSessionId(id)}
+    />
+  );
+
   // 1. MODO COLAPSADO (Navigation Rail compacto de 54px)
   if (isCollapsed) {
     return (
       <>
-        <aside className="flex h-full w-[54px] shrink-0 flex-col items-center justify-between border-r border-hairline bg-panel py-3 select-none">
+        <aside className="flex h-full w-full shrink-0 flex-col items-center justify-between border-r border-hairline bg-panel py-3 select-none">
           {/* Superior: Toggle y Nuevo */}
           <div className="flex flex-col items-center gap-4">
             <button
-              onClick={() => setIsCollapsed(false)}
+              onClick={() => notifyCollapsed(false)}
               title="Expandir barra lateral (Ctrl+B)"
               className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
             >
@@ -326,7 +360,7 @@ export function Sidebar({
 
             {/* Iconos de acceso directo */}
             <button
-              onClick={() => setIsCollapsed(false)}
+              onClick={() => notifyCollapsed(false)}
               title="Proyectos de Memoria"
               className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
             >
@@ -334,7 +368,7 @@ export function Sidebar({
             </button>
 
             <button
-              onClick={() => setIsCollapsed(false)}
+              onClick={() => notifyCollapsed(false)}
               title="Roster de Sub-Egos"
               className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors relative"
             >
@@ -343,7 +377,7 @@ export function Sidebar({
             </button>
 
             <button
-              onClick={() => setIsCollapsed(false)}
+              onClick={() => notifyCollapsed(false)}
               title="Historial de Sesiones"
               className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
             >
@@ -351,7 +385,7 @@ export function Sidebar({
             </button>
 
             <button
-              onClick={() => setIsCollapsed(false)}
+              onClick={() => notifyCollapsed(false)}
               title="Artifacts del Canvas"
               className="flex h-8 w-8 items-center justify-center rounded-md text-faint hover:bg-raised hover:text-ink transition-colors"
             >
@@ -393,6 +427,7 @@ export function Sidebar({
           </div>
         </aside>
         <McpManagerModal isOpen={isMcpOpen} onClose={() => setIsMcpOpen(false)} />
+        {sessionPicker}
       </>
     );
   }
@@ -400,7 +435,7 @@ export function Sidebar({
   // 2. MODO EXPANDIDO (Sidebar Completo de 260px)
   return (
     <>
-      <aside className="flex h-full w-[260px] shrink-0 flex-col border-r border-hairline bg-panel select-none">
+      <aside className="flex h-full w-full shrink-0 flex-col border-r border-hairline bg-panel select-none">
         {/* Cabecera del Sidebar */}
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-hairline px-3">
           <div className="flex items-center gap-2">
@@ -421,7 +456,7 @@ export function Sidebar({
             </button>
 
             <button
-              onClick={() => setIsCollapsed(true)}
+              onClick={() => notifyCollapsed(true)}
               title="Colapsar barra lateral (Ctrl+B)"
               className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-raised hover:text-ink transition-colors"
             >
@@ -540,8 +575,15 @@ export function Sidebar({
 
           {/* Bloque 3: Historial de Sesiones */}
           <div>
-            <div className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
+            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
               <span>Sesiones Recientes</span>
+              <button
+                onClick={() => useUiStore.getState().openSessionPicker()}
+                title="Abrir selector de sesiones"
+                className="rounded px-1 font-mono normal-case text-faint hover:bg-raised hover:text-ink transition-colors"
+              >
+                Todas
+              </button>
             </div>
             <div className="space-y-0.5">
               {sessions.map((s) => (
@@ -694,7 +736,7 @@ export function Sidebar({
                           onChange={(e) =>
                             setModelConfig((prev) => ({
                               ...prev,
-                              activeProvider: e.target.value as any,
+                              activeProvider: e.target.value as ModelConfigInfo["activeProvider"],
                             }))
                           }
                           className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-ink/50"
@@ -913,6 +955,7 @@ export function Sidebar({
 
       {/* Modal del Gestor de Servidores MCP y Skills (ACT-11) */}
       <McpManagerModal isOpen={isMcpOpen} onClose={() => setIsMcpOpen(false)} />
+      {sessionPicker}
     </>
   );
 }

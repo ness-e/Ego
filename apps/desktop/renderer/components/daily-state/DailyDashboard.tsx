@@ -9,16 +9,40 @@ import {
 import { MetricsConsole } from "./MetricsConsole";
 import { PendingApprovals, PendingApprovalItem } from "./PendingApprovals";
 import { JournalView } from "./JournalView";
+import type { DailySummaryPayload, DailyDecisionEntry } from "../../lib/ego";
 
 export interface DailyDashboardProps {
   onNavigateToCanvas: () => void;
 }
 
+/** T06: meta del briefing con guarda de frontera (antes `any`). */
+export interface SuggestedGoal {
+  id: string;
+  title: string;
+  priority: string;
+  reason: string;
+}
+
+function asSuggestedGoals(value: unknown): SuggestedGoal[] {  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (g): g is SuggestedGoal =>
+      typeof g === "object" &&
+      g !== null &&
+      typeof (g as { id?: unknown }).id === "string" &&
+      typeof (g as { title?: unknown }).title === "string",
+  );
+}
+
+/** T06: el payload diario lleva índice `unknown`; estrecha a número. */
+function asMetric(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<any>(null);
+  const [summary, setSummary] = useState<DailySummaryPayload | null>(null);
   const [isFirstLaunch, setIsFirstLaunch] = useState(false);
-  const [decisions, setDecisions] = useState<any[]>([]);
+  const [decisions, setDecisions] = useState<DailyDecisionEntry[]>([]);
   const [journalContent, setJournalContent] = useState("");
   const [isRefiningGoals, setIsRefiningGoals] = useState(false);
   const [approvals, setApprovals] = useState<PendingApprovalItem[]>([]);
@@ -107,7 +131,9 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
       if (ego?.daily?.refineGoals) {
         const res = await ego.daily.refineGoals({ date: summary?.date });
         if (res?.ok && res.goals) {
-          setSummary((prev: any) => ({
+          setSummary((prev) => ({
+            date: prev?.date ?? new Date().toISOString().split("T")[0],
+            pendingApprovalsCount: prev?.pendingApprovalsCount ?? 0,
             ...prev,
             suggestedGoals: res.goals,
           }));
@@ -142,9 +168,10 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
         approvals: [{ approvalId, approved }],
       });
       setApprovals((prev) => prev.filter((a) => a.approvalId !== approvalId));
-      setSummary((prev: any) => ({
+      setSummary((prev) => ({
+        date: prev?.date ?? new Date().toISOString().split("T")[0],
+        pendingApprovalsCount: Math.max(0, (prev?.pendingApprovalsCount ?? 1) - 1),
         ...prev,
-        pendingApprovalsCount: Math.max(0, (prev?.pendingApprovalsCount || 1) - 1),
       }));
     }
   };
@@ -157,9 +184,10 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
       await ego.daily.resolveApprovalsBatch({ approvals: items });
       const resolvedIds = new Set(items.map((i) => i.approvalId));
       setApprovals((prev) => prev.filter((a) => !resolvedIds.has(a.approvalId)));
-      setSummary((prev: any) => ({
+      setSummary((prev) => ({
+        date: prev?.date ?? new Date().toISOString().split("T")[0],
+        pendingApprovalsCount: Math.max(0, (prev?.pendingApprovalsCount ?? 0) - items.length),
         ...prev,
-        pendingApprovalsCount: Math.max(0, (prev?.pendingApprovalsCount || 0) - items.length),
       }));
     }
   };
@@ -238,7 +266,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
           </div>
 
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {summary?.suggestedGoals?.map((goal: any) => (
+            {asSuggestedGoals(summary?.suggestedGoals).map((goal) => (
               <div
                 key={goal.id}
                 className="flex items-start gap-2.5 rounded border border-hairline bg-panel p-2.5"
@@ -322,11 +350,11 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
         <div className="flex flex-col gap-4">
           {/* MetricsConsole */}
           <MetricsConsole
-            totalTokensToday={summary?.totalTokensToday || 0}
-            estimatedCostUsd={summary?.estimatedCostUsd || 0}
-            p99LatencyMs={summary?.p99LatencyMs || 0}
-            completedTasksCount={summary?.completedTasksCount || 0}
-            pendingTasksCount={summary?.pendingTasksCount || 0}
+            totalTokensToday={asMetric(summary?.totalTokensToday)}
+            estimatedCostUsd={asMetric(summary?.estimatedCostUsd)}
+            p99LatencyMs={asMetric(summary?.p99LatencyMs)}
+            completedTasksCount={asMetric(summary?.completedTasksCount)}
+            pendingTasksCount={asMetric(summary?.pendingTasksCount)}
           />
 
           {/* PendingApprovals */}

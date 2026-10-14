@@ -17,6 +17,11 @@ import {
 import { ego, SubEgoDetailInfo, DomainTemplateInfo } from "../lib/ego";
 import { CharacterBadge } from "./character/CharacterBadge.js";
 
+/** T06: los catch sin anotación ya son `unknown` en strict; centraliza el mensaje. */
+function toMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback;
+}
+
 export function SubEgosView() {
   const [subEgos, setSubEgos] = useState<SubEgoDetailInfo[]>([]);
   const [templates, setTemplates] = useState<DomainTemplateInfo[]>([]);
@@ -63,7 +68,7 @@ export function SubEgosView() {
     try {
       const list = await ego().subegos.list();
       setSubEgos(list);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("[SubEgosView] Error al cargar Sub-Egos:", err);
     } finally {
       setIsLoading(false);
@@ -77,7 +82,7 @@ export function SubEgosView() {
       if (list.length > 0 && !selectedTemplateId) {
         setSelectedTemplateId((list[0].templateId || list[0].id) || "developer");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("[SubEgosView] Error al cargar plantillas:", err);
     }
   }, [selectedTemplateId]);
@@ -110,8 +115,8 @@ export function SubEgosView() {
       );
       setFeedback(`Sub-Ego '${se.name}' cambiado a estado ${nextState === "active" ? "Activo" : "Pausado"}.`);
       setTimeout(() => setFeedback(null), 3000);
-    } catch (err: any) {
-      setFeedback(`Error: ${err?.message || "No se pudo cambiar el estado"}`);
+    } catch (err: unknown) {
+      setFeedback(`Error: ${toMessage(err, "No se pudo cambiar el estado")}`);
       setTimeout(() => setFeedback(null), 4000);
     }
   };
@@ -128,8 +133,8 @@ export function SubEgosView() {
       setShowModal(false);
       setFeedback(`Sub-Ego '${created.name}' instanciado exitosamente desde plantilla.`);
       setTimeout(() => setFeedback(null), 3000);
-    } catch (err: any) {
-      setModalError(err?.message || "Error al instanciar desde plantilla.");
+    } catch (err: unknown) {
+      setModalError(toMessage(err, "Error al instanciar desde plantilla."));
     } finally {
       setIsSubmitting(false);
     }
@@ -164,8 +169,8 @@ export function SubEgosView() {
       setCustomInstructions("");
       setFeedback(`Sub-Ego '${created.name}' creado con éxito.`);
       setTimeout(() => setFeedback(null), 3000);
-    } catch (err: any) {
-      setModalError(err?.message || "Error al crear Sub-Ego.");
+    } catch (err: unknown) {
+      setModalError(toMessage(err, "Error al crear Sub-Ego."));
     } finally {
       setIsSubmitting(false);
     }
@@ -190,8 +195,8 @@ export function SubEgosView() {
       setShowModal(false);
       setFeedback(`Sub-Ego '${created.name}' importado desde declaración ${declarationFormat.toUpperCase()}.`);
       setTimeout(() => setFeedback(null), 3000);
-    } catch (err: any) {
-      setModalError(err?.message || "Error de sintaxis o validación de manifiesto.");
+    } catch (err: unknown) {
+      setModalError(toMessage(err, "Error de sintaxis o validación de manifiesto."));
     } finally {
       setIsSubmitting(false);
     }

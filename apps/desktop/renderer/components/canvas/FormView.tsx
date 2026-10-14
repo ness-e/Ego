@@ -79,7 +79,7 @@ export const FormView: React.FC<FormViewProps> = ({ props, onSubmit }) => {
                 placeholder={field.placeholder}
                 value={String(values[field.name] ?? "")}
                 onChange={(e) => handleChange(field.name, e.target.value)}
-                className="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-ink"
+                className="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-ink"
               />
             )}
 
@@ -129,7 +129,7 @@ export const FormView: React.FC<FormViewProps> = ({ props, onSubmit }) => {
                 placeholder={field.placeholder}
                 value={String(values[field.name] ?? "")}
                 onChange={(e) => handleChange(field.name, e.target.value)}
-                className="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-ink font-mono"
+                className="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-ink font-mono"
               />
             )}
 

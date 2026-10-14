@@ -15,7 +15,7 @@ import { McpAddServerDialog } from "./McpAddServerDialog";
 interface McpServerListProps {
   servers: McpServerInfo[];
   isLoading: boolean;
-  onAddServer: (config: any) => Promise<void>;
+  onAddServer: (config: McpServerInfo["config"]) => Promise<void>;
   onToggleServer: (id: string, enabled: boolean) => Promise<void>;
   onRemoveServer: (id: string) => Promise<void>;
 }

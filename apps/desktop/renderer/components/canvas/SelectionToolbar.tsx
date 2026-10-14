@@ -21,24 +21,24 @@ export const SelectionToolbar: React.FC = () => {
   return (
     <div
       style={{ top: `${top}px`, left: `${left}px` }}
-      className="fixed z-50 flex items-center gap-1 bg-ink text-paper px-2 py-1 rounded-lg shadow-xl border border-white/10 text-xs animate-in fade-in zoom-in-95 duration-150 select-none"
+      className="fixed z-50 flex items-center gap-1 bg-ink text-paper px-2 py-1 rounded-lg shadow-xl border border-hairline text-xs animate-in fade-in zoom-in-95 duration-150 select-none"
     >
       <button
         type="button"
         onClick={() => sendSelectionToChat()}
-        className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/15 transition-colors font-medium text-[11px]"
+        className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-raised transition-colors font-medium text-[11px]"
       >
         <ChatCircleDots size={14} className="text-cyan-300" weight="bold" />
         <span>Preguntar a Sub-Ego</span>
       </button>
 
-      <div className="h-3 w-[1px] bg-white/20" />
+      <div className="h-3 w-[1px] bg-hairline" />
 
       <button
         type="button"
         onClick={handleCopy}
         title="Copiar selección"
-        className="p-1 rounded hover:bg-white/15 text-zinc-300 hover:text-white transition-colors"
+        className="p-1 rounded hover:bg-raised text-ink hover:text-ink transition-colors"
       >
         <Copy size={13} />
       </button>
@@ -47,7 +47,7 @@ export const SelectionToolbar: React.FC = () => {
         type="button"
         onClick={clearSelection}
         title="Cerrar"
-        className="p-1 rounded hover:bg-white/15 text-zinc-400 hover:text-white transition-colors"
+        className="p-1 rounded hover:bg-raised text-faint hover:text-ink transition-colors"
       >
         <X size={13} />
       </button>

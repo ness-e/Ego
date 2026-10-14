@@ -15,7 +15,7 @@ export const RecordView: React.FC<RecordViewComponentProps> = ({ props }) => {
   const stateBadge = {
     active: { label: "Activo", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
     quarantined: { label: "En Cuarentena", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-    superseded: { label: "Sustituido (Histórico)", color: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
+    superseded: { label: "Sustituido (Histórico)", color: "bg-raised text-faint border-hairline" },
   }[props.state || "active"];
 
   const handleAskSubEgo = () => {
@@ -53,7 +53,7 @@ export const RecordView: React.FC<RecordViewComponentProps> = ({ props }) => {
           <button
             type="button"
             onClick={handleAskSubEgo}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-raised hover:bg-zinc-800 text-cyan-300 border border-cyan-500/30 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-raised hover:bg-panel text-cyan-300 border border-cyan-500/30 transition-colors"
           >
             <ChatCircleDots size={14} weight="bold" />
             <span>Consultar</span>

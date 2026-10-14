@@ -60,7 +60,7 @@ export const RelationView: React.FC<RelationViewComponentProps> = ({ props }) =>
         <button
           type="button"
           onClick={handleAskAboutGraph}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-raised hover:bg-zinc-800 text-purple-300 border border-purple-500/30 transition-colors"
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-raised hover:bg-panel text-purple-300 border border-purple-500/30 transition-colors"
         >
           <ChatCircleDots size={14} weight="bold" />
           <span>Consultar Nodo</span>
@@ -82,7 +82,7 @@ export const RelationView: React.FC<RelationViewComponentProps> = ({ props }) =>
                   onClick={() => setSelectedNodeId(node.id)}
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-all ${
                     isSelected
-                      ? `${colors.bg} ${colors.border} ${colors.text} font-semibold ring-1 ring-white/20`
+                      ? `${colors.bg} ${colors.border} ${colors.text} font-semibold ring-1 ring-hairline`
                       : "bg-raised/70 border-hairline text-dim hover:text-ink hover:bg-raised"
                   }`}
                 >
@@ -104,7 +104,7 @@ export const RelationView: React.FC<RelationViewComponentProps> = ({ props }) =>
                 .map((edge, idx) => (
                   <span
                     key={idx}
-                    className="px-2 py-0.5 rounded bg-zinc-800/80 border border-hairline text-[10px] font-mono text-zinc-300"
+                    className="px-2 py-0.5 rounded bg-raised/80 border border-hairline text-[10px] font-mono text-ink"
                   >
                     {edge.from === selectedNodeId ? (
                       <>

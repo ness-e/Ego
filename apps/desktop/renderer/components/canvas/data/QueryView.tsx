@@ -125,7 +125,7 @@ export const QueryView: React.FC<QueryViewComponentProps> = ({ props }) => {
             >
               <div className="flex items-center justify-between text-[11px]">
                 <div className="flex items-center gap-1.5 font-mono">
-                  <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-hairline text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded bg-raised text-ink border border-hairline text-[10px]">
                     {item.namespace}
                   </span>
                   <span className="font-semibold text-ink truncate max-w-[200px]">{item.key}</span>
@@ -138,7 +138,7 @@ export const QueryView: React.FC<QueryViewComponentProps> = ({ props }) => {
                     type="button"
                     onClick={() => handleAskAboutResult(item)}
                     title="Preguntar a Sub-Ego sobre este resultado"
-                    className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-cyan-300 transition-colors"
+                    className="p-1 rounded hover:bg-raised text-faint hover:text-cyan-300 transition-colors"
                   >
                     <ChatCircleDots size={13} weight="bold" />
                   </button>
