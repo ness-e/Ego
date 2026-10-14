@@ -1,7 +1,12 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { CharacterBadge } from "../CharacterBadge.js";
 import { TraitRegistry, type DomainCharacterPreset, type CharacterTrait } from "../traits/TraitRegistry.js";
 import { Sparkle, Check, ArrowClockwise, FloppyDisk } from "@phosphor-icons/react";
+import {
+  loadCharacterConfig,
+  saveCharacterConfig,
+  liveCharacterGateway,
+} from "./characterProfileBridge.js";
 
 export interface CustomCharacterConfig {
   subEgoId: string;
@@ -58,6 +63,33 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // CHAR-10: restore al montar — la personalización sobrevive reinicios vía
+  // VantaDB (`egos/<subEgoId>` + `character`, gateway único). Ausente o
+  // corrupto = se conserva el preset (nunca wipe). Fire-and-forget honesto.
+  useEffect(() => {
+    let cancelled = false;
+    void loadCharacterConfig(subEgoId, liveCharacterGateway())
+      .then((persisted) => {
+        if (cancelled || !persisted) return;
+        setCurrentConfig(persisted);
+        const base = TraitRegistry.getPreset(subEgoId);
+        TraitRegistry.registerPreset({
+          ...base,
+          bodyColors: persisted.bodyColors,
+          eyeShape: persisted.eyeShape,
+          baseForm: persisted.baseForm,
+          outfitId: null,
+          traits: persisted.traits,
+        });
+      })
+      .catch((err) => {
+        console.warn("[WardrobeSelector] No se pudo restaurar la personalización:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [subEgoId]);
+
   const availableTraits = useMemo(() => {
     return TraitRegistry.listTraits();
   }, []);
@@ -108,6 +140,12 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       traits: currentConfig.traits,
     };
     TraitRegistry.registerPreset(updatedPreset);
+
+    // CHAR-10: persistir a VantaDB vía gateway único (nunca directo).
+    // Fire-and-forget honesto, mismo patrón que `useCanvasBridge.persistNow`.
+    void saveCharacterConfig(currentConfig, liveCharacterGateway()).catch((err) => {
+      console.warn("[WardrobeSelector] No se pudo persistir la personalización:", err);
+    });
 
     onSave?.(currentConfig);
     setSavedSuccess(true);

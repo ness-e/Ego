@@ -54,11 +54,11 @@ Todo componente del kit soporta contractualmente: `default`, `hover`, `active`, 
 
 Verificado en `components/canvas/registry.ts:39-51` (props inferidos por Zod vía `CanvasPropsSchema`, ver EGO-FIND-13): **11 renderers implementados**: `table`, `card`, `form`, `chart`, `board`, `editor`, `diff`, `terminal`, `record_view`, `query_view`, `relation_view`.
 
-El inventario histórico citaba 24 (ver EGO-FIND-16). Doctrina honesta: los **13 restantes son aspiracionales** — ningún Sub-Ego puede componer un tipo fuera del `ComponentRegistry`; la ampliación del catálogo exige vista tipada + entrada en el registry + sus 9 estados. Mermaid: render bajo contrato lazy (mismo patrón que `LazyTelemetryChart` en `DomainCanvasView.tsx:25`); sin entrada en el registry no hay render.
+El inventario histórico citaba 24 (ver EGO-FIND-16). Doctrina honesta: los **13 restantes son aspiracionales** — ningún Sub-Ego puede componer un tipo fuera del `ComponentRegistry`; la ampliación del catálogo exige vista tipada + entrada en el registry + sus 9 estados. Mermaid: **NO implementado en el renderer** (cero dependencia `mermaid` en `package.json`, cero imports en `apps/`, cero entrada en el registry; verificado 2026-10-15, cierra EGO-FIND-16). `LazyTelemetryChart` (`DomainCanvasView.tsx:25`) es lazy de recharts (`DomainCharts.js`), no de mermaid — la mención anterior que los equiparaba queda corregida. Un futuro tipo `mermaid` exigiría vista tipada + entrada en el registry + sus 9 estados + chunk lazy propio.
 
 ## 5. Rendimiento: lazy + windowing + skeletons + anti-shift
 
-- `React.lazy` para charts/dominios/mermaid (`LazyTelemetryChart` verificado; bundle previo de chunk único ~1.48 MB en `vite.config.ts:15`).
+- `React.lazy` para charts/dominios (`LazyTelemetryChart` verificado en `DomainCanvasView.tsx:25`; código partido por vendor en `vite.config.ts:19-36`). Mermaid fuera del bundle: sin dependencia ni chunk (ver §4).
 - `virtua` para windowing en chat/tablas/sidebar.
 - Skeletons con altura reservada (no texto plano "Procesando…", no layout shift; ver EGO-FIND-15).
 - `ErrorBoundary` global en `main.tsx` + `MessageRenderBoundary` por mensaje (patrón Hermes adaptado).
@@ -76,4 +76,4 @@ flowchart LR
     Widget --> Tray[Tray OS<br/>verde/azul/rojo]
 ```
 
-> Nota mermaid: los diagramas de docs cargan bajo el mismo contrato lazy que el renderer (ver §4). Si el visor no soporta mermaid, el texto del diagrama sigue siendo la especificación.
+> Nota mermaid: los diagramas `mermaid` de los docs son texto de especificación y no se renderizan en la app (sin visor mermaid en el renderer, ver §4). Si el visor de docs no soporta mermaid, el texto del bloque sigue siendo la especificación.
