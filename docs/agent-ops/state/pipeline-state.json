@@ -539,7 +539,7 @@
     "T00": {
       "state": "COMPLETED",
       "updatedAt": "2026-10-15T03:30:00.000Z",
-      "evidence": "Shims vitest/.CMD restaurados desde tasks (install fallaba por carrera pnpm, lockfile intacto). pnpm runner: execution 8/42 + integrations 4/35.",
+      "evidence": "Shims vitest/.CMD restaurados desde tasks + shims vite 6.4.4 reconstruidos (renderer) y vitest (memory). pnpm build exit 0 + pnpm test raíz exit 0 (desktop 32/176).",
       "commitSha": null
     },
     "T12": {
