@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import type { DesignSystemTokens } from "@ego/ui-runtime";
 
 export interface DesignSystemContextValue {
@@ -126,6 +126,58 @@ export function resolvePresetKey(idOrKey: string): string | undefined {
   return hit?.[0];
 }
 
+const THEME_STORAGE_KEY = "ego:theme-preset";
+
+function loadPersistedPresetKey(): string | undefined {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved && resolvePresetKey(saved)) return resolvePresetKey(saved);
+  } catch {
+    // Sin storage (tests/SSR): default.
+  }
+  return undefined;
+}
+
+/** Clave canónica del preset actualmente aplicado (para persistencia). */
+export function presetKeyOf(tokens: DesignSystemTokens): string {
+  return (
+    Object.entries(PRESET_THEMES).find(([, p]) => p.id === tokens.id)?.[0] ??
+    "default-dark"
+  );
+}
+
+const RADIUS_MAP: Record<string, string> = {
+  none: "0px",
+  sm: "4px",
+  md: "8px",
+  lg: "14px",
+  full: "9999px",
+};
+
+const DENSITY_PAD_MAP: Record<string, string> = {
+  compact: "0.25rem",
+  comfortable: "0.5rem",
+  spacious: "0.75rem",
+};
+
+const FONT_STACK_MAP: Record<string, string> = {
+  sans: '"Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  mono: '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+  serif: 'ui-serif, Georgia, serif',
+};
+
+function radiusOf(radius: string): string {
+  return RADIUS_MAP[radius] || "8px";
+}
+
+function densityPadOf(density: string): string {
+  return DENSITY_PAD_MAP[density] || "0.5rem";
+}
+
+function fontStackOf(family: string): string {
+  return FONT_STACK_MAP[family] || FONT_STACK_MAP.sans;
+}
+
 export const useDesignSystem = (): DesignSystemContextValue => {
   const ctx = useContext(DesignSystemContext);
   if (!ctx) {
@@ -143,7 +195,10 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
   initialTokens = DEFAULT_DESIGN_TOKENS,
   children,
 }) => {
-  const [tokens, setTokens] = useState<DesignSystemTokens>(initialTokens);
+  const [tokens, setTokens] = useState<DesignSystemTokens>(() => {
+    const persisted = loadPersistedPresetKey();
+    return persisted ? PRESET_THEMES[persisted] : initialTokens;
+  });
 
   const applyPreset = (presetId: string) => {
     const key = resolvePresetKey(presetId);
@@ -152,21 +207,34 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
     }
   };
 
+  // 2026-10-15 (tema real): el puente `@theme → var(--ego-*)` de index.css
+  // NO propaga presets. Las custom properties con `var()` se resuelven donde
+  // se DEFINEN (`:root`), no donde se usan: el fallback ganaba siempre
+  // (verificado en browser: `--color-panel` computaba `#111113` con preset
+  // esmeralda activo). Por eso se escriben los valores RESUELTOS en
+  // `documentElement`: llega a todo, incluidos portales Radix fuera del div.
+  // Las `--ego-*` del div se conservan (tests + referencia directa).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement.style;
+    const c = tokens.colors;
+    root.setProperty("--color-brand", c.brand);
+    root.setProperty("--color-ink", c.text);
+    root.setProperty("--color-paper", c.background);
+    root.setProperty("--color-panel", c.panel);
+    root.setProperty("--color-raised", c.raised);
+    root.setProperty("--color-hairline", c.border);
+    root.setProperty("--color-faint", c.muted);
+    root.setProperty("--radius-card", radiusOf(tokens.geometry.radius));
+    root.setProperty("--font-sans", fontStackOf(tokens.typography.fontFamily));
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, presetKeyOf(tokens));
+    } catch {
+      // Sin storage: el preset vive solo en memoria.
+    }
+  }, [tokens]);
+
   const cssVariables = useMemo(() => {
-    const radiusMap: Record<string, string> = {
-      none: "0px",
-      sm: "4px",
-      md: "8px",
-      lg: "14px",
-      full: "9999px",
-    };
-
-    const densityPadMap: Record<string, string> = {
-      compact: "0.25rem",
-      comfortable: "0.5rem",
-      spacious: "0.75rem",
-    };
-
     const fontMap: Record<string, string> = {
       sans: "var(--font-geist-sans, ui-sans-serif, system-ui)",
       mono: "var(--font-geist-mono, ui-monospace, monospace)",
@@ -184,8 +252,8 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
       "--ego-color-success": tokens.colors.success,
       "--ego-color-warning": tokens.colors.warning,
       "--ego-color-error": tokens.colors.error,
-      "--ego-radius": radiusMap[tokens.geometry.radius] || "8px",
-      "--ego-density-pad": densityPadMap[tokens.geometry.density] || "0.5rem",
+      "--ego-radius": radiusOf(tokens.geometry.radius),
+      "--ego-density-pad": densityPadOf(tokens.geometry.density),
       "--ego-font-family": fontMap[tokens.typography.fontFamily] || "sans-serif",
       "--ego-font-size": `${tokens.typography.baseSizePx}px`,
     } as React.CSSProperties;

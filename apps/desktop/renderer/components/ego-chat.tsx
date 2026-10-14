@@ -374,7 +374,15 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     setIsStreaming(true);
 
     try {
-      const streamRes = await ego().llmStream({ prompt: promptText, projectId, subEgoId });
+      const streamRes = await ego().llmStream({
+        prompt: promptText,
+        projectId,
+        subEgoId,
+        // 2026-10-15: el hilo SIEMPRE viaja con su sessionId. Sin esto todos
+        // los turnos caían al bucket del lifecycle (`default_session`) y el
+        // historial por sesión (picker/resume) jamás acumulaba nada.
+        ...(sessionId ? { sessionId } : {}),
+      });
       if (streamRes.recallStatus) {
         setLatestRecall(streamRes.recallStatus);
       }
@@ -424,7 +432,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       if (streamTargetRef.current === a) streamTargetRef.current = null;
       setIsStreaming(false);
     }
-  }, [projectId, subEgoId, appendStreamText]);
+  }, [projectId, subEgoId, sessionId, appendStreamText]);
 
   // Sincronización reactiva: acciones disparadas en el Canvas alimentan el Chat (CANV-03 / COUC-07)
   useEffect(() => {

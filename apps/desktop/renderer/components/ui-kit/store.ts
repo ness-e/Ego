@@ -32,6 +32,24 @@ const initialState = {
   uiEmpty: null as string | null,
 };
 
+/** Clave de persistencia del hilo activo (continuidad entre arranques). */
+export const ACTIVE_SESSION_KEY = "ego:active-session-id";
+
+/** Id de hilo fresco (`sess-<base36>`), compatible con `sessions.*` del main. */
+export function mintSessionId(): string {
+  return `sess-${Date.now().toString(36)}`;
+}
+
+/** Restaura el hilo activo persistido, o null si nunca hubo uno. */
+export function loadPersistedSessionId(): string | null {
+  try {
+    const saved = localStorage.getItem(ACTIVE_SESSION_KEY);
+    return saved && saved.trim().length > 0 ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * T06 UI-03 — store global del kit (Zustand). Los pickers dejan de vivir
  * solo en tests: header y sidebar leen/escriben este estado.
@@ -43,7 +61,17 @@ export const useUiStore = create<UiKitState>()((set) => ({
   openSessionPicker: () => set({ sessionPickerOpen: true }),
   closeSessionPicker: () => set({ sessionPickerOpen: false }),
   setActiveModelId: (id) => set({ activeModelId: id }),
-  setActiveSessionId: (id: string | null) => set({ activeSessionId: id }),
+  setActiveSessionId: (id: string | null) => {
+    set({ activeSessionId: id });
+    // La sesión activa sobrevive recargas (hilo continuo entre arranques).
+    // "Nuevo" la reemplaza por un id fresco; null = sin hilo (honesto).
+    try {
+      if (id) localStorage.setItem(ACTIVE_SESSION_KEY, id);
+      else localStorage.removeItem(ACTIVE_SESSION_KEY);
+    } catch {
+      // Sin storage: vive solo en memoria.
+    }
+  },
   setUiError: (message) => set({ uiError: message }),
   clearUiError: () => set({ uiError: null }),
   setUiEmpty: (message) => set({ uiEmpty: message }),

@@ -9,7 +9,7 @@ import { Sidebar } from "../components/sidebar";
 import { SubEgoSelector } from "../components/SubEgoSelector";
 import { ModelPicker, CANONICAL_MODELS, type ModelOption } from "../components/ModelPicker";
 import { SplitPane } from "../components/PaneShell";
-import { useUiStore } from "../components/ui-kit/store.js";
+import { useUiStore, mintSessionId, loadPersistedSessionId } from "../components/ui-kit/store.js";
 import { ego } from "../lib/ego";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
 import { ActivityTray } from "../components/activity-tray/ActivityTray";
@@ -147,10 +147,20 @@ export function App() {
   }, []);
 
   const handleNewSession = () => {
-    // T18: hilo nuevo = sin sesión activa (el remount no debe rehidratar la vieja).
-    useUiStore.getState().setActiveSessionId(null);
+    // 2026-10-15: hilo nuevo = id fresco (antes null → los turnos caían al
+    // bucket del lifecycle y el historial por sesión jamás se acumulaba).
+    // El remount por nonce no rehidrata nada: el id aún no tiene turnos.
+    useUiStore.getState().setActiveSessionId(mintSessionId());
     setSessionNonce((prev) => prev + 1);
   };
+
+  useEffect(() => {
+    // 2026-10-15: continuidad del hilo entre arranques. Si nunca hubo uno,
+    // se acuña (todo lo escrito queda namespaced y reanudable desde el picker).
+    if (!useUiStore.getState().activeSessionId) {
+      useUiStore.getState().setActiveSessionId(loadPersistedSessionId() ?? mintSessionId());
+    }
+  }, []);
 
   return (
     <DesignSystemProvider>

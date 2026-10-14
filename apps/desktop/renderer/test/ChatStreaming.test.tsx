@@ -187,6 +187,28 @@ describe("T02: ChatStreaming — deltas reales + skeleton + HITL único + BYOK",
     expect(container.textContent).toContain("Listo.");
   });
 
+  it("envía el sessionId del hilo en llmStream (historial por sesión)", async () => {
+    // 2026-10-15: sin sessionId todos los turnos caían al bucket del
+    // lifecycle y el historial por sesión jamás se acumulaba.
+    const bridge = installBridge({
+      provider: "ollama",
+      chunks: [{ type: "text", delta: "hola " }],
+      finalText: "hola. Respuesta final.",
+    });
+
+    await act(async () => {
+      root.render(<EgoChat sessionId="sess-test-hilo-1" />);
+    });
+
+    await sendMessage("hola hilo");
+
+    expect(bridge.llmStream).toHaveBeenCalledTimes(1);
+    expect(bridge.llmStream.mock.calls[0][0]).toMatchObject({
+      prompt: "hola hilo",
+      sessionId: "sess-test-hilo-1",
+    });
+  });
+
   it("bloquea con error BYOK explícito sin keys del proveedor activo (sin invocar)", async () => {
     const bridge = installBridge({ provider: "openai", finalText: "nunca" });
 

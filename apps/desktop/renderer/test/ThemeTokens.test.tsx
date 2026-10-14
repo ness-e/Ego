@@ -144,10 +144,96 @@ describe("T05: tokens reales + chat al design system", () => {
       expect(seen.size).toBe(4);
     });
 
+    it("escribe valores resueltos en :root al conmutar (fix real del tema)", async () => {
+      await act(async () => {
+        root.render(
+          <DesignSystemProvider>
+            <PresetCycler />
+          </DesignSystemProvider>
+        );
+      });
+      const docStyle = () => document.documentElement.style;
+      const btn = (k: string) =>
+        container.querySelector(`[data-testid="btn-${k}"]`) as HTMLButtonElement;
+      await act(async () => {
+        btn("emerald-terminal").click();
+      });
+      // 2026-10-15: antes del fix, `--color-panel` computaba el fallback
+      // `#111113` porque el `var(--ego-*)` de `@theme` se resuelve en `:root`.
+      expect(docStyle().getPropertyValue("--color-panel")).toBe("#064e3b");
+      expect(docStyle().getPropertyValue("--color-brand")).toBe("#10b981");
+      await act(async () => {
+        btn("amber-warm").click();
+      });
+      expect(docStyle().getPropertyValue("--color-panel")).toBe("#292524");
+      // Restaurar default para no contaminar otros tests del archivo.
+      await act(async () => {
+        btn("default-dark").click();
+      });
+      expect(docStyle().getPropertyValue("--color-panel")).toBe("#141416");
+    });
+
     it("resolvePresetKey mapea clave e id; desconocido no muta", async () => {
       expect(resolvePresetKey("midnight-cyan")).toBe("midnight-cyan");
       expect(resolvePresetKey("theme-midnight-cyan")).toBe("midnight-cyan");
       expect(resolvePresetKey("no-existe")).toBeUndefined();
+    });
+
+    it("persiste la clave del preset (localStorage) y la restaura al montar", async () => {
+      // happy-dom sin localstorage-file: stub de memoria solo para este test.
+      const mem = new Map<string, string>();
+      const memStorage = {
+        getItem: (k: string) => (mem.has(k) ? mem.get(k)! : null),
+        setItem: (k: string, v: string) => {
+          mem.set(k, String(v));
+        },
+        removeItem: (k: string) => {
+          mem.delete(k);
+        },
+        clear: () => mem.clear(),
+      };
+      const prevLS = (globalThis as unknown as { localStorage?: unknown }).localStorage;
+      (globalThis as unknown as { localStorage?: unknown }).localStorage = memStorage;
+      try {
+        await act(async () => {
+          root.render(
+            <DesignSystemProvider>
+              <PresetCycler />
+            </DesignSystemProvider>
+          );
+        });
+        const btn = (k: string) =>
+          container.querySelector(`[data-testid="btn-${k}"]`) as HTMLButtonElement;
+        await act(async () => {
+          btn("midnight-cyan").click();
+        });
+        expect(memStorage.getItem("ego:theme-preset")).toBe("midnight-cyan");
+        // Montaje fresco (otra ventana): debe arrancar en el persistido.
+        const container2 = document.createElement("div");
+        document.body.appendChild(container2);
+        const root2 = createRoot(container2);
+        await act(async () => {
+          root2.render(
+            <DesignSystemProvider>
+              <PresetCycler />
+            </DesignSystemProvider>
+          );
+        });
+        const themeId = container2.querySelector('[data-testid="theme-id"]');
+        expect(themeId?.textContent).toBe("theme-midnight-cyan");
+        expect(document.documentElement.style.getPropertyValue("--color-panel")).toBe("#0f172a");
+        await act(async () => {
+          root2.unmount();
+        });
+        container2.remove();
+        memStorage.removeItem("ego:theme-preset");
+        // Dejar :root como lo encontró (default) para otros tests.
+        await act(async () => {
+          btn("default-dark").click();
+        });
+      } finally {
+        (globalThis as unknown as { localStorage?: unknown }).localStorage = prevLS;
+      }
     });
   });
 
