@@ -4,7 +4,8 @@ export interface UiKitState {
   modelPickerOpen: boolean;
   sessionPickerOpen: boolean;
   activeModelId: string;
-  activeSessionId: string;
+  /** Sesión activa real o null (2026-10-15: sin default falso). */
+  activeSessionId: string | null;
   /** Error global visible (estado P22 `error` a nivel app). */
   uiError: string | null;
   /** Aviso de vacío global (estado P22 `empty` a nivel app). */
@@ -26,7 +27,7 @@ const initialState = {
   modelPickerOpen: false,
   sessionPickerOpen: false,
   activeModelId: "claude-3-7-sonnet",
-  activeSessionId: "sess-kernel-arch",
+  activeSessionId: null as string | null,
   uiError: null as string | null,
   uiEmpty: null as string | null,
 };
@@ -42,7 +43,7 @@ export const useUiStore = create<UiKitState>()((set) => ({
   openSessionPicker: () => set({ sessionPickerOpen: true }),
   closeSessionPicker: () => set({ sessionPickerOpen: false }),
   setActiveModelId: (id) => set({ activeModelId: id }),
-  setActiveSessionId: (id) => set({ activeSessionId: id }),
+  setActiveSessionId: (id: string | null) => set({ activeSessionId: id }),
   setUiError: (message) => set({ uiError: message }),
   clearUiError: () => set({ uiError: null }),
   setUiEmpty: (message) => set({ uiEmpty: message }),

@@ -277,7 +277,7 @@ export function Sidebar({
         <McpManagerModal isOpen={isMcpOpen} onClose={() => setIsMcpOpen(false)} />
         <SessionPicker
           isOpen={sessionPickerOpen}
-          activeSessionId={activeSessionId}
+          activeSessionId={activeSessionId ?? undefined}
           sessions={sessions}
           onClose={() => useUiStore.getState().closeSessionPicker()}
           onResumeSession={(id) => useUiStore.getState().setActiveSessionId(id)}
@@ -439,7 +439,7 @@ export function Sidebar({
             </div>
             <div className="flex w-full items-center gap-2 rounded border border-hairline/60 bg-raised/40 px-2 py-1.5 text-left text-xs text-faint">
               <ChatCircle size={13} className="shrink-0 text-dim" />
-              <span className="truncate font-mono text-[11px]">{activeSessionId}</span>
+              <span className="truncate font-mono text-[11px]">{activeSessionId ?? "Sin sesión"}</span>
             </div>
           </div>
 
@@ -507,7 +507,7 @@ export function Sidebar({
       <McpManagerModal isOpen={isMcpOpen} onClose={() => setIsMcpOpen(false)} />
       <SessionPicker
         isOpen={sessionPickerOpen}
-        activeSessionId={activeSessionId}
+        activeSessionId={activeSessionId ?? undefined}
         sessions={sessions}
         onClose={() => useUiStore.getState().closeSessionPicker()}
         onResumeSession={(id) => useUiStore.getState().setActiveSessionId(id)}
