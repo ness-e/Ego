@@ -9,7 +9,7 @@ import {
   CaretUp,
   CaretDown,
 } from "@phosphor-icons/react";
-import { ego } from "../../lib/ego";
+import { ego, type BackgroundTaskInfo } from "../../lib/ego";
 
 export interface TaskItem {
   id: string;
@@ -25,6 +25,46 @@ export interface ActivityTrayProps {
   onPauseTask?: (taskId: string) => void;
   onResumeTask?: (taskId: string) => void;
   onCancelTask?: (taskId: string) => void;
+}
+
+const TASK_STATUSES = [
+  "submitted",
+  "queued",
+  "running",
+  "paused",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+
+/**
+ * T14: normaliza un `BackgroundTaskInfo` del puente `tasks.list` (T13) al
+ * `TaskItem` de la bandeja. Sin `taskId`/`id` → null (se descarta, nunca se inventa).
+ */
+function toTaskItem(value: BackgroundTaskInfo): TaskItem | null {
+  const raw = value as unknown as Record<string, unknown>;
+  const id =
+    typeof raw.taskId === "string"
+      ? raw.taskId
+      : typeof raw.id === "string"
+        ? raw.id
+        : null;
+  if (!id) return null;
+  const title = typeof raw.title === "string" && raw.title.length > 0 ? raw.title : id;
+  const statusRaw = typeof raw.status === "string" ? raw.status : "running";
+  const status: TaskItem["status"] = (
+    TASK_STATUSES as readonly string[]
+  ).includes(statusRaw)
+    ? (statusRaw as TaskItem["status"])
+    : "running";
+  const progress =
+    typeof raw.progress === "number" && Number.isFinite(raw.progress)
+      ? Math.max(0, Math.min(100, Math.round(raw.progress)))
+      : 0;
+  const item: TaskItem = { id, title, status, progress };
+  if (typeof raw.subEgoId === "string") item.subEgoId = raw.subEgoId;
+  if (typeof raw.progressMessage === "string") item.progressMessage = raw.progressMessage;
+  return item;
 }
 
 /**
@@ -63,6 +103,24 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
       return;
     }
 
+    // T14: fetch inicial `tasks.list` (puente T13). Sin bridge o ante error:
+    // la bandeja queda en reposo honesto (sin tareas inventadas).
+    let cancelled = false;
+    void ego()
+      .tasks?.list?.()
+      .then((res) => {
+        if (cancelled || !res || typeof res !== "object") return;
+        const list = (res as { tasks?: unknown }).tasks;
+        if (!Array.isArray(list)) return;
+        const items: TaskItem[] = [];
+        for (const t of list) {
+          const mapped = toTaskItem(t as BackgroundTaskInfo);
+          if (mapped) items.push(mapped);
+        }
+        setTasks(items);
+      })
+      .catch(() => {});
+
     // T06: suscripción al bus de eventos vivo (`ego().onEvent`).
     const unsubscribe = ego().onEvent?.((event: unknown) => {
       if (!isTaskUpdateEvent(event)) return;
@@ -77,8 +135,33 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
         return [...prev, updatedTask];
       });
     });
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [propTasks]);
+
+  /**
+   * T14: cancelar va al puente `tasks.cancel` (T13) salvo que el padre pase
+   * su propio handler (tests / wiring externo). Pausar/reanudar no tienen
+   * backend: los botones solo existen si el padre pasa callbacks.
+   */
+  const handleCancel = (taskId: string) => {
+    if (onCancelTask) {
+      onCancelTask(taskId);
+      return;
+    }
+    void ego()
+      .tasks?.cancel?.({ taskId })
+      .then((res) => {
+        if (res && typeof res === "object" && (res as { ok?: unknown }).ok) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === taskId ? { ...t, status: "cancelled" as const } : t))
+          );
+        }
+      })
+      .catch(() => {});
+  };
 
   const activeTasks = tasks.filter((t) => t.status === "running" || t.status === "queued");
   const pausedTasks = tasks.filter((t) => t.status === "paused");
@@ -197,9 +280,9 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
                       <Play size={12} />
                     </button>
                   )}
-                  {(task.status === "running" || task.status === "queued") && onCancelTask && (
+                  {(task.status === "running" || task.status === "queued") && (
                     <button
-                      onClick={() => onCancelTask(task.id)}
+                      onClick={() => handleCancel(task.id)}
                       className="rounded p-1 text-rose-500/80 hover:text-rose-500 hover:bg-raised"
                       title="Cancelar"
                     >

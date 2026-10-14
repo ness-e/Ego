@@ -1,19 +1,50 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import type { TerminalProps } from "@ego/ui-runtime";
 import { Terminal, Circle } from "@phosphor-icons/react";
+import { ego } from "../../lib/ego";
 
 interface TerminalViewProps {
   props: TerminalProps;
+  /**
+   * T14: sesión PTY viva (`ipc.terminal.*`, puente T13). Sin `sessionId` la
+   * vista es solo-lectura (render legacy intacto, p. ej. manifiestos canvas).
+   */
+  sessionId?: string;
 }
 
-export const TerminalView: React.FC<TerminalViewProps> = ({ props }) => {
+export const TerminalView: React.FC<TerminalViewProps> = ({ props, sessionId }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [stdin, setStdin] = useState("");
+  const [stdinError, setStdinError] = useState<string | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [props.lines.length]);
+
+  const handleSendStdin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sessionId || stdin.length === 0) return;
+    setStdinError(null);
+    void ego()
+      .terminal?.stdin?.({ sessionId, data: stdin.endsWith("\n") ? stdin : `${stdin}\n` })
+      .then((res) => {
+        if (res && typeof res === "object" && (res as { ok?: unknown }).ok) {
+          setStdin("");
+        } else {
+          const err = (res as { error?: unknown })?.error;
+          setStdinError(
+            typeof err === "string" && err.length > 0
+              ? err
+              : "No se pudo enviar la entrada a la terminal."
+          );
+        }
+      })
+      .catch(() => {
+        setStdinError("Canal terminal no disponible en el bridge.");
+      });
+  };
 
   return (
     <div className="rounded-xl border border-hairline bg-panel shadow-xs overflow-hidden select-text">
@@ -79,6 +110,38 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ props }) => {
           })
         )}
       </div>
+
+      {/* T14: entrada stdin a la sesión PTY viva. Sin sessionId no se renderiza. */}
+      {sessionId && (
+        <form
+          onSubmit={handleSendStdin}
+          className="flex items-center gap-2 border-t border-hairline bg-raised/80 px-3 py-2"
+        >
+          <span aria-hidden className="font-mono text-[11px] text-emerald-400">
+            $
+          </span>
+          <input
+            type="text"
+            aria-label="Entrada de terminal"
+            value={stdin}
+            onChange={(e) => setStdin(e.target.value)}
+            placeholder="Escribir a la terminal viva… (Enter para enviar)"
+            className="flex-1 bg-transparent font-mono text-[11px] text-ink placeholder:text-dim focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={stdin.length === 0}
+            className="rounded border border-hairline bg-panel px-2 py-0.5 font-mono text-[10px] text-dim transition-colors hover:text-ink disabled:opacity-40"
+          >
+            Enviar
+          </button>
+        </form>
+      )}
+      {stdinError && (
+        <div role="alert" className="border-t border-rose-500/30 bg-rose-950/30 px-3 py-1.5 font-mono text-[10px] text-rose-300">
+          {stdinError}
+        </div>
+      )}
     </div>
   );
 };

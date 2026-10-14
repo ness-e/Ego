@@ -9,6 +9,7 @@ import {
 import { MetricsConsole } from "./MetricsConsole";
 import { PendingApprovals, PendingApprovalItem } from "./PendingApprovals";
 import { JournalView } from "./JournalView";
+import { ego as egoBridge } from "../../lib/ego";
 import type { DailySummaryPayload, DailyDecisionEntry, PendingApprovalInfo } from "../../lib/ego";
 
 export interface DailyDashboardProps {
@@ -38,11 +39,9 @@ function asMetric(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-/** T12: `daily.listApprovals` no está en el tipo canónico — acceso estructural opcional. */
-interface DailyWithListApprovals {
-  listApprovals?: () => Promise<unknown>;
-}
-
+/** T14: `daily.listApprovals` es canónico tras T13 (`EgoBridge.daily`,
+ * `DailyApprovalsResult`). Acceso directo tipado con `?.` (sin bridge en
+ * tests → no-op honesto, solo HITL en vivo). */
 function isRecordLike(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -137,11 +136,9 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
             setJournalContent(journalRes.content || "");
           }
 
-          // T12: aprobaciones reales — listado si el canal existe (sin falsos).
+          // T14: aprobaciones reales vía `daily.listApprovals` canónico (T13).
           try {
-            const dailyExt = ego.daily as NonNullable<typeof ego.daily> &
-              DailyWithListApprovals;
-            const listRes = await dailyExt.listApprovals?.();
+            const listRes = await egoBridge().daily?.listApprovals?.();
             if (isRecordLike(listRes) && mounted) {
               const items = toApprovalItems(listRes.approvals);
               if (items.length > 0) {

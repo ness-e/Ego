@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Modal } from "../ui-kit/Modal.js";
-import { ego, type ModelConfigInfo } from "../../lib/ego.js";
+import { ego, type ModelConfigInfo, type StorageInfoResult, type GovPoliciesResult } from "../../lib/ego.js";
 
 export interface SettingsModalProps {
   open: boolean;
@@ -42,6 +42,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // T14: estado live de memoria/gobernanza (puentes T13). Sin bridge o ante
+  // error: mensaje honesto, nunca paths ni políticas inventadas.
+  const [storageInfo, setStorageInfo] = useState<StorageInfoResult | null>(null);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [govPolicies, setGovPolicies] = useState<GovPoliciesResult | null>(null);
+  const [govError, setGovError] = useState<string | null>(null);
+  const [govLoading, setGovLoading] = useState(false);
 
   const loadModelConfig = useCallback(async () => {
     try {
@@ -59,6 +67,77 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       void loadModelConfig();
     }
   }, [open, loadModelConfig]);
+
+  // T14: pestañas memoria/gov con datos live (`getStorageInfo`/`getGovPolicies`).
+  useEffect(() => {
+    if (!open || activeTab !== "memory") return;
+    let cancelled = false;
+    setStorageLoading(true);
+    setStorageError(null);
+    void ego()
+      .settings.getStorageInfo()
+      .then((res) => {
+        if (cancelled) return;
+        if (res && typeof res === "object" && (res as { ok?: unknown }).ok) {
+          setStorageInfo(res as StorageInfoResult);
+        } else {
+          const err = (res as { error?: unknown })?.error;
+          setStorageInfo(null);
+          setStorageError(
+            typeof err === "string" && err.length > 0
+              ? err
+              : "No se pudo leer el almacenamiento del backend."
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStorageInfo(null);
+          setStorageError("Canal settings.getStorageInfo no disponible en el bridge.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setStorageLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, activeTab]);
+
+  useEffect(() => {
+    if (!open || activeTab !== "gov") return;
+    let cancelled = false;
+    setGovLoading(true);
+    setGovError(null);
+    void ego()
+      .settings.getGovPolicies()
+      .then((res) => {
+        if (cancelled) return;
+        if (res && typeof res === "object" && (res as { ok?: unknown }).ok) {
+          setGovPolicies(res as GovPoliciesResult);
+        } else {
+          const err = (res as { error?: unknown })?.error;
+          setGovPolicies(null);
+          setGovError(
+            typeof err === "string" && err.length > 0
+              ? err
+              : "No se pudieron leer las políticas del backend."
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGovPolicies(null);
+          setGovError("Canal settings.getGovPolicies no disponible en el bridge.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setGovLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, activeTab]);
 
   /** BYOK por proveedor: el proveedor con key exige key no vacía. */
   const validateByok = (cfg: ModelConfigInfo): string | null => {
@@ -246,6 +325,52 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     />
                   </div>
                 )}
+                {/* T14: Base URLs por proveedor (el save ya los persiste; vacíos → undefined). */}
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-dim">
+                    OpenAI Base URL (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    aria-label="OpenAI base URL"
+                    placeholder="https://api.openai.com/v1"
+                    value={modelConfig.openaiBaseURL ?? ""}
+                    onChange={(e) =>
+                      setModelConfig((prev) => ({ ...prev, openaiBaseURL: e.target.value }))
+                    }
+                    className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 font-mono text-xs text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-dim">
+                    DeepSeek Base URL (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    aria-label="DeepSeek base URL"
+                    placeholder="https://api.deepseek.com"
+                    value={modelConfig.deepseekBaseURL ?? ""}
+                    onChange={(e) =>
+                      setModelConfig((prev) => ({ ...prev, deepseekBaseURL: e.target.value }))
+                    }
+                    className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 font-mono text-xs text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-dim">
+                    Ollama Base URL (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    aria-label="Ollama base URL"
+                    placeholder="http://localhost:11434/v1"
+                    value={modelConfig.ollamaBaseURL ?? ""}
+                    onChange={(e) =>
+                      setModelConfig((prev) => ({ ...prev, ollamaBaseURL: e.target.value }))
+                    }
+                    className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 font-mono text-xs text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none"
+                  />
+                </div>
                 <div className="flex items-center justify-between pt-1">
                   <span className="font-mono text-[10px] text-dim">Persistencia en: gov/settings</span>
                   <button
@@ -271,12 +396,42 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <p className="leading-relaxed text-faint">
                 Persistencia real mediante binding nativo de Rust (`NativeVantaDB`, Fjall LSM con WAL y fsync).
               </p>
-              <div className="space-y-1.5 rounded border border-hairline bg-paper p-3 font-mono text-[11px]">
-                <div className="text-dim">Ruta en Disco:</div>
-                <div className="truncate rounded bg-raised p-1.5 text-ink">%APPDATA%\Ego\ego_memory.vdb</div>
-                <div className="pt-2 text-dim">Namespaces Activos:</div>
-                <div className="text-emerald-400">gov/audit, gov/sub_egos, session/turns, kb/docs</div>
-              </div>
+              {storageLoading && (
+                <p className="font-mono text-[11px] text-dim">Leyendo almacenamiento del backend…</p>
+              )}
+              {storageError && (
+                <div
+                  role="alert"
+                  className="rounded border border-rose-500/30 bg-rose-950/30 p-2 text-[11px] text-rose-300"
+                >
+                  {storageError}
+                </div>
+              )}
+              {storageInfo && !storageLoading && (
+                <div className="space-y-1.5 rounded border border-hairline bg-paper p-3 font-mono text-[11px]">
+                  <div className="text-dim">Ruta en Disco:</div>
+                  <div className="truncate rounded bg-raised p-1.5 text-ink">
+                    {storageInfo.dbPath ?? storageInfo.userDataDir ?? "No disponible"}
+                  </div>
+                  <div className="pt-2 text-dim">
+                    Namespaces Activos ({storageInfo.namespaces?.length ?? 0}):
+                  </div>
+                  <div className="text-emerald-400">
+                    {storageInfo.namespaces && storageInfo.namespaces.length > 0
+                      ? storageInfo.namespaces.join(", ")
+                      : "Sin namespaces visibles — el backend no devolvió ninguno."}
+                  </div>
+                  {(storageInfo.platform || typeof storageInfo.operational === "boolean") && (
+                    <div className="pt-1 text-dim">
+                      {storageInfo.platform ? `Plataforma: ${storageInfo.platform}` : ""}
+                      {storageInfo.platform && typeof storageInfo.operational === "boolean" ? " · " : ""}
+                      {typeof storageInfo.operational === "boolean"
+                        ? `Operativo: ${storageInfo.operational ? "sí" : "no"}`
+                        : ""}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {activeTab === "gov" && (
@@ -286,16 +441,35 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 Principio 6: Ninguna acción sensible (escritura en disco, git push, shell exec) se
                 ejecuta sin confirmación explícita.
               </p>
-              <div className="space-y-2 rounded border border-hairline bg-paper p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span>Aprobación de Comandos de Shell</span>
-                  <span className="font-medium text-emerald-400">Requerida</span>
+              {govLoading && (
+                <p className="font-mono text-[11px] text-dim">Leyendo políticas del backend…</p>
+              )}
+              {govError && (
+                <div
+                  role="alert"
+                  className="rounded border border-rose-500/30 bg-rose-950/30 p-2 text-[11px] text-rose-300"
+                >
+                  {govError}
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span>Límite de Tokens por Llamada</span>
-                  <span className="font-mono text-dim">4,000 tokens</span>
+              )}
+              {govPolicies && !govLoading && (
+                <div className="space-y-2 rounded border border-hairline bg-paper p-3">
+                  {govPolicies.policies.length === 0 ? (
+                    <p className="text-[11px] text-faint italic">
+                      Sin políticas registradas en `gov/policies` (vacío honesto).
+                    </p>
+                  ) : (
+                    govPolicies.policies.map((p) => (
+                      <div key={p.key} className="flex flex-col gap-0.5 text-xs">
+                        <span className="font-mono font-medium text-ink">{p.key}</span>
+                        <span className="truncate font-mono text-[10px] text-dim">
+                          {JSON.stringify(p.payload)?.slice(0, 160) ?? ""}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>

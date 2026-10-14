@@ -19,6 +19,7 @@ export interface CanvasRuntimeProps {
  */
 
 import { useCanvasBridge } from "../../hooks/useCanvasBridge";
+import { ego } from "../../lib/ego";
 
 export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
   projectId = "default",
@@ -43,9 +44,31 @@ export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
     onSelectComponent?.(id);
   };
 
+  /**
+   * T14: además del bridge local, reenvía la acción al backend vía el gateway
+   * `memory` (namespace de eventos del workspace). Fire-and-forget honesto:
+   * si no hay bridge, la acción local ya se aplicó y nada se pierde.
+   */
+  const forwardActionToBackend = (
+    componentId: string,
+    actionId: string,
+    payload?: Record<string, unknown>
+  ) => {
+    void ego()
+      .memory("put", [
+        {
+          namespace: `projects/${projectId}/workspace/canvas-events`,
+          key: `${componentId}:${actionId}:${Date.now()}`,
+          payload: { componentId, actionId, payload: payload ?? {} },
+        },
+      ])
+      .catch(() => {});
+  };
+
   const handleAction = (actionId: string, payload?: Record<string, unknown>) => {
     if (selectedId) {
       dispatchAction(selectedId, actionId, payload);
+      forwardActionToBackend(selectedId, actionId, payload);
     }
     onAction?.(actionId, payload);
   };
@@ -55,6 +78,7 @@ export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
   // moría en local). Viaja estructurado al bridge, no solo string plano.
   const handleFormSubmit = (formId: string, actionId: string, values: Record<string, unknown>) => {
     dispatchAction(formId, actionId, values);
+    forwardActionToBackend(formId, actionId, values);
     onAction?.(actionId, { formId, ...values });
   };
 

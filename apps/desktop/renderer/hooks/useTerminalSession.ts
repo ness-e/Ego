@@ -5,6 +5,7 @@ import {
   type TerminalSessionSnapshot,
   type TerminalSessionStatus,
 } from "@ego/ui-runtime";
+import { ego } from "../lib/ego";
 
 export interface UseTerminalSessionOptions {
   store?: TerminalSessionStore;
@@ -85,17 +86,53 @@ export function useTerminalSession(
     };
   }, [sessionId, store]);
 
+  // T14: eventos PTY del backend (`ipc.event` con kind `terminal.*`, main.ts)
+  // para sesiones vivas vía `ipc.terminal.*`. Sin bridge: no-op honesto.
+  useEffect(() => {
+    if (!sessionId) return;
+    const sid = sessionId;
+    const unsubscribe = ego().onEvent?.((event: unknown) => {
+      if (typeof event !== "object" || event === null) return;
+      const e = event as Record<string, unknown>;
+      if (typeof e.kind !== "string" || !e.kind.startsWith("terminal.")) return;
+      if (e.sessionId !== sid) return;
+      if (e.kind === "terminal.output" && typeof e.chunk === "string") {
+        setOutput((prev) => prev + (e.chunk as string));
+      } else if (e.kind === "terminal.exited") {
+        const code = typeof e.exitCode === "number" ? e.exitCode : 0;
+        setStatus("exited");
+        setExitCode(code);
+      } else if (e.kind === "terminal.killed") {
+        setStatus("exited");
+        setExitCode(null);
+      }
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [sessionId]);
+
   const writeStdin = useCallback(
     (data: string) => {
       if (!sessionIdRef.current) return false;
-      return store.writeStdin(sessionIdRef.current, data);
+      const sid = sessionIdRef.current;
+      // T14: además del store local, reenviar al PTY real vía `terminal.stdin`.
+      void ego()
+        .terminal?.stdin?.({ sessionId: sid, data })
+        .catch(() => {});
+      return store.writeStdin(sid, data);
     },
     [store]
   );
 
   const close = useCallback(() => {
     if (!sessionIdRef.current) return;
-    store.closeSession(sessionIdRef.current);
+    const sid = sessionIdRef.current;
+    // T14: matar el PTY real además de cerrar la vista local.
+    void ego()
+      .terminal?.kill?.({ sessionId: sid })
+      .catch(() => {});
+    store.closeSession(sid);
   }, [store]);
 
   const clear = useCallback(() => {

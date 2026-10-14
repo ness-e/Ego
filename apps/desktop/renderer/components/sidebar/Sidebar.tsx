@@ -12,9 +12,9 @@ import {
   HardDrive,
 } from "@phosphor-icons/react";
 import { McpManagerModal } from "../mcp/McpManagerModal.js";
-import { SessionPicker } from "../SessionPicker.js";
+import { SessionPicker, type SessionItem } from "../SessionPicker.js";
 import { useUiStore } from "../ui-kit/store.js";
-import { ego, type SubEgoDetailInfo, type ProjectInfo } from "../../lib/ego.js";
+import { ego, type SubEgoDetailInfo, type ProjectInfo, type SessionSummary } from "../../lib/ego.js";
 import { OPEN_SETTINGS_EVENT } from "../omnibar.js";
 import { requestOpenOmnibar } from "../omnibar.js";
 import { SettingsModal } from "./SettingsModal.js";
@@ -34,6 +34,22 @@ function rosterInitials(name: string): string {
   const words = name.trim().split(/\s+/);
   if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
+}
+
+/**
+ * T14: mapea un `SessionSummary` del puente `sessions.list` (T13) al
+ * `SessionItem` del picker. Sin `sessionId` válido → null (vacío honesto).
+ */
+function toSessionItem(s: SessionSummary): SessionItem | null {
+  if (!s || typeof s.sessionId !== "string" || s.sessionId.length === 0) return null;
+  const turnCount = typeof s.turnCount === "number" && Number.isFinite(s.turnCount) ? s.turnCount : 0;
+  return {
+    id: s.sessionId,
+    title: s.sessionId.length > 24 ? `${s.sessionId.slice(0, 24)}…` : s.sessionId,
+    preview: turnCount === 1 ? "1 turno" : `${turnCount} turnos`,
+    subEgoId: typeof s.projectScope === "string" ? s.projectScope : "",
+    updatedAt: typeof s.lastTimestamp === "number" ? s.lastTimestamp : Date.now(),
+  };
 }
 
 /**
@@ -142,6 +158,30 @@ export function Sidebar({
   const sessionPickerOpen = useUiStore((s) => s.sessionPickerOpen);
   const activeSessionId = useUiStore((s) => s.activeSessionId);
 
+  // T14: sesiones reales de `sessions.list` (puente T13) al picker.
+  // Sin bridge o ante error: vacío honesto (el picker ya lo muestra).
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void ego()
+      .sessions?.list?.()
+      .then((res) => {
+        if (cancelled || !res || typeof res !== "object") return;
+        const list = (res as { sessions?: unknown }).sessions;
+        if (!Array.isArray(list)) return;
+        const items: SessionItem[] = [];
+        for (const s of list) {
+          const mapped = toSessionItem(s as SessionSummary);
+          if (mapped) items.push(mapped);
+        }
+        setSessions(items);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleSelectProject = useCallback(
     async (id: string) => {
       onSelectProject(id);
@@ -238,6 +278,7 @@ export function Sidebar({
         <SessionPicker
           isOpen={sessionPickerOpen}
           activeSessionId={activeSessionId}
+          sessions={sessions}
           onClose={() => useUiStore.getState().closeSessionPicker()}
           onResumeSession={(id) => useUiStore.getState().setActiveSessionId(id)}
         />
@@ -467,6 +508,7 @@ export function Sidebar({
       <SessionPicker
         isOpen={sessionPickerOpen}
         activeSessionId={activeSessionId}
+        sessions={sessions}
         onClose={() => useUiStore.getState().closeSessionPicker()}
         onResumeSession={(id) => useUiStore.getState().setActiveSessionId(id)}
       />

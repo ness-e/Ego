@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TerminalWindow, Palette } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Omnibar } from "../components/omnibar";
@@ -90,6 +90,43 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // T14: restore del proyecto activo + sincronía del dominio con el backend
+    // (puentes T13). Sin bridge o ante error: se conservan los defaults locales.
+    let cancelled = false;
+    ego()
+      .projects.getActive()
+      .then((p) => {
+        if (!cancelled && p && typeof (p as { id?: unknown }).id === "string") {
+          setActiveProject((p as { id: string }).id);
+        }
+      })
+      .catch(() => {});
+    void ego()
+      .domains?.switch?.("engineering")
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSelectProject = useCallback((p: string) => {
+    // T14: persistir el cambio (Sidebar también lo persiste; doble llamada inocua).
+    setActiveProject(p);
+    void ego()
+      .projects.select(p)
+      .catch(() => {});
+  }, []);
+
+  const handleSelectDomain = useCallback((d: string) => {
+    // T14: DomainSelector → `ego().domains.switch(d)` (puente T13).
+    setActiveDomainId(d);
+    setActiveWorkspaceTab("domains");
+    void ego()
+      .domains?.switch?.(d)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     // Al abrir Ego: si es el primer inicio del día, abrir en Daily State (COUC-06).
     // Si no, restaurar última pestaña ("canvas" por defecto).
     const ego = window.ego;
@@ -164,7 +201,7 @@ export function App() {
           >
             <Sidebar
               activeProject={activeProject}
-              onSelectProject={(p) => setActiveProject(p)}
+              onSelectProject={handleSelectProject}
               activeSubEgo={activeSubEgo}
               onSelectSubEgo={(e) => setActiveSubEgo(e)}
               onNewSession={handleNewSession}
@@ -199,10 +236,7 @@ export function App() {
                 <DomainSelector
                   domains={CANONICAL_DOMAINS}
                   activeDomainId={activeDomainId}
-                  onSelectDomain={(d) => {
-                    setActiveDomainId(d);
-                    setActiveWorkspaceTab("domains");
-                  }}
+                  onSelectDomain={handleSelectDomain}
                 />
               </div>
               <div className="flex items-center gap-3">
