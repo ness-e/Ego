@@ -45,6 +45,14 @@ describe("@ego/desktop — SEC-01 sandboxing y context isolation", () => {
     expect(html).toMatch(/frame-ancestors 'none'/);
   });
 
+  it("main aplica CSP estricta vía onHeadersReceived (R13/SEC-01)", () => {
+    const main = read("src/main.ts");
+    expect(main).toMatch(/onHeadersReceived/);
+    expect(main).toMatch(/Content-Security-Policy/);
+    expect(main).toMatch(/object-src 'none'/);
+    expect(main).toMatch(/frame-ancestors 'none'/);
+  });
+
   it("renderer no importa APIs Node/VantaDB/Electron directas", () => {
     const bridge = read("renderer/lib/ego.ts");
     expect(bridge).not.toMatch(/require\s*\(/);

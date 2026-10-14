@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage, session } from "electron";
 import { join } from "node:path";
 import { stat } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -1791,6 +1791,31 @@ export async function createWindow(): Promise<void> {
   }
 
   windowStateManager.trackWindow(win);
+
+  // R13/SEC-01 — CSP estricta vía cabeceras (defensa en profundidad sobre la
+  // meta CSP de `renderer/index.html`; `sandbox:true` ya mitiga el riesgo base).
+  // Permite el dev-server Vite local (http+ws en 127.0.0.1:5173); en producción
+  // empaquetada solo rige 'self' + data:/blob: para assets.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' http://127.0.0.1:5173",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self' http://127.0.0.1:5173 ws://127.0.0.1:5173",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; ");
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [csp],
+      },
+    });
+  });
 
   // Retransmitir eventos hacia Chromium Renderer (Activity Widget, Observabilidad)
   eventBus.onAny((event) => {
