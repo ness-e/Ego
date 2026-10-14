@@ -235,7 +235,7 @@ export function createDefaultCharacterProfile(
   const profile: CharacterProfile = {
     id: `char_${slug || "default"}`,
     name: `${subEgoId} Avatar`,
-    baseForm: "delta-core",
+    baseForm: "quantum-monolith",
     palette,
     defaultEye: "pill",
     defaultMouth: "flat",

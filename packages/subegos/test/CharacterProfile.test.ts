@@ -129,7 +129,7 @@ describe("CharacterProfile — Contrato de Identidad Visual y Rasgos Anatómicos
       const profile = createDefaultCharacterProfile("ego.dev-coder", "engineering");
       expect(profile.id).toBe("char_dev-coder");
       expect(profile.palette.primary).toBe("#00E5FF");
-      expect(profile.baseForm).toBe("delta-core");
+      expect(profile.baseForm).toBe("quantum-monolith");
       expect(profile.traits[0].kind).toBe("aura-field");
     });
 
