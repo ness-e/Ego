@@ -607,7 +607,7 @@
     "T21": {
       "state": "COMPLETED",
       "updatedAt": "2026-10-15T07:30:00.000Z",
-      "evidence": "Pool multi-key con rotación y cooldown. Security 80t + models 60t + desktop 180t.",
+      "evidence": "Pool multi-key con rotación y cooldown. Security 80t + models 60t + desktop 180t. Hotfix 779391e: backend degradado obf: sin safeStorage (verificado en vivo: save OK + chat real).",
       "commitSha": "b87d8a3"
     },
     "T23": {
