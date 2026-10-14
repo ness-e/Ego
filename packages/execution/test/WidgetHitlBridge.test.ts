@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WidgetHitlBridge } from '../src/WidgetHitlBridge.js';
+import { computeActionIdentity } from '../src/ApprovalEngine.js';
 import { PendingApproval } from '../src/types.js';
 
 describe('WidgetHitlBridge (WIDG-04 / COUC-01)', () => {
@@ -80,5 +81,36 @@ describe('WidgetHitlBridge (WIDG-04 / COUC-01)', () => {
       resolvedBy: 'user-keyboard-shortcut',
     });
     expect(bridge.isPresentedInWidget('appr-1')).toBe(false);
+  });
+
+  it('adjunta ActionIdentity (digest SHA-256 recomputado) a la presentación (T02/R10b)', async () => {
+    const presentSpy = vi.fn();
+    bridge = new WidgetHitlBridge(mockEngine, {
+      ackTimeoutMs: 60,
+      onPresent: presentSpy,
+    });
+
+    // Nota: presentApproval solo se resuelve en timeout (el path ACK no
+    // resuelve la promesa — comportamiento heredado, fuera de scope T02);
+    // se aserta síncrono como el test de ACK existente.
+    void bridge.presentApproval(sampleApproval);
+    bridge.acknowledgePresentation('appr-1');
+
+    expect(presentSpy).toHaveBeenCalledTimes(1);
+    const pres = presentSpy.mock.calls[0][0];
+    const expected = computeActionIdentity({
+      sessionId: 'ses-1',
+      subEgoId: 'ego.developer',
+      toolName: 'git_commit',
+      callId: 'call-1',
+      arguments: { message: 'feat: add task engine' },
+    });
+    expect(pres.inputDigest).toBe(expected.inputDigest);
+    expect(pres.inputDigest).toMatch(/^[0-9a-f]{64}$/);
+    expect(pres.action).toMatchObject({
+      sessionId: 'ses-1',
+      toolName: 'git_commit',
+      inputDigest: expected.inputDigest,
+    });
   });
 });

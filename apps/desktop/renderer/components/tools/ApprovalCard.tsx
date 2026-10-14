@@ -33,6 +33,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
     JSON.stringify(request.arguments, null, 2)
   );
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [digestError, setDigestError] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,6 +74,16 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setJsonError(null);
+    setDigestError(null);
+
+    // R10b: verificar identidad antes de aprobar — sin digest no hay aprobación.
+    if (!request.action?.inputDigest) {
+      setDigestError(
+        "Falta el digest de identidad (R10b): aprobación bloqueada por seguridad."
+      );
+      setIsSubmitting(false);
+      return;
+    }
 
     let finalModifiedArgs: Record<string, unknown> | undefined = undefined;
 
@@ -240,6 +251,11 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
               className="w-full rounded-md bg-paper border border-hairline px-2.5 py-1 text-xs text-ink placeholder:text-dim focus:outline-none"
             />
           </div>
+        )}
+
+        {/* Error de identidad R10b (visible siempre, no solo en edición) */}
+        {digestError && (
+          <p className="mt-2 text-[11px] text-rose-400 font-mono">{digestError}</p>
         )}
       </div>
 

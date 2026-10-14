@@ -8,7 +8,7 @@ import {
   ComposerPrimitive,
 } from "@assistant-ui/react";
 import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
-import { ego, RecallBadgeInfo, PendingApprovalInfo } from "../lib/ego";
+import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
 import { ApprovalCard } from "./tools/ApprovalCard";
 import { CharacterBadge } from "./character/CharacterBadge.js";
 import { useCanvasBridge } from "../hooks/useCanvasBridge";
@@ -67,6 +67,94 @@ interface ActiveChatError {
 let n = 0;
 const nid = () => `m${++n}`;
 
+type ChatDeltaChunk = {
+  type?: string;
+  delta?: string;
+  text?: string;
+  callId?: string;
+  toolName?: string;
+  arguments?: unknown;
+  success?: boolean;
+  output?: unknown;
+  error?: unknown;
+};
+
+type ToolActivity = {
+  kind: "tool_call" | "tool_result";
+  callId?: string;
+  toolName: string;
+  detail: string;
+};
+
+function summarizeArgs(args: unknown): string {
+  try {
+    const s = JSON.stringify(args);
+    return s.length > 120 ? `${s.slice(0, 117)}…` : s;
+  } catch {
+    return "";
+  }
+}
+
+/** Convierte un chunk/evento de tool en actividad pintable; null si no es tool. */
+function toToolActivity(chunk: ChatDeltaChunk): ToolActivity | null {
+  if (chunk.type === "tool_call" && chunk.toolName) {
+    return {
+      kind: "tool_call",
+      callId: chunk.callId,
+      toolName: chunk.toolName,
+      detail: summarizeArgs(chunk.arguments),
+    };
+  }
+  if (chunk.type === "tool_result" && chunk.toolName) {
+    const err = typeof chunk.error === "string" ? chunk.error : "";
+    return {
+      kind: "tool_result",
+      callId: chunk.callId,
+      toolName: chunk.toolName,
+      detail: err || (chunk.success === false ? "falló" : "ok"),
+    };
+  }
+  return null;
+}
+
+const KEYED_PROVIDERS: readonly string[] = ["openai", "anthropic", "google", "deepseek"];
+
+/**
+ * Bloqueo mock (decisión owner): sin keys del proveedor activo no hay
+ * respuesta simulada — se retorna el mensaje de error BYOK explícito.
+ * Retorna null cuando el turno puede proceder.
+ */
+async function getByokBlockReason(): Promise<string | null> {
+  let cfg: ModelConfigInfo;
+  try {
+    cfg = await ego().settings.getModelConfig();
+  } catch {
+    return null; // settings no disponible: no bloquear
+  }
+  if (!cfg || typeof cfg.activeProvider !== "string") return null;
+  const provider = cfg.activeProvider;
+  if (provider === "mock") {
+    return (
+      `Chat bloqueado: el proveedor activo es "mock" y las respuestas simuladas están ` +
+      `bloqueadas por decisión del owner. Configurá tu key BYOK en Ajustes para usar el ` +
+      `backend real (sin keys no se genera texto).`
+    );
+  }
+  if (KEYED_PROVIDERS.includes(provider)) {
+    const providerKey = (cfg as unknown as Record<string, unknown>)[`${provider}Key`];
+    const hasKey = [providerKey, cfg.apiKey].some(
+      (k) => typeof k === "string" && k.trim().length > 0
+    );
+    if (!hasKey) {
+      return (
+        `Chat bloqueado: sin clave del proveedor activo "${provider}". Configurá tu key ` +
+        `BYOK en Ajustes — las respuestas mock están bloqueadas y no se genera texto simulado.`
+      );
+    }
+  }
+  return null;
+}
+
 export interface EgoChatProps {
   projectId?: string;
   subEgoId?: string;
@@ -77,6 +165,9 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
   const [latestRecall, setLatestRecall] = useState<RecallBadgeInfo | null>(null);
   const [activeError, setActiveError] = useState<ActiveChatError | null>(null);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [toolEvents, setToolEvents] = useState<ToolActivity[]>([]);
+  const streamTargetRef = useRef<string | null>(null);
   const currentPromptRef = useRef<string>("");
 
   const { focusedContext, onAction } = useCanvasBridge();
@@ -103,6 +194,9 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
         modifiedArguments?: Record<string, unknown>;
       }
     ) => {
+      // HITL unificado (T02): canal ÚNICO `ipc.approval.resolve` para widget y
+      // card, misma firma (motivo/args opcionales). `ipc.gov.approve` queda
+      // DEPRECATED (se mantiene en main/preload por compatibilidad; no usar).
       await ego().resolveApproval({
         approvalId,
         approved: decision.approved,
@@ -130,17 +224,101 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
     };
   }, []);
 
+  // Inserta el mensaje assistant del turno en curso si falta, o le anexa texto.
+  // Los deltas llegan antes del invoke final: el turno se pinta incremental.
+  const appendStreamText = useCallback((id: string, text: string) => {
+    if (!text) return;
+    setMessages((prev) => {
+      const found = prev.some((x) => x.id === id);
+      if (found) {
+        return prev.map((x) =>
+          x.id === id
+            ? {
+                ...x,
+                content: [
+                  {
+                    type: "text" as const,
+                    text: x.content.map((p) => p.text).join("") + text,
+                  },
+                ],
+              }
+            : x
+        );
+      }
+      return [
+        ...prev,
+        { id, role: "assistant" as const, content: [{ type: "text" as const, text }] },
+      ];
+    });
+  }, []);
+
+  // Streaming real (T02): el main ya emite `ipc.chat.delta`
+  // (text/tool_call/tool_result); acá se suscribe. Sin suscripción no hay stream.
+  useEffect(() => {
+    const unsubs: Array<() => void> = [];
+    const bridge = ego();
+
+    if (bridge.onChatDelta) {
+      unsubs.push(
+        bridge.onChatDelta((chunk: { type: string; delta?: string }) => {
+          const target = streamTargetRef.current;
+          if (!target) return;
+          const c = chunk as ChatDeltaChunk;
+          const tool = toToolActivity(c);
+          if (tool) {
+            setToolEvents((prev) => [...prev, tool]);
+            return;
+          }
+          appendStreamText(target, c.delta ?? c.text ?? "");
+        })
+      );
+    }
+    if (bridge.onRecallStatus) {
+      unsubs.push(bridge.onRecallStatus((status) => setLatestRecall(status)));
+    }
+    if (bridge.onEvent) {
+      unsubs.push(
+        bridge.onEvent((event: unknown) => {
+          if (!event || typeof event !== "object") return;
+          const tool = toToolActivity(event as ChatDeltaChunk);
+          if (tool) setToolEvents((prev) => [...prev, tool]);
+        })
+      );
+    }
+    return () => {
+      streamTargetRef.current = null;
+      unsubs.forEach((u) => u());
+    };
+  }, [appendStreamText]);
+
   const executeTurn = useCallback(async (promptText: string) => {
     if (!promptText.trim()) return;
     currentPromptRef.current = promptText;
     setActiveError(null);
+    setToolEvents([]);
+
+    const byokBlock = await getByokBlockReason();
+    if (byokBlock) {
+      const [u, a] = [nid(), nid()];
+      setMessages((prev) => [
+        ...prev,
+        { id: u, role: "user", content: [{ type: "text", text: promptText }] },
+        { id: a, role: "assistant", isError: true, content: [{ type: "text", text: byokBlock }] },
+      ]);
+      setActiveError({ message: byokBlock, prompt: promptText, timestamp: Date.now() });
+      return;
+    }
 
     const [u, a] = [nid(), nid()];
     setMessages((prev) => [
       ...prev,
       { id: u, role: "user", content: [{ type: "text", text: promptText }] },
-      { id: a, role: "assistant", content: [{ type: "text", text: "Procesando intención y consultando VantaDB…" }] },
     ]);
+    // Sin placeholder "Procesando…": el banner skeleton con altura reservada
+    // ocupa su lugar hasta el primer delta (anti layout-shift); el mensaje
+    // assistant se inserta lazy con el primer chunk o el texto final.
+    streamTargetRef.current = a;
+    setIsStreaming(true);
 
     try {
       const streamRes = await ego().llmStream({ prompt: promptText, projectId, subEgoId });
@@ -154,17 +332,15 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
 
       const finalReply = badgePrefix + streamRes.text;
 
-      setMessages((prev) =>
-        prev.map((x) =>
-          x.id === a
-            ? {
-                ...x,
-                content: [{ type: "text", text: finalReply }],
-                recall: streamRes.recallStatus,
-              }
-            : x
-        )
-      );
+      setMessages((prev) => {
+        const body: { content: Msg["content"]; recall: RecallBadgeInfo } = {
+          content: [{ type: "text", text: finalReply }],
+          recall: streamRes.recallStatus,
+        };
+        return prev.some((x) => x.id === a)
+          ? prev.map((x) => (x.id === a ? { ...x, ...body } : x))
+          : [...prev, { id: a, role: "assistant" as const, ...body }];
+      });
     } catch (err) {
       const errorStr = err instanceof Error ? err.message : String(err);
       setActiveError({
@@ -173,24 +349,29 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
         timestamp: Date.now(),
       });
 
-      setMessages((prev) =>
-        prev.map((x) =>
-          x.id === a
-            ? {
-                ...x,
-                isError: true,
-                content: [{ type: "text", text: `⚠️ Error en ejecución de turno: ${errorStr}` }],
-              }
-            : x
-        )
-      );
+      setMessages((prev) => {
+        const body: { isError: true; content: Msg["content"] } = {
+          isError: true,
+          content: [{ type: "text", text: `⚠️ Error en ejecución de turno: ${errorStr}` }],
+        };
+        return prev.some((x) => x.id === a)
+          ? prev.map((x) => (x.id === a ? { ...x, ...body } : x))
+          : [...prev, { id: a, role: "assistant" as const, ...body }];
+      });
+    } finally {
+      if (streamTargetRef.current === a) streamTargetRef.current = null;
+      setIsStreaming(false);
     }
-  }, [projectId, subEgoId]);
+  }, [projectId, subEgoId, appendStreamText]);
 
   // Sincronización reactiva: acciones disparadas en el Canvas alimentan el Chat (CANV-03 / COUC-07)
   useEffect(() => {
     const unsub = onAction((act) => {
-      executeTurn(`[Acción de Canvas en ${act.componentId}]: ${act.actionId}`);
+      // T04: el evento ya viaja estructurado (payload ?? {} en CanvasBridge);
+      // se adjunta serializado para que el turno conserve la carga útil.
+      const payload = act.payload ?? {};
+      const suffix = Object.keys(payload).length > 0 ? ` ${JSON.stringify(payload)}` : "";
+      void executeTurn(`[Acción de Canvas en ${act.componentId}]: ${act.actionId}${suffix}`);
     });
     return () => {
       unsub();
@@ -238,6 +419,38 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
         </ThreadPrimitive.Viewport>
+
+        {/* Skeleton de streaming con altura reservada (anti layout-shift, T02) */}
+        {isStreaming && (
+          <div
+            data-testid="chat-streaming-skeleton"
+            aria-busy="true"
+            aria-label="Generando respuesta"
+            className="mx-3 my-2 min-h-[56px] rounded-card border border-hairline bg-panel px-3.5 py-2.5"
+          >
+            <div className="h-2.5 w-2/3 animate-pulse rounded bg-hairline" />
+            <div className="mt-2 h-2.5 w-1/2 animate-pulse rounded bg-hairline" />
+          </div>
+        )}
+
+        {/* Actividad de tools inline (tool_call/tool_result del stream, T02) */}
+        {toolEvents.length > 0 && (
+          <div
+            data-testid="chat-tool-activity"
+            aria-live="polite"
+            className="max-h-24 overflow-y-auto border-t border-hairline px-3 py-1.5 font-mono text-[11px] text-dim"
+          >
+            {toolEvents.map((t, i) => (
+              <div key={`${t.callId ?? t.toolName}-${i}`} className="truncate">
+                {t.kind === "tool_call"
+                  ? `🔧 ${t.toolName}${t.detail ? ` ${t.detail}` : ""}…`
+                  : t.detail === "ok"
+                    ? `✓ ${t.toolName} ok`
+                    : `✗ ${t.toolName}: ${t.detail}`}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Tarjeta interactiva de Error de Turno con Reintento (CORE-14) */}
         {activeError && (

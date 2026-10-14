@@ -1,5 +1,5 @@
-import { ApprovalEngine } from './ApprovalEngine.js';
-import { PendingApproval, ApprovalDecision } from './types.js';
+import { ApprovalEngine, computeActionIdentity } from './ApprovalEngine.js';
+import { PendingApproval, ApprovalDecision, ActionIdentity } from './types.js';
 
 export interface WidgetPresentationRequest {
   approvalId: string;
@@ -7,6 +7,13 @@ export interface WidgetPresentationRequest {
   riskLevel: string;
   arguments: Record<string, unknown>;
   createdAt: number;
+  /**
+   * R10b: identidad causal + digest SHA-256 recomputado server-side con
+   * `ApprovalEngine.computeActionIdentity`. La UI lo muestra y lo exige
+   * antes de aprobar (ver `ApprovalCard`: bloquea sin `inputDigest`).
+   */
+  action: ActionIdentity;
+  inputDigest: string;
 }
 
 export interface WidgetHitlBridgeOptions {
@@ -34,12 +41,25 @@ export class WidgetHitlBridge {
   public async presentApproval(approval: PendingApproval): Promise<boolean> {
     const { approvalId } = approval;
 
+    // R10b: adjuntar la ActionIdentity recomputada con
+    // `ApprovalEngine.computeActionIdentity` (no se confía en el objeto
+    // recibido: el digest se deriva de toolName + argumentos canónicos).
+    const identity = computeActionIdentity({
+      sessionId: approval.action.sessionId,
+      subEgoId: approval.action.subEgoId,
+      toolName: approval.toolName,
+      callId: approval.action.callId,
+      arguments: approval.arguments,
+    });
+
     const presentation: WidgetPresentationRequest = {
       approvalId,
       toolName: approval.toolName,
       riskLevel: approval.riskLevel,
       arguments: approval.arguments,
       createdAt: Date.now(),
+      action: identity,
+      inputDigest: identity.inputDigest,
     };
 
     // Emitir solicitud al widget
