@@ -7,6 +7,23 @@ export interface FloatingWindowState {
   attentionState: 'hidden' | 'compact' | 'expanded' | 'alert' | 'hitl_approval';
 }
 
+/**
+ * Estado agregado del System Tray (T03, COUC-19 alcance mínimo): verde idle,
+ * azul pensando, rojo HITL. El main deriva el mismo semáforo del
+ * BackgroundEngine; este helper mapea la ventana flotante al mismo código.
+ */
+export type TrayStatus = 'idle' | 'thinking' | 'hitl';
+
+export function toTrayStatus(state: FloatingWindowState): TrayStatus {
+  if (state.attentionState === 'alert' || state.attentionState === 'hitl_approval') {
+    return 'hitl';
+  }
+  if (state.attentionState === 'compact' || state.attentionState === 'expanded') {
+    return 'thinking';
+  }
+  return 'idle';
+}
+
 export class FloatingWindowManager {
   private prototype: FloatingWindowPrototype;
   private state: FloatingWindowState;

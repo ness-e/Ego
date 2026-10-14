@@ -447,3 +447,58 @@ export const DailyListSnapshotsSchema = z.number().int().positive().max(500).opt
 
 export type DailyListSnapshotsRequest = z.infer<typeof DailyListSnapshotsSchema>;
 
+/**
+ * Esquemas T03: tareas en background + terminal viva (validación Zod en main,
+ * fail-closed: sin schema válido → rechazado antes de tocar motores/procesos).
+ */
+export const TasksListSchema = z
+  .object({
+    status: z
+      .array(
+        z.enum([
+          "submitted",
+          "queued",
+          "running",
+          "paused",
+          "completed",
+          "failed",
+          "cancelled",
+        ])
+      )
+      .optional(),
+    subEgoId: z.string().min(1).max(128).optional(),
+    priority: z.array(z.enum(["low", "normal", "high", "critical"])).optional(),
+    limit: z.number().int().positive().max(500).optional(),
+  })
+  .optional();
+
+export type TasksListRequest = z.infer<typeof TasksListSchema>;
+
+export const TasksCancelSchema = z.object({
+  taskId: z.string().min(1).max(256),
+  reason: z.string().max(500).optional(),
+});
+
+export type TasksCancelRequest = z.infer<typeof TasksCancelSchema>;
+
+export const TerminalSpawnSchema = z.object({
+  command: z.string().min(1).max(8000),
+  cwd: z.string().min(1).max(1024).optional(),
+  timeoutMs: z.number().int().positive().max(300_000).optional(),
+});
+
+export type TerminalSpawnRequest = z.infer<typeof TerminalSpawnSchema>;
+
+export const TerminalStdinSchema = z.object({
+  sessionId: z.string().min(1).max(128),
+  data: z.string().max(65_536),
+});
+
+export type TerminalStdinRequest = z.infer<typeof TerminalStdinSchema>;
+
+export const TerminalKillSchema = z.object({
+  sessionId: z.string().min(1).max(128),
+});
+
+export type TerminalKillRequest = z.infer<typeof TerminalKillSchema>;
+

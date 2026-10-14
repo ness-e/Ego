@@ -1,6 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage } from "electron";
 import { join } from "node:path";
 import { stat } from "node:fs/promises";
+import { spawn, type ChildProcess } from "node:child_process";
+import { deflateSync } from "node:zlib";
 import {
   EgoMemoryAdapter,
   EgoMemoryLifecycle,
@@ -8,7 +10,7 @@ import {
   type EgoRecallStatus,
 } from "@ego/memory";
 import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL } from "@ego/models";
-import { ToolRegistry, registerNativeTools, type ToolExecutionContext } from "@ego/tools";
+import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext } from "@ego/tools";
 import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
 import { ToolExecutionLoop, type LoopExecutionResult } from "@ego/runtime";
@@ -70,6 +72,11 @@ import {
   KnowledgeImportSchema,
   DailyGetSnapshotSchema,
   DailyListSnapshotsSchema,
+  TasksListSchema,
+  TasksCancelSchema,
+  TerminalSpawnSchema,
+  TerminalStdinSchema,
+  TerminalKillSchema,
 } from "./ipc/schema.js";
 import {
   DomainRegistry,
@@ -101,6 +108,12 @@ import {
   DecisionsFeed,
 } from "@ego/dailystate";
 import { CrashRecoveryEngine, OpGate } from "@ego/recovery";
+import {
+  BackgroundEngine,
+  WorkerTaskPool,
+  ProactivityEngine,
+  TaskCheckpointManager,
+} from "@ego/tasks";
 import {
   CredentialManager,
   SyncSafeStorageBackend,
@@ -142,6 +155,269 @@ let goalPrioritizer: GoalPrioritizer;
 let decisionsFeed: DecisionsFeed;
 let win: BrowserWindow | null = null;
 let activeProjectId: string = "default";
+
+// T03: motores de tareas en background + terminal viva + tray mínimo.
+let backgroundEngine: BackgroundEngine;
+let workerTaskPool: WorkerTaskPool;
+let proactivityEngine: ProactivityEngine;
+let taskCheckpointManager: TaskCheckpointManager;
+let tray: Tray | null = null;
+type EgoTrayStatus = "idle" | "thinking" | "hitl";
+let trayStatus: EgoTrayStatus = "idle";
+
+/**
+ * Conjunto seguro documentado para tareas (R5 deny-by-default): solo estos
+ * `metadata.kind` ejecutan directo; cualquier otro queda `paused` y sale
+ * vía HITL (`resume()` tras aprobación en ApprovalCard/ActivityTray).
+ */
+const TASK_SAFE_KINDS = new Set(["indexing", "sync", "maintenance", "notification"]);
+
+interface TerminalSession {
+  id: string;
+  command: string;
+  cwd: string;
+  proc: ChildProcess;
+  startedAt: number;
+  timeoutTimer: NodeJS.Timeout;
+}
+
+const terminalSessions = new Map<string, TerminalSession>();
+const MAX_TERMINAL_SESSIONS = 8;
+const TERMINAL_DEFAULT_TIMEOUT_MS = 60_000;
+
+/**
+ * Denylist en el ingress IPC (R5, defensa en profundidad). Espejo intencional
+ * de `packages/tools/src/native/terminal/NativeTerminalTool.ts:10-17`: el
+ * guardrail fuerte vive en el tool + `PathValidator` + `requiresApproval`;
+ * este pre-chequeo evita siquiera spawnear lo letal desde el renderer
+ * (untrusted). La lista es bypasseable por naturaleza — nunca es la única
+ * defensa (decisión owner T03/R5).
+ */
+const TERMINAL_FORBIDDEN_PATTERNS = [
+  /rm\s+-rf\s+[\/\\]/i,
+  /rmdir\s+\/s\s+\/q\s+[a-zA-Z]:[\/\\]/i,
+  /format\s+[a-zA-Z]:/i,
+  /:(){ :|:& };:/,
+  /mkfs/i,
+  /dd\s+if=.*of=\/dev\/(sd|nvme|hd)/i,
+];
+
+/** Conjunto seguro documentado para `ipc.terminal.spawn` (R5 deny-by-default). */
+const TERMINAL_SAFE_COMMANDS = new Set([
+  "ls", "dir", "pwd", "echo", "cat", "type", "git", "pnpm", "node", "npm",
+]);
+
+/** Subcomandos de git de solo lectura permitidos en terminal viva. */
+const GIT_SAFE_SUBCOMMANDS = new Set([
+  "status", "diff", "log", "branch", "show", "rev-parse",
+]);
+
+function isTerminalCommandAllowed(command: string): boolean {
+  const tokens = command.trim().split(/\s+/);
+  const head =
+    (tokens[0] ?? "").split(/[\\/]/).pop()?.toLowerCase().replace(/\.exe$/, "") ?? "";
+  if (!TERMINAL_SAFE_COMMANDS.has(head)) return false;
+  if (head === "git") {
+    return GIT_SAFE_SUBCOMMANDS.has((tokens[1] ?? "").toLowerCase());
+  }
+  return true;
+}
+
+function pushTerminalOutput(sessionId: string, chunk: string): void {
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.event", {
+        kind: "terminal.output",
+        sessionId,
+        chunk: chunk.slice(0, 65_536),
+      });
+    }
+  } catch {
+    // noop: el push al renderer nunca tumba el main
+  }
+}
+
+function endTerminalSession(sessionId: string, exitCode: number): void {
+  const session = terminalSessions.get(sessionId);
+  if (!session) return;
+  terminalSessions.delete(sessionId);
+  try {
+    clearTimeout(session.timeoutTimer);
+  } catch {
+    // noop
+  }
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.event", { kind: "terminal.exited", sessionId, exitCode });
+    }
+  } catch {
+    // noop
+  }
+}
+
+/** R8: mata el proceso, limpia el timer y libera el slot en `finally`. */
+function killTerminalSession(sessionId: string, reason: string): boolean {
+  const session = terminalSessions.get(sessionId);
+  if (!session) return false;
+  try {
+    clearTimeout(session.timeoutTimer);
+    session.proc.kill("SIGTERM");
+    setTimeout(() => {
+      try {
+        session.proc.kill("SIGKILL");
+      } catch {
+        // noop: ya muerto
+      }
+    }, 1500);
+  } catch {
+    // noop: kill best-effort
+  } finally {
+    terminalSessions.delete(sessionId);
+  }
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.event", { kind: "terminal.killed", sessionId, reason });
+    }
+  } catch {
+    // noop
+  }
+  return true;
+}
+
+const TRAY_COLORS: Record<EgoTrayStatus, [number, number, number]> = {
+  idle: [52, 211, 153], // verde esmeralda
+  thinking: [56, 189, 248], // azul
+  hitl: [251, 113, 133], // rojo
+};
+
+let crcTable: Int32Array | null = null;
+
+function getCrcTable(): Int32Array {
+  if (!crcTable) {
+    crcTable = new Int32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) {
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      crcTable[n] = c;
+    }
+  }
+  return crcTable;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const typeBuf = Buffer.from(type, "ascii");
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const table = getCrcTable();
+  let crc = 0xffffffff;
+  for (const byte of Buffer.concat([typeBuf, data])) {
+    crc = table[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+  }
+  const crcBuf = Buffer.alloc(4);
+  crcBuf.writeUInt32BE((crc ^ 0xffffffff) >>> 0, 0);
+  return Buffer.concat([len, typeBuf, data, crcBuf]);
+}
+
+/** Icono 16×16 sólido generado en runtime (sin assets binarios nuevos). */
+function createTrayIcon(status: EgoTrayStatus): Electron.NativeImage {
+  const [r, g, b] = TRAY_COLORS[status];
+  const width = 16;
+  const height = 16;
+  const row = Buffer.alloc(1 + width * 4);
+  row[0] = 0; // filtro PNG: none
+  for (let x = 0; x < width; x++) {
+    row[1 + x * 4] = r;
+    row[1 + x * 4 + 1] = g;
+    row[1 + x * 4 + 2] = b;
+    row[1 + x * 4 + 3] = 255;
+  }
+  const raw = Buffer.alloc(row.length * height);
+  for (let y = 0; y < height; y++) row.copy(raw, y * row.length);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // color type RGBA
+  const png = Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(raw)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+  return nativeImage.createFromBuffer(png);
+}
+
+function trayTooltipFor(status: EgoTrayStatus): string {
+  if (status === "thinking") return "Ego — pensando…";
+  if (status === "hitl") return "Ego — requiere aprobación (HITL)";
+  return "Ego — inactivo";
+}
+
+/** Deriva verde/azul/rojo del estado real del engine (COUC-19 mínimo). */
+function refreshTrayStatus(): void {
+  let next: EgoTrayStatus = "idle";
+  try {
+    if (backgroundEngine) {
+      if (backgroundEngine.listTasks({ status: ["paused"] }).length > 0) {
+        next = "hitl";
+      } else if (backgroundEngine.getActiveCount() > 0) {
+        next = "thinking";
+      }
+    }
+  } catch {
+    // noop: el tray nunca tumba el main
+  }
+  trayStatus = next;
+  try {
+    if (tray && !tray.isDestroyed()) {
+      tray.setImage(createTrayIcon(next));
+      tray.setToolTip(trayTooltipFor(next));
+    }
+  } catch {
+    // noop
+  }
+}
+
+/** Tray mínimo útil: click restaura, menú Mostrar/Salir, tooltip de estado. */
+function ensureTray(): void {
+  if (tray) {
+    refreshTrayStatus();
+    return;
+  }
+  try {
+    tray = new Tray(createTrayIcon(trayStatus));
+    tray.setToolTip(trayTooltipFor(trayStatus));
+    const restore = (): void => {
+      try {
+        if (win && !win.isDestroyed()) {
+          if (win.isMinimized()) win.restore();
+          win.show();
+          win.focus();
+        }
+      } catch {
+        // noop
+      }
+    };
+    tray.on("click", restore);
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: "Mostrar Ego", click: restore },
+        { type: "separator" },
+        {
+          label: "Salir",
+          click: (): void => {
+            app.quit();
+          },
+        },
+      ])
+    );
+  } catch (err) {
+    console.warn("[Ego Desktop] Tray no disponible:", err);
+    tray = null;
+  }
+}
 
 export function getKnowledgeIndexer(): KnowledgeIndexer {
   return knowledgeIndexer;
@@ -229,6 +505,22 @@ export function getOpGate(): OpGate {
 
 export function getCrashRecoveryEngine(): CrashRecoveryEngine {
   return crashRecoveryEngine;
+}
+
+export function getBackgroundEngine(): BackgroundEngine {
+  return backgroundEngine;
+}
+
+export function getWorkerTaskPool(): WorkerTaskPool {
+  return workerTaskPool;
+}
+
+export function getProactivityEngine(): ProactivityEngine {
+  return proactivityEngine;
+}
+
+export function getTaskCheckpointManager(): TaskCheckpointManager {
+  return taskCheckpointManager;
 }
 
 export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapter): Promise<ProjectManifest> {
@@ -1318,6 +1610,57 @@ export async function createWindow(): Promise<void> {
   goalPrioritizer = new GoalPrioritizer({ eventBus });
   decisionsFeed = new DecisionsFeed(adapter, { eventBus });
 
+  // T03: Motores de tareas en background (Fase 07). @ego/tasks deja de ser
+  // un paquete huérfano: engine + pool + proactividad + checkpoints VantaDB.
+  taskCheckpointManager = new TaskCheckpointManager(adapter);
+  backgroundEngine = new BackgroundEngine({
+    maxConcurrent: 3,
+    checkpointProvider: {
+      saveCheckpoint: (taskId, state) =>
+        taskCheckpointManager
+          .saveCheckpoint(
+            taskId,
+            typeof state.step === "number" ? state.step : 0,
+            typeof state.stepName === "string"
+              ? state.stepName
+              : `step_${typeof state.step === "number" ? state.step : 0}`,
+            state
+          )
+          .then(() => undefined),
+      loadLatestCheckpoint: async (taskId) => {
+        const cp = await taskCheckpointManager.loadLatestCheckpoint(taskId);
+        return cp ? cp.state : null;
+      },
+    },
+    approvalPolicy: {
+      requiresApproval: (def) => {
+        const kind =
+          typeof def.metadata?.kind === "string" ? def.metadata.kind : "";
+        return !TASK_SAFE_KINDS.has(kind);
+      },
+      onApprovalRequired: (taskId, def) => {
+        eventBus?.emit(
+          "system.alert",
+          {
+            code: "TASK_APPROVAL_REQUIRED",
+            message: `Tarea '${def.title}' pausada esperando aprobación (R5 deny-by-default).`,
+            details: { taskId },
+          },
+          { source: "desktop.tasks", severity: "warn" }
+        );
+        refreshTrayStatus();
+      },
+    },
+    onTaskEvent: (event) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("ipc.event", { kind: event.type, task: event.task });
+      }
+      refreshTrayStatus();
+    },
+  });
+  workerTaskPool = new WorkerTaskPool();
+  proactivityEngine = new ProactivityEngine();
+
   // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers).
   // F1T2/F5T10: VantaDB solo guarda config saneada + `envRef`; los secretos se
   // rehidratan desde el Credential Manager (vault de sesión) o del blob `enc:`
@@ -1455,6 +1798,10 @@ export async function createWindow(): Promise<void> {
       win.webContents.send("ipc.event", event);
     }
   });
+
+  // T03: Tray mínimo útil (COUC-19 alcance mínimo). Best-effort: si el SO no
+  // lo soporta, la app sigue funcionando sin tray.
+  ensureTray();
 
   win.webContents.on("console-message", (_e, level, message, line, sourceId) => {
     console.log(`[Renderer Console] [L${level}] ${message} (${sourceId}:${line})`);
@@ -2671,6 +3018,148 @@ export async function createWindow(): Promise<void> {
     }
   });
 
+  // 9. Tareas en background + terminal viva (T03). Los pushes de progreso y
+  // salida viajan por `ipc.event` (canal push existente, 0 canales nuevos).
+  ipcMain.handle("ipc.tasks.list", async (_e, rawReq: unknown) => {
+    const parseResult = TasksListSchema.safeParse(rawReq ?? undefined);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    return { ok: true, tasks: backgroundEngine.listTasks(parseResult.data ?? {}) };
+  });
+
+  ipcMain.handle("ipc.tasks.cancel", async (_e, rawReq: unknown) => {
+    const parseResult = TasksCancelSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const { taskId, reason } = parseResult.data;
+    const cancelled = backgroundEngine.cancel(taskId, reason ?? "Cancelled by user");
+    if (!cancelled) {
+      return { ok: false, error: `Tarea '${taskId}' no encontrada o ya finalizada.` };
+    }
+    try {
+      await adapter.recordAudit("tasks", taskId, { action: "cancel", reason: reason ?? null }, "user");
+    } catch {
+      // noop: auditoría best-effort, el cancel ya se aplicó
+    }
+    refreshTrayStatus();
+    return { ok: true, taskId };
+  });
+
+  ipcMain.handle("ipc.terminal.spawn", async (_e, rawReq: unknown) => {
+    const parseResult = TerminalSpawnSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const { command, cwd, timeoutMs } = parseResult.data;
+    for (const pattern of TERMINAL_FORBIDDEN_PATTERNS) {
+      if (pattern.test(command)) {
+        return {
+          ok: false,
+          denied: true,
+          error: `Comando bloqueado por guardrail (R5 deny-by-default, patrón '${pattern}'). Vía de escape: HITL vía terminal_exec con aprobación.`,
+        };
+      }
+    }
+    if (!isTerminalCommandAllowed(command)) {
+      return {
+        ok: false,
+        denied: true,
+        error: `Comando fuera del conjunto seguro documentado (R5 deny-by-default: ${[...TERMINAL_SAFE_COMMANDS].join(", ")} + git de solo lectura). Vía de escape: HITL vía terminal_exec con aprobación.`,
+      };
+    }
+    if (terminalSessions.size >= MAX_TERMINAL_SESSIONS) {
+      return { ok: false, error: `Límite de sesiones de terminal alcanzado (${MAX_TERMINAL_SESSIONS}).` };
+    }
+    const workspace = process.env.EGO_WORKSPACE_PATH || process.cwd();
+    let executionCwd: string;
+    try {
+      executionCwd = cwd ? PathValidator.validatePath(cwd, workspace) : workspace;
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+    const sessionId = `term_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    const isWindows = process.platform === "win32";
+    const shell = isWindows ? "powershell.exe" : "/bin/bash";
+    const shellArgs = isWindows ? ["-NoProfile", "-Command", command] : ["-c", command];
+    try {
+      const proc = spawn(shell, shellArgs, { cwd: executionCwd, windowsHide: true });
+      const timeout = setTimeout(
+        () => {
+          killTerminalSession(sessionId, "timeout");
+        },
+        timeoutMs ?? TERMINAL_DEFAULT_TIMEOUT_MS
+      );
+      terminalSessions.set(sessionId, {
+        id: sessionId,
+        command,
+        cwd: executionCwd,
+        proc,
+        startedAt: Date.now(),
+        timeoutTimer: timeout,
+      });
+      proc.stdout?.on("data", (chunk) => {
+        pushTerminalOutput(sessionId, String(chunk));
+      });
+      proc.stderr?.on("data", (chunk) => {
+        pushTerminalOutput(sessionId, String(chunk));
+      });
+      proc.on("error", (err) => {
+        pushTerminalOutput(sessionId, `[ERROR: ${err.message}]`);
+        endTerminalSession(sessionId, 1);
+      });
+      proc.on("close", (exitCode) => {
+        endTerminalSession(sessionId, exitCode ?? 0);
+      });
+      return { ok: true, sessionId, cwd: executionCwd };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle("ipc.terminal.stdin", async (_e, rawReq: unknown) => {
+    const parseResult = TerminalStdinSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const session = terminalSessions.get(parseResult.data.sessionId);
+    if (!session) {
+      return { ok: false, error: `Sesión '${parseResult.data.sessionId}' no encontrada o ya finalizada.` };
+    }
+    try {
+      if (!session.proc.stdin || !session.proc.stdin.writable) {
+        return { ok: false, error: "stdin no disponible en esta sesión." };
+      }
+      session.proc.stdin.write(parseResult.data.data);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle("ipc.terminal.kill", async (_e, rawReq: unknown) => {
+    const parseResult = TerminalKillSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const killed = killTerminalSession(parseResult.data.sessionId, "user");
+    if (!killed) {
+      return { ok: false, error: `Sesión '${parseResult.data.sessionId}' no encontrada o ya finalizada.` };
+    }
+    try {
+      await adapter.recordAudit(
+        "terminal",
+        parseResult.data.sessionId,
+        { action: "kill", by: "user" },
+        "user"
+      );
+    } catch {
+      // noop: auditoría best-effort
+    }
+    return { ok: true, sessionId: parseResult.data.sessionId };
+  });
+
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)
   const isDev = !app.isPackaged && process.env.NODE_ENV !== "production";
   if (isDev && process.env.VITE_DEV_SERVER_URL) {
@@ -2750,6 +3239,21 @@ if (app && typeof app.whenReady === "function") {
     isQuittingCleanly = true;
     console.log("[Ego Desktop] Drenando operaciones activas antes de salir (OpGate)...");
     try {
+      // T03: cerrar sesiones de terminal + pool cooperativo antes de salir (R8).
+      try {
+        for (const sessionId of [...terminalSessions.keys()]) {
+          killTerminalSession(sessionId, "shutdown");
+        }
+        if (workerTaskPool) workerTaskPool.terminate();
+      } catch (termErr) {
+        console.warn("[Ego Desktop] Error al cerrar terminal/tasks:", termErr);
+      }
+      try {
+        if (tray && !tray.isDestroyed()) tray.destroy();
+      } catch {
+        // noop
+      }
+      tray = null;
       if (opGate) {
         const drainResult = await opGate.drain(3000);
         console.log(`[Ego Desktop] Drenado OpGate completado: drained=${drainResult.drained}, pendientes=${drainResult.remaining}`);
