@@ -604,6 +604,38 @@ export function encryptCredential(plainText: string): string {
 }
 
 /**
+ * Backend degradado con la misma semántica que `encryptCredential`: intenta
+ * safeStorage real y, si no está disponible (fail-closed del backend),
+ * ofusca `obf:` reversible en memoria. Existe porque `SyncSafeStorageBackend`
+ * lanza sin cifrado del SO y el pool de T21 lo usa en el path de guardado
+ * (BUGFIX 2026-10-15: sin esto, `saveModelConfig` moría en `setProviderKeys`).
+ * Nunca texto plano; `decrypt` acepta `obf:` y `enc:`.
+ */
+class DegradedObfBackend {
+  isAvailable(): boolean {
+    try {
+      return mainProcessCryptoBackend.isAvailable();
+    } catch {
+      return false;
+    }
+  }
+  encrypt(plainText: string): string {
+    try {
+      return mainProcessCryptoBackend.encrypt(plainText);
+    } catch {
+      return `obf:${Buffer.from(plainText, "utf-8").toString("base64")}`;
+    }
+  }
+  decrypt(encryptedText: string): string {
+    try {
+      return mainProcessCryptoBackend.decrypt(encryptedText);
+    } catch {
+      return encryptedText;
+    }
+  }
+}
+
+/**
  * Descifra una credencial sensible protegida por safeStorage del SO.
  */
 export function decryptCredential(stored: string): string {
@@ -1484,7 +1516,13 @@ let modelCredentialPool: CredentialPool | null = null;
 /** Singleton del pool de keys de modelos (vault en memoria sobre safeStorage). */
 export function getModelCredentialPool(): CredentialPool {
   if (!modelCredentialPool) {
-    modelCredentialManager = new CredentialManager(mainProcessCryptoBackend);
+    // BUGFIX 2026-10-15 (saveModelConfig lanzaba tras T21): el pool usaba
+    // `mainProcessCryptoBackend` directo (fail-closed: lanza sin safeStorage)
+    // mientras `encryptCredential` degrada a `obf:` legacy. En esta máquina
+    // safeStorage no está disponible, así que el save moría en
+    // `setProviderKeys`. El pool usa el mismo degradado que el resto del
+    // save (memoria del proceso + `obf:` reversible, nunca texto plano).
+    modelCredentialManager = new CredentialManager(new DegradedObfBackend());
     modelCredentialPool = new CredentialPool(modelCredentialManager);
   }
   return modelCredentialPool;
