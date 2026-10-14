@@ -219,7 +219,36 @@ export function App() {
                   onSelectSubEgo={(id) => setActiveSubEgo(id)}
                 />
               </div>
-              <span className="text-[10px] text-dim font-mono">River</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-dim font-mono">River</span>
+                {/* Selector de modelo en el chat (estilo claude/codex): escribe
+                    settings.modelName y el router lo honra (T02-dynamic). Incluye
+                    el activo aunque sea un ID personalizado fuera del catálogo. */}
+                <select
+                  aria-label="Modelo del chat"
+                  title="Modelo del chat (Model Router)"
+                  value={
+                    CANONICAL_MODELS.some((m) => m.id === activeModelId)
+                      ? activeModelId
+                      : `custom:${activeModelId}`
+                  }
+                  onChange={(e) => {
+                    const found = CANONICAL_MODELS.find((m) => m.id === e.target.value);
+                    // La opción custom es el valor actual: elegirla es no-op.
+                    if (found) void handleSelectModel(found);
+                  }}
+                  className="max-w-[170px] truncate rounded border border-hairline bg-raised px-1.5 py-0.5 font-mono text-[10px] text-dim hover:text-ink focus:border-ink/50 focus:outline-none"
+                >
+                  {CANONICAL_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                  {!CANONICAL_MODELS.some((m) => m.id === activeModelId) && (
+                    <option value={`custom:${activeModelId}`}>{activeModelId} (custom)</option>
+                  )}
+                </select>
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
               <EgoChat key={sessionNonce} projectId={activeProject} subEgoId={activeSubEgo} />
