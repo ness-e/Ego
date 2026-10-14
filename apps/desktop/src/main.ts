@@ -3475,9 +3475,15 @@ export async function createWindow(): Promise<void> {
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)
   const isDev = !app.isPackaged && process.env.NODE_ENV !== "production";
-  if (isDev && process.env.VITE_DEV_SERVER_URL) {
-    console.log(`[Ego Desktop] Conectando a Vite Dev Server: ${process.env.VITE_DEV_SERVER_URL}`);
-    await win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  // BUGFIX 2026-10-15 (renderer viejo en `pnpm dev`): electron-vite expone
+  // ELECTRON_RENDERER_URL al main que spawnea; la vieja VITE_DEV_SERVER_URL
+  // (flow concurrently, pre-T11) ya nadie la setea. Sin este orden, dev
+  // cargaba out/renderer/index.html compilado y ningún fix del renderer
+  // se veía sin `pnpm build` previo.
+  const devServerUrl = process.env.ELECTRON_RENDERER_URL || process.env.VITE_DEV_SERVER_URL;
+  if (isDev && devServerUrl) {
+    console.log(`[Ego Desktop] Conectando a Vite Dev Server: ${devServerUrl}`);
+    await win.loadURL(devServerUrl);
   } else {
     // T11-S6 (electron-vite): el renderer compila a out/renderer/index.html.
     const htmlPath = join(app.getAppPath(), "out/renderer/index.html");
