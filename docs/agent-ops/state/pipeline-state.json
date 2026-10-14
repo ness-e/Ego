@@ -81,7 +81,8 @@
     "T10",
     "T12",
     "T13",
-    "T14"
+    "T14",
+    "T15"
   ],
   "failedTasks": [],
   "tasks": {
@@ -558,6 +559,12 @@
       "updatedAt": "2026-10-15T04:10:00.000Z",
       "evidence": "7 superficies UI sobre puentes T13. Suites idénticas a baselines.",
       "commitSha": "1e9c9f0"
+    },
+    "T15": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T05:00:00.000Z",
+      "evidence": "Catálogo live por proveedor + fallback + cache 1h + picker live. Models 56 + desktop 176 + renderer 110.",
+      "commitSha": "f8a6fae"
     }
   }
 }
