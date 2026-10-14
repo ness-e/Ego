@@ -67,7 +67,18 @@
     "14",
     "15",
     "16",
-    "17"
+    "17",
+    "T01",
+    "T03",
+    "T05",
+    "T04",
+    "T06",
+    "T02",
+    "T08",
+    "T07",
+    "T11",
+    "T09",
+    "T10"
   ],
   "failedTasks": [],
   "tasks": {
@@ -454,6 +465,72 @@
       "updatedAt": "2026-10-13T14:54:51.048Z",
       "evidence": "Pipeline + verify-dist 9/9 + build verde. Commit 17e187d. HERM-14 stale descartada, HERM-16 reutilizada.",
       "commitSha": "17e187d"
+    },
+    "T01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T22:29:07.000Z",
+      "evidence": "Contrato llmStream+memory unificado, window.ego único. Typechecks + ipc-zod-coverage 10/10.",
+      "commitSha": "461c8d3"
+    },
+    "T03": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T22:30:03.000Z",
+      "evidence": "BackgroundEngine+WorkerTaskPool en main, ipc.tasks/terminal, Tray, terminal IPC, deny-default, caos handles. Desktop 160t + tasks 51t.",
+      "commitSha": "f151077"
+    },
+    "T05": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T22:48:53.000Z",
+      "evidence": "Tema real: tokens --ego-*, Geist local, accent brand, dim AA, app-region. Greps 0, renderer 62/62, build:verify verde.",
+      "commitSha": "52905fc"
+    },
+    "T04": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T22:50:00.000Z",
+      "evidence": "Canvas persiste a projects/<id>/workspace/canvas; eventos estructurados. e2e canvas-interaction + ui-runtime 75/75.",
+      "commitSha": "95fef17"
+    },
+    "T06": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T22:55:00.000Z",
+      "evidence": "Kit Radix+Zustand+virtua, pickers/SplitPane montados, muertos borrados, registry tipado, 71 tests, build verde.",
+      "commitSha": "5017a8e"
+    },
+    "T02": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T23:00:00.000Z",
+      "evidence": "Streaming real + HITL único + R10b hash + bloqueo BYOK. ChatStreaming 5/5, renderer 76, execution 42.",
+      "commitSha": "0f77772"
+    },
+    "T08": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T23:20:00.000Z",
+      "evidence": "Sidebar split 3 Radix, omnibar federado, BYOK, Daily real, @ y /, lazy, virtua, boundary. Renderer 90t + desktop 160t.",
+      "commitSha": "6d86ad1"
+    },
+    "T07": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T23:35:00.000Z",
+      "evidence": "axe 0 violaciones (bloquea CI), snapshots DOM advisory, 7 diálogos Radix. Renderer 109t.",
+      "commitSha": "2bfbf9a"
+    },
+    "T11": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T23:55:00.000Z",
+      "evidence": "8/8: electron-vite migrado (dev levanta), CSP, monolito, R15, R10 interino, LICENSE, rename. Build+smoke+suites verdes.",
+      "commitSha": "c6af253"
+    },
+    "T09": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T23:58:00.000Z",
+      "evidence": "design-system.md + D1-D12 + gobernanza + Hermes-doc. 28 files docs. R3 no aplicado (no verificable).",
+      "commitSha": "741e0f7"
+    },
+    "T10": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-14T23:59:00.000Z",
+      "evidence": "Build exit 0 + 192f/1258t verdes + HIG-01 0 errores + HIG-02 verificado. Step 3 GUI owner-pendiente.",
+      "commitSha": "00c4aa7"
     }
   }
 }
