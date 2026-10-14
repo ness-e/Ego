@@ -99,17 +99,9 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
             setJournalContent(journalRes.content || "");
           }
 
-          // Cargar aprobaciones pendientes si las hay
-          if (summaryRes?.summary?.pendingApprovalsCount > 0) {
-            setApprovals([
-              {
-                approvalId: "appr-pending-init",
-                action: "Ejecución de mutación en filesystem",
-                riskLevel: "sensitive",
-                details: { path: "src/config.json" },
-              },
-            ]);
-          }
+          // T08: sin aprobaciones falsas — `appr-pending-init` eliminado.
+          // Sin canal de listado `ipc.daily.*`, la lista solo muestra
+          // aprobaciones reales resueltas/pendientes vía HITL (vacío honesto).
         }
       } catch (err) {
         console.warn("[DailyDashboard] Error al cargar daily state:", err);

@@ -1,14 +1,10 @@
-import { useMemo } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
+import { useMemo, Suspense, lazy } from "react";
 import { CurrencyDollar, Cpu, Clock, CheckCircle } from "@phosphor-icons/react";
+
+// T08: recharts fuera del arranque — el chart carga lazy tras la primera pintura.
+const LazyTelemetryChart = lazy(() =>
+  import("../domains/DomainCharts.js").then((m) => ({ default: m.TelemetryChart }))
+);
 
 export interface MetricsConsoleProps {
   totalTokensToday: number;
@@ -109,50 +105,21 @@ export function MetricsConsole({
           <span className="font-mono text-[10px] text-faint">Área de Inferencia</span>
         </div>
         <div className="h-40 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="tokenGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-              <XAxis
-                dataKey="hour"
-                stroke="#71717a"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="#71717a"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => (val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val)}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#18181b",
-                  borderColor: "#27272a",
-                  borderRadius: "6px",
-                  fontSize: "11px",
-                  color: "#f4f4f5",
-                }}
-                labelStyle={{ color: "#a1a1aa", marginBottom: "4px" }}
-                formatter={(value: unknown) => [`${Number(value).toLocaleString()} tokens`, "Tokens"]}
-              />
-              <Area
-                type="monotone"
-                dataKey="tokens"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#tokenGradient)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <Suspense
+            fallback={
+              <div className="flex h-full w-full items-center justify-center font-mono text-[11px] text-dim">
+                Cargando telemetría…
+              </div>
+            }
+          >
+            <LazyTelemetryChart
+              data={chartData}
+              xKey="hour"
+              yKey="tokens"
+              gradientId="tokenGradient"
+              stroke="#3b82f6"
+            />
+          </Suspense>
         </div>
       </div>
     </div>

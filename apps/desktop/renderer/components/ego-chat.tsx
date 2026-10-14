@@ -11,6 +11,8 @@ import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
 import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
 import { ApprovalCard } from "./tools/ApprovalCard";
 import { CharacterBadge } from "./character/CharacterBadge.js";
+import { FileMentionBadge } from "./FileMentionBadge.js";
+import { parseSlashCommand, extractMentions, LOCAL_SLASH_COMMANDS, SLASH_HELP_TEXT } from "./composer-slash.js";
 import { useCanvasBridge } from "../hooks/useCanvasBridge";
 import { MarkdownText } from "./assistant-ui/markdown-text.js";
 import { MessageRenderBoundary } from "./assistant-ui/message-render-boundary.js";
@@ -31,11 +33,12 @@ function UserMessage() {
   );
 }
 
-function AssistantMessage() {
+function AssistantMessage({ subEgoId = "ego.nucleus" }: { subEgoId?: string }) {
   return (
     <MessagePrimitive.Root className="flex my-2.5 gap-2.5 items-start">
       <div className="mt-0.5 shrink-0">
-        <CharacterBadge size={26} subEgoId="ego.nucleus" state="idle" />
+        {/* T08: avatar por turno según el Sub-Ego activo (antes fijo ego.nucleus). */}
+        <CharacterBadge size={26} subEgoId={subEgoId} state="idle" />
       </div>
       <div className="bg-panel border border-hairline rounded-card px-3.5 py-2.5 max-w-[85%] text-ink">
         <MessageRenderBoundary resetKey="assistant-turn">
@@ -167,6 +170,22 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolEvents, setToolEvents] = useState<ToolActivity[]>([]);
+  // T08: reflejo en vivo del borrador del composer (@menciones y /comandos).
+  // Display-only: el texto fuente sigue en el textarea del runtime (R-FE-2,
+  // no se reimplementa el composer). El @ viaja en el prompt; el / local
+  // se resuelve en `onNew` sin turno LLM.
+  const [draftMentions, setDraftMentions] = useState<string[]>([]);
+  const [draftSlash, setDraftSlash] = useState<string | null>(null);
+  const composerWrapRef = useRef<HTMLDivElement>(null);
+
+  const handleComposerInput = useCallback((e: React.FormEvent) => {
+    const ta = (e.target as HTMLElement).closest("div")?.querySelector("textarea")
+      ?? composerWrapRef.current?.querySelector("textarea");
+    const value = ta ? ta.value : "";
+    setDraftMentions(extractMentions(value));
+    const slash = /^\s*\//.test(value) ? parseSlashCommand(value) : null;
+    setDraftSlash(slash ? slash.name : null);
+  }, []);
   const streamTargetRef = useRef<string | null>(null);
   const currentPromptRef = useRef<string>("");
 
@@ -392,6 +411,27 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
       const text = m.content
         .map((p) => (p.type === "text" ? p.text : ""))
         .join("");
+      // T08: slash-commands locales (no consumen turno ni tocan streaming).
+      const slash = parseSlashCommand(text);
+      if (slash && LOCAL_SLASH_COMMANDS.has(slash.name)) {
+        if (slash.name === "clear") {
+          setMessages([]);
+          setToolEvents([]);
+          setActiveError(null);
+        } else if (slash.name === "help") {
+          const [u, a] = [nid(), nid()];
+          setMessages((prev) => [
+            ...prev,
+            { id: u, role: "user", content: [{ type: "text", text }] },
+            { id: a, role: "assistant", content: [{ type: "text", text: SLASH_HELP_TEXT }] },
+          ]);
+        }
+        setDraftMentions([]);
+        setDraftSlash(null);
+        return;
+      }
+      setDraftMentions([]);
+      setDraftSlash(null);
       await executeTurn(text);
     },
   });
@@ -417,7 +457,14 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
               </p>
             </div>
           </ThreadPrimitive.Empty>
-          <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
+          <ThreadPrimitive.Messages
+            components={{
+              UserMessage,
+              AssistantMessage: () => (
+                <AssistantMessage subEgoId={subEgoId ?? "ego.nucleus"} />
+              ),
+            }}
+          />
         </ThreadPrimitive.Viewport>
 
         {/* Skeleton de streaming con altura reservada (anti layout-shift, T02) */}
@@ -506,12 +553,30 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
           </div>
         )}
 
+        {/* T08: menciones @ y slash / del borrador (FileMentionBadge + hint). */}
+        {(draftMentions.length > 0 || draftSlash) && (
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-hairline px-3 pt-2" aria-live="polite">
+            {draftMentions.map((path) => (
+              <FileMentionBadge key={path} path={path} compact />
+            ))}
+            {draftSlash && (
+              <span className="font-mono text-[11px] text-dim">
+                {LOCAL_SLASH_COMMANDS.has(draftSlash)
+                  ? `/${draftSlash} — comando local (no consume turno)`
+                  : `/${draftSlash} — se enviará como texto al turno`}
+              </span>
+            )}
+          </div>
+        )}
+
         <ComposerPrimitive.Root className="flex gap-2 px-3 py-2.5 border-t border-hairline">
+          <div ref={composerWrapRef} onInput={handleComposerInput} className="flex min-w-0 flex-1">
           <ComposerPrimitive.Input
             autoFocus
-            placeholder="Pregunta o instruye a Ego…"
+            placeholder="Pregunta o instruye a Ego… (@archivo · /help)"
             className="flex-1 px-3.5 py-2.5 bg-panel border border-hairline rounded-card text-ink text-sm placeholder:text-faint focus:outline-none focus:border-dim"
           />
+          </div>
           <ComposerPrimitive.Send
             aria-label="Enviar mensaje"
             className="px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"

@@ -50,6 +50,14 @@ export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
     onAction?.(actionId, payload);
   };
 
+  // T08: los forms Canvas hacen onSubmit a IPC vía `dispatchAction`
+  // (antes `ComponentRenderer` no recibía `onSubmit` y el submit
+  // moría en local). Viaja estructurado al bridge, no solo string plano.
+  const handleFormSubmit = (formId: string, actionId: string, values: Record<string, unknown>) => {
+    dispatchAction(formId, actionId, values);
+    onAction?.(actionId, { formId, ...values });
+  };
+
   const filteredComponents = components.filter((comp) => {
     if (activeFilter === "boards") return comp.type === "board";
     if (activeFilter === "code") return comp.type === "diff" || comp.type === "editor";
@@ -123,6 +131,7 @@ export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
               isSelected={selectedId === manifest.id}
               onSelect={handleSelect}
               onAction={handleAction}
+              onSubmit={handleFormSubmit}
             />
           ))
         )}

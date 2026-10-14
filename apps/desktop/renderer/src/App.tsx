@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { TerminalWindow, Palette } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
+import { Omnibar } from "../components/omnibar";
 import { CanvasRuntime } from "../components/canvas/CanvasRuntime";
 import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
 import { SubEgosView } from "../components/sub-egos";
@@ -265,6 +266,8 @@ export function App() {
 
         {/* 3. Bandeja de Actividad en Segundo Plano (Footer) */}
         <ActivityTray />
+        {/* T08: omnibar federado global (Ctrl+K / Ctrl+,). */}
+        <Omnibar />
       </div>
     </DesignSystemProvider>
   );

@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
+import { RootErrorBoundary } from "./RootErrorBoundary";
 import "./index.css";
 // T05 (UI-01): Geist real — @font-face local (ver src/fonts.css). El entry
 // JS `geist/font/*` es solo-Next (`next/font`, prohibido por R-FE-3).
@@ -13,6 +14,8 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <App />
+    <RootErrorBoundary>
+      <App />
+    </RootErrorBoundary>
   </React.StrictMode>
 );

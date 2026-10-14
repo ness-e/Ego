@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import {
   Code,
   Kanban,
@@ -14,20 +14,25 @@ import {
   CurrencyDollar,
 } from "@phosphor-icons/react";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
   ego,
   type EngineeringWorktree,
   type ProductBacklogItem,
   type ProductEpic,
 } from "../../lib/ego";
+import { SmartList } from "../SmartList.js";
+
+// T08: recharts (~384KB) fuera del arranque — lazy tras la primera pintura.
+const LazyTelemetryChart = React.lazy(() =>
+  import("./DomainCharts.js").then((m) => ({ default: m.TelemetryChart }))
+);
+
+function ChartFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center font-mono text-[11px] text-dim">
+      Cargando telemetría…
+    </div>
+  );
+}
 
 interface DomainCanvasViewProps {
   domainId: string;
@@ -163,6 +168,13 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
 
   const [knowledgeData, setKnowledgeData] = useState<KnowledgeFact[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  // T08: debounce 300ms — antes refetch por tecla (deps `[domainId, searchQuery]`).
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   const [analyticsData, setAnalyticsData] = useState<{
     series: Array<Record<string, unknown>>;
@@ -214,7 +226,7 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
             });
           }
         } else if (domainId === "knowledge") {
-          const res = await bridge.domains?.knowledgeSearch(searchQuery || "vanta");
+          const res = await bridge.domains?.knowledgeSearch(debouncedQuery || "vanta");
           if (mounted && res?.ok) {
             setKnowledgeData(flatMapValid(res.results, toKnowledgeFact));
           }
@@ -253,7 +265,7 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
     return () => {
       mounted = false;
     };
-  }, [domainId, searchQuery]);
+  }, [domainId, debouncedQuery]);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-paper text-ink overflow-y-auto p-4 space-y-4">
@@ -418,27 +430,31 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">
                 Hechos Verificados en VantaDB (kb/facts)
               </h3>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {knowledgeData.length === 0 ? (
-                  <p className="text-xs text-faint py-4 text-center">
-                    No se encontraron hechos para la búsqueda activa.
-                  </p>
-                ) : (
-                  knowledgeData.map((fact, idx) => (
+              <div className="max-h-[300px] overflow-y-auto">
+                <SmartList
+                  items={knowledgeData}
+                  ariaLabel="Hechos verificados"
+                  keyOf={(_f, idx) => idx}
+                  empty={
+                    <p className="py-4 text-center text-xs text-faint">
+                      No se encontraron hechos para la búsqueda activa.
+                    </p>
+                  }
+                  renderItem={(fact, idx) => (
                     <div
                       key={idx}
                       className="bg-paper/80 border border-hairline/80 rounded-lg p-2.5 text-xs"
                     >
-                      <div className="text-ink font-medium">{fact.claim}</div>
-                      <div className="flex items-center justify-between mt-2 text-[10px] text-faint">
-                        <span className="font-mono text-purple-400 truncate max-w-[200px]">
+                      <div className="font-medium text-ink">{fact.claim}</div>
+                      <div className="mt-2 flex items-center justify-between text-[10px] text-faint">
+                        <span className="max-w-[200px] truncate font-mono text-purple-400">
                           Fuente: {fact.source}
                         </span>
                         <span>Confianza: {Math.round(fact.confidence * 100)}%</span>
                       </div>
                     </div>
-                  ))
-                )}
+                  )}
+                />
               </div>
             </div>
 
@@ -482,31 +498,15 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               Consumo de Tokens por Jornada
             </h3>
             <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={analyticsData.series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="domainTokensGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
-                  <XAxis dataKey="date" stroke="#737373" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#737373" fontSize={10} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#171717", borderColor: "#262626", borderRadius: "8px" }}
-                    labelStyle={{ color: "#a3a3a3", fontSize: "11px" }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="totalTokens"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#domainTokensGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<ChartFallback />}>
+                <LazyTelemetryChart
+                  data={analyticsData.series}
+                  xKey="date"
+                  yKey="totalTokens"
+                  gradientId="domainTokensGrad"
+                  stroke="#10b981"
+                />
+              </Suspense>
             </div>
           </div>
         </div>
