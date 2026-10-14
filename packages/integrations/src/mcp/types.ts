@@ -144,8 +144,21 @@ export interface McpServerConfig {
   shell?: boolean;
   /** Nivel de confianza del servidor; ausente = no firmado (fail-closed). */
   trustLevel?: McpServerTrustLevel;
-  /** Firma del servidor cuando el nivel es `official`/`verified`. */
+  /**
+   * Firma Ed25519 (base64) del payload canónico R10
+   * (`mcp-server-signature-v1\n{id}\n{name}\n{command}\n`, ver
+   * `signature.ts:buildSignaturePayload`). Solo cuenta con `trustLevel`
+   * `official`/`verified` Y `publicKey` presente Y verificación exitosa;
+   * en cualquier otro caso el servidor se trata como no firmado (HITL).
+   */
   signature?: string;
+  /**
+   * Clave pública Ed25519 del firmante (R10): PEM SPKI
+   * (`-----BEGIN PUBLIC KEY-----...`) o base64 crudo de 32 bytes.
+   * No es secreta. Ausente o malformada = firma no verificable
+   * (fail-closed: servidor no firmado).
+   */
+  publicKey?: string;
 }
 
 /**

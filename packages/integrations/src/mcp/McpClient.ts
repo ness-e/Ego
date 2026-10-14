@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import type { ToolRegistry, ToolDefinition, ToolRiskLevel } from "@ego/tools";
 import { jsonSchemaToZod } from "./schema-bridge.js";
+import { verifyServerSignature } from "./signature.js";
 import type {
   JsonRpcNotification,
   JsonRpcRequest,
@@ -103,20 +104,16 @@ export class McpClient extends EventEmitter {
   }
 
   /**
-   * Servidor firmado: `trustLevel` official/verified (H31). Ausente u otro
-   * nivel = no firmado (fail-closed): sus herramientas importadas exigen
+   * Servidor firmado (R10 — verificación real): `trustLevel`
+   * official/verified MÁS firma Ed25519 válida sobre el payload canónico
+   * (`signature.ts:verifyServerSignature`). Ausente, malformada o inválida
+   * = no firmado (fail-closed): sus herramientas importadas exigen
    * aprobación HITL explícita.
    *
-   * R10 (INTERINO — Gate V 2026-10-14): `trustLevel` es autodeclarado en la
-   * config y `signature?` (types.ts) hoy no se verifica criptográficamente:
-   * no existe en el repo infra de firma (claves públicas, formato de firma,
-   * autoridad emisora) contra la cual verificar. NO se improvisó verificación
-   * sintética — sería teatro de seguridad. Hasta contar con PKI documentada,
-   * el fail-closed (HITL obligatorio para no firmados) es el guardrail real y
-   * las tools importadas pasan por Zod + permisos igualmente.
+   * Las tools importadas pasan por Zod + permisos igualmente.
    */
   public isSignedServer(): boolean {
-    return this.config.trustLevel === "official" || this.config.trustLevel === "verified";
+    return verifyServerSignature(this.config);
   }
 
   /**

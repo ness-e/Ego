@@ -460,9 +460,25 @@ describe("SEC-08.D — lecturas fuera de scope y frontera MCP/SSRF", () => {
     expect([...MCP_COMMAND_ALLOWLIST]).not.toContain("cmd");
   });
 
-  it("McpClient: servidor sin trustLevel → no firmado (fail-closed, exige HITL)", () => {
+  it("McpClient: servidor sin trustLevel → no firmado (fail-closed, exige HITL)", async () => {
+    const { generateKeyPairSync, sign } = await import("node:crypto");
+    const { buildSignaturePayload } = await import(
+      "../../packages/integrations/src/mcp/signature.js"
+    );
     expect(new McpClient(mcpConfig()).isSignedServer()).toBe(false);
-    expect(new McpClient(mcpConfig({ trustLevel: "official" })).isSignedServer()).toBe(true);
+    // R10 (T20): `official` autodeclarado SIN firma válida ya no basta (fail-closed).
+    expect(new McpClient(mcpConfig({ trustLevel: "official" })).isSignedServer()).toBe(false);
+    // Con firma Ed25519 válida sobre el payload canónico → firmado.
+    const unsigned = mcpConfig({ trustLevel: "official" });
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const signature = sign(null, buildSignaturePayload(unsigned), privateKey).toString("base64");
+    expect(
+      new McpClient({
+        ...unsigned,
+        publicKey: publicKey.export({ type: "spki", format: "pem" }).toString(),
+        signature,
+      }).isSignedServer(),
+    ).toBe(true);
   });
 });
 

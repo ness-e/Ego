@@ -240,15 +240,23 @@ describe("@ego/integrations — McpClient & Nivel B Integration Suite (ACT-09 / 
     expect(safeTool!.requiresApproval).toBe(true);
   });
 
-  it("12. Servidor firmado official: la inferencia de riesgo por defecto se conserva", async () => {
-    client = new McpClient({
+  it("12. Servidor firmado official (R10: firma Ed25519 válida): sin HITL forzado", async () => {
+    const { generateKeyPairSync, sign } = await import("node:crypto");
+    const { buildSignaturePayload } = await import("../src/mcp/signature.js");
+    const unsigned = {
       id: "mock-official",
       name: "Official firmado",
-      transport: "stdio",
+      transport: "stdio" as const,
       command: process.execPath,
       args: [mockServerPath],
-      trustLevel: "official",
-      signature: "sk-test-signature-01",
+      trustLevel: "official" as const,
+    };
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const signature = sign(null, buildSignaturePayload(unsigned), privateKey).toString("base64");
+    client = new McpClient({
+      ...unsigned,
+      publicKey: publicKey.export({ type: "spki", format: "pem" }).toString(),
+      signature,
     });
 
     await client.connect();
