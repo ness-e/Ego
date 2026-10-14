@@ -82,7 +82,9 @@
     "T12",
     "T13",
     "T14",
-    "T15"
+    "T15",
+    "T16",
+    "T17"
   ],
   "failedTasks": [],
   "tasks": {
@@ -565,6 +567,18 @@
       "updatedAt": "2026-10-15T05:00:00.000Z",
       "evidence": "Catálogo live por proveedor + fallback + cache 1h + picker live. Models 56 + desktop 176 + renderer 110.",
       "commitSha": "f8a6fae"
+    },
+    "T16": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T06:00:00.000Z",
+      "evidence": "Cierre EGO-FIND-04/12/13: sin Router (doc), 45 tests 9 estados, fullscreen modelado. Renderer 176t.",
+      "commitSha": "84fad08"
+    },
+    "T17": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T06:10:00.000Z",
+      "evidence": "FIND-16 + CHAR-05/10/11 + R3 148/151. Renderer 186t.",
+      "commitSha": "217c76c"
     }
   }
 }
