@@ -177,4 +177,30 @@ describe("SelfImprovementLoop — Closed Learning Loop y Auto-Reflexión (SUB-12
     expect(recalled.length).toBe(1);
     expect(recalled[0].actionableRule).toBe(candidate.actionableRule);
   });
+
+  it("7. Guarda backup del estado previo antes de reforzar una lección (R15 rollback)", async () => {
+    const candidate: LearningCandidate = {
+      subEgoId: "r15tester",
+      trigger: "tool_error_recovered",
+      context: "Contexto original v1",
+      insight: "Insight estable",
+      actionableRule: "Regla R15 con backup previo obligatorio.",
+      tags: ["r15"],
+    };
+
+    const res1 = await loop.recordLesson(candidate);
+    expect(res1.reinforced).toBe(false);
+
+    // El refuerzo sobrescribe la lección: el estado previo debe quedar en backup.
+    const res2 = await loop.recordLesson({ ...candidate, context: "Contexto actualizado v2" });
+    expect(res2.reinforced).toBe(true);
+
+    const rows = await adapter.listWithQuarantine("egos/r15tester/lessons", 10);
+    const backup = rows.find((r) => r.key === `lesson:${res1.lesson.id}:backup`);
+    expect(backup).toBeDefined();
+    const payload = backup?.payload as Record<string, unknown>;
+    expect(payload["reinforcementCount"]).toBe(1);
+    expect(payload["context"]).toBe("Contexto original v1");
+    expect(typeof payload["backedUpAtMs"]).toBe("number");
+  });
 });

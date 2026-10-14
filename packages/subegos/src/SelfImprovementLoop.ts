@@ -121,6 +121,20 @@ export class SelfImprovementLoop {
     }
 
     if (existingLesson) {
+      // R15 — backup del estado previo ANTES de sobrescribir (rollback):
+      // conserva la lección vigente íntegra bajo `lesson:<id>:backup`.
+      const backedUpAtMs = Date.now();
+      await this.adapter.put({
+        namespace,
+        key: `${key}:backup`,
+        payload: { ...existingLesson, backedUpAtMs },
+        metadata: {
+          subEgoId: candidate.subEgoId,
+          backupOf: key,
+          backedUpAtMs,
+        },
+      });
+
       // Reforzar lección existente incrementando confianza y contador
       const updated: LessonLearned = {
         ...existingLesson,
@@ -198,6 +212,14 @@ export class SelfImprovementLoop {
             } catch {
               // mantén valor crudo
             }
+            // R15: excluir snapshots de backup del recall (ver rama list()).
+            if (
+              recordPayload &&
+              typeof recordPayload === "object" &&
+              "backedUpAtMs" in recordPayload
+            ) {
+              continue;
+            }
             const parsed = LessonLearnedSchema.safeParse(recordPayload);
             if (parsed.success) {
               lessons.push(parsed.data);
@@ -208,9 +230,14 @@ export class SelfImprovementLoop {
       }
 
       // Recuperación directa quarantine-aware (live + cuarentena marcada).
+      // R15: las claves `lesson:<id>:backup` son snapshots de rollback, no
+      // lecciones vigentes — se excluyen del recall.
       const items = await listQuarantineAware(this.adapter, namespace, limit);
       const lessons: LessonLearned[] = [];
       for (const item of items) {
+        if (typeof item.key === "string" && item.key.endsWith(":backup")) {
+          continue;
+        }
         const parsed = LessonLearnedSchema.safeParse(item.payload);
         if (parsed.success) {
           lessons.push(parsed.data);
