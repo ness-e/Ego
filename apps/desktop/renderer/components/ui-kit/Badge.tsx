@@ -9,7 +9,7 @@ import { cva, cn } from "./cva.js";
  * error (tone risk) / empty (placeholder "—") / overflow (truncate + title).
  */
 const badgeVariants = cva({
-  base: "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-brand",
+  base: "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors hover:brightness-110 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-brand",
   variants: {
     tone: {
       ok: "border-emerald-800/40 bg-emerald-950/60 text-emerald-400",

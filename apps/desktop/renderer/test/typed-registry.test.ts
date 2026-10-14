@@ -3,6 +3,7 @@ import {
   ComponentRegistry,
   getComponentRenderer,
   CanvasPropsSchema,
+  CanvasViewModeSchema,
   type ComponentRendererProps,
 } from "../components/canvas/registry.js";
 
@@ -31,5 +32,12 @@ describe("T06 UI-03: registry canvas tipado (Zod, sin any)", () => {
       props: { title: "x", rows: [] as unknown[] },
     };
     expect(probe.props).toBeDefined();
+  });
+
+  it("T16 FIND-13: CanvasViewModeSchema modela panel/fullscreen como contrato", () => {
+    expect(CanvasViewModeSchema.safeParse("panel").success).toBe(true);
+    expect(CanvasViewModeSchema.safeParse("fullscreen").success).toBe(true);
+    expect(CanvasViewModeSchema.safeParse("popout").success).toBe(false);
+    expect(CanvasViewModeSchema.options).toEqual(["panel", "fullscreen"]);
   });
 });

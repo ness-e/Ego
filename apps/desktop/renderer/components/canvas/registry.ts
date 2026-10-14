@@ -24,6 +24,16 @@ export const CanvasPropsSchema = z
 
 export type CanvasProps = z.infer<typeof CanvasPropsSchema>;
 
+/**
+ * T16 (EGO-FIND-13): modo de presentación del canvas como contrato Zod.
+ * `fullscreen` (chat a pantalla completa con canvas inline) es FUTURO en P0:
+ * ningún Sub-Ego ni vista lo consume todavía — ver `ux-ui.md` §Chat+Canvas.
+ * Existe como contrato para que la ampliación sea tipada cuando llegue.
+ */
+export const CanvasViewModeSchema = z.enum(["panel", "fullscreen"]);
+
+export type CanvasViewMode = z.infer<typeof CanvasViewModeSchema>;
+
 export type ComponentRendererProps = {
   props: CanvasProps;
   onAction?: (actionId: string, payload?: Record<string, unknown>) => void;

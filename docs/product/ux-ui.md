@@ -15,7 +15,7 @@ La interfaz de Ego NO está estructurada como una colección de secciones o pant
 - **Tipos de Canvas:** Temporal (para una tarea específica), Persistente (workspace guardado), Vista de datos (estructura persistente) y Workspace de Sub-Ego.
 - **Contexto por selección:** El usuario puede seleccionar elementos en el Canvas y darle instrucciones a Ego sobre ellos. La selección se convierte en contexto explícito.
 - **Transformación dinámica:** El Canvas cambia dinámicamente durante la conversación a medida que el trabajo evoluciona.
-- **Modos de visualización:** Se soporta un modo de chat a pantalla completa con canvases embebidos (inline). Cabe destacar que no todas las tareas necesitan un Canvas (preguntas simples obtienen respuestas en texto).
+- **Modos de visualización:** Layout P0 de 3 paneles fijos (sidebar/chat/canvas en `App.tsx`); el modo de chat a pantalla completa con canvases embebidos (inline) queda como futuro, no implementado (EGO-FIND-13 ✅ sincerado: grep 0 `fullscreen` en `renderer/`; contrato tipado en `CanvasViewModeSchema`, `registry.ts`). Cabe destacar que no todas las tareas necesitan un Canvas (preguntas simples obtienen respuestas en texto).
 
 **Principios:**
 - *"El chat expresa lo que el usuario quiere hacer; el Canvas representa el trabajo que Ego está realizando."*

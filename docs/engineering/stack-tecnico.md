@@ -54,7 +54,7 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 - Política de Seguridad de Contenido (CSP) restrictiva.
 
 ## Interfaz de Usuario (UI)
-- **Navegación**: workspace dinámico componible (sin React Router en P0 — ver EGO-FIND-04 ⏳: o se instala Router o se retira esta línea; hoy la navegación la resuelve el workspace, no un router).
+- **Navegación**: workspace dinámico componible por estado local (tabs + `SplitPane` en `App.tsx`); sin React Router por decisión EGO-FIND-04 ✅ (grep 0 usos en `renderer/`, sin la dep en `package.json`; la arquitectura workspace rechaza pantallas fijas — ver `ux-ui.md`).
 - **Primitivas UI**: Radix (`@radix-ui/react-dialog`, `@radix-ui/react-tabs`) + kit propio `ui-kit/` (Button/Input/Modal/Tabs/Badge, cva+clsx+tailwind-merge) — instalados T06 `40fb103`.
 - **Editor de código**: Monaco Editor.
 - **Terminal**: xterm.js.
