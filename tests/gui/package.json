@@ -1,0 +1,18 @@
+{
+  "name": "@ego/gui-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Suite Playwright GUI de Ego: los 13 ítems del checklist T10-Step-3 como specs (standalone, fuera del workspace pnpm: no corre en `pnpm -r test`)",
+  "scripts": {
+    "test": "node scripts/check-gui-coverage.cjs",
+    "check": "node scripts/check-gui-coverage.cjs",
+    "test:gui": "playwright test",
+    "test:gui:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "playwright": "^1.49.0"
+  }
+}
