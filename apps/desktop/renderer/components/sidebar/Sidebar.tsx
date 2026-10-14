@@ -194,6 +194,23 @@ export function Sidebar({
     [onSelectProject]
   );
 
+  // T18: resume real — activa la sesión en el lifecycle del main
+  // (`ipc.sessions.resume`: futuros turnos persisten ahí) y fija el id local;
+  // EgoChat hidrata el historial vía `sessions.get`. Fallo → warn sin set
+  // (fail-closed honesto: no se finge sesión activa).
+  const handleResumeSession = useCallback(async (id: string) => {
+    try {
+      const res = await ego().sessions?.resume?.({ sessionId: id });
+      if (res && res.ok === true) {
+        useUiStore.getState().setActiveSessionId(id);
+      } else {
+        console.warn("[Sidebar] Resume rechazado:", res?.error ?? "sin detalle");
+      }
+    } catch (err) {
+      console.warn("[Sidebar] Error reanudando sesión:", err);
+    }
+  }, []);
+
   // 1. MODO COLAPSADO (Navigation Rail compacto de 54px)
   if (isCollapsed) {
     return (
@@ -280,7 +297,7 @@ export function Sidebar({
           activeSessionId={activeSessionId ?? undefined}
           sessions={sessions}
           onClose={() => useUiStore.getState().closeSessionPicker()}
-          onResumeSession={(id) => useUiStore.getState().setActiveSessionId(id)}
+          onResumeSession={(id) => void handleResumeSession(id)}
         />
       </>
     );
@@ -510,7 +527,7 @@ export function Sidebar({
         activeSessionId={activeSessionId ?? undefined}
         sessions={sessions}
         onClose={() => useUiStore.getState().closeSessionPicker()}
-        onResumeSession={(id) => useUiStore.getState().setActiveSessionId(id)}
+        onResumeSession={(id) => void handleResumeSession(id)}
       />
     </>
   );

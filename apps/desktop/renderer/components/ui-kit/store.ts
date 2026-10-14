@@ -15,7 +15,7 @@ export interface UiKitState {
   openSessionPicker: () => void;
   closeSessionPicker: () => void;
   setActiveModelId: (id: string) => void;
-  setActiveSessionId: (id: string) => void;
+  setActiveSessionId: (id: string | null) => void;
   setUiError: (message: string) => void;
   clearUiError: () => void;
   setUiEmpty: (message: string) => void;

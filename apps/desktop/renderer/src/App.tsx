@@ -62,6 +62,9 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const modelPickerOpen = useUiStore((s) => s.modelPickerOpen);
   const activeModelId = useUiStore((s) => s.activeModelId);
+  // T18: la sesión activa vive en el store (la fija el resume del Sidebar);
+  // EgoChat la hidrata vía `sessions.get` al cambiar.
+  const activeSessionId = useUiStore((s) => s.activeSessionId);
   const activeModelName =
     CANONICAL_MODELS.find((m) => m.id === activeModelId)?.name ?? activeModelId;
 
@@ -144,6 +147,8 @@ export function App() {
   }, []);
 
   const handleNewSession = () => {
+    // T18: hilo nuevo = sin sesión activa (el remount no debe rehidratar la vieja).
+    useUiStore.getState().setActiveSessionId(null);
     setSessionNonce((prev) => prev + 1);
   };
 
@@ -251,7 +256,7 @@ export function App() {
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
-              <EgoChat key={sessionNonce} projectId={activeProject} subEgoId={activeSubEgo} />
+              <EgoChat key={sessionNonce} projectId={activeProject} subEgoId={activeSubEgo} sessionId={activeSessionId} />
             </div>
           </section>
 

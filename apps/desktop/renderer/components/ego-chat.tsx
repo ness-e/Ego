@@ -9,6 +9,7 @@ import {
 } from "@assistant-ui/react";
 import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
 import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
+import { turnsToMessages, type SessionTurnRecord } from "../lib/session-resume.js";
 import { ApprovalCard } from "./tools/ApprovalCard";
 import { CharacterBadge } from "./character/CharacterBadge.js";
 import { FileMentionBadge } from "./FileMentionBadge.js";
@@ -161,9 +162,11 @@ async function getByokBlockReason(): Promise<string | null> {
 export interface EgoChatProps {
   projectId?: string;
   subEgoId?: string;
+  /** T18: sesión activa a hidratar (`ipc.sessions.get`); null = hilo vacío honesto. */
+  sessionId?: string | null;
 }
 
-export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
+export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [latestRecall, setLatestRecall] = useState<RecallBadgeInfo | null>(null);
   const [activeError, setActiveError] = useState<ActiveChatError | null>(null);
@@ -190,6 +193,30 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
   const currentPromptRef = useRef<string>("");
 
   const { focusedContext, onAction } = useCanvasBridge();
+
+  // T18: resume real — al cambiar la sesión activa se hidratan los turnos
+  // persistidos (`ipc.sessions.get` → `session/turns` en VantaDB) en mensajes.
+  // Vacío honesto si no hay turnos o el puente falla: nunca se inventan.
+  useEffect(() => {
+    if (!sessionId) {
+      setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    void ego()
+      .sessions?.get?.({ sessionId })
+      .then((res) => {
+        if (cancelled || !res || res.ok !== true) return;
+        const turns = Array.isArray(res.turns) ? (res.turns as SessionTurnRecord[]) : [];
+        if (!cancelled) setMessages(turnsToMessages(turns));
+      })
+      .catch(() => {
+        if (!cancelled) setMessages([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   // Subscripción reactiva a solicitudes de aprobación HITL (ACT-07)
   useEffect(() => {
