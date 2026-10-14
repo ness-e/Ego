@@ -1,8 +1,9 @@
 // apps/desktop/scripts/verify-dist.cjs
 // DIST-01 — Verificación mecánica de artefactos de empaquetado (HERM-16).
-// Contrato: dist/src/main.js + dist/src/preload.js + renderer/dist/index.html
-// existen y no están vacíos; electron-builder.config.cjs carga y declara
-// asar + asarUnpack '**/*.node' (binarios napi-rs fuera del ASAR).
+// T11-S6 (electron-vite): out/main/main.js + out/preload/preload.js +
+// out/renderer/index.html existen y no están vacíos;
+// electron-builder.config.cjs carga y declara asar + asarUnpack '**/*.node'
+// (binarios napi-rs fuera del ASAR).
 // DIST-03 — además: targets NSIS/DMG/AppImage por OS + iconos dedicados
 // presentes y declarados + budget de chunks (sin chunk único de 1.48MB).
 // Alcance: SOLO verificación. Sin firmados (DIST-04), sin empaquetado real.
@@ -14,9 +15,9 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 
 const REQUIRED_FILES = [
-  'dist/src/main.js',
-  'dist/src/preload.js',
-  'renderer/dist/index.html',
+  'out/main/main.js',
+  'out/preload/preload.js',
+  'out/renderer/index.html',
 ];
 
 let failures = 0;
@@ -63,7 +64,7 @@ if (config) {
   }
 
   const files = Array.isArray(config.files) ? config.files : [];
-  for (const need of ['dist/**', 'renderer/dist/**']) {
+  for (const need of ['out/**']) {
     if (!files.some((f) => f === need || (typeof f === 'object' && f.filter === need))) {
       fail(`files debe incluir '${need}' (actual: ${JSON.stringify(files)})`);
     } else {
@@ -121,9 +122,9 @@ if (config) {
   // 5. DIST-03: budget de chunks — ningún JS del renderer supera 1MB
   // (baseline pre-split: index-*.js de 1 483 537 bytes).
   const CHUNK_BUDGET = 1_000_000;
-  const assetsDir = path.join(ROOT, 'renderer', 'dist', 'assets');
+  const assetsDir = path.join(ROOT, 'out', 'renderer', 'assets');
   if (!fs.existsSync(assetsDir)) {
-    fail(`ausente: renderer/dist/assets/ (ejecutar 'pnpm build' primero)`);
+    fail(`ausente: out/renderer/assets/ (ejecutar 'pnpm build' primero)`);
   } else {
     const js = fs.readdirSync(assetsDir).filter((f) => f.endsWith('.js'));
     if (js.length < 2) {

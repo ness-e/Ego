@@ -47,7 +47,9 @@ export class FloatingWindow {
       resizable: false,
       hasShadow: false,
       webPreferences: {
-        preload: join(__dirname, '..', 'preload.js'),
+        // T11-S6 (electron-vite): esta vista compila dentro de
+        // out/main/main.js; el preload vive en out/preload/preload.js.
+        preload: join(__dirname, "..", "preload", "preload.js"),
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,

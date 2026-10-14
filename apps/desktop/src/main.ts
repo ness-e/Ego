@@ -1779,7 +1779,9 @@ export async function createWindow(): Promise<void> {
     },
     backgroundColor: "#0a0a0b",
     webPreferences: {
-      preload: join(__dirname, "preload.js"),
+      // T11-S6 (electron-vite): el main compila a out/main/main.js y el
+      // preload a out/preload/preload.js — ruta relativa al bundle.
+      preload: join(__dirname, "..", "preload", "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -3191,7 +3193,8 @@ export async function createWindow(): Promise<void> {
     console.log(`[Ego Desktop] Conectando a Vite Dev Server: ${process.env.VITE_DEV_SERVER_URL}`);
     await win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    const htmlPath = join(app.getAppPath(), "renderer/dist/index.html");
+    // T11-S6 (electron-vite): el renderer compila a out/renderer/index.html.
+    const htmlPath = join(app.getAppPath(), "out/renderer/index.html");
     console.log(`[Ego Desktop] Cargando interfaz de usuario: ${htmlPath}`);
     try {
       await win.loadFile(htmlPath);

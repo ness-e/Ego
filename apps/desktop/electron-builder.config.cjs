@@ -13,8 +13,7 @@ module.exports = {
     buildResources: 'assets',
   },
   files: [
-    'dist/**',
-    'renderer/dist/**',
+    'out/**',
     'package.json',
   ],
   // CRÍTICO: Los módulos nativos .node de VantaDB (Fjall LSM / napi-rs) DEBEN extraerse
