@@ -52,4 +52,53 @@ describe("CANV-06: CanvasPersistenceManager — Serialización y persistencia en
     const key = CanvasPersistenceManager.getVantaKey("ecommerce-core");
     expect(key).toBe("projects/ecommerce-core/workspace/canvas");
   });
+
+  it("debe guardar el estado serializado en el store bajo la clave canónica (T04)", async () => {
+    const puts: Array<{ namespace: string; key: string; payload: unknown }> = [];
+    const store = {
+      put: async (item: { namespace: string; key: string; payload: unknown }) => {
+        puts.push(item);
+        return { ok: true };
+      },
+      get: async () => null,
+    };
+
+    await CanvasPersistenceManager.save(store, "proj-1", VALID_STATE);
+
+    expect(puts.length).toBe(1);
+    expect(puts[0].namespace).toBe("projects/proj-1");
+    expect(puts[0].key).toBe("projects/proj-1/workspace/canvas");
+    const data = (puts[0].payload as { data: string }).data;
+    expect(typeof data).toBe("string");
+    expect(data).toContain("canvas-proj-1");
+  });
+
+  it("debe cargar y deserializar un estado guardado, sobreviviendo a un reinicio (T04)", async () => {
+    const stored = new Map<string, { payload: unknown }>();
+    const store = {
+      put: async (item: { namespace: string; key: string; payload: unknown }) => {
+        stored.set(`${item.namespace}::${item.key}`, { payload: item.payload });
+        return { ok: true };
+      },
+      get: async (namespace: string, key: string) =>
+        stored.get(`${namespace}::${key}`) ?? null,
+    };
+
+    await CanvasPersistenceManager.save(store, "proj-1", VALID_STATE);
+    // Simula reinicio: nuevo lector sobre el mismo store persistente
+    const restored = await CanvasPersistenceManager.load(store, "proj-1");
+
+    expect(restored).not.toBeNull();
+    expect(restored?.projectId).toBe("proj-1");
+    expect(restored?.components.length).toBe(1);
+    expect(restored?.components[0].props.title).toBe("Test Card");
+  });
+
+  it("debe retornar null al cargar cuando no hay nada persistido (T04)", async () => {
+    const store = {
+      put: async () => ({ ok: true }),
+      get: async () => null,
+    };
+    await expect(CanvasPersistenceManager.load(store, "proj-vacio")).resolves.toBeNull();
+  });
 });

@@ -13,105 +13,16 @@ export interface CanvasRuntimeProps {
 }
 
 /**
- * Manifiestos canónicos iniciales del Dynamic Workspace (eliminando lib/mock.ts)
+ * T04: sin mocks — el contenido inicial llega por `initialComponents` explícitos
+ * o por restore desde VantaDB (`projects/<id>/workspace/canvas` vía `useCanvasBridge`).
+ * Sin ambos, el canvas arranca vacío (estado honesto, ver abajo).
  */
-const DEFAULT_WORKSPACE_COMPONENTS: CanvasComponentManifest[] = [
-  {
-    id: "comp-board-sprint",
-    type: "board",
-    metadata: {
-      timestamp: 1728518400000,
-      generatedBy: "ego.nucleus",
-      why: {
-        vantaSources: ["projects/default/sprint-alpha"],
-        directCause: "Sprint Alpha en ejecución",
-      },
-    },
-    props: {
-      id: "board-sprint",
-      title: "Tablero de Trabajo Activo — Sprint Alpha",
-      columns: [
-        {
-          id: "col-todo",
-          title: "Por Hacer",
-          cards: [
-            { id: "c1", title: "CANV-03: Sincronización Bidireccional", tag: "UI", status: "pendiente" },
-            { id: "c2", title: "CHAR-10: Guardarropa Persistente", tag: "Character", status: "pendiente" },
-          ],
-        },
-        {
-          id: "col-doing",
-          title: "En Curso",
-          cards: [
-            { id: "c3", title: "CANV-02: Canvas Generative Runtime", tag: "Core", status: "en progreso" },
-          ],
-        },
-        {
-          id: "col-done",
-          title: "Completado",
-          cards: [
-            { id: "c4", title: "CANV-01: Esquemas Zod Declarativos", tag: "Schemas", status: "verificado" },
-            { id: "c5", title: "CANV-11: Ego Activity Widget", tag: "HITL", status: "verificado" },
-            { id: "c6", title: "CHAR-09: Morphing de Identidad", tag: "Visual", status: "verificado" },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: "comp-diff-review",
-    type: "diff",
-    metadata: {
-      timestamp: 1728518400000,
-      generatedBy: "ego.developer",
-      why: {
-        vantaSources: ["apps/desktop/renderer/src/App.tsx"],
-        directCause: "Revisión de cambios antes de commit",
-      },
-    },
-    props: {
-      id: "diff-main",
-      title: "Revisión de Código: apps/desktop/renderer/src/App.tsx",
-      filePath: "apps/desktop/renderer/src/App.tsx",
-      originalContent: `// Versión anterior con variables estáticas desconectadas\nconst [activeWidgetState] = useState("idle");\nconst [approvalPending, setApprovalPending] = useState(false);`,
-      modifiedContent: `// Versión viva con Ego Activity Widget reactivo\nimport { ActivityWidget } from "../components/activity-widget/ActivityWidget";\n<ActivityWidget />`,
-      viewMode: "split",
-      additionsCount: 2,
-      deletionsCount: 2,
-    },
-  },
-  {
-    id: "comp-chart-tokens",
-    type: "chart",
-    metadata: {
-      timestamp: 1728518400000,
-      generatedBy: "ego.nucleus",
-      why: {
-        vantaSources: ["projects/default/subegos/telemetry"],
-        directCause: "Auditoría de cuotas de consumo por especialista",
-      },
-    },
-    props: {
-      id: "chart-tokens",
-      title: "Telemetría de Consumo de Tokens (SUB-09)",
-      chartType: "bar",
-      xKey: "subEgo",
-      yKeys: ["tokens", "limite"],
-      data: [
-        { subEgo: "nucleus", tokens: 1850, limite: 8000 },
-        { subEgo: "dev", tokens: 3200, limite: 4000 },
-        { subEgo: "copywriter", tokens: 650, limite: 4000 },
-      ],
-      legend: true,
-    },
-  },
-];
 
 import { useCanvasBridge } from "../../hooks/useCanvasBridge";
 
 export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
   projectId = "default",
-  initialComponents = DEFAULT_WORKSPACE_COMPONENTS,
+  initialComponents = [],
   selectedComponentId: externalSelectedId,
   onSelectComponent,
   onAction,
@@ -121,7 +32,7 @@ export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
     selectedId: bridgeSelectedId,
     focusComponent,
     dispatchAction,
-  } = useCanvasBridge({ initialComponents });
+  } = useCanvasBridge({ initialComponents, projectId });
 
   const [activeFilter, setActiveFilter] = useState<"all" | "boards" | "code" | "metrics">("all");
 

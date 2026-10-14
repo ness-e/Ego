@@ -201,4 +201,20 @@ describe("CANV-03: CanvasBridge — Protocolo Bidireccional Chat <-> Canvas", ()
     expect(ok).toBe(false);
     expect(bridge.getComponent("comp-card-1")?.props).toEqual(before);
   });
+
+  it("despacha canvas.action con payload estructurado por defecto {} (T04)", () => {
+    const bridge = new CanvasBridge([SAMPLE_CARD]);
+    const listener = vi.fn();
+    bridge.on("canvas.action", listener);
+
+    bridge.dispatchAction("comp-card-1", "btn-refresh");
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const event = listener.mock.calls[0][0];
+    expect(event.type).toBe("canvas.action");
+    expect(event.componentId).toBe("comp-card-1");
+    expect(event.actionId).toBe("btn-refresh");
+    expect(event.payload).toEqual({});
+    expect(typeof event.timestamp).toBe("number");
+  });
 });

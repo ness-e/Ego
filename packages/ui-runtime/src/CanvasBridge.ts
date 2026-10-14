@@ -144,7 +144,8 @@ export class CanvasBridge {
       type: "canvas.action",
       componentId,
       actionId,
-      payload,
+      // T04: evento siempre estructurado — payload nunca `undefined`
+      payload: payload ?? {},
       timestamp: Date.now(),
     };
     this.emit(event);

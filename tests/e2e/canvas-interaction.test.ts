@@ -209,5 +209,26 @@ describe("CANV-10: Golden Path Alpha (Pasos 15 al 20) — Dynamic Workspace & Ca
     expect(restoredTable).toBeDefined();
     expect((restoredTable?.props as any).rows[1].status).toBe("completado");
     expect((restoredTable?.props as any).rows[1].task).toBe("Persistir en VantaDB");
+
+    // ── Paso 20b (T04): reload del bridge — inyectar → recargar → sobrevive ──
+    expect(vantaKey).toBe(`projects/${projectId}/workspace/canvas`);
+    const reloadedBridge = new CanvasBridge(restoredState.components);
+    expect(reloadedBridge.getComponents().length).toBe(2);
+    const reloadedTable = reloadedBridge.getComponent("comp-table-sprint");
+    expect(reloadedTable).toBeDefined();
+    expect((reloadedTable?.props as any).rows[1].status).toBe("completado");
+
+    // ── Paso 20c (T04): acción Canvas→Chat viaja como evento estructurado ──
+    let reloadedAction: any = null;
+    reloadedBridge.on("canvas.action", (ev) => {
+      reloadedAction = ev;
+    });
+    reloadedBridge.dispatchAction("comp-table-sprint", "task.complete", { rowIndex: 1 });
+    expect(reloadedAction).not.toBeNull();
+    expect(reloadedAction.type).toBe("canvas.action");
+    expect(reloadedAction.componentId).toBe("comp-table-sprint");
+    expect(reloadedAction.actionId).toBe("task.complete");
+    expect(reloadedAction.payload).toEqual({ rowIndex: 1 });
+    expect(typeof reloadedAction.timestamp).toBe("number");
   });
 });
