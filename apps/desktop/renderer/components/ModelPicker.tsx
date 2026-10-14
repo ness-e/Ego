@@ -46,7 +46,7 @@ export const CANONICAL_MODELS: ModelOption[] = [
     description: "Razonamiento matemático y algorítmico profundo.",
   },
   {
-    id: "gemini-3-8-flash",
+    id: "gemini-3.8-flash",
     name: "Gemini 3.8 Flash",
     provider: "google",
     contextWindow: "1M",
@@ -54,7 +54,7 @@ export const CANONICAL_MODELS: ModelOption[] = [
     description: "Modelo Flash estable vigente (2.x retirado por Google).",
   },
   {
-    id: "gemini-3-5-flash",
+    id: "gemini-3.5-flash",
     name: "Gemini 3.5 Flash",
     provider: "google",
     contextWindow: "1M",
