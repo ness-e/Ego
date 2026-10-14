@@ -84,7 +84,13 @@
     "T14",
     "T15",
     "T16",
-    "T17"
+    "T17",
+    "T18",
+    "T20",
+    "T19",
+    "T21",
+    "T23",
+    "T22"
   ],
   "failedTasks": [],
   "tasks": {
@@ -579,6 +585,42 @@
       "updatedAt": "2026-10-15T06:10:00.000Z",
       "evidence": "FIND-16 + CHAR-05/10/11 + R3 148/151. Renderer 186t.",
       "commitSha": "217c76c"
+    },
+    "T18": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T07:00:00.000Z",
+      "evidence": "Resume real: hidratación turnos→mensajes, sessions.get/resume. Desktop 180t + renderer 192t.",
+      "commitSha": "9a6edc2"
+    },
+    "T20": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T07:00:00.000Z",
+      "evidence": "Firma MCP Ed25519 fail-closed. Integrations 40/40 + desktop 176.",
+      "commitSha": "4e22adc"
+    },
+    "T19": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T07:30:00.000Z",
+      "evidence": "Consola por turno + badge coste en chat. Renderer 196t.",
+      "commitSha": "a986c99"
+    },
+    "T21": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T07:30:00.000Z",
+      "evidence": "Pool multi-key con rotación y cooldown. Security 80t + models 60t + desktop 180t.",
+      "commitSha": "b87d8a3"
+    },
+    "T23": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T07:35:00.000Z",
+      "evidence": "Worktree denied limpio removido (0 trabajo sin commitear). Sin commit.",
+      "commitSha": null
+    },
+    "T22": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T07:45:00.000Z",
+      "evidence": "Suite Playwright 13 specs + gate estático verde. Run vivo owner-pendiente.",
+      "commitSha": "efbb079"
     }
   }
 }
