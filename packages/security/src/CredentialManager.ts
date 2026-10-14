@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 // Nota: los tipos mínimos de "electron" viven en `./electron-shim.d.ts`
 // (solo tipos; en runtime se resuelve vía import dinámico guarded).
 
@@ -488,5 +488,190 @@ export class CredentialManager {
       const parsed = StoredCredentialSchema.parse(cred);
       this.vault.set(this.buildKey(parsed.service, parsed.account), parsed);
     }
+  }
+}
+
+/**
+ * Cooldown default ante 429/rate-limit: la key castigada no se reintenta
+ * hasta pasado este ventana (inyectable en tests vía `nowMs`).
+ */
+export const CREDENTIAL_POOL_DEFAULT_COOLDOWN_MS = 60_000 as const;
+
+/** Longitud del fingerprint opaco de slot (hex SHA-256, no reversible). */
+export const CREDENTIAL_POOL_FINGERPRINT_LENGTH = 16 as const;
+
+export interface CredentialPoolOptions {
+  cooldownMs?: number;
+  nowMs?: () => number;
+}
+
+function normalizePoolProviderStrict(provider: string): string {
+  const normalized = provider.trim().toLowerCase();
+  if (normalized.length === 0) {
+    throw new Error("[CredentialPool] El proveedor no puede estar vacío (fail-closed).");
+  }
+  return normalized;
+}
+
+function normalizePoolProviderLenient(provider: string): string {
+  return provider.trim().toLowerCase();
+}
+
+function fingerprintSecret(secret: string): string {
+  return createHash("sha256")
+    .update(secret, "utf-8")
+    .digest("hex")
+    .slice(0, CREDENTIAL_POOL_FINGERPRINT_LENGTH);
+}
+
+/**
+ * Pool multi-key por proveedor con rotación ante rate-limit (T21).
+ *
+ * - Los secretos viven SOLO en el `CredentialManager` (cifrados por el
+ *   backend); el pool guarda orden + cooldowns + fingerprints opacos.
+ * - `getActiveKey` retorna `null` si no hay slot utilizable (vacío o todo
+ *   en cooldown): fail-closed, el llamador cae a su fallback seguro.
+ * - Fuera del pool NUNCA sale una key en claro salvo por `getActiveKey`
+ *   (canal hacia el provider en main); logs e introspección usan
+ *   fingerprints SHA-256 no reversibles.
+ */
+export class CredentialPool {
+  private readonly manager: CredentialManager;
+  private readonly cooldownMs: number;
+  private readonly nowMs: () => number;
+  private readonly order = new Map<string, string[]>();
+  private readonly cursor = new Map<string, number>();
+  private readonly cooldownUntil = new Map<string, number>();
+
+  constructor(manager: CredentialManager, opts: CredentialPoolOptions = {}) {
+    const cooldownMs = opts.cooldownMs ?? CREDENTIAL_POOL_DEFAULT_COOLDOWN_MS;
+    if (!Number.isFinite(cooldownMs) || cooldownMs <= 0) {
+      throw new Error("[CredentialPool] `cooldownMs` debe ser un número positivo.");
+    }
+    this.manager = manager;
+    this.cooldownMs = cooldownMs;
+    this.nowMs = opts.nowMs ?? Date.now;
+  }
+
+  private serviceFor(provider: string): string {
+    return `models/${provider}/pool`;
+  }
+
+  private cooldownKey(provider: string, fingerprint: string): string {
+    return `${provider}::${fingerprint}`;
+  }
+
+  private peekActive(provider: string): { fingerprint: string; index: number } | null {
+    const slots = this.order.get(provider);
+    if (!slots || slots.length === 0) return null;
+    const now = this.nowMs();
+    const start = this.cursor.get(provider) ?? 0;
+    for (let step = 0; step < slots.length; step++) {
+      const index = (start + step) % slots.length;
+      const fingerprint = slots[index] as string;
+      const until = this.cooldownUntil.get(this.cooldownKey(provider, fingerprint)) ?? 0;
+      if (until <= now) return { fingerprint, index };
+    }
+    return null;
+  }
+
+  /**
+   * Reemplaza el pool del proveedor (sin OAuth todavía: keys directas).
+   * Valida TODO antes de escribir: ante un secreto inválido no persiste
+   * nada parcial (fail-closed). Limpia del vault los slots desplazados.
+   */
+  public async setProviderKeys(provider: string, secrets: string[]): Promise<void> {
+    const normalized = normalizePoolProviderStrict(provider);
+    const unique: Array<{ fingerprint: string; secret: string }> = [];
+    const seen = new Set<string>();
+    for (const secret of secrets) {
+      if (typeof secret !== "string" || secret.trim().length === 0) {
+        throw new Error(
+          `[CredentialPool] Secreto vacío para '${normalized}': el pool no acepta slots sin key (fail-closed).`
+        );
+      }
+      const fingerprint = fingerprintSecret(secret);
+      if (!seen.has(fingerprint)) {
+        seen.add(fingerprint);
+        unique.push({ fingerprint, secret });
+      }
+    }
+    const service = this.serviceFor(normalized);
+    for (const slot of unique) {
+      await this.manager.storeSecret(service, slot.fingerprint, slot.secret);
+    }
+    const previous = this.order.get(normalized) ?? [];
+    const fresh = new Set(unique.map((slot) => slot.fingerprint));
+    for (const old of previous) {
+      if (!fresh.has(old)) this.manager.deleteSecret(service, old);
+    }
+    this.order.set(normalized, unique.map((slot) => slot.fingerprint));
+    this.cursor.set(normalized, 0);
+    for (const key of Array.from(this.cooldownUntil.keys())) {
+      if (key.startsWith(`${normalized}::`)) this.cooldownUntil.delete(key);
+    }
+  }
+
+  /**
+   * Agrega una key al pool (deduplica por fingerprint estable).
+   * Retorna el fingerprint opaco del slot (apto para logs).
+   */
+  public async addProviderKey(provider: string, secret: string): Promise<string> {
+    const normalized = normalizePoolProviderStrict(provider);
+    if (typeof secret !== "string" || secret.trim().length === 0) {
+      throw new Error(
+        `[CredentialPool] Secreto vacío para '${normalized}': el pool no acepta slots sin key (fail-closed).`
+      );
+    }
+    const fingerprint = fingerprintSecret(secret);
+    const slots = this.order.get(normalized) ?? [];
+    if (!slots.includes(fingerprint)) {
+      await this.manager.storeSecret(this.serviceFor(normalized), fingerprint, secret);
+      this.order.set(normalized, [...slots, fingerprint]);
+      if (!this.cursor.has(normalized)) this.cursor.set(normalized, 0);
+    }
+    return fingerprint;
+  }
+
+  public getPoolSize(provider: string): number {
+    return this.order.get(normalizePoolProviderLenient(provider))?.length ?? 0;
+  }
+
+  /** Fingerprints del pool (introspección sin secretos). */
+  public listFingerprints(provider: string): string[] {
+    return [...(this.order.get(normalizePoolProviderLenient(provider)) ?? [])];
+  }
+
+  /** Key activa descifrada o `null` si no hay slot utilizable (fail-closed). */
+  public async getActiveKey(provider: string): Promise<string | null> {
+    const normalized = normalizePoolProviderLenient(provider);
+    if (normalized.length === 0) return null;
+    const active = this.peekActive(normalized);
+    if (!active) return null;
+    return this.manager.getSecret(this.serviceFor(normalized), active.fingerprint);
+  }
+
+  /** Fingerprint de la key activa o `null` (apto para logs, nunca el secreto). */
+  public getActiveFingerprint(provider: string): string | null {
+    const normalized = normalizePoolProviderLenient(provider);
+    if (normalized.length === 0) return null;
+    return this.peekActive(normalized)?.fingerprint ?? null;
+  }
+
+  /**
+   * Castiga la key activa con cooldown y avanza el cursor (rotación).
+   * Sin slot activo es no-op (nunca lanza en el path de error del router).
+   */
+  public async reportRateLimited(provider: string): Promise<void> {
+    const normalized = normalizePoolProviderLenient(provider);
+    if (normalized.length === 0) return;
+    const active = this.peekActive(normalized);
+    if (!active) return;
+    const slots = this.order.get(normalized) ?? [];
+    this.cooldownUntil.set(
+      this.cooldownKey(normalized, active.fingerprint),
+      this.nowMs() + this.cooldownMs
+    );
+    this.cursor.set(normalized, slots.length > 0 ? (active.index + 1) % slots.length : 0);
   }
 }

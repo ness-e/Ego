@@ -8,6 +8,9 @@
  */
 export {
   CredentialManager,
+  CredentialPool,
+  CREDENTIAL_POOL_DEFAULT_COOLDOWN_MS,
+  CREDENTIAL_POOL_FINGERPRINT_LENGTH,
   InMemoryCryptoBackend,
   SafeStorageBackend,
   SyncSafeStorageBackend,
@@ -17,6 +20,7 @@ export {
 } from "./CredentialManager.js";
 export type {
   CryptoStorageBackend,
+  CredentialPoolOptions,
   HardwareProtectionProbe,
   SafeStorageLike,
   StoredCredential,

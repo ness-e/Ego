@@ -17,6 +17,33 @@ export interface ModelRouterConfig {
 }
 
 /**
+ * Superficie lectora mínima del pool de credenciales (T21). El router NO
+ * importa `@ego/security` (DIP): cualquier pool que cumpla este contrato
+ * estructural sirve, incluido `CredentialPool` del main process. Solo
+ * fingerprints opacos en logs — nunca keys.
+ */
+export interface CredentialPoolReader {
+  getPoolSize(provider: ModelProviderId): number;
+  getActiveKey(provider: ModelProviderId): Promise<string | null>;
+  getActiveFingerprint(provider: ModelProviderId): string | null;
+  reportRateLimited(provider: ModelProviderId): Promise<void>;
+}
+
+/** Reconstruye el provider de un id con una key rotada (inyectada por main). */
+export type ModelProviderFactory = (
+  provider: ModelProviderId,
+  apiKey: string
+) => EgoModelInterface;
+
+/** 429/rate-limit en mensajes de error de providers (forma `Error HTTP <status>`). */
+const RATE_LIMIT_PATTERN = /\b429\b|rate.?limit|too many requests|quota exceeded/i;
+
+export function isRateLimitError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return RATE_LIMIT_PATTERN.test(message);
+}
+
+/**
  * ModelRouter canónico de Ego (CORE-03).
  * Enrutamiento inteligente multi-proveedor desacoplado, con fallbacks automáticos,
  * conciencia de costos, roles funcionales y soporte Cloud + Local Offline.
@@ -26,6 +53,8 @@ export class ModelRouter {
   private models: Map<string, ModelDescriptor> = new Map();
   private roleBindings: Map<ModelRole, string[]> = new Map();
   private config: ModelRouterConfig;
+  private credentialPool: CredentialPoolReader | null = null;
+  private providerFactory: ModelProviderFactory | null = null;
 
   constructor(config: ModelRouterConfig = {}) {
     this.config = {
@@ -53,6 +82,20 @@ export class ModelRouter {
 
   public bindRole(role: ModelRole, modelIds: string[]): void {
     this.roleBindings.set(role, modelIds);
+  }
+
+  /**
+   * Conecta el pool multi-key (T21). Sin pool, la conducta es la legacy:
+   * ante cualquier error se cae directo al mock.
+   */
+  public attachCredentialPool(pool: CredentialPoolReader, factory: ModelProviderFactory): void {
+    this.credentialPool = pool;
+    this.providerFactory = factory;
+  }
+
+  public detachCredentialPool(): void {
+    this.credentialPool = null;
+    this.providerFactory = null;
   }
 
   /**
@@ -143,6 +186,63 @@ export class ModelRouter {
     return this.models.get("mock-core")!;
   }
 
+  private applyCost(res: ModelGenerateResult, descriptor: ModelDescriptor): ModelGenerateResult {
+    // Coste real estimado según tarifas del descriptor
+    res.usage.estimatedCostUsd =
+      res.usage.promptTokens * descriptor.costPerInputTokenUsd +
+      res.usage.completionTokens * descriptor.costPerOutputTokenUsd;
+    return res;
+  }
+
+  private isRotatable(provider: ModelProviderId): boolean {
+    // mock/ollama no tienen secreto que rotar; sin pool/factory no hay a dónde rotar
+    return (
+      provider !== "mock" &&
+      provider !== "ollama" &&
+      this.credentialPool !== null &&
+      this.providerFactory !== null
+    );
+  }
+
+  /**
+   * Ejecuta el intento contra el provider con rotación del pool (T21):
+   * ante 429/rate-limit castiga la key activa y reintenta con la siguiente
+   * del MISMO proveedor (acotado a `getPoolSize` intentos). Agotado el pool
+   * (`null`) o ante error no-429, propaga al fallback mock del llamador.
+   */
+  private async attemptWithRotation(
+    descriptor: ModelDescriptor,
+    provider: EgoModelInterface,
+    attempt: (active: EgoModelInterface) => Promise<ModelGenerateResult>
+  ): Promise<ModelGenerateResult> {
+    try {
+      return this.applyCost(await attempt(provider), descriptor);
+    } catch (err) {
+      if (!this.isRotatable(descriptor.provider) || !isRateLimitError(err)) throw err;
+      const pool = this.credentialPool as CredentialPoolReader;
+      const factory = this.providerFactory as ModelProviderFactory;
+      await pool.reportRateLimited(descriptor.provider);
+      const maxAttempts = Math.max(pool.getPoolSize(descriptor.provider), 1);
+      for (let i = 0; i < maxAttempts; i++) {
+        const nextKey = await pool.getActiveKey(descriptor.provider);
+        if (!nextKey) break; // pool agotado: fail-closed hacia el mock
+        const fingerprint = pool.getActiveFingerprint(descriptor.provider) ?? "?";
+        console.warn(
+          `[ModelRouter] 429 en ${descriptor.provider} (key ${fingerprint}): rotando a siguiente key (${i + 1}/${maxAttempts}).`
+        );
+        const rotated = factory(descriptor.provider, nextKey);
+        this.registerProvider(rotated);
+        try {
+          return this.applyCost(await attempt(rotated), descriptor);
+        } catch (retryErr) {
+          if (!isRateLimitError(retryErr)) throw retryErr;
+          await pool.reportRateLimited(descriptor.provider);
+        }
+      }
+      throw err;
+    }
+  }
+
   /**
    * Generación de texto estructurada con fallback en cascada.
    */
@@ -156,12 +256,9 @@ export class ModelRouter {
     const provider = this.providers.get(descriptor.provider)!;
 
     try {
-      const res = await provider.generate(descriptor.id, options);
-      // Calcular coste real estimado según tarifas del descriptor
-      res.usage.estimatedCostUsd =
-        res.usage.promptTokens * descriptor.costPerInputTokenUsd +
-        res.usage.completionTokens * descriptor.costPerOutputTokenUsd;
-      return res;
+      return await this.attemptWithRotation(descriptor, provider, (active) =>
+        active.generate(descriptor.id, options)
+      );
     } catch (err) {
       // Fallback a proveedor alternativo o mock si falla la llamada
       console.warn(`[ModelRouter] Fallo en ${descriptor.id}, intentando fallback a mock:`, err);
@@ -184,11 +281,9 @@ export class ModelRouter {
     const provider = this.providers.get(descriptor.provider)!;
 
     try {
-      const res = await provider.stream(descriptor.id, options, onChunk);
-      res.usage.estimatedCostUsd =
-        res.usage.promptTokens * descriptor.costPerInputTokenUsd +
-        res.usage.completionTokens * descriptor.costPerOutputTokenUsd;
-      return res;
+      return await this.attemptWithRotation(descriptor, provider, (active) =>
+        active.stream(descriptor.id, options, onChunk)
+      );
     } catch (err) {
       console.warn(`[ModelRouter] Fallo en streaming de ${descriptor.id}, activando fallback:`, err);
       const mockProvider = this.providers.get("mock")!;

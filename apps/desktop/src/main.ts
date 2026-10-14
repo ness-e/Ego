@@ -11,7 +11,7 @@ import {
   type EgoRecallStatus,
 } from "@ego/memory";
 import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL, ModelCatalog, CATALOG_CACHE_TTL_MS, type CatalogProviderId } from "@ego/models";
-import type { PreferredModel } from "@ego/models";
+import type { PreferredModel, ModelProviderFactory } from "@ego/models";
 import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext } from "@ego/tools";
 import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
@@ -123,6 +123,7 @@ import {
 } from "@ego/tasks";
 import {
   CredentialManager,
+  CredentialPool,
   SyncSafeStorageBackend,
 } from "@ego/security";
 import { WindowStateManager } from "./windows/WindowStateManager.js";
@@ -1426,6 +1427,93 @@ export function setupModelProviders(router: ModelRouter, extraKeys: ResolvedMode
   router.registerProvider(new MockProvider());
 }
 
+// ---------------------------------------------------------------------------
+// Pool multi-key por proveedor con rotación (T21 — T16-OAUTH, sin OAuth aún).
+//
+// - El pool (`CredentialPool` sobre `mainProcessCryptoBackend`) es el único
+//   dueño de las keys en memoria: el router SOLO lo lee vía
+//   `attachCredentialPool` y reintenta la siguiente key del MISMO proveedor
+//   ante 429 antes de caer al mock. Agotado → mock (fail-closed).
+// - Persistencia: el payload `gov/settings/model_config` NO cambia de forma
+//   (`<p>KeyEncrypted` con blobs `enc:` — criptotexto, nunca claro, mismo
+//   precedente que Task 10/MCP `envRef`); aquí solo se rehidrata el pool
+//   desde las keys efectivas ya resueltas. V1: 1 slot por proveedor.
+// - main es el único que ve keys en claro: la factory reconstruye providers
+//   reales con la key rotada; al renderer solo llegan máscaras.
+// ---------------------------------------------------------------------------
+
+/** Factory del pool: reconstruye el provider real con la key rotada. */
+const modelPoolProviderFactory: ModelProviderFactory = (providerId, apiKey) => {
+  if (providerId === "openai") {
+    const base = isNonEmptyKey(currentModelConfig.openaiBaseURL)
+      ? currentModelConfig.openaiBaseURL
+      : currentModelConfig.activeProvider === "openai" && isNonEmptyKey(currentModelConfig.baseUrl)
+        ? currentModelConfig.baseUrl
+        : undefined;
+    if (isCustomBaseURL(base, OPENAI_DEFAULT_BASE_URL)) {
+      return new OpenAICompatibleProvider({ providerId: "openai", baseUrl: base, apiKey });
+    }
+    return new AiSdkOpenAIProvider({ apiKey, ...(isNonEmptyKey(base) ? { baseURL: base } : {}) });
+  }
+  if (providerId === "anthropic") {
+    return new AiSdkAnthropicProvider({ apiKey });
+  }
+  if (providerId === "google") {
+    return new AiSdkGoogleProvider({ apiKey });
+  }
+  if (providerId === "deepseek") {
+    const base = isNonEmptyKey(currentModelConfig.deepseekBaseURL)
+      ? currentModelConfig.deepseekBaseURL
+      : currentModelConfig.activeProvider === "deepseek" && isNonEmptyKey(currentModelConfig.baseUrl)
+        ? currentModelConfig.baseUrl
+        : undefined;
+    return new AiSdkOpenAICompatibleProvider({
+      providerId: "deepseek",
+      apiKey,
+      ...(isNonEmptyKey(base) ? { baseURL: base } : {}),
+    });
+  }
+  throw new Error(
+    `[ModelPool] Rotación no soportada para '${providerId}' (solo openai/anthropic/google/deepseek rotan; mock/ollama sin secreto).`
+  );
+};
+
+let modelCredentialManager: CredentialManager | null = null;
+let modelCredentialPool: CredentialPool | null = null;
+
+/** Singleton del pool de keys de modelos (vault en memoria sobre safeStorage). */
+export function getModelCredentialPool(): CredentialPool {
+  if (!modelCredentialPool) {
+    modelCredentialManager = new CredentialManager(mainProcessCryptoBackend);
+    modelCredentialPool = new CredentialPool(modelCredentialManager);
+  }
+  return modelCredentialPool;
+}
+
+/** Solo tests: inyecta un pool falso en el singleton de sesión. */
+export function setModelCredentialPoolForTests(pool: CredentialPool | null): void {
+  modelCredentialPool = pool;
+  if (pool === null) modelCredentialManager = null;
+}
+
+/**
+ * Rehidrata el pool desde keys efectivas (env + persistidas) y lo conecta
+ * al router. V1: 1 slot por proveedor; el pool soporta N (arrays multi-key
+ * diferidos sin cambio de forma del payload).
+ */
+export async function syncModelCredentialPool(
+  router: ModelRouter,
+  extraKeys: ResolvedModelKeys = {}
+): Promise<void> {
+  const keys = mergeModelKeys(resolveEnvModelKeys(), extraKeys);
+  const pool = getModelCredentialPool();
+  await pool.setProviderKeys("openai", isNonEmptyKey(keys.openai) ? [keys.openai] : []);
+  await pool.setProviderKeys("anthropic", isNonEmptyKey(keys.anthropic) ? [keys.anthropic] : []);
+  await pool.setProviderKeys("google", isNonEmptyKey(keys.google) ? [keys.google] : []);
+  await pool.setProviderKeys("deepseek", isNonEmptyKey(keys.deepseek) ? [keys.deepseek] : []);
+  router.attachCredentialPool(pool, modelPoolProviderFactory);
+}
+
 /**
  * Procesa una solicitud de chat ejecutando el ciclo cognitivo ToolExecutionLoop con
  * streaming, persistencia inmutable en VantaDB y control de ejecución (INT-01).
@@ -1654,6 +1742,7 @@ export async function createWindow(): Promise<void> {
 
   modelRouter = new ModelRouter();
   setupModelProviders(modelRouter);
+  await syncModelCredentialPool(modelRouter);
 
   // Restaurar configuración persistida de modelos BYOK si existe (gov/settings)
   // Solo main: las keys descifradas con safeStorage nunca salen de este proceso.
@@ -1693,6 +1782,7 @@ export async function createWindow(): Promise<void> {
         if (Object.keys(persistedKeys).length > 0) {
           setupModelProviders(modelRouter, persistedKeys);
         }
+        await syncModelCredentialPool(modelRouter, persistedKeys);
 
         let resolvedKey = "";
         const storedApiKeyEncrypted = record.apiKeyEncrypted;
@@ -2800,6 +2890,13 @@ export async function createWindow(): Promise<void> {
       ...(isNonEmptyKey(effectiveConfig.openaiBaseURL) ? { openaiBaseURL: effectiveConfig.openaiBaseURL } : {}),
       ...(isNonEmptyKey(effectiveConfig.deepseekBaseURL) ? { deepseekBaseURL: effectiveConfig.deepseekBaseURL } : {}),
       ...(isNonEmptyKey(effectiveConfig.ollamaBaseURL) ? { ollamaBaseURL: effectiveConfig.ollamaBaseURL } : {}),
+    });
+    // T21: rehidratar el pool con las keys efectivas recién guardadas.
+    await syncModelCredentialPool(modelRouter, {
+      ...(isNonEmptyKey(effectiveProviderKeys.openaiKey) ? { openai: effectiveProviderKeys.openaiKey } : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.anthropicKey) ? { anthropic: effectiveProviderKeys.anthropicKey } : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.googleKey) ? { google: effectiveProviderKeys.googleKey } : {}),
+      ...(isNonEmptyKey(effectiveProviderKeys.deepseekKey) ? { deepseek: effectiveProviderKeys.deepseekKey } : {}),
     });
 
     // Cifrar cada key por proveedor antes de persistir. NUNCA texto plano ni máscaras.
