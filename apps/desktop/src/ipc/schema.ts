@@ -502,3 +502,40 @@ export const TerminalKillSchema = z.object({
 
 export type TerminalKillRequest = z.infer<typeof TerminalKillSchema>;
 
+/**
+ * Esquemas T13: sesiones conversacionales + aprobaciones pendientes +
+ * info de storage y políticas de gobierno (validación Zod en main,
+ * fail-closed: sin schema válido → rechazado antes de tocar motores).
+ * Fuente de sesiones: `session/turns` vía adapter (EgoMemoryLifecycle solo
+ * guarda el activeSessionId en memoria; no hay store dedicado — los
+ * handlers agregan turns por sessionId y lo documentan).
+ */
+export const SessionsListSchema = z
+  .object({
+    limit: z.number().int().positive().max(500).optional(),
+    projectScope: z.string().min(1).max(128).optional(),
+  })
+  .optional();
+
+export type SessionsListRequest = z.infer<typeof SessionsListSchema>;
+
+export const SessionGetSchema = z.object({
+  sessionId: z.string().min(1).max(128),
+});
+
+export type SessionGetRequest = z.infer<typeof SessionGetSchema>;
+
+export const SessionResumeSchema = z.object({
+  sessionId: z.string().min(1).max(128),
+});
+
+export type SessionResumeRequest = z.infer<typeof SessionResumeSchema>;
+
+export const DailyListApprovalsSchema = z
+  .object({
+    limit: z.number().int().positive().max(500).optional(),
+  })
+  .optional();
+
+export type DailyListApprovalsRequest = z.infer<typeof DailyListApprovalsSchema>;
+

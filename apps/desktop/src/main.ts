@@ -78,6 +78,10 @@ import {
   TerminalSpawnSchema,
   TerminalStdinSchema,
   TerminalKillSchema,
+  SessionsListSchema,
+  SessionGetSchema,
+  SessionResumeSchema,
+  DailyListApprovalsSchema,
 } from "./ipc/schema.js";
 import {
   DomainRegistry,
@@ -1145,6 +1149,93 @@ export let currentModelConfig: ModelConfig = {
   baseUrl: process.env.OPENAI_BASE_URL || "",
   modelName: "",
 };
+
+/**
+ * T13 probe-before-save (hermes P3): valida la key del proveedor activo
+ * contra su API (list models, timeout 15s) ANTES de persistir.
+ * - 401/403/404 → throw accionable "key inválida", el caller NO persiste.
+ * - Red ausente/timeout/5xx → `{verified:false, networkUnreachable:true}`
+ *   con `warn`: el caller advierte pero permite guardar (flag visible).
+ * - `mock` → `{verified:true}` (nada que validar). `ollama` prueba
+ *   conectividad local sin secreto.
+ * Seguridad: la key viaja SOLO en el header/query del fetch y NUNCA se
+ * incluye en mensajes, errores ni logs (cero `console.*` en esta función).
+ */
+export interface ModelKeyProbeResult {
+  verified: boolean;
+  warn?: string;
+  networkUnreachable?: boolean;
+}
+
+export interface ModelKeyProbeInput {
+  provider: ModelConfig["activeProvider"];
+  key?: string;
+  openaiBaseURL?: string;
+  deepseekBaseURL?: string;
+  ollamaBaseURL?: string;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+}
+
+export async function probeModelKey(input: ModelKeyProbeInput): Promise<ModelKeyProbeResult> {
+  const { provider } = input;
+  if (provider === "mock") return { verified: true };
+  const timeoutMs = input.timeoutMs ?? 15000;
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const normBase = (b: string | undefined): string | undefined => {
+    const t = b?.trim().replace(/\/+$/, "");
+    return t ? t : undefined;
+  };
+
+  let url = "";
+  const headers: Record<string, string> = {};
+  const secret = input.key?.trim() ?? "";
+  if (provider === "ollama") {
+    url = `${normBase(input.ollamaBaseURL) ?? OLLAMA_DEFAULT_BASE_URL}/api/tags`;
+  } else if (!secret) {
+    return { verified: false, warn: "Sin key para validar: se guarda sin probe (fallback mock intacto)." };
+  } else if (provider === "openai") {
+    url = `${normBase(input.openaiBaseURL) ?? "https://api.openai.com/v1"}/models`;
+    headers["Authorization"] = `Bearer ${secret}`;
+  } else if (provider === "anthropic") {
+    url = "https://api.anthropic.com/v1/models";
+    headers["x-api-key"] = secret;
+    headers["anthropic-version"] = "2023-06-01";
+  } else if (provider === "google") {
+    url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(secret)}`;
+  } else if (provider === "deepseek") {
+    url = `${normBase(input.deepseekBaseURL) ?? "https://api.deepseek.com"}/models`;
+    headers["Authorization"] = `Bearer ${secret}`;
+  }
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(url, { method: "GET", headers, signal: ctrl.signal });
+    if (res.ok) return { verified: true };
+    if (res.status === 401 || res.status === 403 || res.status === 404) {
+      throw new Error(
+        `[BYOK] La key de ${provider} es inválida (HTTP ${res.status} al validar contra su API). ` +
+          `Verificá la key y el proveedor activo. No se persistió ningún cambio.`
+      );
+    }
+    return {
+      verified: false,
+      networkUnreachable: true,
+      warn: `Validación no concluyente (HTTP ${res.status}): se guarda sin verificar.`,
+    };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("[BYOK]")) throw err;
+    const reason = err instanceof Error && err.name === "AbortError" ? "timeout" : "red no disponible";
+    return {
+      verified: false,
+      networkUnreachable: true,
+      warn: `No se pudo validar la key (${reason}): se guarda sin verificar.`,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * Aplica una configuración de modelo validada al ModelRouter (INT-02 + Task 10).
@@ -2586,6 +2677,32 @@ export async function createWindow(): Promise<void> {
       apiKey: effectiveApiKey,
     };
 
+    // T13 probe-before-save (hermes P3): validar la key efectiva del
+    // proveedor activo contra su API ANTES de persistir. Key inválida
+    // (401/403/404) → throw accionable, NO se persiste nada. Red ausente
+    // → se advierte pero se permite guardar con flag `probe` visible.
+    const providerForProbe = effectiveConfig.activeProvider;
+    const keyForProbe =
+      providerForProbe === "openai"
+        ? (effectiveProviderKeys.openaiKey ?? effectiveApiKey)
+        : providerForProbe === "anthropic"
+          ? (effectiveProviderKeys.anthropicKey ?? effectiveApiKey)
+          : providerForProbe === "google"
+            ? (effectiveProviderKeys.googleKey ?? effectiveApiKey)
+            : providerForProbe === "deepseek"
+              ? (effectiveProviderKeys.deepseekKey ?? effectiveApiKey)
+              : undefined;
+    let probe: ModelKeyProbeResult = { verified: true };
+    if (providerForProbe !== "mock") {
+      probe = await probeModelKey({
+        provider: providerForProbe,
+        ...(keyForProbe ? { key: keyForProbe } : {}),
+        ...(isNonEmptyKey(effectiveConfig.openaiBaseURL) ? { openaiBaseURL: effectiveConfig.openaiBaseURL } : {}),
+        ...(isNonEmptyKey(effectiveConfig.deepseekBaseURL) ? { deepseekBaseURL: effectiveConfig.deepseekBaseURL } : {}),
+        ...(isNonEmptyKey(effectiveConfig.ollamaBaseURL) ? { ollamaBaseURL: effectiveConfig.ollamaBaseURL } : {}),
+      });
+    }
+
     applyModelConfig(modelRouter, effectiveConfig);
     // Registrar también las keys no activas para multi-proveedor (reúso Task 9).
     setupModelProviders(modelRouter, {
@@ -2637,7 +2754,12 @@ export async function createWindow(): Promise<void> {
     });
 
     // Respuesta enmascarada hacia el Renderer (ningún secreto en claro).
-    return { ok: true, config: toMaskedModelConfigResponse({ ...effectiveConfig, apiKey: effectiveApiKey }) };
+    // `probe` expone el resultado de la validación previa (verified/warn).
+    return {
+      ok: true,
+      config: toMaskedModelConfigResponse({ ...effectiveConfig, apiKey: effectiveApiKey }),
+      probe,
+    };
   });
 
   // 6. Decision Intelligence Layer IPC (DEC-01..DEC-08)
@@ -3217,6 +3339,138 @@ export async function createWindow(): Promise<void> {
       // noop: auditoría best-effort
     }
     return { ok: true, sessionId: parseResult.data.sessionId };
+  });
+
+  // ==========================================
+  // IPC Handlers: Sesiones conversacionales (T13)
+  // ==========================================
+  // Fuente: NO hay store dedicado de sesiones (EgoMemoryLifecycle solo
+  // guarda el activeSessionId en memoria). Los turnos viven en el
+  // namespace `session/turns` con key `${sessionId}:${turnId}` y metadata
+  // `{sessionId, projectScope, timestamp}`. Estos handlers agregan desde
+  // ahí (lifecycle/store) y lo documentan en vez de inventar fuente.
+  ipcMain.handle("ipc.sessions.list", async (_e, rawReq: unknown) => {
+    const parseResult = SessionsListSchema.safeParse(rawReq ?? undefined);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const limit = parseResult.data?.limit ?? 100;
+    const projectScope = parseResult.data?.projectScope;
+    const turns = await adapter.list("session/turns", Math.min(limit * 10, 1000));
+    const bySession = new Map<string, { turnCount: number; lastTimestamp: number; projectScope?: string }>();
+    for (const t of turns) {
+      const meta = (t.metadata ?? {}) as Record<string, unknown>;
+      const payload = t.payload as Record<string, unknown> | null;
+      const sid =
+        (typeof meta["sessionId"] === "string" && meta["sessionId"]) ||
+        (payload && typeof payload["sessionId"] === "string" ? (payload["sessionId"] as string) : "") ||
+        t.key.split(":")[0] ||
+        "unknown";
+      if (projectScope && meta["projectScope"] !== projectScope) continue;
+      const ts =
+        (typeof meta["timestamp"] === "number" && meta["timestamp"]) ||
+        (payload && typeof payload["timestamp"] === "number" ? (payload["timestamp"] as number) : 0);
+      const prev = bySession.get(sid) ?? { turnCount: 0, lastTimestamp: 0 };
+      bySession.set(sid, {
+        turnCount: prev.turnCount + 1,
+        lastTimestamp: Math.max(prev.lastTimestamp, ts),
+        ...(typeof meta["projectScope"] === "string" ? { projectScope: meta["projectScope"] as string } : {}),
+      });
+    }
+    const sessions = [...bySession.entries()]
+      .map(([sessionId, info]) => ({ sessionId, ...info }))
+      .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
+      .slice(0, limit);
+    return { ok: true, sessions };
+  });
+
+  ipcMain.handle("ipc.sessions.get", async (_e, rawReq: unknown) => {
+    const parseResult = SessionGetSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const { sessionId } = parseResult.data;
+    const turns = await adapter.list("session/turns", 1000);
+    const mine = turns
+      .filter((t) => {
+        const meta = (t.metadata ?? {}) as Record<string, unknown>;
+        if (meta["sessionId"] === sessionId) return true;
+        const payload = t.payload as Record<string, unknown> | null;
+        if (payload && payload["sessionId"] === sessionId) return true;
+        return t.key === sessionId || t.key.startsWith(`${sessionId}:`);
+      })
+      .map((t) => ({ key: t.key, payload: t.payload, metadata: t.metadata }));
+    if (mine.length === 0) {
+      return { ok: false, error: `Sesión '${sessionId}' no encontrada o sin turnos.` };
+    }
+    return { ok: true, sessionId, turns: mine };
+  });
+
+  ipcMain.handle("ipc.sessions.resume", async (_e, rawReq: unknown) => {
+    const parseResult = SessionResumeSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const { sessionId } = parseResult.data;
+    const turns = await adapter.list("session/turns", 1000);
+    const mine = turns.filter((t) => {
+      const meta = (t.metadata ?? {}) as Record<string, unknown>;
+      if (meta["sessionId"] === sessionId) return true;
+      const payload = t.payload as Record<string, unknown> | null;
+      if (payload && payload["sessionId"] === sessionId) return true;
+      return t.key === sessionId || t.key.startsWith(`${sessionId}:`);
+    });
+    if (mine.length === 0) {
+      return { ok: false, error: `Sesión '${sessionId}' no encontrada o sin turnos.` };
+    }
+    const projectScope =
+      (mine[0]?.metadata as Record<string, unknown> | undefined)?.["projectScope"];
+    await lifecycle.startSession(
+      sessionId,
+      typeof projectScope === "string" && projectScope ? projectScope : "default"
+    );
+    return { ok: true, sessionId, turnCount: mine.length, resumed: true };
+  });
+
+  // T13: aprobaciones HITL pendientes (lectura directa del motor en
+  // memoria; el histórico vive en DecisionsFeed, aquí solo pendientes).
+  ipcMain.handle("ipc.daily.listApprovals", async (_e, rawReq: unknown) => {
+    const parseResult = DailyListApprovalsSchema.safeParse(rawReq ?? undefined);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const limit = parseResult.data?.limit ?? 100;
+    const approvals = approvalEngine.listPendingApprovals().slice(0, limit);
+    return { ok: true, approvals };
+  });
+
+  // T13: info operativa de storage (solo lectura, sin secretos) y
+  // políticas de gobierno (`gov/policies`; ausente → [] documentado).
+  ipcMain.handle("ipc.settings.getStorageInfo", async () => {
+    let namespaces: string[] = [];
+    try {
+      namespaces = await adapter.listNamespaces();
+    } catch {
+      // noop: best-effort, el resto de la info sigue disponible
+    }
+    return {
+      ok: true,
+      userDataDir,
+      dbPath,
+      operational: adapter.ready,
+      platform: process.platform,
+      namespaces,
+    };
+  });
+
+  ipcMain.handle("ipc.settings.getGovPolicies", async () => {
+    const records = await adapter.list("gov/policies", 100);
+    const policies = records.map((r) => ({
+      key: r.key,
+      payload: r.payload,
+      metadata: r.metadata,
+    }));
+    return { ok: true, policies };
   });
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)

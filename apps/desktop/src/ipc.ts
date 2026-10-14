@@ -1,5 +1,5 @@
 // Contrato IPC canónico (renderer→main invoke + main→renderer push).
-// F5T11/M25: fuente única de verdad de la superficie IPC. Los 55 canales
+// F5T11/M25: fuente única de verdad de la superficie IPC. Los 61 canales
 // `invoke` corresponden 1:1 a los `ipcMain.handle` de `main.ts` y a los
 // `ipcRenderer.invoke` de `preload.ts`; los 7 canales `push` a los
 // `webContents.send` de `main.ts` y `ipcRenderer.on` de `preload.ts`.
@@ -76,6 +76,15 @@ export const EgoIpcInvokeChannels = [
   "ipc.terminal.spawn",
   "ipc.terminal.stdin",
   "ipc.terminal.kill",
+  // Sesiones conversacionales (T13; fuente: `session/turns` vía adapter).
+  "ipc.sessions.list",
+  "ipc.sessions.get",
+  "ipc.sessions.resume",
+  // Aprobaciones HITL pendientes (T13; `ApprovalEngine.listPendingApprovals`).
+  "ipc.daily.listApprovals",
+  // Storage operativo + políticas de gobierno (T13; solo lectura, sin secretos).
+  "ipc.settings.getStorageInfo",
+  "ipc.settings.getGovPolicies",
 ] as const;
 
 /** Eventos push main→renderer (el renderer solo escucha, nunca emite). */

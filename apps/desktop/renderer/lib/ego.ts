@@ -218,6 +218,85 @@ export interface DailyBatchResolveResult {
   resolved: Array<{ approvalId: string; ok: boolean }>;
 }
 
+export interface DailyApprovalsResult {
+  ok: boolean;
+  error?: string;
+  approvals: PendingApprovalInfo[];
+}
+
+/**
+ * Formas de respuesta de `ipc.sessions.*` (T13).
+ * Fuente documentada: agregación de `session/turns` vía adapter
+ * (sin store dedicado; ver handlers en `main.ts`).
+ */
+export interface SessionSummary {
+  sessionId: string;
+  turnCount: number;
+  lastTimestamp: number;
+  projectScope?: string;
+}
+
+export interface SessionsListResult {
+  ok: boolean;
+  error?: string;
+  sessions: SessionSummary[];
+}
+
+export interface SessionDetailResult {
+  ok: boolean;
+  error?: string;
+  sessionId: string;
+  turns?: Array<{ key: string; payload: unknown; metadata?: Record<string, unknown> }>;
+  turnCount?: number;
+  resumed?: boolean;
+}
+
+export interface BackgroundTaskInfo {
+  taskId: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export interface TasksListResult {
+  ok: boolean;
+  error?: string;
+  tasks: BackgroundTaskInfo[];
+  mock?: boolean;
+}
+
+export interface TerminalSpawnResult {
+  ok: boolean;
+  error?: string;
+  denied?: boolean;
+  sessionId?: string;
+  cwd?: string;
+  mock?: boolean;
+}
+
+export interface StorageInfoResult {
+  ok: boolean;
+  error?: string;
+  userDataDir?: string;
+  dbPath?: string;
+  operational?: boolean;
+  platform?: string;
+  namespaces?: string[];
+  mock?: boolean;
+}
+
+export interface GovPoliciesResult {
+  ok: boolean;
+  error?: string;
+  policies: Array<{ key: string; payload: unknown; metadata?: Record<string, unknown> }>;
+  mock?: boolean;
+}
+
+export interface ModelKeyProbeInfo {
+  verified: boolean;
+  warn?: string;
+  networkUnreachable?: boolean;
+}
+
 /**
  * Formas de respuesta de los canales `ipc.domains.*` (F5T11/M26).
  * Espejos locales de `GitStatusSummary`, `WorkspaceInspection`, `WorktreeInfo`
@@ -364,7 +443,25 @@ export interface EgoBridge {
   };
   settings: {
     getModelConfig: () => Promise<ModelConfigInfo>;
-    saveModelConfig: (config: ModelConfigInfo) => Promise<{ ok: boolean; config: ModelConfigInfo }>;
+    saveModelConfig: (config: ModelConfigInfo) => Promise<{ ok: boolean; config: ModelConfigInfo; probe?: ModelKeyProbeInfo }>;
+    getStorageInfo: () => Promise<StorageInfoResult>;
+    getGovPolicies: () => Promise<GovPoliciesResult>;
+  };
+  // T13: tasks/terminal existían en main sin puente; sesiones,
+  // aprobaciones pendientes, storage y policies son canales nuevos.
+  tasks: {
+    list: (req?: { status?: string[]; subEgoId?: string; limit?: number }) => Promise<TasksListResult>;
+    cancel: (req: { taskId: string; reason?: string }) => Promise<{ ok: boolean; taskId?: string; error?: string }>;
+  };
+  terminal: {
+    spawn: (req: { command: string; cwd?: string; timeoutMs?: number }) => Promise<TerminalSpawnResult>;
+    stdin: (req: { sessionId: string; data: string }) => Promise<{ ok: boolean; error?: string }>;
+    kill: (req: { sessionId: string }) => Promise<{ ok: boolean; sessionId?: string; error?: string }>;
+  };
+  sessions: {
+    list: (req?: { limit?: number; projectScope?: string }) => Promise<SessionsListResult>;
+    get: (req: { sessionId: string }) => Promise<SessionDetailResult>;
+    resume: (req: { sessionId: string }) => Promise<SessionDetailResult>;
   };
   daily?: {
     getSummary: (req?: { date?: string }) => Promise<DailySummaryResult>;
@@ -378,6 +475,7 @@ export interface EgoBridge {
     resolveApprovalsBatch: (req: {
       approvals: Array<{ approvalId: string; approved: boolean; reason?: string }>;
     }) => Promise<DailyBatchResolveResult>;
+    listApprovals: (req?: { limit?: number }) => Promise<DailyApprovalsResult>;
   };
   domains?: {
     list: () => Promise<DomainsResult>;
@@ -689,6 +787,34 @@ const mock: EgoBridge = {
       modelName: "mock-core",
     }),
     saveModelConfig: async (config) => ({ ok: true, config }),
+    getStorageInfo: async () => ({
+      ok: true,
+      mock: true,
+      userDataDir: "/mock/user-data",
+      dbPath: "/mock/user-data/ego_memory.vdb",
+      operational: true,
+      platform: "mock",
+      namespaces: ["session/turns", "gov/settings", "gov/policies"],
+    }),
+    getGovPolicies: async () => ({ ok: true, mock: true, policies: [] }),
+  },
+  tasks: {
+    list: async () => ({ ok: true, mock: true, tasks: [] }),
+    cancel: async (req) => ({ ok: true, mock: true, taskId: req.taskId } as { ok: boolean; taskId?: string; error?: string }),
+  },
+  terminal: {
+    spawn: async () => ({ ok: true, mock: true, sessionId: "term_mock", cwd: "/mock" }),
+    stdin: async () => ({ ok: true, mock: true } as { ok: boolean; error?: string }),
+    kill: async (req) => ({ ok: true, mock: true, sessionId: req.sessionId }),
+  },
+  sessions: {
+    list: async () => ({
+      ok: true,
+      mock: true,
+      sessions: [{ sessionId: "mock_session", turnCount: 1, lastTimestamp: Date.now() }],
+    }),
+    get: async (req) => ({ ok: true, mock: true, sessionId: req.sessionId, turns: [] }),
+    resume: async (req) => ({ ok: true, mock: true, sessionId: req.sessionId, turnCount: 0, resumed: true }),
   },
   decision: {
     evaluate: async (req) => ({ ok: true, mock: true, req }),
@@ -704,6 +830,18 @@ const mock: EgoBridge = {
     explainArtifact: async () => ({ ok: true, mock: true, explanation: null }),
     exportPackage: async () => ({ ok: true, mock: true, pkg: null }),
     importPackage: async (pkg) => ({ ok: true, mock: true, pkg }),
+  },
+  daily: {
+    getSummary: async () => ({ ok: true, mock: true, summary: { date: "mock", pendingApprovalsCount: 0 } }),
+    refineGoals: async () => ({ ok: true, mock: true, goals: [] }),
+    getDecisions: async () => ({ ok: true, mock: true, decisions: [] }),
+    saveSnapshot: async () => ({ ok: true, mock: true }),
+    getSnapshot: async () => ({ ok: true, mock: true }),
+    listSnapshots: async () => ({ ok: true, mock: true }),
+    isFirstLaunch: async () => ({ ok: true, mock: true, isFirstLaunch: false }),
+    journal: async (req) => ({ ok: true, mock: true, date: req.date, content: req.content ?? "" }),
+    resolveApprovalsBatch: async () => ({ ok: true, mock: true, resolved: [] }),
+    listApprovals: async () => ({ ok: true, mock: true, approvals: [] }),
   },
   onEvent: () => () => {},
 };

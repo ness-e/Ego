@@ -106,6 +106,8 @@ export interface EgoPreloadBridge {
       ollamaBaseURL?: string;
       modelName?: string;
     }) => Promise<unknown>;
+    getStorageInfo: () => Promise<unknown>;
+    getGovPolicies: () => Promise<unknown>;
   };
   onProjectChanged: (callback: (data: ProjectChangedEvent) => void) => () => void;
   onSubEgosChanged: (callback: (data: SubEgosChangedEvent) => void) => () => void;
@@ -144,6 +146,7 @@ export interface EgoPreloadBridge {
     resolveApprovalsBatch: (req: {
       approvals: Array<{ approvalId: string; approved: boolean; reason?: string }>;
     }) => Promise<unknown>;
+    listApprovals: (req?: { limit?: number }) => Promise<unknown>;
   };
   domains: {
     list: () => Promise<unknown>;
@@ -154,6 +157,22 @@ export interface EgoPreloadBridge {
     knowledgeSearch: (query: string, limit?: number) => Promise<unknown>;
     analyticsSeries: (days?: number) => Promise<unknown>;
     crmDeals: (req?: { action: "list" | "create" | "updateStage" | "summary"; payload?: unknown }) => Promise<unknown>;
+  };
+  // T13: tasks/terminal existían en main (main.ts:3082-3200) sin puente
+  // (superficie muerta); sesiones/aprobaciones/storage/policies son nuevos.
+  tasks: {
+    list: (req?: unknown) => Promise<unknown>;
+    cancel: (req: { taskId: string; reason?: string }) => Promise<unknown>;
+  };
+  terminal: {
+    spawn: (req: { command: string; cwd?: string; timeoutMs?: number }) => Promise<unknown>;
+    stdin: (req: { sessionId: string; data: string }) => Promise<unknown>;
+    kill: (req: { sessionId: string }) => Promise<unknown>;
+  };
+  sessions: {
+    list: (req?: { limit?: number; projectScope?: string }) => Promise<unknown>;
+    get: (req: { sessionId: string }) => Promise<unknown>;
+    resume: (req: { sessionId: string }) => Promise<unknown>;
   };
 }
 
@@ -196,6 +215,8 @@ const egoBridge: EgoPreloadBridge = {
   settings: {
     getModelConfig: () => ipcRenderer.invoke("ipc.settings.getModelConfig"),
     saveModelConfig: (config) => ipcRenderer.invoke("ipc.settings.saveModelConfig", config),
+    getStorageInfo: () => ipcRenderer.invoke("ipc.settings.getStorageInfo"),
+    getGovPolicies: () => ipcRenderer.invoke("ipc.settings.getGovPolicies"),
   },
   onProjectChanged: (callback) => {
     const sub = (_event: Electron.IpcRendererEvent, data: ProjectChangedEvent) => callback(data);
@@ -271,6 +292,7 @@ const egoBridge: EgoPreloadBridge = {
     isFirstLaunch: (req?) => ipcRenderer.invoke("ipc.daily.isFirstLaunch", req),
     journal: (req) => ipcRenderer.invoke("ipc.daily.journal", req),
     resolveApprovalsBatch: (req) => ipcRenderer.invoke("ipc.daily.resolveApprovalsBatch", req),
+    listApprovals: (req?) => ipcRenderer.invoke("ipc.daily.listApprovals", req),
   },
   domains: {
     list: () => ipcRenderer.invoke("ipc.domains.list"),
@@ -283,6 +305,20 @@ const egoBridge: EgoPreloadBridge = {
       ipcRenderer.invoke("ipc.domains.knowledge.search", { query, limit }),
     analyticsSeries: (days?) => ipcRenderer.invoke("ipc.domains.analytics.series", { days }),
     crmDeals: (req?) => ipcRenderer.invoke("ipc.domains.crm.deals", req),
+  },
+  tasks: {
+    list: (req?) => ipcRenderer.invoke("ipc.tasks.list", req),
+    cancel: (req) => ipcRenderer.invoke("ipc.tasks.cancel", req),
+  },
+  terminal: {
+    spawn: (req) => ipcRenderer.invoke("ipc.terminal.spawn", req),
+    stdin: (req) => ipcRenderer.invoke("ipc.terminal.stdin", req),
+    kill: (req) => ipcRenderer.invoke("ipc.terminal.kill", req),
+  },
+  sessions: {
+    list: (req?) => ipcRenderer.invoke("ipc.sessions.list", req),
+    get: (req) => ipcRenderer.invoke("ipc.sessions.get", req),
+    resume: (req) => ipcRenderer.invoke("ipc.sessions.resume", req),
   },
 };
 
