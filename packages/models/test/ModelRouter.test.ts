@@ -275,6 +275,36 @@ describe("@ego/models — Comprehensive ModelRouter Test Suite", () => {
     });
   });
 
+  describe("Modelo preferido del usuario gana al rol", () => {
+    it("usa el id registrado pedido aunque no esté en el binding", async () => {
+      router.registerProvider(new AiSdkGoogleProvider({ apiKey: "sk-test-google-1234567890" }));
+      const desc = await router.resolveModel("fast-classifier", ["text"], {
+        modelId: "gemini-3.8-flash",
+        providerId: "google",
+      });
+      expect(desc.id).toBe("gemini-3.8-flash");
+      expect(desc.provider).toBe("google");
+    });
+
+    it("construye descriptor dinámico para id no registrado con proveedor disponible", async () => {
+      router.registerProvider(new AiSdkGoogleProvider({ apiKey: "sk-test-google-1234567890" }));
+      const desc = await router.resolveModel("general-chat", ["text"], {
+        modelId: "gemini-9.9-future",
+        providerId: "google",
+      });
+      expect(desc.id).toBe("gemini-9.9-future");
+      expect(desc.provider).toBe("google");
+    });
+
+    it("ignora preferencia sin proveedor disponible y resuelve por rol", async () => {
+      const desc = await router.resolveModel("general-chat", ["text"], {
+        modelId: "gpt-4o",
+        providerId: "openai",
+      });
+      expect(desc.id).toBe("mock-core");
+    });
+  });
+
   describe("BYOK real resuelve antes que mock", () => {
     it("resuelve gemini-3.8-flash en general-chat con Google registrado", async () => {
       router.registerProvider(new AiSdkGoogleProvider({ apiKey: "sk-test-google-1234567890" }));

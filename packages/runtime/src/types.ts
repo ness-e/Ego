@@ -1,4 +1,4 @@
-import type { ModelMessage, ModelRole, ToolCall } from "@ego/models";
+import type { ModelMessage, ModelRole, PreferredModel, ToolCall } from "@ego/models";
 import type { ToolCategory, ToolExecutionContext, ToolRiskLevel } from "@ego/tools";
 import type { ApprovalDecision } from "@ego/execution";
 
@@ -94,6 +94,8 @@ export interface LoopRunOptions {
   approvalEngine?: ApprovalEngine;
   errorHandler?: ErrorHandler;
   role?: ModelRole;
+  /** Modelo elegido por el usuario (Ajustes/ModelPicker); gana al rol si resuelve. */
+  preferredModel?: PreferredModel;
   systemPrompt?: string;
   maxSteps?: number;
   approvalHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;

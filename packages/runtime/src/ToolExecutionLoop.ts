@@ -117,13 +117,13 @@ export class ToolExecutionLoop {
         parameters: t.parameters
       }));
 
-      // Llamada al ModelRouter con soporte de tools
+      // Llamada al ModelRouter con soporte de tools (+ modelo preferido del usuario)
       const res = await this.router.generateText(role, {
         messages,
         tools: toolSchemas.length > 0 ? toolSchemas : undefined,
         systemPrompt,
         abortSignal: options.abortSignal
-      });
+      }, undefined, options.preferredModel);
 
       // Acumular métricas de uso
       totalUsage.promptTokens += res.usage.promptTokens;

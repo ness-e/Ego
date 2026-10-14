@@ -28,6 +28,17 @@ export interface ModelDescriptor {
   isLocal: boolean;                // true si corre local (Ollama / offline)
 }
 
+/**
+ * Modelo elegido explícitamente por el usuario (ModelPicker / Ajustes).
+ * Si el id está registrado y disponible, gana al binding por rol; si no,
+ * pero el proveedor está disponible, se construye un descriptor dinámico
+ * (los providers AI SDK aceptan cualquier id válido de la API).
+ */
+export interface PreferredModel {
+  modelId: string;
+  providerId?: ModelProviderId;
+}
+
 export interface ToolCall {
   id: string;
   name: string;

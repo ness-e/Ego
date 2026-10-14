@@ -175,6 +175,24 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     <option value="mock">Mock Determinista (Pruebas sin coste)</option>
                   </select>
                 </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-dim">
+                    ID de Modelo (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    aria-label="ID de modelo"
+                    placeholder="Vacío = el router decide por rol (ej: gemini-3.8-flash)"
+                    value={modelConfig.modelName ?? ""}
+                    onChange={(e) =>
+                      setModelConfig((prev) => ({ ...prev, modelName: e.target.value }))
+                    }
+                    className="w-full rounded border border-hairline bg-raised px-2.5 py-1.5 font-mono text-xs text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none"
+                  />
+                  <p className="mt-1 text-[10px] leading-relaxed text-faint">
+                    Cualquier modelo válido de la API del proveedor activo. El selector del header escribe aquí.
+                  </p>
+                </div>
                 {modelConfig.activeProvider !== "mock" && modelConfig.activeProvider !== "ollama" && providerField && (
                   <div>
                     <label className="mb-1 block text-[11px] font-medium text-dim">

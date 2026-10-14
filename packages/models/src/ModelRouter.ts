@@ -7,6 +7,7 @@ import type {
   ModelProviderId,
   ModelRole,
   ModelStreamChunk,
+  PreferredModel,
 } from "./types.js";
 import { MockProvider } from "./providers/MockProvider.js";
 
@@ -59,8 +60,42 @@ export class ModelRouter {
    */
   public async resolveModel(
     role: ModelRole,
-    requiredCapabilities: ModelCapability[] = ["text"]
+    requiredCapabilities: ModelCapability[] = ["text"],
+    preferred?: PreferredModel
   ): Promise<ModelDescriptor> {
+    // Preferencia explícita del usuario (2026-10-14: el picker/Ajustes elige
+    // modelo real, no decorativo). Gana al binding por rol si resuelve.
+    if (preferred?.modelId) {
+      const wanted = preferred.modelId.trim();
+      if (wanted.length > 0) {
+        const registered = this.models.get(wanted);
+        if (registered) {
+          const provider = this.providers.get(registered.provider);
+          if (
+            provider &&
+            (await provider.isAvailable()) &&
+            requiredCapabilities.every((cap) => registered.capabilities.has(cap))
+          ) {
+            return registered;
+          }
+        }
+        if (preferred.providerId && preferred.providerId !== "mock") {
+          const provider = this.providers.get(preferred.providerId);
+          if (provider && (await provider.isAvailable())) {
+            return {
+              id: wanted,
+              provider: preferred.providerId,
+              displayName: `${wanted} (personalizado)`,
+              contextWindow: 0,
+              costPerInputTokenUsd: 0,
+              costPerOutputTokenUsd: 0,
+              capabilities: new Set<ModelCapability>(["text", "tool_calling", "streaming"]),
+              isLocal: preferred.providerId === "ollama",
+            };
+          }
+        }
+      }
+    }
     const candidates = this.roleBindings.get(role) || [];
 
     for (const modelId of candidates) {
@@ -114,9 +149,10 @@ export class ModelRouter {
   async generateText(
     role: ModelRole,
     options: ModelGenerateOptions,
-    requiredCapabilities?: ModelCapability[]
+    requiredCapabilities?: ModelCapability[],
+    preferredModel?: PreferredModel
   ): Promise<ModelGenerateResult> {
-    const descriptor = await this.resolveModel(role, requiredCapabilities);
+    const descriptor = await this.resolveModel(role, requiredCapabilities, preferredModel);
     const provider = this.providers.get(descriptor.provider)!;
 
     try {
@@ -141,9 +177,10 @@ export class ModelRouter {
     role: ModelRole,
     options: ModelGenerateOptions,
     onChunk: (chunk: ModelStreamChunk) => void,
-    requiredCapabilities?: ModelCapability[]
+    requiredCapabilities?: ModelCapability[],
+    preferredModel?: PreferredModel
   ): Promise<ModelGenerateResult> {
-    const descriptor = await this.resolveModel(role, requiredCapabilities);
+    const descriptor = await this.resolveModel(role, requiredCapabilities, preferredModel);
     const provider = this.providers.get(descriptor.provider)!;
 
     try {

@@ -10,6 +10,7 @@ import {
   type EgoRecallStatus,
 } from "@ego/memory";
 import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL } from "@ego/models";
+import type { PreferredModel } from "@ego/models";
 import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext } from "@ego/tools";
 import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
@@ -1370,11 +1371,25 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       subEgoId: req.subEgoId || verdict?.subEgoId || "ego.nucleus",
     };
 
+    // Modelo elegido por el usuario (2026-10-14: el picker/Ajustes gobierna
+    // de verdad; vacío = el router decide por rol). Hilo hasta el loop.
+    const preferredModel: PreferredModel | undefined = (() => {
+      const name = currentModelConfig.modelName?.trim();
+      if (!name) return undefined;
+      const p = currentModelConfig.activeProvider;
+      if (p !== "mock" && p !== "ollama" && ["openai", "anthropic", "google", "deepseek"].includes(p)) {
+        return { modelId: name, providerId: p as PreferredModel["providerId"] };
+      }
+      if (p === "ollama") return { modelId: name, providerId: "ollama" };
+      return undefined;
+    })();
+
     // Ejecutar loop cognitivo multi-turno a través de ToolExecutionLoop (INT-01)
     const loopResult: LoopExecutionResult = await toolLoop.run({
       messages,
       context: execContext,
       role: "general-chat",
+      preferredModel,
       systemPrompt: systemInstruction,
       traceId: turnId,
       eventBus
