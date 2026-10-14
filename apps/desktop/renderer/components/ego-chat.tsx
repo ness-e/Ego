@@ -17,6 +17,7 @@ import { parseSlashCommand, extractMentions, LOCAL_SLASH_COMMANDS, SLASH_HELP_TE
 import { useCanvasBridge } from "../hooks/useCanvasBridge";
 import { MarkdownText } from "./assistant-ui/markdown-text.js";
 import { MessageRenderBoundary } from "./assistant-ui/message-render-boundary.js";
+import { toTurnUsage, type TurnUsage } from "./daily-state/MetricsConsole.js";
 
 function UserMessage() {
   return (
@@ -173,6 +174,9 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolEvents, setToolEvents] = useState<ToolActivity[]>([]);
+  // T19: coste del turno actual desde `streamRes.usage` (solo lectura;
+  // streaming y preferencia de modelo intactos). Null = vacío honesto.
+  const [lastTurnUsage, setLastTurnUsage] = useState<TurnUsage | null>(null);
   // T08: reflejo en vivo del borrador del composer (@menciones y /comandos).
   // Display-only: el texto fuente sigue en el textarea del runtime (R-FE-2,
   // no se reimplementa el composer). El @ viaja en el prompt; el / local
@@ -342,6 +346,9 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     currentPromptRef.current = promptText;
     setActiveError(null);
     setToolEvents([]);
+    // T19: el badge muestra el turno actual; sin `usage` nuevo no hay
+    // coste que mostrar (nunca rastro del turno anterior).
+    setLastTurnUsage(null);
 
     const byokBlock = await getByokBlockReason();
     if (byokBlock) {
@@ -371,6 +378,9 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       if (streamRes.recallStatus) {
         setLatestRecall(streamRes.recallStatus);
       }
+      // T19: `usage.{promptTokens,completionTokens,estimatedCostUsd}` ya viaja
+      // en el turno (main.ts `handleLlmStream`); acá solo se expone en la UI.
+      setLastTurnUsage(toTurnUsage(streamRes.usage, streamRes.turnId));
 
       const badgePrefix = streamRes.recallStatus?.count
         ? `${streamRes.recallStatus.glyph} [VantaDB: ${streamRes.recallStatus.count} recuerdos recuperados]\n\n`
@@ -529,6 +539,19 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                     : `✗ ${t.toolName}: ${t.detail}`}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* T19: badge de coste del turno actual (HERM-21). Solo si `usage` vino. */}
+        {lastTurnUsage && (
+          <div
+            data-testid="chat-turn-cost"
+            aria-live="polite"
+            className="border-t border-hairline px-3 py-1.5 font-mono text-[11px] text-dim"
+          >
+            🪙 Último turno: {(lastTurnUsage.totalTokens ?? lastTurnUsage.promptTokens + lastTurnUsage.completionTokens).toLocaleString()} tokens
+            {" "}({lastTurnUsage.promptTokens.toLocaleString()} prompt + {lastTurnUsage.completionTokens.toLocaleString()} respuesta)
+            {" "}· ${lastTurnUsage.estimatedCostUsd.toFixed(4)}
           </div>
         )}
 

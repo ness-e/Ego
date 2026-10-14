@@ -6,6 +6,30 @@ const LazyTelemetryChart = lazy(() =>
   import("../domains/DomainCharts.js").then((m) => ({ default: m.TelemetryChart }))
 );
 
+export interface TurnUsage {
+  turnId?: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens?: number;
+  estimatedCostUsd: number;
+}
+
+/** Estrecha un `usage` desconocido (bridge lo tipa `unknown`) a números finitos. */
+export function toTurnUsage(value: unknown, turnId?: string): TurnUsage | null {
+  if (typeof value !== "object" || value === null) return null;
+  const r = value as Record<string, unknown>;
+  const num = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
+  const promptTokens = num(r.promptTokens);
+  const completionTokens = num(r.completionTokens);
+  const estimatedCostUsd = num(r.estimatedCostUsd);
+  if (promptTokens === null || completionTokens === null || estimatedCostUsd === null) {
+    return null;
+  }
+  const total = num(r.totalTokens) ?? promptTokens + completionTokens;
+  return { turnId, promptTokens, completionTokens, totalTokens: total, estimatedCostUsd };
+}
+
 export interface MetricsConsoleProps {
   totalTokensToday: number;
   estimatedCostUsd: number;
@@ -13,6 +37,8 @@ export interface MetricsConsoleProps {
   completedTasksCount: number;
   pendingTasksCount: number;
   hourlyTelemetry?: Array<{ hour: string; tokens: number; costUsd: number }>;
+  /** T19: turnos reales con `usage` (HERM-21). Ausente/vacío = vacío honesto. */
+  turns?: TurnUsage[];
 }
 
 export function MetricsConsole({
@@ -22,6 +48,7 @@ export function MetricsConsole({
   completedTasksCount,
   pendingTasksCount,
   hourlyTelemetry,
+  turns,
 }: MetricsConsoleProps) {
   // Generar datos de serie temporal si no se proporcionan
   const chartData = useMemo(() => {
@@ -96,6 +123,43 @@ export function MetricsConsole({
           </span>
           <span className="text-[9px] text-dim">{pendingTasksCount} en background</span>
         </div>
+      </div>
+
+      {/* T19: coste real por turno (HERM-21). Sin `turns`: vacío honesto. */}
+      <div className="mt-1 rounded border border-hairline bg-panel p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] font-medium text-dim">Coste por Turno</span>
+          <span className="font-mono text-[10px] text-faint">usage real · sin estimaciones</span>
+        </div>
+        {turns && turns.length > 0 ? (
+          <div data-testid="metrics-turns-table" className="flex flex-col gap-1">
+            <div className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 px-1 font-mono text-[9px] uppercase tracking-wide text-faint">
+              <span>Turno</span>
+              <span className="text-right">Prompt</span>
+              <span className="text-right">Respuesta</span>
+              <span className="text-right">USD</span>
+            </div>
+            {turns.map((t, i) => (
+              <div
+                key={t.turnId ?? `turn-${i}`}
+                className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 rounded border border-hairline bg-raised/40 px-2 py-1 font-mono text-[11px] text-ink"
+              >
+                <span className="truncate text-dim">{t.turnId ?? `turno ${i + 1}`}</span>
+                <span className="text-right">{t.promptTokens.toLocaleString()}</span>
+                <span className="text-right">{t.completionTokens.toLocaleString()}</span>
+                <span className="text-right">${t.estimatedCostUsd.toFixed(4)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            data-testid="metrics-turns-empty"
+            className="px-1 py-2 font-mono text-[11px] italic text-faint"
+          >
+            Sin turnos registrados en la jornada — el coste por turno aparece aquí
+            cuando haya inferencia real (vacío honesto, sin estimaciones).
+          </div>
+        )}
       </div>
 
       {/* Gráfico interactivo Recharts */}
