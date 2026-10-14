@@ -539,3 +539,19 @@ export const DailyListApprovalsSchema = z
 
 export type DailyListApprovalsRequest = z.infer<typeof DailyListApprovalsSchema>;
 
+/**
+ * Esquemas T15: catálogo live de modelos por proveedor (validación Zod en
+ * main, fail-closed: provider inválido → rechazado antes de tocar la red).
+ * `refresh` fuerza refetch (bypassa cache memoria + VantaDB `gov/catalog`).
+ */
+export const ModelProviderIdSchema = z.enum(["openai", "anthropic", "google", "deepseek", "ollama"]);
+
+export type ModelProviderIdRequest = z.infer<typeof ModelProviderIdSchema>;
+
+export const ModelsListSchema = z.object({
+  provider: ModelProviderIdSchema,
+  refresh: z.boolean().optional().default(false),
+});
+
+export type ModelsListRequest = z.infer<typeof ModelsListSchema>;
+

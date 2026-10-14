@@ -85,6 +85,9 @@ export const EgoIpcInvokeChannels = [
   // Storage operativo + políticas de gobierno (T13; solo lectura, sin secretos).
   "ipc.settings.getStorageInfo",
   "ipc.settings.getGovPolicies",
+  // Catálogo live de modelos por proveedor (T15; keys solo en main, fallback curado).
+  "ipc.models.listProviders",
+  "ipc.models.listModels",
 ] as const;
 
 /** Eventos push main→renderer (el renderer solo escucha, nunca emite). */

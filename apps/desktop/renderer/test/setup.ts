@@ -162,6 +162,27 @@ export function createMockEgoBridge(): EgoBridge & {
         return { ok: true, config: currentModelConfig };
       }),
     },
+    models: {
+      listProviders: vi.fn().mockResolvedValue({
+        ok: true,
+        mock: true,
+        providers: [
+          { id: "openai", configured: false },
+          { id: "anthropic", configured: false },
+          { id: "google", configured: false },
+          { id: "deepseek", configured: false },
+          { id: "ollama", configured: true },
+          { id: "mock", configured: true },
+        ],
+      }),
+      listModels: vi.fn().mockImplementation(async (req: { provider: string }) => ({
+        ok: true,
+        mock: true,
+        provider: req.provider,
+        models: [],
+        source: "curated",
+      })),
+    },
     onEvent: (cb) => {
       eventListeners.add(cb);
       return () => {

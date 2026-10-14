@@ -251,6 +251,34 @@ export interface SessionDetailResult {
   resumed?: boolean;
 }
 
+/**
+ * Formas de respuesta de `ipc.models.*` (T15, catálogo live por proveedor).
+ * `source` distingue IDs live de la API, cache vigente (`gov/catalog`, TTL
+ * 1h) y fallback curado. El renderer NUNCA recibe keys.
+ */
+export type CatalogProviderId = "openai" | "anthropic" | "google" | "deepseek" | "ollama";
+
+export interface ModelProviderStatus {
+  id: CatalogProviderId | "mock";
+  configured: boolean;
+}
+
+export interface ModelProvidersResult {
+  ok: boolean;
+  error?: string;
+  providers: ModelProviderStatus[];
+  mock?: boolean;
+}
+
+export interface ModelsListResult {
+  ok: boolean;
+  error?: string;
+  provider: CatalogProviderId;
+  models: string[];
+  source: "live" | "cache" | "curated";
+  mock?: boolean;
+}
+
 export interface BackgroundTaskInfo {
   taskId: string;
   status: string;
@@ -463,6 +491,11 @@ export interface EgoBridge {
     get: (req: { sessionId: string }) => Promise<SessionDetailResult>;
     resume: (req: { sessionId: string }) => Promise<SessionDetailResult>;
   };
+  // T15: catálogo live por proveedor (keys solo en main; IDs + `configured`).
+  models: {
+    listProviders: () => Promise<ModelProvidersResult>;
+    listModels: (req: { provider: CatalogProviderId; refresh?: boolean }) => Promise<ModelsListResult>;
+  };
   daily?: {
     getSummary: (req?: { date?: string }) => Promise<DailySummaryResult>;
     refineGoals: (req?: { date?: string }) => Promise<DailyGoalsResult>;
@@ -512,8 +545,16 @@ export interface EgoBridge {
   onEvent?: (callback: (event: unknown) => void) => () => void;
 }
 
-const mockSubEgos: SubEgoSummary[] = [
-  {
+// T15: espejo curado de `CURATED_MODELS` (@ego/models) para el mock sin Electron.
+const MOCK_CURATED_CATALOG: Record<CatalogProviderId, string[]> = {
+  openai: ["gpt-4o", "gpt-4o-mini", "o3-mini"],
+  anthropic: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+  google: ["gemini-3.8-flash", "gemini-3.5-flash"],
+  deepseek: ["deepseek-chat", "deepseek-reasoner"],
+  ollama: ["llama3.2:3b", "qwen2.5-coder:32b"],
+};
+
+const mockSubEgos: SubEgoSummary[] = [  {
     id: "ego.copywriter",
     name: "Ego Copywriter",
     role: "Redactor B2B",
@@ -815,6 +856,29 @@ const mock: EgoBridge = {
     }),
     get: async (req) => ({ ok: true, mock: true, sessionId: req.sessionId, turns: [] }),
     resume: async (req) => ({ ok: true, mock: true, sessionId: req.sessionId, turnCount: 0, resumed: true }),
+  },
+  // T15 mock: espejo curado de `CURATED_MODELS` (@ego/models) — sin `@ego/models`
+  // como dependencia del renderer; el fallback real vive en main + picker.
+  models: {
+    listProviders: async () => ({
+      ok: true,
+      mock: true,
+      providers: [
+        { id: "openai", configured: false },
+        { id: "anthropic", configured: false },
+        { id: "google", configured: false },
+        { id: "deepseek", configured: false },
+        { id: "ollama", configured: true },
+        { id: "mock", configured: true },
+      ],
+    }),
+    listModels: async (req) => ({
+      ok: true,
+      mock: true,
+      provider: req.provider,
+      models: [...MOCK_CURATED_CATALOG[req.provider]],
+      source: "curated" as const,
+    }),
   },
   decision: {
     evaluate: async (req) => ({ ok: true, mock: true, req }),

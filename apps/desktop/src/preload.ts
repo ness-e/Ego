@@ -39,6 +39,11 @@ export interface ToggleSubEgoBridgeRequest {
   state: "active" | "paused";
 }
 
+export interface ModelsListBridgeRequest {
+  provider: "openai" | "anthropic" | "google" | "deepseek" | "ollama";
+  refresh?: boolean;
+}
+
 export interface McpMutateBridgeRequest {
   config: McpServerConfigRequest;
   enabled?: boolean;
@@ -173,6 +178,12 @@ export interface EgoPreloadBridge {
     list: (req?: { limit?: number; projectScope?: string }) => Promise<unknown>;
     get: (req: { sessionId: string }) => Promise<unknown>;
     resume: (req: { sessionId: string }) => Promise<unknown>;
+  };
+  // T15: catálogo live de modelos por proveedor (keys solo en main; el
+  // renderer recibe IDs + `configured`, nunca secretos).
+  models: {
+    listProviders: () => Promise<unknown>;
+    listModels: (req: ModelsListBridgeRequest) => Promise<unknown>;
   };
 }
 
@@ -319,6 +330,10 @@ const egoBridge: EgoPreloadBridge = {
     list: (req?) => ipcRenderer.invoke("ipc.sessions.list", req),
     get: (req) => ipcRenderer.invoke("ipc.sessions.get", req),
     resume: (req) => ipcRenderer.invoke("ipc.sessions.resume", req),
+  },
+  models: {
+    listProviders: () => ipcRenderer.invoke("ipc.models.listProviders"),
+    listModels: (req) => ipcRenderer.invoke("ipc.models.listModels", req),
   },
 };
 

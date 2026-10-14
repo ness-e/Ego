@@ -1,12 +1,15 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, useEffect, memo } from "react";
 import { MagnifyingGlass, Check, Sparkle, X, Cpu } from "@phosphor-icons/react";
 import { fuzzyRank } from "@ego/ui-runtime";
 import { Modal } from "./ui-kit/Modal.js";
+import { ego, type CatalogProviderId } from "../lib/ego.js";
+
+export type ModelOptionProvider = "anthropic" | "openai" | "google" | "deepseek" | "local" | "mock" | "vantadb";
 
 export interface ModelOption {
   id: string;
   name: string;
-  provider: "anthropic" | "openai" | "google" | "local" | "vantadb";
+  provider: ModelOptionProvider;
   contextWindow: string;
   capabilities: Array<"tools" | "reasoning" | "vision" | "fast">;
   description: string;
@@ -90,6 +93,8 @@ export interface ModelPickerProps {
  * T07 (UI-04): sobre ui-kit `Modal` (Radix Dialog — trap de foco + Escape +
  * `role="dialog"` + `aria-modal` nativos). Opciones como `<button>`
  * `role="option"` (activables por teclado) y buscador con `aria-label`.
+ * T15: al abrir carga el catálogo live (`ipc.models.*`, `refresh:true`) y
+ * fusiona los IDs live no curados; cualquier fallo → CANONICAL_MODELS.
  */
 export const ModelPicker = memo(function ModelPicker({
   isOpen,
@@ -98,10 +103,64 @@ export const ModelPicker = memo(function ModelPicker({
   onSelectModel,
 }: ModelPickerProps) {
   const [search, setSearch] = useState("");
+  const [liveModels, setLiveModels] = useState<ModelOption[] | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const bridge = ego();
+        const provRes = await bridge.models.listProviders();
+        const configured = (provRes.providers ?? []).filter((p) => p.configured && p.id !== "mock");
+        const settled = await Promise.all(
+          configured.map(async (p) => {
+            try {
+              const r = await bridge.models.listModels({
+                provider: p.id as CatalogProviderId,
+                refresh: true,
+              });
+              return { provider: p.id, models: r.models ?? [] };
+            } catch {
+              return { provider: p.id, models: [] as string[] };
+            }
+          })
+        );
+        if (cancelled) return;
+        const seen = new Set(CANONICAL_MODELS.map((m) => m.id));
+        const extra: ModelOption[] = [];
+        for (const { provider, models } of settled) {
+          for (const id of models) {
+            if (seen.has(id)) continue;
+            seen.add(id);
+            extra.push({
+              id,
+              name: id,
+              provider: provider === "ollama" ? "local" : (provider as ModelOptionProvider),
+              contextWindow: "live",
+              capabilities: ["tools"],
+              description: `Modelo live de ${provider} (catálogo de la API).`,
+            });
+          }
+        }
+        if (extra.length > 0) setLiveModels(extra);
+      } catch {
+        // Fallback curado intacto: el picker nunca queda vacío.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  const allModels = useMemo(
+    () => (liveModels ? [...liveModels, ...CANONICAL_MODELS] : CANONICAL_MODELS),
+    [liveModels]
+  );
 
   const rankedModels = useMemo(() => {
-    return fuzzyRank(CANONICAL_MODELS, search, (m) => `${m.id} ${m.name} ${m.provider} ${m.description}`);
-  }, [search]);
+    return fuzzyRank(allModels, search, (m) => `${m.id} ${m.name} ${m.provider} ${m.description}`);
+  }, [search, allModels]);
 
   return (
     <Modal

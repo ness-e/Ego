@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage, session } from "electron";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import { deflateSync } from "node:zlib";
@@ -9,7 +10,7 @@ import {
   createSubEgoId,
   type EgoRecallStatus,
 } from "@ego/memory";
-import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL } from "@ego/models";
+import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL, ModelCatalog, CATALOG_CACHE_TTL_MS, type CatalogProviderId } from "@ego/models";
 import type { PreferredModel } from "@ego/models";
 import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext } from "@ego/tools";
 import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
@@ -82,6 +83,7 @@ import {
   SessionGetSchema,
   SessionResumeSchema,
   DailyListApprovalsSchema,
+  ModelsListSchema,
 } from "./ipc/schema.js";
 import {
   DomainRegistry,
@@ -1116,6 +1118,91 @@ export function mergeModelKeys(base: ResolvedModelKeys, override: ResolvedModelK
     if (isNonEmptyKey(value)) merged[field] = value;
   }
   return merged;
+}
+
+/**
+ * Resuelve keys en memoria (plaintext de `currentModelConfig`, NUNCA sale
+ * del main) al shape `ResolvedModelKeys`. Espeja la precedencia de
+ * `resolvePersistedModelKeys` sin descifrado: por proveedor + legado.
+ */
+export function resolveMemoryModelKeys(config: ModelConfig): ResolvedModelKeys {
+  const keys: ResolvedModelKeys = {};
+  if (isNonEmptyKey(config.openaiKey)) keys.openai = config.openaiKey;
+  if (isNonEmptyKey(config.anthropicKey)) keys.anthropic = config.anthropicKey;
+  if (isNonEmptyKey(config.googleKey)) keys.google = config.googleKey;
+  if (isNonEmptyKey(config.deepseekKey)) keys.deepseek = config.deepseekKey;
+  const active = config.activeProvider;
+  if (isNonEmptyKey(config.apiKey) && (active === "openai" || active === "deepseek") && !keys[active]) {
+    keys[active] = config.apiKey;
+  }
+  if (isNonEmptyKey(config.openaiBaseURL)) keys.openaiBaseURL = config.openaiBaseURL;
+  else if (active === "openai" && isNonEmptyKey(config.baseUrl)) keys.openaiBaseURL = config.baseUrl;
+  if (isNonEmptyKey(config.deepseekBaseURL)) keys.deepseekBaseURL = config.deepseekBaseURL;
+  else if (active === "deepseek" && isNonEmptyKey(config.baseUrl)) keys.deepseekBaseURL = config.baseUrl;
+  if (isNonEmptyKey(config.ollamaBaseURL)) keys.ollamaBaseURL = config.ollamaBaseURL;
+  else if (active === "ollama" && isNonEmptyKey(config.baseUrl)) keys.ollamaBaseURL = config.baseUrl;
+  return keys;
+}
+
+export interface ConfiguredModelProvider {
+  id: CatalogProviderId | "mock";
+  configured: boolean;
+}
+
+/**
+ * T15: proveedores con `configured` = key presente en memoria.
+ * Ollama (local) y mock siempre configurados: no exigen secreto.
+ */
+export function getConfiguredProviders(keys: ResolvedModelKeys): ConfiguredModelProvider[] {
+  return [
+    { id: "openai", configured: isNonEmptyKey(keys.openai) },
+    { id: "anthropic", configured: isNonEmptyKey(keys.anthropic) },
+    { id: "google", configured: isNonEmptyKey(keys.google) },
+    { id: "deepseek", configured: isNonEmptyKey(keys.deepseek) },
+    { id: "ollama", configured: true },
+    { id: "mock", configured: true },
+  ];
+}
+
+export interface CatalogCredentials {
+  apiKey?: string;
+  baseURL?: string;
+  credentialFingerprint: string;
+}
+
+/**
+ * T15: credenciales efectivas del catálogo desde keys en memoria.
+ * El fingerprint es SHA-256 del secreto (opaco, no reversible): es lo
+ * único que llega a la key de cache persistida. NUNCA se loguea la key
+ * (cero `console.*` en esta función, como en `probeModelKey`).
+ */
+export function resolveCatalogCredentials(
+  provider: CatalogProviderId,
+  keys: ResolvedModelKeys
+): CatalogCredentials {
+  let apiKey: string | undefined;
+  let baseURL: string | undefined;
+  if (provider === "openai") {
+    if (isNonEmptyKey(keys.openai)) apiKey = keys.openai;
+    if (isNonEmptyKey(keys.openaiBaseURL)) baseURL = keys.openaiBaseURL;
+  } else if (provider === "anthropic") {
+    if (isNonEmptyKey(keys.anthropic)) apiKey = keys.anthropic;
+  } else if (provider === "google") {
+    if (isNonEmptyKey(keys.google)) apiKey = keys.google;
+  } else if (provider === "deepseek") {
+    if (isNonEmptyKey(keys.deepseek)) apiKey = keys.deepseek;
+    if (isNonEmptyKey(keys.deepseekBaseURL)) baseURL = keys.deepseekBaseURL;
+  } else {
+    if (isNonEmptyKey(keys.ollamaBaseURL)) baseURL = keys.ollamaBaseURL;
+  }
+  const credentialFingerprint = createHash("sha256")
+    .update(`${provider}:${apiKey ?? ""}:${baseURL ?? ""}`, "utf8")
+    .digest("hex")
+    .slice(0, 32);
+  const creds: CatalogCredentials = { credentialFingerprint };
+  if (apiKey !== undefined) creds.apiKey = apiKey;
+  if (baseURL !== undefined) creds.baseURL = baseURL;
+  return creds;
 }
 
 function isCustomBaseURL(url: string | undefined, def: string): url is string {
@@ -3471,6 +3558,65 @@ export async function createWindow(): Promise<void> {
       metadata: r.metadata,
     }));
     return { ok: true, policies };
+  });
+
+  // T15: catálogo live de modelos por proveedor. Keys descifradas solo en
+  // memoria (merge env + `currentModelConfig`); el renderer recibe IDs y
+  // `configured`, NUNCA secretos. Cache persistente en `gov/catalog` con
+  // key=fingerprint opaco y TTL 1h (VantaDB expira + el catálogo revalida).
+  const modelCatalog = new ModelCatalog({
+    cache: {
+      load: async (key) => {
+        try {
+          const record = await adapter.get("gov/catalog", key);
+          const payload = record?.payload as { models?: unknown; savedAtMs?: unknown } | undefined;
+          if (!payload || !Array.isArray(payload.models) || typeof payload.savedAtMs !== "number") return null;
+          const models = payload.models.filter((m): m is string => typeof m === "string");
+          return { models, savedAtMs: payload.savedAtMs };
+        } catch {
+          return null;
+        }
+      },
+      save: async (key, value) => {
+        try {
+          await adapter.put({
+            namespace: "gov/catalog",
+            key,
+            payload: { models: value.models, savedAtMs: value.savedAtMs },
+            metadata: { updatedAtMs: Date.now() },
+            ttl_ms: CATALOG_CACHE_TTL_MS,
+          });
+        } catch {
+          // Best-effort: el live igual se retorna al renderer.
+        }
+      },
+    },
+  });
+
+  ipcMain.handle("ipc.models.listProviders", async () => {
+    const keys = mergeModelKeys(resolveEnvModelKeys(), resolveMemoryModelKeys(currentModelConfig));
+    return { ok: true, providers: getConfiguredProviders(keys) };
+  });
+
+  ipcMain.handle("ipc.models.listModels", async (_e, rawReq: unknown) => {
+    const parsed = ModelsListSchema.safeParse(rawReq);
+    if (!parsed.success) {
+      throw new Error(`[IPC Security] Solicitud de catálogo inválida: ${parsed.error.message}`);
+    }
+    const provider: CatalogProviderId = parsed.data.provider;
+    const keys = mergeModelKeys(resolveEnvModelKeys(), resolveMemoryModelKeys(currentModelConfig));
+    const creds = resolveCatalogCredentials(provider, keys);
+    return {
+      ok: true,
+      provider,
+      ...(await modelCatalog.listModels({
+        provider,
+        refresh: parsed.data.refresh,
+        credentialFingerprint: creds.credentialFingerprint,
+        ...(creds.apiKey !== undefined ? { apiKey: creds.apiKey } : {}),
+        ...(creds.baseURL !== undefined ? { baseURL: creds.baseURL } : {}),
+      })),
+    };
   });
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)
