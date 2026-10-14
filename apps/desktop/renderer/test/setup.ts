@@ -161,6 +161,16 @@ export function createMockEgoBridge(): EgoBridge & {
         currentModelConfig = { ...cfg };
         return { ok: true, config: currentModelConfig };
       }),
+      getStorageInfo: vi.fn().mockResolvedValue({
+        ok: true,
+        mock: true,
+        userDataDir: "/mock/user-data",
+        dbPath: "/mock/user-data/ego_memory.vdb",
+        operational: true,
+        platform: "mock",
+        namespaces: ["session/turns", "gov/settings", "gov/policies"],
+      }),
+      getGovPolicies: vi.fn().mockResolvedValue({ ok: true, mock: true, policies: [] }),
     },
     models: {
       listProviders: vi.fn().mockResolvedValue({
@@ -194,6 +204,20 @@ export function createMockEgoBridge(): EgoBridge & {
       return () => {
         approvalListeners.delete(cb);
       };
+    },
+    tasks: {
+      list: vi.fn().mockResolvedValue({ ok: true, mock: true, tasks: [] }),
+      cancel: vi.fn().mockImplementation(async (req: { taskId: string }) => ({ ok: true, mock: true, taskId: req.taskId })),
+    },
+    terminal: {
+      spawn: vi.fn().mockResolvedValue({ ok: true, mock: true, sessionId: "term_mock", cwd: "/mock" }),
+      stdin: vi.fn().mockResolvedValue({ ok: true, mock: true }),
+      kill: vi.fn().mockImplementation(async (req: { sessionId: string }) => ({ ok: true, mock: true, sessionId: req.sessionId })),
+    },
+    sessions: {
+      list: vi.fn().mockResolvedValue({ ok: true, mock: true, sessions: [] }),
+      get: vi.fn().mockImplementation(async (req: { sessionId: string }) => ({ ok: true, mock: true, sessionId: req.sessionId })),
+      resume: vi.fn().mockImplementation(async (req: { sessionId: string }) => ({ ok: true, mock: true, sessionId: req.sessionId })),
     },
   };
 }
