@@ -531,6 +531,12 @@
       "updatedAt": "2026-10-14T23:59:00.000Z",
       "evidence": "Build exit 0 + 192f/1258t verdes + HIG-01 0 errores + HIG-02 verificado. Step 3 GUI owner-pendiente.",
       "commitSha": "00c4aa7"
+    },
+    "T00": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T03:30:00.000Z",
+      "evidence": "Shims vitest/.CMD restaurados desde tasks (install fallaba por carrera pnpm, lockfile intacto). pnpm runner: execution 8/42 + integrations 4/35.",
+      "commitSha": null
     }
   }
 }
