@@ -49,6 +49,22 @@ body,
   -webkit-app-region: no-drag;
 }
 
+/* T07 (UI-04) WCAG 2.4.7: anillo de foco visible global. Los componentes del
+   kit ya usan `focus-visible:outline-brand`; esta regla cubre elementos
+   nativos y superficies sin clase explícita. El contorno nunca se elimina
+   sin un reemplazo visible. */
+:focus-visible {
+  outline: 2px solid var(--color-brand, #f59e0b);
+  outline-offset: 2px;
+}
+
+@supports not selector(:focus-visible) {
+  :focus {
+    outline: 2px solid var(--color-brand, #f59e0b);
+    outline-offset: 2px;
+  }
+}
+
 ::selection {
   background: #f4f4f5;
   color: #0a0a0b;

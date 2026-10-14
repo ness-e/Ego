@@ -1,6 +1,7 @@
 import { useState, useMemo, memo } from "react";
 import { MagnifyingGlass, ChatTeardropText, Check, X, Clock } from "@phosphor-icons/react";
 import { fuzzyRank } from "@ego/ui-runtime";
+import { Modal } from "./ui-kit/Modal.js";
 
 export interface SessionItem {
   id: string;
@@ -53,6 +54,11 @@ function formatRelativeTime(timestamp: number): string {
   return `hace ${days}d`;
 }
 
+/**
+ * T07 (UI-04): sobre ui-kit `Modal` (Radix Dialog — trap de foco + Escape +
+ * `role="dialog"` + `aria-modal` nativos). Opciones como `<button>`
+ * `role="option"` (activables por teclado) y buscador con `aria-label`.
+ */
 export const SessionPicker = memo(function SessionPicker({
   isOpen,
   activeSessionId = "sess-kernel-arch",
@@ -66,97 +72,96 @@ export const SessionPicker = memo(function SessionPicker({
     return fuzzyRank(sessions, search, (s) => `${s.title} ${s.preview} ${s.subEgoId}`);
   }, [sessions, search]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-      <div
-        className="w-full max-w-lg rounded-xl border border-hairline bg-panel shadow-2xl overflow-hidden flex flex-col max-h-[80vh] text-xs text-ink"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Selector de Sesiones"
-      >
-        {/* Cabecera de búsqueda */}
-        <div className="flex items-center gap-2 border-b border-hairline px-3.5 py-2.5 bg-raised/40">
-          <MagnifyingGlass size={15} className="text-faint shrink-0" />
-          <input
-            type="text"
-            autoFocus
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar sesión reciente (ej: kernel, canvas, roadmap)…"
-            className="flex-1 bg-transparent text-xs text-ink placeholder:text-faint focus:outline-none"
-          />
+    <Modal
+      open={isOpen}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title="Selector de Sesiones"
+      description="/resume · Sesiones persistentes VantaDB · Enter para abrir"
+    >
+      {/* Buscador */}
+      <div className="flex items-center gap-2 border-b border-hairline px-1 pb-2.5">
+        <MagnifyingGlass size={15} className="text-faint shrink-0" aria-hidden />
+        <input
+          type="text"
+          autoFocus
+          aria-label="Buscar sesión reciente por título o tema"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar sesión reciente (ej: kernel, canvas, roadmap)…"
+          className="flex-1 bg-transparent text-xs text-ink placeholder:text-faint focus:outline-none"
+        />
+        {search && (
           <button
             type="button"
-            onClick={onClose}
+            aria-label="Limpiar búsqueda de sesiones"
+            onClick={() => setSearch("")}
             className="rounded p-1 text-faint hover:text-ink hover:bg-raised transition-colors"
           >
             <X size={14} />
           </button>
-        </div>
+        )}
+      </div>
 
-        {/* Lista de sesiones */}
-        <div className="flex-1 overflow-y-auto divide-y divide-hairline">
-          {rankedSessions.length === 0 ? (
-            <div className="p-8 text-center text-faint">
-              No se encontraron sesiones para "{search}"
-            </div>
-          ) : (
-            rankedSessions.map(({ item }) => {
-              const isSelected = item.id === activeSessionId;
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    onResumeSession(item.id);
-                    onClose();
-                  }}
-                  className={`flex items-start justify-between p-3 cursor-pointer transition-colors ${
-                    isSelected ? "bg-raised/80" : "hover:bg-raised/40"
-                  }`}
-                >
-                  <div className="flex items-start gap-2.5 min-w-0 pr-2">
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded border border-hairline bg-panel text-faint">
-                      <ChatTeardropText size={13} />
-                    </div>
-
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ink truncate">{item.title}</span>
-                        <span className="rounded bg-panel px-1 py-0.2 text-[9px] font-mono text-faint border border-hairline">
-                          {item.subEgoId}
-                        </span>
-                      </div>
-
-                      <p className="mt-0.5 text-[11px] text-faint truncate">
-                        {item.preview}
-                      </p>
-
-                      <div className="mt-1 flex items-center gap-1 text-[10px] text-dim font-mono">
-                        <Clock size={11} />
-                        <span>{formatRelativeTime(item.updatedAt)}</span>
-                      </div>
-                    </div>
+      {/* Lista de sesiones */}
+      <div role="listbox" aria-label="Sesiones recientes" className="divide-y divide-hairline">
+        {rankedSessions.length === 0 ? (
+          <div className="p-8 text-center text-faint">
+            No se encontraron sesiones para &quot;{search}&quot;
+          </div>
+        ) : (
+          rankedSessions.map(({ item }) => {
+            const isSelected = item.id === activeSessionId;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onResumeSession(item.id);
+                  onClose();
+                }}
+                className={`flex w-full items-start justify-between p-3 cursor-pointer transition-colors text-left ${
+                  isSelected ? "bg-raised/80" : "hover:bg-raised/40"
+                }`}
+              >
+                <div className="flex items-start gap-2.5 min-w-0 pr-2">
+                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded border border-hairline bg-panel text-faint">
+                    <ChatTeardropText size={13} />
                   </div>
 
-                  {isSelected && (
-                    <div className="mt-1 shrink-0 text-brand">
-                      <Check size={16} weight="bold" />
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ink truncate">{item.title}</span>
+                      <span className="rounded bg-panel px-1 py-0.2 text-[9px] font-mono text-faint border border-hairline">
+                        {item.subEgoId}
+                      </span>
                     </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-hairline px-3.5 py-2 bg-raised/20 text-[10px] text-faint font-mono">
-          <span>/resume · Sesiones persistentes VantaDB</span>
-          <span>Enter para abrir</span>
-        </div>
+                    <p className="mt-0.5 text-[11px] text-faint truncate">
+                      {item.preview}
+                    </p>
+
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-dim font-mono">
+                      <Clock size={11} />
+                      <span>{formatRelativeTime(item.updatedAt)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {isSelected && (
+                  <div className="mt-1 shrink-0 text-brand">
+                    <Check size={16} weight="bold" />
+                  </div>
+                )}
+              </button>
+            );
+          })
+        )}
       </div>
-    </div>
+    </Modal>
   );
 });

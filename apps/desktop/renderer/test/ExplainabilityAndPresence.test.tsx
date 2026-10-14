@@ -52,14 +52,15 @@ describe("CANV-07 & CANV-08: Explicabilidad Contextual y CharacterPresence", () 
       whyBtn?.click();
     });
 
+    // T07: WhyButton usa Radix Modal (contenido portado a document.body)
     // Validar los 3 niveles de la Decisión P11
-    expect(container.textContent).toContain("Nivel 1: Causa Directa");
-    expect(container.textContent).toContain("Optimización de memoria VantaDB solicitada por usuario");
+    expect(document.body.textContent).toContain("Nivel 1: Causa Directa");
+    expect(document.body.textContent).toContain("Optimización de memoria VantaDB solicitada por usuario");
 
-    expect(container.textContent).toContain("Nivel 2: Fuentes y Memoria VantaDB");
-    expect(container.textContent).toContain("projects/default/metrics/tokens");
+    expect(document.body.textContent).toContain("Nivel 2: Fuentes y Memoria VantaDB");
+    expect(document.body.textContent).toContain("projects/default/metrics/tokens");
 
-    expect(container.textContent).toContain("Nivel 3: Auditoría & Telemetría");
-    expect(container.textContent).toContain("audit:trace:88ff86cb:p11:verified");
+    expect(document.body.textContent).toContain("Nivel 3: Auditoría & Telemetría");
+    expect(document.body.textContent).toContain("audit:trace:88ff86cb:p11:verified");
   });
 });

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Sparkle, Warning, Check, X, ShieldCheck } from "@phosphor-icons/react";
+import { Sparkle, Warning, Check, X } from "@phosphor-icons/react";
 import { useActivityState } from "./useActivityState.js";
+import { Modal } from "../ui-kit/Modal.js";
 
 export function ActivityWidget() {
   const { status, activeSubEgo, currentAction, pendingApprovals, resolveApproval } =
@@ -74,87 +75,74 @@ export function ActivityWidget() {
         </div>
       )}
 
-      {/* Modal de Aprobación Rápida HITL */}
+      {/* Modal de Aprobación Rápida HITL. T07: Radix Modal (trap de foco +
+          Escape + aria-modal nativos; el cierre hereda aria-label). */}
       {isModalOpen && currentApproval && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+        <Modal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          title="Autorización Rápida de Operación"
+          description="Revisa los parámetros y resuelve la operación sensible pendiente."
         >
-          <div className="w-full max-w-md rounded-xl border border-hairline bg-raised p-5 shadow-2xl text-ink">
-            <div className="flex items-center justify-between border-b border-hairline pb-3 mb-4">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={20} className="text-amber-400" />
-                <h3 className="font-semibold text-sm">Autorización Rápida de Operación</h3>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-dim hover:text-ink"
+          <div className="space-y-3 text-xs">
+            <div>
+              <span className="text-faint">Herramienta: </span>
+              <span className="font-mono font-bold text-amber-300">{currentApproval.toolName}</span>
+            </div>
+            <div>
+              <span className="text-faint">Sub-Ego: </span>
+              <span className="font-medium text-ink">{currentApproval.action.subEgoId}</span>
+            </div>
+            <div>
+              <span className="text-faint">Nivel de Riesgo: </span>
+              <span
+                className={`font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
+                  currentApproval.riskLevel === "destructive"
+                    ? "bg-rose-950 text-rose-300 border border-rose-500/30"
+                    : "bg-amber-950 text-amber-300 border border-amber-500/30"
+                }`}
               >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-faint">Herramienta: </span>
-                <span className="font-mono font-bold text-amber-300">{currentApproval.toolName}</span>
-              </div>
-              <div>
-                <span className="text-faint">Sub-Ego: </span>
-                <span className="font-medium text-ink">{currentApproval.action.subEgoId}</span>
-              </div>
-              <div>
-                <span className="text-faint">Nivel de Riesgo: </span>
-                <span
-                  className={`font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
-                    currentApproval.riskLevel === "destructive"
-                      ? "bg-rose-950 text-rose-300 border border-rose-500/30"
-                      : "bg-amber-950 text-amber-300 border border-amber-500/30"
-                  }`}
-                >
-                  {currentApproval.riskLevel}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-faint">Parámetros:</span>
-                <pre className="mt-1 max-h-36 overflow-auto rounded bg-paper p-2 font-mono text-[11px] text-ink border border-hairline">
-                  {JSON.stringify(currentApproval.arguments, null, 2)}
-                </pre>
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-center justify-between border-t border-hairline pt-3">
-              <span className="text-[10px] text-dim">
-                Atajos: <kbd className="px-1 py-0.5 bg-raised rounded font-mono">Enter</kbd> Aprobar,{" "}
-                <kbd className="px-1 py-0.5 bg-raised rounded font-mono">Esc</kbd> Cancelar
+                {currentApproval.riskLevel}
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    resolveApproval(currentApproval.approvalId, false, "Rechazado desde widget");
-                    if (pendingApprovals.length <= 1) setIsModalOpen(false);
-                  }}
-                  className="flex items-center gap-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors"
-                >
-                  <X size={14} />
-                  <span>Rechazar</span>
-                </button>
-                <button
-                  onClick={() => {
-                    resolveApproval(currentApproval.approvalId, true);
-                    if (pendingApprovals.length <= 1) setIsModalOpen(false);
-                  }}
-                  className="flex items-center gap-1 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
-                >
-                  <Check size={14} weight="bold" />
-                  <span>Aprobar</span>
-                </button>
-              </div>
+            </div>
+
+            <div>
+              <span className="text-faint">Parámetros:</span>
+              <pre className="mt-1 max-h-36 overflow-auto rounded bg-paper p-2 font-mono text-[11px] text-ink border border-hairline">
+                {JSON.stringify(currentApproval.arguments, null, 2)}
+              </pre>
             </div>
           </div>
-        </div>
+
+          <div className="mt-5 flex items-center justify-between border-t border-hairline pt-3">
+            <span className="text-[10px] text-dim">
+              Atajos: <kbd className="px-1 py-0.5 bg-raised rounded font-mono">Enter</kbd> Aprobar,{" "}
+              <kbd className="px-1 py-0.5 bg-raised rounded font-mono">Esc</kbd> Cancelar
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  resolveApproval(currentApproval.approvalId, false, "Rechazado desde widget");
+                  if (pendingApprovals.length <= 1) setIsModalOpen(false);
+                }}
+                className="flex items-center gap-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors"
+              >
+                <X size={14} />
+                <span>Rechazar</span>
+              </button>
+              <button
+                onClick={() => {
+                  resolveApproval(currentApproval.approvalId, true);
+                  if (pendingApprovals.length <= 1) setIsModalOpen(false);
+                }}
+                className="flex items-center gap-1 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+              >
+                <Check size={14} weight="bold" />
+                <span>Aprobar</span>
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

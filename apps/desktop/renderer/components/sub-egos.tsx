@@ -6,16 +6,15 @@ import {
   Pause,
   Play,
   ShieldCheck,
-  Sparkle,
-  Terminal,
   CurrencyDollar,
-  FileCode,
   X,
   CheckCircle,
   Cpu,
 } from "@phosphor-icons/react";
 import { ego, SubEgoDetailInfo, DomainTemplateInfo } from "../lib/ego";
 import { CharacterBadge } from "./character/CharacterBadge.js";
+import { Modal } from "./ui-kit/Modal.js";
+import { Tabs } from "./ui-kit/Tabs.js";
 
 /** T06: los catch sin anotación ya son `unknown` en strict; centraliza el mensaje. */
 function toMessage(err: unknown, fallback: string): string {
@@ -272,7 +271,11 @@ export function SubEgosView() {
             <CheckCircle size={15} />
             <span>{feedback}</span>
           </div>
-          <button onClick={() => setFeedback(null)} className="text-emerald-400 hover:text-white">
+          <button
+            onClick={() => setFeedback(null)}
+            aria-label="Descartar aviso"
+            className="text-emerald-400 hover:text-white"
+          >
             <X size={14} />
           </button>
         </div>
@@ -380,74 +383,28 @@ export function SubEgosView() {
         </div>
       )}
 
-      {/* Modal Multi-Modalidad de Creación (SUB-02 / INT-04) */}
+      {/* Modal Multi-Modalidad de Creación (SUB-02 / INT-04). T07: Radix Modal
+          (trap+Escape+aria-modal) + Tabs con roles tab nativos; el error usa
+          el slot `role="alert"` del Modal. */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 select-none">
-          <div className="flex h-[560px] w-[680px] flex-col rounded-lg border border-hairline bg-panel text-ink shadow-2xl overflow-hidden">
-            {/* Header Modal */}
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-hairline px-4 bg-paper">
-              <div className="flex items-center gap-2">
-                <Robot size={18} className="text-amber-400" />
-                <span className="text-xs font-semibold">Fábrica de Sub-Egos (3 Modalidades Canónicas)</span>
-              </div>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-faint hover:text-ink transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Selector de Pestañas de Modalidad */}
-            <div className="flex border-b border-hairline bg-paper/60 px-4 text-xs">
-              <button
-                onClick={() => setCreationTab("template")}
-                className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 font-medium transition-colors ${
-                  creationTab === "template"
-                    ? "border-ink text-ink font-semibold"
-                    : "border-transparent text-faint hover:text-ink"
-                }`}
-              >
-                <Sparkle size={14} />
-                <span>Plantillas de Dominio</span>
-              </button>
-
-              <button
-                onClick={() => setCreationTab("custom")}
-                className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 font-medium transition-colors ${
-                  creationTab === "custom"
-                    ? "border-ink text-ink font-semibold"
-                    : "border-transparent text-faint hover:text-ink"
-                }`}
-              >
-                <Terminal size={14} />
-                <span>Formulario Personalizado</span>
-              </button>
-
-              <button
-                onClick={() => setCreationTab("declaration")}
-                className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 font-medium transition-colors ${
-                  creationTab === "declaration"
-                    ? "border-ink text-ink font-semibold"
-                    : "border-transparent text-faint hover:text-ink"
-                }`}
-              >
-                <FileCode size={14} />
-                <span>Declaración JSON / YAML</span>
-              </button>
-            </div>
-
-            {/* Contenido según Modalidad */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 text-xs space-y-4">
-              {modalError && (
-                <div className="rounded border border-red-800/40 bg-red-950/40 p-2.5 text-[11px] text-red-300">
-                  {modalError}
-                </div>
-              )}
-
-              {/* Modalidad 1: Plantillas de Dominio */}
-              {creationTab === "template" && (
-                <div className="space-y-3">
+        <Modal
+          open={showModal}
+          onOpenChange={setShowModal}
+          title="Fábrica de Sub-Egos (3 Modalidades Canónicas)"
+          description="Instancia especialistas verificados por dominio, formulario o manifiesto declarativo."
+          wide
+          error={modalError ?? undefined}
+        >
+          <Tabs
+            value={creationTab}
+            onValueChange={(v) => setCreationTab(v as typeof creationTab)}
+            ariaLabel="Modalidades de creación de Sub-Egos"
+            tabs={[
+              {
+                value: "template",
+                label: "Plantillas de Dominio",
+                content: (
+                  <div className="space-y-3">
                   <p className="text-faint leading-relaxed">
                     Instancia un Sub-Ego verificado con prompt de sistema, herramientas nativas y capacidades preconfiguradas por dominio.
                   </p>
@@ -459,6 +416,7 @@ export function SubEgosView() {
                         <button
                           key={tpl.id || tpl.templateId}
                           type="button"
+                          aria-pressed={isSelected}
                           onClick={() => setSelectedTemplateId(tpl.id || tpl.templateId || "")}
                           className={`flex flex-col text-left rounded-lg border p-3 transition-colors ${
                             isSelected
@@ -500,15 +458,18 @@ export function SubEgosView() {
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Modalidad 2: Formulario Personalizado */}
-              {creationTab === "custom" && (
-                <form id="customSubEgoForm" onSubmit={handleCreateCustom} className="space-y-3">
+                    </div>
+                  ),
+                },
+                {
+                  value: "custom",
+                  label: "Formulario Personalizado",
+                  content: (
+                    <form id="customSubEgoForm" onSubmit={handleCreateCustom} className="space-y-3">
                   <div className="space-y-1">
-                    <label className="font-medium text-ink">Nombre del Especialista</label>
+                    <label htmlFor="custom-subeego-name" className="font-medium text-ink">Nombre del Especialista</label>
                     <input
+                      id="custom-subeego-name"
                       required
                       value={customName}
                       onChange={(e) => setCustomName(e.target.value)}
@@ -518,8 +479,9 @@ export function SubEgosView() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-medium text-ink">Rol Operativo</label>
+                    <label htmlFor="custom-subeego-role" className="font-medium text-ink">Rol Operativo</label>
                     <input
+                      id="custom-subeego-role"
                       required
                       value={customRole}
                       onChange={(e) => setCustomRole(e.target.value)}
@@ -529,8 +491,9 @@ export function SubEgosView() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-medium text-ink">Instrucciones del Sistema (System Prompt)</label>
+                    <label htmlFor="custom-subeego-instructions" className="font-medium text-ink">Instrucciones del Sistema (System Prompt)</label>
                     <textarea
+                      id="custom-subeego-instructions"
                       required
                       rows={5}
                       value={customInstructions}
@@ -542,8 +505,9 @@ export function SubEgosView() {
 
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div className="space-y-1">
-                      <label className="font-medium text-ink">Límite Diario de Costo ($ USD)</label>
+                      <label htmlFor="custom-subeego-cost" className="font-medium text-ink">Límite Diario de Costo ($ USD)</label>
                       <input
+                        id="custom-subeego-cost"
                         type="number"
                         step="0.5"
                         min="0.5"
@@ -561,13 +525,15 @@ export function SubEgosView() {
                     </div>
                   </div>
                 </form>
-              )}
-
-              {/* Modalidad 3: Declaración JSON/YAML */}
-              {creationTab === "declaration" && (
-                <form id="declSubEgoForm" onSubmit={handleCreateDeclaration} className="space-y-3">
+                  ),
+                },
+                {
+                  value: "declaration",
+                  label: "Declaración JSON / YAML",
+                  content: (
+                    <form id="declSubEgoForm" onSubmit={handleCreateDeclaration} className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-faint">Pega o edita el manifiesto declarativo:</span>
+                    <label htmlFor="decl-subeego-raw" className="text-faint">Pega o edita el manifiesto declarativo:</label>
                     <div className="flex rounded border border-hairline bg-paper p-0.5 text-[10px] font-mono">
                       <button
                         type="button"
@@ -591,17 +557,20 @@ export function SubEgosView() {
                   </div>
 
                   <textarea
+                    id="decl-subeego-raw"
                     rows={12}
                     value={declarationRaw}
                     onChange={(e) => setDeclarationRaw(e.target.value)}
                     className="w-full rounded border border-hairline bg-paper p-3 text-xs text-ink font-mono leading-relaxed focus:outline-none"
                   />
-                </form>
-              )}
-            </div>
+                    </form>
+                  ),
+                },
+              ]}
+            />
 
             {/* Footer Modal */}
-            <div className="flex h-12 shrink-0 items-center justify-end gap-2 border-t border-hairline px-4 bg-paper">
+            <div className="flex items-center justify-end gap-2 border-t border-hairline pt-3">
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
@@ -643,8 +612,7 @@ export function SubEgosView() {
                 </button>
               )}
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
     </div>
   );

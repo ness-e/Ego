@@ -38,13 +38,14 @@ describe("HERM-09..12: Pickers, Slash Commands & Workspace Shell", () => {
         );
       });
 
-      expect(container.textContent).toContain("Claude 3.7 Sonnet");
-      expect(container.textContent).toContain("GPT-4o");
-      expect(container.textContent).toContain("Gemini 2.5 Pro");
-      expect(container.textContent).toContain("Qwen 2.5 Coder 32B (Local)");
+      // Radix porta el contenido a document.body (T07: Modal con trap+Escape)
+      expect(document.body.textContent).toContain("Claude 3.7 Sonnet");
+      expect(document.body.textContent).toContain("GPT-4o");
+      expect(document.body.textContent).toContain("Gemini 2.5 Pro");
+      expect(document.body.textContent).toContain("Qwen 2.5 Coder 32B (Local)");
 
       // Filtrar por texto
-      const input = container.querySelector("input");
+      const input = document.body.querySelector("input");
       expect(input).toBeDefined();
 
       await act(async () => {
@@ -72,11 +73,12 @@ describe("HERM-09..12: Pickers, Slash Commands & Workspace Shell", () => {
         );
       });
 
-      expect(container.textContent).toContain("Arquitectura del Cognitive Runtime");
-      expect(container.textContent).toContain("Integración de Dynamic Workspace y Canvas");
+      // Radix porta el contenido a document.body (T07: Modal con trap+Escape)
+      expect(document.body.textContent).toContain("Arquitectura del Cognitive Runtime");
+      expect(document.body.textContent).toContain("Integración de Dynamic Workspace y Canvas");
 
       // Clic en la primera sesión
-      const firstSession = container.querySelector(".cursor-pointer");
+      const firstSession = document.body.querySelector(".cursor-pointer");
       expect(firstSession).toBeDefined();
 
       await act(async () => {
