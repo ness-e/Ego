@@ -78,7 +78,10 @@
     "T07",
     "T11",
     "T09",
-    "T10"
+    "T10",
+    "T12",
+    "T13",
+    "T14"
   ],
   "failedTasks": [],
   "tasks": {
@@ -537,6 +540,24 @@
       "updatedAt": "2026-10-15T03:30:00.000Z",
       "evidence": "Shims vitest/.CMD restaurados desde tasks (install fallaba por carrera pnpm, lockfile intacto). pnpm runner: execution 8/42 + integrations 4/35.",
       "commitSha": null
+    },
+    "T12": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T04:00:00.000Z",
+      "evidence": "Honestidad UI: 0 datos inventados, 0 botones muertos. Renderer 110t.",
+      "commitSha": "3d9b491"
+    },
+    "T13": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T04:00:00.000Z",
+      "evidence": "+6 canales IPC + probe-before-save. Desktop 171t.",
+      "commitSha": "6532301"
+    },
+    "T14": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-15T04:10:00.000Z",
+      "evidence": "7 superficies UI sobre puentes T13. Suites idénticas a baselines.",
+      "commitSha": "1e9c9f0"
     }
   }
 }
