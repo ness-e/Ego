@@ -7,7 +7,6 @@ import {
   FolderSimpleStar,
   Users,
   ChatCircle,
-  Shapes,
   PlugsConnected,
   Gear,
   HardDrive,
@@ -61,6 +60,16 @@ export function Sidebar({
       onCollapsedChange?.(next);
     },
     [onCollapsedChange]
+  );
+  // T12: el rail colapsado expande Y ancla a la sección pedida (nunca botón ciego).
+  const expandAndAnchor = useCallback(
+    (sectionId: string) => {
+      notifyCollapsed(false);
+      requestAnimationFrame(() => {
+        document.getElementById(sectionId)?.scrollIntoView({ block: "nearest" });
+      });
+    },
+    [notifyCollapsed]
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMcpOpen, setIsMcpOpen] = useState(false);
@@ -169,7 +178,7 @@ export function Sidebar({
             </button>
             <div className="my-1 h-px w-6 bg-hairline" />
             <button
-              onClick={() => notifyCollapsed(false)}
+              onClick={() => expandAndAnchor("sidebar-section-projects")}
               title="Proyectos de Memoria"
               aria-label="Proyectos de Memoria"
               className="flex h-8 w-8 items-center justify-center rounded-md text-faint transition-colors hover:bg-raised hover:text-ink"
@@ -177,7 +186,7 @@ export function Sidebar({
               <FolderSimple size={18} />
             </button>
             <button
-              onClick={() => notifyCollapsed(false)}
+              onClick={() => expandAndAnchor("sidebar-section-roster")}
               title="Roster de Sub-Egos"
               aria-label="Roster de Sub-Egos"
               className="relative flex h-8 w-8 items-center justify-center rounded-md text-faint transition-colors hover:bg-raised hover:text-ink"
@@ -282,7 +291,7 @@ export function Sidebar({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-2">
           {/* Bloque 1: Proyectos de Memoria (IPC vivo). */}
-          <div>
+          <div id="sidebar-section-projects" className="scroll-mt-2">
             <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
               <span>Proyectos (Memory Scope)</span>
               <button
@@ -332,7 +341,7 @@ export function Sidebar({
           </div>
 
           {/* Bloque 2: Roster de Sub-Egos (IPC vivo, sin hardcodeados). */}
-          <div>
+          <div id="sidebar-section-roster" className="scroll-mt-2">
             <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
               <span>Sub-Egos Especialistas</span>
               <span className="font-mono text-[10px] text-faint">{roster.length}</span>
@@ -406,10 +415,9 @@ export function Sidebar({
                 <PlugsConnected size={14} className="text-dim" />
                 <span>MCP Servers & Tools</span>
               </button>
-              <div className="flex w-full items-center gap-2 rounded px-2 py-1.5">
-                <Shapes size={14} className="text-dim" />
-                <span>Artifacts del Canvas (vía Chat)</span>
-              </div>
+              {/* T12: fila muerta "Artifacts del Canvas (vía Chat)" eliminada —
+                  era un div sin acción; sin canal de navegación a Canvas en este
+                  componente, mostrarla sería un botón muerto. */}
             </div>
           </div>
         </div>

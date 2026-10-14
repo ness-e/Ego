@@ -4,7 +4,7 @@ import { useActivityState } from "./useActivityState.js";
 import { Modal } from "../ui-kit/Modal.js";
 
 export function ActivityWidget() {
-  const { status, activeSubEgo, currentAction, pendingApprovals, resolveApproval } =
+  const { status, activeSubEgo, currentAction, pendingApprovals, vantaDbOk, resolveApproval } =
     useActivityState();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -31,16 +31,26 @@ export function ActivityWidget() {
 
   return (
     <div className="flex items-center gap-2 app-region-no-drag relative">
-      {/* 1. Estado Idle */}
-      {status === "idle" && (
-        <div
-          data-testid="activity-idle"
-          className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised px-2.5 py-0.5 text-[11px] text-faint"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>VantaDB Core OK</span>
-        </div>
-      )}
+      {/* 1. Estado Idle — badge con salud real (T12: error si snapshots() falla). */}
+      {status === "idle" &&
+        (vantaDbOk ? (
+          <div
+            data-testid="activity-idle"
+            className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised px-2.5 py-0.5 text-[11px] text-faint"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>VantaDB Core OK</span>
+          </div>
+        ) : (
+          <div
+            data-testid="activity-error"
+            role="alert"
+            className="flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-950/30 px-2.5 py-0.5 text-[11px] text-rose-300"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+            <span>VantaDB error — sin verificación de snapshots</span>
+          </div>
+        ))}
 
       {/* 2. Estado Working */}
       {status === "working" && (

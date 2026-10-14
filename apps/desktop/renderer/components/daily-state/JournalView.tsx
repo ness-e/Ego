@@ -22,6 +22,17 @@ export function JournalView({
     setContent(initialContent);
   }, [initialContent]);
 
+  // T12: cleanup del debounce al desmontar (nunca setState post-unmount).
+  useEffect(
+    () => () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    },
+    []
+  );
+
   const handleChange = (newVal: string) => {
     setContent(newVal);
     setSaveStatus("unsaved");
@@ -42,6 +53,11 @@ export function JournalView({
   };
 
   const handleManualSave = async () => {
+    // T12: el guardado manual cancela el debounce pendiente (evita doble save).
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
     setSaveStatus("saving");
     try {
       await onSave(date, content);

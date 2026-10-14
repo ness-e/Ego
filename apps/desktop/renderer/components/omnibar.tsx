@@ -21,6 +21,13 @@ export function requestOpenSettings() {
   window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT));
 }
 
+/** Evento global al elegir un resultado (punto de extensión para navegación). */
+export const OMNIBAR_SELECT_EVENT = "ego:omnibar-select";
+
+export function emitOmnibarSelect(hit: OmnibarHit) {
+  window.dispatchEvent(new CustomEvent<OmnibarHit>(OMNIBAR_SELECT_EVENT, { detail: hit }));
+}
+
 export interface OmnibarHit {
   score: number;
   namespace: string;
@@ -149,6 +156,13 @@ export function Omnibar() {
     [runSearch]
   );
 
+  // T12: elegir un resultado es una acción real (cierra + emite selección),
+  // nunca un div muerto.
+  const handleSelectHit = useCallback((hit: OmnibarHit) => {
+    setOpen(false);
+    emitOmnibarSelect(hit);
+  }, []);
+
   useEffect(
     () => () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -201,20 +215,23 @@ export function Omnibar() {
             </p>
           )}
           {hits.map((h) => (
-            <div
+            <button
               key={`${h.namespace}/${h.key}`}
+              type="button"
               role="option"
               aria-selected="false"
-              className="mt-1 rounded-md border border-hairline bg-panel px-2.5 py-2"
+              onClick={() => handleSelectHit(h)}
+              title={`Abrir ${h.namespace}/${h.key}`}
+              className="mt-1 w-full cursor-pointer rounded-md border border-hairline bg-panel px-2.5 py-2 text-left transition-colors hover:border-dim"
             >
-              <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center justify-between gap-2">
                 <span className="truncate text-xs font-medium text-ink">{h.title}</span>
                 <span className="shrink-0 font-mono text-[10px] text-dim">
                   {Math.round(h.score * 100)}% · {h.namespace}
                 </span>
-              </div>
-              {h.snippet && <p className="mt-0.5 truncate text-[11px] text-faint">{h.snippet}</p>}
-            </div>
+              </span>
+              {h.snippet && <span className="mt-0.5 block truncate text-[11px] text-faint">{h.snippet}</span>}
+            </button>
           ))}
         </div>
       </div>

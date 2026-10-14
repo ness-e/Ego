@@ -9,7 +9,7 @@ import {
 import { MetricsConsole } from "./MetricsConsole";
 import { PendingApprovals, PendingApprovalItem } from "./PendingApprovals";
 import { JournalView } from "./JournalView";
-import type { DailySummaryPayload, DailyDecisionEntry } from "../../lib/ego";
+import type { DailySummaryPayload, DailyDecisionEntry, PendingApprovalInfo } from "../../lib/ego";
 
 export interface DailyDashboardProps {
   onNavigateToCanvas: () => void;
@@ -38,6 +38,49 @@ function asMetric(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+/** T12: `daily.listApprovals` no está en el tipo canónico — acceso estructural opcional. */
+interface DailyWithListApprovals {
+  listApprovals?: () => Promise<unknown>;
+}
+
+function isRecordLike(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** T12: normaliza una aprobación del backend o del bus HITL al ítem del panel. */
+function toPendingItem(value: unknown): PendingApprovalItem | null {
+  if (!isRecordLike(value)) return null;
+  const r = value as Partial<PendingApprovalInfo> & Record<string, unknown>;
+  if (typeof r.approvalId !== "string") return null;
+  const riskLevel =
+    r.riskLevel === "destructive" ? "critical" : r.riskLevel === "sensitive" ? "sensitive" : "normal";
+  const actionName =
+    typeof r.toolName === "string"
+      ? r.toolName
+      : typeof r.action === "object" && r.action !== null &&
+          typeof (r.action as { toolName?: unknown }).toolName === "string"
+        ? (r.action as { toolName: string }).toolName
+        : r.approvalId;
+  return {
+    approvalId: r.approvalId,
+    action: actionName,
+    riskLevel,
+    details: isRecordLike(r.arguments) ? (r.arguments as Record<string, unknown>) : undefined,
+    toolName: typeof r.toolName === "string" ? r.toolName : undefined,
+    timestamp: typeof r.createdAt === "number" ? r.createdAt : undefined,
+  };
+}
+
+function toApprovalItems(value: unknown): PendingApprovalItem[] {
+  if (!Array.isArray(value)) return [];
+  const out: PendingApprovalItem[] = [];
+  for (const v of value) {
+    const m = toPendingItem(v);
+    if (m) out.push(m);
+  }
+  return out;
+}
+
 export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<DailySummaryPayload | null>(null);
@@ -46,6 +89,8 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   const [journalContent, setJournalContent] = useState("");
   const [isRefiningGoals, setIsRefiningGoals] = useState(false);
   const [approvals, setApprovals] = useState<PendingApprovalItem[]>([]);
+  // T12: error honesto (sustituye al summary inventado con meta supuesta).
+  const [dailyError, setDailyError] = useState<string | null>(null);
 
   // Carga inicial del estado diario
   useEffect(() => {
@@ -54,30 +99,16 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
     async function loadDailyData() {
       try {
         setLoading(true);
+        setDailyError(null);
         const ego = window.ego;
         if (!ego?.daily) {
-          // Fallback seguro si ego.daily no está expuesto
-          setSummary({
-            date: new Date().toISOString().split("T")[0],
-            completedTasksCount: 0,
-            pendingTasksCount: 0,
-            pendingApprovalsCount: 0,
-            decisionsCount: 0,
-            quarantineAlertsCount: 0,
-            totalTokensToday: 0,
-            estimatedCostUsd: 0,
-            p99LatencyMs: 0,
-            recentDecisions: [],
-            suggestedGoals: [
-              {
-                id: "goal-fallback",
-                title: "Planificar los objetivos de la jornada en el Dynamic Workspace",
-                priority: "normal",
-                reason: "Sistema en estado óptimo sin alertas.",
-              },
-            ],
-          });
-          setLoading(false);
+          // T12: sin canal daily no hay datos — error honesto, nunca summary inventado.
+          if (mounted) {
+            setSummary(null);
+            setDailyError(
+              "Canal daily no disponible en el bridge — sin datos de la jornada (vacío honesto)."
+            );
+          }
           return;
         }
 
@@ -88,7 +119,14 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
         ]);
 
         if (mounted) {
-          if (summaryRes?.ok) setSummary(summaryRes.summary);
+          if (summaryRes?.ok) {
+            setSummary(summaryRes.summary);
+          } else {
+            setSummary(null);
+            setDailyError(
+              summaryRes?.error || "No se pudo leer el resumen diario del backend."
+            );
+          }
           if (firstLaunchRes?.ok) setIsFirstLaunch(firstLaunchRes.isFirstLaunch);
           if (decisionsRes?.ok) setDecisions(decisionsRes.decisions || []);
 
@@ -99,12 +137,34 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
             setJournalContent(journalRes.content || "");
           }
 
+          // T12: aprobaciones reales — listado si el canal existe (sin falsos).
+          try {
+            const dailyExt = ego.daily as NonNullable<typeof ego.daily> &
+              DailyWithListApprovals;
+            const listRes = await dailyExt.listApprovals?.();
+            if (isRecordLike(listRes) && mounted) {
+              const items = toApprovalItems(listRes.approvals);
+              if (items.length > 0) {
+                setApprovals((prev) => {
+                  const known = new Set(prev.map((a) => a.approvalId));
+                  return [...prev, ...items.filter((i) => !known.has(i.approvalId))];
+                });
+              }
+            }
+          } catch (listErr) {
+            console.warn("[DailyDashboard] Sin listado de aprobaciones:", listErr);
+          }
+
           // T08: sin aprobaciones falsas — `appr-pending-init` eliminado.
           // Sin canal de listado `ipc.daily.*`, la lista solo muestra
           // aprobaciones reales resueltas/pendientes vía HITL (vacío honesto).
         }
       } catch (err) {
         console.warn("[DailyDashboard] Error al cargar daily state:", err);
+        if (mounted) {
+          setSummary(null);
+          setDailyError("Error al cargar el estado diario desde el backend.");
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -113,6 +173,20 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
     loadDailyData();
     return () => {
       mounted = false;
+    };
+  }, []);
+
+  // T12: viva vía HITL — las solicitudes del bus entran a la bandeja en tiempo real.
+  useEffect(() => {
+    const unsub = window.ego?.onApprovalRequest?.((req) => {
+      const item = toPendingItem(req);
+      if (!item) return;
+      setApprovals((prev) =>
+        prev.some((a) => a.approvalId === item.approvalId) ? prev : [...prev, item]
+      );
+    });
+    return () => {
+      unsub?.();
     };
   }, []);
 
@@ -187,10 +261,17 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   const handleSaveDailySnapshot = async () => {
     const ego = window.ego;
     if (ego?.daily?.saveSnapshot) {
-      await ego.daily.saveSnapshot();
-      setIsFirstLaunch(false);
+      const res = await ego.daily.saveSnapshot();
+      // T12: navegar al Canvas solo ante snapshot ok real.
+      if (res?.ok) {
+        setIsFirstLaunch(false);
+        onNavigateToCanvas();
+      } else {
+        setDailyError(res?.error || "No se pudo guardar el snapshot diario — sin navegar al Canvas.");
+      }
+      return;
     }
-    onNavigateToCanvas();
+    setDailyError("Canal daily no disponible — sin snapshot ni navegación al Canvas.");
   };
 
   if (loading) {
@@ -206,6 +287,15 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
 
   return (
     <div className="flex flex-col gap-5 p-2 max-w-6xl mx-auto pb-10">
+      {/* T12: error honesto visible en vez de datos inventados. */}
+      {dailyError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 font-mono text-[11px] text-rose-300"
+        >
+          {dailyError}
+        </div>
+      )}
       {/* 1. Header de Bienvenida & Ritual Matutino */}
       <div className="flex flex-col gap-2 rounded-xl border border-hairline bg-gradient-to-r from-blue-950/20 via-panel to-panel p-5">
         <div className="flex items-center justify-between">
@@ -258,6 +348,11 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
           </div>
 
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            {asSuggestedGoals(summary?.suggestedGoals).length === 0 && (
+              <p className="text-[11px] text-faint italic">
+                Sin objetivos sugeridos — el backend no devolvió metas (vacío honesto).
+              </p>
+            )}
             {asSuggestedGoals(summary?.suggestedGoals).map((goal) => (
               <div
                 key={goal.id}

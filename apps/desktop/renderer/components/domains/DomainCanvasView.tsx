@@ -134,27 +134,34 @@ function toCrmDeal(v: unknown): CrmDealItem | null {
 }
 
 function toCrmSummary(v: unknown): CrmSummary {
+  // T12: sin cifras inventadas — lo ausente es cero, no un pipeline supuesto.
   const r = isRecord(v) ? v : {};
   return {
-    totalPipelineUsd: asNumber(r.totalPipelineUsd, 48500),
-    weightedPipelineUsd: asNumber(r.weightedPipelineUsd, 32550),
-    dealsCount: asNumber(r.dealsCount, 3),
+    totalPipelineUsd: asNumber(r.totalPipelineUsd, 0),
+    weightedPipelineUsd: asNumber(r.weightedPipelineUsd, 0),
+    dealsCount: asNumber(r.dealsCount, 0),
   };
 }
 
 export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) => {
   const [loading, setLoading] = useState(false);
+  // T12: error honesto de carga (nunca datos inventados como sustituto).
+  const [uiError, setUiError] = useState<string | null>(null);
   const bridge = ego();
+  // T12: el canal graphRag existe en el bridge → el bloque se conserva;
+  // si algún día falta, se oculta en vez de mostrar un placeholder falso.
+  const graphRagAvailable = typeof bridge.knowledge?.graphRag === "function";
 
   // Estados específicos de dominio
   const [engData, setEngData] = useState<{
-    branch: string;
+    // T12: null = aún sin dato real del backend (nunca rama supuesta).
+    branch: string | null;
     clean: boolean;
     staged: string[];
     unstaged: string[];
     worktrees: WorktreeStatusItem[];
   }>({
-    branch: "master",
+    branch: null,
     clean: true,
     staged: [],
     unstaged: [],
@@ -194,14 +201,20 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
   useEffect(() => {
     let mounted = true;
     setLoading(true);
+    setUiError(null);
 
     const loadDomainData = async () => {
       try {
         if (domainId === "engineering") {
           const res = await bridge.domains?.getEngineeringStatus();
-          if (mounted && res?.ok) {
+          if (!res) {
+            if (mounted) setUiError("Canal domains no disponible en el bridge.");
+          } else if (!res.ok) {
+            if (mounted) setUiError("No se pudo leer el estado de ingeniería del backend.");
+          } else if (mounted) {
             setEngData({
-              branch: res.gitStatus?.branch || "master",
+              branch:
+                typeof res.gitStatus?.branch === "string" ? res.gitStatus.branch : null,
               clean: res.gitStatus?.clean ?? true,
               staged: res.gitStatus?.staged || [],
               unstaged: res.gitStatus?.unstaged || [],
@@ -210,29 +223,33 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
           }
         } else if (domainId === "product") {
           const res = await bridge.domains?.productBacklog({ action: "list" });
-          if (mounted && res?.ok) {
+          if (!res) {
+            if (mounted) setUiError("Canal domains no disponible en el bridge.");
+          } else if (!res.ok) {
+            if (mounted) setUiError("No se pudo leer el backlog de producto del backend.");
+          } else if (mounted) {
+            // T12: vacío honesto — sin ítems de ejemplo cuando el backend no trae.
             setProductData({
-              items: res.items
-                ? res.items.map(toProductItem)
-                : [
-                    { id: "1", title: "Aislamiento de Worktrees", status: "done", priority: "p0" },
-                    { id: "2", title: "Selector Contextual de Dominio", status: "in_progress", priority: "p1" },
-                    { id: "3", title: "Conector MCP Oficial GitHub", status: "done", priority: "p1" },
-                    { id: "4", title: "Generación Asistida de PRDs", status: "backlog", priority: "p2" },
-                  ],
-              epics: res.epics
-                ? res.epics.map(toEpicItem)
-                : [{ id: "e1", title: "Fase 09 — Dominios Funcionales" }],
+              items: res.items ? res.items.map(toProductItem) : [],
+              epics: res.epics ? res.epics.map(toEpicItem) : [],
             });
           }
         } else if (domainId === "knowledge") {
           const res = await bridge.domains?.knowledgeSearch(debouncedQuery || "vanta");
-          if (mounted && res?.ok) {
+          if (!res) {
+            if (mounted) setUiError("Canal domains no disponible en el bridge.");
+          } else if (!res.ok) {
+            if (mounted) setUiError("No se pudo buscar en la base de conocimiento del backend.");
+          } else if (mounted) {
             setKnowledgeData(flatMapValid(res.results, toKnowledgeFact));
           }
         } else if (domainId === "analytics") {
           const res = await bridge.domains?.analyticsSeries(7);
-          if (mounted && res?.ok) {
+          if (!res) {
+            if (mounted) setUiError("Canal domains no disponible en el bridge.");
+          } else if (!res.ok) {
+            if (mounted) setUiError("No se pudo leer la telemetría del backend.");
+          } else if (mounted) {
             setAnalyticsData({
               series: (res.series ?? []).filter(isRecord),
               modelDistribution: (res.modelDistribution ?? []).filter(isRecord),
@@ -240,14 +257,14 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
           }
         } else if (domainId === "crm") {
           const res = await bridge.domains?.crmDeals({ action: "list" });
-          if (mounted && res?.ok) {
-            const mappedDeals = res.deals ? flatMapValid(res.deals, toCrmDeal) : null;
+          if (!res) {
+            if (mounted) setUiError("Canal domains no disponible en el bridge.");
+          } else if (!res.ok) {
+            if (mounted) setUiError("No se pudo leer el pipeline de CRM del backend.");
+          } else if (mounted) {
+            // T12: vacío honesto — sin deals d1-d3 de ejemplo.
             setCrmData({
-              deals: mappedDeals ?? [
-                { id: "d1", title: "Licencia Anual Ego SOC", valueUsd: 25000, stage: "proposal", probabilityPct: 60 },
-                { id: "d2", title: "Despliegue Local Privado", valueUsd: 8500, stage: "qualified", probabilityPct: 30 },
-                { id: "d3", title: "Consultoría de Arquitectura", valueUsd: 15000, stage: "won", probabilityPct: 100 },
-              ],
+              deals: res.deals ? flatMapValid(res.deals, toCrmDeal) : [],
               contacts: (res.contacts ?? []).filter(isRecord),
               summary: toCrmSummary(res.summary),
             });
@@ -255,6 +272,7 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
         }
       } catch (err) {
         console.error("Error al cargar datos del dominio:", err);
+        if (mounted) setUiError("Error al cargar datos del dominio desde el backend.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -274,6 +292,11 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
           Sincronizando estado de {domainId}...
         </div>
       )}
+      {uiError && (
+        <div role="alert" className="text-[11px] font-mono text-rose-300 border border-rose-500/30 bg-rose-950/30 rounded-lg px-3 py-2">
+          {uiError} — sin datos inventados como sustituto.
+        </div>
+      )}
       {/* ======================================================== */}
       {/* 1. VISTA DE INGENIERÍA (DOM-01 / HERM-17)                 */}
       {/* ======================================================== */}
@@ -286,7 +309,11 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
             </div>
             <div className="flex items-center gap-2 text-xs bg-raised border border-hairline px-2.5 py-1 rounded-md font-mono text-cyan-300">
               <GitBranch size={14} />
-              <span>{engData.branch}</span>
+              {engData.branch === null ? (
+                <span className="animate-pulse text-faint">leyendo rama…</span>
+              ) : (
+                <span>{engData.branch}</span>
+              )}
               <span className={`w-2 h-2 rounded-full ${engData.clean ? "bg-emerald-500" : "bg-amber-500"}`} />
             </div>
           </div>
@@ -355,11 +382,24 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               <Kanban size={20} className="text-amber-400" />
               <h2 className="text-base font-semibold">Tablero de Producto & Backlog (ego.product)</h2>
             </div>
-            <button className="flex items-center gap-1.5 text-xs bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-colors font-medium">
+            {/* T12: crear sin formulario inventaría datos → deshabilitado honesto
+                hasta que el canal productBacklog/create tenga UI de alta real. */}
+            <button
+              disabled
+              aria-disabled="true"
+              title="Crear ítem no disponible: el backend no expone alta con formulario en este canal"
+              className="flex items-center gap-1.5 text-xs bg-amber-500/10 text-amber-300/50 border border-amber-500/20 px-3 py-1.5 rounded-lg font-medium cursor-not-allowed"
+            >
               <Plus size={14} />
               <span>Nuevo Ítem</span>
             </button>
           </div>
+
+          {productData.items.length === 0 && (
+            <p className="text-xs text-faint italic">
+              Sin ítems en el backlog — el backend no devolvió datos (vacío honesto, sin ejemplos).
+            </p>
+          )}
 
           {/* Columnas Kanban */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -458,24 +498,19 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               </div>
             </div>
 
-            <div className="bg-raised/60 border border-hairline rounded-xl p-4 flex flex-col justify-between">
-              <div>
-                <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">
-                  Grafo Conceptual GraphRAG
-                </h3>
-                <p className="text-xs text-faint mb-4">
-                  Visualización bidimensional de aristas semánticas y entidades interconectadas.
-                </p>
-                <div className="h-44 border border-dashed border-hairline rounded-lg flex items-center justify-center text-faint text-xs font-mono">
-                  [Visualizador de Nodos GraphRAG: 3 conceptos vinculados]
+            {graphRagAvailable ? (
+              <div className="bg-raised/60 border border-hairline rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">
+                    Grafo Conceptual GraphRAG
+                  </h3>
+                  <p className="text-xs text-faint italic">
+                    Sin visualización cableada — el canal graphRag existe pero no
+                    devuelve nodos en este kicker (vacío honesto, sin grafo inventado).
+                  </p>
                 </div>
               </div>
-              <div className="text-right mt-3">
-                <span className="text-[11px] text-purple-400 font-mono">
-                  Búsqueda híbrida BM25 + ONNX activa
-                </span>
-              </div>
-            </div>
+            ) : null}
           </div>
         </div>
       )}
@@ -533,6 +568,12 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
             </div>
           </div>
 
+          {crmData.deals.length === 0 && (
+            <p className="text-xs text-faint italic">
+              Sin deals en el pipeline — el backend no devolvió datos (vacío honesto, sin ejemplos).
+            </p>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {crmData.deals.map((deal) => (
               <div
@@ -554,7 +595,14 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
                   <span className="text-sm font-mono font-bold text-emerald-400">
                     ${deal.valueUsd.toLocaleString()} USD
                   </span>
-                  <button className="text-faint hover:text-white transition-colors">
+                  {/* T12: detalle sin canal → deshabilitado honesto, nunca botón muerto. */}
+                  <button
+                    disabled
+                    aria-disabled="true"
+                    aria-label={`Detalle de ${deal.title} no disponible`}
+                    title="Detalle del deal no disponible en este canal"
+                    className="text-faint/40 cursor-not-allowed"
+                  >
                     <ArrowRight size={14} />
                   </button>
                 </div>

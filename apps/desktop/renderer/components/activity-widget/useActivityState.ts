@@ -104,6 +104,31 @@ export function useActivityState() {
     };
   }, []);
 
+  // T12: salud real de VantaDB vía `snapshots()` — error visible si falla.
+  useEffect(() => {
+    let mounted = true;
+    const checkHealth = async () => {
+      try {
+        const snapshots = ego().snapshots;
+        if (typeof snapshots !== "function") {
+          if (mounted) setState((prev) => ({ ...prev, vantaDbOk: false }));
+          return;
+        }
+        const res = await snapshots();
+        const ok =
+          typeof res === "object" && res !== null && (res as { ok?: unknown }).ok === true;
+        if (mounted && !ok) setState((prev) => ({ ...prev, vantaDbOk: false }));
+      } catch (err) {
+        console.warn("[useActivityState] VantaDB health check fallido:", err);
+        if (mounted) setState((prev) => ({ ...prev, vantaDbOk: false }));
+      }
+    };
+    void checkHealth();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const resolveApproval = useCallback(
     async (approvalId: string, approved: boolean, reason?: string) => {
       try {
@@ -112,19 +137,19 @@ export function useActivityState() {
           approved,
           reason,
         });
+        // T12: sale del mapa SOLO si el backend confirmó (antes: finally ciego).
+        approvalsMap.current.delete(approvalId);
       } catch (err) {
         console.error("[useActivityState] Error al resolver aprobación:", err);
-      } finally {
-        approvalsMap.current.delete(approvalId);
-        setState((prev) => {
-          const remaining = Array.from(approvalsMap.current.values());
-          return {
-            ...prev,
-            status: remaining.length > 0 ? "approval" : prev.currentAction ? "working" : "idle",
-            pendingApprovals: remaining,
-          };
-        });
       }
+      setState((prev) => {
+        const remaining = Array.from(approvalsMap.current.values());
+        return {
+          ...prev,
+          status: remaining.length > 0 ? "approval" : prev.currentAction ? "working" : "idle",
+          pendingApprovals: remaining,
+        };
+      });
     },
     []
   );
