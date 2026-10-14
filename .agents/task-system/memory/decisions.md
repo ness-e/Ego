@@ -33,3 +33,9 @@ Formato: `Tema | Decisión | ref: ruta:línea`.
 - **Contexto:** Fase 10 (Recovery & Hardening) del Roadmap Ego. Requiere resiliencia extrema, cero pérdidas de datos ante cortes o crashes, salvaguarda de proyectos en .vdbdump y pruebas de estabilidad y caos contra VantaDB Fjall LSM (FIND-246/248, VDB-BUG-03).
 - **Decisión:** 1) Crear paquete modular @ego/recovery (packages/recovery/). 2) Formato .vdbdump comprimido en gzip con manifiesto firmado VDBJSON-V1 y streams NDJSON por namespace. 3) Heartbeat Lockfile (ego.lock con PID + timestamp 2s) para detección de Dirty Shutdown y purga segura de locks de Fjall. 4) Chaos Monkey ejecutado en subproceso bifurcado (fork) con SIGKILL/taskkill forzoso. 5) OpGate en before-quit de Electron con drenado de operaciones. 6) WindowStateManager para restauración resiliente de geometría de ventana (HERM-04).
 - **Consecuencias:** Aislamiento modular completo en @ego/recovery, prevención total de corrupción ante cierres forzosos con EgoLock, exportaciones compactas y seguras sin riesgo de OOM en .vdbdump, y suites de pruebas de caos automatizadas con proceso hijo (fork + kill).
+
+
+### ADR-9156: Dispatch Packet obligatorio + agentes ego-* del routing (2026-10-12)
+- **Contexto:** Orquestador usó subagent general con prompts ad-hoc; el mecanismo de 10 bloques (pipeline-run §6.f) no se activó porque el plan no traía Ruta/Estado/Contrato y los tipos ego-worker/engine/arch/audit/tuner/chaos no existían como agentes.
+- **Decisión:** Gate 4b en pipeline.md + fallback-general exige packet completo + crear los 6 agentes ego-* con esquema de permisos hermano + Ruta/Estado/Contrato por tarea en planes. Harness PASS antes del commit (e9d00bb).
+- **Consecuencias:** Todo dispatch futuro lleva paquete completo; trade-off: prompts más largos a cambio de cero instrucciones perdidas.

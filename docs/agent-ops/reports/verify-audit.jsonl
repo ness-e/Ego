@@ -3,3 +3,123 @@
 {"timestamp":"2026-10-08T23:43:05.293Z","command":"pwsh .agents/dev-tools/verify.ps1","exitCode":1,"durationMs":25,"success":false,"outputLength":0,"hasStderr":true}
 {"timestamp":"2026-10-08T23:56:16.409Z","command":"pwsh .agents/dev-tools/verify.ps1","exitCode":1,"durationMs":22,"success":false,"outputLength":0,"hasStderr":true}
 {"timestamp":"2026-10-09T00:00:01.373Z","command":"pwsh .agents/dev-tools/verify.ps1","exitCode":1,"durationMs":48,"success":false,"outputLength":0,"hasStderr":true}
+{"timestamp":"2026-10-12T04:44:44.113Z","command":"pnpm --filter @ego/models test -- ProviderToolCalling","exitCode":1,"durationMs":6895,"success":false,"outputLength":1025,"hasStderr":true}
+{"timestamp":"2026-10-12T04:49:11.652Z","command":"pnpm --filter @ego/models test -- ProviderToolCalling","exitCode":0,"durationMs":4095,"success":true,"outputLength":626,"hasStderr":false}
+{"timestamp":"2026-10-12T04:49:22.873Z","command":"pnpm --filter @ego/models typecheck","exitCode":0,"durationMs":4114,"success":true,"outputLength":114,"hasStderr":false}
+{"timestamp":"2026-10-12T04:49:29.262Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":6386,"success":true,"outputLength":801,"hasStderr":false}
+{"timestamp":"2026-10-12T05:03:10.718Z","command":"pnpm --filter @ego/models typecheck","exitCode":0,"durationMs":1743,"success":true,"outputLength":114,"hasStderr":false}
+{"timestamp":"2026-10-12T05:05:10.654Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":2498,"success":true,"outputLength":800,"hasStderr":false}
+{"timestamp":"2026-10-12T05:11:37.184Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":3218,"success":true,"outputLength":903,"hasStderr":false}
+{"timestamp":"2026-10-12T05:14:49.458Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":3496,"success":true,"outputLength":904,"hasStderr":false}
+{"timestamp":"2026-10-12T05:18:17.058Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":2864,"success":true,"outputLength":904,"hasStderr":false}
+{"timestamp":"2026-10-12T05:20:56.621Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":3229,"success":true,"outputLength":1015,"hasStderr":false}
+{"timestamp":"2026-10-12T05:25:01.969Z","command":"pnpm --filter @ego/desktop typecheck","exitCode":0,"durationMs":3028,"success":true,"outputLength":112,"hasStderr":false}
+{"timestamp":"2026-10-12T05:25:11.348Z","command":"pnpm --filter @ego/desktop test -- ipc-tool-loop","exitCode":0,"durationMs":9377,"success":true,"outputLength":4486,"hasStderr":false}
+{"timestamp":"2026-10-12T05:29:30.109Z","command":"pnpm --filter @ego/desktop typecheck","exitCode":0,"durationMs":2412,"success":true,"outputLength":112,"hasStderr":false}
+{"timestamp":"2026-10-12T05:29:36.282Z","command":"pnpm --filter @ego/desktop test -- ipc-tool-loop","exitCode":0,"durationMs":6172,"success":true,"outputLength":607,"hasStderr":false}
+{"timestamp":"2026-10-12T05:30:59.848Z","command":"pnpm --filter @ego/runtime test","exitCode":0,"durationMs":3865,"success":true,"outputLength":1637,"hasStderr":false}
+{"timestamp":"2026-10-12T05:31:21.862Z","command":"pnpm typecheck","exitCode":2,"durationMs":4658,"success":false,"outputLength":824,"hasStderr":true}
+{"timestamp":"2026-10-12T05:31:40.685Z","command":"pnpm --filter @ego/security typecheck","exitCode":0,"durationMs":1819,"success":true,"outputLength":118,"hasStderr":false}
+{"timestamp":"2026-10-12T05:52:48.417Z","command":"pnpm typecheck","exitCode":0,"durationMs":30326,"success":true,"outputLength":1877,"hasStderr":false}
+{"timestamp":"2026-10-12T05:52:57.872Z","command":"pnpm -r test","exitCode":1,"durationMs":4475,"success":false,"outputLength":1338,"hasStderr":true}
+{"timestamp":"2026-10-12T05:53:27.075Z","command":"pnpm --filter @ego/security test","exitCode":0,"durationMs":2508,"success":true,"outputLength":597,"hasStderr":false}
+{"timestamp":"2026-10-12T05:55:51.126Z","command":"pnpm -r test","exitCode":1,"durationMs":120022,"success":false,"outputLength":43657,"hasStderr":true}
+{"timestamp":"2026-10-12T05:56:04.593Z","command":"pnpm --filter @ego/decision test","exitCode":0,"durationMs":3894,"success":true,"outputLength":1304,"hasStderr":false}
+{"timestamp":"2026-10-12T05:56:16.056Z","command":"pnpm --filter @ego/domains test","exitCode":0,"durationMs":4738,"success":true,"outputLength":1593,"hasStderr":false}
+{"timestamp":"2026-10-12T05:56:36.399Z","command":"pnpm --filter @ego/desktop test","exitCode":0,"durationMs":12839,"success":true,"outputLength":11696,"hasStderr":false}
+{"timestamp":"2026-10-12T05:57:27.073Z","command":"pnpm --filter @ego/renderer test","exitCode":0,"durationMs":42633,"success":true,"outputLength":2063,"hasStderr":false}
+{"timestamp":"2026-10-12T05:58:29.039Z","command":"pnpm build","exitCode":0,"durationMs":51345,"success":true,"outputLength":861,"hasStderr":false}
+{"timestamp":"2026-10-12T06:08:39.976Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":5066,"success":true,"outputLength":1288,"hasStderr":false}
+{"timestamp":"2026-10-12T06:27:14.565Z","command":"pnpm --filter @ego/memory test","exitCode":0,"durationMs":5038,"success":true,"outputLength":3358,"hasStderr":false}
+{"timestamp":"2026-10-12T06:30:50.497Z","command":"pnpm --filter @ego/memory test","exitCode":0,"durationMs":8365,"success":true,"outputLength":3155,"hasStderr":false}
+{"timestamp":"2026-10-12T06:35:15.392Z","command":"pnpm --filter @ego/knowledge test","exitCode":0,"durationMs":4650,"success":true,"outputLength":1511,"hasStderr":false}
+{"timestamp":"2026-10-12T06:54:28.355Z","command":"pnpm --filter @ego/subegos test -- SubEgoRegistry","exitCode":0,"durationMs":2677,"success":true,"outputLength":940,"hasStderr":false}
+{"timestamp":"2026-10-12T06:54:56.558Z","command":"pnpm typecheck","exitCode":0,"durationMs":23019,"success":true,"outputLength":1877,"hasStderr":false}
+{"timestamp":"2026-10-12T06:58:05.879Z","command":"pnpm --filter @ego/knowledge test","exitCode":0,"durationMs":2567,"success":true,"outputLength":1437,"hasStderr":false}
+{"timestamp":"2026-10-12T06:59:21.988Z","command":"pnpm typecheck","exitCode":0,"durationMs":22165,"success":true,"outputLength":1877,"hasStderr":false}
+{"timestamp":"2026-10-12T06:59:32.055Z","command":"pnpm --filter @ego/tasks test","exitCode":0,"durationMs":3325,"success":true,"outputLength":1773,"hasStderr":false}
+{"timestamp":"2026-10-12T06:59:34.028Z","command":"pnpm --filter @ego/dailystate test","exitCode":0,"durationMs":1971,"success":true,"outputLength":920,"hasStderr":false}
+{"timestamp":"2026-10-12T06:59:36.100Z","command":"pnpm --filter @ego/decision test","exitCode":0,"durationMs":2071,"success":true,"outputLength":1304,"hasStderr":false}
+{"timestamp":"2026-10-12T07:17:43.428Z","command":"pnpm --filter @ego/memory test","exitCode":0,"durationMs":3880,"success":true,"outputLength":2479,"hasStderr":false}
+{"timestamp":"2026-10-12T07:21:36.633Z","command":"pnpm --filter @ego/knowledge test","exitCode":0,"durationMs":3377,"success":true,"outputLength":1985,"hasStderr":false}
+{"timestamp":"2026-10-12T07:26:27.376Z","command":"pnpm --filter @ego/dailystate test","exitCode":0,"durationMs":1899,"success":true,"outputLength":920,"hasStderr":false}
+{"timestamp":"2026-10-12T07:26:50.647Z","command":"pnpm typecheck","exitCode":0,"durationMs":23270,"success":true,"outputLength":1877,"hasStderr":false}
+{"timestamp":"2026-10-12T07:29:56.452Z","command":"pnpm --filter @ego/knowledge test -- ExportUnwrapRoundtrip","exitCode":0,"durationMs":2374,"success":true,"outputLength":849,"hasStderr":false}
+{"timestamp":"2026-10-12T07:30:46.942Z","command":"pnpm --filter @ego/knowledge typecheck","exitCode":0,"durationMs":1783,"success":true,"outputLength":120,"hasStderr":false}
+{"timestamp":"2026-10-12T22:01:04.701Z","command":"pnpm --filter @ego/security test","exitCode":0,"durationMs":1782,"success":true,"outputLength":602,"hasStderr":false}
+{"timestamp":"2026-10-12T22:01:06.224Z","command":"pnpm --filter @ego/security typecheck","exitCode":0,"durationMs":1522,"success":true,"outputLength":118,"hasStderr":false}
+{"timestamp":"2026-10-12T22:10:58.603Z","command":"pnpm --filter @ego/desktop test -- knowledge-ipc","exitCode":1,"durationMs":1840,"success":false,"outputLength":1068,"hasStderr":true}
+{"timestamp":"2026-10-12T22:11:32.129Z","command":"pnpm --filter @ego/desktop test -- knowledge-ipc","exitCode":0,"durationMs":1992,"success":true,"outputLength":601,"hasStderr":false}
+{"timestamp":"2026-10-12T22:17:42.157Z","command":"pnpm --filter @ego/knowledge test","exitCode":0,"durationMs":4001,"success":true,"outputLength":3189,"hasStderr":false}
+{"timestamp":"2026-10-12T22:23:24.129Z","command":"pnpm --filter @ego/domains test","exitCode":0,"durationMs":3777,"success":true,"outputLength":2126,"hasStderr":false}
+{"timestamp":"2026-10-12T22:23:28.534Z","command":"pnpm --filter @ego/memory test","exitCode":0,"durationMs":4404,"success":true,"outputLength":3632,"hasStderr":false}
+{"timestamp":"2026-10-12T22:36:38.165Z","command":"pnpm --filter @ego/knowledge test","exitCode":0,"durationMs":4451,"success":true,"outputLength":4295,"hasStderr":false}
+{"timestamp":"2026-10-12T22:36:42.213Z","command":"pnpm --filter @ego/domains test","exitCode":0,"durationMs":4047,"success":true,"outputLength":2425,"hasStderr":false}
+{"timestamp":"2026-10-12T22:43:04.677Z","command":"pnpm --filter @ego/memory test","exitCode":0,"durationMs":4232,"success":true,"outputLength":3936,"hasStderr":false}
+{"timestamp":"2026-10-12T22:54:01.112Z","command":"pnpm --filter @ego/decision test","exitCode":0,"durationMs":2247,"success":true,"outputLength":1409,"hasStderr":false}
+{"timestamp":"2026-10-12T22:54:03.844Z","command":"pnpm --filter @ego/execution test","exitCode":0,"durationMs":2731,"success":true,"outputLength":1242,"hasStderr":false}
+{"timestamp":"2026-10-12T22:54:07.722Z","command":"pnpm --filter @ego/runtime test","exitCode":0,"durationMs":3878,"success":true,"outputLength":1748,"hasStderr":false}
+{"timestamp":"2026-10-13T01:56:34.345Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":2292,"success":true,"outputLength":1015,"hasStderr":false}
+{"timestamp":"2026-10-13T01:57:15.211Z","command":"pnpm install --frozen-lockfile","exitCode":0,"durationMs":2540,"success":true,"outputLength":227,"hasStderr":false}
+{"timestamp":"2026-10-13T02:05:27.769Z","command":"pnpm --filter @ego/tasks test","exitCode":0,"durationMs":3256,"success":true,"outputLength":1978,"hasStderr":false}
+{"timestamp":"2026-10-13T02:05:30.211Z","command":"pnpm --filter @ego/tasks typecheck","exitCode":0,"durationMs":2440,"success":true,"outputLength":112,"hasStderr":false}
+{"timestamp":"2026-10-13T02:14:51.540Z","command":"pnpm --filter @ego/dailystate test","exitCode":0,"durationMs":2214,"success":true,"outputLength":1016,"hasStderr":false}
+{"timestamp":"2026-10-13T02:14:55.478Z","command":"pnpm --filter @ego/recovery test","exitCode":0,"durationMs":3935,"success":true,"outputLength":2370,"hasStderr":false}
+{"timestamp":"2026-10-13T02:14:58.823Z","command":"pnpm --filter @ego/ui-runtime test","exitCode":0,"durationMs":3345,"success":true,"outputLength":1615,"hasStderr":false}
+{"timestamp":"2026-10-13T02:23:04.747Z","command":"pnpm --filter @ego/desktop test -- preload-bridge","exitCode":0,"durationMs":1959,"success":true,"outputLength":601,"hasStderr":false}
+{"timestamp":"2026-10-13T02:41:43.993Z","command":"pnpm --filter @ego/desktop typecheck","exitCode":0,"durationMs":2600,"success":true,"outputLength":112,"hasStderr":false}
+{"timestamp":"2026-10-13T02:42:24.885Z","command":"pnpm build","exitCode":0,"durationMs":40891,"success":true,"outputLength":884,"hasStderr":false}
+{"timestamp":"2026-10-13T03:09:47.369Z","command":"pnpm test:e2e","exitCode":0,"durationMs":3869,"success":true,"outputLength":3402,"hasStderr":false}
+{"timestamp":"2026-10-13T03:49:32.114Z","command":"pnpm typecheck","exitCode":0,"durationMs":23658,"success":true,"outputLength":1877,"hasStderr":false}
+{"timestamp":"2026-10-13T03:49:35.108Z","command":"pnpm --filter @ego/tools test","exitCode":0,"durationMs":2992,"success":true,"outputLength":1667,"hasStderr":false}
+{"timestamp":"2026-10-13T05:36:05.190Z","command":"pnpm --filter @ego/knowledge test -- ExportUnwrapRoundtrip","exitCode":0,"durationMs":7411,"success":true,"outputLength":851,"hasStderr":false}
+{"timestamp":"2026-10-13T05:37:26.924Z","command":"pnpm --filter @ego/events test","exitCode":0,"durationMs":2242,"success":true,"outputLength":795,"hasStderr":false}
+{"timestamp":"2026-10-13T05:37:29.694Z","command":"pnpm --filter @ego/dailystate test","exitCode":0,"durationMs":2769,"success":true,"outputLength":1016,"hasStderr":false}
+{"timestamp":"2026-10-13T05:44:37.689Z","command":"pnpm --filter @ego/desktop test -- mcp-secrets","exitCode":0,"durationMs":2253,"success":true,"outputLength":600,"hasStderr":false}
+{"timestamp":"2026-10-13T06:06:24.257Z","command":"pnpm --filter @ego/desktop test -- sandbox-isolation","exitCode":0,"durationMs":2010,"success":true,"outputLength":605,"hasStderr":false}
+{"timestamp":"2026-10-13T06:17:28.999Z","command":"pnpm --filter @ego/desktop test -- ipc-zod-coverage","exitCode":0,"durationMs":3142,"success":true,"outputLength":606,"hasStderr":false}
+{"timestamp":"2026-10-13T06:20:55.757Z","command":"pnpm --filter @ego/security test","exitCode":0,"durationMs":2537,"success":true,"outputLength":702,"hasStderr":false}
+{"timestamp":"2026-10-13T06:20:57.981Z","command":"pnpm --filter @ego/security typecheck","exitCode":0,"durationMs":2222,"success":true,"outputLength":118,"hasStderr":false}
+{"timestamp":"2026-10-13T06:58:12.501Z","command":"pnpm --filter @ego/security test","exitCode":0,"durationMs":3755,"success":true,"outputLength":805,"hasStderr":false}
+{"timestamp":"2026-10-13T07:04:21.727Z","command":"pnpm --filter @ego/security test","exitCode":0,"durationMs":7004,"success":true,"outputLength":912,"hasStderr":false}
+{"timestamp":"2026-10-13T07:17:17.628Z","command":"pnpm --filter @ego/memory test -- audit-immutable","exitCode":0,"durationMs":8161,"success":true,"outputLength":613,"hasStderr":false}
+{"timestamp":"2026-10-13T07:17:26.366Z","command":"pnpm --filter @ego/execution test -- ApprovalAuditSink","exitCode":0,"durationMs":8735,"success":true,"outputLength":623,"hasStderr":false}
+{"timestamp":"2026-10-13T07:22:51.113Z","command":"pnpm --filter @ego/security test","exitCode":0,"durationMs":11068,"success":true,"outputLength":1019,"hasStderr":false}
+{"timestamp":"2026-10-13T07:43:12.832Z","command":"pnpm --filter @ego/execution test","exitCode":0,"durationMs":5177,"success":true,"outputLength":1351,"hasStderr":false}
+{"timestamp":"2026-10-13T07:43:24.070Z","command":"pnpm test:e2e","exitCode":0,"durationMs":11236,"success":true,"outputLength":4594,"hasStderr":false}
+{"timestamp":"2026-10-13T14:35:07.842Z","command":"pnpm --filter @ego/memory test","exitCode":0,"durationMs":4934,"success":true,"outputLength":4260,"hasStderr":false}
+{"timestamp":"2026-10-13T14:35:10.476Z","command":"pnpm --filter @ego/subegos test -- SubEgoMemoryGuard","exitCode":0,"durationMs":2630,"success":true,"outputLength":756,"hasStderr":false}
+{"timestamp":"2026-10-13T14:48:50.725Z","command":"pnpm --filter @ego/desktop test","exitCode":0,"durationMs":9534,"success":true,"outputLength":11297,"hasStderr":false}
+{"timestamp":"2026-10-13T14:54:25.354Z","command":"pnpm build","exitCode":0,"durationMs":45149,"success":true,"outputLength":1430,"hasStderr":false}
+{"timestamp":"2026-10-13T14:56:21.955Z","command":"pnpm --filter @ego/recovery typecheck","exitCode":0,"durationMs":1888,"success":true,"outputLength":118,"hasStderr":false}
+{"timestamp":"2026-10-13T16:11:23.566Z","command":"pnpm test:e2e","exitCode":0,"durationMs":4948,"success":true,"outputLength":4587,"hasStderr":false}
+{"timestamp":"2026-10-13T16:11:27.906Z","command":"pnpm --filter @ego/e2e-tests typecheck","exitCode":0,"durationMs":4339,"success":true,"outputLength":107,"hasStderr":false}
+{"timestamp":"2026-10-13T16:18:16.912Z","command":"pnpm --filter @ego/desktop test -- ensure-fresh-dist","exitCode":0,"durationMs":2752,"success":true,"outputLength":775,"hasStderr":false}
+{"timestamp":"2026-10-13T16:42:38.892Z","command":"pnpm --filter @ego/desktop test","exitCode":0,"durationMs":9868,"success":true,"outputLength":10953,"hasStderr":false}
+{"timestamp":"2026-10-13T16:42:41.409Z","command":"pnpm --filter @ego/subegos test -- MemoryManifestAdapter","exitCode":0,"durationMs":2515,"success":true,"outputLength":646,"hasStderr":false}
+{"timestamp":"2026-10-13T16:47:09.319Z","command":"pnpm --filter @ego/dailystate test","exitCode":0,"durationMs":2983,"success":true,"outputLength":1017,"hasStderr":false}
+{"timestamp":"2026-10-13T16:52:14.659Z","command":"pnpm --filter @ego/domains test -- WorktreePathEdge","exitCode":0,"durationMs":2121,"success":true,"outputLength":611,"hasStderr":false}
+{"timestamp":"2026-10-13T16:52:16.852Z","command":"pnpm --filter @ego/knowledge test -- FactLifecycleAuditKeys","exitCode":0,"durationMs":2192,"success":true,"outputLength":631,"hasStderr":false}
+{"timestamp":"2026-10-13T16:55:39.265Z","command":"pnpm build","exitCode":0,"durationMs":42017,"success":true,"outputLength":1430,"hasStderr":false}
+{"timestamp":"2026-10-13T17:43:43.717Z","command":"pnpm build","exitCode":0,"durationMs":36533,"success":true,"outputLength":3024,"hasStderr":false}
+{"timestamp":"2026-10-13T17:48:40.746Z","command":"pnpm --filter @ego/desktop test -- updater","exitCode":0,"durationMs":1905,"success":true,"outputLength":756,"hasStderr":false}
+{"timestamp":"2026-10-13T17:55:41.926Z","command":"pnpm test:e2e","exitCode":0,"durationMs":5033,"success":true,"outputLength":4586,"hasStderr":false}
+{"timestamp":"2026-10-13T18:02:45.561Z","command":"pnpm --filter @ego/desktop smoke:native","exitCode":0,"durationMs":1071,"success":true,"outputLength":1479,"hasStderr":false}
+{"timestamp":"2026-10-13T18:06:55.503Z","command":"pnpm lint","exitCode":0,"durationMs":23527,"success":true,"outputLength":43520,"hasStderr":false}
+{"timestamp":"2026-10-13T18:14:24.500Z","command":"pnpm --filter @ego/desktop typecheck","exitCode":0,"durationMs":2150,"success":true,"outputLength":112,"hasStderr":false}
+{"timestamp":"2026-10-13T18:21:26.223Z","command":"pnpm typecheck","exitCode":0,"durationMs":19424,"success":true,"outputLength":1946,"hasStderr":false}
+{"timestamp":"2026-10-13T23:28:55.111Z","command":"pnpm --filter @ego/models test -- AiSdkProviders -t instructions","exitCode":1,"durationMs":5155,"success":false,"outputLength":1181,"hasStderr":true}
+{"timestamp":"2026-10-13T23:32:15.572Z","command":"pnpm --filter @ego/models test -- AiSdkProviders","exitCode":1,"durationMs":2520,"success":false,"outputLength":1079,"hasStderr":true}
+{"timestamp":"2026-10-13T23:32:18.662Z","command":"pnpm --filter @ego/models typecheck","exitCode":0,"durationMs":3089,"success":true,"outputLength":114,"hasStderr":false}
+{"timestamp":"2026-10-13T23:32:30.838Z","command":"pnpm --filter @ego/models test -- AiSdkProviders -t instructions","exitCode":1,"durationMs":1965,"success":false,"outputLength":1145,"hasStderr":true}
+{"timestamp":"2026-10-13T23:32:58.503Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":2603,"success":true,"outputLength":1289,"hasStderr":false}
+{"timestamp":"2026-10-13T23:38:51.335Z","command":"pnpm --filter @ego/models test -- ModelRouter -t BYOK","exitCode":1,"durationMs":1931,"success":false,"outputLength":1798,"hasStderr":true}
+{"timestamp":"2026-10-13T23:39:41.053Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":3248,"success":true,"outputLength":1288,"hasStderr":false}
+{"timestamp":"2026-10-13T23:39:44.259Z","command":"pnpm --filter @ego/models typecheck","exitCode":0,"durationMs":3204,"success":true,"outputLength":114,"hasStderr":false}
+{"timestamp":"2026-10-13T23:40:11.128Z","command":"pnpm --filter @ego/desktop test -- ipc-tool-loop","exitCode":1,"durationMs":14905,"success":false,"outputLength":5336,"hasStderr":true}
+{"timestamp":"2026-10-13T23:41:52.956Z","command":"pnpm --filter @ego/models test","exitCode":1,"durationMs":2260,"success":false,"outputLength":1497,"hasStderr":true}
+{"timestamp":"2026-10-13T23:41:55.277Z","command":"pnpm --filter @ego/models typecheck","exitCode":0,"durationMs":2319,"success":true,"outputLength":114,"hasStderr":false}
+{"timestamp":"2026-10-13T23:42:14.144Z","command":"pnpm --filter @ego/models test -- createProductionRouter","exitCode":1,"durationMs":1793,"success":false,"outputLength":1095,"hasStderr":true}
+{"timestamp":"2026-10-13T23:43:10.083Z","command":"pnpm --filter @ego/models test","exitCode":0,"durationMs":2128,"success":true,"outputLength":1016,"hasStderr":false}
+{"timestamp":"2026-10-13T23:43:12.233Z","command":"pnpm --filter @ego/models typecheck","exitCode":0,"durationMs":2150,"success":true,"outputLength":114,"hasStderr":false}
+{"timestamp":"2026-10-13T23:43:35.499Z","command":"pnpm --filter @ego/desktop test -- ipc-tool-loop","exitCode":0,"durationMs":7563,"success":true,"outputLength":1037,"hasStderr":false}
