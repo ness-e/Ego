@@ -70,7 +70,7 @@ export const AskDirective = memo(function AskDirective({
       data-ego-directive="ask"
     >
       <div className="font-medium text-ink flex items-center gap-1.5">
-        <span className="inline-block h-2 w-2 rounded-full bg-accent" />
+        <span className="inline-block h-2 w-2 rounded-full bg-brand" />
         <span>{question}</span>
       </div>
 
@@ -85,7 +85,7 @@ export const AskDirective = memo(function AskDirective({
               onClick={() => handleSelect(option)}
               className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-all ${
                 isSelected
-                  ? "border-accent bg-accent text-paper font-semibold shadow-xs"
+                  ? "border-brand bg-brand text-paper font-semibold shadow-xs"
                   : isClosed
                   ? "border-hairline text-faint opacity-50 cursor-not-allowed"
                   : "border-hairline bg-raised text-ink hover:border-dim hover:bg-panel cursor-pointer"

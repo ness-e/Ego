@@ -1,0 +1,22 @@
+/* T05 (UI-01): Geist vía @font-face desde los woff2 VARIABLES locales del
+   paquete `geist`.
+   Por qué no `import "geist/font/sans"`: ese entry (`dist/sans.js`) importa
+   `next/font/local` (peer `next`, no instalado) y Next.js está prohibido en
+   el desktop por R-FE-3. Los binarios woff2 son archivos locales — esta vía
+   no requiere red y Vite los empaqueta en `dist/assets` (verificado en build).
+   CSP: `font-src 'self'` los permite (mismo origen). */
+@font-face {
+  font-family: "Geist";
+  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}

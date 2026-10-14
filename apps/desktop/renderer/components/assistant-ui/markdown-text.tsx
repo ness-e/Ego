@@ -139,7 +139,7 @@ function ExplainabilityAccordion({ content }: { content: string }) {
         className="flex w-full items-center justify-between px-3 py-2 text-faint hover:text-ink cursor-pointer transition-colors"
       >
         <div className="flex items-center gap-1.5 font-medium">
-          <Brain size={14} className="text-accent" />
+          <Brain size={14} className="text-brand" />
           <span>Explicabilidad & Evidencia ("¿Por qué?")</span>
         </div>
         <CaretRight

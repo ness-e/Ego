@@ -17,8 +17,8 @@ import { MessageRenderBoundary } from "./assistant-ui/message-render-boundary.js
 
 function UserMessage() {
   return (
-    <MessagePrimitive.Root style={{ display: "flex", justifyContent: "flex-end", margin: "8px 0" }}>
-      <div style={{ background: "#26262b", color: "#f4f4f5", borderRadius: 8, padding: "8px 14px", maxWidth: "80%" }}>
+    <MessagePrimitive.Root className="flex justify-end my-2">
+      <div className="bg-hairline text-ink rounded-card px-3.5 py-2 max-w-[80%]">
         <MessageRenderBoundary resetKey="user-turn">
           <MessagePrimitive.Content
             components={{
@@ -33,11 +33,11 @@ function UserMessage() {
 
 function AssistantMessage() {
   return (
-    <MessagePrimitive.Root style={{ display: "flex", margin: "10px 0", gap: 10, alignItems: "flex-start" }}>
-      <div style={{ marginTop: 2 }} className="shrink-0">
+    <MessagePrimitive.Root className="flex my-2.5 gap-2.5 items-start">
+      <div className="mt-0.5 shrink-0">
         <CharacterBadge size={26} subEgoId="ego.nucleus" state="idle" />
       </div>
-      <div style={{ background: "#111113", border: "1px solid #26262b", borderRadius: 8, padding: "10px 14px", maxWidth: "85%", color: "#f4f4f5" }}>
+      <div className="bg-panel border border-hairline rounded-card px-3.5 py-2.5 max-w-[85%] text-ink">
         <MessageRenderBoundary resetKey="assistant-turn">
           <MessagePrimitive.Content
             components={{
@@ -217,7 +217,7 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ThreadPrimitive.Root style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <ThreadPrimitive.Root className="h-full flex flex-col">
         {/* Banner de Memoria Viva (Hermes RecallStatus + VantaDB) */}
         {latestRecall && latestRecall.count > 0 && (
           <div className="flex items-center gap-2 border-b border-hairline bg-raised/40 px-3 py-1 text-[11px] text-faint">
@@ -227,11 +227,11 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
           </div>
         )}
 
-        <ThreadPrimitive.Viewport style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
+        <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-3 py-2">
           <ThreadPrimitive.Empty>
-            <div style={{ padding: 40, textAlign: "center", color: "#8e8e93" }}>
-              <p style={{ marginBottom: 6, color: "#f4f4f5", fontWeight: 600 }}>Cerebro Operativo de Ego</p>
-              <p style={{ fontSize: 13, fontFamily: "monospace", color: "#a1a1aa" }}>
+            <div className="p-10 text-center text-faint">
+              <p className="mb-1.5 text-ink font-semibold">Cerebro Operativo de Ego</p>
+              <p className="font-mono text-[13px] text-faint">
                 Haz una pregunta o asigna una tarea a tus Sub-Egos.
               </p>
             </div>
@@ -293,32 +293,15 @@ export function EgoChat({ projectId, subEgoId }: EgoChatProps = {}) {
           </div>
         )}
 
-        <ComposerPrimitive.Root
-          style={{ display: "flex", gap: 8, padding: "10px 12px", borderTop: "1px solid #26262b" }}
-        >
+        <ComposerPrimitive.Root className="flex gap-2 px-3 py-2.5 border-t border-hairline">
           <ComposerPrimitive.Input
             autoFocus
             placeholder="Pregunta o instruye a Ego…"
-            style={{
-              flex: 1,
-              padding: "10px 14px",
-              background: "#111113",
-              border: "1px solid #26262b",
-              borderRadius: 8,
-              color: "#f4f4f5",
-              fontSize: 14,
-            }}
+            className="flex-1 px-3.5 py-2.5 bg-panel border border-hairline rounded-card text-ink text-sm placeholder:text-faint focus:outline-none focus:border-dim"
           />
           <ComposerPrimitive.Send
-            style={{
-              padding: "10px 18px",
-              background: "#f4f4f5",
-              color: "#0a0a0b",
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: "pointer",
-            }}
+            aria-label="Enviar mensaje"
+            className="px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"
           >
             Enviar
           </ComposerPrimitive.Send>

@@ -115,6 +115,17 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
 
 const DesignSystemContext = createContext<DesignSystemContextValue | null>(null);
 
+/**
+ * T05: resuelve tanto la clave del preset ("midnight-cyan") como su id de
+ * tokens ("theme-midnight-cyan"). El `select` de ThemeControl trabaja con
+ * claves; aceptar ids mantiene compatibilidad con llamadores existentes.
+ */
+export function resolvePresetKey(idOrKey: string): string | undefined {
+  if (PRESET_THEMES[idOrKey]) return idOrKey;
+  const hit = Object.entries(PRESET_THEMES).find(([, p]) => p.id === idOrKey);
+  return hit?.[0];
+}
+
 export const useDesignSystem = (): DesignSystemContextValue => {
   const ctx = useContext(DesignSystemContext);
   if (!ctx) {
@@ -135,8 +146,9 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
   const [tokens, setTokens] = useState<DesignSystemTokens>(initialTokens);
 
   const applyPreset = (presetId: string) => {
-    if (PRESET_THEMES[presetId]) {
-      setTokens(PRESET_THEMES[presetId]);
+    const key = resolvePresetKey(presetId);
+    if (key) {
+      setTokens(PRESET_THEMES[key]);
     }
   };
 

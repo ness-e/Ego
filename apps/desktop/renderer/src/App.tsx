@@ -22,18 +22,24 @@ const CANONICAL_DOMAINS: DomainMeta[] = [
 
 function ThemeControl() {
   const { tokens, applyPreset, availablePresets } = useDesignSystem();
+  // T05: el select trabaja con CLAVES de preset; el value anterior
+  // (tokens.id, p.ej. "theme-default-dark") no matcheaba ninguna option y
+  // los presets no conmutaban desde la UI.
+  const presetKeys = Object.keys(availablePresets);
+  const selectedKey =
+    presetKeys.find((k) => availablePresets[k].id === tokens.id) ?? "default-dark";
   return (
     <div className="flex items-center gap-1.5 text-xs">
       <Palette size={13} className="text-dim" />
       <select
-        value={tokens.id}
+        value={selectedKey}
         onChange={(e) => applyPreset(e.target.value)}
         className="rounded bg-raised px-1.5 py-0.5 text-[11px] font-mono text-ink border border-hairline focus:outline-none cursor-pointer"
         title="Ego Generative Design System — Tokens"
       >
-        {Object.values(availablePresets).map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
+        {presetKeys.map((k) => (
+          <option key={k} value={k}>
+            {availablePresets[k].name}
           </option>
         ))}
       </select>

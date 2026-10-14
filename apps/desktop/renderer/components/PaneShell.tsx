@@ -143,7 +143,7 @@ export function SplitPane({
         title="Arrastra para cambiar ancho · Doble clic para restablecer"
         className={`absolute inset-y-0 ${
           side === "left" ? "right-0" : "left-0"
-        } w-1 cursor-col-resize hover:bg-accent/40 active:bg-accent transition-colors z-20`}
+        } w-1 cursor-col-resize hover:bg-brand/40 active:bg-brand transition-colors z-20`}
       />
     </div>
   );

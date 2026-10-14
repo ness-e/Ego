@@ -4,15 +4,29 @@
   --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --color-ink: #f4f4f5;
-  --color-paper: #0a0a0b;
-  --color-panel: #111113;
-  --color-raised: #17171a;
-  --color-hairline: #26262b;
-  --color-faint: #8e8e93;
-  --color-dim: #55555c;
+  /* T05 (UI-01): tokens semánticos puenteados a las variables del
+     DesignSystemProvider (--ego-*). Tailwind v4 emite `var(--color-*)` en
+     las utilidades, así que el `var(--ego-*, fallback)` se resuelve en
+     runtime bajo el provider (presets funcionales) y al fallback fuera de
+     él (dark-only por defecto). */
+  --color-brand: var(--ego-color-brand, #f59e0b);
+  --color-ink: var(--ego-color-text, #f4f4f5);
+  --color-paper: var(--ego-color-bg, #0a0a0b);
+  --color-panel: var(--ego-color-panel, #111113);
+  --color-raised: var(--ego-color-raised, #17171a);
+  --color-hairline: var(--ego-color-border, #26262b);
+  --color-faint: var(--ego-color-muted, #8e8e93);
+  /* dim fijo AA sobre fondo paper (~6:1); el gris anterior (~2.8:1) no pasaba. */
+  --color-dim: #8a8a92;
 
-  --radius-card: 8px;
+  --radius-card: var(--ego-radius, 8px);
+}
+
+:root {
+  /* Familias Geist reales (cargadas en src/fonts.css). El provider las
+     referencia como var(--font-geist-*) con fallback. */
+  --font-geist-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 html,
@@ -23,6 +37,16 @@ body,
   padding: 0;
   background-color: var(--color-paper);
   color: var(--color-ink);
+}
+
+/* Región arrastrable de la ventana Electron (usada en App.tsx header y
+   ActivityWidget; los controles interactivos llevan .app-region-no-drag). */
+.app-region-drag {
+  -webkit-app-region: drag;
+}
+
+.app-region-no-drag {
+  -webkit-app-region: no-drag;
 }
 
 ::selection {

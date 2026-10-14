@@ -181,7 +181,7 @@ export const ModelPicker = memo(function ModelPicker({
                   </div>
 
                   {isSelected && (
-                    <div className="mt-1 shrink-0 text-accent">
+                    <div className="mt-1 shrink-0 text-brand">
                       <Check size={16} weight="bold" />
                     </div>
                   )}
