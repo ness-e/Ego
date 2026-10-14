@@ -17,6 +17,8 @@ export interface LlmStreamBridgeRequest {
   prompt: string;
   sessionId?: string;
   systemPrompt?: string;
+  projectId?: string;
+  subEgoId?: string;
 }
 
 export interface ApproveBridgeRequest {
@@ -59,7 +61,7 @@ export interface ChatErrorEvent {
 }
 
 export interface EgoPreloadBridge {
-  memory: (payload: MemoryBridgeRequest) => Promise<unknown>;
+  memory: (op: string, args: unknown[]) => Promise<unknown>;
   llmStream: (req: LlmStreamBridgeRequest) => Promise<unknown>;
   approve: (req: ApproveBridgeRequest) => Promise<unknown>;
   resolveApproval: (req: ResolveApprovalBridgeRequest) => Promise<unknown>;
@@ -155,14 +157,13 @@ export interface EgoPreloadBridge {
   };
 }
 
-declare global {
-  interface Window {
-    ego: EgoPreloadBridge;
-  }
-}
+// T01 (window.ego único): la ÚNICA declaración global de `window.ego` vive en
+// `renderer/src/window-ego.d.ts` (vista rica `EgoBridge` + re-export de estos
+// tipos canónicos). Se elimina el segundo `declare global` que divergía y
+// fusionaba un tipo distinto en el programa renderer.
 
 const egoBridge: EgoPreloadBridge = {
-  memory: (payload) => ipcRenderer.invoke("ipc.memory", payload),
+  memory: (op, args) => ipcRenderer.invoke("ipc.memory", { op, args } satisfies MemoryBridgeRequest),
   llmStream: (req) => ipcRenderer.invoke("ipc.llm.stream", req),
   approve: (req) => ipcRenderer.invoke("ipc.gov.approve", req),
   resolveApproval: (req) => ipcRenderer.invoke("ipc.approval.resolve", req),

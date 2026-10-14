@@ -301,9 +301,17 @@ export interface DomainsResult {
   deal?: unknown;
 }
 
+export interface LlmStreamRequest {
+  prompt: string;
+  sessionId?: string;
+  systemPrompt?: string;
+  projectId?: string;
+  subEgoId?: string;
+}
+
 export interface EgoBridge {
   memory: (op: string, args: unknown[]) => Promise<unknown>;
-  llmStream: (req: { prompt: string; sessionId?: string; systemPrompt?: string; projectId?: string; subEgoId?: string }) => Promise<{
+  llmStream: (req: LlmStreamRequest) => Promise<{
     ok: boolean;
     turnId: string;
     text: string;
@@ -705,7 +713,10 @@ export function ego(): EgoBridge {
     const rawEgo = (window as unknown as { ego: EgoBridge }).ego;
     return {
       ...rawEgo,
-      memory: (op, args) => rawEgo.memory(op as unknown as string, args),
+      // T01: preload ya expone memory(op, args) unificado; reenvío directo.
+      memory: (op, args) => rawEgo.memory(op, args),
+      // T01: el preload devuelve unknown; el adaptador lo tipa a la vista rica.
+      llmStream: (req) => rawEgo.llmStream(req),
     };
   }
   return mock;

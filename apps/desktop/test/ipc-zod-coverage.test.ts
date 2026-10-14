@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  ChatStreamSchema,
   DecisionListAuditsSchema,
   KnowledgeExportSchema,
   KnowledgeImportSchema,
@@ -165,5 +166,27 @@ describe("SEC-02 — cobertura total de validación Zod en handlers IPC", () => 
       const block = handlerBlock(channel);
       expect(block, `${channel} debe rechazar arrays en payload`).toContain("Array.isArray(payload)");
     }
+  });
+
+  it("T01 — ChatStreamSchema acepta prompt+projectId+subEgoId (contrato canónico)", () => {
+    const r = ChatStreamSchema.safeParse({ prompt: "hola", projectId: "p1", subEgoId: "s1" });
+    expect(r.success, "schema rechaza projectId/subEgoId").toBe(true);
+  });
+
+  it("T01 — LlmStreamBridgeRequest iguala al schema (projectId/subEgoId, type-level)", () => {
+    const preloadSrc = readFileSync(join(here, "..", "src", "preload.ts"), "utf-8");
+    const start = preloadSrc.indexOf("export interface LlmStreamBridgeRequest");
+    expect(start, "LlmStreamBridgeRequest debe existir en preload.ts").toBeGreaterThan(-1);
+    const end = preloadSrc.indexOf("}", start);
+    const block = preloadSrc.slice(start, end);
+    expect(block, "preload omite projectId que schema+ego.ts+ego-chat usan").toContain("projectId");
+    expect(block, "preload omite subEgoId que schema+ego.ts+ego-chat usan").toContain("subEgoId");
+  });
+
+  it("T01 — preload memory() unificado a (op, args) como EgoBridge", () => {
+    const preloadSrc = readFileSync(join(here, "..", "src", "preload.ts"), "utf-8");
+    expect(preloadSrc, "EgoPreloadBridge.memory debe unificarse a (op, args)").toContain(
+      "memory: (op: string, args: unknown[])"
+    );
   });
 });
