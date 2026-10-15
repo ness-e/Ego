@@ -25,7 +25,9 @@ Arc/1Password: rail + lista + detalle).
 7. Tray con icono por OS. https://www.electronjs.org/docs/latest/api/tray
 8. Diálogos archivo/error nativos (`dialog`); web-modal solo forms propios. https://www.electronjs.org/docs/latest/api/dialog
 9. Atajos: `MenuItem.accelerator` local, `globalShortcut` global. https://www.electronjs.org/docs/latest/tutorial/keyboard-shortcuts
-10. Dark-mode y notificaciones siguen al OS (`nativeTheme`, `Notification`). https://www.electronjs.org/docs/latest/tutorial/dark-mode
+10. Dark-mode y notificaciones siguen al OS (`nativeTheme`, `Notification`). [P0: solo notificaciones siguen al OS; dark-mode NO aplica — ver Matiz D10 y bloque FUTURO abajo]. https://www.electronjs.org/docs/latest/tutorial/dark-mode
+
+> **FUTURO — seguir OS / tema claro (post-P0, no implementado):** P0 es **dark-only**. `UserPrefs.theme` queda **reservado** como clave futura (tokens light mapeados pero inactivos en P0). `nativeTheme` **no gobierna** el tema en P0. Accent ámbar `#f59e0b` y `dim #8a8a92` son **fijos** del sistema. Seguir al OS queda **diferido a post-P0**. El provider **no debe pisar `--color-dim` sin medir cada preset** (riesgo esmeralda: `emerald-terminal` verdoso puede romper el contraste AA si `dim` se deriva del preset sin medición por preset).
 
 ## Qué copiar por app
 

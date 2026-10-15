@@ -86,14 +86,16 @@ Todo el entorno visual es generado a través de un catálogo declarativo. Los Su
 
 ## Principios de diseño
 1. **No reinventar:** Se utiliza `@assistant-ui/react` para la infraestructura de chat, `@phosphor-icons/react` para la iconografía y la tipografía Geist.
-2. **Dark-first:** Diseño priorizado para modo oscuro; tema claro como opción secundaria.
+2. **Dark-first (dark-only en P0):** Diseño dark-only en P0 (4 presets oscuros funcionales, ver [design-system.md](../design/design-system.md) §2); tema claro como opción futura post-P0, no implementada.
 3. **Alta densidad de información:** Aprovechar el espacio mostrando información técnica relevante sin abrumar visualmente al usuario.
-4. **Accesibilidad:** Cumplimiento mínimo de los estándares WCAG 2.1 AA desde la fase P0.
+4. **Accesibilidad:** Cumplimiento mínimo de los estándares WCAG 2.2 AA desde la fase P0.
 5. **Electron-native:** Integración fluida con el sistema operativo (titleBarStyle hidden con superposición de controles nativos).
 6. **Dinámico sobre estático:** La interfaz sigue al trabajo, construyendo sobre la marcha.
 7. **Componentes declarativos:** Los Sub-Egos componen esquemas estructurados; el runtime los dibuja y aplica restricciones.
 8. **La interfaz es una capacidad:** El entorno visual es una extensión de la inteligencia cognitiva del sistema, no una estructura de navegación predefinida.
 9. **Explicable sin ser intrusivo:** "Ego debe ser explicable, pero no intrusivamente explicativo." La justificación acompaña al trabajo cuando el usuario la solicita o cuando el impacto lo exige, sin saturar la experiencia visual.
+
+> **FUTURO — tema claro / seguir OS (post-P0, no implementado):** P0 es **dark-only**. `UserPrefs.theme` queda **reservado** como clave futura (tokens light mapeados pero inactivos en P0). `nativeTheme` **no gobierna** el tema en P0. Accent ámbar `#f59e0b` y `dim #8a8a92` son **fijos** del sistema. Seguir al OS queda **diferido a post-P0**. El provider **no debe pisar `--color-dim` sin medir cada preset** (riesgo esmeralda: `emerald-terminal` verdoso puede romper el contraste AA si `dim` se deriva del preset sin medición por preset).
 
 ## Estrategia de desarrollo de UX (Decisión P22)
 Ego adopta un enfoque de **desarrollo iterativo de UX con presupuesto explícito por fase** (Opción C). Este modelo evita tanto el riesgo de posponer la interfaz a una etapa final puramente cosmética (lo que provocaría costosas refactorizaciones arquitectónicas) como el de sobre-diseñar prematuramente cuando los modelos cognitivos y las capacidades del sistema todavía están evolucionando.
