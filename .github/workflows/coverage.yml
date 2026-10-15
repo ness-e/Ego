@@ -1,0 +1,69 @@
+# STAB-11 — Coverage semanal del renderer (INFORMATIVO, no gate).
+#
+# `vitest run --coverage` con thresholds 70% globales rompería la línea
+# base existente (ver docs/engineering/testing-e2e.md § Coverage), así que
+# este job es `continue-on-error: true` a propósito: publica el `lcov`
+# como artefacto para seguir la tendencia sin bloquear merges.
+# TODO: promover a gate cuando el global llegue a 70% (quitar
+# continue-on-error y exigir thresholds).
+name: Coverage semanal (informativo)
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+jobs:
+  coverage-renderer:
+    name: renderer --coverage (no gate hasta 70% global)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
+        run: |
+          mkdir -p ../VantaDB/vantadb-node
+          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
+          {
+            "name": "vantadb-node",
+            "version": "0.8.0",
+            "main": "index.js",
+            "types": "index.d.ts"
+          }
+          EOF
+          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
+          module.exports = {};
+          EOF
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Renderer coverage (informativo, sin gate)
+        continue-on-error: true
+        run: pnpm --filter @ego/renderer exec vitest run --coverage
+
+      - name: Upload lcov
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-renderer
+          path: apps/desktop/renderer/coverage/
+          if-no-files-found: warn
+          retention-days: 30

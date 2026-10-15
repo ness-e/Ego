@@ -1,0 +1,96 @@
+# STAB-11 — Nightly lifecycle (golden-full + crash-resume + soak 30min, DB REAL).
+#
+# Corre a las 02:00 UTC todos los días + manual (workflow_dispatch con
+# soak_minutes configurable para smoke cortos). No bloquea PRs: es señal
+# diurna de lifecycle, por eso es HARD (sin continue-on-error) — un rojo
+# aquí es deuda real, no ruido de merge.
+#
+# Requiere el binding napi-rs real (igual que `integration-real-db` en
+# ci.yml): checkout ness-e/Vantadb `develop` + build en runner.
+# TODO(STAB-11-hard): pin a SHA cuando el owner resuelva uno verificado.
+name: Nightly lifecycle
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      soak_minutes:
+        description: Minutos del soak (default 30; usar 1-2 para smoke)
+        default: "30"
+        required: false
+        type: string
+
+jobs:
+  nightly-lifecycle:
+    name: golden-full + crash-resume + soak (DB real)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      EGO_REAL_DB: 1
+      EGO_SOAK: 1
+      EGO_SOAK_MINUTES: ${{ inputs.soak_minutes || '30' }}
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout Ego
+        uses: actions/checkout@v4
+        with:
+          path: Ego
+
+      - name: Checkout VantaDB (binding napi-rs real)
+        uses: actions/checkout@v4
+        with:
+          repository: ness-e/Vantadb
+          ref: develop
+          path: VantaDB
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: Ego/pnpm-lock.yaml
+
+      - name: Setup Rust stable (napi build)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build vantadb-node napi prebuilt (linux x64, ABI runner)
+        working-directory: VantaDB/vantadb-node
+        run: |
+          npm ci
+          npm run build
+          ls -la .
+          ls -la *.node || (echo "::error::sin artefacto .node tras npm run build" && exit 1)
+
+      - name: Install Dependencies
+        working-directory: Ego
+        run: pnpm install --frozen-lockfile
+
+      - name: Golden Path Alpha FULL (20 pasos, persistencia real)
+        working-directory: Ego
+        run: pnpm --filter @ego/e2e-tests exec vitest run e2e/golden-path-alpha-full.test.ts
+
+      - name: Crash-resume (TASK-10/OCLW-15, checkpoint 6)
+        working-directory: Ego
+        run: pnpm --filter @ego/e2e-tests exec vitest run chaos/task-crash-resume.test.ts
+
+      - name: Soak nocturno (put/get/delete sostenidos)
+        working-directory: Ego
+        run: pnpm --filter @ego/e2e-tests exec vitest run chaos/soak-nightly.test.ts
+
+      - name: Upload soak summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-summary
+          path: Ego/tests/soak-results/
+          if-no-files-found: warn
+          retention-days: 30

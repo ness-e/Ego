@@ -18,7 +18,9 @@ export default defineConfig({
   workers: 1,
   // El arranque de Electron + carga del bundle es lento: margen amplio.
   timeout: 180_000,
-  reporter: [["list"]],
+  // STAB-11: html para el artefacto `playwright-electron-<os>` del job
+  // e2e-electron (list sigue para el log en vivo).
+  reporter: [["list"], ["html", { open: "never" }]],
   expect: {
     timeout: 30_000,
   },

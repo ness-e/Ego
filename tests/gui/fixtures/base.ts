@@ -9,12 +9,16 @@ import { test as base, expect, type Page } from "@playwright/test";
 export const DEV_URL = "http://127.0.0.1:5173";
 
 // Ruido propio de Vite dev que NO cuenta como "consola roja".
+// STAB-11: el `frame-ancestors` del meta CSP de `renderer/index.html:12`
+// lo ignora Chromium por diseño (solo vale en header HTTP) y lo reporta
+// como console.error — ruido del navegador, no error de la app.
 export const IGNORABLE_CONSOLE = [
   "@vite/client",
   "@react-refresh",
   "[vite]",
   "HMR",
   "React DevTools",
+  "frame-ancestors",
 ];
 
 /** Recolecta pageerrors + console.error (filtrando ruido Vite) del test. */

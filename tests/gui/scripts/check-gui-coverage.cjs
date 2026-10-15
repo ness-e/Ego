@@ -21,7 +21,13 @@ const fail = (m) => failures.push(m);
 const warn = (m) => warnings.push(m);
 
 const specsDir = join(root, "specs");
-const files = existsSync(specsDir) ? readdirSync(specsDir).sort() : [];
+// STAB-11: excluir directorios (p. ej. `14-visual.spec.ts-snapshots/`).
+const files = existsSync(specsDir)
+  ? readdirSync(specsDir, { withFileTypes: true })
+      .filter((e) => e.isFile())
+      .map((e) => e.name)
+      .sort()
+  : [];
 const expected = Array.from({ length: 13 }, (_, i) => String(i + 1).padStart(2, "0"));
 
 // 1. Los 13 specs.
@@ -31,9 +37,12 @@ for (const n of expected) {
   else ok(`existe specs/${f}`);
 }
 // 2. Trazabilidad T10 + skips honestos.
+// STAB-11: `14-visual.spec.ts` es baseline visual (no ítem T10-Step-3):
+// exige cita STAB-11 en vez de T10, con expects reales.
 for (const f of files.filter((x) => x.endsWith(".spec.ts"))) {
   const src = readFileSync(join(specsDir, f), "utf8");
-  if (!src.includes("T10")) fail(`${f}: sin cita al ítem T10-Step-3`);
+  const traceTag = f.startsWith("14-visual") ? "STAB-11" : "T10";
+  if (!src.includes(traceTag)) fail(`${f}: sin cita al ítem ${traceTag}`);
   const hasExpect = /await expect\(|expect\(/.test(src);
   const skips = (src.match(/test\.skip\(|describe\.skip\(/g) || []).length;
   const honestSkip = skips > 0 && /Exige/i.test(src);

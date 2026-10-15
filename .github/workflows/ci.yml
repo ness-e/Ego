@@ -91,10 +91,14 @@ jobs:
     # binding real (Camino A Gate D: checkout + build napi → ABI exacta del
     # runner; Camino B vendorizar .node descartado: binario por plataforma
     # en git) y corre ipc.integration + golden-path con EGO_REAL_DB=1.
-    # Fail-soft inicial (continue-on-error): STAB-11 lo endurece + nightly.
-    name: Integration DB real (fail-soft inicial)
+    # STAB-11: endurecido a HARD (STAB-07 ✅ COMPLETED + review approve
+    # Fast + DB real local 5/5 y 3/3 verdes; el plan pre-autorizaba
+    # "fail-soft inicial, luego hard — STAB-11 lo endurece").
+    # Si el build napi falla en un runner nuevo, el TODO es acotar por
+    # SO con include/exclude, NO volver a fail-soft global.
+    name: Integration DB real
     runs-on: ubuntu-latest
-    continue-on-error: true
+    timeout-minutes: 30
     env:
       EGO_REAL_DB: 1
 
@@ -108,8 +112,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ness-e/Vantadb
+          # Alineado con smoke-native.yml (develop verificado 2026-10-13).
+          # TODO(STAB-11-hard): pin a SHA cuando el owner resuelva uno
+          # verificado (sin red no se pinnea un SHA a ciegas).
+          ref: develop
           path: VantaDB
-          # TODO(STAB-11): pin a SHA cuando se endurezca a hard.
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -131,7 +138,10 @@ jobs:
         run: |
           npm ci
           npm run build
-          ls -la *.node
+          # STAB-11: `ls *.node` pelado falla sin contexto si el glob no
+          # matchea (el dir listing previo muestra qué dejó el build).
+          ls -la .
+          ls -la *.node || (echo "::error::sin artefacto .node tras npm run build" && exit 1)
 
       - name: Install Dependencies
         working-directory: Ego
@@ -146,8 +156,21 @@ jobs:
         run: pnpm --filter @ego/e2e-tests exec vitest run e2e/golden-path-alpha.test.ts
 
   e2e-electron:
-    name: E2E Electron (Ubuntu + Xvfb, fail-soft)
-    runs-on: ubuntu-latest
+    # STAB-11: matriz 3 SO. Ubuntu hard (ya verde); win/mac fail-soft
+    # inicial (Risk Register plan: "Win/mac rojos bloquean todo →
+    # fail-soft inicial + TODO hard"). TODO: endurecer a hard con
+    # 3 runs verdes por SO y baselines visuales por-OS commiteadas.
+    name: E2E Electron (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout Repository
@@ -214,15 +237,99 @@ jobs:
           pnpm install
           npx playwright install --with-deps
 
-      - name: Start Xvfb
-        run: |
-          Xvfb :99 &
-          echo "DISPLAY=:99" >> "$GITHUB_ENV"
-
       - name: Run Electron E2E (fail-soft without bundle)
+        # STAB-11: `xvfb-run -a` en Linux (Electron necesita servidor X;
+        # `-a` elige display libre en runners compartidos). Win/mac tienen
+        # display nativo y no necesitan Xvfb.
         run: |
           if [ ! -f apps/desktop/out/main/main.js ]; then
             echo "::warning::No desktop bundle (apps/desktop/out/main/main.js) — skipping test:e2e:electron."
             exit 0
           fi
-          pnpm test:e2e:electron
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a pnpm test:e2e:electron
+          else
+            pnpm test:e2e:electron
+          fi
+
+      - name: Upload Playwright report + test-results
+        # STAB-11: forense por-OS (el nombre del artefacto lleva el SO).
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-electron-${{ matrix.os }}
+          path: |
+            tests/gui/playwright-report/
+            tests/gui/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  visual:
+    # STAB-11: 3 baselines visuales (chromium, maxDiffPixelRatio 0.02).
+    # Fail-soft inicial: solo hay baselines `-windows` commiteadas (las
+    # genera el runner que corresponda); `-linux`/`-darwin` se commitean
+    # cuando un runner de cada SO las produzca con `--update-snapshots`.
+    # TODO: endurecer a hard con las 3 familias de snapshots en git.
+    name: Visual baselines (ubuntu chromium, fail-soft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
+        # Igual que `verify`: `pnpm install` debe resolver el
+        # `file:../../../VantaDB/vantadb-node` (el visual no toca memoria).
+        run: |
+          mkdir -p ../VantaDB/vantadb-node
+          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
+          {
+            "name": "vantadb-node",
+            "version": "0.8.0",
+            "main": "index.js",
+            "types": "index.d.ts"
+          }
+          EOF
+          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
+          module.exports = {};
+          EOF
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Runner + chromium (standalone)
+        working-directory: tests/gui
+        run: |
+          pnpm install
+          npx playwright install --with-deps chromium
+
+      - name: Run visual baselines (webServer auto-start vite dev)
+        working-directory: tests/gui
+        run: xvfb-run -a npx playwright test --config=visual.playwright.config.ts
+
+      - name: Upload visual report + snapshots diff
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-visual-ubuntu
+          path: |
+            tests/gui/playwright-report/
+            tests/gui/test-results/
+          if-no-files-found: warn
+          retention-days: 14

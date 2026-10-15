@@ -8,12 +8,13 @@
     "test": "node scripts/check-gui-coverage.cjs",
     "check": "node scripts/check-gui-coverage.cjs",
     "test:gui": "playwright test",
+    "test:visual": "playwright test --config=visual.playwright.config.ts",
     "test:gui:headed": "playwright test --headed",
     "test:e2e:electron": "playwright test --config=electron.playwright.config.ts",
     "report": "playwright show-report"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0",
-    "playwright": "^1.49.0"
+    "@playwright/test": "1.64.0",
+    "playwright": "1.64.0"
   }
 }

@@ -101,18 +101,69 @@ pnpm --filter @ego/renderer exec vitest run --coverage
 - `pnpm test` / job CI `verify` corren `vitest run` SIN `--coverage`, por
   lo que esta config no puede romper el verify actual.
 
-## TODO: matriz 3 SO + Xvfb (parcial: ubuntu implementado)
+## Matriz 3 SO + Xvfb (STAB-11 ✅ implementado)
 
-- [x] Job CI dedicado (no bloqueante, fail-soft): `ubuntu-latest` corriendo
-      `pnpm test:e2e:electron` tras `pnpm build:desktop` con Xvfb
-      (`Xvfb :99 &` + `DISPLAY=:99`; ver `.github/workflows/ci.yml`,
-      job `e2e-electron`). El job hace skip honesto con warning si no hay
-      bundle. Pendiente: `windows-latest`, `macos-latest`.
-- [ ] En Linux usar `xvfb-run -a` (Electron necesita servidor X; en
-      headless puro falla la creación de la ventana).
-- [ ] Fijar timeouts por SO (arranque más lento en runners compartidos) y
-      subir `playwright-report/` + `test-results/` como artefactos.
-- [ ] Evaluar `npx playwright install --with-deps` en el job Linux si el
-      runner necesita libs del sistema para Electron.
-- [ ] Segundo spec (cuando exista backend de test): flujo Chat→Canvas con
+- Job `e2e-electron` (`.github/workflows/ci.yml`) con `strategy.matrix:
+  [ubuntu-latest, windows-latest, macos-latest]` (`fail-fast: false`):
+  ubuntu hard, win/mac `continue-on-error` (fail-soft inicial) —
+  TODO: endurecer a hard con 3 runs verdes por SO.
+- En Linux el run va envuelto en `xvfb-run -a` (Electron necesita
+  servidor X; `-a` elige display libre en runners compartidos). Win/mac
+  tienen display nativo. `shell: bash` global en el job.
+- Timeouts: job `timeout-minutes: 30`; test `timeout: 180s` + `expect:
+  30s` + `firstWindow: 60s` (arranque lento en runners compartidos).
+- Artefactos por run (`if: always()`): `playwright-report/` +
+  `test-results/` como `playwright-electron-<os>` (retención 14d).
+  La config Electron lleva reporter `html` para que el artefacto tenga
+  contenido.
+- `npx playwright install --with-deps` corre en el job Linux si el
+  runner necesita libs del sistema para Electron (ya incluido en `ci.yml`).
+
+## Visual baselines (STAB-11)
+
+- Config separada `tests/gui/visual.playwright.config.ts` (NO toca
+  `playwright.config.ts`: el contrato T22 sigue sin `webServer`): levanta
+  su propio `webServer` (vite dev del renderer) para ser autocontenida
+  en CI y solo recolecta `specs/14-visual.spec.ts`.
+- 3 shots en chromium: `shell-full` (full page), `panel-chat`
+  (`section[aria-label="Chat"]`), `area-trabajo`
+  (`section[aria-label="Área de trabajo dinámica"]`) — verificado
+  contra `App.tsx:224,283,329`.
+- Tolerancia: `maxDiffPixelRatio: 0.02` (nombre canónico Playwright del
+  "maxDiffRatio 0.02" del contrato) + `animations: "disabled"` +
+  `caret: "hide"` para determinismo.
+- `snapshotPathTemplate` con `{platform}`: baselines por-OS
+  (`-win32`/`-linux`/`-darwin`, nomenclatura `process.platform`) porque el rasterizado de fuentes
+  difiere (DirectWrite/CoreText/FreeType). Regenerar tras UI
+  intencional: `npx playwright test --config=visual.playwright.config.ts
+  --update-snapshots` + commitear el snapshot por-OS.
+- Job `visual` en `ci.yml` (ubuntu chromium, fail-soft inicial hasta
+  tener las 3 familias de snapshots en git) + artefacto
+  `playwright-visual-ubuntu`.
+- Owner local: `cd tests/gui && pnpm install && pnpm test:visual`.
+
+## Nightly lifecycle + coverage semanal (STAB-11)
+
+- `.github/workflows/nightly.yml` — cron `0 2 * * *` (+
+  `workflow_dispatch` con `soak_minutes` para smoke cortos), job
+  `nightly-lifecycle` (ubuntu, `timeout-minutes: 75`, HARD — no
+  bloquea PRs así que el rojo es señal honesta):
+  1. `golden-path-alpha-full.test.ts` (20 pasos, persistencia real),
+  2. `chaos/task-crash-resume.test.ts` (TASK-10/OCLW-15),
+  3. `chaos/soak-nightly.test.ts` (`EGO_SOAK=1`, 30min put/get/delete,
+     summary JSON → artefacto `soak-summary`, retención 30d).
+  Todo con binding napi-rs real (mismo provisionamiento que
+  `integration-real-db`: checkout `develop` + build en runner).
+- `.github/workflows/coverage.yml` — semanal domingo `0 3 * * 0`:
+  renderer `vitest run --coverage`, **informativo**
+  (`continue-on-error`) hasta llegar al 70% global; artefacto
+  `lcov-renderer` (retención 30d).
+
+## TODO restante (post-STAB-11)
+
+- [ ] Endurecer e2e-electron win/mac a hard (3 runs verdes por SO).
+- [ ] Commitear baselines visuales `-linux`/`-darwin` y endurecer job `visual`.
+- [ ] Pin SHA checkout VantaDB (`ci.yml` + `nightly.yml` usan `develop` + TODO).
+- [ ] Promover coverage a gate al llegar al 70% global.
+- [ ] Segundo spec Electron (cuando exista backend de test): flujo Chat→Canvas con
       `window.ego` real en vez de solo shell.

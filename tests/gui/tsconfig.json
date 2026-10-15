@@ -5,7 +5,17 @@
     "types": ["node"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    // STAB-11: los specs tocan DOM del navegador (`document` en
+    // 10-a11y-tab) además de APIs node — el include ahora los cubre.
+    "lib": ["ES2022", "DOM"],
     "noEmit": true
   },
-  "include": ["electron/**/*.ts", "electron.playwright.config.ts"]
+  "include": [
+    "electron/**/*.ts",
+    "electron.playwright.config.ts",
+    "fixtures/**/*.ts",
+    "specs/**/*.ts",
+    "playwright.config.ts",
+    "visual.playwright.config.ts"
+  ]
 }
