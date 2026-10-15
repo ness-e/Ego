@@ -133,6 +133,16 @@ export const ChatStreamSchema = z.object({
 export type ChatStreamRequest = z.infer<typeof ChatStreamSchema>;
 
 /**
+ * Esquema de validación para cancelación del turno LLM en curso
+ * (`ipc.llm.cancel`). Sin `turnId` aborta todos los turnos activos.
+ */
+export const LlmCancelSchema = z.object({
+  turnId: z.string().min(1).max(128).optional(),
+});
+
+export type LlmCancelRequest = z.infer<typeof LlmCancelSchema>;
+
+/**
  * Esquema de validación para configuración de servidores MCP locales (ACT-11).
  */
 export const McpServerConfigSchema = z.object({
@@ -177,6 +187,82 @@ export const ListToolsFilterSchema = z.object({
 
 export type ListToolsFilterRequest = z.infer<typeof ListToolsFilterSchema>;
 
+/**
+ * Approval por-tool MCP + toolsets por perfil (CFG-07).
+ * Gobernanza fina sobre `ipc.mcp.*`: reglas por herramienta
+ * (`mcp_servers.<server>.tools.<tool>` → allow/ask/deny, deny gana) +
+ * toolsets canónicos enable/disable por perfil + doc de reset tras
+ * cambio de tools (preserva prompt caching: solo se re-emite el
+ * sufijo de tools, el prefijo cacheado queda intacto).
+ * Persistencia canónica: VantaDB `gov/settings/mcp_tools` (Zod
+ * fail-closed, sin archivos `~/.codex`). Paridad de tipos con
+ * `packages/tools/src/toolsets.ts` (duplicado intencional: este módulo
+ * lo importa el preload, sin imports de workspace).
+ */
+export const McpToolsetNameSchema = z.enum([
+  "web",
+  "search",
+  "browser",
+  "terminal",
+  "file",
+  "memory",
+  "delegation",
+  "cronjob",
+]);
+
+export type McpToolsetName = z.infer<typeof McpToolsetNameSchema>;
+
+/** Decisión por-tool: `allow` = approve explícito, `deny` veta (deny gana), `ask` = pide aprobación. */
+export const McpToolDecisionSchema = z.enum(["allow", "ask", "deny"]);
+
+export type McpToolDecision = z.infer<typeof McpToolDecisionSchema>;
+
+/** Regla por-tool: match EXACTO `serverId` + `tool` (sin globs; el todo-servidor se gobierna con `ipc.mcp.toggleServer`). */
+export const McpToolApprovalRuleSchema = z.object({
+  serverId: z.string().min(1).max(64).regex(/^[a-zA-Z0-9_\-.:]{1,64}$/, "ID de servidor inválido"),
+  tool: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_\-.]+$/, "Nombre de tool inválido"),
+  decision: McpToolDecisionSchema,
+});
+
+export type McpToolApprovalRule = z.infer<typeof McpToolApprovalRuleSchema>;
+
+export const McpToolApprovalsSchema = z.object({
+  rules: z.array(McpToolApprovalRuleSchema).max(256).default([]),
+});
+
+export type McpToolApprovals = z.infer<typeof McpToolApprovalsSchema>;
+
+/**
+ * Toolsets enable/disable por perfil. El `profile` duplica el enum
+ * `SubEgoProfileNameSchema` (CFG-03) por orden de declaración (este
+ * bloque vive en la sección MCP, anterior a perfiles) y regla no-touch:
+ * paridad documentada, sin modificar el schema de perfiles.
+ * Semántica (deny gana, ver `toolsets.ts`): `disabled` veta siempre;
+ * `enabled: []` = sin restricción allowlist (back-compat).
+ */
+export const ProfileToolsetsSchema = z.object({
+  profile: z.enum(["planner", "reviewer", "researcher", "builder"]),
+  enabled: z.array(McpToolsetNameSchema).max(16).default([]),
+  disabled: z.array(McpToolsetNameSchema).max(16).default([]),
+});
+
+export type ProfileToolsets = z.infer<typeof ProfileToolsetsSchema>;
+
+/**
+ * Doc de reset tras cambio de tools: el consumidor debe re-emitir el
+ * bloque de tools y versionarlo; `preservePromptCaching: true` obliga a
+ * conservar el breakpoint de caché (prefijo estable, solo se invalida el
+ * sufijo de tools). Generado por `buildToolsResetDoc` en `@ego/tools`.
+ */
+export const McpToolsResetDocSchema = z.object({
+  version: z.number().int().positive(),
+  changedToolsets: z.array(McpToolsetNameSchema).max(16).default([]),
+  preservePromptCaching: z.boolean().default(true),
+  note: z.string().max(2000).optional(),
+});
+
+export type McpToolsResetDoc = z.infer<typeof McpToolsResetDocSchema>;
+
 export const ScanSkillsSchema = z.object({
   searchPaths: z.array(z.string()).optional(),
   projectRoot: z.string().optional(),
@@ -216,6 +302,36 @@ export const SelectProjectSchema = z.object({
 export type SelectProjectRequest = z.infer<typeof SelectProjectSchema>;
 
 /**
+ * Reasoning effort + aliases + review model (CFG-04).
+ * Decisión: aliases `fast` = barato (haiku/mini) y `smart` = frontier
+ * (opus/sonnet); planner = frontier, hijos = baratos. CFG-04 resuelve
+ * los aliases contra el router (`ModelRouter.resolveModelIdOrAlias`).
+ * Todo opcional/back-compat: configs existentes parsean igual.
+ * `""` = ausente (senders que reenvían spreads con strings vacías).
+ */
+export const EffortLevelSchema = z.enum(["minimal", "low", "medium", "high", "xhigh"]);
+
+export type EffortLevel = z.infer<typeof EffortLevelSchema>;
+
+const emptyStringToUndefined = (v: unknown): unknown =>
+  typeof v === "string" && v.trim().length === 0 ? undefined : v;
+
+/** Id de modelo o alias (`fast`/`smart`): `""` se normaliza a ausente. */
+export const ModelIdSchema = z.preprocess(
+  emptyStringToUndefined,
+  z.string().min(1).max(128).optional()
+);
+
+export type ModelId = z.infer<typeof ModelIdSchema>;
+
+export const ModelAliasesSchema = z.object({
+  fast: ModelIdSchema,
+  smart: ModelIdSchema,
+});
+
+export type ModelAliases = z.infer<typeof ModelAliasesSchema>;
+
+/**
  * Esquema de configuración de proveedores de modelos y BYOK (INT-02 + Task 10).
  * Forma canónica por proveedor: `<p>Key` (solo escritura por IPC; el main la
  * cifra con `encryptCredential` y persiste `<p>KeyEncrypted`). El getter NUNCA
@@ -237,6 +353,11 @@ export const ModelConfigSchema = z.object({
   deepseekBaseURL: z.string().optional(),
   ollamaBaseURL: z.string().optional(),
   modelName: z.string().optional(),
+  effortLevel: EffortLevelSchema.optional(),
+  modelAliases: ModelAliasesSchema.optional(),
+  reviewModel: ModelIdSchema,
+  availableModels: z.array(z.string().min(1).max(128)).max(32).optional(),
+  fallbackModel: ModelIdSchema,
 });
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
@@ -554,4 +675,146 @@ export const ModelsListSchema = z.object({
 });
 
 export type ModelsListRequest = z.infer<typeof ModelsListSchema>;
+
+/**
+ * Hardening IPC — token opaco single-use para `selectFolder` + origen por
+ * invoke + fetch-proxy mínimo. Todo input del renderer se valida con Zod
+ * (fail-closed); la firma pública no cambia (meta de origen la deriva el
+ * main desde `senderFrame`, nunca la envía el renderer).
+ */
+export const SelectFolderRedeemSchema = z.object({
+  token: z.string().uuid(),
+});
+
+export type SelectFolderRedeemRequest = z.infer<typeof SelectFolderRedeemSchema>;
+
+/** Meta de origen por invoke: `senderFrame` URL + timestamp (derivada en main). */
+export const IpcOriginMetaSchema = z.object({
+  frameUrl: z.string().min(1).max(2048),
+  timestamp: z.number().int().positive(),
+});
+
+export type IpcOriginMeta = z.infer<typeof IpcOriginMetaSchema>;
+
+/**
+ * Fetch-proxy mínimo en main (`ipc.net.fetch`). Solo `https:` o loopback
+ * local; el `Authorization` lo inyecta el main desde safeStorage y nunca
+ * viaja al renderer (la respuesta solo trae `status`/`body` saneados).
+ */
+export const EgoFetchSchema = z.object({
+  url: z.string().url().max(2048),
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("GET"),
+  headers: z.record(z.string().max(4096)).optional(),
+  body: z.string().max(1_000_000).optional(),
+  timeoutMs: z.number().int().positive().max(60_000).optional(),
+});
+
+export type EgoFetchRequest = z.infer<typeof EgoFetchSchema>;
+
+/**
+ * Perfiles nombrados de Sub-Ego (CFG-03).
+ * Bundle nombrado planner/reviewer/researcher/builder: modelo + sandbox +
+ * aprobación + toolsets, persistido en VantaDB `gov/settings/profiles`.
+ * Sin archivos `~/.codex`: la fuente canónica es Zod + VantaDB.
+ * `model` acepta alias semántico (`frontier`/`cheap`); CFG-04 resuelve
+ * aliases contra el router (planner = frontier, hijos = baratos).
+ */
+export const SubEgoProfileSandboxSchema = z.enum(["read-only", "workspace", "full"]);
+
+export type SubEgoProfileSandbox = z.infer<typeof SubEgoProfileSandboxSchema>;
+
+export const SubEgoProfileApprovalSchema = z.enum(["never", "on-write", "always"]);
+
+export type SubEgoProfileApproval = z.infer<typeof SubEgoProfileApprovalSchema>;
+
+export const SubEgoProfileNameSchema = z.enum(["planner", "reviewer", "researcher", "builder"]);
+
+export type SubEgoProfileName = z.infer<typeof SubEgoProfileNameSchema>;
+
+export const SubEgoProfileSchema = z.object({
+  name: SubEgoProfileNameSchema,
+  model: z.string().min(1).max(128),
+  sandbox: SubEgoProfileSandboxSchema,
+  approval: SubEgoProfileApprovalSchema,
+  toolsets: z.array(z.string().min(1).max(64)).max(32).default([]),
+  description: z.string().max(500).optional(),
+});
+
+export type SubEgoProfile = z.infer<typeof SubEgoProfileSchema>;
+
+export const CreateSubEgoProfileSchema = SubEgoProfileSchema;
+
+export type CreateSubEgoProfileRequest = z.infer<typeof CreateSubEgoProfileSchema>;
+
+export const GetSubEgoProfileSchema = z.object({
+  name: SubEgoProfileNameSchema,
+});
+
+export type GetSubEgoProfileRequest = z.infer<typeof GetSubEgoProfileSchema>;
+
+export const DeleteSubEgoProfileSchema = z.object({
+  name: SubEgoProfileNameSchema,
+});
+
+export type DeleteSubEgoProfileRequest = z.infer<typeof DeleteSubEgoProfileSchema>;
+
+export const ListSubEgoProfilesSchema = z
+  .object({
+    sandbox: SubEgoProfileSandboxSchema.optional(),
+    approval: SubEgoProfileApprovalSchema.optional(),
+  })
+  .optional();
+
+export type ListSubEgoProfilesRequest = z.infer<typeof ListSubEgoProfilesSchema>;
+
+/**
+ * Política de permisos + approvals (CFG-06).
+ * Decisión owner 2026-10-16: `defaultMode: "acceptEdits"`, approvals
+ * `mode: "smart"` + `timeoutSec: 60` + `cronMode: "deny"`, deny gana.
+ * Persistencia canónica: VantaDB `gov/settings/permissions` (Zod + adapter,
+ * sin archivos `~/.codex`). Se combina con `ApprovalEngine` + `riskLevel`
+ * existentes: el deny de esta política veta antes de llegar al engine.
+ */
+export const PermissionDecisionSchema = z.enum(["allow", "ask", "deny"]);
+
+export type PermissionDecision = z.infer<typeof PermissionDecisionSchema>;
+
+/** Regla de permiso: `pattern` matchea por subcadena contra tool o path. */
+export const PermissionRuleSchema = z.object({
+  pattern: z.string().min(1).max(1024),
+  decision: PermissionDecisionSchema,
+});
+
+export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
+
+export const PermissionsPolicySchema = z.object({
+  defaultMode: z.enum(["read-only", "acceptEdits", "full-access"]).default("acceptEdits"),
+  rules: z.array(PermissionRuleSchema).max(128).default([]),
+  additionalDirectories: z.array(z.string().min(1).max(1024)).max(32).default([]),
+});
+
+export type PermissionsPolicy = z.infer<typeof PermissionsPolicySchema>;
+
+export const ApprovalsConfigSchema = z.object({
+  mode: z.enum(["manual", "smart", "off"]).default("smart"),
+  timeoutSec: z.number().int().positive().max(600).default(60),
+  cronMode: PermissionDecisionSchema.default("deny"),
+});
+
+export type ApprovalsConfig = z.infer<typeof ApprovalsConfigSchema>;
+
+export const PermissionsSettingsSchema = z.object({
+  permissions: PermissionsPolicySchema.default({
+    defaultMode: "acceptEdits",
+    rules: [],
+    additionalDirectories: [],
+  }),
+  approvals: ApprovalsConfigSchema.default({
+    mode: "smart",
+    timeoutSec: 60,
+    cronMode: "deny",
+  }),
+});
+
+export type PermissionsSettings = z.infer<typeof PermissionsSettingsSchema>;
 

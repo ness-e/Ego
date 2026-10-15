@@ -53,13 +53,61 @@ export class FloatingWindow {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
+        webSecurity: true,
       },
+    });
+
+    // SEC-01: la flotante nunca navega fuera de su bundle local.
+    // Denegar-por-defecto: solo `file:`; todo http(s) se bloquea y los
+    // popups (`window.open`/`_blank`) se deniegan con log.
+    this.window.webContents.on("will-navigate", (event, url) => {
+      let allowed = false;
+      try {
+        allowed = new URL(url).protocol === "file:";
+      } catch {
+        allowed = false;
+      }
+      if (!allowed) {
+        console.warn(`[Electron Security] Navegación bloqueada (flotante): ${url}`);
+        event.preventDefault();
+      }
+    });
+    this.window.webContents.setWindowOpenHandler((details) => {
+      console.warn(`[Electron Security] Ventana emergente bloqueada (flotante): ${details.url}`);
+      return { action: "deny" as const };
     });
 
     // Modo click-through por defecto: los eventos de ratón traspasan al escritorio
     this.setClickThrough(true);
 
+    // WIDG-02 (Task3): la flotante carga contenido real (avatar mini +
+    // ticker + approval). Fire-and-forget con log: createWindow conserva su
+    // firma síncrona (la usa FloatingWindowManager.show()).
+    void this.loadContent();
+
     return this.window;
+  }
+
+  /**
+   * Carga `floating.html`: dev vía Vite (`/floating/floating.html`) o bundle
+   * prod `out/renderer/floating/floating.html` (input extra en
+   * `electron.vite.config.ts`). Nunca navega fuera del bundle: el guard
+   * `will-navigate file:`-only + deny de popups de arriba sigue intacto.
+   */
+  private async loadContent(): Promise<void> {
+    if (!this.window || this.window.isDestroyed()) return;
+    const devBase = (process.env.ELECTRON_RENDERER_URL ?? "").replace(/\/$/, "");
+    try {
+      if (devBase.startsWith("http")) {
+        await this.window.loadURL(`${devBase}/floating/floating.html`);
+      } else {
+        // T11-S6: la vista compila dentro de out/main/main.js (bundle
+        // único); `__dirname` = out/main en runtime.
+        await this.window.loadFile(join(__dirname, "..", "renderer", "floating", "floating.html"));
+      }
+    } catch (err) {
+      console.error("[FloatingWindow] Error al cargar floating.html:", err);
+    }
   }
 
   public setClickThrough(ignore: boolean): void {

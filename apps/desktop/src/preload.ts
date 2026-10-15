@@ -44,6 +44,20 @@ export interface ModelsListBridgeRequest {
   refresh?: boolean;
 }
 
+export interface EgoFetchBridgeRequest {
+  url: string;
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+}
+
+export interface EgoFetchBridgeResult {
+  ok: boolean;
+  status: number;
+  body: string;
+}
+
 export interface McpMutateBridgeRequest {
   config: McpServerConfigRequest;
   enabled?: boolean;
@@ -65,9 +79,43 @@ export interface ChatErrorEvent {
   timestamp?: number;
 }
 
+// WIDG-02 (Task3): puente mínimo de la isla flotante. Fuente canónica de
+// tipos para `renderer/floating/floating.tsx` (que la importa type-only,
+// igual que `window-ego.d.ts`). Sin `any`: payloads exactos.
+export type FloatingAttentionState =
+  | "hidden"
+  | "compact"
+  | "expanded"
+  | "alert"
+  | "hitl_approval";
+
+export interface FloatingStateSnapshot {
+  visible: boolean;
+  muted: boolean;
+  activeSubEgoId?: string;
+  attentionState: FloatingAttentionState;
+}
+
+export interface EgoFloatingBridge {
+  /** Push del manager (`floating:state_changed`); retorna unsubscribe. */
+  onState: (callback: (state: FloatingStateSnapshot) => void) => () => void;
+  /** Resuelve vía `ipc.approval.resolve` (handler ya existe en main). */
+  approve: (approvalId: string) => Promise<unknown>;
+  deny: (approvalId: string, reason?: string) => Promise<unknown>;
+  /**
+   * DEUDA Task4/Task10: el handler `ipc.floating.setMuted` aún no existe en
+   * main (fuera de alcance Task3: main.ts prohibido). El invoke rechaza hasta
+   * que Task4 lo cablee; el flotante optimista ya refleja `muted` local.
+   */
+  setMuted: (muted: boolean) => Promise<unknown>;
+}
+
 export interface EgoPreloadBridge {
   memory: (op: string, args: unknown[]) => Promise<unknown>;
   llmStream: (req: LlmStreamBridgeRequest) => Promise<unknown>;
+  // A1: cancelación real del turno en curso (`ipc.llm.cancel` en main).
+  // `turnId` opcional: sin él se abortan todos los turnos activos.
+  llmCancel: (req?: { turnId?: string }) => Promise<unknown>;
   approve: (req: ApproveBridgeRequest) => Promise<unknown>;
   resolveApproval: (req: ResolveApprovalBridgeRequest) => Promise<unknown>;
   snapshots: () => Promise<unknown>;
@@ -185,6 +233,21 @@ export interface EgoPreloadBridge {
     listProviders: () => Promise<unknown>;
     listModels: (req: ModelsListBridgeRequest) => Promise<unknown>;
   };
+  // Fetch-proxy mínimo en main: inyecta Authorization desde safeStorage,
+  // reintenta 1 vez tras 401; el token nunca llega al renderer.
+  net: {
+    fetch: (req: EgoFetchBridgeRequest) => Promise<EgoFetchBridgeResult>;
+  };
+  // CFG-09: hooks de ciclo de vida Pre/PostToolUse. El renderer solo pide
+  // evaluación/estado; los comandos se validan y ejecutan en main
+  // (fail-closed). Canales: `ipc.hooks.*` (handlers en main).
+  hooks: {
+    getStatus: () => Promise<unknown>;
+    evaluatePreToolUse: (req: { toolName: string; sessionId?: string }) => Promise<unknown>;
+    recordPostToolUse: (req: { toolName: string; sessionId?: string }) => Promise<unknown>;
+  };
+  // WIDG-02 (Task3): superficie flotante (`window.egoFloating`).
+  floating: EgoFloatingBridge;
 }
 
 // T01 (window.ego único): la ÚNICA declaración global de `window.ego` vive en
@@ -195,6 +258,7 @@ export interface EgoPreloadBridge {
 const egoBridge: EgoPreloadBridge = {
   memory: (op, args) => ipcRenderer.invoke("ipc.memory", { op, args } satisfies MemoryBridgeRequest),
   llmStream: (req) => ipcRenderer.invoke("ipc.llm.stream", req),
+  llmCancel: (req?) => ipcRenderer.invoke("ipc.llm.cancel", req ?? {}),
   approve: (req) => ipcRenderer.invoke("ipc.gov.approve", req),
   resolveApproval: (req) => ipcRenderer.invoke("ipc.approval.resolve", req),
   snapshots: () => ipcRenderer.invoke("ipc.snapshots"),
@@ -221,7 +285,21 @@ const egoBridge: EgoPreloadBridge = {
     create: (req) => ipcRenderer.invoke("ipc.projects.create", req),
     select: (id) => ipcRenderer.invoke("ipc.projects.select", { id }),
     getActive: () => ipcRenderer.invoke("ipc.projects.getActive"),
-    selectFolder: () => ipcRenderer.invoke("ipc.projects.selectFolder"),
+    // Token opaco single-use (TTL 60s): el diálogo vive en main, que emite
+    // `{ token }`; el canje `selectFolderRedeem` invalida tras un uso y
+    // retorna el path. Firma pública intacta: `string | null`.
+    selectFolder: async (): Promise<string | null> => {
+      const issued: unknown = await ipcRenderer.invoke("ipc.projects.selectFolder");
+      if (issued === null || issued === undefined) return null;
+      if (typeof issued === "string") return issued;
+      const token =
+        typeof issued === "object" && issued !== null && "token" in issued
+          ? (issued as { token: unknown }).token
+          : null;
+      if (typeof token !== "string" || token.length === 0) return null;
+      const redeemed: unknown = await ipcRenderer.invoke("ipc.projects.selectFolderRedeem", { token });
+      return typeof redeemed === "string" ? redeemed : null;
+    },
   },
   settings: {
     getModelConfig: () => ipcRenderer.invoke("ipc.settings.getModelConfig"),
@@ -335,6 +413,32 @@ const egoBridge: EgoPreloadBridge = {
     listProviders: () => ipcRenderer.invoke("ipc.models.listProviders"),
     listModels: (req) => ipcRenderer.invoke("ipc.models.listModels", req),
   },
+  net: {
+    fetch: (req) => ipcRenderer.invoke("ipc.net.fetch", req),
+  },
+  hooks: {
+    getStatus: () => ipcRenderer.invoke("ipc.hooks.getStatus"),
+    evaluatePreToolUse: (req) => ipcRenderer.invoke("ipc.hooks.evaluatePreToolUse", req),
+    recordPostToolUse: (req) => ipcRenderer.invoke("ipc.hooks.recordPostToolUse", req),
+  },
+  floating: {
+    onState: (callback) => {
+      const sub = (_event: Electron.IpcRendererEvent, state: FloatingStateSnapshot) =>
+        callback(state);
+      ipcRenderer.on("floating:state_changed", sub);
+      return () => {
+        ipcRenderer.removeListener("floating:state_changed", sub);
+      };
+    },
+    approve: (approvalId) =>
+      ipcRenderer.invoke("ipc.approval.resolve", { approvalId, approved: true }),
+    deny: (approvalId, reason?) =>
+      ipcRenderer.invoke("ipc.approval.resolve", { approvalId, approved: false, reason }),
+    setMuted: (muted) => ipcRenderer.invoke("ipc.floating.setMuted", { muted }),
+  },
 };
 
+const egoFloatingBridge: EgoFloatingBridge = egoBridge.floating;
+
 contextBridge.exposeInMainWorld("ego", egoBridge);
+contextBridge.exposeInMainWorld("egoFloating", egoFloatingBridge);

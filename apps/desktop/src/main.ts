@@ -1,6 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage, session } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage, session, shell } from "electron";
 import { join } from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import { deflateSync } from "node:zlib";
@@ -12,7 +12,7 @@ import {
 } from "@ego/memory";
 import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL, ModelCatalog, CATALOG_CACHE_TTL_MS, type CatalogProviderId } from "@ego/models";
 import type { PreferredModel, ModelProviderFactory } from "@ego/models";
-import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext } from "@ego/tools";
+import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext, type ToolRiskLevel } from "@ego/tools";
 import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
 import { ToolExecutionLoop, type LoopExecutionResult } from "@ego/runtime";
@@ -23,6 +23,13 @@ import {
   fromMemoryManifest,
   type SubEgoCreateInput,
   type SubEgoManifest,
+} from "@ego/subegos";
+import {
+  SubEgoSoul,
+  applyEphemeralOverlay,
+  assertSystemPromptStable,
+  formatOutOfBandUserMessage,
+  type AssembledPrompt,
 } from "@ego/subegos";
 import {
   DecisionRouter,
@@ -39,6 +46,7 @@ import {
   ApproveActionSchema,
   ResolveApprovalSchema,
   ChatStreamSchema,
+  LlmCancelSchema,
   AddMcpServerSchema,
   RemoveMcpServerSchema,
   ToggleMcpServerSchema,
@@ -50,6 +58,11 @@ import {
   type ProjectManifest,
   ModelConfigSchema,
   type ModelConfig,
+  PermissionsSettingsSchema,
+  type PermissionsPolicy,
+  type PermissionsSettings,
+  type PermissionDecision,
+  type PermissionRule,
   KnowledgeIngestSchema,
   KnowledgeHybridSearchSchema,
   KnowledgeGraphRagSchema,
@@ -84,6 +97,10 @@ import {
   SessionResumeSchema,
   DailyListApprovalsSchema,
   ModelsListSchema,
+  SelectFolderRedeemSchema,
+  IpcOriginMetaSchema,
+  EgoFetchSchema,
+  type EgoFetchRequest,
 } from "./ipc/schema.js";
 import {
   DomainRegistry,
@@ -192,6 +209,33 @@ interface TerminalSession {
 const terminalSessions = new Map<string, TerminalSession>();
 const MAX_TERMINAL_SESSIONS = 8;
 const TERMINAL_DEFAULT_TIMEOUT_MS = 60_000;
+
+/**
+ * Turnos LLM en curso cancelables (A1 real). Cada `handleLlmStream` registra
+ * su `AbortController` al arrancar y lo libera en `finally`;
+ * `ipc.llm.cancel` aborta por `turnId` o todos. El abort es síncrono: el
+ * handler de cancelación nunca espera al loop (sin colgar).
+ */
+const llmAbortControllers = new Map<string, AbortController>();
+
+/**
+ * Emite `turn-cancelled` al renderer sin tumbar el main. El loop ya detenido
+ * no genera más deltas; este push cierra el estado de stream remoto aunque el
+ * provider ignore el abort mid-token.
+ */
+function pushTurnCancelled(turnId: string): void {
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ipc.chat.delta", {
+        type: "turn-cancelled",
+        turnId,
+        cancelled: true,
+      });
+    }
+  } catch {
+    // noop: el push al renderer nunca tumba el main
+  }
+}
 
 /**
  * Denylist en el ingress IPC (R5, defensa en profundidad). Espejo intencional
@@ -1552,6 +1596,273 @@ export async function syncModelCredentialPool(
   router.attachCredentialPool(pool, modelPoolProviderFactory);
 }
 
+// ---------------------------------------------------------------------------
+// CFG-06: política de permisos allow/ask/deny (deny gana) + approvals.
+// Decisión owner 2026-10-16: defaultMode `acceptEdits`, approvals `smart` +
+// timeout 60s + cron deny. Funciones puras (testeables sin Electron):
+// el deny veta antes de llegar al `ApprovalEngine`; el engine conserva sus
+// innegociables (`riskLevel` destructive/sensitive según su `mode`).
+// Persistencia canónica: VantaDB `gov/settings/permissions` validado con
+// `PermissionsSettingsSchema` (Zod fail-closed, sin archivos `~/.codex`).
+// ---------------------------------------------------------------------------
+
+/** Timeout de aprobación humana en ms (fuente: approvals.timeoutSec = 60). */
+export const APPROVAL_TIMEOUT_MS_CFG06 = 60_000;
+
+/** Info mínima de herramienta para la decisión combinada permiso+approval. */
+export interface PermissionToolInfo {
+  name: string;
+  riskLevel?: ToolRiskLevel;
+  requiresApproval?: boolean;
+}
+
+/** Consulta de permiso: tool y/o path del FS involucrados en la acción. */
+export interface PermissionQuery {
+  tool?: string;
+  path?: string;
+}
+
+/**
+ * Valida settings crudos (VantaDB `gov/settings/permissions`) fail-closed:
+ * payload inválido → lanza antes de tocar motores. Aplica los defaults
+ * CFG-06 (`acceptEdits` + `smart`/60s/`deny`).
+ */
+export function parsePermissionsSettings(raw: unknown): PermissionsSettings {
+  const parsed = PermissionsSettingsSchema.safeParse(raw ?? {});
+  if (!parsed.success) {
+    throw new Error(`[IPC Security] Settings de permisos inválidos: ${parsed.error.message}`);
+  }
+  return parsed.data;
+}
+
+/** `true` si la regla matchea (subcadena contra tool o path). */
+export function permissionRuleMatches(rule: PermissionRule, query: PermissionQuery): boolean {
+  if (query.tool && query.tool.includes(rule.pattern)) return true;
+  if (query.path && query.path.includes(rule.pattern)) return true;
+  return false;
+}
+
+/**
+ * Decisión por reglas con deny-gana: entre las reglas que matchean,
+ * `deny` > `ask` > `allow`. Sin match → `"ask"` (fail-closed).
+ */
+export function resolvePermissionDecision(
+  rules: PermissionRule[],
+  query: PermissionQuery
+): PermissionDecision {
+  let sawAsk = false;
+  let sawAllow = false;
+  for (const rule of rules) {
+    if (!permissionRuleMatches(rule, query)) continue;
+    if (rule.decision === "deny") return "deny";
+    if (rule.decision === "ask") sawAsk = true;
+    else sawAllow = true;
+  }
+  if (sawAsk) return "ask";
+  if (sawAllow) return "allow";
+  return "ask";
+}
+
+/**
+ * `true` si `path` está bajo alguno de `scopeDirs` (workspace +
+ * `additionalDirectories`). Comparación por prefijo normalizado (`/` final).
+ */
+export function isPathInScope(path: string, scopeDirs: string[]): boolean {
+  const norm = (d: string): string => (d.endsWith("/") ? d : `${d}/`);
+  return scopeDirs.some((dir) => dir.length > 0 && (path === dir || path.startsWith(norm(dir))));
+}
+
+/**
+ * Decisión efectiva combinando reglas + `defaultMode` + alcance:
+ * 1. reglas (deny-gana); 2. path fuera de alcance → `"ask"` como mínimo;
+ * 3. `defaultMode`: `full-access` → allow, `acceptEdits` → allow salvo
+ *    `destructive` (→ ask), `read-only` → ask.
+ */
+export function resolveEffectivePermission(
+  policy: PermissionsPolicy,
+  query: PermissionQuery,
+  opts: { scopeDirs?: string[]; riskLevel?: ToolRiskLevel } = {}
+): PermissionDecision {
+  const matched = policy.rules.some((rule) => permissionRuleMatches(rule, query));
+  if (matched) return resolvePermissionDecision(policy.rules, query);
+  if (query.path && opts.scopeDirs && !isPathInScope(query.path, opts.scopeDirs)) {
+    return "ask";
+  }
+  if (policy.defaultMode === "full-access") return "allow";
+  if (policy.defaultMode === "read-only") return "ask";
+  return opts.riskLevel === "destructive" ? "ask" : "allow";
+}
+
+/**
+ * Puerta combinada permiso + approvals + cron. Retorna si la acción puede
+ * correr y si exige aprobación humana (vía `ApprovalEngine` existente).
+ * Orden: deny (regla o `cronMode`) veta sin preguntar; `mode: "off"` no
+ * pide aprobación a nivel política (el engine conserva sus innegociables);
+ * `"manual"` siempre pide; `"smart"` pide si decisión `ask`, riesgo
+ * sensitive/destructive o la tool se autodeclara `requiresApproval`.
+ */
+export function shouldRequireApproval(
+  settings: PermissionsSettings,
+  tool: PermissionToolInfo,
+  query: PermissionQuery,
+  opts: { scopeDirs?: string[]; isCron?: boolean } = {}
+): { allowed: boolean; requireApproval: boolean; reason?: string } {
+  if (opts.isCron) {
+    const cron = settings.approvals.cronMode;
+    if (cron === "deny") {
+      return { allowed: false, requireApproval: false, reason: "cron_mode deny: ejecución programada vetada" };
+    }
+    if (cron === "ask") {
+      return { allowed: true, requireApproval: true, reason: "cron_mode ask: corrida programada exige aprobación" };
+    }
+  }
+  const effective = resolveEffectivePermission(settings.permissions, query, {
+    scopeDirs: opts.scopeDirs,
+    riskLevel: tool.riskLevel,
+  });
+  if (effective === "deny") {
+    return { allowed: false, requireApproval: false, reason: "deny gana: regla de permiso veta la acción" };
+  }
+  const mode = settings.approvals.mode;
+  if (mode === "off") return { allowed: true, requireApproval: false };
+  if (mode === "manual") {
+    return {
+      allowed: true,
+      requireApproval: true,
+      reason: effective === "ask" ? "decisión ask en modo manual" : "modo manual: toda acción exige aprobación",
+    };
+  }
+  const needsByRisk = tool.riskLevel === "sensitive" || tool.riskLevel === "destructive";
+  if (effective === "ask" || needsByRisk || tool.requiresApproval === true) {
+    return {
+      allowed: true,
+      requireApproval: true,
+      reason:
+        effective === "ask"
+          ? "decisión ask en modo smart"
+          : `riesgo ${tool.riskLevel ?? "declarado"} exige aprobación en modo smart`,
+    };
+  }
+  return { allowed: true, requireApproval: false };
+}
+
+/** Scope efectivo: raíz del workspace + `additionalDirectories` (CFG-06). */
+export function resolveScopeDirs(workspaceRoot: string, additionalDirectories: string[]): string[] {
+  return [workspaceRoot, ...additionalDirectories];
+}
+
+// ---------------------------------------------------------------------------
+// STAB-03: PromptAssembly cableado al turno real (tiers Hermes, caché e inyección).
+//
+// El turno ya no construye system ad-hoc: ensambla 3 tiers vía
+// `SubEgoSoul.assembleHermesPrompt({coreRules, ...})` (byte-stable por sesión),
+// el recall fresco viaja como overlay efímero API-call-time (nunca contamina el
+// prefijo cacheado) y los steers mid-turn viajan como user standalone con el
+// marcador out-of-band exacto. Funciones puras (testeables sin Electron).
+// ---------------------------------------------------------------------------
+
+/** Core System Rules de Ego (Tier 2): literal canónico preservado del system ad-hoc previo. */
+export const EGO_CORE_RULES_STAB03 =
+  "Eres Ego, un Sistema Operativo Cognitivo de élite, riguroso, analítico y local-first.";
+
+/** Alma por defecto (`ego.nucleus`) cuando el registry no resuelve el subEgo pedido. */
+let defaultNucleusSoul: SubEgoSoul | null = null;
+export function getDefaultNucleusSoul(): SubEgoSoul {
+  if (!defaultNucleusSoul) {
+    defaultNucleusSoul = new SubEgoSoul({
+      id: "ego.nucleus",
+      name: "Nucleus",
+      tone: "rigorous-analytical",
+      reasoningStyle: "first-principles",
+    });
+  }
+  return defaultNucleusSoul;
+}
+
+/**
+ * Resuelve el alma del subEgo del turno: registry → `SubEgoSoul.fromManifest`,
+ * fallback al nucleus por defecto (nunca lanza por registry vacío).
+ */
+export async function resolveTurnSoul(subEgoId: string): Promise<SubEgoSoul> {
+  try {
+    const manifest = await subEgoRegistry?.get(subEgoId);
+    if (manifest) return SubEgoSoul.fromManifest(manifest);
+  } catch {
+    // Fallback intencional al nucleus (fail-open solo en identidad, nunca en permisos).
+  }
+  return getDefaultNucleusSoul();
+}
+
+/** Cola out-of-band de steers pendientes (productor futuro: IPC/delegación; STAB-04 expone el loop). */
+const mainSteerQueue: string[] = [];
+
+/** Encola un steer mid-turn (retorna `false` si vacío). */
+export function queueMainSteer(instruction: string): boolean {
+  const text = instruction?.trim() ?? "";
+  if (text.length === 0) return false;
+  mainSteerQueue.push(text);
+  return true;
+}
+
+/** Drena los steers pendientes (vacía la cola; boundary del turno). */
+export function drainMainSteerQueue(): string[] {
+  if (mainSteerQueue.length === 0) return [];
+  return mainSteerQueue.splice(0, mainSteerQueue.length);
+}
+
+/** Huella del system cacheado por sesión + timestamp congelado a inicio de sesión. */
+const turnSystemFingerprints = new Map<string, string>();
+const turnSessionTimestamps = new Map<string, number>();
+
+/** Opciones puras para construir el prompt del turno. */
+export interface TurnPromptOptions {
+  callerSystemMessage?: string;
+  subEgoSoul?: SubEgoSoul;
+  sessionId?: string;
+  ephemeralText?: string;
+  isCompressionRebuild?: boolean;
+}
+
+/** Libera el fingerprint de una sesión (frontera: nueva sesión o rebuild sancionado externo). */
+export function clearTurnSystemFingerprint(sessionId: string): void {
+  turnSystemFingerprints.delete(sessionId);
+  turnSessionTimestamps.delete(sessionId);
+}
+
+/**
+ * Construye el system del turno: ensamblado 3-tiers (byte-stable por sesión) +
+ * overlay efímero API-call-time + check de estabilidad salvo compresión.
+ * El timestamp volátil se congela al primer turno de cada sesión.
+ */
+export function buildTurnPrompt(opts: TurnPromptOptions = {}): {
+  assembled: AssembledPrompt;
+  effectiveSystemPrompt: string;
+  fingerprint: string;
+} {
+  const sessionId = opts.sessionId || "default_session";
+  let timestampMs = turnSessionTimestamps.get(sessionId);
+  if (timestampMs === undefined) {
+    timestampMs = Date.now();
+    turnSessionTimestamps.set(sessionId, timestampMs);
+  }
+  const soul = opts.subEgoSoul ?? getDefaultNucleusSoul();
+  const assembled = soul.assembleHermesPrompt({
+    coreRules: EGO_CORE_RULES_STAB03,
+    callerSystemMessage: opts.callerSystemMessage,
+    sessionId,
+    timestampMs,
+  });
+  const cached = turnSystemFingerprints.get(sessionId);
+  if (cached !== undefined) {
+    assertSystemPromptStable(cached, assembled.systemPrompt, {
+      isCompressionRebuild: opts.isCompressionRebuild,
+    });
+  }
+  turnSystemFingerprints.set(sessionId, assembled.fingerprint);
+  const effectiveSystemPrompt = applyEphemeralOverlay(assembled.systemPrompt, opts.ephemeralText);
+  return { assembled, effectiveSystemPrompt, fingerprint: assembled.fingerprint };
+}
+
 /**
  * Procesa una solicitud de chat ejecutando el ciclo cognitivo ToolExecutionLoop con
  * streaming, persistencia inmutable en VantaDB y control de ejecución (INT-01).
@@ -1573,6 +1884,18 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
   const sessionId = req.sessionId || lifecycle?.currentSessionId || "default_session";
   const turnId = `turn_${Date.now()}`;
   const turnStartTime = Date.now();
+  // A1 real: el turno registra su controlador para `ipc.llm.cancel`.
+  const abortController = new AbortController();
+  llmAbortControllers.set(turnId, abortController);
+  // Recall vacío por defecto: si el abort llega antes del pre-turn, el path
+  // de cancelación en `catch` responde igual sin colgar ni inventar hits.
+  let recallStatus: EgoRecallStatus = {
+    count: 0,
+    glyph: "🧠",
+    sources: [],
+    tokensEstimate: 0,
+    hits: [],
+  };
 
   eventBus?.emit("task.started", {
     taskId: turnId,
@@ -1586,7 +1909,9 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
 
   try {
     // FASE 2: Pre-Turn Context Assembly & Recall (Prefetch + Glifo 🧠)
-    const { contextText, recallStatus } = await lifecycle.assemblePreTurn(req.prompt);
+    const preTurn = await lifecycle.assemblePreTurn(req.prompt);
+    const contextText = preTurn.contextText;
+    recallStatus = preTurn.recallStatus;
 
     // FASE DECISION INTELLIGENCE: Evaluación de Intención, Enrutamiento y Precondiciones (DEC-01..DEC-08)
     let verdict: DecisionVerdict | null = null;
@@ -1655,24 +1980,33 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       win.webContents.send("ipc.chat.recall_status", recallStatus);
     }
 
+    // STAB-03: system 3-tiers vía PromptAssembly (byte-stable por sesión).
+    // El recall fresco (contextText) viaja como overlay efímero API-call-time:
+    // nunca contamina el prefijo cacheado. Los steers drenan como user
+    // standalone con el marcador out-of-band exacto (única autoridad mid-turn).
+    const subEgoId = req.subEgoId || verdict?.subEgoId || "ego.nucleus";
+    const soul = await resolveTurnSoul(subEgoId);
+    const turnPrompt = buildTurnPrompt({
+      subEgoSoul: soul,
+      callerSystemMessage: req.systemPrompt,
+      sessionId,
+      ephemeralText: contextText,
+    });
+    const systemInstruction = turnPrompt.effectiveSystemPrompt;
+
     // Ensamblar mensajes para el modelo
     const messages: ModelMessage[] = [];
-    const systemInstruction = [
-      "Eres Ego, un Sistema Operativo Cognitivo de élite, riguroso, analítico y local-first.",
-      req.systemPrompt || "",
-      contextText,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
     messages.push({ role: "system", content: systemInstruction });
     messages.push({ role: "user", content: req.prompt });
+    for (const steer of drainMainSteerQueue()) {
+      messages.push({ role: "user", content: formatOutOfBandUserMessage(steer) });
+    }
 
     const execContext: ToolExecutionContext = {
       callId: turnId,
       sessionId,
       projectId: req.projectId || "default_project",
-      subEgoId: req.subEgoId || verdict?.subEgoId || "ego.nucleus",
+      subEgoId,
     };
 
     // Modelo elegido por el usuario (2026-10-14: el picker/Ajustes gobierna
@@ -1688,7 +2022,10 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       return undefined;
     })();
 
-    // Ejecutar loop cognitivo multi-turno a través de ToolExecutionLoop (INT-01)
+    // Ejecutar loop cognitivo multi-turno a través de ToolExecutionLoop (INT-01).
+    // La señal viaja hasta generate/stream: el provider que la honre aborta
+    // mid-token; el que no, completa el turno en vuelo y el loop se detiene
+    // en el siguiente checkpoint (`aborted`, sin colgar).
     const loopResult: LoopExecutionResult = await toolLoop.run({
       messages,
       context: execContext,
@@ -1696,8 +2033,25 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       preferredModel,
       systemPrompt: systemInstruction,
       traceId: turnId,
-      eventBus
+      eventBus,
+      abortSignal: abortController.signal
     });
+
+    // Turno cancelado (por `ipc.llm.cancel` o señal abortada): push
+    // `turn-cancelled` para cerrar el stream remoto, sin persistir reply
+    // vacío en la sesión y sin emitir `task.completed` engañoso (el loop ya
+    // emitió `task.failed` con `ABORTED`).
+    if (loopResult.status === "aborted" || abortController.signal.aborted) {
+      pushTurnCancelled(turnId);
+      return {
+        ok: false,
+        turnId,
+        text: "",
+        recallStatus,
+        usage: loopResult.usage,
+        status: "aborted"
+      };
+    }
 
     const finalText = loopResult.finalText || "";
 
@@ -1734,6 +2088,18 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       status: loopResult.status
     };
   } catch (err) {
+    // Cancelación que escapó como excepción (AbortError del provider fuera
+    // del loop): respuesta `aborted` limpia en vez de error visible.
+    if (abortController.signal.aborted) {
+      pushTurnCancelled(turnId);
+      return {
+        ok: false,
+        turnId,
+        text: "",
+        recallStatus,
+        status: "aborted"
+      };
+    }
     const errorMsg = err instanceof Error ? err.message : String(err);
     if (win && !win.isDestroyed()) {
       win.webContents.send("ipc.chat.error", { turnId, error: errorMsg });
@@ -1751,10 +2117,340 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
     });
 
     throw new Error(`[Cognitive Runtime Error]: ${errorMsg}`);
+  } finally {
+    llmAbortControllers.delete(turnId);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Hardening Electron (SEC-01): navegación, ventanas y apertura externa.
+//
+// - `will-navigate`: niega toda navegación http(s) salvo dev-server local.
+// - `setWindowOpenHandler`: niega creación de ventanas (popups/objetivos
+//   `_blank` no abren Chromium nuevo; se loguean y se deniegan).
+// - Apertura externa: SOLO vía `openExternalValidated()` (https validada,
+//   allowlist de esquema + log; http/file/data/javascript denegados).
+// ---------------------------------------------------------------------------
+
+/** Hosts del dev-server local permitidos solo en no empaquetado. */
+const DEV_NAV_HOSTS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1", "::1"]);
+
+/**
+ * ¿Navegación in-window permitida? `file:` (bundle empaquetado) siempre;
+ * http(s) solo contra hosts de dev-server cuando NO es build empaquetada.
+ * Todo lo demás (incluido http(s) externo en prod) → `false` (denegar).
+ */
+export function isAllowedNavigationUrl(targetUrl: string, isDev: boolean): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(targetUrl);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol === "file:") return true;
+  if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    if (!isDev) return false;
+    return DEV_NAV_HOSTS.has(parsed.hostname);
+  }
+  return false;
+}
+
+/**
+ * Allowlist de esquema para apertura externa: SOLO `https:`.
+ * `http:` (sin TLS), `file:`, `data:`, `javascript:`, `blob:` y cualquier
+ * esquema no http(s) se deniegan. Con credenciales embebidas (`user@host`)
+ * también se deniega (riesgo de phishing). El hostname debe ser no vacío
+ * y no local (la apertura externa es para web pública, no loopback).
+ */
+export function isAllowedExternalUrl(rawUrl: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  if (!parsed.hostname) return false;
+  if (parsed.username || parsed.password) return false;
+  if (DEV_NAV_HOSTS.has(parsed.hostname)) return false;
+  return true;
+}
+
+/**
+ * Apertura externa validada: solo `https:` según `isAllowedExternalUrl`.
+ * Retorna `true` si se delegó a `shell.openExternal`, `false` si se denegó.
+ * Todo intento queda en log (permitido y denegado) para auditoría.
+ */
+export async function openExternalValidated(rawUrl: string): Promise<boolean> {
+  if (!isAllowedExternalUrl(rawUrl)) {
+    console.warn(`[Electron Security] Apertura externa denegada (allowlist https): ${rawUrl}`);
+    return false;
+  }
+  console.log(`[Electron Security] Apertura externa permitida: ${rawUrl}`);
+  await shell.openExternal(rawUrl);
+  return true;
+}
+
+/**
+ * CSP por entorno (R13/SEC-01):
+ * - dev (no empaquetado): permite el dev-server Vite local
+ *   (`http://127.0.0.1:5173` + `unsafe-inline` para HMR/scripts de Vite).
+ * - packaged: estricta — `default-src 'self'`, `script-src 'self'`,
+ *   `object-src 'none'`, sin rastro de `127.0.0.1`.
+ */
+export function buildCsp(isPackaged: boolean): string {
+  const scriptSrc = isPackaged
+    ? "script-src 'self'"
+    : "script-src 'self' 'unsafe-inline' http://127.0.0.1:5173";
+  const connectSrc = isPackaged
+    ? "connect-src 'self'"
+    : "connect-src 'self' http://127.0.0.1:5173 ws://127.0.0.1:5173";
+  return [
+    "default-src 'self'",
+    scriptSrc,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    connectSrc,
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+}
+
+/**
+ * Aplica los guardarraíles de navegación a una ventana: `will-navigate` +
+ * `setWindowOpenHandler` en modo denegar-por-defecto (con log de auditoría).
+ * `isDev` = `true` solo en dev-server local (`!app.isPackaged`).
+ */
+export function applyNavigationGuards(target: BrowserWindow, isDev: boolean): void {
+  target.webContents.on("will-navigate", (event, url) => {
+    if (!isAllowedNavigationUrl(url, isDev)) {
+      console.warn(`[Electron Security] Navegación bloqueada: ${url}`);
+      event.preventDefault();
+    }
+  });
+  target.webContents.setWindowOpenHandler((details) => {
+    console.warn(`[Electron Security] Ventana emergente bloqueada: ${details.url}`);
+    return { action: "deny" as const };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Hardening IPC: origen por invoke + token opaco single-use (selectFolder) +
+// fetch-proxy mínimo. Sin romper firma pública: el renderer envía el mismo
+// payload; la meta de origen la deriva el main desde `senderFrame` y se
+// valida con Zod solo para log/auditoría (se descarta tras validar).
+// ---------------------------------------------------------------------------
+
+/** TTL del token opaco de selectFolder (60s, single-use). */
+export const SELECT_FOLDER_TOKEN_TTL_MS = 60_000;
+
+interface FolderTokenEntry {
+  folderPath: string;
+  expiresAt: number;
+}
+
+const folderTokens = new Map<string, FolderTokenEntry>();
+
+/** Emite un token UUID opaco ligado a un path (nunca el path al renderer). */
+export function issueFolderToken(folderPath: string): string {
+  pruneFolderTokens();
+  const token = randomUUID();
+  folderTokens.set(token, { folderPath, expiresAt: Date.now() + SELECT_FOLDER_TOKEN_TTL_MS });
+  return token;
+}
+
+/**
+ * Canjea un token opaco por su path. Single-use: se invalida tras el primer
+ * uso (éxito o no) y expira a los 60s. Retorna `null` si es inválido/expirado.
+ */
+export function redeemFolderToken(token: string): string | null {
+  const entry = folderTokens.get(token);
+  folderTokens.delete(token);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) return null;
+  return entry.folderPath;
+}
+
+/** Purga tokens expirados (best-effort, nunca lanza). */
+export function pruneFolderTokens(now: number = Date.now()): void {
+  try {
+    for (const [token, entry] of folderTokens) {
+      if (now > entry.expiresAt) folderTokens.delete(token);
+    }
+  } catch {
+    // noop
+  }
+}
+
+/** Solo tests: cantidad de tokens vivos. */
+export function folderTokenCountForTests(): number {
+  pruneFolderTokens();
+  return folderTokens.size;
+}
+
+type InvokeEventLike = {
+  senderFrame?: { url?: string } | null;
+};
+
+/** Deriva el origen del invoke desde `senderFrame` + timestamp (solo main). */
+export function getInvokeOrigin(event: InvokeEventLike | null | undefined): {
+  frameUrl: string;
+  timestamp: number;
+} {
+  const raw = event?.senderFrame?.url;
+  const frameUrl =
+    typeof raw === "string" && raw.length > 0 ? raw.slice(0, 2048) : "unknown";
+  return { frameUrl, timestamp: Date.now() };
+}
+
+/**
+ * Log + pasada por Zod del origen. La firma pública no cambia: la meta no
+ * viene del renderer, se deriva en main y se valida con `IpcOriginMetaSchema`
+ * solo para auditoría (fallo de meta nunca rechaza el payload real).
+ */
+export function logInvokeOrigin(channel: string, event: InvokeEventLike | null | undefined): void {
+  try {
+    const origin = getInvokeOrigin(event);
+    const parsed = IpcOriginMetaSchema.safeParse(origin);
+    const frame = parsed.success ? parsed.data.frameUrl : origin.frameUrl;
+    console.log(`[IPC] ${channel} origin=${frame} ts=${origin.timestamp}`);
+  } catch {
+    // noop: el log nunca tumba el handler
+  }
+}
+
+let ipcOriginLoggingInstalled = false;
+
+/**
+ * Envuelve `ipcMain.handle` una vez para loguear `senderFrame` URL +
+ * timestamp en CADA invoke (defensa en profundidad; los handlers conservan
+ * su firma pública y su validación Zod de payload).
+ */
+export function installIpcOriginLogging(): void {
+  if (ipcOriginLoggingInstalled) return;
+  ipcOriginLoggingInstalled = true;
+  const origHandle = ipcMain.handle.bind(ipcMain);
+  (ipcMain as unknown as { handle: typeof ipcMain.handle }).handle = ((
+    channel: string,
+    listener: (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown
+  ) => {
+    return origHandle(
+      channel,
+      (async (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => {
+        logInvokeOrigin(channel, event as unknown as InvokeEventLike);
+        return listener(event, ...args);
+      }) as never
+    );
+  }) as never;
+}
+
+/** ¿URL permitida para el fetch-proxy? Solo `https:` o loopback local. */
+export function isAllowedFetchUrl(rawUrl: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (parsed.username || parsed.password) return false;
+  if (parsed.protocol === "https:") return true;
+  if (parsed.protocol === "http:") {
+    return parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost" || parsed.hostname === "::1";
+  }
+  return false;
+}
+
+/**
+ * Token de autorización solo en main (safeStorage vía `decryptCredential`).
+ * Lee el blob cifrado `gov/auth:api_token` (o `EGO_API_TOKEN` en dev);
+ * nunca se loguea ni viaja al renderer.
+ */
+export async function resolveFetchAuthToken(): Promise<string | null> {
+  try {
+    if (typeof adapter !== "undefined" && adapter) {
+      const rec = await adapter.get("gov/auth", "api_token");
+      let node: unknown = rec;
+      if (node && typeof node === "object" && "payload" in (node as Record<string, unknown>)) {
+        node = (node as { payload: unknown }).payload;
+      }
+      if (typeof node === "string" && node.length > 0) {
+        const dec = decryptCredential(node);
+        if (typeof dec === "string" && dec.length > 0) return dec;
+      } else if (node && typeof node === "object" && typeof (node as Record<string, unknown>).token === "string") {
+        const stored = (node as Record<string, unknown>).token as string;
+        if (stored.length > 0) {
+          const dec = stored.startsWith("enc:") || stored.startsWith("obf:") ? decryptCredential(stored) : stored;
+          if (dec.length > 0) return dec;
+        }
+      }
+    }
+  } catch {
+    // noop: fallback a env en dev
+  }
+  const envToken = process.env.EGO_API_TOKEN;
+  return typeof envToken === "string" && envToken.length > 0 ? envToken : null;
+}
+
+/** Refresh best-effort: re-lee el token (una sola vez tras 401). */
+export async function refreshFetchAuthToken(): Promise<string | null> {
+  return resolveFetchAuthToken();
+}
+
+export interface ProxiedFetchResult {
+  ok: boolean;
+  status: number;
+  body: string;
+}
+
+/**
+ * Fetch-proxy mínimo en main: inyecta `Authorization` desde safeStorage,
+ * reintenta 1 vez tras 401 con refresh, y retorna solo `status`/`body`
+ * saneados (el token nunca sale del main). `fetchImpl` inyectable en tests.
+ */
+export async function egoFetchProxied(
+  input: EgoFetchRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<ProxiedFetchResult> {
+  if (!isAllowedFetchUrl(input.url)) {
+    throw new Error("[IPC Security] URL no permitida para egoFetch (solo https o loopback local).");
+  }
+  const timeoutMs = input.timeoutMs ?? 15_000;
+  const doFetch = async (token: string | null): Promise<Response> => {
+    const headers: Record<string, string> = { ...(input.headers ?? {}) };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetchImpl(input.url, {
+        method: input.method,
+        headers,
+        signal: ctrl.signal,
+        ...(input.body !== undefined ? { body: input.body } : {}),
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let token = await resolveFetchAuthToken();
+  let res = await doFetch(token);
+  if (res.status === 401) {
+    token = await refreshFetchAuthToken();
+    res = await doFetch(token);
+  }
+  let text = "";
+  try {
+    text = await res.text();
+  } catch {
+    text = "";
+  }
+  return { ok: res.ok, status: res.status, body: text.slice(0, 1_000_000) };
+}
+
 export async function createWindow(): Promise<void> {
+  installIpcOriginLogging();
   const userDataDir = app.getPath("userData");
   crashRecoveryEngine = new CrashRecoveryEngine({
     storageDir: userDataDir,
@@ -2039,6 +2735,8 @@ export async function createWindow(): Promise<void> {
 
   approvalEngine = new ApprovalEngine({
     mode: "standard",
+    // CFG-06 (decisión owner): timeout de aprobación 60s (approvals.timeoutSec).
+    defaultTimeoutMs: APPROVAL_TIMEOUT_MS_CFG06,
     onApprovalRequested: (pending: PendingApproval) => {
       win?.webContents.send("ipc.approval.request", pending);
     },
@@ -2106,8 +2804,12 @@ export async function createWindow(): Promise<void> {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webSecurity: true,
     },
   });
+
+  // SEC-01: guardarraíles de navegación (deny-by-default; localhost solo dev).
+  applyNavigationGuards(win, !app.isPackaged);
 
   if (windowState.isMaximized) {
     win.maximize();
@@ -2117,21 +2819,11 @@ export async function createWindow(): Promise<void> {
 
   // R13/SEC-01 — CSP estricta vía cabeceras (defensa en profundidad sobre la
   // meta CSP de `renderer/index.html`; `sandbox:true` ya mitiga el riesgo base).
-  // Permite el dev-server Vite local (http+ws en 127.0.0.1:5173); en producción
-  // empaquetada solo rige 'self' + data:/blob: para assets.
+  // Dev (no empaquetado): permite el dev-server Vite local (http+ws en
+  // 127.0.0.1:5173 + 'unsafe-inline' para HMR). Packaged: 'self' estricto,
+  // `script-src 'self'`, `object-src 'none'`, sin 127.0.0.1.
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const csp = [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' http://127.0.0.1:5173",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
-      "font-src 'self' data:",
-      "connect-src 'self' http://127.0.0.1:5173 ws://127.0.0.1:5173",
-      "object-src 'none'",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; ");
+    const csp = buildCsp(app.isPackaged);
     callback({
       responseHeaders: {
         ...details.responseHeaders,
@@ -2358,6 +3050,32 @@ export async function createWindow(): Promise<void> {
   // 4. Ciclo de Streaming Conversacional + Memoria Unificada con Tool Calling (INT-01 / CORE-03)
   ipcMain.handle("ipc.llm.stream", async (_e, rawReq: unknown) => {
     return handleLlmStream(rawReq);
+  });
+
+  // A1 real: aborta el turno en curso vía el AbortController registrado por
+  // `handleLlmStream`. Síncrono por diseño: aborta y retorna de inmediato sin
+  // esperar al loop (nunca cuelga). Sin `turnId` aborta todos los activos.
+  ipcMain.handle("ipc.llm.cancel", async (_e, rawReq: unknown) => {
+    const parsed = LlmCancelSchema.safeParse(rawReq ?? {});
+    const turnId = parsed.success ? parsed.data.turnId : undefined;
+    const targets = turnId ? [turnId] : [...llmAbortControllers.keys()];
+    const cancelled: string[] = [];
+    for (const id of targets) {
+      const ctrl = llmAbortControllers.get(id);
+      if (!ctrl) continue;
+      try {
+        ctrl.abort();
+      } catch {
+        // noop: abort best-effort
+      }
+      cancelled.push(id);
+      pushTurnCancelled(id);
+    }
+    return {
+      ok: true,
+      cancelled,
+      ...(cancelled.length === 0 ? { note: "sin turnos activos" } : {}),
+    };
   });
 
 
@@ -2690,7 +3408,8 @@ export async function createWindow(): Promise<void> {
     return defaultProj;
   });
 
-  ipcMain.handle("ipc.projects.selectFolder", async () => {
+  ipcMain.handle("ipc.projects.selectFolder", async (event) => {
+    logInvokeOrigin("ipc.projects.selectFolder", event as unknown as InvokeEventLike);
     if (!win) return null;
     const result = await dialog.showOpenDialog(win, {
       title: "Seleccionar Carpeta del Proyecto",
@@ -2699,7 +3418,27 @@ export async function createWindow(): Promise<void> {
     if (result.canceled || result.filePaths.length === 0) {
       return null;
     }
-    return result.filePaths[0];
+    const folderPath = result.filePaths[0] as string;
+    const token = issueFolderToken(folderPath);
+    return { token };
+  });
+
+  ipcMain.handle("ipc.projects.selectFolderRedeem", async (event, rawReq: unknown) => {
+    logInvokeOrigin("ipc.projects.selectFolderRedeem", event as unknown as InvokeEventLike);
+    const parsed = SelectFolderRedeemSchema.safeParse(rawReq);
+    if (!parsed.success) {
+      throw new Error(`[IPC Security] Token de carpeta inválido: ${parsed.error.message}`);
+    }
+    return redeemFolderToken(parsed.data.token);
+  });
+
+  ipcMain.handle("ipc.net.fetch", async (event, rawReq: unknown) => {
+    logInvokeOrigin("ipc.net.fetch", event as unknown as InvokeEventLike);
+    const parsed = EgoFetchSchema.safeParse(rawReq);
+    if (!parsed.success) {
+      throw new Error(`[IPC Security] Solicitud egoFetch inválida: ${parsed.error.message}`);
+    }
+    return egoFetchProxied(parsed.data);
   });
 
   ipcMain.handle("ipc.snapshots", async () => ({

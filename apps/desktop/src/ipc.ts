@@ -10,6 +10,9 @@ export const EgoIpcInvokeChannels = [
   "ipc.memory",
   // Streaming conversacional + ToolExecutionLoop (INT-01)
   "ipc.llm.stream",
+  // A1: cancelación del turno en curso (Map<turnId, AbortController> en main;
+  // `turnId` opcional, sin él aborta todos; push `turn-cancelled` al renderer).
+  "ipc.llm.cancel",
   // Gobernanza HITL (ACT-06, ACT-07)
   "ipc.gov.approve",
   "ipc.approval.resolve",
@@ -88,6 +91,10 @@ export const EgoIpcInvokeChannels = [
   // Catálogo live de modelos por proveedor (T15; keys solo en main, fallback curado).
   "ipc.models.listProviders",
   "ipc.models.listModels",
+  // Hardening IPC: canje single-use del token opaco de selectFolder (TTL 60s).
+  "ipc.projects.selectFolderRedeem",
+  // Fetch-proxy mínimo en main (Authorization desde safeStorage, nunca al renderer).
+  "ipc.net.fetch",
 ] as const;
 
 /** Eventos push main→renderer (el renderer solo escucha, nunca emite). */
