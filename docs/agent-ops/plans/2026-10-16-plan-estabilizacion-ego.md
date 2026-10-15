@@ -169,7 +169,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/memory test` + `pnpm --filter @ego/tasks test` verdes + `gov/settings/compression` trigger pre-`toolLoop.run` + job cleanup worktrees/sesiones/leases probado
 - **Task file:** `docs/agent-ops/tasks/STAB-05.md`
-- **Estado:** ✅ COMPLETO (7/7 steps; memory 135/135 + tasks 59/59 + subegos 212/212 + runtime propio 67/67 + desktop propio 36/36; typecheck 0 err ×5; commit local; review P2-01 por agente distinto pendiente → orquestador; colaterales ajenos: `loop-tuning` STAB-06 WIP, FloatingWindow/ipc-contract preexistentes)
+- **Estado:** ✅ COMPLETED (commit `ce78fb5`; memory 135/135, tasks 59/59; review ego-audit approve 2026-10-16, nits no bloqueantes)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -193,7 +193,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** tests `VersionConflict` + vista proyectada `{key,version,leaseHolder}` + job curator a `kb/facts` con quarantine + `reasoningEffort low|medium|high` hilado a provider
 - **Task file:** `docs/agent-ops/tasks/STAB-06.md`
-- **Estado:** 🟡 REVIEW-PENDIENTE (7/7 steps ✅ + subegos 212t + memory 135t + models 80t + runtime 69t + desktop contrato 30/30 + typecheck 0 err + commit local; desktop full 8 rojos preexistentes FloatingWindow/ipc-contract verificados baseline-idénticos; falta veredicto review P2-01 por agente distinto)
+- **Estado:** ✅ COMPLETED (commit `7a516de`; subegos 212, memory 135, models 80, runtime 69; review ego-audit approve Tier Fast 2026-10-16)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -217,7 +217,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** job `integration-real-db` con `EGO_REAL_DB=1` + napi prebuilt verde + `pnpm test:e2e` excluye `tests/gui/specs` + RTL sin gate (import estático, falla si falta dep)
 - **Task file:** `docs/agent-ops/tasks/STAB-07.md`
-- **Estado:** ✅ COMPLETO (Steps 1-5 ✅ + verifies contrato verdes + commit local; review P2-01 Fast pendiente por agente distinto → orquestador)
+- **Estado:** ✅ COMPLETED (commit `3853af9`; RTL 2/2, ipc.integration 5/5, golden 3/3; review ego-audit approve Fast 2026-10-16; CharacterMorph → EGO-FIND-17)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
