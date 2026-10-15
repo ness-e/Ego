@@ -56,6 +56,11 @@ Ego comprueba versiones contra el feed de `EGO_UPDATE_FEED_URL`
 versión nueva, recibes un aviso discreto. La instalación es manual por
 ahora: descarga el instalador de tu sistema (NSIS/DMG/AppImage) y
 reinstala. Sin feed configurado, el comprobador queda inactivo.
+Los instaladores son **unsigned** hasta DIST-04: SmartScreen/Gatekeeper
+mostrarán avisos esperables. Verifica el hash contra `SHASUMS.txt`
+(`certutil -hashfile <exe> SHA256` en Windows;
+`shasum -a 256 <artefacto>` en macOS/Linux). Detalle:
+[Distribución](../deployment/distribution.md).
 
 ## 8. ¿Qué atajos de teclado hay? ##
 

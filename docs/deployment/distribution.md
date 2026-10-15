@@ -57,8 +57,26 @@ Notas:
   provisioning/notarización del owner no produce un artefacto confiable.
 - `win.artifactName` / `mac.artifactName` / `linux.artifactName` incluyen
   `${version}` para trazabilidad artefacto ↔ release notes ↔ tag.
-- No existe `scripts/release/sign.mjs` (ruta Backlog DIST-04 verificada
-  inexistente). Crearlo es parte de DIST-04, con certificados del owner.
+- `scripts/release/sign.mjs` existe como SPEC fail-closed (STAB-16):
+  imprime el BLOQUEO DIST-04 y sale `exit 2`; cero lógica de firma.
+  La implementación real llega con los certificados del owner.
+
+### Secretos owner-gated (nombres, nunca valores)
+
+> Ningún secreto vive en el repo (ni código, ni CI, ni docs).
+> El owner los aporta vía entorno/CI seguro cuando desbloquee DIST-04.
+
+| Secreto (nombre) | Uso | Aporta |
+| --- | --- | --- |
+| `APPLE_ID` | Apple ID del owner para `notarytool` | owner |
+| `APPLE_APP_SPECIFIC_PASSWORD` | Contraseña de app para notarización (nunca la principal) | owner |
+| `APPLE_TEAM_ID` | Team ID del programa Apple Developer | owner |
+| `CSC_LINK` / `CSC_KEY_PASSWORD` | Certificado Apple Developer ID (p12/base64) + clave, o keychain del runner macOS | owner |
+| `WIN_CERT` (`CSC_LINK` + `CSC_KEY_PASSWORD` en Windows) | Certificado Authenticode (EV recomendado) para SmartScreen | owner |
+| `WIN_TIMESTAMP_URL` | Servidor RFC3161 de timestamp (p. ej. DigiCert) | owner decide |
+
+Reglas: rotación por el owner; sin estos valores `sign.mjs` sigue en
+`exit 2` y el pipeline produce instaladores unsigned (válido y esperado).
 
 ## 3. Staged rollouts (despliegue por etapas)
 

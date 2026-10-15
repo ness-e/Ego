@@ -435,7 +435,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO (docs-only, BLOQUEADO para código)
 - **Contrato:** `scripts/release/sign.mjs` spec + secretos `APPLE_ID/WIN_CERT` documentados + `publish` por canal listo para descomentar + staged `prerelease→latest` + `SHASUMS.txt` + checklist unsigned — sin tocar `publish` activo ni añadir `electron-updater`
 - **Task file:** `docs/agent-ops/tasks/STAB-16.md`
-- **Estado:** ⬜ PENDING (🔴 BLOQUEADO para código hasta certs owner)
+- **Estado:** ✅ COMPLETED docs-only (commit pendiente; code BLOQUEADO hasta certs owner — owner-gate vigente)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
