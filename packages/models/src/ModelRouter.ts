@@ -45,6 +45,21 @@ export function isRateLimitError(err: unknown): boolean {
 }
 
 /**
+ * Error de cancelación cooperativa (CFG-10, espejo de
+ * `ToolExecutionLoop.isAbortError`). Local a models a propósito (DIP: el
+ * runtime depende del router, nunca al revés).
+ */
+function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  if (err instanceof Error) {
+    if (err.name === "AbortError") return true;
+    const msg = err.message.toLowerCase();
+    if (msg.includes("aborted") || msg.includes("operation was aborted")) return true;
+  }
+  return false;
+}
+
+/**
  * Reasoning effort + aliases + review model (CFG-04).
  * Decisión: `fast` = barato (clase haiku/mini — planner delega a hijos
  * baratos), `smart` = frontier (clase opus/sonnet — planner frontier).
@@ -491,6 +506,10 @@ export class ModelRouter {
     stream: boolean,
     onChunk?: (chunk: ModelStreamChunk) => void
   ): Promise<ModelGenerateResult> {
+    // CFG-10: turno ya abortado → ni un eslabón ni el mock se desperdician.
+    if (options.abortSignal?.aborted) {
+      throw new DOMException("This operation was aborted", "AbortError");
+    }
     const tried = new Set([this.resolveModelIdOrAlias(failedId)]);
     const chain = [
       ...this.availableModelIds,
@@ -512,8 +531,14 @@ export class ModelRouter {
           active.generate(found.descriptor.id, options)
         );
       } catch (err) {
+        // CFG-10: abort durante la cadena → corta sin mock fantasma.
+        if (options.abortSignal?.aborted || isAbortError(err)) throw err;
         console.warn(`[ModelRouter] Eslabón de fallback '${id}' falló, sigue la cadena:`, err);
       }
+    }
+    // CFG-10: abort durante la cadena → sin mock fantasma.
+    if (options.abortSignal?.aborted) {
+      throw new DOMException("This operation was aborted", "AbortError");
     }
     // Fallback absoluto a mock (conducta legacy).
     console.warn(`[ModelRouter] Cadena de fallback agotada tras '${failedId}', último recurso a mock.`);
@@ -542,6 +567,8 @@ export class ModelRouter {
         active.generate(descriptor.id, effective)
       );
     } catch (err) {
+      // CFG-10: abort mid-token → re-throw inmediato, sin cadena fallback→mock.
+      if (effective.abortSignal?.aborted || isAbortError(err)) throw err;
       // Fallback a la cadena CFG-04 (availableModels → fallbackModel → mock).
       console.warn(`[ModelRouter] Fallo en ${descriptor.id}, intentando cadena de fallback:`, err);
       return this.runFallbackChain(descriptor.id, effective, caps, false);
@@ -568,6 +595,8 @@ export class ModelRouter {
         active.stream(descriptor.id, effective, onChunk)
       );
     } catch (err) {
+      // CFG-10: abort mid-token → re-throw inmediato, sin cadena fallback→mock.
+      if (effective.abortSignal?.aborted || isAbortError(err)) throw err;
       console.warn(`[ModelRouter] Fallo en streaming de ${descriptor.id}, activando cadena de fallback:`, err);
       return this.runFallbackChain(descriptor.id, effective, caps, true, onChunk);
     }

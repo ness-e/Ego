@@ -240,4 +240,92 @@ describe("@ego/models — CFG-04 aliases + effort + fallback chain", () => {
       expect(router.getFallbackModel()).toBe("mini-model");
     });
   });
+
+  describe("abort mid-token (CFG-10)", () => {
+    function abortingProvider(providerId: string): EgoModelInterface {
+      return {
+        providerId: providerId as EgoModelInterface["providerId"],
+        isAvailable: async () => true,
+        generate: async () => {
+          throw new DOMException("This operation was aborted", "AbortError");
+        },
+        stream: async () => {
+          throw new DOMException("This operation was aborted", "AbortError");
+        },
+      };
+    }
+
+    beforeEach(() => {
+      router.registerProvider(abortingProvider("aborting-prov"));
+      router.registerModel({
+        id: "aborting-primary",
+        provider: "aborting-prov",
+        displayName: "Aborting Primary",
+        contextWindow: 32000,
+        costPerInputTokenUsd: 0,
+        costPerOutputTokenUsd: 0,
+        capabilities: new Set(["text", "streaming"]),
+        isLocal: false,
+      });
+      router.registerProvider(stubProvider("cheap-prov", { tag: "CHEAP" }));
+      router.registerModel({
+        id: "mini-model",
+        provider: "cheap-prov",
+        displayName: "Mini barato",
+        contextWindow: 8000,
+        costPerInputTokenUsd: 0,
+        costPerOutputTokenUsd: 0,
+        capabilities: new Set(["text", "streaming"]),
+        isLocal: false,
+      });
+      router.bindRole("fast-classifier", ["aborting-primary"]);
+      router.setAvailableModels(["mini-model"]);
+    });
+
+    it("generate abortado re-lanza AbortError sin tocar el mock", async () => {
+      // Arrange: señal ya abortada + espía sobre el mock interno
+      const controller = new AbortController();
+      controller.abort();
+      const { MockProvider } = await import("../src/providers/MockProvider.js");
+      const mockSpy = vi.spyOn(MockProvider.prototype, "generate");
+
+      // Act: generate bajo abort
+      const promise = router.generateText("fast-classifier", {
+        messages: [{ role: "user", content: "hola" }],
+        abortSignal: controller.signal,
+      });
+
+      // Assert: propaga AbortError en vez de resolver con mock fantasma
+      await expect(promise).rejects.toSatisfy((err: unknown) => {
+        return err instanceof DOMException && (err as DOMException).name === "AbortError";
+      });
+      expect(mockSpy).not.toHaveBeenCalled();
+      mockSpy.mockRestore();
+    });
+
+    it("stream abortado re-lanza AbortError sin tocar el mock", async () => {
+      // Arrange: señal ya abortada + espía sobre el mock interno
+      const controller = new AbortController();
+      controller.abort();
+      const { MockProvider } = await import("../src/providers/MockProvider.js");
+      const mockSpy = vi.spyOn(MockProvider.prototype, "stream");
+
+      // Act: stream bajo abort
+      const promise = router.streamText(
+        "fast-classifier",
+        {
+          messages: [{ role: "user", content: "hola" }],
+          abortSignal: controller.signal,
+        },
+        () => {}
+      );
+
+      // Assert: propaga AbortError en vez de caer a la cadena
+      await expect(promise).rejects.toSatisfy((err: unknown) => {
+        return err instanceof DOMException && (err as DOMException).name === "AbortError";
+      });
+      expect(mockSpy).not.toHaveBeenCalled();
+      mockSpy.mockRestore();
+    });
+  });
 });

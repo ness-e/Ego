@@ -41,7 +41,7 @@ export class MockProvider implements EgoModelInterface {
     if (options.tools && options.tools.length > 0 && userQuery.includes("SIMULATE_TOOL:")) {
       const match = userQuery.match(/SIMULATE_TOOL:([a-zA-Z0-9_-]+)(?::(\{[\s\S]*\}))?/);
       if (match) {
-        const toolName = match[1];
+        const toolName = match[1] ?? "";
         let args: Record<string, unknown> = {};
         if (match[2]) {
           try {

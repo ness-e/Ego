@@ -262,6 +262,7 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
                   toolCallAcc.push({ id: "", name: "", args: "" });
                 }
                 const entry = toolCallAcc[tc.index];
+                if (!entry) continue;
                 if (tc.id) {
                   entry.id = tc.id;
                 }
