@@ -12,4 +12,5 @@ export * from './WorkerTaskPool.js';
 export * from './RunRecorder.js';
 export * from './ContextProvider.js';
 export * from './MemoryCleanupJob.js';
+export * from './WorkerPolicy.js';
 

@@ -2,6 +2,7 @@
  * Tipos canónicos para el Servicio de ChangeSets y Diffs.
  * Extraído y adaptado de Coucou COUC-07 (DiffEngine / ChangeSetService).
  */
+import { createHash } from "node:crypto";
 
 export type DiffLineKind = "context" | "added" | "removed";
 
@@ -37,6 +38,15 @@ export interface ChangeSet {
   totalAdded: number;
   totalRemoved: number;
   tooLarge: boolean;
+  /**
+   * STAB-14 delta aditivo: artefacto/trazabilidad del changeset.
+   * `artifactId` identifica el artefacto destino (p. ej. `kb/doc`);
+   * `payloadRef` referencia opaca al payload canonical (`sha256:…`)
+   * para que `ActivityItem`/UI cargue el diff bajo demanda sin
+   * duplicar contenido. Campos opcionales: callers existentes intactos.
+   */
+  artifactId?: string;
+  payloadRef?: string;
 }
 
 /**
@@ -166,6 +176,25 @@ export class ChangeSetService {
       totalRemoved,
       tooLarge,
     };
+  }
+
+  /**
+   * STAB-14: referencia opaca de payload (`sha256:<12hex>`) para un contenido.
+   */
+  public static buildPayloadRef(content: string): string {
+    const normalized = content.replace(/\r\n/g, "\n");
+    const hex = createHash("sha256").update(normalized, "utf8").digest("hex").slice(0, 12);
+    return `sha256:${hex}`;
+  }
+
+  /**
+   * STAB-14: adjunta trazabilidad de artefacto/payload a un changeset
+   * existente (inmutable: retorna copia). Sin `artifactId` no hay `payloadRef`.
+   */
+  public static withPayloadRef(cs: ChangeSet, artifactId?: string): ChangeSet {
+    if (!artifactId) return { ...cs };
+    const canonical = JSON.stringify({ files: cs.files, summary: cs.summary });
+    return { ...cs, artifactId, payloadRef: this.buildPayloadRef(canonical) };
   }
 
   /**

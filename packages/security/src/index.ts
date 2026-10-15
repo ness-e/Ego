@@ -61,8 +61,7 @@ export {
   CryptoErasure,
   ScopeKeyRegistry,
   ErasureVerificationError,
-} from "./CryptoErasure.js";
-export type {
+} from "./CryptoErasure.js";export type {
   ErasureStore,
   ErasureStoreRecord,
   ErasurePut,
@@ -72,3 +71,9 @@ export type {
   ErasureReceipt,
   CryptoErasureOptions,
 } from "./CryptoErasure.js";
+export {
+  isBlockedSSRFIPv4,
+  isBlockedSSRFIPv6,
+  validateSSRFUrl,
+} from "./netPolicy.js";
+export type { SSRFCheck } from "./netPolicy.js";

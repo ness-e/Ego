@@ -4,4 +4,6 @@ export * from "./EventNormalizer.js";
 export * from "./StructuredLogger.js";
 export * from "./ToolActivityEmitter.js";
 export * from "./EventIngress.js";
+export * from "./ApprovalIdentity.js";
+export * from "./InteractionTransport.js";
 
