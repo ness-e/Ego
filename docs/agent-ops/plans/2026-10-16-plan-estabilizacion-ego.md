@@ -169,7 +169,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/memory test` + `pnpm --filter @ego/tasks test` verdes + `gov/settings/compression` trigger pre-`toolLoop.run` + job cleanup worktrees/sesiones/leases probado
 - **Task file:** `docs/agent-ops/tasks/STAB-05.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (7/7 steps; memory 135/135 + tasks 59/59 + subegos 212/212 + runtime propio 67/67 + desktop propio 36/36; typecheck 0 err ×5; commit local; review P2-01 por agente distinto pendiente → orquestador; colaterales ajenos: `loop-tuning` STAB-06 WIP, FloatingWindow/ipc-contract preexistentes)
 - **Branch:**
 - **Commit:**
   **Risk Register:**

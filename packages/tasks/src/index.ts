@@ -11,4 +11,5 @@ export * from './MemoryCurator.js';
 export * from './WorkerTaskPool.js';
 export * from './RunRecorder.js';
 export * from './ContextProvider.js';
+export * from './MemoryCleanupJob.js';
 

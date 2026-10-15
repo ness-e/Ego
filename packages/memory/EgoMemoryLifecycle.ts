@@ -1,6 +1,12 @@
 import type { EgoMemoryAdapter, EgoPut } from "./EgoMemoryAdapter.js";
 import type { SearchHit } from "vantadb/types";
-import { getQuarantineAware } from "./QuarantineAwareReads.js";
+import { getQuarantineAware, listQuarantineAware } from "./QuarantineAwareReads.js";
+import {
+  resolveCompressionSettings,
+  shouldTriggerCompression,
+  type CompressionEvaluation,
+  type CompressionSettings,
+} from "./CompressionSettings.js";
 
 /**
  * Estado determinista de recuperación de memoria previo al turno.
@@ -297,6 +303,29 @@ export class EgoMemoryLifecycle {
     });
 
     return archiveKey;
+  }
+
+  /**
+   * STAB-05: pre-compactación condicional (trigger del turno).
+   * Evalúa `shouldTriggerCompression` y, solo si dispara, archiva vía
+   * `handlePreCompaction` (siempre ANTES de truncar/resumir — el caller
+   * compacta después con `isCompressionRebuild: true`). Nunca lanza por
+   * settings parciales: resuelve contra defaults Gate P.
+   */
+  async maybePreCompact(
+    sessionId: string,
+    turns: TurnRecord[],
+    estimatedTokens: number,
+    windowTokens: number,
+    settings?: Partial<CompressionSettings>
+  ): Promise<CompressionEvaluation & { triggered: boolean; archiveKey: string | null }> {
+    const resolved = resolveCompressionSettings(settings);
+    const evaluation = shouldTriggerCompression(estimatedTokens, windowTokens, resolved);
+    if (!evaluation.shouldCompact) {
+      return { ...evaluation, triggered: false, archiveKey: null };
+    }
+    const archiveKey = await this.handlePreCompaction(sessionId, turns);
+    return { ...evaluation, triggered: true, archiveKey };
   }
 
   /**

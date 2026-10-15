@@ -121,6 +121,19 @@ export interface LoopRunOptions {
    * prohibida y debe viajar como user message o tool result.
    */
   isCompressionRebuild?: boolean;
+  /**
+   * Parte ESTABLE del system (sin overlay efímero) para el check de
+   * estabilidad. Si se omite, el check hashea `systemPrompt` exacto.
+   * El overlay efímero API-call-time cambia cada turno por diseño y nunca
+   * debe incluirse en el fingerprint estable (STAB-03/STAB-05).
+   */
+  stableSystemPrompt?: string;
+  /**
+   * Huella del system prompt cacheado a inicio de sesión para ESTA llamada
+   * (gana a la del config). Si difiere del `systemPrompt` efectivo, el loop
+   * rechaza el turno salvo `isCompressionRebuild: true` (STAB-05).
+   */
+  cachedSystemPromptFingerprint?: string;
   maxSteps?: number;
   approvalHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   abortSignal?: AbortSignal;

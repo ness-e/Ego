@@ -8,7 +8,13 @@ import {
   EgoMemoryAdapter,
   EgoMemoryLifecycle,
   createSubEgoId,
+  parseCompressionSettings,
+  shouldTriggerCompression,
+  COMPRESSION_SETTINGS_KEY,
+  COMPRESSION_SETTINGS_NAMESPACE,
+  type CompressionSettings,
   type EgoRecallStatus,
+  type TurnRecord,
 } from "@ego/memory";
 import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL, ModelCatalog, CATALOG_CACHE_TTL_MS, type CatalogProviderId } from "@ego/models";
 import type { PreferredModel, ModelProviderFactory } from "@ego/models";
@@ -20,6 +26,7 @@ import { ApprovalEngine, ExecutionManager, type PendingApproval } from "@ego/exe
 import {
   SubEgoRegistry,
   SubEgoFactory,
+  SubEgoWorktreeManager,
   fromMemoryManifest,
   type SubEgoCreateInput,
   type SubEgoManifest,
@@ -137,6 +144,7 @@ import {
   WorkerTaskPool,
   ProactivityEngine,
   TaskCheckpointManager,
+  MemoryCleanupJob,
 } from "@ego/tasks";
 import {
   CredentialManager,
@@ -1826,6 +1834,154 @@ export async function loadPermissionsSettingsIntoCache(): Promise<PermissionsSet
 }
 
 // ---------------------------------------------------------------------------
+// STAB-05: Compresión con thresholds + cleanupPeriod (Gate P vinculante).
+//
+// `gov/settings/compression` gobierna el trigger pre-`toolLoop.run`
+// (threshold 70% ventana, target 40%, auto_compact) y el job periódico
+// (cleanup 30d worktrees/sesiones/leases, max_snapshots). Patrón espejo de
+// STAB-02: payload ausente/inválido → defaults, boot nunca tumba.
+// ---------------------------------------------------------------------------
+
+/** Cache en memoria de `gov/settings/compression` (fuente: VantaDB). */
+let cachedCompressionSettings: CompressionSettings | null = null;
+
+/** Settings efectivos: cache de boot o defaults Gate P (nunca lanza). */
+export function getCachedCompressionSettings(): CompressionSettings {
+  if (cachedCompressionSettings) return cachedCompressionSettings;
+  return parseCompressionSettings({});
+}
+
+/** Solo tests: fija o limpia el cache sin tocar VantaDB. */
+export function setCachedCompressionSettingsForTests(settings: CompressionSettings | null): void {
+  cachedCompressionSettings = settings;
+}
+
+/**
+ * Carga `gov/settings/compression` al cache (boot, tras `adapter` listo).
+ * Payload ausente → defaults; inválido → defaults + warn (no tumba el boot).
+ */
+export async function loadCompressionSettingsIntoCache(): Promise<CompressionSettings> {
+  try {
+    const saved = await adapter.get(COMPRESSION_SETTINGS_NAMESPACE, COMPRESSION_SETTINGS_KEY);
+    let payload: unknown = saved;
+    if (typeof saved === "object" && saved !== null && "payload" in saved) {
+      payload = (saved as { payload: unknown }).payload;
+    }
+    if (payload && typeof payload === "object") {
+      cachedCompressionSettings = parseCompressionSettings(payload);
+      return cachedCompressionSettings;
+    }
+  } catch (err) {
+    console.warn("[Ego Main] Settings de compresión ilegibles, usando defaults STAB-05:", err);
+  }
+  cachedCompressionSettings = parseCompressionSettings({});
+  return cachedCompressionSettings;
+}
+
+/**
+ * Estimación barata de tokens de los mensajes del turno (chars/4, techo).
+ * Hot path: O(n) sobre longitudes, sin serialización (performance STAB-05).
+ */
+export function estimateTurnTokens(messages: Array<{ content: string }>): number {
+  let chars = 0;
+  for (const m of messages) chars += m.content.length;
+  return Math.ceil(chars / 4);
+}
+
+/**
+ * Huella estable (sha256 de la parte 3-tiers SIN overlay efímero) por sesión
+ * para el enforcement del loop. El overlay cambia cada turno por diseño y
+ * nunca entra al fingerprint (STAB-03/STAB-05).
+ */
+const loopStableHashes = new Map<string, string>();
+
+export function getLoopStableHash(sessionId: string): string | undefined {
+  return loopStableHashes.get(sessionId);
+}
+
+/** Registra el hash estable del turno emitido; retorna el hash registrado. */
+export function updateLoopStableHash(sessionId: string, stablePrompt: string): string {
+  const hash = createHash("sha256").update(stablePrompt, "utf8").digest("hex");
+  loopStableHashes.set(sessionId, hash);
+  return hash;
+}
+
+/** Libera el hash de una sesión (solo tests / cierre de sesión). */
+export function clearLoopStableHash(sessionId: string): void {
+  loopStableHashes.delete(sessionId);
+}
+
+/**
+ * Job periódico de limpieza STAB-05 (cada 24h + primera corrida diferida
+ * 60s post-boot para no competir con el arranque).
+ *
+ * Cubre `sessions/timelines` + `session/turns` (30d) y worktrees huérfanos
+ * del workspace. Fail-safe: cualquier fallo se loguea y el timer sigue.
+ * Snapshots `.vdbdump`: fuera (ubicación de dumps gobernada por recovery).
+ * Leases: sin owner prod (SharedMemory es por-instancia RAM) — el job
+ * acepta el hook cuando exista instancia gobernada (deuda STAB-05→STAB-12).
+ */
+let memoryCleanupTimer: NodeJS.Timeout | null = null;
+let memoryCleanupFirst: NodeJS.Timeout | null = null;
+
+export function scheduleMemoryCleanup(): void {
+  if (memoryCleanupTimer) return;
+  const runCleanup = async (): Promise<void> => {
+    try {
+      const settings = getCachedCompressionSettings();
+      const repoRoot = process.env["EGO_WORKSPACE_PATH"] || process.cwd();
+      const worktrees = new SubEgoWorktreeManager();
+      const job = new MemoryCleanupJob(adapter, {
+        cleanupPeriodDays: settings.cleanupPeriodDays,
+        pruneOrphanWorktrees: () =>
+          worktrees.pruneOrphanWorktrees(repoRoot, {
+            cleanupPeriodDays: settings.cleanupPeriodDays,
+          }),
+      });
+      const report = await job.run();
+      const total =
+        report.sessions.pruned.length +
+        report.turns.pruned.length +
+        (report.worktrees?.pruned.length ?? 0);
+      if (total > 0) {
+        console.log(
+          `[Ego Main] MemoryCleanup STAB-05: sesiones=${report.sessions.pruned.length} ` +
+            `turns=${report.turns.pruned.length} worktrees=${report.worktrees?.pruned.length ?? 0}`
+        );
+      }
+    } catch (err) {
+      console.warn("[Ego Main] MemoryCleanup STAB-05 falló (reintenta en 24h):", err);
+    }
+  };
+  // Primera corrida diferida; luego cada 24h. `unref` para no retener salida.
+  memoryCleanupFirst = setTimeout(() => {
+    memoryCleanupFirst = null;
+    void runCleanup();
+  }, 60_000);
+  if (typeof memoryCleanupFirst === "object" && memoryCleanupFirst !== null && "unref" in memoryCleanupFirst) {
+    (memoryCleanupFirst as NodeJS.Timeout).unref();
+  }
+  memoryCleanupTimer = setInterval(() => {
+    void runCleanup();
+  }, 24 * 60 * 60 * 1000);
+  if (typeof memoryCleanupTimer === "object" && memoryCleanupTimer !== null && "unref" in memoryCleanupTimer) {
+    (memoryCleanupTimer as NodeJS.Timeout).unref();
+  }
+}
+
+/** Solo tests: detiene los timers periódicos sin efectos colaterales. */
+export function stopMemoryCleanupForTests(): void {
+  if (memoryCleanupFirst) {
+    clearTimeout(memoryCleanupFirst);
+    memoryCleanupFirst = null;
+  }
+  if (memoryCleanupTimer) {
+    clearInterval(memoryCleanupTimer);
+    memoryCleanupTimer = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // STAB-03: PromptAssembly cableado al turno real (tiers Hermes, caché e inyección).
 //
 // El turno ya no construye system ad-hoc: ensambla 3 tiers vía
@@ -2054,6 +2210,46 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       win.webContents.send("ipc.chat.recall_status", recallStatus);
     }
 
+    // STAB-05: trigger pre-compactación (archive-first, nunca trunca aquí).
+    // Si el turno estimado supera el threshold de `gov/settings/compression`,
+    // se archiva el historial en `kb/history_archive` vía `maybePreCompact`
+    // y el turno corre como rebuild sancionado (`isCompressionRebuild: true`,
+    // único cache-break permitido). Falla defensivo: sin archive no hay
+    // rebuild, el turno sigue normal.
+    let isCompressionRebuild = false;
+    {
+      const compressionSettings = getCachedCompressionSettings();
+      const preEstimate = Math.ceil((req.prompt.length + contextText.length) / 4);
+      const evaluation = shouldTriggerCompression(
+        preEstimate,
+        compressionSettings.maxWindowTokens,
+        compressionSettings
+      );
+      if (evaluation.shouldCompact) {
+        try {
+          const rows = await adapter.list("session/turns", 200);
+          const history: TurnRecord[] = [];
+          for (const row of rows) {
+            if (typeof row.key !== "string" || !row.key.startsWith(`${sessionId}:`)) continue;
+            const p = row.payload;
+            if (p !== null && typeof p === "object" && typeof (p as Record<string, unknown>)["turnId"] === "string") {
+              history.push(p as TurnRecord);
+            }
+          }
+          const pre = await lifecycle.maybePreCompact(
+            sessionId,
+            history,
+            preEstimate,
+            compressionSettings.maxWindowTokens,
+            compressionSettings
+          );
+          isCompressionRebuild = pre.triggered;
+        } catch (err) {
+          console.warn("[Ego Main] Pre-compactación STAB-05 omitida (turno sigue normal):", err);
+        }
+      }
+    }
+
     // STAB-03: system 3-tiers vía PromptAssembly (byte-stable por sesión).
     // El recall fresco (contextText) viaja como overlay efímero API-call-time:
     // nunca contamina el prefijo cacheado. Los steers drenan como user
@@ -2065,6 +2261,7 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       callerSystemMessage: req.systemPrompt,
       sessionId,
       ephemeralText: contextText,
+      isCompressionRebuild,
     });
     const systemInstruction = turnPrompt.effectiveSystemPrompt;
 
@@ -2100,12 +2297,20 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
     // La señal viaja hasta generate/stream: el provider que la honre aborta
     // mid-token; el que no, completa el turno en vuelo y el loop se detiene
     // en el siguiente checkpoint (`aborted`, sin colgar).
+    // STAB-05: el loop hace enforcement del prefijo estable (sha256 de la
+    // parte 3-tiers sin overlay) salvo rebuild por compresión; el hash
+    // baseline se fija en el primer turno de cada sesión.
+    const prevStableHash = getLoopStableHash(sessionId);
+    updateLoopStableHash(sessionId, turnPrompt.assembled.systemPrompt);
     const loopResult: LoopExecutionResult = await toolLoop.run({
       messages,
       context: execContext,
       role: "general-chat",
       preferredModel,
       systemPrompt: systemInstruction,
+      stableSystemPrompt: turnPrompt.assembled.systemPrompt,
+      cachedSystemPromptFingerprint: prevStableHash,
+      isCompressionRebuild,
       traceId: turnId,
       eventBus,
       abortSignal: abortController.signal
@@ -2810,6 +3015,12 @@ export async function createWindow(): Promise<void> {
   // STAB-02: settings de permisos al cache antes de construir motores que
   // los consumen (spawn + ApprovalEngine). Sin payload → defaults CFG-06.
   await loadPermissionsSettingsIntoCache();
+
+  // STAB-05: settings de compresión al cache + job periódico de limpieza
+  // (sesiones/turns stale + worktrees huérfanos; leases: sin instancia
+  // SharedMemory en prod main — hook inyectable del job, ver deuda STAB-05).
+  await loadCompressionSettingsIntoCache();
+  scheduleMemoryCleanup();
 
   approvalEngine = new ApprovalEngine({
     mode: "standard",

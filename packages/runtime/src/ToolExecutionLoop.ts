@@ -1,4 +1,5 @@
 import type { ModelMessage, ModelRole } from "@ego/models";
+import { createHash } from "node:crypto";
 import { ModelRouter } from "@ego/models";
 import { ToolRegistry } from "@ego/tools";
 import { ExecutionManager, type ApprovalEngine } from "@ego/execution";
@@ -153,6 +154,31 @@ export class ToolExecutionLoop {
     const sessionId = options.context.sessionId;
     const traceId = options.traceId ?? sessionId;
     const loopStartTime = Date.now();
+
+    // STAB-05: enforcement del prefijo cacheado (deuda `types.ts:77-87`).
+    // Si hay fingerprint fijado (opción > config) y el system difiere, el
+    // turno se rechaza SIN llamar al modelo — salvo rebuild explícito por
+    // compresión (`isCompressionRebuild: true`, único cache-break
+    // sancionado, espejo de `assertSystemPromptStable` en @ego/subegos).
+    const cachedFingerprint =
+      options.cachedSystemPromptFingerprint ?? this.config.cachedSystemPromptFingerprint;
+    // El overlay efímero muta cada turno por diseño: el check hashea la
+    // parte estable (`stableSystemPrompt`) cuando el caller la declara.
+    const stableForCheck = options.stableSystemPrompt ?? systemPrompt;
+    if (cachedFingerprint !== undefined && stableForCheck !== undefined) {
+      const candidate = createHash("sha256").update(stableForCheck, "utf8").digest("hex");
+      if (candidate !== cachedFingerprint && options.isCompressionRebuild !== true) {
+        return {
+          status: "error",
+          messages,
+          steps: 0,
+          error:
+            "System prompt mutado mid-turn fuera de compresión: la única reconstrucción " +
+            "permitida usa { isCompressionRebuild: true }.",
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+        };
+      }
+    }
 
     let step = 0;
     const totalUsage = {

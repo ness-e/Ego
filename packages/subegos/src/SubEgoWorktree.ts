@@ -10,6 +10,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import * as fs from "node:fs";
+import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 
 const execFileAsync = promisify(execFile);
@@ -36,6 +37,32 @@ export interface FinalizeWorktreeResult {
 
 /** Ejecutor git inyectable (sync o async); el manager siempre lo `await`. */
 export type ExecGitFn = (args: string[], cwd: string) => string | Promise<string>;
+
+export interface OrphanWorktreeEntry {
+  path: string;
+  pruned: boolean;
+  reason: string;
+}
+
+export interface PruneOrphanWorktreesReport {
+  repoRoot: string;
+  scanned: number;
+  pruned: OrphanWorktreeEntry[];
+  preserved: OrphanWorktreeEntry[];
+  /** `true` si `git worktree list` falló: nada se podó (conservador). */
+  inspectionFailed: boolean;
+}
+
+export interface PruneOrphanWorktreesOptions {
+  nowMs?: number;
+  /** Días de antigüedad para podar huérfanos (default 30, Gate P). */
+  cleanupPeriodDays?: number;
+  /** Inyectables para tests (default: `node:fs/promises`). */
+  readdirFn?: (dir: string) => Promise<string[]> | string[];
+  statFn?: (filePath: string) => Promise<{ mtimeMs: number }> | { mtimeMs: number };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export class SubEgoWorktreeManager {
   private execGit: ExecGitFn;
@@ -213,5 +240,82 @@ export class SubEgoWorktreeManager {
       preservedForReview: true,
       note: `Trabajo detectado (${commits} commits, dirty: ${dirty}). Worktree preservado en ${wtPath} (rama ${branch}).`,
     };
+  }
+
+  /**
+   * Poda de worktrees huérfanos (STAB-05, job cleanupPeriod).
+   *
+   * Huérfano = directorio bajo `.ego-worktrees/` que NO figura en
+   * `git worktree list --porcelain`. Solo se poda si supera
+   * `cleanupPeriodDays` (mtime); joven o fallo de `remove` → preservado
+   * con razón explícita. Fallo de inspección git → reporte vacío con
+   * `inspectionFailed: true` (conservador: nunca podar a ciegas).
+   */
+  async pruneOrphanWorktrees(
+    repoRoot: string,
+    options: PruneOrphanWorktreesOptions = {}
+  ): Promise<PruneOrphanWorktreesReport> {
+    const nowMs = options.nowMs ?? Date.now();
+    const cleanupPeriodDays = options.cleanupPeriodDays ?? 30;
+    const readdir = options.readdirFn ?? ((dir: string) => fsp.readdir(dir));
+    const stat = options.statFn ?? (async (p: string) => fsp.stat(p));
+    const base: PruneOrphanWorktreesReport = {
+      repoRoot,
+      scanned: 0,
+      pruned: [],
+      preserved: [],
+      inspectionFailed: false,
+    };
+
+    let registered = new Set<string>();
+    try {
+      const out = await this.execGit(["worktree", "list", "--porcelain"], repoRoot);
+      registered = new Set(
+        out
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith("worktree "))
+          .map((line) => path.resolve(line.slice("worktree ".length).trim()))
+      );
+    } catch {
+      return { ...base, inspectionFailed: true };
+    }
+
+    const dir = path.join(repoRoot, SUBEGO_WORKTREES_DIR);
+    let entries: string[];
+    try {
+      entries = await readdir(dir);
+    } catch {
+      return base;
+    }
+    base.scanned = entries.length;
+
+    const maxAgeMs = cleanupPeriodDays * DAY_MS;
+    for (const entry of entries) {
+      const fullPath = path.join(repoRoot, SUBEGO_WORKTREES_DIR, entry);
+      if (registered.has(path.resolve(fullPath))) {
+        base.preserved.push({ path: fullPath, pruned: false, reason: "active" });
+        continue;
+      }
+      let mtimeMs = 0;
+      try {
+        const st = await stat(fullPath);
+        mtimeMs = st.mtimeMs;
+      } catch {
+        base.preserved.push({ path: fullPath, pruned: false, reason: "stat-failed" });
+        continue;
+      }
+      if (nowMs - mtimeMs <= maxAgeMs) {
+        base.preserved.push({ path: fullPath, pruned: false, reason: "orphan-young" });
+        continue;
+      }
+      try {
+        await this.execGit(["worktree", "remove", "--force", fullPath], repoRoot);
+        await this.execGit(["worktree", "prune"], repoRoot);
+        base.pruned.push({ path: fullPath, pruned: true, reason: "orphan-stale" });
+      } catch {
+        base.preserved.push({ path: fullPath, pruned: false, reason: "prune-failed" });
+      }
+    }
+    return base;
   }
 }
