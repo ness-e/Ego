@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage, session, shell } from "electron";
-import { join } from "node:path";
+import { join, resolve as resolveFsPath, isAbsolute as isAbsoluteFsPath, relative as relativeFsPath } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -142,6 +142,8 @@ import {
   CredentialManager,
   CredentialPool,
   SyncSafeStorageBackend,
+  evaluateToolCall,
+  isDenied,
 } from "@ego/security";
 import { WindowStateManager } from "./windows/WindowStateManager.js";
 import { initAutoUpdater, resolveUpdateFeedUrl } from "./updater.js";
@@ -196,6 +198,14 @@ let trayStatus: EgoTrayStatus = "idle";
  * vía HITL (`resume()` tras aprobación en ApprovalCard/ActivityTray).
  */
 const TASK_SAFE_KINDS = new Set(["indexing", "sync", "maintenance", "notification"]);
+
+/**
+ * `true` si el `metadata.kind` de tarea corre directo (STAB-02, R5
+ * deny-by-default); cualquier otro queda `paused` y sale vía HITL.
+ */
+export function isTaskKindSafe(kind: unknown): boolean {
+  return typeof kind === "string" && TASK_SAFE_KINDS.has(kind);
+}
 
 interface TerminalSession {
   id: string;
@@ -1668,8 +1678,14 @@ export function resolvePermissionDecision(
  * `additionalDirectories`). Comparación por prefijo normalizado (`/` final).
  */
 export function isPathInScope(path: string, scopeDirs: string[]): boolean {
-  const norm = (d: string): string => (d.endsWith("/") ? d : `${d}/`);
-  return scopeDirs.some((dir) => dir.length > 0 && (path === dir || path.startsWith(norm(dir))));
+  const norm = (d: string): string => {
+    const n = d.replace(/\\/g, "/");
+    return n.endsWith("/") ? n : `${n}/`;
+  };
+  const target = path.replace(/\\/g, "/");
+  return scopeDirs.some(
+    (dir) => dir.length > 0 && (target === dir.replace(/\\/g, "/") || target.startsWith(norm(dir)))
+  );
 }
 
 /**
@@ -1749,6 +1765,64 @@ export function shouldRequireApproval(
 /** Scope efectivo: raíz del workspace + `additionalDirectories` (CFG-06). */
 export function resolveScopeDirs(workspaceRoot: string, additionalDirectories: string[]): string[] {
   return [workspaceRoot, ...additionalDirectories];
+}
+
+/**
+ * Raíz efectiva para el `cwd` de `ipc.terminal.spawn` (STAB-02): la primera
+ * raíz (workspace o `additionalDirectories`) que contiene al `cwd`, resuelta
+ * con `node:path`. Sin match → workspace (el `PathValidator` falla cerrado).
+ * Pura y testeable sin Electron.
+ */
+export function resolveCwdRoot(
+  cwd: string | undefined,
+  workspace: string,
+  additionalDirectories: string[]
+): string {
+  if (!cwd || cwd.trim().length === 0) return workspace;
+  const absTarget = isAbsoluteFsPath(cwd) ? resolveFsPath(cwd) : resolveFsPath(workspace, cwd);
+  for (const root of [workspace, ...additionalDirectories]) {
+    if (!root || root.trim().length === 0) continue;
+    const absRoot = resolveFsPath(root);
+    const rel = relativeFsPath(absRoot, absTarget);
+    if (rel === "" || (!rel.startsWith("..") && !isAbsoluteFsPath(rel))) return absRoot;
+  }
+  return workspace;
+}
+
+/** Cache en memoria de `gov/settings/permissions` (STAB-02; fuente: VantaDB). */
+let cachedPermissionsSettings: PermissionsSettings | null = null;
+
+/** Settings efectivos: cache de boot o defaults CFG-06 (nunca lanza). */
+export function getCachedPermissionsSettings(): PermissionsSettings {
+  if (cachedPermissionsSettings) return cachedPermissionsSettings;
+  return parsePermissionsSettings({});
+}
+
+/** Solo tests: fija o limpia el cache sin tocar VantaDB. */
+export function setCachedPermissionsSettingsForTests(settings: PermissionsSettings | null): void {
+  cachedPermissionsSettings = settings;
+}
+
+/**
+ * Carga `gov/settings/permissions` al cache (boot, tras `adapter` listo).
+ * Payload ausente → defaults; inválido → defaults + warn (no tumba el boot).
+ */
+export async function loadPermissionsSettingsIntoCache(): Promise<PermissionsSettings> {
+  try {
+    const saved = await adapter.get("gov/settings", "permissions");
+    let payload: unknown = saved;
+    if (typeof saved === "object" && saved !== null && "payload" in saved) {
+      payload = (saved as { payload: unknown }).payload;
+    }
+    if (payload && typeof payload === "object") {
+      cachedPermissionsSettings = parsePermissionsSettings(payload);
+      return cachedPermissionsSettings;
+    }
+  } catch (err) {
+    console.warn("[Ego Main] Settings de permisos ilegibles, usando defaults CFG-06:", err);
+  }
+  cachedPermissionsSettings = parsePermissionsSettings({});
+  return cachedPermissionsSettings;
 }
 
 // ---------------------------------------------------------------------------
@@ -2653,7 +2727,7 @@ export async function createWindow(): Promise<void> {
       requiresApproval: (def) => {
         const kind =
           typeof def.metadata?.kind === "string" ? def.metadata.kind : "";
-        return !TASK_SAFE_KINDS.has(kind);
+        return !isTaskKindSafe(kind);
       },
       onApprovalRequired: (taskId, def) => {
         eventBus?.emit(
@@ -2733,10 +2807,15 @@ export async function createWindow(): Promise<void> {
     console.warn("[Ego Main] Advertencia al restaurar servidores MCP de VantaDB:", err);
   }
 
+  // STAB-02: settings de permisos al cache antes de construir motores que
+  // los consumen (spawn + ApprovalEngine). Sin payload → defaults CFG-06.
+  await loadPermissionsSettingsIntoCache();
+
   approvalEngine = new ApprovalEngine({
     mode: "standard",
-    // CFG-06 (decisión owner): timeout de aprobación 60s (approvals.timeoutSec).
-    defaultTimeoutMs: APPROVAL_TIMEOUT_MS_CFG06,
+    // CFG-06 (decisión owner): timeout de aprobación desde settings
+    // (`approvals.timeoutSec`, default 60s → APPROVAL_TIMEOUT_MS_CFG06).
+    defaultTimeoutMs: getCachedPermissionsSettings().approvals.timeoutSec * 1000,
     onApprovalRequested: (pending: PendingApproval) => {
       win?.webContents.send("ipc.approval.request", pending);
     },
@@ -3723,6 +3802,48 @@ export async function createWindow(): Promise<void> {
     };
   });
 
+  // CFG-06/STAB-02: política de permisos + approvals persistida en VantaDB
+  // `gov/settings/permissions` (Zod fail-closed, sin archivos `~/.codex`).
+  // Sin secretos en este namespace: solo modos, reglas y directorios.
+  ipcMain.handle("ipc.settings.getPermissions", async () => {
+    try {
+      const saved = await adapter.get("gov/settings", "permissions");
+      const payload = unwrapSettingsPayload(saved);
+      if (payload) {
+        cachedPermissionsSettings = parsePermissionsSettings(payload);
+        return { ok: true, settings: cachedPermissionsSettings };
+      }
+    } catch {
+      // noop: sin persistido, responde el cache/defaults
+    }
+    return { ok: true, settings: getCachedPermissionsSettings() };
+  });
+
+  ipcMain.handle("ipc.settings.savePermissions", async (_e, rawReq: unknown) => {
+    const parseResult = PermissionsSettingsSchema.safeParse(rawReq ?? {});
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    await adapter.put({
+      namespace: "gov/settings",
+      key: "permissions",
+      payload: parseResult.data,
+      metadata: { updatedAtMs: Date.now() },
+    });
+    cachedPermissionsSettings = parseResult.data;
+    try {
+      await adapter.recordAudit(
+        "gov/settings",
+        "permissions",
+        { action: "save", defaultMode: parseResult.data.permissions.defaultMode },
+        "user"
+      );
+    } catch {
+      // noop: auditoría best-effort, el guardado ya se aplicó
+    }
+    return { ok: true, settings: parseResult.data };
+  });
+
   // 6. Decision Intelligence Layer IPC (DEC-01..DEC-08)
   ipcMain.handle("ipc.decision.evaluate", async (_e, rawReq: unknown) => {
     const parseResult = IntentRequestSchema.safeParse(rawReq);
@@ -4195,6 +4316,33 @@ export async function createWindow(): Promise<void> {
       return { ok: false, error: parseResult.error.message };
     }
     const { command, cwd, timeoutMs } = parseResult.data;
+    const workspace = process.env.EGO_WORKSPACE_PATH || process.cwd();
+    const permissionSettings = getCachedPermissionsSettings();
+    // STAB-02: veto deny-gana de la matriz `@ego/security` (superset de 16
+    // patrones + confinamiento con additionalDirectories). Solo `deny` veta:
+    // `requireApproval` no bloquea (el safe-set R5 gobierna el allow directo;
+    // la vía de escape HITL sigue siendo terminal_exec con aprobación).
+    const permVerdict = evaluateToolCall(
+      {
+        toolName: "terminal.spawn",
+        category: "terminal",
+        command,
+        path: cwd,
+        workspacePath: workspace,
+      },
+      {
+        workspacePath: workspace,
+        defaultMode: "deny",
+        additionalDirectories: permissionSettings.permissions.additionalDirectories,
+      }
+    );
+    if (isDenied(permVerdict)) {
+      return {
+        ok: false,
+        denied: true,
+        error: `Comando o cwd vetado por la política de permisos (STAB-02 deny-gana: regla '${permVerdict.rule}'). Vía de escape: HITL vía terminal_exec con aprobación.`,
+      };
+    }
     for (const pattern of TERMINAL_FORBIDDEN_PATTERNS) {
       if (pattern.test(command)) {
         return {
@@ -4214,10 +4362,14 @@ export async function createWindow(): Promise<void> {
     if (terminalSessions.size >= MAX_TERMINAL_SESSIONS) {
       return { ok: false, error: `Límite de sesiones de terminal alcanzado (${MAX_TERMINAL_SESSIONS}).` };
     }
-    const workspace = process.env.EGO_WORKSPACE_PATH || process.cwd();
     let executionCwd: string;
     try {
-      executionCwd = cwd ? PathValidator.validatePath(cwd, workspace) : workspace;
+      const effectiveRoot = resolveCwdRoot(
+        cwd,
+        workspace,
+        permissionSettings.permissions.additionalDirectories
+      );
+      executionCwd = cwd ? PathValidator.validatePath(cwd, effectiveRoot) : workspace;
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }

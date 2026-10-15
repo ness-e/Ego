@@ -234,6 +234,137 @@ describe("ToolPermissions — matriz (gobernanza §6)", () => {
   });
 });
 
+describe("ToolPermissions — STAB-02 orden deny→approval→allow + defaultMode + additionalDirs + cron", () => {
+  it("orden: blocked_command (deny) gana sobre sensitive_path (approval)", () => {
+    const r = evaluateToolCall(
+      {
+        toolName: "terminal_exec",
+        category: "terminal",
+        riskLevel: "destructive",
+        command: "powershell -EncodedCommand xx",
+        path: ".ego/x",
+        workspacePath: WS,
+      },
+      { workspacePath: WS }
+    );
+    expect(r.decision).toBe("deny");
+    expect(r.rule).toBe("blocked_command");
+  });
+
+  it("orden: sensitive_path (approval) gana sobre la matriz de riesgo", () => {
+    const r = evaluateToolCall(
+      {
+        toolName: "fs_write_file",
+        category: "filesystem",
+        riskLevel: "destructive",
+        path: ".ego/config.json",
+        workspacePath: WS,
+      },
+      { workspacePath: WS }
+    );
+    expect(r.decision).toBe("requireApproval");
+    expect(r.rule).toBe("sensitive_path");
+  });
+
+  it("orden: safe confinado y público llega a allow", () => {
+    const r = evaluateToolCall(
+      { toolName: "web_fetch", category: "web", riskLevel: "safe", url: "https://example.com" },
+      {}
+    );
+    expect(r.decision).toBe("allow");
+    expect(r.rule).toBe("default_allow");
+  });
+
+  it("defaultMode por defecto es deny (Gate P fail-closed)", () => {
+    expect(evaluateToolCall({ toolName: "", category: "system" }, {}).decision).toBe("deny");
+    expect(evaluateToolCall({ toolName: "x", category: "quantum" }, {}).decision).toBe("deny");
+    expect(
+      evaluateToolCall({ toolName: "fs_read_file", category: "filesystem", path: "a.txt" }, {}).decision
+    ).toBe("deny");
+  });
+
+  it("defaultMode allow abre unknowns pero los innegociables siguen deny", () => {
+    const opts = { defaultMode: "allow" as const };
+    expect(evaluateToolCall({ toolName: "", category: "system" }, opts).decision).toBe("allow");
+    expect(evaluateToolCall({ toolName: "x", category: "quantum" }, opts).decision).toBe("allow");
+    expect(
+      evaluateToolCall({ toolName: "fs_read_file", category: "filesystem", path: "a.txt" }, opts)
+        .decision
+    ).toBe("allow");
+    expect(
+      evaluateToolCall(
+        { toolName: "t", category: "terminal", command: "rm -rf /", workspacePath: WS },
+        { ...opts, workspacePath: WS }
+      ).decision
+    ).toBe("deny");
+    expect(
+      evaluateToolCall(
+        { toolName: "f", category: "filesystem", path: "/etc/passwd", workspacePath: WS },
+        { ...opts, workspacePath: WS }
+      ).decision
+    ).toBe("deny");
+    expect(
+      evaluateToolCall({ toolName: "w", category: "web", url: "http://169.254.169.254/" }, opts)
+        .decision
+    ).toBe("deny");
+    expect(
+      evaluateToolCall(
+        { toolName: "m", category: "mcp", origin: "mcp", mcpServerId: "evil" },
+        { ...opts, allowedMcpServers: ["github"] }
+      ).decision
+    ).toBe("deny");
+  });
+
+  it("additionalDirectories: absoluto bajo dir extra pasa el confinamiento", () => {
+    const r = evaluateToolCall(
+      {
+        toolName: "fs_read_file",
+        category: "filesystem",
+        riskLevel: "safe",
+        path: "/ws/shared/data.json",
+        workspacePath: WS,
+      },
+      { workspacePath: WS, additionalDirectories: ["/ws/shared"] }
+    );
+    expect(r.decision).toBe("allow");
+  });
+
+  it("additionalDirectories: fuera de workspace y extras sigue deny", () => {
+    const r = evaluateToolCall(
+      {
+        toolName: "fs_read_file",
+        category: "filesystem",
+        riskLevel: "safe",
+        path: "/otro/x.md",
+        workspacePath: WS,
+      },
+      { workspacePath: WS, additionalDirectories: ["/ws/shared"] }
+    );
+    expect(r.decision).toBe("deny");
+    expect(r.rule).toBe("path_outside_workspace");
+  });
+
+  it("cronMode deny veta la corrida programada", () => {
+    const r = evaluateToolCall(
+      { toolName: "kb_sync", category: "system", riskLevel: "safe", isCron: true },
+      { approvals: { cronMode: "deny" } }
+    );
+    expect(r.decision).toBe("deny");
+    expect(r.rule).toBe("cron_denied");
+  });
+
+  it("cronMode ask exige aprobación; allow deja pasar; sin isCron no afecta", () => {
+    const base = { toolName: "kb_sync", category: "system", riskLevel: "safe" as const };
+    expect(
+      evaluateToolCall({ ...base, isCron: true }, { approvals: { cronMode: "ask" } }).decision
+    ).toBe("requireApproval");
+    expect(
+      evaluateToolCall({ ...base, isCron: true }, { approvals: { cronMode: "allow" } }).decision
+    ).toBe("allow");
+    expect(evaluateToolCall(base, { approvals: { cronMode: "deny" } }).decision).toBe("allow");
+  });
+});
+
 describe("ToolPermissions — helpers", () => {
   it("isDenied / needsApproval clasifican el veredicto", () => {
     const deny = evaluateToolCall({ toolName: "", category: "system" }, {});

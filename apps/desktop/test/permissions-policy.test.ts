@@ -1,12 +1,17 @@
 import { describe, it, expect } from "vitest";
+import { resolve as resolveFsPath, join as joinFsPath } from "node:path";
 import { PermissionsSettingsSchema } from "../src/ipc/schema.js";
 import {
   APPROVAL_TIMEOUT_MS_CFG06,
+  getCachedPermissionsSettings,
   isPathInScope,
+  isTaskKindSafe,
   parsePermissionsSettings,
+  resolveCwdRoot,
   resolveEffectivePermission,
   resolvePermissionDecision,
   resolveScopeDirs,
+  setCachedPermissionsSettingsForTests,
   shouldRequireApproval,
 } from "../src/main.js";
 
@@ -104,5 +109,59 @@ describe("@ego/desktop — CFG-06 permissions deny-gana + approvals", () => {
     expect(() =>
       parsePermissionsSettings({ approvals: { timeoutSec: 99999 } })
     ).toThrowError();
+  });
+});
+
+describe("@ego/desktop STAB-02 — TASK_SAFE_KINDS paused vs directo", () => {
+  it("kinds seguros corren directo; el resto queda paused (HITL)", () => {
+    for (const kind of ["indexing", "sync", "maintenance", "notification"]) {
+      expect(isTaskKindSafe(kind)).toBe(true);
+    }
+    for (const kind of ["cron", "agent-run", "", undefined, null, 42]) {
+      expect(isTaskKindSafe(kind)).toBe(false);
+    }
+  });
+});
+
+describe("@ego/desktop STAB-02 — resolveCwdRoot con additionalDirectories", () => {
+  const ws = resolveFsPath("/ws-test-ego");
+  const shared = resolveFsPath("/ws-test-shared");
+
+  it("sin cwd → workspace; relativo → bajo workspace", () => {
+    expect(resolveCwdRoot(undefined, ws, [])).toBe(ws);
+    expect(resolveCwdRoot("sub/dir", ws, [])).toBe(ws);
+  });
+
+  it("absoluto bajo workspace → workspace; bajo dir extra → ese root", () => {
+    expect(resolveCwdRoot(joinFsPath(ws, "notas"), ws, [shared])).toBe(ws);
+    expect(resolveCwdRoot(joinFsPath(shared, "data"), ws, [shared])).toBe(shared);
+  });
+
+  it("fuera de todo root → workspace (PathValidator falla cerrado)", () => {
+    expect(resolveCwdRoot(resolveFsPath("/otro-lado"), ws, [shared])).toBe(ws);
+  });
+
+  it("coherencia con evaluateToolCall: scope dirs = workspace + extras", () => {
+    const scopeDirs = resolveScopeDirs(ws, [shared]);
+    expect(isPathInScope(joinFsPath(shared, "a.json"), scopeDirs)).toBe(true);
+    expect(isPathInScope(resolveFsPath("/otro-lado/b.json"), scopeDirs)).toBe(false);
+  });
+});
+
+describe("@ego/desktop STAB-02 — cache gov/settings/permissions", () => {
+  it("sin cache → defaults CFG-06; set/get round-trip para tests", () => {
+    setCachedPermissionsSettingsForTests(null);
+    const defaults = getCachedPermissionsSettings();
+    expect(defaults.permissions.defaultMode).toBe("acceptEdits");
+    expect(defaults.approvals.timeoutSec).toBe(60);
+    expect(defaults.approvals.cronMode).toBe("deny");
+    const custom = parsePermissionsSettings({
+      permissions: { defaultMode: "read-only", rules: [], additionalDirectories: ["/x"] },
+      approvals: { mode: "manual", timeoutSec: 30, cronMode: "ask" },
+    });
+    setCachedPermissionsSettingsForTests(custom);
+    expect(getCachedPermissionsSettings().approvals.timeoutSec).toBe(30);
+    expect(getCachedPermissionsSettings().approvals.timeoutSec * 1000).toBe(30_000);
+    setCachedPermissionsSettingsForTests(null);
   });
 });

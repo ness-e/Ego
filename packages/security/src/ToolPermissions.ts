@@ -47,6 +47,20 @@ export interface ToolCallRequest {
   /** URL destino (web) cuando aplica. */
   url?: string;
   workspacePath?: string;
+  /** `true` si la invocación viene de un scheduler/cron (STAB-02). */
+  isCron?: boolean;
+}
+
+/** Veredicto fail-closed para casos desconocidos/sin perímetro (Gate P: deny). */
+export type ToolDefaultMode = "deny" | "allow";
+
+/** Política de approvals portada en las opciones (STAB-02). */
+export interface ToolApprovalsOptions {
+  /** `mode`/`timeoutMs` se portan para composición (los consume el ApprovalEngine vía main); no alteran veredictos aquí. */
+  mode?: "manual" | "smart" | "off";
+  timeoutMs?: number;
+  /** Solo `cronMode` altera veredictos en `evaluateToolCall` (con `isCron`). */
+  cronMode?: "allow" | "ask" | "deny";
 }
 
 export interface ToolPermissionsOptions {
@@ -55,6 +69,20 @@ export interface ToolPermissionsOptions {
   allowedMcpServers?: readonly string[];
   extraBlockedCommands?: readonly RegExp[];
   extraReservedDirs?: readonly string[];
+  /**
+   * Default fail-closed para herramienta/categoría desconocida o sin
+   * workspace (STAB-02, Gate P vinculante: deny). Los innegociables
+   * (`blocked_command`, `reserved_path`, `path_outside_workspace`,
+   * `unsafe_url`, `mcp_not_allowlisted`) deniegan SIEMPRE, aun con "allow".
+   */
+  defaultMode?: ToolDefaultMode;
+  /**
+   * Raíces extra bajo las que un path absoluto sigue confinado
+   * (espeja `additionalDirectories` de CFG-06 en main).
+   */
+  additionalDirectories?: readonly string[];
+  /** Política de approvals; ver `ToolApprovalsOptions`. */
+  approvals?: ToolApprovalsOptions;
 }
 
 /** Categorías conocidas = `ToolCategory` de `@ego/tools` (matriz cerrada). */
@@ -160,7 +188,8 @@ function normalizeLexical(raw: string): string {
 function checkPath(
   requestedPath: string,
   workspace: string,
-  extraReserved: readonly string[]
+  extraReserved: readonly string[],
+  extraScopeDirs: readonly string[] = []
 ): ToolDecisionResult | null {
   if (requestedPath.includes("\0")) {
     return deny("null_byte_path", "Path con byte nulo rechazado.");
@@ -178,18 +207,23 @@ function checkPath(
     }
   }
 
-  // Absoluto (posix, drive Windows o UNC) o con drive → debe estar contenido.
+  // Absoluto (posix, drive Windows o UNC) o con drive → debe estar contenido
+  // en el workspace O en alguno de los additionalDirectories (STAB-02).
   const isAbs =
     normTarget.startsWith("/") ||
     /^[a-zA-Z]:\//.test(normTarget) ||
     normTarget.startsWith("//");
-  const base = normWs.endsWith("/") ? normWs : `${normWs}/`;
-  if (isAbs) {
+  const inScope = (root: string): boolean => {
+    const normRoot = normalizeLexical(root);
+    if (normRoot.trim().length === 0) return false;
+    const base = normRoot.endsWith("/") ? normRoot : `${normRoot}/`;
     const t = normTarget.toLowerCase();
     const b = base.toLowerCase();
-    if (t !== normWs.toLowerCase() && !t.startsWith(b)) {
-      return deny("path_outside_workspace", "Path absoluto fuera del workspace permitido.");
-    }
+    return t === normRoot.toLowerCase() || t.startsWith(b);
+  };
+  if (isAbs) {
+    if (inScope(normWs) || extraScopeDirs.some(inScope)) return null;
+    return deny("path_outside_workspace", "Path absoluto fuera del workspace permitido.");
   } else {
     // Relativo: resolver segmentos . y .. léxicamente contra la base.
     const parts = normTarget.split("/");
@@ -256,18 +290,26 @@ function checkUrl(rawUrl: string): ToolDecisionResult | null {
 
 /**
  * Veredicto previo de permiso para una invocación de herramienta.
- * Orden fail-closed: herramienta → comando → path → red → MCP → matriz.
- * No ejecuta nada ni toca fs/red: el enforcement vive en los nativos.
+ * Orden fail-closed: herramienta → comando → path → red → MCP → cron →
+ * matriz. No ejecuta nada ni toca fs/red: el enforcement vive en los nativos.
+ * `defaultMode` (deny por defecto, Gate P) solo rige los casos desconocidos o
+ * sin perímetro; los innegociables deniegan siempre (deny gana).
  */
 export function evaluateToolCall(
   request: ToolCallRequest,
   options: ToolPermissionsOptions = {}
 ): ToolDecisionResult {
+  const defaultMode: ToolDefaultMode = options.defaultMode ?? "deny";
+  // Fail-closed configurable: unknowns → defaultMode; innegociables → deny.
+  const failClosed = (rule: string, denyReason: string): ToolDecisionResult =>
+    defaultMode === "allow"
+      ? { decision: "allow", rule, reason: "Sin regla aplicable: permitido por defaultMode allow explícito." }
+      : deny(rule, denyReason);
   if (!request.toolName || request.toolName.trim().length === 0) {
-    return deny("unknown_tool", "Herramienta vacía o desconocida: denegada por defecto.");
+    return failClosed("unknown_tool", "Herramienta vacía o desconocida: denegada por defecto.");
   }
   if (!KNOWN_CATEGORIES.has(request.category)) {
-    return deny("unknown_category", "Categoría de herramienta desconocida: denegada por defecto.");
+    return failClosed("unknown_category", "Categoría de herramienta desconocida: denegada por defecto.");
   }
 
   // 1. Comandos prohibidos (deniegan incluso antes de la aprobación).
@@ -280,18 +322,23 @@ export function evaluateToolCall(
     }
   }
 
-  // 2. Confinamiento de paths (CARP-03).
+  // 2. Confinamiento de paths (CARP-03 + additionalDirectories STAB-02).
   const workspace = request.workspacePath ?? options.workspacePath;
   if (typeof request.path === "string" && request.path.length > 0) {
     if (!workspace || workspace.trim().length === 0) {
-      return deny("missing_workspace", "Sin workspace configurado: paths denegados por defecto.");
+      return failClosed("missing_workspace", "Sin workspace configurado: paths denegados por defecto.");
     }
-    const verdict = checkPath(request.path, workspace, options.extraReservedDirs ?? []);
+    const verdict = checkPath(
+      request.path,
+      workspace,
+      options.extraReservedDirs ?? [],
+      options.additionalDirectories ?? []
+    );
     if (verdict) return verdict;
   } else if (request.category === "filesystem" || request.category === "git") {
     // Estas categorías operan sobre paths: sin workspace no hay perímetro.
     if (!workspace || workspace.trim().length === 0) {
-      return deny("missing_workspace", "Sin workspace configurado: denegado por defecto.");
+      return failClosed("missing_workspace", "Sin workspace configurado: denegado por defecto.");
     }
   }
 
@@ -310,6 +357,19 @@ export function evaluateToolCall(
       }
     } else {
       return approval("mcp_unlisted_default_approval", "MCP sin allowlist configurada: requiere aprobación.");
+    }
+  }
+
+  // 4b. Cron programado (STAB-02): deny veta sin preguntar (deny gana);
+  // ask exige HITL. Solo aplica con `isCron`; sin flag no hay efecto.
+  // `mode`/`timeoutMs` NO alteran veredictos: los consume el ApprovalEngine.
+  if (request.isCron === true) {
+    const cronMode = options.approvals?.cronMode ?? "deny";
+    if (cronMode === "deny") {
+      return deny("cron_denied", "Ejecución programada vetada por política (cron_mode deny).");
+    }
+    if (cronMode === "ask") {
+      return approval("cron_requires_approval", "Ejecución programada: requiere aprobación (cron_mode ask).");
     }
   }
 

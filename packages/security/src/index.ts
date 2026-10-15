@@ -52,6 +52,8 @@ export type {
   ToolDecisionResult,
   ToolCallRequest,
   ToolPermissionsOptions,
+  ToolDefaultMode,
+  ToolApprovalsOptions,
   ToolRiskLevelLike,
   ToolOriginLike,
 } from "./ToolPermissions.js";

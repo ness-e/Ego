@@ -40,6 +40,9 @@ export const EgoIpcInvokeChannels = [
   // Configuración de modelos BYOK (INT-02; secretos solo en main vía safeStorage)
   "ipc.settings.getModelConfig",
   "ipc.settings.saveModelConfig",
+  // Política de permisos + approvals (CFG-06/STAB-02; VantaDB gov/settings/permissions)
+  "ipc.settings.getPermissions",
+  "ipc.settings.savePermissions",
   // Decisión (F5T10/H25; validación Zod en main)
   "ipc.decision.evaluate",
   "ipc.decision.listAudits",

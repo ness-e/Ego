@@ -9,6 +9,7 @@ import {
   KnowledgeImportSchema,
   DailyGetSnapshotSchema,
   DailyListSnapshotsSchema,
+  PermissionsSettingsSchema,
 } from "../src/ipc/schema.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,7 @@ describe("SEC-02 — cobertura total de validación Zod en handlers IPC", () => 
       ["ipc.projects.create", "CreateProjectSchema"],
       ["ipc.projects.select", "SelectProjectSchema"],
       ["ipc.settings.saveModelConfig", "ModelConfigSchema"],
+      ["ipc.settings.savePermissions", "PermissionsSettingsSchema"],
       ["ipc.decision.evaluate", "IntentRequestSchema"],
       ["ipc.decision.listAudits", "DecisionListAuditsSchema"],
       ["ipc.knowledge.ingest", "KnowledgeIngestSchema"],
@@ -86,6 +88,7 @@ describe("SEC-02 — cobertura total de validación Zod en handlers IPC", () => 
       "ipc.projects.selectFolder",
       "ipc.snapshots",
       "ipc.settings.getModelConfig",
+      "ipc.settings.getPermissions",
       "ipc.decision.telemetry",
       "ipc.domains.list",
       "ipc.daily.saveSnapshot",

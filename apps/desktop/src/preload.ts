@@ -161,6 +161,8 @@ export interface EgoPreloadBridge {
     }) => Promise<unknown>;
     getStorageInfo: () => Promise<unknown>;
     getGovPolicies: () => Promise<unknown>;
+    getPermissions: () => Promise<unknown>;
+    savePermissions: (settings: unknown) => Promise<unknown>;
   };
   onProjectChanged: (callback: (data: ProjectChangedEvent) => void) => () => void;
   onSubEgosChanged: (callback: (data: SubEgosChangedEvent) => void) => () => void;
@@ -306,6 +308,8 @@ const egoBridge: EgoPreloadBridge = {
     saveModelConfig: (config) => ipcRenderer.invoke("ipc.settings.saveModelConfig", config),
     getStorageInfo: () => ipcRenderer.invoke("ipc.settings.getStorageInfo"),
     getGovPolicies: () => ipcRenderer.invoke("ipc.settings.getGovPolicies"),
+    getPermissions: () => ipcRenderer.invoke("ipc.settings.getPermissions"),
+    savePermissions: (settings) => ipcRenderer.invoke("ipc.settings.savePermissions", settings),
   },
   onProjectChanged: (callback) => {
     const sub = (_event: Electron.IpcRendererEvent, data: ProjectChangedEvent) => callback(data);
