@@ -362,7 +362,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/renderer test` + `a11y.test` verdes + Modal fade+scale con reduced-motion + `layoutId composer-action` + copy-confirm + targets 44px + omnibar `role=option+aria-selected+activedescendant+↑↓`
 - **Task file:** `docs/agent-ops/tasks/STAB-13.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** 🟡 REVIEW-PENDIENTE (commit `d3d0aee`; renderer 41f/281t, typecheck 0, a11y 15/15, Stab13UxMotion 8/8; falta veredicto review P2-01 por agente distinto)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
