@@ -147,7 +147,7 @@ describe("avatar bridge", () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @ego/desktop test floating-avatar -v`
+Run: `pnpm --filter @ego/renderer test floating-avatar -v`
 Expected: FAIL (módulo no existe)
 
 **Step 3: Write minimal implementation**
@@ -163,12 +163,12 @@ export function avatarStateFor(a: string): string {
   return "idle";
 }
 // floating-avatar.tsx: <ego-avatar seed size=120 state presence=compact>
-// importa '.../avatar/src/index.js' via bundle local (copiar src, no CDN), reduced-motion -> motion="still"
+// importa '.../avatar/src/index.js' via bundle local (copiar src, no CDN), reduced-motion -> motion="reduce"
 ```
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @ego/desktop test floating-avatar -v`
+Run: `pnpm --filter @ego/renderer test floating-avatar -v`
 Expected: PASS
 
 **Step 5: Commit**
@@ -310,7 +310,7 @@ describe("geometria", () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @ego/desktop test floating-anim -v`
+Run: `pnpm --filter @ego/renderer test floating-anim -v`
 Expected: FAIL
 
 **Step 3: Write minimal implementation**
@@ -327,7 +327,7 @@ Prohibido polling 60Hz; usar `mouseenter/leave` + `Bridge.setIslandRect` equival
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @ego/desktop test floating-anim -v`
+Run: `pnpm --filter @ego/renderer test floating-anim -v`
 Expected: PASS
 
 **Step 5: Commit**
@@ -360,7 +360,7 @@ describe("approval view", () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @ego/desktop test floating-views -v`
+Run: `pnpm --filter @ego/renderer test floating-views -v`
 Expected: FAIL
 
 **Step 3: Write minimal implementation**
@@ -371,7 +371,7 @@ Portar mecanismo `coucou/views/*.ts` sin copy visual:
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @ego/desktop test floating-views -v`
+Run: `pnpm --filter @ego/renderer test floating-views -v`
 Expected: PASS
 
 **Step 5: Commit**
@@ -451,7 +451,7 @@ describe("sound map", () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @ego/desktop test floating-sound -v`
+Run: `pnpm --filter @ego/renderer test floating-sound -v`
 Expected: FAIL
 
 **Step 3: Write minimal implementation**
@@ -467,7 +467,7 @@ import { createSoundEngine, STATE_SOUND } from "../../../../repos-referencia/ava
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @ego/desktop test floating-sound -v`
+Run: `pnpm --filter @ego/renderer test floating-sound -v`
 Expected: PASS (Node no-op, browser suena)
 
 **Step 5: Commit**
@@ -500,7 +500,7 @@ describe("upload seq", () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @ego/desktop test floating-upload -v`
+Run: `pnpm --filter @ego/renderer test floating-upload -v`
 Expected: FAIL
 
 **Step 3: Write minimal implementation**
@@ -516,7 +516,7 @@ Portar `coucou/upload/sequence.ts+canvas.ts` (100% mecanismo):
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @ego/desktop test floating-upload -v`
+Run: `pnpm --filter @ego/renderer test floating-upload -v`
 Expected: PASS
 
 **Step 5: Commit**
@@ -598,7 +598,7 @@ Expected: FAIL rojo
 Checklist verificación:
 ```bash
 pnpm --filter @ego/desktop typecheck      # tsc 0
-pnpm --filter @ego/desktop test           # vitest flotante + anim + views + sound + upload verdes
+pnpm --filter @ego/renderer test           # vitest flotante + anim + views + sound + upload verdes
 pnpm --filter @ego/runtime test
 pnpm --filter @ego/execution test
 pnpm build && pnpm smoke:native            # electron-vite out/main+preload+renderer + verify-dist
@@ -643,7 +643,7 @@ Expected: FAIL (match = path obsoleto WIDG-02)
 **Step 3: Write minimal implementation**
 
 - Corregir WIDG-02 path a `apps/desktop/src/windows/FloatingWindow.ts` + `renderer/floating/floating.html`.
-- COUC-17/18 ✅ Completada real (no solo absorbida), COUC-19 ✅ Completada (tray mínimo + persist), COUC-20 ✅ Parcial procedural (WAV futuro P2 documentado, sin descarte).
+- COUC-17/18 ✅ Completada real (implementación isla Tasks 3-7/10, no solo absorbida T09), COUC-19 ✅ Completada (tray tricolor + Pause + persist), COUC-20 ✅ Parcial procedural (WAV futuro P2 documentado, sin descarte).
 - Actualizar `character-system.md §7` + `ux-ui.md D8`: Widget in-app vs Tray OS vs Flotante desktop-float.
 - Si hubo workaround VantaDB: registrar `VDB-BUG-*` obligatorio (DoD).
 

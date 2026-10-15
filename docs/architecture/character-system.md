@@ -229,6 +229,16 @@ Cada superficie visual de Ego tiene restricciones físicas y de atención espec�
 | **`notification`** | 20–28 px | Estático / Pulso | Cero | Fijo al centro | Icono de alerta en el centro de notificaciones |
 | **`desktop-float`** | 48–80 px | 60 fps | Orgánica ($\le 30\%$) | Proyección 3D al cursor | Modo flotante independiente en el escritorio del SO |
 
+### Triple Superficie Operativa: Widget In-App vs Tray OS vs Flotante (cierre isla 2026-10-15)
+
+Las tres superficies comparten la misma `AttentionStateMachine` (WIDG-03) y no se duplican:
+
+- **Widget in-app (`activity-widget`, CANV-11):** telemetría de ejecución + aprobaciones HITL dentro de la ventana de Ego. Es la superficie primaria cuando la app está visible.
+- **Tray OS (COUC-19 ✅):** icono a nivel sistema operativo con código de color mínimo (verde idle, azul pensando, rojo HITL) + menú Open/Settings/Pause/Quit + click-restore. Espejo de estado, nunca superficie de trabajo.
+- **Flotante desktop-float (WIDG-02, COUC-17/18 ✅):** ventana independiente (`FloatingWindow.ts` + `renderer/floating/floating.html`) con avatar mini, vistas (overview/pill/approval/question/ticker), sonido procedural (COUC-20 parcial) y UploadCanvas. Auto-aparece al minimizar con trabajo/HITL (D2), se silencia o desactiva por preferencia persistente.
+
+Regla: visible una sola superficie de trabajo por vez (app visible → widget; minimizada → flotante; sin ventana → tray como espejo).
+
 ---
 
 ## 8. Expresividad Reactiva a Herramientas (`Tool-Reactive Expressiveness`)
