@@ -352,7 +352,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
   - **DoD multi-nivel:** task/commit/release (spec SDD)
 
 ### Task 14: STAB-13 — UX motion/Modal/composer/targets/omnibar
-- **Estado:** ✅ COMPLETO (commit pendiente hash; renderer 41f/281t, typecheck 0, a11y 15/15; review P2-01 pendiente)
+- **Estado:** ✅ COMPLETO (commit `d3d0aee`; renderer 41f/281t, typecheck 0, a11y 15/15; review P2-01 pendiente)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🟠 P1
