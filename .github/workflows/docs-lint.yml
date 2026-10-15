@@ -1,0 +1,35 @@
+name: Docs Lint
+
+on:
+  pull_request:
+    paths:
+      - "docs/**/*.md"
+      - ".markdownlint.json"
+
+jobs:
+  markdownlint:
+    name: Markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint markdown files
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: "docs/**/*.md"
+          config: ".markdownlint.json"
+
+  lychee:
+    name: Lychee (broken links in docs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check links in docs
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: "--no-progress --relative docs/**/*.md"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

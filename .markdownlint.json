@@ -1,0 +1,8 @@
+{
+  "default": true,
+  "MD003": { "style": "atx_closed" },
+  "MD013": { "line_length": 120 },
+  "MD046": { "style": "fenced" },
+  "MD048": { "style": "backtick" },
+  "MD059": false
+}
