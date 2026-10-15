@@ -4,6 +4,7 @@
 !.github/
 !.agents/
 !.oxlintrc.json
+!.husky/
 .agents/node_modules/
 .agents/**/node_modules/
 

@@ -34,8 +34,8 @@ topo_order = false
 sort_commits = "oldest"
 
 [remote.github]
-owner = "ego"
-repo = "ego"
+owner = "ness-e"
+repo = "Ego"
 
 [[commit_parsers]]
 message = "^feat"

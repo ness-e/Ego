@@ -333,3 +333,39 @@ jobs:
             tests/gui/test-results/
           if-no-files-found: warn
           retention-days: 14
+
+  commit-msg:
+    # STAB-15: enforcement de Conventional Commits
+    # (feat|fix|docs|refactor|chore|test|perf, ver commitlint.config.mjs).
+    # Falla el pipeline ante cualquier mensaje no-convencional en el
+    # rango del push/PR — release-please/git-cliff consumen historial limpio.
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository (full history for range)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint commit messages in push/PR range
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FROM="${{ github.event.pull_request.base.sha }}"
+          else
+            FROM="HEAD~1"
+          fi
+          pnpm exec commitlint --from "$FROM" --to HEAD --verbose

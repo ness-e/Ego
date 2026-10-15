@@ -1,3 +1,7 @@
+---
+diataxis: how-to
+---
+
 # Solución de problemas
 
 > Si un síntoma no está aquí o la solución no funciona, anota qué

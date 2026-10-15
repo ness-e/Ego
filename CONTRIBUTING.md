@@ -53,14 +53,20 @@ docs: clarify Sub-Ego terminology
 refactor: split context assembly from router
 chore: bump electron to 33.4.11
 test: cover IPC validation errors
+perf: cache prompt prefix per turn
 ```
 
-Rules (per `AGENTS.md` §5):
+Rules (per `AGENTS.md` §5, enforced by `commitlint.config.mjs`):
 
-- Type must be one of `feat|fix|docs|refactor|chore|test`.
+- Type must be one of `feat|fix|docs|refactor|chore|test|perf`.
 - Message in English, imperative, lowercase after colon, no trailing period.
 - Atomic: one logical change per commit.
 - Never `git push --force` without explicit owner instruction.
+
+Enforcement: a `commit-msg` hook (husky + commitlint) validates every local
+commit, and the `commit-msg` CI job fails the pipeline on any
+non-conventional message in the push/PR range. If the hook blocks you, fix
+the message (`git commit --amend`) — do not bypass with `--no-verify`.
 
 ## 4. Before commit: oxlint + typecheck
 

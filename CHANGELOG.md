@@ -42,5 +42,5 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 - CI base (`ci.yml`): lint, typecheck, test y build; workflow
   `smoke-native.yml` para verificación nativa.
 
-[Unreleased]: https://github.com/ego/ego/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/ego/ego/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ness-e/Ego/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ness-e/Ego/releases/tag/v0.1.0

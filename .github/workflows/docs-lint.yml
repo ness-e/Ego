@@ -33,3 +33,31 @@ jobs:
           args: "--no-progress --relative docs/**/*.md"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docs-build:
+    # STAB-15: decisión site = VitePress (ver docs/.vitepress/config.mts y
+    # docs/adr/0006-docs-site.md). Compila el sitio con sus dependencias
+    # pinneadas (`pnpm docs:build`); falla ante enlaces internos rotos
+    # (VitePress `deadLinks: true` por defecto) o front-matter inválido.
+    name: VitePress build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build docs site
+        run: pnpm docs:build

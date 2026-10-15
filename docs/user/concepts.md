@@ -1,3 +1,7 @@
+---
+diataxis: explanation
+---
+
 # Conceptos clave
 
 ## Chat: el canal de intención

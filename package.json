@@ -21,11 +21,25 @@
     "test:memory": "pnpm --filter @ego/memory test",
     "test:e2e": "pnpm --filter @ego/e2e-tests test",
     "test:e2e:electron": "pnpm --dir tests/gui run test:e2e:electron",
-    "changelog:preview": "git cliff --unreleased"
+    "changelog:preview": "git cliff --unreleased",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "lint:commit": "commitlint --edit",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "pnpm exec oxlint"
+    ]
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@types/node": "^22.8.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "oxlint": "1.87.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitepress": "1.6.4"
   }
 }

@@ -1,3 +1,7 @@
+---
+diataxis: how-to
+---
+
 # Configuración de modelos (BYOK)
 
 Ego usa tu propio modelo: o aportas tu API key (**BYOK**, *bring your

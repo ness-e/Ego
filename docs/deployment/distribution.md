@@ -3,6 +3,7 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Draft operativo — distribución **sin firma** (unsigned) |
+| Superseed | Superseed a `docs/operations/despliegue.md` (deprecated desde 2026-10-16, STAB-15) |
 | Owner firma (BLOQUEO) | owner del producto (ver DIST-04) |
 | Fecha | 2026-10-14 |
 | Config builder | `apps/desktop/electron-builder.config.cjs` |

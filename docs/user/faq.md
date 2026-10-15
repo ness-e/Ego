@@ -1,3 +1,7 @@
+---
+diataxis: reference
+---
+
 # Preguntas frecuentes (FAQ) #
 
 > Respuestas cortas para el uso diario de Ego. Procedimientos

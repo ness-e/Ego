@@ -1,3 +1,7 @@
+---
+diataxis: tutorial
+---
+
 # Primeros pasos con Ego
 
 ## 1. Abrir Ego
@@ -39,6 +43,8 @@ y los archivos se aíslan por proyecto.
    borradores y los archivos conmutan limpiamente sin fugas entre
    proyectos.
 
+![Diagrama del outcome: crear proyecto → insignia Activo → contexto aislado](./assets/outcome-proyecto.gif)
+
 ## 4. Tu primera tarea: pedir en lenguaje natural
 
 Escribe en el chat un objetivo concreto, por ejemplo:
@@ -48,6 +54,8 @@ Escribe en el chat un objetivo concreto, por ejemplo:
 
 Ego clasifica la intención, activa o propone el Sub-Ego especialista
 adecuado y formula un plan de pasos atómicos.
+
+![Diagrama del outcome: objetivo en chat → Sub-Ego → plan de pasos](./assets/outcome-tarea.gif)
 
 ## 5. Aprobar acciones sensibles
 
@@ -68,6 +76,8 @@ Los resultados no quedan sepultados en el chat: informes, diffs,
 tablas y listas de tareas aparecen en el **Canvas**, la superficie de
 trabajo junto al chat. Puedes seleccionar elementos del Canvas y
 enviarlos al chat como contexto para seguir iterando.
+
+![Diagrama del outcome: tarjeta de aprobación → ejecución → artefacto en Canvas](./assets/outcome-hitl-canvas.gif)
 
 ## 7. Cerrar y retomar al día siguiente
 

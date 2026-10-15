@@ -1,8 +1,16 @@
-# Despliegue — fuente vigente
+# Despliegue — ⚠️ DEPRECATED (fuente histórica)
+
+> **Este documento está deprecated desde 2026-10-16 (STAB-15).**
+> La fuente vigente de distribución es
+> [`../deployment/distribution.md`](../deployment/distribution.md),
+> que describe la distribución unsigned real de hoy (canales, BLOQUEO
+> DIST-04, staged rollouts, rollback, checksums, checklist unsigned).
+> Este archivo se conserva como referencia histórica y no debe editarse
+> salvo para mantener este puntero.
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Revisable — fuente vigente de despliegue desktop |
+| Estado | ⚠️ Deprecated desde 2026-10-16 — ver `../deployment/distribution.md` |
 | Owner | ness-e |
 | Fecha | 2026-10-05 |
 | Fuente histórica | `../prd/07-6-arquitectura-general-y-pol-tica-de-lenguajes.md` §6.3 + `../prd/22*` + `../engineering/stack-tecnico.md` + `../engineering/lenguajes.md` desktop |

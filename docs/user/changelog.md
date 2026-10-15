@@ -1,3 +1,7 @@
+---
+diataxis: reference
+---
+
 # Novedades (changelog)
 
 Versión amigable del [CHANGELOG.md](../../CHANGELOG.md) canónico

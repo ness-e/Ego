@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360">
+  <rect width="960" height="360" rx="16" fill="#0B0E14"/>
+  <text x="48" y="56" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="bold" fill="#E8EDF4">Outcome 1 — Proyecto activo</text>
+  <text x="48" y="84" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#8B98AC">getting-started §3 · diagrama (captura real: follow-up)</text>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <rect x="48" y="120" width="240" height="150" rx="12" fill="#1A2230" stroke="#2E3B52" stroke-width="2"/>
+    <text x="72" y="160" font-size="20" font-weight="bold" fill="#7DD3FC">1. Crear</text>
+    <text x="72" y="190" font-size="16" fill="#E8EDF4">nombre +</text>
+    <text x="72" y="214" font-size="16" fill="#E8EDF4">carpeta local</text>
+    <polygon points="300,195 330,195 330,185 348,202 330,219 330,209 300,209" fill="#7DD3FC"/>
+    <rect x="360" y="120" width="240" height="150" rx="12" fill="#1A2230" stroke="#2E3B52" stroke-width="2"/>
+    <text x="384" y="160" font-size="20" font-weight="bold" fill="#7DD3FC">2. Activo</text>
+    <text x="384" y="190" font-size="16" fill="#E8EDF4">insignia “Activo”</text>
+    <text x="384" y="214" font-size="16" fill="#E8EDF4">en la barra lateral</text>
+    <polygon points="612,195 642,195 642,185 660,202 642,219 642,209 612,209" fill="#7DD3FC"/>
+    <rect x="672" y="120" width="240" height="150" rx="12" fill="#1A2230" stroke="#2E3B52" stroke-width="2"/>
+    <text x="696" y="160" font-size="20" font-weight="bold" fill="#7DD3FC">3. Aislado</text>
+    <text x="696" y="190" font-size="16" fill="#E8EDF4">memoria + Canvas</text>
+    <text x="696" y="214" font-size="16" fill="#E8EDF4">sin fugas</text>
+  </g>
+  <text x="48" y="320" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#8B98AC">Todo lo que hagas pertenece a ese contexto hasta cambiar de proyecto.</text>
+</svg>
