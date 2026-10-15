@@ -9,7 +9,8 @@
 - **Turns estimados:** 3
 - **Creado:** 2026-10-15
 - **last-synced:** 2026-10-15
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
+- **Commit:** `a1419c5` (código) + cierre docs (este commit)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps (6/6 ✅)
 - **SDP:** base-only (keywords: motion-tokens, transition-all, TS strict; skills base auto-cargadas vía MCP)
