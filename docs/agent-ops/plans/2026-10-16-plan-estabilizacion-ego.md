@@ -241,7 +241,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/renderer test` verde con `render/screen/user-event/getByRole` en App/ApprovalCard/Omnibar/Chat/Canvas + `test/msw/ego-handlers.ts` browser + `Chat.rtl.msw.test` streaming 🧠 ok/error/latencia
 - **Task file:** `docs/agent-ops/tasks/STAB-08.md`
-- **Estado:** ✅ COMPLETO (commit `0efcc81` local; 40f/273t + typecheck verdes; 7/7 steps; review P2-01 por agente distinto pendiente → orquestador)
+- **Estado:** ✅ COMPLETED (commit `0efcc81`; 40f/273t; review ego-audit approve 2026-10-16, notas no bloqueantes)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -265,7 +265,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm build` + `build:verify` verdes + `lazy()` Canvas/Daily/SubEgos/Domains con `Suspense skeleton` + Tailwind `v4.x` estable sin `-beta.8`
 - **Task file:** `docs/agent-ops/tasks/STAB-09.md`
-- **Estado:** 🟡 REVIEW-PENDIENTE (8/8 steps ✅ + `typecheck` 0 err + `build` + `build:verify` verdes + commit `47780a5` local; hunk `App.tsx` vive en `a1419c5` por sweep concurrente STAB-10; falta veredicto review P2-01 por agente distinto)
+- **Estado:** ✅ COMPLETED (commit `47780a5`; build+verify verdes, entry 969KB; review ego-audit approve 2026-10-16, re-export selectivo documentado)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -289,7 +289,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/renderer test` + `typecheck` verdes + `--motion-duration-micro/ui/surface --motion-ease-out/in` + `transition-colors,transform` + `noUncheckedIndexedAccess:true` sin nuevos errores
 - **Task file:** `docs/agent-ops/tasks/STAB-10.md`
-- **Estado:** ✅ COMPLETO (motion tokens 5 vars + provider MOTION + 14/14 transition-all migrados + noUncheckedIndexedAccess + EGO-FIND-17 cerrado; renderer 273/273 + typechecks renderer/desktop 0 errores; commit local; review P2-01 pendiente → orquestador)
+- **Estado:** ✅ COMPLETED (commits `a1419c5+9be6505`; 273/273; review ego-audit approve con hallazgos 2026-10-16, FIND-1/2 proceso no bloqueantes)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
