@@ -37,6 +37,30 @@ export class SubEgoBusyError extends SubEgoRuntimeError {
 }
 
 /**
+ * Error cuando un turno es cancelado cooperativamente al boundary vía `requestStop`
+ * (tarea 6). Porta el parcial disponible para no perder trabajo.
+ */
+export class SubEgoStoppedError extends SubEgoRuntimeError {
+  constructor(public readonly subEgoId: string, public readonly partial?: unknown) {
+    super(`Sub-Ego '${subEgoId}' detenido por el operador; se retorna parcial al boundary.`);
+    this.name = "SubEgoStoppedError";
+  }
+}
+
+/**
+ * Modelo barato por defecto para ramas hijas (tarea 7). Configurable por runtime y por rama.
+ */
+export const DEFAULT_CHEAP_CHILD_MODEL = "gpt-4o-mini";
+
+/**
+ * Opciones endurecidas adicionales del runtime (aditivas, sin tocar `SubEgoRuntimeOptions`).
+ */
+export interface SubEgoRuntimeHardenedOptions {
+  /** Modelo barato por defecto para hijos (default: gpt-4o-mini). */
+  defaultChildModel?: string;
+}
+
+/**
  * Sub-Ego Runtime (SUB-03 / Principios §4 y §10).
  * Gestiona el ciclo de vida, activación perezosa (Lazy Activation), límites de concurrencia
  * y descarga automática por inactividad (TTL) para especialistas cognitivos.
@@ -45,15 +69,21 @@ export class SubEgoRuntime {
   private readonly manifests: Map<string, SubEgoManifest> = new Map();
   private readonly instances: Map<string, SubEgoInstance> = new Map();
   private readonly idleTimers: Map<string, NodeJS.Timeout> = new Map();
+  private readonly steerQueues: Map<string, string[]> = new Map();
+  private readonly stopRequests: Map<string, { requestedAtMs: number; partial?: unknown }> = new Map();
+  private readonly branchModels: Map<string, string> = new Map();
 
   private readonly idleTtlMs: number;
   private readonly maxConcurrentActive: number;
   private readonly onStateTransition?: SubEgoRuntimeOptions["onStateTransition"];
+  private readonly defaultChildModel: string;
 
-  constructor(options: SubEgoRuntimeOptions = {}) {
+  constructor(options: SubEgoRuntimeOptions & SubEgoRuntimeHardenedOptions = {}) {
     this.idleTtlMs = options.idleTtlMs ?? 60_000;
     this.maxConcurrentActive = options.maxConcurrentActive ?? 10;
     this.onStateTransition = options.onStateTransition;
+    const dm = (options.defaultChildModel ?? DEFAULT_CHEAP_CHILD_MODEL).trim();
+    this.defaultChildModel = dm.length > 0 ? dm : DEFAULT_CHEAP_CHILD_MODEL;
   }
 
   /**
@@ -202,11 +232,30 @@ export class SubEgoRuntime {
 
     const startTime = Date.now();
 
+    // Stop solicitado antes de arrancar: cancela al boundary con parcial (tarea 6).
+    const preStop = this.stopRequests.get(subEgoId);
+    if (preStop) {
+      throw new SubEgoStoppedError(subEgoId, preStop.partial);
+    }
+
+    // Exponer steer out-of-band pendiente vía scratchpad para el boundary (tarea 6).
+    const pendingSteer = this.steerQueues.get(subEgoId);
+    if (pendingSteer && pendingSteer.length > 0) {
+      instance.scratchpad.set("__steer_pending", [...pendingSteer]);
+    }
+
     try {
       const result = await turnFn(instance);
       const durationMs = Date.now() - startTime;
       const tokens = result.tokensUsed ?? 0;
       const cost = result.costUsd ?? 0;
+
+      // Stop solicitado durante el turno: se hace efectivo al boundary con parcial.
+      const midStop = this.stopRequests.get(subEgoId);
+      if (midStop) {
+        const partial = (result.output ?? midStop.partial) as unknown;
+        throw new SubEgoStoppedError(subEgoId, partial);
+      }
 
       instance.totalTurnsExecuted += 1;
       instance.totalTokensUsed += tokens;
@@ -274,6 +323,121 @@ export class SubEgoRuntime {
     }
     this.idleTimers.clear();
     this.instances.clear();
+  }
+
+  // --- CONTROL VIVO + MODELO/COSTE POR RAMA (tareas 6-7, aditivo) ---
+
+  /**
+   * Modelo barato por defecto del runtime para ramas hijas (tarea 7).
+   */
+  getDefaultChildModel(): string {
+    return this.defaultChildModel;
+  }
+
+  /**
+   * Fija el modelo de una rama concreta (tarea 7). Retorna el modelo efectivo.
+   */
+  setBranchModel(subEgoId: string, model?: string): string {
+    const m = (model ?? this.defaultChildModel).trim() || this.defaultChildModel;
+    this.branchModels.set(subEgoId, m);
+    return m;
+  }
+
+  /**
+   * Modelo efectivo de una rama (override o default barato).
+   */
+  getBranchModel(subEgoId: string): string {
+    return this.branchModels.get(subEgoId) ?? this.defaultChildModel;
+  }
+
+  /**
+   * Lista instancias en ejecución (para control vivo `list`, tarea 6).
+   */
+  listRunning(): SubEgoInstance[] {
+    return Array.from(this.instances.values()).filter((i) => i.state === "executing");
+  }
+
+  /**
+   * Ids en ejecución.
+   */
+  listRunningIds(): string[] {
+    return this.listRunning().map((i) => i.manifest.id);
+  }
+
+  /**
+   * Encola una instrucción out-of-band sin interrumpir el turno (tarea 6: steer).
+   * El executor la consume en el boundary vía `drainSteer`.
+   */
+  steer(subEgoId: string, instruction: string): void {
+    const text = (instruction ?? "").trim();
+    if (text.length === 0) return;
+    const q = this.steerQueues.get(subEgoId) ?? [];
+    q.push(text);
+    this.steerQueues.set(subEgoId, q);
+    const inst = this.instances.get(subEgoId);
+    if (inst) {
+      inst.scratchpad.set("__steer_pending", [...q]);
+    }
+  }
+
+  /**
+   * Mira la cola out-of-band sin consumirla.
+   */
+  peekSteer(subEgoId: string): string[] {
+    return [...(this.steerQueues.get(subEgoId) ?? [])];
+  }
+
+  /**
+   * Consume y limpia la cola out-of-band (llamar en el boundary, tarea 6).
+   */
+  drainSteer(subEgoId: string): string[] {
+    const q = this.steerQueues.get(subEgoId);
+    if (!q || q.length === 0) return [];
+    this.steerQueues.delete(subEgoId);
+    const inst = this.instances.get(subEgoId);
+    if (inst) inst.scratchpad.delete("__steer_pending");
+    return [...q];
+  }
+
+  /**
+   * Solicita cancelación cooperativa al boundary con parcial opcional (tarea 6: stop).
+   */
+  requestStop(subEgoId: string, partial?: unknown): boolean {
+    this.stopRequests.set(subEgoId, { requestedAtMs: Date.now(), partial });
+    return true;
+  }
+
+  /**
+   * Indica si hay un stop pendiente (para chequear en el boundary).
+   */
+  isStopRequested(subEgoId: string): boolean {
+    return this.stopRequests.has(subEgoId);
+  }
+
+  /**
+   * Limpia un stop pendiente (tras handled en el boundary).
+   */
+  clearStop(subEgoId: string): void {
+    this.stopRequests.delete(subEgoId);
+  }
+
+  /**
+   * Rollup de coste/tokens por rama (tarea 7): suma contadores de las instancias indicadas
+   * (o de todas si se omite) sin alterar comportamiento existente.
+   */
+  getCostRollup(subEgoIds?: string[]): { branches: number; totalTokens: number; totalCostUsd: number } {
+    const targets = subEgoIds ?? Array.from(this.instances.keys());
+    let tokens = 0;
+    let cost = 0;
+    let branches = 0;
+    for (const id of targets) {
+      const inst = this.instances.get(id);
+      if (!inst) continue;
+      branches += 1;
+      tokens += inst.totalTokensUsed;
+      cost += inst.totalCostUsd;
+    }
+    return { branches, totalTokens: tokens, totalCostUsd: Number(cost.toFixed(6)) };
   }
 
   // --- MÉTODOS INTERNOS DE GESTIÓN Y FSM ---

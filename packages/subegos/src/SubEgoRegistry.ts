@@ -57,6 +57,20 @@ export class SubEgoRegistryValidationError extends SubEgoRegistryError {
 }
 
 /**
+ * Error emitido cuando un perfil nombrado (CFG-03) viola el esquema Zod
+ * `SubEgoProfile` (nombre, modelo, sandbox, aprobación, toolsets).
+ */
+export class SubEgoProfileValidationError extends SubEgoRegistryError {
+  constructor(public readonly profileName: string, public readonly issues: z.ZodIssue[]) {
+    const formatted = issues
+      .map((i) => `  - [${i.path.join(".") || "root"}]: ${i.message}`)
+      .join("\n");
+    super(`El perfil '${profileName}' no cumple con el esquema canónico:\n${formatted}`);
+    this.name = "SubEgoProfileValidationError";
+  }
+}
+
+/**
  * Criterios de filtrado para consultas del catálogo de Sub-Egos.
  */
 export interface SubEgoFilterOptions {
@@ -108,6 +122,84 @@ export function isSystemSubEgo(
 }
 
 /**
+ * Perfiles nombrados de Sub-Ego (CFG-03): bundle modelo+sandbox+aprobación
+ * +toolsets persistido en VantaDB `gov/settings/profiles` (Zod+VantaDB,
+ * sin archivos `~/.codex`). Decisión usuario: 4 perfiles
+ * planner/reviewer/researcher/builder; planner = frontier, hijos = baratos
+ * (alias `frontier`/`cheap` que CFG-04 resuelve contra el router).
+ */
+export const SubEgoProfileSandboxSchema = z.enum(["read-only", "workspace", "full"]);
+
+export type SubEgoProfileSandbox = z.infer<typeof SubEgoProfileSandboxSchema>;
+
+export const SubEgoProfileApprovalSchema = z.enum(["never", "on-write", "always"]);
+
+export type SubEgoProfileApproval = z.infer<typeof SubEgoProfileApprovalSchema>;
+
+export const SubEgoProfileNameSchema = z.enum(["planner", "reviewer", "researcher", "builder"]);
+
+export type SubEgoProfileName = z.infer<typeof SubEgoProfileNameSchema>;
+
+export const SubEgoProfileSchema = z.object({
+  name: SubEgoProfileNameSchema,
+  model: z.string().min(1).max(128),
+  sandbox: SubEgoProfileSandboxSchema,
+  approval: SubEgoProfileApprovalSchema,
+  toolsets: z.array(z.string().min(1).max(64)).max(32).default([]),
+  description: z.string().max(500).optional(),
+});
+
+export type SubEgoProfile = z.infer<typeof SubEgoProfileSchema>;
+
+/**
+ * Los 4 perfiles canónicos least-privilege (CFG-03).
+ * Solo `builder` escribe (workspace + approval on-write); el resto es
+ * read-only con toolsets mínimos de lectura.
+ */
+export const DEFAULT_SUBEGO_PROFILES: readonly SubEgoProfile[] = Object.freeze([
+  {
+    name: "planner",
+    model: "frontier",
+    sandbox: "read-only",
+    approval: "on-write",
+    toolsets: ["memory_recall", "knowledge_search"],
+    description: "Planifica y descompone; modelo frontier, sin escritura.",
+  },
+  {
+    name: "reviewer",
+    model: "cheap",
+    sandbox: "read-only",
+    approval: "never",
+    toolsets: ["memory_recall", "git_status"],
+    description: "Revisa código y planes; solo lectura.",
+  },
+  {
+    name: "researcher",
+    model: "cheap",
+    sandbox: "read-only",
+    approval: "never",
+    toolsets: ["memory_recall", "knowledge_search"],
+    description: "Investiga docs y memoria; solo lectura.",
+  },
+  {
+    name: "builder",
+    model: "cheap",
+    sandbox: "workspace",
+    approval: "on-write",
+    toolsets: ["memory_recall", "filesystem_read", "filesystem_write"],
+    description: "Implementa cambios acotados al workspace con aprobación en escritura.",
+  },
+] as SubEgoProfile[]);
+
+export function validateSubEgoProfile(data: unknown): z.SafeParseReturnType<unknown, SubEgoProfile> {
+  return SubEgoProfileSchema.safeParse(data);
+}
+
+export function parseSubEgoProfile(data: unknown): SubEgoProfile {
+  return SubEgoProfileSchema.parse(data) as SubEgoProfile;
+}
+
+/**
  * Registro y catálogo unificado de Sub-Egos sobre VantaDB (SUB-07 / Principios §1 y §4).
  * Gestiona la persistencia, indexación, ciclo de vida suave (enable/disable) y protección
  * inmutable de identidades de sistema bajo el namespace `gov/sub_egos/<id>`.
@@ -116,8 +208,12 @@ export class SubEgoRegistry {
   private readonly storage: EgoMemoryAdapter;
   private readonly protectedIds: Set<string>;
   private readonly knownIds: Set<string> = new Set();
+  private readonly knownProfileNames: Set<string> = new Set();
 
   public static readonly NAMESPACE = "gov/sub_egos";
+
+  /** Namespace VantaDB de perfiles nombrados (CFG-03). */
+  public static readonly PROFILES_NAMESPACE = "gov/settings/profiles";
 
   constructor(storage: EgoMemoryAdapter, options: SubEgoRegistryOptions = {}) {
     this.storage = storage;
@@ -648,5 +744,136 @@ export class SubEgoRegistry {
   async count(filter?: SubEgoFilterOptions): Promise<number> {
     const items = await this.list(filter);
     return items.length;
+  }
+
+  /**
+   * Crea o actualiza un perfil nombrado (CFG-03) en `gov/settings/profiles`.
+   * Valida con Zod (fail-closed); sin archivos `~/.codex`.
+   */
+  async upsertProfile(profile: unknown): Promise<SubEgoProfile> {
+    await this.ensureStorageReady();
+    const validation = validateSubEgoProfile(profile);
+    if (!validation.success) {
+      const candidate =
+        typeof (profile as { name?: unknown })?.name === "string"
+          ? (profile as { name: string }).name
+          : "desconocido";
+      throw new SubEgoProfileValidationError(candidate, validation.error.issues);
+    }
+    const validated = validation.data;
+    await this.storage.put({
+      namespace: SubEgoRegistry.PROFILES_NAMESPACE,
+      key: validated.name,
+      payload: validated,
+      metadata: {
+        name: validated.name,
+        model: validated.model,
+        sandbox: validated.sandbox,
+        approval: validated.approval,
+        toolsets: JSON.stringify(validated.toolsets),
+      },
+    });
+    this.knownProfileNames.add(validated.name);
+    return validated;
+  }
+
+  /**
+   * Recupera un perfil nombrado por su nombre. `null` si no existe o está corrupto.
+   * Tolera envelopes `{payload}` y payload directo (mocks).
+   */
+  async getProfile(name: string): Promise<SubEgoProfile | null> {
+    await this.ensureStorageReady();
+    try {
+      const envelope = await this.storage.get(SubEgoRegistry.PROFILES_NAMESPACE, name);
+      if (!envelope) return null;
+      const raw =
+        typeof envelope === "object" && envelope !== null && "payload" in envelope
+          ? (envelope as { payload: unknown }).payload
+          : envelope;
+      if (!raw) return null;
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const validation = validateSubEgoProfile(parsed);
+      if (!validation.success) return null;
+      this.knownProfileNames.add(validation.data.name);
+      return validation.data;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Lista los perfiles nombrados (omite corruptos). Usa `storage.list` si
+   * existe; si no, fallback a las claves conocidas de la sesión.
+   */
+  async listProfiles(filter?: { sandbox?: SubEgoProfileSandbox; approval?: SubEgoProfileApproval }): Promise<SubEgoProfile[]> {
+    await this.ensureStorageReady();
+    const rawRecords: unknown[] = [];
+    const storageAny = this.storage as unknown as {
+      list?: (namespace: string, limit?: number) => Promise<Array<{ payload: unknown }>>;
+    };
+    if (typeof storageAny.list === "function") {
+      try {
+        const rows = await storageAny.list(SubEgoRegistry.PROFILES_NAMESPACE, 100);
+        for (const row of rows) {
+          const payload =
+            typeof row === "object" && row !== null && "payload" in row
+              ? (row as { payload: unknown }).payload
+              : row;
+          rawRecords.push(typeof payload === "string" ? JSON.parse(payload) : payload);
+        }
+      } catch {
+        // Fallback a knownProfileNames abajo
+      }
+    }
+    if (rawRecords.length === 0 && this.knownProfileNames.size > 0) {
+      for (const name of this.knownProfileNames) {
+        const found = await this.getProfile(name);
+        if (found) rawRecords.push(found);
+      }
+      // getProfile ya validó; aplicar filtro directo
+      return (rawRecords as SubEgoProfile[]).filter(
+        (p) =>
+          (!filter?.sandbox || p.sandbox === filter.sandbox) &&
+          (!filter?.approval || p.approval === filter.approval)
+      );
+    }
+    const valid: SubEgoProfile[] = [];
+    for (const record of rawRecords) {
+      const validation = validateSubEgoProfile(record);
+      if (validation.success) {
+        this.knownProfileNames.add(validation.data.name);
+        if (
+          (!filter?.sandbox || validation.data.sandbox === filter.sandbox) &&
+          (!filter?.approval || validation.data.approval === filter.approval)
+        ) {
+          valid.push(validation.data);
+        }
+      }
+    }
+    return valid;
+  }
+
+  /**
+   * Elimina un perfil nombrado. `false` si no existía.
+   */
+  async deleteProfile(name: string): Promise<boolean> {
+    await this.ensureStorageReady();
+    const parsed = SubEgoProfileNameSchema.safeParse(name);
+    if (!parsed.success) return false;
+    const deleted = await this.storage.delete(SubEgoRegistry.PROFILES_NAMESPACE, parsed.data);
+    if (deleted) this.knownProfileNames.delete(parsed.data);
+    return deleted;
+  }
+
+  /**
+   * Siembra los 4 perfiles canónicos faltantes (idempotente) y retorna el listado.
+   */
+  async ensureDefaultProfiles(): Promise<SubEgoProfile[]> {
+    await this.ensureStorageReady();
+    for (const defaults of DEFAULT_SUBEGO_PROFILES) {
+      const existing = await this.getProfile(defaults.name);
+      if (!existing) await this.upsertProfile(defaults);
+    }
+    return this.listProfiles();
   }
 }

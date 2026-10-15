@@ -3,6 +3,16 @@ import YAML from "yaml";
 import type { EgoPut } from "@ego/memory";
 import { getQuarantineAware } from "@ego/memory";
 import type { SubEgoManifest } from "./types.js";
+import {
+  assembleSystemPrompt,
+  buildStableTier,
+  type AssembledPrompt,
+  type ContextTierInput,
+  type StableTierInput,
+  type VolatileTierInput
+} from "./PromptAssembly.js";
+
+export type { AssembledPrompt } from "./PromptAssembly.js";
 
 /**
  * Error base para fallos relacionados con el Alma de un Sub-Ego.
@@ -119,6 +129,38 @@ export interface SubEgoSoulStorageLike {
   put(item: EgoPut): Promise<void>;
   get(namespace: string, key: string): Promise<unknown>;
   delete?(namespace: string, key: string): Promise<boolean>;
+}
+
+/**
+ * Opciones para `SubEgoSoul.assembleHermesPrompt()` (3 tiers estilo Hermes).
+ * `coreRules` es obligatorio (preserva la jerarquía Ego); el resto alimenta
+ * los tiers estable / contexto / volátil y se congela a inicio de sesión.
+ */
+export interface HermesPromptOptions {
+  /** Core System Rules de Ego (Tier 2 legacy). Obligatorio, no vacío. */
+  coreRules: string;
+  /** Guía de tools para el toolset fijo de la sesión (Tier 1 estable). */
+  toolGuide?: string;
+  /** Índice compacto de skills (Tier 1 estable). */
+  skillsIndex?: string;
+  /** Hints de SO/entorno (Tier 1 estable). */
+  osHints?: string;
+  /** Hint por superficie, byte-stable por config (Tier 1 estable). */
+  platformHint?: string;
+  /** `system_message` del caller/delegación (Tier 2 contexto). */
+  callerSystemMessage?: string;
+  /** Contenido de AGENTS.md del proyecto (Tier 2 contexto). */
+  agentsMd?: string;
+  projectName?: string;
+  workspaceSnapshot?: string;
+  /** Snapshots congelados a inicio de sesión (Tier 3 volátil). */
+  memoryMd?: string;
+  userMd?: string;
+  timestampMs?: number;
+  model?: string;
+  provider?: string;
+  sessionId?: string;
+  runtimeEnvHints?: string;
 }
 
 /**
@@ -375,10 +417,61 @@ export class SubEgoSoul {
   }
 
   /**
+   * Ensamblaje 3-tiers estilo Hermes (estable → contexto → volátil) sin romper
+   * el runtime propio: `compilePrompt()` legacy queda intacto y este método
+   * ofrece la variante cache-friendly para sesiones nuevas.
+   *
+   * - TIER 1 / STABLE (cacheable, nunca muta mid-turn): SOUL + guía tools +
+   *   índice skills + hints SO/plataforma, con tags XML
+   *   `<role><instructions><constraints><examples>`.
+   * - TIER 2 / CONTEXT: coreRules (Ego) + system_message del caller + AGENTS.md.
+   * - TIER 3 / VOLATILE: snapshot congelado a inicio de sesión
+   *   (MEMORY.md + USER.md + timestamp/modelo/proveedor).
+   *
+   * Invariantes: NUNCA mutar el system mid-turn salvo compresión
+   * (ver `SYSTEM_MUTATION_RULE`); `EPHEMERAL_*` nunca contamina el prefijo
+   * (usar `applyEphemeralOverlay()` a nivel de API-call).
+   */
+  assembleHermesPrompt(options: HermesPromptOptions): AssembledPrompt {
+    const coreRules = options.coreRules ? options.coreRules.trim() : "";
+    if (coreRules.length === 0) {
+      throw new SubEgoSoulError(
+        "La opción 'coreRules' es obligatoria y no puede estar vacía (Core System Rules de Ego)."
+      );
+    }
+    const stable: StableTierInput = {
+      soulBlock: this.toSoulBlock(),
+      toolGuide: options.toolGuide,
+      skillsIndex: options.skillsIndex,
+      osHints: options.osHints,
+      platformHint: options.platformHint,
+      securityGuardrails: SYSTEM_SECURITY_GUARDRAILS
+    };
+    // Validación temprana del tier estable (lanza si el soul está vacío).
+    buildStableTier(stable);
+    const context: ContextTierInput = {
+      coreRules,
+      callerSystemMessage: options.callerSystemMessage,
+      agentsMd: options.agentsMd,
+      projectName: options.projectName,
+      workspaceSnapshot: options.workspaceSnapshot
+    };
+    const volatile: VolatileTierInput = {
+      memoryMd: options.memoryMd,
+      userMd: options.userMd,
+      timestampMs: options.timestampMs,
+      model: options.model,
+      provider: options.provider,
+      sessionId: options.sessionId,
+      runtimeEnvHints: options.runtimeEnvHints
+    };
+    return assembleSystemPrompt({ stable, context, volatile });
+  }
+
+  /**
    * Retorna una copia inmutable del alma con modificaciones aplicadas.
    */
-  with(overrides: Partial<SubEgoSoulInput>): SubEgoSoul {
-    return new SubEgoSoul({
+  with(overrides: Partial<SubEgoSoulInput>): SubEgoSoul {    return new SubEgoSoul({
       ...this.toJSON(),
       ...overrides,
       updatedAtMs: Date.now()

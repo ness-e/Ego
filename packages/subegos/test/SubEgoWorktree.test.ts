@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { SubEgoWorktreeManager, type WorktreeInfo } from "../src/SubEgoWorktree.js";
 
 describe("HERM-17: SubEgoWorktreeManager (Aislamiento con Git Worktrees)", () => {
-  it("crea un worktree aislado configurando la ruta y la rama temporal", () => {
+  it("crea un worktree aislado configurando la ruta y la rama temporal", async () => {
     const mockExec = vi.fn((args: string[]) => {
       if (args[0] === "rev-parse" && args[1] === "--show-toplevel") return "/mock/repo";
       if (args[0] === "rev-parse" && args[1] === "HEAD") return "commit123";
@@ -11,7 +11,7 @@ describe("HERM-17: SubEgoWorktreeManager (Aislamiento con Git Worktrees)", () =>
     });
 
     const manager = new SubEgoWorktreeManager(mockExec, () => false);
-    const info = manager.createWorktree("/mock/repo", "dev-agent");
+    const info = await manager.createWorktree("/mock/repo", "dev-agent");
 
     expect(info).not.toBeNull();
     expect(info?.branch).toBe("ego-subego/subego-dev-agent");
@@ -19,7 +19,7 @@ describe("HERM-17: SubEgoWorktreeManager (Aislamiento con Git Worktrees)", () =>
     expect(info?.baseCommit).toBe("commit123");
   });
 
-  it("poda (prune) el worktree si no hubo commits y el árbol quedó limpio", () => {
+  it("poda (prune) el worktree si no hubo commits y el árbol quedó limpio", async () => {
     const mockExec = vi.fn((args: string[]) => {
       if (args[0] === "status") return ""; // limpio
       if (args[0] === "rev-list") return "0"; // 0 commits
@@ -30,20 +30,20 @@ describe("HERM-17: SubEgoWorktreeManager (Aislamiento con Git Worktrees)", () =>
 
     const manager = new SubEgoWorktreeManager(mockExec, () => true);
     const info: WorktreeInfo = {
-      path: "/mock/repo/.worktrees/subego-test",
+      path: "/mock/repo/.ego-worktrees/subego-test",
       branch: "ego-subego/subego-test",
       repoRoot: "/mock/repo",
       baseCommit: "commit123",
     };
 
-    const result = manager.finalizeWorktree(info, { pruneIfClean: true });
+    const result = await manager.finalizeWorktree(info, { pruneIfClean: true });
 
     expect(result.pruned).toBe(true);
     expect(result.commits).toBe(0);
     expect(result.dirty).toBe(false);
   });
 
-  it("preserva el worktree para revisión HITL si contiene commits o cambios dirty", () => {
+  it("preserva el worktree para revisión HITL si contiene commits o cambios dirty", async () => {
     const mockExec = vi.fn((args: string[]) => {
       if (args[0] === "status") return "M src/feature.ts\n"; // dirty
       if (args[0] === "rev-list") return "2"; // 2 commits
@@ -52,13 +52,13 @@ describe("HERM-17: SubEgoWorktreeManager (Aislamiento con Git Worktrees)", () =>
 
     const manager = new SubEgoWorktreeManager(mockExec, () => true);
     const info: WorktreeInfo = {
-      path: "/mock/repo/.worktrees/subego-test",
+      path: "/mock/repo/.ego-worktrees/subego-test",
       branch: "ego-subego/subego-test",
       repoRoot: "/mock/repo",
       baseCommit: "commit123",
     };
 
-    const result = manager.finalizeWorktree(info, { pruneIfClean: true });
+    const result = await manager.finalizeWorktree(info, { pruneIfClean: true });
 
     expect(result.pruned).toBe(false);
     expect(result.preservedForReview).toBe(true);

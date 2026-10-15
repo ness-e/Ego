@@ -2,13 +2,20 @@
  * SubEgoWorktree.ts — Aislamiento de Sub-Egos de Ingeniería mediante Git Worktrees.
  * Extraído y adaptado de Hermes Agent (HERM-17 / RFC-01) para Ego SOC.
  *
- * Crea espacios de trabajo paralelos y aislados en `.worktrees/subego-<id>` para evitar
- * que tareas concurrentes colisionen con el árbol de trabajo local del usuario.
+ * Crea espacios de trabajo paralelos y aislados en `.ego-worktrees/subego-<id>`
+ * para evitar que tareas concurrentes colisionen con el árbol de trabajo local
+ * del usuario.
  */
 
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+const execFileAsync = promisify(execFile);
+
+/** A6: directorio canónico de worktrees (alineado con `WorktreeManager`). */
+export const SUBEGO_WORKTREES_DIR = ".ego-worktrees";
 
 export interface WorktreeInfo {
   path: string;
@@ -27,23 +34,26 @@ export interface FinalizeWorktreeResult {
   note?: string;
 }
 
+/** Ejecutor git inyectable (sync o async); el manager siempre lo `await`. */
+export type ExecGitFn = (args: string[], cwd: string) => string | Promise<string>;
+
 export class SubEgoWorktreeManager {
-  private execGit: (args: string[], cwd: string) => string;
+  private execGit: ExecGitFn;
   private fileExists: (filePath: string) => boolean;
 
   constructor(
-    customExecGit?: (args: string[], cwd: string) => string,
+    customExecGit?: ExecGitFn,
     customExists?: (filePath: string) => boolean
   ) {
     this.execGit =
       customExecGit ||
-      ((args, cwd) => {
-        return execFileSync("git", args, {
+      (async (args, cwd) => {
+        const { stdout } = await execFileAsync("git", args, {
           cwd,
-          encoding: "utf8",
           windowsHide: true,
           timeout: 30000,
-        }).trim();
+        });
+        return stdout.trim();
       });
     this.fileExists = customExists || ((p) => fs.existsSync(p));
   }
@@ -51,9 +61,9 @@ export class SubEgoWorktreeManager {
   /**
    * Resuelve el directorio raíz del repositorio Git para una ruta dada.
    */
-  resolveRepoRoot(targetPath: string): string | null {
+  async resolveRepoRoot(targetPath: string): Promise<string | null> {
     try {
-      const out = this.execGit(["rev-parse", "--show-toplevel"], targetPath);
+      const out = await this.execGit(["rev-parse", "--show-toplevel"], targetPath);
       return out || null;
     } catch {
       return null;
@@ -61,7 +71,7 @@ export class SubEgoWorktreeManager {
   }
 
   /**
-   * Asegura que `.worktrees/` esté registrado en `.gitignore` para no ensuciar el status.
+   * Asegura que `.ego-worktrees/` esté registrado en `.gitignore` para no ensuciar el status.
    */
   private ensureGitignoreEntry(repoRoot: string): void {
     const gitignorePath = path.join(repoRoot, ".gitignore");
@@ -70,9 +80,9 @@ export class SubEgoWorktreeManager {
       if (fs.existsSync(gitignorePath)) {
         content = fs.readFileSync(gitignorePath, "utf8");
       }
-      if (!content.split(/\r?\n/).includes(".worktrees/")) {
+      if (!content.split(/\r?\n/).includes(`${SUBEGO_WORKTREES_DIR}/`)) {
         const separator = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
-        fs.appendFileSync(gitignorePath, `${separator}.worktrees/\n`, "utf8");
+        fs.appendFileSync(gitignorePath, `${separator}${SUBEGO_WORKTREES_DIR}/\n`, "utf8");
       }
     } catch {
       // Ignorar fallo permisivo de lectura/escritura de gitignore
@@ -81,9 +91,10 @@ export class SubEgoWorktreeManager {
 
   /**
    * Crea un worktree aislado para un Sub-Ego.
+   * A6: `add -B` (reusa la rama si ya existe en vez de fallar con `-b`).
    */
-  createWorktree(repoRoot: string, subEgoId: string): WorktreeInfo | null {
-    const root = this.resolveRepoRoot(repoRoot);
+  async createWorktree(repoRoot: string, subEgoId: string): Promise<WorktreeInfo | null> {
+    const root = await this.resolveRepoRoot(repoRoot);
     if (!root) {
       return null;
     }
@@ -91,14 +102,14 @@ export class SubEgoWorktreeManager {
     const sanitizedId = subEgoId.replace(/[^a-zA-Z0-9_-]/g, "-");
     const wtName = `subego-${sanitizedId}`;
     const branch = `ego-subego/${wtName}`;
-    const wtPath = path.join(root, ".worktrees", wtName);
+    const wtPath = path.join(root, SUBEGO_WORKTREES_DIR, wtName);
 
     try {
       this.ensureGitignoreEntry(root);
 
       let baseCommit = "";
       try {
-        baseCommit = this.execGit(["rev-parse", "HEAD"], root);
+        baseCommit = await this.execGit(["rev-parse", "HEAD"], root);
       } catch {
         baseCommit = "HEAD";
       }
@@ -106,13 +117,13 @@ export class SubEgoWorktreeManager {
       // Si el directorio ya existe, intentar removerlo
       if (this.fileExists(wtPath)) {
         try {
-          this.execGit(["worktree", "remove", "--force", wtPath], root);
+          await this.execGit(["worktree", "remove", "--force", wtPath], root);
         } catch {
           // fallback
         }
       }
 
-      this.execGit(["worktree", "add", "-b", branch, wtPath, "HEAD"], root);
+      await this.execGit(["worktree", "add", "-B", branch, wtPath, "HEAD"], root);
 
       return {
         path: wtPath,
@@ -130,10 +141,10 @@ export class SubEgoWorktreeManager {
    * Si no hubo commits y el árbol está limpio, lo poda (prune).
    * Si contiene cambios o commits, lo preserva para revisión del usuario (HITL).
    */
-  finalizeWorktree(
+  async finalizeWorktree(
     info: WorktreeInfo,
     options: { pruneIfClean?: boolean } = { pruneIfClean: true }
-  ): FinalizeWorktreeResult {
+  ): Promise<FinalizeWorktreeResult> {
     const { path: wtPath, branch, repoRoot, baseCommit } = info;
 
     if (!this.fileExists(wtPath)) {
@@ -151,12 +162,12 @@ export class SubEgoWorktreeManager {
 
     try {
       // Verificar estado dirty (archivos modificados o untracked)
-      const statusOut = this.execGit(["status", "--porcelain"], wtPath);
+      const statusOut = await this.execGit(["status", "--porcelain"], wtPath);
       dirty = statusOut.length > 0;
 
       // Contar commits producidos respecto al commit base
       if (baseCommit) {
-        const revOut = this.execGit(
+        const revOut = await this.execGit(
           ["rev-list", "--count", `${baseCommit}..HEAD`],
           wtPath
         );
@@ -178,8 +189,8 @@ export class SubEgoWorktreeManager {
     // Si está limpio y sin commits, y pruneIfClean es true -> eliminar
     if (!dirty && commits === 0 && options.pruneIfClean) {
       try {
-        this.execGit(["worktree", "remove", "--force", wtPath], repoRoot);
-        this.execGit(["branch", "-D", branch], repoRoot);
+        await this.execGit(["worktree", "remove", "--force", wtPath], repoRoot);
+        await this.execGit(["branch", "-D", branch], repoRoot);
         return {
           path: wtPath,
           branch,

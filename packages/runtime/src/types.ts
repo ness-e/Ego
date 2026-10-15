@@ -73,6 +73,18 @@ export interface ToolExecutionLoopConfig {
   maxSteps?: number;
   defaultRole?: ModelRole;
   systemPrompt?: string;
+  /**
+   * Overlay efímero API-call-time (estilo Hermes `ephemeral_system_prompt`).
+   * Vive DESPUÉS de la frontera EPHEMERAL, nunca persiste ni contamina el
+   * prefijo cacheado. Para contenido mid-turn; el system cacheado no se toca.
+   */
+  ephemeralSystemPrompt?: string;
+  /**
+   * Huella del system prompt cacheado a inicio de sesión (ver
+   * `fingerprintSystemPrompt()` en `@ego/subegos`). Si se fija, el loop
+   * debe rechazar mutaciones mid-turn salvo rebuild por compresión.
+   */
+  cachedSystemPromptFingerprint?: string;
   executionManager?: ExecutionManager;
   approvalEngine?: ApprovalEngine;
   errorHandler?: ErrorHandler;
@@ -97,6 +109,18 @@ export interface LoopRunOptions {
   /** Modelo elegido por el usuario (Ajustes/ModelPicker); gana al rol si resuelve. */
   preferredModel?: PreferredModel;
   systemPrompt?: string;
+  /**
+   * Overlay efímero para ESTA llamada (no cacheable, no persistido).
+   * El caller lo concatena tras la frontera EPHEMERAL via
+   * `applyEphemeralOverlay()`; nunca muta el system cacheado.
+   */
+  ephemeralSystemPrompt?: string;
+  /**
+   * `true` solo en rebuild por compresión de contexto: único cache-break
+   * sancionado (Hermes). Cualquier otra mutación mid-turn del system está
+   * prohibida y debe viajar como user message o tool result.
+   */
+  isCompressionRebuild?: boolean;
   maxSteps?: number;
   approvalHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   abortSignal?: AbortSignal;
@@ -164,4 +188,24 @@ export interface ErrorHandlerConfig {
   maxConsecutiveToolErrors?: number;
   enableArgumentRepair?: boolean;
   enableLoopGuard?: boolean;
+}
+
+/**
+ * Razón legítima de (re)construcción del system prompt cacheado.
+ * `session_start`: ensamblaje 3-tiers estable→contexto→volátil.
+ * `compression`: ÚNICO cache-break sancionado mid-conversación (Hermes).
+ * Cualquier otro motivo mid-turn está prohibido: el contenido viaja como
+ * user message o tool result, nunca mutando el system.
+ */
+export type SystemPromptRebuildReason = "session_start" | "compression";
+
+/**
+ * Estado del system prompt cacheado por conversación (prefijo estable para
+ * prompt caching del proveedor). El overlay `EPHEMERAL_*` nunca forma parte
+ * de este texto.
+ */
+export interface CachedSystemPromptState {
+  text: string;
+  fingerprint: string;
+  createdAtMs: number;
 }

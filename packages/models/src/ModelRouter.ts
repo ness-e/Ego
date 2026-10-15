@@ -44,6 +44,62 @@ export function isRateLimitError(err: unknown): boolean {
 }
 
 /**
+ * Reasoning effort + aliases + review model (CFG-04).
+ * Decisión: `fast` = barato (clase haiku/mini — planner delega a hijos
+ * baratos), `smart` = frontier (clase opus/sonnet — planner frontier).
+ */
+export type EffortLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export type ModelAliasName = "fast" | "smart";
+
+export interface ModelAliasMap {
+  fast?: string;
+  smart?: string;
+}
+
+/** Defaults CFG-04: barato local vs frontier cloud. */
+export const DEFAULT_MODEL_ALIASES: Required<ModelAliasMap> = {
+  fast: "llama3.2:3b",
+  smart: "claude-3-5-sonnet-20241022",
+};
+
+export const DEFAULT_FALLBACK_MODEL_ID = "mock-core";
+
+/**
+ * effort → params de provider (CFG-04). `medium` = sin override
+ * (conducta legacy intacta: las opciones explícitas siempre ganan).
+ */
+export function effortProviderParams(level: EffortLevel): {
+  maxTokens?: number;
+  temperature?: number;
+} {
+  switch (level) {
+    case "minimal":
+      return { maxTokens: 256, temperature: 0 };
+    case "low":
+      return { maxTokens: 1024, temperature: 0.2 };
+    case "medium":
+      return {};
+    case "high":
+      return { maxTokens: 4096, temperature: 0.5 };
+    case "xhigh":
+      return { maxTokens: 8192, temperature: 0.7 };
+  }
+}
+
+/**
+ * Subconjunto de `ModelConfig` (Zod, desktop) que el router entiende.
+ * Estructural a propósito (DIP): el router NO importa `@ego/desktop`.
+ */
+export interface RouterModelSettings {
+  effortLevel?: EffortLevel;
+  modelAliases?: ModelAliasMap;
+  reviewModel?: string;
+  availableModels?: string[];
+  fallbackModel?: string;
+}
+
+/**
  * ModelRouter canónico de Ego (CORE-03).
  * Enrutamiento inteligente multi-proveedor desacoplado, con fallbacks automáticos,
  * conciencia de costos, roles funcionales y soporte Cloud + Local Offline.
@@ -55,6 +111,12 @@ export class ModelRouter {
   private config: ModelRouterConfig;
   private credentialPool: CredentialPoolReader | null = null;
   private providerFactory: ModelProviderFactory | null = null;
+  /** CFG-04: aliases semánticos, effort, cadena de fallback y review model. */
+  private aliases: ModelAliasMap = {};
+  private effortLevel: EffortLevel = "medium";
+  private availableModelIds: string[] = [];
+  private fallbackModelId: string = DEFAULT_FALLBACK_MODEL_ID;
+  private reviewModelId: string | undefined = undefined;
 
   constructor(config: ModelRouterConfig = {}) {
     this.config = {
@@ -99,6 +161,110 @@ export class ModelRouter {
   }
 
   /**
+   * CFG-04: aliases `fast`/`smart` → id de modelo real.
+   * Sin override, `fast` = barato local y `smart` = frontier cloud.
+   */
+  public setAliases(aliases: ModelAliasMap): void {
+    this.aliases = { ...aliases };
+  }
+
+  public getAliases(): Required<ModelAliasMap> {
+    return {
+      fast: this.aliases.fast ?? DEFAULT_MODEL_ALIASES.fast,
+      smart: this.aliases.smart ?? DEFAULT_MODEL_ALIASES.smart,
+    };
+  }
+
+  public resolveAlias(name: ModelAliasName): string {
+    return this.aliases[name] ?? DEFAULT_MODEL_ALIASES[name];
+  }
+
+  /** Resuelve alias (`fast`/`smart`) o devuelve el id tal cual. */
+  public resolveModelIdOrAlias(idOrAlias: string): string {
+    const t = idOrAlias.trim();
+    if (t === "fast" || t === "smart") return this.resolveAlias(t);
+    return t;
+  }
+
+  /** CFG-04: effort global del router (default `medium` = sin override). */
+  public setEffortLevel(level: EffortLevel): void {
+    this.effortLevel = level;
+  }
+
+  public getEffortLevel(): EffortLevel {
+    return this.effortLevel;
+  }
+
+  /**
+   * Aplica effort a las opciones: los params de effort van por debajo de
+   * los valores explícitos del llamador (nunca los pisan).
+   */
+  public applyEffort(options: ModelGenerateOptions, level: EffortLevel = this.effortLevel): ModelGenerateOptions {
+    const params = effortProviderParams(level);
+    return {
+      ...options,
+      ...(params.maxTokens !== undefined && options.maxTokens === undefined
+        ? { maxTokens: params.maxTokens }
+        : {}),
+      ...(params.temperature !== undefined && options.temperature === undefined
+        ? { temperature: params.temperature }
+        : {}),
+    };
+  }
+
+  /** CFG-04: cadena de fallback ordenada (ids o aliases) tras el primario. */
+  public setAvailableModels(ids: string[]): void {
+    this.availableModelIds = [...ids];
+  }
+
+  public getAvailableModels(): string[] {
+    return [...this.availableModelIds];
+  }
+
+  /** CFG-04: último recurso antes del mock (default `mock-core`). */
+  public setFallbackModel(id: string): void {
+    this.fallbackModelId = id;
+  }
+
+  public getFallbackModel(): string {
+    return this.fallbackModelId;
+  }
+
+  /** CFG-04: modelo de revisión (default: alias `smart`). */
+  public setReviewModel(id: string | undefined): void {
+    this.reviewModelId = id?.trim() ? id.trim() : undefined;
+  }
+
+  public getReviewModel(): string {
+    return this.reviewModelId ?? this.resolveAlias("smart");
+  }
+
+  /** Resuelve el review model a descriptor (review → smart → mock). */
+  public async resolveReviewModel(
+    requiredCapabilities: ModelCapability[] = ["text"]
+  ): Promise<ModelDescriptor> {
+    for (const id of [this.getReviewModel(), this.resolveAlias("smart")]) {
+      const found = await this.lookupAvailable(this.resolveModelIdOrAlias(id), requiredCapabilities);
+      if (found) return found.descriptor;
+    }
+    return this.models.get("mock-core")!;
+  }
+
+  /**
+   * Aplica `RouterModelSettings` (shape de `ModelConfig` desktop) al router.
+   * Glue futura para `applyModelConfig` en main (sin dependencia a desktop).
+   */
+  public configureFromSettings(settings: RouterModelSettings): void {
+    if (settings.effortLevel !== undefined) this.setEffortLevel(settings.effortLevel);
+    if (settings.modelAliases !== undefined) this.setAliases(settings.modelAliases);
+    if (settings.reviewModel !== undefined) this.setReviewModel(settings.reviewModel || undefined);
+    if (settings.availableModels !== undefined) this.setAvailableModels(settings.availableModels);
+    if (settings.fallbackModel !== undefined && settings.fallbackModel.trim()) {
+      this.setFallbackModel(settings.fallbackModel.trim());
+    }
+  }
+
+  /**
    * Resuelve el mejor modelo disponible según el rol solicitado o capacidades.
    */
   public async resolveModel(
@@ -109,7 +275,7 @@ export class ModelRouter {
     // Preferencia explícita del usuario (2026-10-14: el picker/Ajustes elige
     // modelo real, no decorativo). Gana al binding por rol si resuelve.
     if (preferred?.modelId) {
-      const wanted = preferred.modelId.trim();
+      const wanted = this.resolveModelIdOrAlias(preferred.modelId);
       if (wanted.length > 0) {
         const registered = this.models.get(wanted);
         if (registered) {
@@ -141,7 +307,9 @@ export class ModelRouter {
     }
     const candidates = this.roleBindings.get(role) || [];
 
-    for (const modelId of candidates) {
+    for (const rawId of candidates) {
+      // CFG-04: los bindings pueden contener aliases (`fast`/`smart`).
+      const modelId = this.resolveModelIdOrAlias(rawId);
       const desc = this.models.get(modelId);
       if (!desc) continue;
 
@@ -244,6 +412,82 @@ export class ModelRouter {
   }
 
   /**
+   * CFG-04: lookup de un id (o alias) a descriptor disponible con las
+   * capabilities exigidas. `null` = no usable (siguiente en la cadena).
+   */
+  private async lookupAvailable(
+    idOrAlias: string,
+    requiredCapabilities: ModelCapability[]
+  ): Promise<{ descriptor: ModelDescriptor; provider: EgoModelInterface } | null> {
+    const id = this.resolveModelIdOrAlias(idOrAlias);
+    const descriptor = this.models.get(id);
+    if (!descriptor) return null;
+    const provider = this.providers.get(descriptor.provider);
+    if (!provider) return null;
+    if (!(await provider.isAvailable())) return null;
+    if (!requiredCapabilities.every((cap) => descriptor.capabilities.has(cap))) return null;
+    return { descriptor, provider };
+  }
+
+  /**
+   * CFG-04: fallback en cascada `availableModels → fallbackModel → mock`.
+   * Cada eslabón se intenta con rotación de pool; el que falla se salta
+   * con warn (nunca se aborta la cadena por un eslabón caído).
+   */
+  private async runFallbackChain(
+    failedId: string,
+    options: ModelGenerateOptions,
+    requiredCapabilities: ModelCapability[],
+    stream: false,
+    onChunk?: undefined
+  ): Promise<ModelGenerateResult>;
+  private async runFallbackChain(
+    failedId: string,
+    options: ModelGenerateOptions,
+    requiredCapabilities: ModelCapability[],
+    stream: true,
+    onChunk: (chunk: ModelStreamChunk) => void
+  ): Promise<ModelGenerateResult>;
+  private async runFallbackChain(
+    failedId: string,
+    options: ModelGenerateOptions,
+    requiredCapabilities: ModelCapability[],
+    stream: boolean,
+    onChunk?: (chunk: ModelStreamChunk) => void
+  ): Promise<ModelGenerateResult> {
+    const tried = new Set([this.resolveModelIdOrAlias(failedId)]);
+    const chain = [
+      ...this.availableModelIds,
+      this.fallbackModelId,
+    ];
+    for (const rawId of chain) {
+      const id = this.resolveModelIdOrAlias(rawId);
+      if (tried.has(id)) continue;
+      tried.add(id);
+      const found = await this.lookupAvailable(id, requiredCapabilities);
+      if (!found) continue;
+      try {
+        if (stream) {
+          return await this.attemptWithRotation(found.descriptor, found.provider, (active) =>
+            active.stream(found.descriptor.id, options, onChunk!)
+          );
+        }
+        return await this.attemptWithRotation(found.descriptor, found.provider, (active) =>
+          active.generate(found.descriptor.id, options)
+        );
+      } catch (err) {
+        console.warn(`[ModelRouter] Eslabón de fallback '${id}' falló, sigue la cadena:`, err);
+      }
+    }
+    // Fallback absoluto a mock (conducta legacy).
+    console.warn(`[ModelRouter] Cadena de fallback agotada tras '${failedId}', último recurso a mock.`);
+    const mockProvider = this.providers.get("mock")!;
+    return stream
+      ? mockProvider.stream("mock-core", options, onChunk!)
+      : mockProvider.generate("mock-core", options);
+  }
+
+  /**
    * Generación de texto estructurada con fallback en cascada.
    */
   async generateText(
@@ -252,18 +496,19 @@ export class ModelRouter {
     requiredCapabilities?: ModelCapability[],
     preferredModel?: PreferredModel
   ): Promise<ModelGenerateResult> {
-    const descriptor = await this.resolveModel(role, requiredCapabilities, preferredModel);
+    const caps = requiredCapabilities ?? ["text"];
+    const effective = this.applyEffort(options);
+    const descriptor = await this.resolveModel(role, caps, preferredModel);
     const provider = this.providers.get(descriptor.provider)!;
 
     try {
       return await this.attemptWithRotation(descriptor, provider, (active) =>
-        active.generate(descriptor.id, options)
+        active.generate(descriptor.id, effective)
       );
     } catch (err) {
-      // Fallback a proveedor alternativo o mock si falla la llamada
-      console.warn(`[ModelRouter] Fallo en ${descriptor.id}, intentando fallback a mock:`, err);
-      const mockProvider = this.providers.get("mock")!;
-      return mockProvider.generate("mock-core", options);
+      // Fallback a la cadena CFG-04 (availableModels → fallbackModel → mock).
+      console.warn(`[ModelRouter] Fallo en ${descriptor.id}, intentando cadena de fallback:`, err);
+      return this.runFallbackChain(descriptor.id, effective, caps, false);
     }
   }
 
@@ -277,17 +522,18 @@ export class ModelRouter {
     requiredCapabilities?: ModelCapability[],
     preferredModel?: PreferredModel
   ): Promise<ModelGenerateResult> {
-    const descriptor = await this.resolveModel(role, requiredCapabilities, preferredModel);
+    const caps = requiredCapabilities ?? ["text"];
+    const effective = this.applyEffort(options);
+    const descriptor = await this.resolveModel(role, caps, preferredModel);
     const provider = this.providers.get(descriptor.provider)!;
 
     try {
       return await this.attemptWithRotation(descriptor, provider, (active) =>
-        active.stream(descriptor.id, options, onChunk)
+        active.stream(descriptor.id, effective, onChunk)
       );
     } catch (err) {
-      console.warn(`[ModelRouter] Fallo en streaming de ${descriptor.id}, activando fallback:`, err);
-      const mockProvider = this.providers.get("mock")!;
-      return mockProvider.stream("mock-core", options, onChunk);
+      console.warn(`[ModelRouter] Fallo en streaming de ${descriptor.id}, activando cadena de fallback:`, err);
+      return this.runFallbackChain(descriptor.id, effective, caps, true, onChunk);
     }
   }
 
