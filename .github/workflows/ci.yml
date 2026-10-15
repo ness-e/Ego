@@ -82,6 +82,69 @@ jobs:
       - name: Run E2E and Resilience Suites
         run: pnpm test:e2e
 
+  integration-real-db:
+    # STAB-07: integración con DB REAL (Fjall vía napi-rs). Causa 44
+    # `VantaError connect` (STAB-00): NativeVantaDB.connect
+    # (vantadb@0.8.0 dist/native.js) hace `await import("vantadb-node")` y
+    # usa `VantaDb.connect`; el stub de `verify` no exporta `VantaDb` y todo
+    # lo que toca memoria cae con DbError "VantaError". Este job compila el
+    # binding real (Camino A Gate D: checkout + build napi → ABI exacta del
+    # runner; Camino B vendorizar .node descartado: binario por plataforma
+    # en git) y corre ipc.integration + golden-path con EGO_REAL_DB=1.
+    # Fail-soft inicial (continue-on-error): STAB-11 lo endurece + nightly.
+    name: Integration DB real (fail-soft inicial)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      EGO_REAL_DB: 1
+
+    steps:
+      - name: Checkout Ego
+        uses: actions/checkout@v4
+        with:
+          path: Ego
+
+      - name: Checkout VantaDB (binding napi-rs real)
+        uses: actions/checkout@v4
+        with:
+          repository: ness-e/Vantadb
+          path: VantaDB
+          # TODO(STAB-11): pin a SHA cuando se endurezca a hard.
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: Ego/pnpm-lock.yaml
+
+      - name: Setup Rust stable (napi build)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build vantadb-node napi prebuilt (linux x64, ABI runner)
+        working-directory: VantaDB/vantadb-node
+        run: |
+          npm ci
+          npm run build
+          ls -la *.node
+
+      - name: Install Dependencies
+        working-directory: Ego
+        run: pnpm install --frozen-lockfile
+
+      - name: IPC integration con DB real (EGO_REAL_DB=1)
+        working-directory: Ego
+        run: pnpm --filter @ego/desktop exec vitest run test/ipc.integration.test.ts
+
+      - name: Golden Path Alpha con DB real (durabilidad Fjall)
+        working-directory: Ego
+        run: pnpm --filter @ego/e2e-tests exec vitest run e2e/golden-path-alpha.test.ts
+
   e2e-electron:
     name: E2E Electron (Ubuntu + Xvfb, fail-soft)
     runs-on: ubuntu-latest

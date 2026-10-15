@@ -217,7 +217,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** job `integration-real-db` con `EGO_REAL_DB=1` + napi prebuilt verde + `pnpm test:e2e` excluye `tests/gui/specs` + RTL sin gate (import estático, falla si falta dep)
 - **Task file:** `docs/agent-ops/tasks/STAB-07.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (Steps 1-5 ✅ + verifies contrato verdes + commit local; review P2-01 Fast pendiente por agente distinto → orquestador)
 - **Branch:**
 - **Commit:**
   **Risk Register:**

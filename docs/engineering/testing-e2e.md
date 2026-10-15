@@ -70,12 +70,19 @@ falso) indicando el comando que falta.
 - Typecheck owner-side: `npx tsc --noEmit -p tsconfig.json` en `tests/gui`
   (tras `pnpm install` del paquete).
 
-> Nota de línea base (2026-10-15): `pnpm test:e2e` (vitest en `tests/`)
-> ya recolecta los 13 `*.spec.ts` preexistentes de `tests/gui/specs/` y falla
-> al resolver `@playwright/test` (deps standalone no instaladas en CI). Es
-> anterior a este cambio y no lo empeora: el smoke Electron usa un sufijo que
-> vitest ignora (verificado con `vitest list`: sin archivos nuevos
-> recolectados).
+### Alcance de colecta (STAB-07)
+
+`pnpm test:e2e` (vitest en `tests/`) solo recolecta `e2e/`, `security/` y
+`chaos/` (`tests/vitest.config.ts`, espejo de `tests/tsconfig.json`).
+`tests/gui/specs/*.spec.ts` (Playwright, paquete standalone fuera del
+workspace) y `tests/gui/electron/*.electron.ts` quedan EXCLUIDOS por
+configuración — ni vitest ni `pnpm test` (`pnpm -r test`, paquete
+standalone) los ven. Si se añade un nuevo directorio de tests bajo
+`tests/`, añadirlo al `include` de `vitest.config.ts` y `tsconfig.json`.
+
+> Nota histórica (2026-10-15, ya corregida en STAB-07): `pnpm test:e2e`
+> recolectaba los 13 `*.spec.ts` de `tests/gui/specs/` y fallaba al
+> resolver `@playwright/test` (deps standalone no instaladas en CI).
 
 ## Coverage (renderer, opt-in — no exigible en CI)
 
