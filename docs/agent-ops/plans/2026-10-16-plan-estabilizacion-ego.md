@@ -1,7 +1,7 @@
 # Plan de Ejecución: Estabilización Ego + brechas auditadas subagentes
 
 > **Inicio:** 2026-10-16
-> **Estado:** ⏳ EN PROGRESO
+> **Estado:** ✅ COMPLETADO (17/17 tasks COMPLETED con review P2-01 approve; STAB-16 docs-only, código firma owner-gated)
 > **Fuente:** docs/roadmap/Backlog.md + auditorías subagentes 2026-10-15/16 (stack, testing, docs/dist, agentes/contexto, motion/UX, repos-referencia) + conversación puntos 1-6
 > **Autonomous:** false
 > **Campaign ID:** STAB-2026-10-16
@@ -386,7 +386,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** por patrón: `ApprovalIdentity.ts` + test decisión cruzada rechazada; `InteractionTransport.ts` + fallback sin bloqueo; `AttentionStateMachine.ts`; `SafeConfigMutationService.ts preview/confirm/apply/rollback`; `ChangeSetService.ts`; `net-policy.ts` URLs prohibidas bloqueadas; `WorkerPolicy.ts`; `AdaptiveChunker.ts→kb/docs`; `FileLockManager.ts` con tests portados + `pnpm test` verde + ADRs por decisión
 - **Task file:** `docs/agent-ops/tasks/STAB-14.md`
-- **Estado:** ✅ COMPLETO (commit `ce7da8f`; events 38/38, tasks 63/63, security 95/95, tools 64/64 + ADR-0006/0011; 5/9 patrones ya existían → asimilados sin duplicar; review P2-01 pendiente → orquestador)
+- **Estado:** ✅ COMPLETED (commit `ce7da8f`; events 38/38, tasks 63/63, security 95/95, tools 64/64; review ego-audit approve 2026-10-16, 5 asimilados sin duplicar verificados)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -411,7 +411,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `git log --oneline` convencional verificado por hook + CI falla ante mensaje no-convencional + `docs/index` 4 secciones + front-matter Diátaxis + 3 GIFs + decisión site VitePress documentada
 - **Task file:** `docs/agent-ops/tasks/STAB-15.md`
-- **Estado:** ✅ COMPLETED (commit `9c43a6c` local; hooks+CI+index+Diátaxis+3 GIFs+site+CoC+upstream+deprecación; review P2-01 por agente distinto pendiente → orquestador)
+- **Estado:** ✅ COMPLETED (commits `9c43a6c+562a9d9`; hooks+CI+index+Diátaxis+GIFs+site; review ego-audit approve Fast 2026-10-16 re-verificado)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -435,7 +435,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO (docs-only, BLOQUEADO para código)
 - **Contrato:** `scripts/release/sign.mjs` spec + secretos `APPLE_ID/WIN_CERT` documentados + `publish` por canal listo para descomentar + staged `prerelease→latest` + `SHASUMS.txt` + checklist unsigned — sin tocar `publish` activo ni añadir `electron-updater`
 - **Task file:** `docs/agent-ops/tasks/STAB-16.md`
-- **Estado:** ✅ COMPLETED docs-only (commit `e9c9197`; sign SPEC exit 2 BLOQUEO + publish comentado + sin updater/secrets; code BLOQUEADO hasta certs owner — owner-gate vigente)
+- **Estado:** ✅ COMPLETED docs-only (commit `e9c9197`; review ego-audit approve 2026-10-16, firma NO fingida verificada; code BLOQUEADO hasta certs owner — owner-gate vigente)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -452,5 +452,6 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 ## Notas
 - plan-adjust: ninguna aún.
 - Gate P 2026-10-16: usuario GO plan completo; STAB-02 defaultMode=deny fail-closed; STAB-05 threshold 70% + target 40% + cleanup 30d; STAB-14 completo con ADRs; STAB-16 docs-only sin publish/updater hasta certs owner.
+- Cierre 2026-10-16: 17/17 COMPLETED con review approve. Retrospectiva — Start: prompts 10 bloques + sessionID resume + modelo explícito ante limits + reviews con re-run propio. Stop: paralelas sin modelo explícito + prompts cortos + rutas nominales sin grep. Continue: waves MAX 3 + DAG disjunto + add selectivo + NUNCA push + recitation + GATES_EVALUADOS. Acción medible: resumes/wave de ~6 a ≤2. Uphill final: certs owner DIST-04/06. GATES_EVALUADOS: P:disparado→GO + 4 specs | D:por-evidencia | V:sin doble-falla sin BLOQUEO | C:plan archivable.
 - Recitation: plan creado 2026-10-16 desde auditorías subagentes; Gate P ✅ resuelto. Wave 0 en curso: STAB-00 + STAB-01 en paralelo (archivos distintos, MAX_CONCURRENT=3).
 - GATES_EVALUADOS: P:disparado→GO plan + 4 decisiones spec | D:no | V:no | C:no
