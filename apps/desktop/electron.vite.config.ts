@@ -38,7 +38,12 @@ export default defineConfig({
       // (budget de chunks auditado por scripts/verify-dist.cjs).
       chunkSizeWarningLimit: 600,
       rollupOptions: {
-        input: resolve(process.cwd(), "renderer/index.html"),
+        // WIDG-02 (Task3): MPA — `index.html` (app) + `floating/floating.html`
+        // (isla; la carga FloatingWindowView.loadContent en dev y prod).
+        input: {
+          index: resolve(process.cwd(), "renderer/index.html"),
+          floating: resolve(process.cwd(), "renderer/floating/floating.html"),
+        },
         output: {
           manualChunks(id) {
             if (!id.includes("node_modules")) return undefined;
