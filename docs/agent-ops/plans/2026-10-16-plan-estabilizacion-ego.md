@@ -411,7 +411,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `git log --oneline` convencional verificado por hook + CI falla ante mensaje no-convencional + `docs/index` 4 secciones + front-matter Diátaxis + 3 GIFs + decisión site VitePress documentada
 - **Task file:** `docs/agent-ops/tasks/STAB-15.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit `9c43a6c` local; hooks+CI+index+Diátaxis+3 GIFs+site+CoC+upstream+deprecación; review P2-01 por agente distinto pendiente → orquestador)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
