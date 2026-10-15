@@ -14,6 +14,24 @@ import type {
 import { ErrorHandler } from "./ErrorHandler.js";
 import { ToolCallRepairEngine } from "@ego/tool-call-repair";
 
+/** Error de cancelación cooperativa (DOM AbortError de fetch/AI SDK). */
+function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  if (err instanceof Error) {
+    if (err.name === "AbortError") return true;
+    const msg = err.message.toLowerCase();
+    if (msg.includes("aborted") || msg.includes("operation was aborted")) return true;
+  }
+  return false;
+}
+
+interface LoopUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
 /**
  * Loop cognitivo multi-turno para Tool Calling (ACT-02).
  *
@@ -57,6 +75,70 @@ export class ToolExecutionLoop {
   }
 
   /**
+   * Checkpoint cooperativo de cancelación: si la señal se abortó, emite el
+   * evento de telemetría y construye el resultado `aborted` limpio.
+   * Retorna `null` cuando el turno sigue vivo (sin efecto colateral).
+   */
+  private abortCheckpoint(
+    options: LoopRunOptions,
+    messages: ModelMessage[],
+    step: number,
+    totalUsage: LoopUsage,
+    eventBus: EventBus | undefined,
+    sessionId: string,
+    traceId: string | undefined
+  ): LoopExecutionResult | null {
+    if (!options.abortSignal?.aborted) return null;
+    eventBus?.emit("task.failed", {
+      taskId: sessionId,
+      error: "Operación abortada por señal de cancelación (AbortSignal).",
+      code: "ABORTED"
+    }, {
+      source: "runtime.tool_loop",
+      sessionId,
+      traceId,
+      severity: "warn"
+    });
+
+    return {
+      status: "aborted",
+      messages,
+      steps: step,
+      error: "Operación abortada por señal de cancelación (AbortSignal).",
+      usage: totalUsage
+    };
+  }
+
+  /**
+   * Clasifica un error lanzado durante el turno: cancelación real
+   * (señal abortada o AbortError del provider) → resultado `aborted`
+   * limpio; cualquier otro error se propaga intacto al caller.
+   */
+  private abortResultForError(
+    err: unknown,
+    options: LoopRunOptions,
+    messages: ModelMessage[],
+    step: number,
+    totalUsage: LoopUsage,
+    eventBus: EventBus | undefined,
+    sessionId: string,
+    traceId: string | undefined
+  ): LoopExecutionResult | null {
+    if (options.abortSignal?.aborted || isAbortError(err)) {
+      return this.abortCheckpoint(
+        { ...options, abortSignal: options.abortSignal ?? AbortSignal.abort() },
+        messages,
+        step,
+        totalUsage,
+        eventBus,
+        sessionId,
+        traceId
+      );
+    }
+    return null;
+  }
+
+  /**
    * Ejecuta el ciclo cognitivo multi-turno hasta completar la tarea o requerir aprobación.
    */
   public async run(options: LoopRunOptions): Promise<LoopExecutionResult> {
@@ -83,26 +165,10 @@ export class ToolExecutionLoop {
     while (step < maxSteps) {
       step++;
 
-      if (options.abortSignal?.aborted) {
-        eventBus?.emit("task.failed", {
-          taskId: sessionId,
-          error: "Operación abortada por señal de cancelación (AbortSignal).",
-          code: "ABORTED"
-        }, {
-          source: "runtime.tool_loop",
-          sessionId,
-          traceId,
-          severity: "warn"
-        });
-
-        return {
-          status: "aborted",
-          messages,
-          steps: step,
-          error: "Operación abortada por señal de cancelación (AbortSignal).",
-          usage: totalUsage
-        };
-      }
+      const checkpoint = this.abortCheckpoint(
+        options, messages, step, totalUsage, eventBus, sessionId, traceId
+      );
+      if (checkpoint) return checkpoint;
 
       this.config.onStep?.({
         step,
@@ -117,13 +183,29 @@ export class ToolExecutionLoop {
         parameters: t.parameters
       }));
 
-      // Llamada al ModelRouter con soporte de tools (+ modelo preferido del usuario)
-      const res = await this.router.generateText(role, {
-        messages,
-        tools: toolSchemas.length > 0 ? toolSchemas : undefined,
-        systemPrompt,
-        abortSignal: options.abortSignal
-      }, undefined, options.preferredModel);
+      // Llamada al ModelRouter con soporte de tools (+ modelo preferido del usuario).
+      // El provider puede no soportar abort mid-token: si ignora la señal, el
+      // checkpoint post-generate detiene el loop igual entre turnos.
+      let res;
+      try {
+        res = await this.router.generateText(role, {
+          messages,
+          tools: toolSchemas.length > 0 ? toolSchemas : undefined,
+          systemPrompt,
+          abortSignal: options.abortSignal
+        }, undefined, options.preferredModel);
+      } catch (err) {
+        const aborted = this.abortResultForError(
+          err, options, messages, step, totalUsage, eventBus, sessionId, traceId
+        );
+        if (aborted) return aborted;
+        throw err;
+      }
+
+      const postGenerate = this.abortCheckpoint(
+        options, messages, step, totalUsage, eventBus, sessionId, traceId
+      );
+      if (postGenerate) return postGenerate;
 
       // Acumular métricas de uso
       totalUsage.promptTokens += res.usage.promptTokens;
@@ -160,6 +242,12 @@ export class ToolExecutionLoop {
         });
 
         for (const call of res.toolCalls) {
+          // Cancelación entre herramientas: no ejecutar más tools del turno.
+          const betweenTools = this.abortCheckpoint(
+            options, messages, step, totalUsage, eventBus, sessionId, traceId
+          );
+          if (betweenTools) return betweenTools;
+
           this.config.onToolCall?.(call);
 
           const tool = this.registry.get(call.name);
@@ -264,13 +352,21 @@ export class ToolExecutionLoop {
                 severity: "warn"
               });
 
-              decision = await approvalEngine.requestApproval({
-                tool,
-                arguments: finalArgs,
-                context: options.context,
-                callId: call.id,
-                abortSignal: options.abortSignal
-              });
+              try {
+                decision = await approvalEngine.requestApproval({
+                  tool,
+                  arguments: finalArgs,
+                  context: options.context,
+                  callId: call.id,
+                  abortSignal: options.abortSignal
+                });
+              } catch (err) {
+                const aborted = this.abortResultForError(
+                  err, options, messages, step, totalUsage, eventBus, sessionId, traceId
+                );
+                if (aborted) return aborted;
+                throw err;
+              }
 
               this.config.onStep?.({
                 step,
@@ -320,7 +416,15 @@ export class ToolExecutionLoop {
                 severity: "warn"
               });
 
-              decision = await approvalHandler(approvalReq);
+              try {
+                decision = await approvalHandler(approvalReq);
+              } catch (err) {
+                const aborted = this.abortResultForError(
+                  err, options, messages, step, totalUsage, eventBus, sessionId, traceId
+                );
+                if (aborted) return aborted;
+                throw err;
+              }
 
               this.config.onStep?.({
                 step,
@@ -401,9 +505,18 @@ export class ToolExecutionLoop {
           });
 
           const execManager = options.executionManager ?? this.executionManager;
-          const execRes = await execManager.execute(tool, finalArgs, options.context, {
-            abortSignal: options.abortSignal
-          });
+          let execRes;
+          try {
+            execRes = await execManager.execute(tool, finalArgs, options.context, {
+              abortSignal: options.abortSignal
+            });
+          } catch (err) {
+            const aborted = this.abortResultForError(
+              err, options, messages, step, totalUsage, eventBus, sessionId, traceId
+            );
+            if (aborted) return aborted;
+            throw err;
+          }
 
           const executionResult: ToolExecutionResult = {
             callId: call.id,
@@ -569,7 +682,32 @@ export class ToolExecutionLoop {
 
       const execRes = await execManager.execute(tool, argsToExecute, options.context, {
         abortSignal: options.abortSignal
+      }).catch((err: unknown) => {
+        if (options.abortSignal?.aborted || isAbortError(err)) {
+          eventBus?.emit("task.failed", {
+            taskId: sessionId,
+            error: "Operación abortada por señal de cancelación (AbortSignal).",
+            code: "ABORTED"
+          }, {
+            source: "runtime.tool_loop",
+            sessionId,
+            traceId,
+            severity: "warn"
+          });
+          return null;
+        }
+        throw err;
       });
+
+      if (execRes === null) {
+        return {
+          status: "aborted",
+          messages,
+          steps: 0,
+          error: "Operación abortada por señal de cancelación (AbortSignal).",
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 }
+        };
+      }
 
       if (execRes.status === "success") {
         eventBus?.emit("tool.executed", {

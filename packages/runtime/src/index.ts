@@ -4,4 +4,5 @@ export * from "./ErrorHandler.js";
 export * from "./AttentionStateMachine.js";
 export * from "./StructuredInput.js";
 export * from "./SyntheticRuntime.js";
+export * from "./ContextCompaction.js";
 

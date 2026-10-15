@@ -158,3 +158,64 @@ export type EventHandler<T = any> = (event: EgoEvent<T>) => void | Promise<void>
 export interface EventSubscription {
   unsubscribe: () => void;
 }
+
+// ── Hooks de ciclo de vida Pre/PostToolUse (CFG-09) ─────────────────────
+// Gate fail-closed en `EventBus`: un hook PreToolUse que matchea intercepta
+// la herramienta (bloquea hasta aprobación/ejecución externa del comando);
+// PostToolUse es solo observación. `disableAllHooks` es el kill switch.
+
+/** Momento del ciclo de vida que intercepta el hook. */
+export type HookKind = "PreToolUse" | "PostToolUse";
+
+/** Entrada configurable de hook: matcher de herramienta + comando validado. */
+export interface HookCommandConfig {
+  /** Identificador único del hook (`^[A-Za-z0-9_-]+$`, ≤64). */
+  id: string;
+  kind: HookKind;
+  /**
+   * Matcher de herramienta: nombre exacto (`fs_write_file`), prefijo
+   * (`terminal*`) o global (`*`). Caracteres: `[A-Za-z0-9_.*:-]`, ≤128.
+   */
+  toolPattern: string;
+  /**
+   * Comando del hook (NO se ejecuta en este paquete; lo ejecuta main).
+   * Validado: no vacío, ≤512, sin operadores shell (`;|&$`()\<>`).
+   */
+  command: string;
+  /** Timeout de ejecución sugerido en ms (0–30000, default 5000). */
+  timeoutMs?: number;
+}
+
+/** Configuración de hooks aplicada al bus. */
+export interface HooksConfig {
+  /** Kill switch: con `true` ningún hook intercepta (todo permite). */
+  disableAllHooks?: boolean;
+  /** Entradas de hook (validadas fail-closed al configurar). */
+  hooks?: HookCommandConfig[];
+  /**
+   * Comando de estado estilo `statusLine` (NO se ejecuta aquí; lo ejecuta
+   * main y expone su salida). Validado con las mismas reglas de comando.
+   */
+  statusCommand?: string;
+}
+
+/** Veredicto sincrónico de evaluación de un hook. */
+export interface HookDecision {
+  /** `false` = herramienta bloqueada (fail-closed). */
+  allow: boolean;
+  /** Motivo legible para auditoría (`blocked-by-hook:<id>`, etc.). */
+  reason: string;
+  /** Id del hook que decidió, si hubo match. */
+  matchedHookId?: string;
+}
+
+/** Snapshot de estado de hooks para UI/diagnóstico. */
+export interface HooksStatus {
+  disabled: boolean;
+  preToolUse: number;
+  postToolUse: number;
+  sessionsWithEnv: number;
+  commandsValid: boolean;
+  invalidCommands: string[];
+  statusCommand: string | null;
+}

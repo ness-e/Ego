@@ -189,6 +189,37 @@ Este modelo garantiza que todos los Sub-Egos compartan un entendimiento coherent
 ## Orquestación
 El orquestador de Ego determina qué capacidades y Sub-Egos son necesarios para cada tarea. La concurrencia se gestiona mediante presupuestos de tokens/costes y métricas multidimensionales, no por CPU. Se recopila telemetría por cada turno, que se guarda en el namespace de `metrics/`. La orquestación técnica (Agent Runtime) se basa en el runtime cognitivo propio de Ego sobre el Orchestration Bus y el bus de eventos del sistema (`EgoEvent`), utilizando adaptadores de workflow opcionales cuando se requiere orquestación externa especializada.
 
+### Supervisor: Meta-Ego sobre runtime propio
+El supervisor es el **Meta-Ego** (ver "Meta-Ego: capa de coordinación" más arriba): interpreta intención, descompone en subtareas, selecciona especialistas, supervisa ejecución y sintetiza resultados. Se ejecuta sobre el **Cognitive Runtime propio de Ego**; **LangGraph, CrewAI, Mastra u otros frameworks de agentes NO forman parte del núcleo** (ver `../engineering/stack-tecnico.md`: Cognitive Runtime propio, sin frameworks externos en el núcleo). Pueden usarse como adaptadores de workflow opcionales fuera del core, nunca como supervisor.
+
+### `delegate` vs `execute_code`
+Dos primitivas con semántica distinta, no intercambiables:
+
+| Aspecto | `delegate(task, input, expected_output)` | `execute_code` / ejecución de herramientas |
+| --- | --- | --- |
+| Qué hace | Crea una subtarea para otro especialista competente vía Orchestration Bus | Ejecuta código o llama una herramienta dentro del propio especialista |
+| Cuándo | Requiere dominio, tool o revisión que no posees | Tarea atómica con inputs completos y tools propias |
+| Contexto | Mínimo suficiente; jamás secretos ni `egos/<id>/*` privado | Alcance del propio manifiesto y namespaces ACL |
+| Gobernanza | Requiere permiso `delegate:*` o `delegate:<targetId>` en el emisor; respeta `max delegation depth` y `visitedEgos` anti-ciclos | Respeta Autonomía del manifiesto; acciones sensibles exigen aprobación registrada en `gov/audit` |
+| Fallo típico | `DelegationPermissionError` si el emisor no declara el permiso | Timeout / cuota / denegación ACL vía Execution Manager |
+
+Regla práctica: **si puedes hacerlo con tus tools y permisos, ejecútalo; si necesitas capacidades ajenas, delega con contrato explícito** (`expected_output` + esquema cuando aplique).
+
+### Empieza single-agent
+La ruta de maduración es progresiva y obligatoria en orden:
+
+1. **Single-agent primero:** toda tarea nueva se resuelve primero con un solo especialista (Ego o un Sub-Ego) con ejecución directa. Solo se introduce delegación cuando hay evidencia de que la tarea desborda un dominio, tool o revisión.
+2. **Multi-agente bajo justificación:** la concurrencia solo crece con razón operativa genuina (subtareas independientes, entradas resueltas, sin conflictos de estado) — ver "Principio de concurrencia justificada".
+3. **No paralelismo artificial:** delegar por delegar añade sobrecoste cognitivo, contexto y tokens sin beneficio.
+
+### Observabilidad: trazas + coste por rama + replay
+Cada turno de orquestación es trazable, imputable y reproducible sin instrumentación ad-hoc en runtime:
+
+- **Trazas:** todo evento significativo del ciclo (intención, delegación, llamada a tool, aprobación, veredicto, síntesis) se emite como `EgoEvent` tipado al EventBus y persiste en `events/*`. Cada evento lleva `runId`, `delegation_depth`, `visitedEgos` y correlación padre→hijo, de modo que cualquier rama de delegación puede reconstruirse como árbol.
+- **Coste por rama:** cada llamada vía Model Router registra en `gov/audit` y `metrics/` el proveedor, modelo, tokens in/out, coste imputado, latencia y Sub-Ego solicitante (ver "Observabilidad y telemetría de modelos"). El coste de una rama = suma de sus eventos bajo el mismo `runId` + prefijo de rama; el Execution Manager lo usa para cuotas y presupuestos por sesión/proyecto.
+- **Replay:** `gov/audit` es append-only (manifiestos, aprobaciones, veredictos del Decision Router con clave `verdict:<runId>:<timestamp>`). Re-ejecutar una rama = reinyectar la secuencia de `EgoEvent` + entradas originales con el mismo `runId`; las escrituras sensibles vuelven a exigir aprobación (el replay nunca salta la matriz de aprobación). Los prompts versionados (`docs/prompts/`, `eval/prompts/`) fijan el contrato evaluado para que el replay sea comparable entre versiones.
+- **Kill switch:** trazabilidad sin control no sirve; el registro centralizado permite detener Sub-Egos o el sistema completo ante divergencia detectada en trazas o sobrecoste por rama.
+
 ## Concurrencia y límites de ejecución
 
 > **Principio fundamental:** *"Ego no tiene un número máximo conceptual de Sub-Egos. Tiene un sistema de gestión de concurrencia y recursos."*
@@ -373,3 +404,24 @@ Toda la configuración de Sub-Egos se gestiona desde un panel centralizado de ad
 - **Sub-Ego**: El término de producto/cara al usuario para la entidad (preconfigurada o personalizada).
 - **Agente / Agent Runtime**: El concepto técnico subyacente y la capa de ejecución (ej. `agent_id`).
 - **Alter Ego**: Término de marketing (no usado en arquitectura interna).
+
+## Hooks de ciclo de vida Pre/PostToolUse + env + status (CFG-09)
+Automatización del ciclo de vida sin plugins, sobre el bus de eventos:
+
+- **PreToolUse (gate fail-closed):** `EventBus.evaluatePreToolUse(toolName)` bloquea
+  (`allow: false`, `blocked-by-hook:<id>`) toda herramienta que matchee un hook
+  `PreToolUse` configurado; main ejecuta entonces el comando del hook para el
+  veredicto final. Sin match permite; con kill switch permite todo.
+- **PostToolUse (observación):** `recordPostToolUse()` nunca bloquea; reporta el
+  hook observador (`observed-by-hook:<id>`).
+- **Comandos validados:** `configureHooks()` rechaza sintaxis shell (`;|&$`()\<>`,
+  interpolaciones), matchers fuera de `[A-Za-z0-9_.*:-]` y timeouts >30s; la
+  config vigente no muta ante un rechazo. El bus nunca ejecuta comandos: la
+  ejecución vive en main (ExecutionManager).
+- **Kill switch:** `disableAllHooks: true` desactiva toda intercepción.
+- **Env por sesión:** `setSessionEnv(sessionId, env)` inyecta variables
+  (`^[A-Z_][A-Z0-9_]*$`, ≤32/sesión) disponibles al evaluar hooks.
+- **Status command:** `getHooksStatus()` expone conteos pre/post, sesiones con
+  env, validez de comandos y el `statusCommand` configurado (estilo statusLine;
+  lo ejecuta main). El renderer lo consume vía preload `ego.hooks`
+  (`ipc.hooks.getStatus|evaluatePreToolUse|recordPostToolUse`, validación Zod en main).

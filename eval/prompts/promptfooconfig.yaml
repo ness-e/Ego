@@ -1,0 +1,11 @@
+# promptfoo config — Ego prompts smoke eval v1.0
+description: "Ego prompts smoke eval: enforcement tools + anti-injection + salida estructurada"
+
+prompts:
+  - file://prompt-under-test.md
+
+# Proveedor por defecto. Requiere OPENAI_API_KEY del entorno (BYOK, no se instala nada).
+providers:
+  - openai:gpt-4o-mini
+
+tests: file://dataset.yaml
