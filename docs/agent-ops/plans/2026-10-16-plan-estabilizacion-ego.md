@@ -386,7 +386,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** por patrón: `ApprovalIdentity.ts` + test decisión cruzada rechazada; `InteractionTransport.ts` + fallback sin bloqueo; `AttentionStateMachine.ts`; `SafeConfigMutationService.ts preview/confirm/apply/rollback`; `ChangeSetService.ts`; `net-policy.ts` URLs prohibidas bloqueadas; `WorkerPolicy.ts`; `AdaptiveChunker.ts→kb/docs`; `FileLockManager.ts` con tests portados + `pnpm test` verde + ADRs por decisión
 - **Task file:** `docs/agent-ops/tasks/STAB-14.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (commit `ce7da8f`; events 38/38, tasks 63/63, security 95/95, tools 64/64 + ADR-0006/0011; 5/9 patrones ya existían → asimilados sin duplicar; review P2-01 pendiente → orquestador)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -435,7 +435,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO (docs-only, BLOQUEADO para código)
 - **Contrato:** `scripts/release/sign.mjs` spec + secretos `APPLE_ID/WIN_CERT` documentados + `publish` por canal listo para descomentar + staged `prerelease→latest` + `SHASUMS.txt` + checklist unsigned — sin tocar `publish` activo ni añadir `electron-updater`
 - **Task file:** `docs/agent-ops/tasks/STAB-16.md`
-- **Estado:** ✅ COMPLETED docs-only (commit pendiente; code BLOQUEADO hasta certs owner — owner-gate vigente)
+- **Estado:** ✅ COMPLETED docs-only (commit `e9c9197`; sign SPEC exit 2 BLOQUEO + publish comentado + sin updater/secrets; code BLOQUEADO hasta certs owner — owner-gate vigente)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
