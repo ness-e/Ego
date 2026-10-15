@@ -39,3 +39,27 @@ Formato: `Tema | Decisión | ref: ruta:línea`.
 - **Contexto:** Orquestador usó subagent general con prompts ad-hoc; el mecanismo de 10 bloques (pipeline-run §6.f) no se activó porque el plan no traía Ruta/Estado/Contrato y los tipos ego-worker/engine/arch/audit/tuner/chaos no existían como agentes.
 - **Decisión:** Gate 4b en pipeline.md + fallback-general exige packet completo + crear los 6 agentes ego-* con esquema de permisos hermano + Ruta/Estado/Contrato por tarea en planes. Harness PASS antes del commit (e9d00bb).
 - **Consecuencias:** Todo dispatch futuro lleva paquete completo; trade-off: prompts más largos a cambio de cero instrucciones perdidas.
+
+
+### ADR-9067: CFG-03/04 perfiles y modelos (2026-10-15)
+- **Contexto:** Plan 2026-10-16 CFG-03/04. Pregunta usuario 2026-10-16.
+- **Decisión:** 4 perfiles (planner/reviewer/researcher/builder); planner frontier, hijos gpt-4o-mini/haiku; aliases fast=haiku, smart=opus/sonnet.
+- **Consecuencias:** DelegationRouter childModel barato default; ModelRouter aliases + fallback chain.
+
+
+### ADR-9075: CFG-06 permisos default (2026-10-15)
+- **Contexto:** Plan 2026-10-16 CFG-06.
+- **Decisión:** defaultMode acceptEdits + approvals.mode smart, timeout 60s, cron deny; deny siempre gana.
+- **Consecuencias:** Extender ApprovalEngine+riskLevel sin relajar máquinas con datos reales.
+
+
+### ADR-9084: CFG-14 sitio docs (2026-10-15)
+- **Contexto:** Plan 2026-10-16 CFG-14.
+- **Decisión:** VitePress mínimo; 3 screenshots + 1 GIF quickstart.
+- **Consecuencias:** Sin Docusaurus; beta unsigned con SHASUMS.
+
+
+### ADR-9091: CFG-12/13 alcance completo (2026-10-15)
+- **Contexto:** Plan 2026-10-16. Usuario pidió alcance completo/estructurado/detallado.
+- **Decisión:** Voz STT/TTS ahora (groq/edge) + browser loopback con guards + preview + temas JSON + cron UI + atajos + notificaciones; con privacy review y kill switch.
+- **Consecuencias:** Mayor superficie: STT/TTS cuestan y exfiltran audio; browser solo loopback; hooks deshabilitables.
