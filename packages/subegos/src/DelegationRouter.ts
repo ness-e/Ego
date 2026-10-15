@@ -873,6 +873,7 @@ export class DelegationRouter {
         nextIndex += 1;
         if (idx >= requests.length) return;
         const item = requests[idx];
+        if (item === undefined) return; // Inalcanzable: idx < requests.length (narrowing TS noUncheckedIndexedAccess)
         const { parentContext, ...req } = item;
         results[idx] = await this.delegate<TInput, TOutput>(req, parentContext);
       }

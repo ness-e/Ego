@@ -230,6 +230,7 @@ export function createDefaultCharacterProfile(
 ): CharacterProfile {
   const normalizedDomain = domain.toLowerCase().trim();
   const palette = DOMAIN_PALETTES[normalizedDomain] ?? DOMAIN_PALETTES.nucleus;
+  if (palette === undefined) throw new Error(`[CharacterProfile] paleta ausente para '${normalizedDomain}' (clave 'nucleus' requerida)`);
   const slug = subEgoId.replace(/^(ego\.|sub_)/, "").replace(/[^a-z0-9_-]/g, "");
 
   const profile: CharacterProfile = {

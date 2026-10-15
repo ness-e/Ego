@@ -234,6 +234,7 @@ export function createDelegationTools(
           nextIndex += 1;
           if (idx >= resolved.length) return;
           const item = resolved[idx];
+          if (item === undefined) return; // Inalcanzable: idx < resolved.length (narrowing TS noUncheckedIndexedAccess)
           results[idx] = await router.delegateTask({
             goal: item.goal,
             context: item.context,

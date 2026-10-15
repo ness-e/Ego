@@ -12,7 +12,7 @@
 | `REV-01` | 🟠 Alta | **Revisión consistencia total proyecto** | `docs/roadmap/Backlog.md` · `docs/engineering/stack-tecnico.md:17` · `README.md:51` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Problema: drift docs vs código (electron-vite, mermaid, conteos 148/151, design-system fallbacks vs provider). Acción: auditar docs↔código↔backlog, corregir drifts o sincerar docs, recalcular conteos con aritmética auditable. Resultado: repo consistente y Backlog verificado. | Origen: auditorías 2026-10-15/16 · Ver: `CFG-01` | — |
 | `REV-02` | 🔴 Crítica | **Revisión seguridad total** | `apps/desktop/src/main.ts:2102-2202` · `apps/desktop/src/preload.ts:195-340` · `apps/desktop/src/ipc/schema.ts` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Problema: regresiones silenciosas en CSP/navegación/IPC/secrets tras 5 agentes paralelos. Acción: verificar webSecurity, guards navegación, CSP packaged estricta, Zod todo IPC, safeStorage sin tokens en renderer, grep secretos. Resultado: checklist seguridad en verde. | Origen: auditoría seguridad · Ver: `REV-01` | Dep: `REV-01` |
 | `REV-03` | 🟠 Alta | **Revisión testing total y suites en verde** | `apps/desktop/renderer/test/` · `apps/desktop/test/` · `.github/workflows/ci.yml:10-83` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Problema: suites parciales, skips por falta de install, fails ambientales. Acción: correr typecheck/build/test raíz, registrar preexistentes vs regresiones, exigir 0 regresiones. Resultado: estado verde documentado con evidencia. | Origen: auditorías testing · Ver: `REV-01` | Dep: `REV-01` |
-| `CFG-01` | 🟠 Alta | **pnpm install + verde total post-instalación** | `apps/desktop/renderer/package.json:36-47` · `apps/desktop/package.json` · `apps/desktop/renderer/test/setup.ts:59-76` | 🟢 0.5-1d | 🔴 P0 | 🆕 Pendiente | Problema: RTL/MSW/coverage añadidos sin install (tests skipean), CharacterMorph 2 fails por mock reduced-motion, DelegationRouter 13 fails sin nativo. Acción: pnpm install, conciliar mock CharacterMorph (tests fuerzan matches:false), correr suites con EGO_REAL_DB=1 donde aplique. Resultado: 0 skips injustificados y fails solo ambientales documentados. | Origen: sesiones RTL/MSW 2026-10-15 · Ver: `REV-03` | Dep: `REV-03` |
+| `CFG-01` | 🟠 Alta | **pnpm install + verde total post-instalación** | `apps/desktop/renderer/package.json:36-47` · `apps/desktop/package.json` · `apps/desktop/renderer/test/setup.ts:59-76` | 🟢 0.5-1d | 🔴 P0 | ✅ Completada (task docs/agent-ops/tasks/CFG-01.md) | Problema: RTL/MSW/coverage añadidos sin install (tests skipean), CharacterMorph 2 fails por mock reduced-motion, DelegationRouter 13 fails sin nativo. Acción: pnpm install, conciliar mock CharacterMorph (tests fuerzan matches:false), correr suites con EGO_REAL_DB=1 donde aplique. Resultado: 0 skips injustificados y fails solo ambientales documentados. | Origen: sesiones RTL/MSW 2026-10-15 · Ver: `REV-03` | Dep: `REV-03` |
 | `CFG-02` | 🟠 Alta | **E2E Electron real ejecutado** | `tests/gui/electron/shell.electron.ts:69` · `tests/gui/electron.playwright.config.ts` · `docs/engineering/testing-e2e.md` | 🟡 1-2d | 🟠 P1 | 🆕 Pendiente | Problema: skeleton existe pero nunca corrido (requiere build+install+Xvfb). Acción: build desktop, install gui, correr en Xvfb, mock diálogos, shell pinta header+Chat+Canvas. Resultado: primer E2E real en verde o fails documentados con issue. | Origen: sesión E2E · Ver: `CFG-01` | Dep: `CFG-01` |
 | `CFG-03` | 🟡 Media | **Perfiles nombrados modelo+sandbox+aprobación** | `apps/desktop/src/ipc/schema.ts:238-250` · `packages/subegos/src/SubEgoRegistry.ts` | 🟡 1-2d | 🟠 P1 | 🆕 Pendiente | Problema: sin bundle nombrado planner/reviewer/researcher/builder (Codex explore/build/deep). Acción: schema gov/settings/profiles en VantaDB+Zod (nombre, modelo, sandbox, aprobación, toolsets), sin archivos ~/.codex (guardrail: Zod+VantaDB). Resultado: 4 perfiles creables/listables con least-privilege. | Fuente: informe configs Parte C · Ver: `REV-01` | Dep: `REV-01` |
 | `CFG-04` | 🟡 Media | **Reasoning effort + aliases + review model** | `apps/desktop/src/ipc/schema.ts:238-250` · `packages/models/src/ModelRouter.ts` | 🟢 0.5-1d | 🟡 P2 | 🆕 Pendiente | Problema: sin aliases fast/smart, review_model, effortLevel, availableModels/fallbackModel. Acción: extender ModelConfigSchema+router (effort→provider params, aliases resuelven, fallback chain). Resultado: planner frontier + hijos baratos configurables. | Fuente: informe configs Parte C/D | Dep: `CFG-03` |
@@ -54,6 +54,37 @@ Contrato: adjuntar funciona en test (8/8 nuevo) ✅ + typecheck renderer ✅ + t
 Invariantes: formato 10 columnas intacto; fuera de ego-chat.tsx+test nuevo nada tocado salvo task/plan; sin schemas/ModelRouter/memoria/docs-sitio; sin pnpm install
 Comandos de verificación: `npx vitest run test/composer-attachments-cfg12.test.tsx` 8/8 ✅; `npx tsc --noEmit -p apps/desktop/renderer/tsconfig.json` ✅; `npx tsc -p tsconfig.json --noEmit` (desktop) ✅; chat 17/17 ✅
 Deuda: voz STT/TTS real = fase propia (TODO VOICE + schema listo); reglas inline locales fail-closed (cablear a gov/settings/permissions a futuro)
+last-synced: 2026-10-16
+=== END RECITATION ===
+
+## CFG-01 — Ejecución (subagente, 2026-10-16)
+
+Entregables (`pnpm install` + 4 guards de 1 línea en `packages/subegos/src/`;
+`setup.ts`/renderer/main/schemas/memoria intactos, sin WIP ajeno):
+
+- `pnpm install` exit 0 (lockfile up to date, Done 4.7s).
+- Guards `noUncheckedIndexedAccess` (18 errores preexistentes → 0, behavior-preserving,
+  ramas inalcanzables documentadas): `DelegationTools.ts:237`, `DelegationRouter.ts:876`,
+  `SubEgoBudget.ts:94`, `CharacterProfile.ts:233`.
+- CharacterMorph 5/5 (fix EGO-FIND-17 ya presente, sin tocar `setup.ts`) +
+  RTL ApprovalCard 1/1 + Omnibar 1/1 (0 skips) + MSW fetch-proxy 4/4 +
+  DelegationRouter 13/13 (nativo disponible, NO ambiental) + IPC-DB `EGO_REAL_DB=1` 5/5.
+- Regression: subegos full 212/212 + renderer full 297/297 (re-run; 1 flaky no
+  reproducible en run 1, renderer nunca importa `@ego/subegos`).
+- Review P2-01 degradado (mismo contexto, sin agente distinto en runner) + OCR Group 1 limpio.
+- Task: `docs/agent-ops/tasks/CFG-01.md`.
+
+=== RECITATION ===
+Objetivo activo: CFG-01 — pnpm install + verde total post-instalación
+Estado: completed (desde: in-progress)
+Última acción: fila CFG-01 a ✅ + sección de ejecución en plan file + task CFG-01.md
+Resultado: ✅
+State: completed (desde: pending)
+Próxima acción: ninguna en CFG-01; CFG-02 (E2E real) desbloqueado — decide orquestador
+Contrato: install exit 0 ✅ + typechecks renderer/desktop/subegos 0 errores ✅ + RTL corren ✅ + MSW 4/4 ✅ + CharacterMorph verde ✅ + DelegationRouter verde (no ambiental) ✅ + 0 regresiones ✅
+Invariantes: formato 10 columnas intacto; fuera de 4 src subegos + task/plan nada tocado; WIP ajeno (ps1/py/png/isla-flotante/__pycache__/verify-audit.jsonl) excluido del commit; commit LOCAL, nunca push
+Comandos de verificación: `pnpm install` EXIT:0 ✅; `tsc --noEmit` renderer/desktop/subegos 0 err ✅; `vitest run` RTL 7/7 ✅ MSW 4/4 ✅ DelegationRouter 13/13 ✅ IPC-DB 5/5 ✅; full subegos 212/212 ✅ renderer 297/297 ✅
+Deuda: ninguna nueva; flaky renderer run 1 no identificado (no reproduce) → FIND-* si reaparece
 last-synced: 2026-10-16
 === END RECITATION ===
 

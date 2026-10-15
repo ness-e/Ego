@@ -91,6 +91,7 @@ export function calculateTokenCost(
   modelName: string = "default"
 ): number {
   const pricing = MODEL_PRICING_PER_MILLION[modelName] ?? MODEL_PRICING_PER_MILLION.default;
+  if (pricing === undefined) throw new Error(`[SubEgoBudget] pricing ausente para '${modelName}' (clave 'default' requerida)`);
   const inputCost = (inputTokens / 1_000_000) * pricing.inputUsd;
   const outputCost = (outputTokens / 1_000_000) * pricing.outputUsd;
   return Number((inputCost + outputCost).toFixed(6));
