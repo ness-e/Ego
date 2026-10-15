@@ -1,6 +1,6 @@
 # T-isla-10-tray — Tray completo + persistencia flotante (WIDG-05, COUC-19 cierre)
 
-Estado: ⏳ IN PROGRESS (Wave 6, tras Task7/9; Task1-9 DONE commiteados)
+Estado: ✅ COMPLETADA (Wave 6, commit 6de7291; header sincronizado post-cierre)
 Plan: docs/agent-ops/plans/2026-10-15-isla-flotante-ego-completa.md (Task 10)
 SDP: frontend-ui-engineering (tray/WindowStateManager) + test-driven-development (RED→GREEN) + source-driven-development (tray.rs pattern). Sin red: fuentes locales.
 
