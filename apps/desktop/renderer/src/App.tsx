@@ -456,7 +456,7 @@ export function App() {
                   onClick={() => setInspectorCollapsed(true)}
                   title="Cerrar inspector (Ctrl+I)"
                   aria-label="Cerrar inspector"
-                  className="rounded p-1 text-faint transition-colors hover:bg-raised hover:text-ink"
+                  className="rounded p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-faint transition-colors hover:bg-raised hover:text-ink"
                 >
                   ✕
                 </button>

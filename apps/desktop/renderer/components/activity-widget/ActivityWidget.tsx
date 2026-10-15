@@ -115,7 +115,7 @@ export function ActivityWidget() {
             </span>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="rounded bg-amber-500 px-1.5 py-0.2 text-[10px] font-semibold text-black hover:bg-amber-400 transition-colors"
+              className="rounded bg-amber-500 px-3 min-h-[44px] min-w-[44px] inline-flex items-center justify-center py-0.2 text-[10px] font-semibold text-black hover:bg-amber-400 transition-colors"
             >
               Revisar
             </button>
@@ -173,7 +173,7 @@ export function ActivityWidget() {
                   resolveApproval(currentApproval.approvalId, false, "Rechazado desde widget");
                   if (pendingApprovals.length <= 1) setIsModalOpen(false);
                 }}
-                className="flex items-center gap-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors"
+                className="flex items-center gap-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 px-3 py-1.5 min-h-[44px] text-xs font-semibold text-rose-300 transition-colors"
               >
                 <X size={14} />
                 <span>Rechazar</span>
@@ -183,7 +183,7 @@ export function ActivityWidget() {
                   resolveApproval(currentApproval.approvalId, true);
                   if (pendingApprovals.length <= 1) setIsModalOpen(false);
                 }}
-                className="flex items-center gap-1 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                className="flex items-center gap-1 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 min-h-[44px] text-xs font-semibold text-white transition-colors"
               >
                 <Check size={14} weight="bold" />
                 <span>Aprobar</span>

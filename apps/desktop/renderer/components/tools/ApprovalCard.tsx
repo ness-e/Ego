@@ -294,7 +294,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-1 rounded bg-raised hover:bg-raised px-2 py-1 text-[11px] font-medium text-ink transition-colors"
+            className="flex items-center gap-1 rounded bg-raised hover:bg-raised px-2 py-1 min-h-[44px] text-[11px] font-medium text-ink transition-colors"
           >
             <PencilSimple size={12} />
             <span>{isEditing ? "Cancelar edición" : "Editar"}</span>
@@ -304,7 +304,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
             <button
               type="button"
               onClick={() => setShowRejectInput(true)}
-              className="flex items-center gap-1 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/20 px-2.5 py-1 text-[11px] font-semibold text-rose-300 transition-colors"
+              className="flex items-center gap-1 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/20 px-2.5 py-1 min-h-[44px] text-[11px] font-semibold text-rose-300 transition-colors"
             >
               <X size={12} weight="bold" />
               <span>Rechazar</span>
@@ -314,7 +314,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
               type="button"
               disabled={isSubmitting}
               onClick={handleReject}
-              className="flex items-center gap-1 rounded bg-rose-600 hover:bg-rose-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 rounded bg-rose-600 hover:bg-rose-500 px-2.5 py-1 min-h-[44px] text-[11px] font-semibold text-white transition-colors disabled:opacity-50"
             >
               <X size={12} weight="bold" />
               <span>Confirmar Rechazo</span>
@@ -325,7 +325,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
             type="button"
             disabled={isSubmitting}
             onClick={handleApprove}
-            className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-white shadow transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1 min-h-[44px] text-[11px] font-semibold text-white shadow transition-colors disabled:opacity-50"
           >
             {isSubmitting ? (
               <ArrowCounterClockwise size={12} className="animate-spin" />

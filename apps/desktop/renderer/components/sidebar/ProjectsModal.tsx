@@ -75,7 +75,6 @@ export function ProjectsModal({ open, onOpenChange, onCreated }: ProjectsModalPr
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none"
-            autoFocus
           />
         </div>
         <div className="space-y-1.5">

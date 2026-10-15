@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { MagnifyingGlass, X } from "@phosphor-icons/react";
 import { ego } from "../lib/ego.js";
 import { Modal } from "./ui-kit/Modal.js";
@@ -96,6 +96,11 @@ export function Omnibar() {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<OmnibarHit[]>([]);
   const [searching, setSearching] = useState(false);
+  // STAB-13: opción activa para navegación por teclado (combobox/listbox).
+  // -1 = ninguna; el input la expone vía aria-activedescendant.
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const listboxId = "omnibar-listbox";
+  const optionId = (i: number) => `omnibar-option-${i}`;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
@@ -149,6 +154,7 @@ export function Omnibar() {
   const handleChange = useCallback(
     (value: string) => {
       setQuery(value);
+      setActiveIndex(-1);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       setSearching(true);
       debounceRef.current = setTimeout(() => void runSearch(value), OMNIBAR_DEBOUNCE_MS);
@@ -160,8 +166,32 @@ export function Omnibar() {
   // nunca un div muerto.
   const handleSelectHit = useCallback((hit: OmnibarHit) => {
     setOpen(false);
+    setActiveIndex(-1);
     emitOmnibarSelect(hit);
   }, []);
+
+  // STAB-13: ↑↓ ciclan por resultados, Enter elige la opción activa.
+  // Escape lo gestiona el atajo global (cierra); aquí no se intercepta.
+  const handleInputKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (hits.length === 0 ? -1 : (i + 1) % hits.length));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) =>
+          hits.length === 0 ? -1 : (i - 1 + hits.length) % hits.length
+        );
+      } else if (e.key === "Enter") {
+        const hit = activeIndex >= 0 ? hits[activeIndex] : undefined;
+        if (hit) {
+          e.preventDefault();
+          handleSelectHit(hit);
+        }
+      }
+    },
+    [hits, activeIndex, handleSelectHit]
+  );
 
   useEffect(
     () => () => {
@@ -169,6 +199,10 @@ export function Omnibar() {
     },
     []
   );
+
+  // STAB-13: el índice activo puede quedar fuera de rango si llegan
+  // resultados nuevos tras navegar; se recorta en render (nunca ID colgada).
+  const safeActiveIndex = activeIndex < hits.length ? activeIndex : -1;
 
   return (
     <Modal
@@ -181,12 +215,13 @@ export function Omnibar() {
         <div className="flex items-center gap-2 rounded-md border border-hairline bg-raised px-2.5 py-2">
           <MagnifyingGlass size={15} className="shrink-0 text-dim" aria-hidden />
           <input
-            autoFocus
             type="text"
             role="combobox"
             aria-expanded={hits.length > 0}
+            aria-controls={listboxId}
             aria-label="Buscar en memoria federada"
-            aria-activedescendant={undefined}
+            aria-activedescendant={safeActiveIndex >= 0 ? optionId(safeActiveIndex) : undefined}
+            onKeyDown={handleInputKeyDown}
             placeholder="Buscar recuerdos, docs, decisiones… (mín. 2 caracteres)"
             value={query}
             onChange={(e) => handleChange(e.target.value)}
@@ -197,29 +232,30 @@ export function Omnibar() {
               type="button"
               aria-label="Limpiar búsqueda"
               onClick={() => handleChange("")}
-              className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-dim hover:text-ink"
+              className="rounded p-1.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-dim hover:text-ink"
             >
               <X size={13} />
             </button>
           )}
         </div>
-        <div className="mt-2" role="listbox" aria-label="Resultados federados">
+        <div className="mt-2" id={listboxId} role="listbox" aria-label="Resultados federados">
           {searching && (
-            <p className="px-1 py-3 text-center font-mono text-[11px] text-dim" aria-live="polite">
+            <p className="px-1 py-3 text-center font-mono text-[11px] text-dim" role="status">
               Buscando en memoria…
             </p>
           )}
           {!searching && query.trim().length >= 2 && hits.length === 0 && (
-            <p className="px-1 py-3 text-center text-[11px] text-faint">
+            <p className="px-1 py-3 text-center text-[11px] text-faint" role="status">
               Sin resultados sobre el corte de confianza 0.3.
             </p>
           )}
-          {hits.map((h) => (
+          {hits.map((h, i) => (
             <button
               key={`${h.namespace}/${h.key}`}
+              id={optionId(i)}
               type="button"
               role="option"
-              aria-selected="false"
+              aria-selected={i === safeActiveIndex}
               onClick={() => handleSelectHit(h)}
               title={`Abrir ${h.namespace}/${h.key}`}
               className="mt-1 w-full cursor-pointer rounded-md border border-hairline bg-panel px-2.5 py-2 text-left transition-colors hover:border-dim"

@@ -9,6 +9,8 @@ import {
   ActionBarPrimitive,
 } from "@assistant-ui/react";
 import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { MOTION } from "./canvas/DesignSystemProvider.js";
 import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
 import { turnsToMessages, type SessionTurnRecord } from "../lib/session-resume.js";
 import { ApprovalCard } from "./tools/ApprovalCard";
@@ -99,7 +101,7 @@ function AssistantMessageInner({
               onClick={onRetry}
               aria-label="Reintentar último turno"
               title="Reintentar último turno"
-              className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
+              className="rounded p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center transition-colors hover:bg-raised hover:text-ink"
             >
               <ArrowClockwise size={13} />
             </button>
@@ -399,6 +401,11 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   const currentPromptRef = useRef<string>("");
 
   const { focusedContext, onAction } = useCanvasBridge();
+
+  // STAB-13: morph Send→Cancel (layoutId compartido, crossfade 150ms
+  // MOTION.micro; reduced-motion → instantáneo). Sin migrar de lib.
+  const reduceMotion = useReducedMotion();
+  const composerTransition = reduceMotion ? { duration: 0 } : { duration: MOTION.micro };
 
   // T18: resume real — al cambiar la sesión activa se hidratan los turnos
   // persistidos (`ipc.sessions.get` → `session/turns` en VantaDB) en mensajes.
@@ -1017,7 +1024,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
               <button
                 type="button"
                 onClick={handleRetry}
-                className="flex items-center gap-1 rounded bg-rose-500/20 px-2.5 py-1 text-[11px] font-semibold text-rose-200 hover:bg-rose-500/30 transition-colors"
+                className="flex items-center gap-1 rounded bg-rose-500/20 px-2.5 py-1 min-h-[44px] text-[11px] font-semibold text-rose-200 hover:bg-rose-500/30 transition-colors"
               >
                 <ArrowClockwise size={12} weight="bold" />
                 <span>Reintentar</span>
@@ -1026,7 +1033,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                 type="button"
                 onClick={() => setActiveError(null)}
                 aria-label="Cerrar advertencia"
-                className="p-1 text-rose-400 hover:text-rose-200 transition-colors"
+                className="p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-rose-400 hover:text-rose-200 transition-colors"
               >
                 <X size={13} />
               </button>
@@ -1153,8 +1160,15 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
             className="flex-1 max-h-48 overflow-y-auto px-3.5 py-2.5 bg-panel border border-hairline rounded-card text-ink text-sm placeholder:text-faint focus:outline-none focus:border-dim"
           />
           </div>
+          <AnimatePresence mode="wait" initial={false}>
           {isStreaming ? (
-            <button
+            <motion.button
+              key="composer-cancel"
+              layoutId="composer-action"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={composerTransition}
               type="button"
               onClick={handleCancel}
               aria-label="Cancelar turno en curso"
@@ -1162,15 +1176,26 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
               className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-rose-600 text-white rounded-card font-semibold text-[13px] cursor-pointer transition-colors hover:bg-rose-500"
             >
               Cancelar
-            </button>
+            </motion.button>
           ) : (
-            <ComposerPrimitive.Send
-              aria-label="Enviar mensaje"
-              className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"
+            <motion.span
+              key="composer-send"
+              layoutId="composer-action"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={composerTransition}
+              className="inline-flex"
             >
-              Enviar
-            </ComposerPrimitive.Send>
+              <ComposerPrimitive.Send
+                aria-label="Enviar mensaje"
+                className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"
+              >
+                Enviar
+              </ComposerPrimitive.Send>
+            </motion.span>
           )}
+          </AnimatePresence>
         </ComposerPrimitive.Root>
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>

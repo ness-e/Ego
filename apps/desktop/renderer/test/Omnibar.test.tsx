@@ -56,7 +56,8 @@ describe("T08 UI-05: Omnibar federado + slash/menciones", () => {
     await screen.findByRole("search");
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("search")).toBeNull();
+    // STAB-13: el Modal anima la salida (fade 150ms) antes de desmontar.
+    await waitFor(() => expect(screen.queryByRole("search")).toBeNull());
   });
 
   it("toOmnibarHits: guarda de frontera ante payloads no-array o rotos", () => {

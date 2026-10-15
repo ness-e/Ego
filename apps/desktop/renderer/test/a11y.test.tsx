@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe, { type AxeResults } from "axe-core";
 import * as fs from "node:fs";
@@ -172,7 +172,10 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     expect(fmt(await axeViolations())).toBe("");
     await pressEscape();
-    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    // STAB-13: el Modal anima la salida (fade 150ms) antes de desmontar.
+    await waitFor(() => {
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    });
   });
 
   it("WhyButton: dialog 0 violaciones + Escape lo cierra", async () => {
@@ -186,7 +189,10 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     expect(fmt(await axeViolations())).toBe("");
     await pressEscape();
-    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    // STAB-13: salida animada — esperar el desmontaje real.
+    await waitFor(() => {
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    });
   });
 
   it("McpManagerModal: 0 violaciones + Escape llama onClose", async () => {

@@ -119,3 +119,14 @@ body,
     scroll-behavior: auto !important;
   }
 }
+
+/* STAB-13: confirmación visual de copiado. ActionBarPrimitive.Copy expone el
+   estado solo vía atributo `data-copied` (sin estado a children): el ::after
+   es el confirm, espejo del "Copiado" textual del CodeBlock de markdown-text. */
+button[data-copied="true"]::after {
+  content: "\2713";
+  margin-left: 2px;
+  color: var(--color-success, #34d399);
+  font-size: 11px;
+  line-height: 1;
+}

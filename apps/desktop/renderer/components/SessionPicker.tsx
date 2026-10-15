@@ -69,7 +69,6 @@ export const SessionPicker = memo(function SessionPicker({
         <MagnifyingGlass size={15} className="text-faint shrink-0" aria-hidden />
         <input
           type="text"
-          autoFocus
           aria-label="Buscar sesión reciente por título o tema"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -81,7 +80,7 @@ export const SessionPicker = memo(function SessionPicker({
             type="button"
             aria-label="Limpiar búsqueda de sesiones"
             onClick={() => setSearch("")}
-            className="rounded p-1 text-faint hover:text-ink hover:bg-raised transition-colors"
+            className="rounded p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-faint hover:text-ink hover:bg-raised transition-colors"
           >
             <X size={14} />
           </button>

@@ -173,8 +173,23 @@ export function SplitPane({
     }
   }, [width, storageKey]);
 
+  // STAB-13: el pane colapsado SIGUE en el DOM (los landmarks no
+  // desaparecen) pero oculto visualmente y fuera del árbol de
+  // accesibilidad: visibility:hidden + aria-hidden + inert (sin foco por
+  // teclado) + ancho 0 (sin impacto en layout). `return null` eliminaba el
+  // landmark y rompía la estabilidad del shell para AT.
   if (isCollapsed) {
-    return null;
+    return (
+      <div
+        data-pane-id={id}
+        aria-hidden="true"
+        inert
+        style={{ width: 0, visibility: "hidden" }}
+        className="relative h-full shrink-0 overflow-hidden"
+      >
+        {children}
+      </div>
+    );
   }
 
   return (
