@@ -193,7 +193,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** tests `VersionConflict` + vista proyectada `{key,version,leaseHolder}` + job curator a `kb/facts` con quarantine + `reasoningEffort low|medium|high` hilado a provider
 - **Task file:** `docs/agent-ops/tasks/STAB-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** 🟡 REVIEW-PENDIENTE (7/7 steps ✅ + subegos 212t + memory 135t + models 80t + runtime 69t + desktop contrato 30/30 + typecheck 0 err + commit local; desktop full 8 rojos preexistentes FloatingWindow/ipc-contract verificados baseline-idénticos; falta veredicto review P2-01 por agente distinto)
 - **Branch:**
 - **Commit:**
   **Risk Register:**

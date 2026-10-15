@@ -1,4 +1,4 @@
-import type { ModelMessage, ModelRole, PreferredModel, ToolCall } from "@ego/models";
+import type { ModelMessage, ModelRole, PreferredModel, ReasoningEffort, ToolCall } from "@ego/models";
 import type { ToolCategory, ToolExecutionContext, ToolRiskLevel } from "@ego/tools";
 import type { ApprovalDecision } from "@ego/execution";
 
@@ -108,6 +108,12 @@ export interface LoopRunOptions {
   role?: ModelRole;
   /** Modelo elegido por el usuario (Ajustes/ModelPicker); gana al rol si resuelve. */
   preferredModel?: PreferredModel;
+  /**
+   * STAB-06: tuning per-call del turno. Gana sobre `preferredModel`
+   * (el router aplica lo preferido por debajo de lo explícito).
+   */
+  temperature?: number;
+  reasoningEffort?: ReasoningEffort;
   systemPrompt?: string;
   /**
    * Overlay efímero para ESTA llamada (no cacheable, no persistido).

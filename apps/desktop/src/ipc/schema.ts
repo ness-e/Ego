@@ -324,6 +324,15 @@ export const ModelIdSchema = z.preprocess(
 
 export type ModelId = z.infer<typeof ModelIdSchema>;
 
+/**
+ * STAB-06: esfuerzo de razonamiento portable (subconjunto provider 1:1 con
+ * el parámetro `reasoning` de AI SDK v7). Mapea a `EffortLevel` interno
+ * solo cuando `effortLevel` está ausente (ver `configureFromSettings`).
+ */
+export const ReasoningEffortSchema = z.enum(["low", "medium", "high"]);
+
+export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+
 export const ModelAliasesSchema = z.object({
   fast: ModelIdSchema,
   smart: ModelIdSchema,
@@ -354,6 +363,10 @@ export const ModelConfigSchema = z.object({
   ollamaBaseURL: z.string().optional(),
   modelName: z.string().optional(),
   effortLevel: EffortLevelSchema.optional(),
+  /** STAB-06: effort portable; `effortLevel` explícito gana si ambos presentes. */
+  reasoningEffort: ReasoningEffortSchema.optional(),
+  /** STAB-06: temperatura global del turno (0-2); lo explícito per-call gana. */
+  temperature: z.number().min(0).max(2).optional(),
   modelAliases: ModelAliasesSchema.optional(),
   reviewModel: ModelIdSchema,
   availableModels: z.array(z.string().min(1).max(128)).max(32).optional(),

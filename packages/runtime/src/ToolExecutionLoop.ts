@@ -218,7 +218,10 @@ export class ToolExecutionLoop {
           messages,
           tools: toolSchemas.length > 0 ? toolSchemas : undefined,
           systemPrompt,
-          abortSignal: options.abortSignal
+          abortSignal: options.abortSignal,
+          // STAB-06: tuning per-call hilado al provider (gana sobre PreferredModel).
+          ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+          ...(options.reasoningEffort !== undefined ? { reasoningEffort: options.reasoningEffort } : {}),
         }, undefined, options.preferredModel);
       } catch (err) {
         const aborted = this.abortResultForError(

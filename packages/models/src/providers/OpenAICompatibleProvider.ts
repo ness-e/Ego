@@ -61,6 +61,11 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
     if (options.maxTokens) {
       payload.max_tokens = options.maxTokens;
     }
+    // STAB-06: esfuerzo de razonamiento nativo (modelos o-series y
+    // endpoints compatibles que lo honren; el resto lo ignora).
+    if (options.reasoningEffort) {
+      payload.reasoning_effort = options.reasoningEffort;
+    }
     if (options.responseFormat === "json") {
       payload.response_format = { type: "json_object" };
     }
@@ -171,6 +176,10 @@ export class OpenAICompatibleProvider implements EgoModelInterface {
 
     if (options.maxTokens) {
       payload.max_tokens = options.maxTokens;
+    }
+    // STAB-06: idem generate (razonamiento nativo opt-in).
+    if (options.reasoningEffort) {
+      payload.reasoning_effort = options.reasoningEffort;
     }
     if (options.tools?.length) {
       payload.tools = options.tools.map((t) => ({

@@ -29,6 +29,21 @@ Puedes guardar keys de varios proveedores a la vez; la que se usa es la
 del **proveedor activo**. También puedes fijar un nombre de modelo
 específico (`modelName`) si el proveedor lo requiere.
 
+## Esfuerzo de razonamiento y temperatura (STAB-06)
+
+Dos ajustes opcionales controlan cómo "piensa" el modelo en cada turno:
+
+| Campo | Valores | Efecto |
+|---|---|---|
+| `reasoningEffort` | `low` \| `medium` \| `high` | Profundidad de razonamiento (parámetro portable `reasoning` de AI SDK; los proveedores sin soporte lo ignoran). Si también hay `effortLevel` configurado, este gana. |
+| `temperature` | `0` – `2` | Aleatoriedad del muestreo (`0` = determinista). Las llamadas con temperatura explícita ganan sobre este valor global. |
+
+Precedencia efectiva por turno: **explícito per-call > `PreferredModel` >
+`effortLevel`/`reasoningEffort` global > default del proveedor (`0.7`)**.
+Ambos campos se guardan en claro junto al resto no-secreto de
+`gov/settings/model_config` (nunca cifrados: no son secretos) y se
+muestran sin máscara en el panel.
+
 ## Cómo se protegen tus keys
 
 - Las keys se cifran en el proceso principal con el mecanismo seguro

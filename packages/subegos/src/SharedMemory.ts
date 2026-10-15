@@ -75,6 +75,55 @@ export class SharedMemoryLeaseInvalidError extends SharedMemoryError {
 }
 
 /**
+ * Error arrojado cuando `publish` recibe `expectedVersion` (CAS opt-in) y la
+ * versión almacenada difiere: otro escritor avanzó la clave en la ventana
+ * entre lectura y escritura. El registro almacenado queda intacto.
+ */
+export class SharedMemoryVersionConflictError extends SharedMemoryError {
+  constructor(
+    public readonly projectId: string,
+    public readonly key: string,
+    public readonly expectedVersion: number,
+    public readonly actualVersion: number
+  ) {
+    super(
+      `[SharedMemory] Conflicto CAS: la clave '${key}' en el proyecto '${projectId}' está en versión ${actualVersion}, se esperaba ${expectedVersion}. Releer y reintentar.`
+    );
+    this.name = "SharedMemoryVersionConflictError";
+  }
+}
+
+/**
+ * Vista proyectada liviana de una clave: identidad + versión + holder.
+ * Sin payload (barata en tokens) para coordinación entre Sub-Egos.
+ */
+export interface SharedMemoryProjectedView {
+  readonly key: string;
+  readonly version: number;
+  readonly leaseHolder: string | null;
+}
+
+/**
+ * Opciones de materialización de snapshots a texto de contexto.
+ */
+export interface SharedMemoryProjectionOptions {
+  /** Tope de caracteres por valor serializado (default 500). */
+  maxCharsPerValue?: number;
+  /** Tope de registros proyectados (default 20). */
+  maxRecords?: number;
+}
+
+/**
+ * Snapshot materializado para inyección en prompts: texto + costo estimado.
+ */
+export interface SharedMemoryProjection {
+  readonly contextText: string;
+  readonly tokenEstimate: number;
+  readonly truncated: boolean;
+  readonly recordCount: number;
+}
+
+/**
  * Contrato de lease temporal con TTL para bloqueo y reserva atómica entre Sub-Egos concurrentes.
  */
 export interface SharedMemoryLease {
@@ -112,6 +161,12 @@ export interface SharedMemoryPublishOptions {
   publishedBy?: string;
   ttlMs?: number;
   leaseId?: string;
+  /**
+   * CAS opt-in (STAB-06): versión que el escritor vio al leer. Si se provee
+   * y difiere de la almacenada → `SharedMemoryVersionConflictError` y el
+   * registro queda intacto. Omitido = conducta legacy (`version+1`).
+   */
+  expectedVersion?: number;
 }
 
 /**
@@ -462,7 +517,8 @@ export class SharedMemory {
       ("metadata" in optionsOrMetadata ||
         "publishedBy" in optionsOrMetadata ||
         "ttlMs" in optionsOrMetadata ||
-        "leaseId" in optionsOrMetadata)
+        "leaseId" in optionsOrMetadata ||
+        "expectedVersion" in optionsOrMetadata)
         ? (optionsOrMetadata as SharedMemoryPublishOptions)
         : { metadata: optionsOrMetadata as Record<string, unknown> | undefined };
 
@@ -505,6 +561,26 @@ export class SharedMemory {
       }
     } catch {
       // Si no existe o falla parse, arranca en versión 0
+    }
+
+    // CAS opt-in (STAB-06): tras el gate cooperativo de lease. El registro
+    // almacenado queda intacto ante conflicto.
+    if (opts.expectedVersion !== undefined) {
+      if (
+        typeof opts.expectedVersion !== "number" ||
+        !Number.isInteger(opts.expectedVersion) ||
+        opts.expectedVersion < 0
+      ) {
+        throw new SharedMemoryError("expectedVersion debe ser un entero >= 0.");
+      }
+      if (opts.expectedVersion !== previousVersion) {
+        throw new SharedMemoryVersionConflictError(
+          projectId,
+          key,
+          opts.expectedVersion,
+          previousVersion
+        );
+      }
     }
 
     const version = previousVersion + 1;
@@ -628,6 +704,77 @@ export class SharedMemory {
   async readValue<T = unknown>(projectId: string, key: string): Promise<T | null> {
     const record = await this.read<T>(projectId, key);
     return record ? record.value : null;
+  }
+
+  /**
+   * Vista proyectada liviana `{key,version,leaseHolder}` (STAB-06).
+   * Sin payload y sin broadcast: barata en tokens para coordinación.
+   * Retorna `null` si la clave no existe o expiró.
+   */
+  async getProjectedView(projectId: string, key: string): Promise<SharedMemoryProjectedView | null> {
+    const record = await this.read(projectId, key);
+    if (!record) return null;
+    const lease = this.getLease(projectId, key);
+    return {
+      key: record.key,
+      version: record.version,
+      leaseHolder: lease ? lease.holderId : null
+    };
+  }
+
+  /**
+   * Lectura explícita sin broadcast (STAB-06): idéntica a `read` pero con
+   * garantía contractual — jamás notifica suscriptores ni emite al EventBus.
+   * Vía de recuperación para el turno (reduce coste vs pub/sub).
+   */
+  async retrieve<T = unknown>(projectId: string, key: string): Promise<SharedMemoryRecord<T> | null> {
+    return this.read<T>(projectId, key);
+  }
+
+  /**
+   * Materializa un snapshot de registros a texto de contexto (STAB-06).
+   * Función pura: no lee storage, no notifica, no emite. Valores serializados
+   * con topes (`maxCharsPerValue`, `maxRecords`); `truncated` lo señala.
+   */
+  projectRecords(
+    records: SharedMemoryRecord[],
+    options?: SharedMemoryProjectionOptions
+  ): SharedMemoryProjection {
+    const maxCharsPerValue = options?.maxCharsPerValue ?? 500;
+    const maxRecords = options?.maxRecords ?? 20;
+    const sliced = records.slice(0, Math.max(0, maxRecords));
+    const lines: string[] = [];
+    let truncated = records.length > sliced.length;
+    for (const rec of sliced) {
+      const raw = typeof rec.value === "string" ? rec.value : JSON.stringify(rec.value);
+      const text = raw.length > maxCharsPerValue ? raw.slice(0, maxCharsPerValue) + "…" : raw;
+      if (raw.length > maxCharsPerValue) truncated = true;
+      lines.push(`- ${rec.key}@v${rec.version}: ${text}`);
+    }
+    const contextText = lines.join("\n");
+    return {
+      contextText,
+      tokenEstimate: Math.ceil(contextText.length / 4),
+      truncated,
+      recordCount: sliced.length
+    };
+  }
+
+  /**
+   * Lee claves vía `retrieve` (sin broadcast) y las proyecta a contexto.
+   * Las claves ausentes/expiradas se omiten en silencio.
+   */
+  async projectSnapshot(
+    projectId: string,
+    keys: string[],
+    options?: SharedMemoryProjectionOptions
+  ): Promise<SharedMemoryProjection> {
+    const records: SharedMemoryRecord[] = [];
+    for (const key of keys) {
+      const rec = await this.retrieve(projectId, key);
+      if (rec) records.push(rec);
+    }
+    return this.projectRecords(records, options);
   }
 
   /**

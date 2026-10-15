@@ -11,6 +11,13 @@ export type ModelCapability =
 
 export type ModelProviderId = "anthropic" | "openai" | "deepseek" | "google" | "ollama" | "mock";
 
+/**
+ * Esfuerzo de razonamiento portable (STAB-06): subconjunto de `EffortLevel`
+ * con mapeo 1:1 al parámetro `reasoning` de AI SDK v7
+ * (`'low'|'medium'|'high'` — ver `ai` docs `26-reasoning.mdx`).
+ */
+export type ReasoningEffort = "low" | "medium" | "high";
+
 export type ModelRole =
   | "fast-classifier"  // Triage rápido y bajo coste (<300ms)
   | "reasoning-heavy"  // Planificación compleja, auditoría y síntesis profunda
@@ -37,6 +44,10 @@ export interface ModelDescriptor {
 export interface PreferredModel {
   modelId: string;
   providerId?: ModelProviderId;
+  /** Temperatura por defecto del turno (0-2); las opciones explícitas ganan. */
+  temperature?: number;
+  /** Esfuerzo de razonamiento por defecto del turno. */
+  reasoningEffort?: ReasoningEffort;
 }
 
 export interface ToolCall {
@@ -56,6 +67,8 @@ export interface ModelMessage {
 export interface ModelGenerateOptions {
   messages: ModelMessage[];
   temperature?: number;
+  /** Esfuerzo de razonamiento portable (AI SDK `reasoning` / `reasoning_effort`). */
+  reasoningEffort?: ReasoningEffort;
   maxTokens?: number;
   systemPrompt?: string;
   responseFormat?: "text" | "json";

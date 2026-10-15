@@ -56,6 +56,44 @@ export interface MicroCheckpointRead extends MicroCheckpoint {
 }
 
 /**
+ * Opciones del job curator (STAB-06): consolida `session/turns` stale a
+ * `kb/facts`. Solo añade hechos; NUNCA borra (el cap `maxSnapshots` es
+ * fail-closed: al límite se omiten consolidaciones nuevas).
+ */
+export interface CuratorConsolidationOptions {
+  /** Antigüedad mínima de un turno para consolidar (default 30). */
+  staleAfterDays?: number;
+  /** Tope de facts `curator_*` vivos; al límite no se crea nada nuevo (default 50). */
+  maxSnapshots?: number;
+  /** Namespace origen (default `session/turns`). */
+  sessionNamespace?: string;
+  /** Namespace destino (default `kb/facts`). */
+  targetNamespace?: string;
+  /** Reloj inyectable para tests (default `Date.now()`). */
+  nowMs?: number;
+  /** Tope de filas barridas por corrida (default 1000). */
+  limit?: number;
+}
+
+export interface CuratorConsolidationResult {
+  scanned: number;
+  staleSessions: number;
+  consolidated: number;
+  skippedQuarantined: number;
+  skippedCapped: number;
+  capped: boolean;
+}
+
+export interface CuratorJobHandle {
+  stop: () => void;
+}
+
+export interface CuratorJobOptions extends CuratorConsolidationOptions {
+  /** Periodo del job en ms (> 0). */
+  intervalMs: number;
+}
+
+/**
  * Gestor del Ciclo de Vida de Memoria Unificado de Ego (CORE-12).
  * Fusión del ciclo por turnos conversacionales con el sustrato L0-L3 de VantaDB.
  */
@@ -64,6 +102,7 @@ export class EgoMemoryLifecycle {
   private activeSessionId: string | null = null;
   private activeProjectScope = "default";
   private dreamTimer: NodeJS.Timeout | null = null;
+  private curatorTimer: NodeJS.Timeout | null = null;
   private pendingReinforcements: Set<string> = new Set();
 
   constructor(adapter: EgoMemoryAdapter) {
@@ -348,6 +387,155 @@ export class EgoMemoryLifecycle {
     });
 
     return { reinforcedCount: keysToReinforce.length };
+  }
+
+  /**
+   * Job curator (STAB-06): consolida turnos stale (`session/turns`) en hechos
+   * resumidos (`kb/facts/curator_<sessionId>`), un fact por sesión (upsert
+   * idempotente por `turnCount`). Respeta `quarantine/pending` (las filas
+   * cuarentenadas se omiten, nunca se promueven). Aditivo: jamás borra —
+   * al alcanzar `maxSnapshots` se omiten consolidaciones nuevas (`capped`).
+   */
+  async runCuratorConsolidation(
+    options: CuratorConsolidationOptions = {}
+  ): Promise<CuratorConsolidationResult> {
+    const {
+      staleAfterDays = 30,
+      maxSnapshots = 50,
+      sessionNamespace = "session/turns",
+      targetNamespace = "kb/facts",
+      nowMs = Date.now(),
+      limit = 1000,
+    } = options;
+    const cutoff = nowMs - Math.max(0, staleAfterDays) * 86_400_000;
+    const result: CuratorConsolidationResult = {
+      scanned: 0,
+      staleSessions: 0,
+      consolidated: 0,
+      skippedQuarantined: 0,
+      skippedCapped: 0,
+      capped: false,
+    };
+
+    const rows = await listQuarantineAware(this.adapter, sessionNamespace, limit);
+    result.scanned = rows.length;
+
+    const bySession = new Map<string, { turnIds: string[]; oldestTs: number; newestTs: number }>();
+    for (const row of rows) {
+      if (row.quarantined) {
+        result.skippedQuarantined++;
+        continue;
+      }
+      const payload = row.payload;
+      if (!payload || typeof payload !== "object") continue;
+      const p = payload as Record<string, unknown>;
+      const sessionId = typeof p["sessionId"] === "string" ? (p["sessionId"] as string) : undefined;
+      const timestamp = typeof p["timestamp"] === "number" ? (p["timestamp"] as number) : undefined;
+      const rawTurn = typeof p["turnId"] === "string" ? (p["turnId"] as string) : row.key;
+      if (!sessionId || timestamp === undefined) continue;
+      if (timestamp >= cutoff) continue;
+      const group = bySession.get(sessionId) ?? { turnIds: [], oldestTs: timestamp, newestTs: timestamp };
+      group.turnIds.push(rawTurn);
+      if (timestamp < group.oldestTs) group.oldestTs = timestamp;
+      if (timestamp > group.newestTs) group.newestTs = timestamp;
+      bySession.set(sessionId, group);
+    }
+    result.staleSessions = bySession.size;
+    if (bySession.size === 0) {
+      await this.adapter.recordAudit("curator_consolidation", "ego.memory_lifecycle", {
+        ...result,
+        timestamp: nowMs,
+      });
+      return result;
+    }
+
+    const existing = await listQuarantineAware(this.adapter, targetNamespace, Math.max(limit, 100));
+    const liveCuratorKeys = new Set(
+      existing.filter((r) => !r.quarantined && r.key.startsWith("curator_")).map((r) => r.key)
+    );
+    result.capped = liveCuratorKeys.size >= Math.max(0, maxSnapshots);
+
+    for (const [sessionId, group] of bySession) {
+      const key = `curator_${sessionId}`;
+      const turnCount = group.turnIds.length;
+      const current = await getQuarantineAware(this.adapter, targetNamespace, key);
+      if (current && !current.quarantined) {
+        const cp = current.payload;
+        if (cp && typeof cp === "object" && (cp as Record<string, unknown>)["turnCount"] === turnCount) {
+          continue; // Idempotente: ya consolidado con el mismo contenido
+        }
+      }
+      if (result.capped) {
+        result.skippedCapped++;
+        continue;
+      }
+      const putItem: EgoPut = {
+        namespace: targetNamespace,
+        key,
+        payload: {
+          sessionId,
+          turnCount,
+          turnIds: group.turnIds,
+          oldestTs: group.oldestTs,
+          newestTs: group.newestTs,
+          consolidatedAtMs: nowMs,
+          staleAfterDays,
+        },
+        metadata: {
+          type: "curator_consolidation",
+          source: "ego.memory_lifecycle",
+          sessionId,
+          turnCount,
+        },
+      };
+      await this.adapter.put(putItem);
+      liveCuratorKeys.add(key);
+      result.consolidated++;
+      if (liveCuratorKeys.size >= Math.max(0, maxSnapshots)) {
+        result.capped = true;
+      }
+    }
+
+    await this.adapter.recordAudit("curator_consolidation", "ego.memory_lifecycle", {
+      ...result,
+      timestamp: nowMs,
+    });
+    return result;
+  }
+
+  /**
+   * Arranca el job periódico del curator. Reemplaza un job previo si existe.
+   * El timer no retiene el proceso (`unref` cuando está disponible).
+   */
+  startCuratorJob(options: CuratorJobOptions): CuratorJobHandle {
+    const { intervalMs, ...rest } = options;
+    if (typeof intervalMs !== "number" || intervalMs <= 0) {
+      throw new Error("[EgoMemoryLifecycle] intervalMs debe ser un número positivo mayor a 0.");
+    }
+    this.stopCuratorJob();
+    const timer = setInterval(() => {
+      void this.runCuratorConsolidation(rest).catch((err: unknown) => {
+        console.warn("[EgoMemoryLifecycle] curator job falló:", err);
+      });
+    }, intervalMs);
+    const t = timer as unknown as { unref?: () => void };
+    if (typeof t.unref === "function") {
+      t.unref();
+    }
+    this.curatorTimer = timer;
+    return {
+      stop: () => this.stopCuratorJob(),
+    };
+  }
+
+  /**
+   * Detiene el job periódico del curator (idempotente).
+   */
+  stopCuratorJob(): void {
+    if (this.curatorTimer) {
+      clearInterval(this.curatorTimer);
+      this.curatorTimer = null;
+    }
   }
 
   private scheduleDreamConsolidation(): void {

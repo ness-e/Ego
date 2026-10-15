@@ -8,6 +8,7 @@ import type {
   ModelRole,
   ModelStreamChunk,
   PreferredModel,
+  ReasoningEffort,
 } from "./types.js";
 import { MockProvider } from "./providers/MockProvider.js";
 
@@ -93,10 +94,20 @@ export function effortProviderParams(level: EffortLevel): {
  */
 export interface RouterModelSettings {
   effortLevel?: EffortLevel;
+  /** STAB-06: mapea a `effortLevel` solo si este está ausente. */
+  reasoningEffort?: ReasoningEffort;
   modelAliases?: ModelAliasMap;
   reviewModel?: string;
   availableModels?: string[];
   fallbackModel?: string;
+}
+
+/**
+ * Mapea `reasoningEffort` (3 niveles provider) a `EffortLevel` (5 niveles
+ * internos). Identidad en el subconjunto común.
+ */
+export function reasoningEffortToEffortLevel(level: ReasoningEffort): EffortLevel {
+  return level;
 }
 
 /**
@@ -212,6 +223,27 @@ export class ModelRouter {
     };
   }
 
+  /**
+   * STAB-06: aplica el tuning del `PreferredModel` por debajo de las
+   * opciones explícitas y por encima de los defaults de effort.
+   * Precedencia: explícito > preferido > effort > default del provider.
+   */
+  public applyPreferredTuning(
+    options: ModelGenerateOptions,
+    preferred?: PreferredModel
+  ): ModelGenerateOptions {
+    if (!preferred) return { ...options };
+    return {
+      ...options,
+      ...(preferred.temperature !== undefined && options.temperature === undefined
+        ? { temperature: preferred.temperature }
+        : {}),
+      ...(preferred.reasoningEffort !== undefined && options.reasoningEffort === undefined
+        ? { reasoningEffort: preferred.reasoningEffort }
+        : {}),
+    };
+  }
+
   /** CFG-04: cadena de fallback ordenada (ids o aliases) tras el primario. */
   public setAvailableModels(ids: string[]): void {
     this.availableModelIds = [...ids];
@@ -255,7 +287,11 @@ export class ModelRouter {
    * Glue futura para `applyModelConfig` en main (sin dependencia a desktop).
    */
   public configureFromSettings(settings: RouterModelSettings): void {
-    if (settings.effortLevel !== undefined) this.setEffortLevel(settings.effortLevel);
+    if (settings.effortLevel !== undefined) {
+      this.setEffortLevel(settings.effortLevel);
+    } else if (settings.reasoningEffort !== undefined) {
+      this.setEffortLevel(reasoningEffortToEffortLevel(settings.reasoningEffort));
+    }
     if (settings.modelAliases !== undefined) this.setAliases(settings.modelAliases);
     if (settings.reviewModel !== undefined) this.setReviewModel(settings.reviewModel || undefined);
     if (settings.availableModels !== undefined) this.setAvailableModels(settings.availableModels);
@@ -497,7 +533,7 @@ export class ModelRouter {
     preferredModel?: PreferredModel
   ): Promise<ModelGenerateResult> {
     const caps = requiredCapabilities ?? ["text"];
-    const effective = this.applyEffort(options);
+    const effective = this.applyEffort(this.applyPreferredTuning(options, preferredModel));
     const descriptor = await this.resolveModel(role, caps, preferredModel);
     const provider = this.providers.get(descriptor.provider)!;
 
@@ -523,7 +559,7 @@ export class ModelRouter {
     preferredModel?: PreferredModel
   ): Promise<ModelGenerateResult> {
     const caps = requiredCapabilities ?? ["text"];
-    const effective = this.applyEffort(options);
+    const effective = this.applyEffort(this.applyPreferredTuning(options, preferredModel));
     const descriptor = await this.resolveModel(role, caps, preferredModel);
     const provider = this.providers.get(descriptor.provider)!;
 

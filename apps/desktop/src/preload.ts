@@ -158,6 +158,8 @@ export interface EgoPreloadBridge {
       deepseekBaseURL?: string;
       ollamaBaseURL?: string;
       modelName?: string;
+      reasoningEffort?: "low" | "medium" | "high";
+      temperature?: number;
     }) => Promise<unknown>;
     getStorageInfo: () => Promise<unknown>;
     getGovPolicies: () => Promise<unknown>;

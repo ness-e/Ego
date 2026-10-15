@@ -1434,6 +1434,16 @@ export function applyModelConfig(router: ModelRouter, config: ModelConfig): void
   }
   const valid = parsed.data;
   currentModelConfig = { ...valid };
+  // STAB-06: hilar effort/aliases al router (CFG-04). `effortLevel`
+  // explícito gana sobre `reasoningEffort` (lógica en `configureFromSettings`).
+  router.configureFromSettings({
+    ...(valid.effortLevel !== undefined ? { effortLevel: valid.effortLevel } : {}),
+    ...(valid.reasoningEffort !== undefined ? { reasoningEffort: valid.reasoningEffort } : {}),
+    ...(valid.modelAliases !== undefined ? { modelAliases: valid.modelAliases } : {}),
+    ...(valid.reviewModel ? { reviewModel: valid.reviewModel } : {}),
+    ...(valid.availableModels !== undefined ? { availableModels: valid.availableModels } : {}),
+    ...(valid.fallbackModel ? { fallbackModel: valid.fallbackModel } : {}),
+  });
   const legacyKey = isNonEmptyKey(valid.apiKey) ? valid.apiKey : undefined;
   const legacyBase = isNonEmptyKey(valid.baseUrl) ? valid.baseUrl : undefined;
   if (valid.activeProvider === "openai") {
@@ -2282,14 +2292,24 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
 
     // Modelo elegido por el usuario (2026-10-14: el picker/Ajustes gobierna
     // de verdad; vacío = el router decide por rol). Hilo hasta el loop.
+    // STAB-06: el tuning global (temperature/reasoningEffort) viaja en el
+    // PreferredModel y además como override per-call del loop.
     const preferredModel: PreferredModel | undefined = (() => {
       const name = currentModelConfig.modelName?.trim();
       if (!name) return undefined;
+      const tuning = {
+        ...(currentModelConfig.temperature !== undefined
+          ? { temperature: currentModelConfig.temperature }
+          : {}),
+        ...(currentModelConfig.reasoningEffort !== undefined
+          ? { reasoningEffort: currentModelConfig.reasoningEffort }
+          : {}),
+      };
       const p = currentModelConfig.activeProvider;
       if (p !== "mock" && p !== "ollama" && ["openai", "anthropic", "google", "deepseek"].includes(p)) {
-        return { modelId: name, providerId: p as PreferredModel["providerId"] };
+        return { modelId: name, providerId: p as PreferredModel["providerId"], ...tuning };
       }
-      if (p === "ollama") return { modelId: name, providerId: "ollama" };
+      if (p === "ollama") return { modelId: name, providerId: "ollama", ...tuning };
       return undefined;
     })();
 
@@ -2307,6 +2327,14 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       context: execContext,
       role: "general-chat",
       preferredModel,
+      // STAB-06: tuning global también sin modelName (el loop lo hila
+      // por encima del PreferredModel y por debajo de lo explícito).
+      ...(currentModelConfig.temperature !== undefined
+        ? { temperature: currentModelConfig.temperature }
+        : {}),
+      ...(currentModelConfig.reasoningEffort !== undefined
+        ? { reasoningEffort: currentModelConfig.reasoningEffort }
+        : {}),
       systemPrompt: systemInstruction,
       stableSystemPrompt: turnPrompt.assembled.systemPrompt,
       cachedSystemPromptFingerprint: prevStableHash,
@@ -2753,6 +2781,16 @@ export async function createWindow(): Promise<void> {
   lifecycle = new EgoMemoryLifecycle(adapter);
   await lifecycle.startSession("session_init", "default");
 
+  // STAB-06: job curator periódico (consolida `session/turns` stale →
+  // `kb/facts`, respetando `quarantine/pending`; aditivo, jamás borra).
+  // Defaults: cada 1h, stale 30d, tope 50 facts. Best-effort: un fallo
+  // aislado se loguea y el job sigue (el boot nunca tumba por esto).
+  try {
+    lifecycle.startCuratorJob({ intervalMs: 60 * 60 * 1000, staleAfterDays: 30, maxSnapshots: 50 });
+  } catch (err) {
+    console.warn("[Ego Main] Job curator STAB-06 no arrancó (reintento manual vía lifecycle):", err);
+  }
+
   modelRouter = new ModelRouter();
   setupModelProviders(modelRouter);
   await syncModelCredentialPool(modelRouter);
@@ -2824,6 +2862,9 @@ export async function createWindow(): Promise<void> {
           apiKey: resolvedKey,
           baseUrl: record.baseUrl as ModelConfig["baseUrl"],
           modelName: record.modelName as ModelConfig["modelName"],
+          // STAB-06: tuning persistido (validado por `applyModelConfig`).
+          reasoningEffort: record.reasoningEffort as ModelConfig["reasoningEffort"],
+          temperature: record.temperature as ModelConfig["temperature"],
         };
         applyModelConfig(modelRouter, restoredConfig);
       }
@@ -3760,6 +3801,9 @@ export async function createWindow(): Promise<void> {
     deepseekBaseURL: cfg.deepseekBaseURL,
     ollamaBaseURL: cfg.ollamaBaseURL,
     modelName: cfg.modelName,
+    // STAB-06: tuning en claro (no son secretos; el renderer los muestra).
+    reasoningEffort: cfg.reasoningEffort,
+    temperature: cfg.temperature,
   });
   const unwrapSettingsPayload = (saved: unknown): Record<string, unknown> | null => {
     let payload: unknown = saved;
@@ -3816,6 +3860,19 @@ export async function createWindow(): Promise<void> {
             typeof stored.deepseekBaseURL === "string" ? stored.deepseekBaseURL : currentModelConfig.deepseekBaseURL,
           ollamaBaseURL:
             typeof stored.ollamaBaseURL === "string" ? stored.ollamaBaseURL : currentModelConfig.ollamaBaseURL,
+          // STAB-06: tuning persistido (validado; inválido → memoria).
+          reasoningEffort:
+            stored.reasoningEffort === "low" ||
+            stored.reasoningEffort === "medium" ||
+            stored.reasoningEffort === "high"
+              ? stored.reasoningEffort
+              : currentModelConfig.reasoningEffort,
+          temperature:
+            typeof stored.temperature === "number" &&
+            stored.temperature >= 0 &&
+            stored.temperature <= 2
+              ? stored.temperature
+              : currentModelConfig.temperature,
         };
         for (const field of [...PROVIDER_KEY_FIELDS, "apiKey"] as const) {
           const enc = stored[`${field}Encrypted`];
@@ -3987,6 +4044,9 @@ export async function createWindow(): Promise<void> {
       ...(isNonEmptyKey(effectiveConfig.deepseekBaseURL) ? { deepseekBaseURL: effectiveConfig.deepseekBaseURL } : {}),
       ...(isNonEmptyKey(effectiveConfig.ollamaBaseURL) ? { ollamaBaseURL: effectiveConfig.ollamaBaseURL } : {}),
       ...(isNonEmptyKey(effectiveConfig.modelName) ? { modelName: effectiveConfig.modelName } : {}),
+      // STAB-06: tuning en claro junto al resto no-secreto (nunca cifrado).
+      ...(effectiveConfig.reasoningEffort !== undefined ? { reasoningEffort: effectiveConfig.reasoningEffort } : {}),
+      ...(effectiveConfig.temperature !== undefined ? { temperature: effectiveConfig.temperature } : {}),
     };
 
     await adapter.put({

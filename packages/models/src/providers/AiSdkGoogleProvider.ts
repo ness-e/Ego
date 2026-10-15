@@ -69,6 +69,9 @@ export class AiSdkGoogleProvider implements EgoModelInterface {
       tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
       temperature: options.temperature ?? 0.7,
+      // STAB-06: `reasoning` portable AI SDK v7 (low|medium|high); el
+      // provider sin soporte lo ignora con warning (docs 26-reasoning).
+      ...(options.reasoningEffort ? { reasoning: options.reasoningEffort } : {}),
       maxOutputTokens: options.maxTokens,
       abortSignal: options.abortSignal,
     });
@@ -109,6 +112,9 @@ export class AiSdkGoogleProvider implements EgoModelInterface {
       tools: this.toTools(ai, options),
       toolChoice: this.toToolChoice(options),
       temperature: options.temperature ?? 0.7,
+      // STAB-06: `reasoning` portable AI SDK v7 (low|medium|high); el
+      // provider sin soporte lo ignora con warning (docs 26-reasoning).
+      ...(options.reasoningEffort ? { reasoning: options.reasoningEffort } : {}),
       maxOutputTokens: options.maxTokens,
       abortSignal: options.abortSignal,
     });
