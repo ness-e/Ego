@@ -132,7 +132,7 @@ Checklist `security-and-hardening` aplicada al diseño:
 - **Archivos:** solo tocados STAB-04 (`git add` selectivo)
 - **Acción:** commit local `feat:` (NUNCA push) + §Review veredicto + `skill progreso` si disponible + bloque RESULTADO
 - **Verify:** `git log --oneline -1` + `git status --short` sin extras
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE (2026-10-16: commit `c8c7b45` local, 4 archivos/777 ins; review P2-01 pendiente orquestador)
 
 ## Dependencias
 - Wave 1 paralela con STAB-02/03 (archivos disjuntos: aquí `DelegationTools*`+`subegos/index`; 02 toca security, 03 main+PromptAssembly) — sin bloqueo mutuo. Next: STAB-05.

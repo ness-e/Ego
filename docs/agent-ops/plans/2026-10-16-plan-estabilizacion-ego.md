@@ -81,6 +81,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
   - **DoD multi-nivel:** task: greps + verify; commit: `docs:`; release: N/A
 
 ### Task 3: STAB-02 — Permissions deny-gana + terminal hardening
+- **Estado:** ✅ COMPLETO (commit `dbd63a5` feat + `4addebf` plan; security 89/89, ipc-zod-coverage 10/10, permissions-policy 13/13; review P2-01 pendiente; pregunta Gate D batcheada: canales `ipc.settings.get/savePermissions` implementados, renombro a `ipc.permissions.*` en follow-up si lo pides)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴 P0
@@ -106,6 +107,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
   - **DoD multi-nivel:** task/commit/release (API docs si cambia schema)
 
 ### Task 4: STAB-03 — Cablear PromptAssembly al turno real
+- **Estado:** 🟡 INCOMPLETO (código propio commiteado `98f4947` + hunks main absorbidos por `c087862` ajeno; subegos 177/177, PromptAssembly 22/22, typecheck 0; rojos literales ajenos: DelegationTools WIP STAB-04, FloatingWindow, ipc-contract, golden timeout; review P2-01 pendiente)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴 P0
@@ -130,6 +132,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
   - **DoD multi-nivel:** task/commit/release (ADR si cambia prompt)
 
 ### Task 5: STAB-04 — delegate_task fin-a-fin en ToolExecutionLoop
+- **Estado:** ✅ COMPLETO (commit `c8c7b45`; subegos 17f/192t, runtime 11f/60t, typecheck 0; registro en composición main queda futura; review P2-01 pendiente)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴 P0
