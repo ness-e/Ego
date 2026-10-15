@@ -104,6 +104,9 @@ export const ResolveApprovalSchema = z.object({
   approved: z.boolean(),
   reason: z.string().optional(),
   modifiedArguments: z.record(z.unknown()).optional(),
+  // Task7 (COUC-03): digest SHA-256 esperado opcional. Si viene y no
+  // coincide con el pendiente, el engine lanza (fail-closed, deny).
+  expectedDigest: z.string().length(64).optional(),
 });
 
 export type ResolveApprovalRequest = z.infer<typeof ResolveApprovalSchema>;

@@ -23,7 +23,7 @@ import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionCon
 import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
 import { ToolExecutionLoop, type LoopExecutionResult } from "@ego/runtime";
-import { ApprovalEngine, ExecutionManager, type PendingApproval } from "@ego/execution";
+import { ApprovalEngine, ExecutionManager, WidgetHitlBridge, type PendingApproval } from "@ego/execution";
 import {
   SubEgoRegistry,
   SubEgoFactory,
@@ -264,6 +264,10 @@ function ensureFloatMgr(): FloatingWindowManager {
   }
   return floatMgr;
 }
+
+// Task7 (WIDG-04): bridge HITL flotante<->main — instancia ÚNICA creada
+// junto al ApprovalEngine; `null` hasta entonces (tests unitarios).
+let hitlBridge: WidgetHitlBridge | null = null;
 
 interface TerminalSession {
   id: string;
@@ -3089,6 +3093,39 @@ export async function createWindow(): Promise<void> {
     defaultTimeoutMs: getCachedPermissionsSettings().approvals.timeoutSec * 1000,
     onApprovalRequested: (pending: PendingApproval) => {
       win?.webContents.send("ipc.approval.request", pending);
+      // Task7 (WIDG-04, COUC-03/04): intento flotante con ACK 800 ms.
+      // El send a main ya salió (fallback inmediato garantizado); si la
+      // flotante está visible e interactiva admite (ACK) y muestra la
+      // tarjeta, si no el bridge cae a main sin colgar al executor.
+      try {
+        if (!hitlBridge) {
+          hitlBridge = new WidgetHitlBridge(approvalEngine, {
+            onPresent: (req) => {
+              try {
+                const st = ensureFloatMgr().getState();
+                if (!st.muted && !st.disabled) {
+                  ensureFloatMgr().updateState({ attentionState: "hitl_approval" });
+                  ensureFloatMgr().show();
+                  queueMicrotask(() =>
+                    hitlBridge?.acknowledgePresentation(req.approvalId)
+                  );
+                }
+              } catch {
+                // noop: el flotante nunca tumba el flujo de aprobación
+              }
+              refreshTrayStatus();
+            },
+            onFallbackToMain: () => {
+              refreshTrayStatus();
+            },
+          });
+        }
+        ensureFloatMgr().updateState({ attentionState: "hitl_approval" });
+        refreshTrayStatus();
+        void hitlBridge.presentApproval(pending);
+      } catch {
+        // noop: el send a main ya garantiza el fallback
+      }
     },
   });
 
@@ -3437,13 +3474,13 @@ export async function createWindow(): Promise<void> {
       throw new Error(`[IPC Security] Solicitud de resolución de aprobación inválida: ${parseResult.error.message}`);
     }
 
-    const { approvalId, approved, reason, modifiedArguments } = parseResult.data;
+    const { approvalId, approved, reason, modifiedArguments, expectedDigest } = parseResult.data;
     const ok = approvalEngine.resolveApproval(approvalId, {
       approved,
       reason,
       modifiedArguments,
       resolvedBy: "user",
-    });
+    }, expectedDigest ? { expectedDigest } : undefined);
 
     return { ok, approvalId, approved, timestamp: Date.now() };
   });

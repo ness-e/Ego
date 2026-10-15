@@ -22,10 +22,40 @@ export interface WidgetHitlBridgeOptions {
   onFallbackToMain?: (approvalId: string, reason: string) => void;
 }
 
+/** Opciones de resolución con identidad exacta (COUC-03). */
+export interface WidgetResolveOptions {
+  /**
+   * Digest SHA-256 esperado de la acción. Si se provee y no coincide con
+   * el pendiente del engine (ni con el presentado), la resolución se
+   * rechaza sin reenviar — nunca se resuelve solo por toolName.
+   */
+  expectedDigest?: string;
+}
+
+interface PendingAck {
+  timer: NodeJS.Timeout;
+  resolve: (presented: boolean) => void;
+}
+
+/**
+ * WidgetHitlBridge — HITL flotante<->main (WIDG-04, COUC-03/04).
+ *
+ * Contrato mecánico (fuente: `repos-referencia/coucou/windows/src/island/hooks.ts:273-328`):
+ * - `presentApproval()` emite al widget y espera ACK <= 800 ms.
+ * - Si ACK: resuelve `true`, mantiene pending + digest presentado.
+ * - Si NO ACK: fallback a main (`onFallbackToMain`) y resuelve `false`
+ *   SIN colgar al executor (el engine retiene su propio timeout).
+ * - Una sola tarjeta a la vez: segundo approval distinto con uno pendiente
+ *   o activo → decline inmediato (duplicate).
+ * - `resolve()` solo con identidad exacta; pendiente ausente (timeout) →
+ *   decline seguro sin reenviar al engine.
+ * - `dismissExternal()` para cierre externo → `"Handled in X"`.
+ */
 export class WidgetHitlBridge {
   private ackTimeoutMs: number;
-  private pendingAcks = new Map<string, NodeJS.Timeout>();
+  private pendingAcks = new Map<string, PendingAck>();
   private activePresentations = new Set<string>();
+  private presentedDigests = new Map<string, string>();
   private onPresent?: (request: WidgetPresentationRequest) => void;
   private onFallbackToMain?: (approvalId: string, reason: string) => void;
 
@@ -40,6 +70,25 @@ export class WidgetHitlBridge {
 
   public async presentApproval(approval: PendingApproval): Promise<boolean> {
     const { approvalId } = approval;
+
+    // COUC-04 / hooks.ts:286-289: una tarjeta, un request. Cualquier
+    // present con otro pendiente o activo nunca reemplaza silenciosamente
+    // al primero → decline inmediato (duplicate).
+    if (this.pendingAcks.size > 0 || this.activePresentations.size > 0) {
+      const holder =
+        [...this.pendingAcks.keys(), ...this.activePresentations][0];
+      if (this.onFallbackToMain) {
+        try {
+          this.onFallbackToMain(
+            approvalId,
+            `duplicate approval while ${holder} pending`
+          );
+        } catch {
+          // Defensive
+        }
+      }
+      return false;
+    }
 
     // R10b: adjuntar la ActionIdentity recomputada con
     // `ApprovalEngine.computeActionIdentity` (no se confía en el objeto
@@ -70,11 +119,13 @@ export class WidgetHitlBridge {
         // Defensive
       }
     }
+    this.presentedDigests.set(approvalId, identity.inputDigest);
 
-    // Configurar temporizador de ACK <= 800 ms
+    // Esperar ACK <= 800 ms; ambas ramas hacen settle (nunca cuelga).
     return new Promise<boolean>((resolve) => {
       const timer = setTimeout(() => {
         this.pendingAcks.delete(approvalId);
+        this.presentedDigests.delete(approvalId);
         // Si no hubo ACK en 800ms, devolver control a la UI principal
         if (this.onFallbackToMain) {
           try {
@@ -86,34 +137,83 @@ export class WidgetHitlBridge {
         resolve(false);
       }, this.ackTimeoutMs);
 
-      this.pendingAcks.set(approvalId, timer);
+      this.pendingAcks.set(approvalId, { timer, resolve });
     });
   }
 
   public acknowledgePresentation(approvalId: string): boolean {
-    const timer = this.pendingAcks.get(approvalId);
-    if (!timer) {
+    const entry = this.pendingAcks.get(approvalId);
+    if (!entry) {
       return false;
     }
 
-    clearTimeout(timer);
+    clearTimeout(entry.timer);
     this.pendingAcks.delete(approvalId);
     this.activePresentations.add(approvalId);
+    entry.resolve(true);
     return true;
   }
 
   public async resolve(
     approvalId: string,
-    decision: ApprovalDecision
+    decision: ApprovalDecision,
+    options?: WidgetResolveOptions
   ): Promise<boolean> {
+    const engine = this.approvalEngine as ApprovalEngine & {
+      getPendingApproval?: (id: string) => PendingApproval | undefined;
+    };
+    const pending =
+      typeof engine.getPendingApproval === 'function'
+        ? engine.getPendingApproval(approvalId)
+        : undefined;
+
+    // Timeout o ya resuelto en el engine → decline seguro sin reenviar.
+    if (typeof engine.getPendingApproval === 'function' && !pending) {
+      this.activePresentations.delete(approvalId);
+      this.presentedDigests.delete(approvalId);
+      return false;
+    }
+
+    // COUC-03: identidad exacta o nada. El digest esperado debe coincidir
+    // con el pendiente del engine (y con el presentado si lo hubo).
+    if (options?.expectedDigest) {
+      const engineDigest = pending?.action.inputDigest;
+      const presentedDigest = this.presentedDigests.get(approvalId);
+      const matchesEngine =
+        !engineDigest || options.expectedDigest === engineDigest;
+      const matchesPresented =
+        !presentedDigest || options.expectedDigest === presentedDigest;
+      if (!matchesEngine || !matchesPresented) {
+        return false;
+      }
+    }
+
     this.activePresentations.delete(approvalId);
-    const timer = this.pendingAcks.get(approvalId);
-    if (timer) {
-      clearTimeout(timer);
+    this.presentedDigests.delete(approvalId);
+    const ack = this.pendingAcks.get(approvalId);
+    if (ack) {
+      clearTimeout(ack.timer);
       this.pendingAcks.delete(approvalId);
     }
 
     return await this.approvalEngine.resolveApproval(approvalId, decision);
+  }
+
+  /**
+   * Cierre externo (ventana flotante cerrada, resuelto en otra UI).
+   * Limpia la presentación SIN tocar el engine (el pendiente sigue
+   * resoluble por main) y reporta dónde se atendió.
+   */
+  public dismissExternal(approvalId: string, where: string): string {
+    const ack = this.pendingAcks.get(approvalId);
+    if (ack) {
+      clearTimeout(ack.timer);
+      this.pendingAcks.delete(approvalId);
+      ack.resolve(false);
+    }
+    this.activePresentations.delete(approvalId);
+    this.presentedDigests.delete(approvalId);
+    return `Handled in ${where}`;
   }
 
   public isPresentedInWidget(approvalId: string): boolean {
@@ -121,10 +221,12 @@ export class WidgetHitlBridge {
   }
 
   public clearAll(): void {
-    for (const timer of this.pendingAcks.values()) {
-      clearTimeout(timer);
+    for (const entry of this.pendingAcks.values()) {
+      clearTimeout(entry.timer);
+      entry.resolve(false);
     }
     this.pendingAcks.clear();
     this.activePresentations.clear();
+    this.presentedDigests.clear();
   }
 }
