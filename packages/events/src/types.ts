@@ -31,6 +31,9 @@ export type EgoEventType =
   | "approval.required"
   | "approval.resolved"
 
+  // Hooks de ciclo de vida (STAB-12): decisiones fail-closed auditables
+  | "hook.decided"
+
   // Memoria y persistencia VantaDB
   | "memory.updated"
   | "memory.recalled"
@@ -118,6 +121,8 @@ export interface CanonicalEventPayloadMap {
   "approval.required": { approvalId: string; action: string; riskLevel: string; details: unknown; timeoutMs?: number };
   "approval.resolved": { approvalId: string; approved: boolean; resolvedBy: string; reason?: string };
 
+  "hook.decided": { hookId?: string; phase: string; toolName?: string; sessionId?: string; allow: boolean; reason: string };
+
   "memory.updated": { namespace: string; key: string; operation: "put" | "supersede" | "delete"; isLatest?: boolean };
   "memory.recalled": { query: string; matchedKeys: string[]; topScore: number };
   "memory.quarantined": { itemKey: string; reason: string; ttlDays: number };
@@ -159,13 +164,13 @@ export interface EventSubscription {
   unsubscribe: () => void;
 }
 
-// ── Hooks de ciclo de vida Pre/PostToolUse (CFG-09) ─────────────────────
-// Gate fail-closed en `EventBus`: un hook PreToolUse que matchea intercepta
-// la herramienta (bloquea hasta aprobación/ejecución externa del comando);
-// PostToolUse es solo observación. `disableAllHooks` es el kill switch.
+// ── Hooks de ciclo de vida Pre/PostToolUse + SessionStart/End (CFG-09 + STAB-12) ─
+// Gate fail-closed en `EventBus`: un hook PreToolUse/SessionStart que matchea
+// intercepta (bloquea hasta aprobación/ejecución externa del comando);
+// PostToolUse/SessionEnd son solo observación. `disableAllHooks` es el kill switch.
 
 /** Momento del ciclo de vida que intercepta el hook. */
-export type HookKind = "PreToolUse" | "PostToolUse";
+export type HookKind = "PreToolUse" | "PostToolUse" | "SessionStart" | "SessionEnd";
 
 /** Entrada configurable de hook: matcher de herramienta + comando validado. */
 export interface HookCommandConfig {
@@ -214,6 +219,10 @@ export interface HooksStatus {
   disabled: boolean;
   preToolUse: number;
   postToolUse: number;
+  /** STAB-12 (aditivo): hooks de inicio de sesión registrados. */
+  sessionStart?: number;
+  /** STAB-12 (aditivo): hooks de fin de sesión registrados. */
+  sessionEnd?: number;
   sessionsWithEnv: number;
   commandsValid: boolean;
   invalidCommands: string[];

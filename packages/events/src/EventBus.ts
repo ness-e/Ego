@@ -289,7 +289,10 @@ export class EventBus {
         h !== null &&
         typeof h === "object" &&
         isValidHookId(h.id) &&
-        (h.kind === "PreToolUse" || h.kind === "PostToolUse") &&
+        (h.kind === "PreToolUse" ||
+          h.kind === "PostToolUse" ||
+          h.kind === "SessionStart" ||
+          h.kind === "SessionEnd") &&
         isValidToolPattern(h.toolPattern) &&
         isValidHookCommand(h.command) &&
         isValidHookTimeoutMs(h.timeoutMs);
@@ -400,6 +403,69 @@ export class EventBus {
     return { allow: true, reason: "no-matching-hook" };
   }
 
+  /**
+   * Gate SessionStart (STAB-12): con kill switch permite; con sessionId
+   * inválido bloquea (fail-closed); con hook SessionStart válido bloquea
+   * (`blocked-by-hook:<id>`); sin match permite. Emite `hook.decided`
+   * para auditoría `gov/audit` en main.
+   */
+  public evaluateSessionStart(sessionId: string): HookDecision {
+    const decision = this.evaluateSessionGate(sessionId, "SessionStart");
+    this.emitHookDecided("SessionStart", undefined, sessionId, decision);
+    return decision;
+  }
+
+  /**
+   * Observación SessionEnd (STAB-12): nunca bloquea (la sesión ya terminó);
+   * reporta el hook que observa. Emite `hook.decided` para auditoría.
+   */
+  public recordSessionEnd(sessionId: string): HookDecision {
+    const decision = this.evaluateSessionGate(sessionId, "SessionEnd", false);
+    this.emitHookDecided("SessionEnd", undefined, sessionId, decision);
+    return decision;
+  }
+
+  private evaluateSessionGate(
+    sessionId: string,
+    kind: "SessionStart" | "SessionEnd",
+    blocking: boolean = true
+  ): HookDecision {
+    if (this.hooksDisabled) return { allow: true, reason: "hooks-disabled" };
+    if (typeof sessionId !== "string" || sessionId.length === 0 || sessionId.length > MAX_SESSION_ID_LEN) {
+      return { allow: blocking ? false : true, reason: "invalid-session-id" };
+    }
+    for (const h of this.hookEntries) {
+      if (h.kind !== kind) continue;
+      if (!isValidHookCommand(h.command)) {
+        return { allow: blocking ? false : true, reason: "invalid-hook-command", matchedHookId: h.id };
+      }
+      return blocking
+        ? { allow: false, reason: `blocked-by-hook:${h.id}`, matchedHookId: h.id }
+        : { allow: true, reason: `observed-by-hook:${h.id}`, matchedHookId: h.id };
+    }
+    return { allow: true, reason: "no-matching-hook" };
+  }
+
+  private emitHookDecided(
+    phase: string,
+    toolName: string | undefined,
+    sessionId: string | undefined,
+    decision: HookDecision
+  ): void {
+    this.emit("hook.decided", {
+      hookId: decision.matchedHookId,
+      phase,
+      toolName,
+      sessionId,
+      allow: decision.allow,
+      reason: decision.reason,
+    }, {
+      source: "events.hooks",
+      severity: decision.allow ? "info" : "warn",
+      sessionId,
+    });
+  }
+
   /** Snapshot de estado de hooks para UI/diagnóstico (status command). */
   public getHooksStatus(): HooksStatus {
     const invalidCommands = this.hookEntries.filter((h) => !isValidHookCommand(h.command)).map((h) => h.id);
@@ -407,6 +473,8 @@ export class EventBus {
       disabled: this.hooksDisabled,
       preToolUse: this.hookEntries.filter((h) => h.kind === "PreToolUse").length,
       postToolUse: this.hookEntries.filter((h) => h.kind === "PostToolUse").length,
+      sessionStart: this.hookEntries.filter((h) => h.kind === "SessionStart").length,
+      sessionEnd: this.hookEntries.filter((h) => h.kind === "SessionEnd").length,
       sessionsWithEnv: this.sessionEnv.size,
       commandsValid: invalidCommands.length === 0,
       invalidCommands,

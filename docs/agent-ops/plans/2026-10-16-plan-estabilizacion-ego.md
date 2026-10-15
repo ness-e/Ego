@@ -313,7 +313,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `ci.yml` con matrix `[ubuntu,windows,macos]` e2e-electron (fail-soft win/mac inicial) + `xvfb-run -a` + artefactos `playwright-report/test-results/lcov` + `nightly.yml cron` + 3 `toHaveScreenshot` chromium pinneado `maxDiffRatio 0.02`
 - **Task file:** `docs/agent-ops/tasks/STAB-11.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** 🟡 REVIEW-PENDIENTE (6/6 steps ✅ + verifies contrato + commit `18fa1bc` local; visual 3/3 `-win32`, soak smoke 1686 ops/0 err, golden-full+crash-resume 2/2 DB real; falta veredicto review P2-01 por agente distinto; notas: pin SHA y baselines `-linux`/`-darwin` como deuda owner-gated, `test:e2e` whole-suite flaky `FjallError: Locked` ambiental → FIND orquestador)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -337,7 +337,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** tests `streamable-http` + `allowedMcpServers` enforced + hooks fail-closed registrados `gov/audit` + `session.fork` copia `session/turns` + handoff validado
 - **Task file:** `docs/agent-ops/tasks/STAB-12.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (8/8 steps; integrations 27/27, events 28/28, runtime 10/10, memory 16/16, desktop 243+typecheck 0; rojos solo ajenos FloatingWindow; review P2-01 pendiente → orquestador)
 - **Branch:**
 - **Commit:**
   **Risk Register:**

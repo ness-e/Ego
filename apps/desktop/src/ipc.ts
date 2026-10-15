@@ -86,6 +86,12 @@ export const EgoIpcInvokeChannels = [
   "ipc.sessions.list",
   "ipc.sessions.get",
   "ipc.sessions.resume",
+  // Fork de sesión + handoff formal (STAB-12; copia `session/turns` + checkpoint).
+  "ipc.sessions.fork",
+  // Hooks CFG-09 + STAB-12 (veredictos/estado; ejecución en main fail-closed).
+  "ipc.hooks.getStatus",
+  "ipc.hooks.evaluatePreToolUse",
+  "ipc.hooks.recordPostToolUse",
   // Aprobaciones HITL pendientes (T13; `ApprovalEngine.listPendingApprovals`).
   "ipc.daily.listApprovals",
   // Storage operativo + políticas de gobierno (T13; solo lectura, sin secretos).

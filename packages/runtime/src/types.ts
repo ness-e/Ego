@@ -91,9 +91,53 @@ export interface ToolExecutionLoopConfig {
   errorHandlerConfig?: ErrorHandlerConfig;
   approvalHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   eventBus?: EventBus;
+  /**
+   * Gates de gobernanza STAB-12 (Spec D4, opt-in).
+   * Sin configurar = sin cambio de comportamiento (compat con callers y
+   * tests existentes). Con configurado: `permissionCheck` veta (deny) o
+   * fuerza aprobación (requireApproval) antes de ejecutar; `preToolUse`
+   * bloquea fail-closed; `postToolUse` solo observa. Todo veredicto con
+   * match se emite como `hook.decided` (main lo persiste a `gov/audit`).
+   * Inyección por callbacks: evita aristas runtime→security/events-valor.
+   */
+  governance?: LoopGovernanceGates;
   onStep?: (event: LoopStepEvent) => void;
   onToolCall?: (call: ToolCall) => void;
   onToolResult?: (result: ToolExecutionResult) => void;
+}
+
+/**
+ * Entrada del gate de permisos (espejo estructural del `ToolCallRequest`
+ * de `@ego/security`; el main la traduce a `evaluateToolCall`).
+ */
+export interface LoopPermissionInput {
+  toolName: string;
+  category: string;
+  riskLevel?: string;
+  origin?: string;
+  mcpServerId?: string;
+  args: unknown;
+}
+
+/** Veredicto de permiso (espejo estructural de `ToolDecisionResult`). */
+export interface LoopPermissionVerdict {
+  decision: "allow" | "deny" | "requireApproval";
+  rule: string;
+  reason: string;
+}
+
+/** Veredicto de hook (espejo estructural de `HookDecision`). */
+export interface LoopHookVerdict {
+  allow: boolean;
+  reason: string;
+  matchedHookId?: string;
+}
+
+/** Gates de gobernanza inyectables al loop (STAB-12, Spec D4). */
+export interface LoopGovernanceGates {
+  permissionCheck?: (input: LoopPermissionInput) => LoopPermissionVerdict;
+  preToolUse?: (toolName: string, sessionId?: string) => LoopHookVerdict;
+  postToolUse?: (toolName: string, sessionId?: string) => LoopHookVerdict;
 }
 
 /**

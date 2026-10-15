@@ -10,6 +10,10 @@ import {
   DailyGetSnapshotSchema,
   DailyListSnapshotsSchema,
   PermissionsSettingsSchema,
+  McpServerConfigSchema,
+  SessionForkSchema,
+  SessionHandoffSchema,
+  HookEvaluateSchema,
 } from "../src/ipc/schema.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -23,7 +27,7 @@ function handlerBlock(channel: string): string {
 }
 
 describe("SEC-02 — cobertura total de validación Zod en handlers IPC", () => {
-  it("inventario: los 50 handlers con argumento validan con Zod; los 11 sin argumento no reciben input", () => {
+  it("inventario: los handlers con argumento validan con Zod; los sin argumento no reciben input", () => {
     const validated: Array<[string, string]> = [
       ["ipc.memory", "MemoryOpSchema"],
       ["ipc.subegos.create", "CreateSubEgoSchema"],
@@ -65,6 +69,11 @@ describe("SEC-02 — cobertura total de validación Zod en handlers IPC", () => 
       ["ipc.domains.knowledge.search", "DomainKnowledgeSearchSchema"],
       ["ipc.domains.analytics.series", "DomainAnalyticsSeriesSchema"],
       ["ipc.domains.crm.deals", "DomainCrmDealsSchema"],
+      // Fork de sesión + handoff (STAB-12; doble validación: input + handoff)
+      ["ipc.sessions.fork", "SessionForkSchema"],
+      // Hooks CFG-09 + STAB-12 (veredictos/estado en main, fail-closed)
+      ["ipc.hooks.evaluatePreToolUse", "HookEvaluateSchema"],
+      ["ipc.hooks.recordPostToolUse", "HookEvaluateSchema"],
     ];
     for (const [channel, schema] of validated) {
       const block = handlerBlock(channel);
@@ -92,6 +101,7 @@ describe("SEC-02 — cobertura total de validación Zod en handlers IPC", () => 
       "ipc.decision.telemetry",
       "ipc.domains.list",
       "ipc.daily.saveSnapshot",
+      "ipc.hooks.getStatus",
     ];
     for (const channel of noArg) {
       const block = handlerBlock(channel);
@@ -169,6 +179,58 @@ describe("SEC-02 — cobertura total de validación Zod en handlers IPC", () => 
       const block = handlerBlock(channel);
       expect(block, `${channel} debe rechazar arrays en payload`).toContain("Array.isArray(payload)");
     }
+  });
+
+  it("STAB-12 adversarial: McpServerConfig http exige url https sin credenciales ni auth-header", () => {
+    const httpOk = {
+      id: "r1",
+      name: "Remoto",
+      transport: "streamable-http",
+      command: "npx",
+      url: "https://mcp.example.com/rpc",
+      headers: { "X-Api-Key": "publico" },
+    };
+    expect(McpServerConfigSchema.safeParse(httpOk).success).toBe(true);
+    const evils: unknown[] = [
+      { ...httpOk, url: undefined },
+      { ...httpOk, url: "http://mcp.example.com/rpc" },
+      // Nota: el bloqueo de hosts (localhost/privadas/metadata) vive en
+      // `assertSafeMcpHttpUrl`+NetPolicy (manager/cliente), probado en
+      // `McpHttp.test.ts` #2; el schema valida forma (https/creds/headers).
+      { ...httpOk, url: "https://user:pass@mcp.example.com/rpc" },
+      { ...httpOk, url: "not-a-url" },
+      { ...httpOk, headers: { Authorization: "Bearer x" } },
+      { ...httpOk, headers: { "Proxy-Authorization": "Basic x" } },
+    ];
+    for (const evil of evils) {
+      expect(McpServerConfigSchema.safeParse(evil).success, "config http insegura debe rechazarse").toBe(false);
+    }
+    // stdio intacto (sin url) + sse intacto
+    expect(McpServerConfigSchema.safeParse({ id: "s", name: "L", command: "node" }).success).toBe(true);
+  });
+
+  it("STAB-12 adversarial: SessionFork/Handoff/HookEvaluate rechazan input malformado", () => {
+    const forkOk = { fromSessionId: "s1", toSessionId: "s2", summary: "handoff" };
+    expect(SessionForkSchema.safeParse(forkOk).success).toBe(true);
+    for (const evil of [
+      { ...forkOk, fromSessionId: "" },
+      { ...forkOk, summary: "" },
+      { ...forkOk, toSessionId: "s1".repeat(200) },
+      null,
+      {},
+    ]) {
+      expect(SessionForkSchema.safeParse(evil).success, "fork inválido debe rechazarse").toBe(false);
+    }
+    expect(
+      SessionHandoffSchema.safeParse({ ...forkOk, checkpointId: "chk_1", copiedTurns: 2, createdAtMs: 7 }).success
+    ).toBe(true);
+    expect(
+      SessionHandoffSchema.safeParse({ ...forkOk, copiedTurns: 0, createdAtMs: 7 }).success,
+      "handoff sin checkpoint debe rechazarse"
+    ).toBe(false);
+    expect(HookEvaluateSchema.safeParse({ toolName: "fs_read_file" }).success).toBe(true);
+    expect(HookEvaluateSchema.safeParse({ toolName: "" }).success).toBe(false);
+    expect(HookEvaluateSchema.safeParse({}).success).toBe(false);
   });
 
   it("T01 — ChatStreamSchema acepta prompt+projectId+subEgoId (contrato canónico)", () => {

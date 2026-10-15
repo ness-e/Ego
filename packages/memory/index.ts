@@ -13,5 +13,6 @@ export * from "./SessionLifecycleLocks.js";
 export * from "./TranscriptReadWindow.js";
 export * from "./SessionTimelineRewind.js";
 export * from "./SessionRetention.js";
+export * from "./SessionFork.js";
 export * from "./CompressionSettings.js";
 

@@ -2,12 +2,15 @@ import type { ModelMessage, ModelRole } from "@ego/models";
 import { createHash } from "node:crypto";
 import { ModelRouter } from "@ego/models";
 import { ToolRegistry } from "@ego/tools";
+import type { ToolDefinition } from "@ego/tools";
 import { ExecutionManager, type ApprovalEngine } from "@ego/execution";
 import type { EventBus } from "@ego/events";
 import type {
   ApprovalDecision,
   ApprovalRequest,
   LoopExecutionResult,
+  LoopGovernanceGates,
+  LoopHookVerdict,
   LoopRunOptions,
   ToolExecutionLoopConfig,
   ToolExecutionResult
@@ -73,6 +76,117 @@ export class ToolExecutionLoop {
       defaultRole: "reasoning-heavy",
       ...config
     };
+  }
+
+  /**
+   * Gate de gobernanza pre-ejecución (STAB-12, Spec D4).
+   * Orden fail-closed: permiso (deny veta / requireApproval fuerza HITL) →
+   * hook PreToolUse (bloqueo veta). Sin gates configurados = proceed.
+   * Cero eco: los mensajes nombran REGLAS/hooks, nunca args.
+   */
+  private applyGovernanceGates(
+    tool: ToolDefinition,
+    call: { id: string; name: string; args: unknown },
+    ctx: { sessionId: string; traceId: string | undefined; eventBus: EventBus | undefined }
+  ): { rejected?: string; forceApproval: boolean } {
+    const gates: LoopGovernanceGates | undefined = this.config.governance;
+    if (!gates) return { forceApproval: false };
+    if (gates.permissionCheck) {
+      const verdict = gates.permissionCheck({
+        toolName: tool.name,
+        category: tool.category,
+        riskLevel: tool.riskLevel,
+        origin: tool.origin,
+        mcpServerId: tool.mcpServerId,
+        args: call.args,
+      });
+      if (verdict.decision === "deny") {
+        ctx.eventBus?.emit("hook.decided", {
+          phase: "permission-check",
+          toolName: tool.name,
+          sessionId: ctx.sessionId,
+          allow: false,
+          reason: `denied:${verdict.rule}`,
+        }, {
+          source: "runtime.tool_loop",
+          sessionId: ctx.sessionId,
+          traceId: ctx.traceId,
+          severity: "warn",
+        });
+        ctx.eventBus?.emit("tool.failed", {
+          callId: call.id,
+          toolName: tool.name,
+          error: `Acción vetada por la política de permisos (regla '${verdict.rule}').`,
+          durationMs: 0,
+        }, {
+          source: "runtime.tool_loop",
+          sessionId: ctx.sessionId,
+          traceId: ctx.traceId,
+          severity: "warn",
+        });
+        return {
+          rejected: `Acción vetada por la política de permisos (regla '${verdict.rule}').`,
+          forceApproval: false,
+        };
+      }
+      if (verdict.decision === "requireApproval") {
+        return { forceApproval: true };
+      }
+    }
+    if (gates.preToolUse) {
+      const hook: LoopHookVerdict = gates.preToolUse(tool.name, ctx.sessionId);
+      if (hook.matchedHookId || !hook.allow) {
+        ctx.eventBus?.emit("hook.decided", {
+          hookId: hook.matchedHookId,
+          phase: "PreToolUse",
+          toolName: tool.name,
+          sessionId: ctx.sessionId,
+          allow: hook.allow,
+          reason: hook.reason,
+        }, {
+          source: "runtime.tool_loop",
+          sessionId: ctx.sessionId,
+          traceId: ctx.traceId,
+          severity: hook.allow ? "info" : "warn",
+        });
+      }
+      if (!hook.allow) {
+        return {
+          rejected: `Herramienta interceptada por hook (motivo '${hook.reason}').`,
+          forceApproval: false,
+        };
+      }
+    }
+    return { forceApproval: false };
+  }
+
+  /**
+   * Observación PostToolUse (STAB-12): nunca bloquea; emite `hook.decided`
+   * solo cuando un hook matchea (evita spam de auditoría).
+   */
+  private observePostToolUse(
+    toolName: string,
+    sessionId: string,
+    traceId: string | undefined,
+    eventBus: EventBus | undefined
+  ): void {
+    const post = this.config.governance?.postToolUse;
+    if (!post) return;
+    const hook: LoopHookVerdict = post(toolName, sessionId);
+    if (!hook.matchedHookId) return;
+    eventBus?.emit("hook.decided", {
+      hookId: hook.matchedHookId,
+      phase: "PostToolUse",
+      toolName,
+      sessionId,
+      allow: hook.allow,
+      reason: hook.reason,
+    }, {
+      source: "runtime.tool_loop",
+      sessionId,
+      traceId,
+      severity: "info",
+    });
   }
 
   /**
@@ -352,10 +466,27 @@ export class ToolExecutionLoop {
 
           let finalArgs = validation.data;
 
+          // Gate de gobernanza STAB-12 (Spec D4): deny/hook vetan con mensaje
+          // al modelo; requireApproval fuerza la vía HITL existente.
+          const gate = this.applyGovernanceGates(
+            tool,
+            { id: call.id, name: call.name, args: call.arguments },
+            { sessionId, traceId, eventBus }
+          );
+          if (gate.rejected) {
+            messages.push({
+              role: "tool",
+              toolCallId: call.id,
+              name: call.name,
+              content: JSON.stringify({ status: "rejected", message: gate.rejected })
+            });
+            continue;
+          }
+
           // Verificación de política HITL (aprobación humana)
-          const requiresApproval = approvalEngine
+          const requiresApproval = gate.forceApproval || (approvalEngine
             ? approvalEngine.evaluateRequirement(tool, finalArgs, options.context).required
-            : this.registry.resolveApprovalRequirement(tool);
+            : this.registry.resolveApprovalRequirement(tool));
 
           if (requiresApproval) {
             let decision: ApprovalDecision;
@@ -605,6 +736,9 @@ export class ToolExecutionLoop {
           }
 
           this.config.onToolResult?.(executionResult);
+          // Observación PostToolUse STAB-12: nunca bloquea (el efecto ya
+          // ocurrió); solo audita cuando un hook matchea.
+          this.observePostToolUse(tool.name, sessionId, traceId, eventBus);
           this.config.onStep?.({
             step,
             action: "tool_executed",

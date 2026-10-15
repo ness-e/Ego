@@ -143,18 +143,52 @@ export const LlmCancelSchema = z.object({
 export type LlmCancelRequest = z.infer<typeof LlmCancelSchema>;
 
 /**
- * Esquema de validación para configuración de servidores MCP locales (ACT-11).
+ * Esquema de validación para configuración de servidores MCP (ACT-11 + STAB-12).
+ * Transportes: `stdio` (subproceso local), `sse` (legacy), `streamable-http`
+ * (POST JSON-RPC stateless sobre https pública con SSRF fail-closed).
+ * Reglas por-transport (fail-closed): http exige `url` https sin credenciales
+ * y prohíbe `authorization` en headers (secretos → env/vault); stdio/sse
+ * exigen `command` (allowlist H31 en `McpClient`).
  */
 export const McpServerConfigSchema = z.object({
   id: z.string().min(1).regex(/^[a-zA-Z0-9_\-.:]{1,64}$/, "ID de servidor inválido"),
   name: z.string().min(1).max(100),
-  transport: z.enum(["stdio", "sse"]).default("stdio"),
+  transport: z.enum(["stdio", "sse", "streamable-http"]).default("stdio"),
   command: z.string().min(1),
   args: z.array(z.string()).optional(),
   env: z.record(z.string()).optional(),
   cwd: z.string().optional(),
   toolPrefix: z.string().optional(),
   timeoutMs: z.number().int().positive().max(300000).optional(),
+  url: z.string().max(2048).optional(),
+  headers: z.record(z.string().max(4096)).optional(),
+}).superRefine((cfg, ctx) => {
+  if (cfg.transport === "streamable-http") {
+    const raw = (cfg.url ?? "").trim();
+    if (raw.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["url"], message: "transport streamable-http exige url" });
+      return;
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["url"], message: "url malformada" });
+      return;
+    }
+    if (parsed.protocol !== "https:") {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["url"], message: "solo https permitido (SSRF fail-closed)" });
+    }
+    if (parsed.username.length > 0 || parsed.password.length > 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["url"], message: "credenciales en URL prohibidas (usar env/vault)" });
+    }
+    for (const name of Object.keys(cfg.headers ?? {})) {
+      const lower = name.toLowerCase();
+      if (lower === "authorization" || lower === "proxy-authorization") {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["headers"], message: `header "${name}" prohibido (secreto → env/vault)` });
+      }
+    }
+  }
 });
 
 export type McpServerConfigRequest = z.infer<typeof McpServerConfigSchema>;
@@ -667,6 +701,44 @@ export const SessionResumeSchema = z.object({
 });
 
 export type SessionResumeRequest = z.infer<typeof SessionResumeSchema>;
+
+/**
+ * STAB-12: fork de sesión conversacional + handoff formal.
+ * `forkSession` copia los turnos `session/turns` de `fromSessionId` a un
+ * `toSessionId` nuevo y crea un micro-checkpoint; el handoff
+ * `{from,to,summary,findings,files,issues,checkpointId}` viaja validado
+ * (fail-closed: sin schema válido → rechazado antes de tocar memoria).
+ */
+export const SessionForkSchema = z.object({
+  fromSessionId: z.string().min(1).max(128),
+  toSessionId: z.string().min(1).max(128),
+  summary: z.string().min(1).max(4000),
+  findings: z.array(z.string().min(1).max(1000)).max(100).default([]),
+  files: z.array(z.string().min(1).max(1024)).max(100).default([]),
+  issues: z.array(z.string().min(1).max(1000)).max(100).default([]),
+});
+
+export type SessionForkRequest = z.infer<typeof SessionForkSchema>;
+
+export const SessionHandoffSchema = SessionForkSchema.extend({
+  checkpointId: z.string().min(1).max(128),
+  copiedTurns: z.number().int().nonnegative(),
+  createdAtMs: z.number().int().positive(),
+});
+
+export type SessionHandoff = z.infer<typeof SessionHandoffSchema>;
+
+/**
+ * STAB-12: evaluación/observación de hooks vía IPC (CFG-09).
+ * El renderer solo pide veredictos/estado; los comandos se validan y
+ * ejecutan en main (fail-closed). `toolName` inválido → rechazado.
+ */
+export const HookEvaluateSchema = z.object({
+  toolName: z.string().min(1).max(256),
+  sessionId: z.string().min(1).max(128).optional(),
+});
+
+export type HookEvaluateRequest = z.infer<typeof HookEvaluateSchema>;
 
 export const DailyListApprovalsSchema = z
   .object({

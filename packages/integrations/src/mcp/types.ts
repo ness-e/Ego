@@ -1,4 +1,4 @@
-import type { ToolRiskLevel } from "@ego/tools";
+import { NetPolicy, type ToolRiskLevel } from "@ego/tools";
 
 /**
  * Mensajes base JSON-RPC 2.0 según especificación MCP.
@@ -124,18 +124,36 @@ export interface McpTokenStore {
 }
 
 /**
- * Configuración declarativa de conexión a un servidor MCP local sobre stdio.
+ * Configuración declarativa de conexión a un servidor MCP.
+ * - `stdio`: subproceso local (ACT-09). `command` en allowlist, `shell` prohibido.
+ * - `sse`: servidor remoto SSE legacy (config declarativa; el handshake vive en main).
+ * - `streamable-http` (STAB-12): POST JSON-RPC stateless sobre HTTPS con
+ *   validación SSRF fail-closed (`assertSafeMcpHttpUrl`): https-only, sin
+ *   credenciales en URL, sin loopback/RFC1918/link-local/metadata.
  */
 export interface McpServerConfig {
   id: string;
   name: string;
-  transport: "stdio" | "sse";
+  transport: "stdio" | "sse" | "streamable-http";
   command: string;
   args?: string[];
   env?: Record<string, string>;
   cwd?: string;
   toolPrefix?: string;
   timeoutMs?: number;
+  /**
+   * URL base del endpoint streamable-http (STAB-12). Solo aplica con
+   * `transport: "streamable-http"`. Debe ser `https:` pública (validada por
+   * `assertSafeMcpHttpUrl`); los servidores locales usan `stdio`.
+   * NUNCA incluye credenciales (`user:pass@` se rechaza fail-closed).
+   */
+  url?: string;
+  /**
+   * Cabeceras extra para `streamable-http` (p. ej. `X-Api-Key` público).
+   * Fail-closed: `authorization`/`proxy-authorization` se rechazan (los
+   * secretos viajan vía `env` → Credential Manager, patrón F1T2/F5T10).
+   */
+  headers?: Record<string, string>;
   /**
    * Debe ser `false`/ausente siempre. `shell:true` se rechaza en spawn
    * (H31): el spawn es directo sin intérprete para cerrar RCE por config,
@@ -177,4 +195,60 @@ export interface McpImportOptions {
   prefix?: string;
   overrideExisting?: boolean;
   defaultRiskLevel?: ToolRiskLevel;
+}
+
+/** Cabeceras que NUNCA viajan en config en claro (secretos → env/vault). */
+const BLOCKED_MCP_HTTP_HEADERS = new Set(["authorization", "proxy-authorization"]);
+
+/**
+ * Valida la URL + headers de un servidor `streamable-http` (STAB-12, Spec D2/D3).
+ * Fail-closed: cualquier violación lanza (sin eco de credenciales: el mensaje
+ * usa `NetPolicy.redactUrl`). Punto único de estrangulamiento: la usan
+ * `McpClient.connect`, `McpManager.registerServer` y el schema IPC de main.
+ */
+export function assertSafeMcpHttpUrl(config: McpServerConfig): URL {
+  const raw = typeof config.url === "string" ? config.url.trim() : "";
+  if (raw.length === 0) {
+    throw new Error(
+      `[McpHttp] servidor "${config.id}": transport streamable-http exige url.`
+    );
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(`[McpHttp] servidor "${config.id}": url malformada.`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(
+      `[McpHttp] servidor "${config.id}": solo https permitido (SSRF fail-closed).`
+    );
+  }
+  if (parsed.username.length > 0 || parsed.password.length > 0) {
+    throw new Error(
+      `[McpHttp] servidor "${config.id}": credenciales en URL prohibidas (usar env/vault).`
+    );
+  }
+  const verdict = NetPolicy.validateUrl(parsed.toString());
+  if (!verdict.safe) {
+    throw new Error(
+      `[McpHttp] servidor "${config.id}": URL bloqueada por SSRF policy (${verdict.reason ?? "host no permitido"}).`
+    );
+  }
+  if (config.headers) {
+    for (const name of Object.keys(config.headers)) {
+      if (BLOCKED_MCP_HTTP_HEADERS.has(name.toLowerCase())) {
+        throw new Error(
+          `[McpHttp] servidor "${config.id}": header "${name}" prohibido en config (secreto → env/vault).`
+        );
+      }
+      const value = config.headers[name] ?? "";
+      if (value.length > 4096) {
+        throw new Error(
+          `[McpHttp] servidor "${config.id}": header "${name}" excede 4096 caracteres.`
+        );
+      }
+    }
+  }
+  return parsed;
 }

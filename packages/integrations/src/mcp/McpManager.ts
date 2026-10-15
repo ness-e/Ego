@@ -1,5 +1,6 @@
 import { ToolRegistry, type ToolDefinition, type ToolRiskLevel } from "@ego/tools";
 import { McpClient } from "./McpClient.js";
+import { assertSafeMcpHttpUrl } from "./types.js";
 import type { McpServerConfig, McpToolDefinition, McpClientStatus, McpTokenStore } from "./types.js";
 
 export interface McpServerRuntimeState {
@@ -57,6 +58,11 @@ export class McpManager {
     config: McpServerConfig,
     enabled: boolean = true
   ): Promise<McpServerRuntimeState> {
+    // STAB-12: validación SSRF fail-closed ANTES de crear estado (la URL de
+    // un http remoto es input del renderer; `assertSafeMcpHttpUrl` lanza).
+    if (config.transport === "streamable-http") {
+      assertSafeMcpHttpUrl(config);
+    }
     const existing = this.servers.get(config.id);
     if (existing) {
       await this.disconnectServer(config.id);

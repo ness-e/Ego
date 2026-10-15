@@ -8,6 +8,7 @@ import {
   EgoMemoryAdapter,
   EgoMemoryLifecycle,
   createSubEgoId,
+  forkSession,
   parseCompressionSettings,
   shouldTriggerCompression,
   COMPRESSION_SETTINGS_KEY,
@@ -102,6 +103,9 @@ import {
   SessionsListSchema,
   SessionGetSchema,
   SessionResumeSchema,
+  SessionForkSchema,
+  SessionHandoffSchema,
+  HookEvaluateSchema,
   DailyListApprovalsSchema,
   ModelsListSchema,
   SelectFolderRedeemSchema,
@@ -899,8 +903,21 @@ export function sanitizeMcpRuntimeStateForRenderer(
   state: McpServerRuntimeState
 ): McpServerRuntimeState {
   const maskedEnv = maskMcpEnvForRenderer(state.config.env);
-  if (maskedEnv === undefined) return state;
-  return { ...state, config: { ...state.config, env: maskedEnv } };
+  // STAB-12: los valores de headers nunca viajan al renderer en claro
+  // (pueden portar `X-Api-Key`); solo viajan los nombres.
+  const headers = state.config.headers;
+  const maskedHeaders = headers
+    ? Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, maskKey(v)]))
+    : undefined;
+  if (maskedEnv === undefined && maskedHeaders === undefined) return state;
+  return {
+    ...state,
+    config: {
+      ...state.config,
+      ...(maskedEnv === undefined ? {} : { env: maskedEnv }),
+      ...(maskedHeaders === undefined ? {} : { headers: maskedHeaders }),
+    },
+  };
 }
 
 /**
@@ -2711,6 +2728,32 @@ export async function createWindow(): Promise<void> {
   }
 
   eventBus = new EventBus();
+  // STAB-12: toda decisión de hook/permiso (`hook.decided`, emitido por el
+  // EventBus de sesiones y el ToolExecutionLoop) se persiste a `gov/audit`
+  // (SEC-06, inmutable + sha256). Best-effort: la auditoría nunca rompe el
+  // turno; solo viajan ids/reglas/motivos, nunca args ni secretos.
+  eventBus.on("hook.decided", (event) => {
+    const p = event.payload as {
+      hookId?: string;
+      phase: string;
+      toolName?: string;
+      sessionId?: string;
+      allow: boolean;
+      reason: string;
+    };
+    void adapter
+      .recordAudit("hook", "ego.governance", {
+        hookId: p.hookId ?? null,
+        phase: p.phase,
+        toolName: p.toolName ?? null,
+        sessionId: p.sessionId ?? event.sessionId ?? null,
+        allow: p.allow,
+        reason: p.reason,
+      }, event.sessionId ?? "ego.governance")
+      .catch((err: unknown) => {
+        console.warn("[Ego Main] hook.decided sin auditar (best-effort):", err);
+      });
+  });
   structuredLogger = new StructuredLogger({
     minSeverity: "info",
     outputStream: (line) => console.log(`[Ego EventLog] ${line}`)
@@ -2921,6 +2964,53 @@ export async function createWindow(): Promise<void> {
     eventBus,
     maxSteps: 8,
     defaultRole: "general-chat",
+    // STAB-12 (Spec D4): allowlist MCP efectiva + hooks fail-closed en el
+    // punto único de ejecución. `permissionCheck` traduce al veredicto de
+    // `evaluateToolCall` (deny-gana STAB-02) con la allowlist = servidores
+    // enabled del manager; pre/post delegan al EventBus (CFG-09).
+    governance: {
+      permissionCheck: (input) => {
+        const settings = getCachedPermissionsSettings();
+        const allowedMcpServers = mcpManager
+          .listServers()
+          .filter((s) => s.enabled)
+          .map((s) => s.id);
+        const args = (input.args ?? {}) as Record<string, unknown>;
+        const pickString = (v: unknown): string | undefined =>
+          typeof v === "string" && v.length > 0 ? v : undefined;
+        const workspace = process.env.EGO_WORKSPACE_PATH || process.cwd();
+        return evaluateToolCall(
+          {
+            toolName: input.toolName,
+            category: input.category,
+            ...(input.riskLevel ? { riskLevel: input.riskLevel } : {}),
+            ...(input.origin ? { origin: input.origin } : {}),
+            ...(input.mcpServerId ? { mcpServerId: input.mcpServerId } : {}),
+            path: pickString(args["path"]) ?? pickString(args["cwd"]),
+            command: pickString(args["command"]),
+            url: pickString(args["url"]),
+            workspacePath: workspace,
+          },
+          {
+            workspacePath: workspace,
+            allowedMcpServers,
+            defaultMode: "deny",
+            additionalDirectories: settings.permissions.additionalDirectories,
+            approvals: { cronMode: settings.approvals.cronMode },
+          }
+        );
+      },
+      preToolUse: (toolName, sessionId) =>
+        eventBus?.evaluatePreToolUse(toolName, sessionId) ?? {
+          allow: false,
+          reason: "governance-unavailable",
+        },
+      postToolUse: (toolName, sessionId) =>
+        eventBus?.recordPostToolUse(toolName, sessionId) ?? {
+          allow: true,
+          reason: "governance-unavailable",
+        },
+    },
     onToolCall: (call) => {
       if (win && !win.isDestroyed()) {
         win.webContents.send("ipc.chat.delta", {
@@ -4651,6 +4741,76 @@ export async function createWindow(): Promise<void> {
       typeof projectScope === "string" && projectScope ? projectScope : "default"
     );
     return { ok: true, sessionId, turnCount: mine.length, resumed: true };
+  });
+
+  // STAB-12: fork de sesión + handoff formal (Spec D6/D7).  // Zod fail-closed en el borde; gate SessionStart sobre la sesión destino;
+  // `forkSession` copia `session/turns` + sella checkpoint; el handoff se
+  // re-valida con `SessionHandoffSchema` antes de responder (validado).
+  ipcMain.handle("ipc.sessions.fork", async (_e, rawReq: unknown) => {
+    const parseResult = SessionForkSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const { fromSessionId, toSessionId, summary, findings, files, issues } = parseResult.data;
+    const gate = eventBus.evaluateSessionStart(toSessionId);
+    if (!gate.allow) {
+      return { ok: false, denied: true, error: `Fork bloqueado por hook (motivo '${gate.reason}').` };
+    }
+    try {
+      const handoff = await forkSession(
+        { fromSessionId, toSessionId, summary, findings, files, issues },
+        { adapter, createCheckpoint: (taskId, snapshot) => lifecycle.createMicroCheckpoint(taskId, snapshot) }
+      );
+      const validated = SessionHandoffSchema.safeParse(handoff);
+      if (!validated.success) {
+        return { ok: false, error: `Handoff inválido: ${validated.error.message}` };
+      }
+      eventBus.recordSessionEnd(fromSessionId);
+      try {
+        await adapter.recordAudit("session_fork", "ego.governance", {
+          from: handoff.from,
+          to: handoff.to,
+          copiedTurns: handoff.copiedTurns,
+          checkpointId: handoff.checkpointId,
+        }, handoff.to);
+      } catch {
+        // noop: auditoría best-effort, el fork ya se aplicó
+      }
+      return { ok: true, handoff: validated.data };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  // STAB-12: superficie IPC de hooks CFG-09 (preload `ego.hooks` los invoca;
+  // cierra el gap 1:1 del contrato). Solo veredictos/estado; la ejecución de
+  // comandos vive en main/ExecutionManager (fail-closed).
+  ipcMain.handle("ipc.hooks.getStatus", async () => {
+    return { ok: true, status: eventBus.getHooksStatus() };
+  });
+
+  ipcMain.handle("ipc.hooks.evaluatePreToolUse", async (_e, rawReq: unknown) => {
+    const parseResult = HookEvaluateSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const decision = eventBus.evaluatePreToolUse(
+      parseResult.data.toolName,
+      parseResult.data.sessionId
+    );
+    return { ok: true, decision };
+  });
+
+  ipcMain.handle("ipc.hooks.recordPostToolUse", async (_e, rawReq: unknown) => {
+    const parseResult = HookEvaluateSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    const decision = eventBus.recordPostToolUse(
+      parseResult.data.toolName,
+      parseResult.data.sessionId
+    );
+    return { ok: true, decision };
   });
 
   // T13: aprobaciones HITL pendientes (lectura directa del motor en

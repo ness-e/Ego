@@ -15,6 +15,7 @@ import type {
   McpServerConfig,
   McpToolDefinition
 } from "./types.js";
+import { assertSafeMcpHttpUrl } from "./types.js";
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -85,6 +86,8 @@ export class McpClient extends EventEmitter {
   private stderrBuffer = "";
   private serverInfo?: { name: string; version?: string };
   private cachedTools: McpToolDefinition[] = [];
+  /** Sesión streamable-http (`Mcp-Session-Id` del servidor, si la emite). */
+  private httpSessionId?: string;
 
   constructor(config: McpServerConfig) {
     super();
@@ -117,17 +120,26 @@ export class McpClient extends EventEmitter {
   }
 
   /**
-   * Conecta con el servidor MCP arrancando el subproceso stdio y ejecutando el handshake.
+   * Conecta con el servidor MCP.
+   * - `stdio`: arranca el subproceso y ejecuta el handshake (ACT-09).
+   * - `streamable-http` (STAB-12): valida la URL (SSRF fail-closed) y ejecuta
+   *   el handshake vía POST JSON-RPC stateless (Spec D1: sin SSE).
    */
   public async connect(): Promise<void> {
-    if (this.status === "connected" && this.process) {
+    if (this.status === "connected" && (this.process || this.isHttpTransport())) {
       return;
     }
 
     this.setStatus("connecting");
 
     try {
-      this.spawnProcess();
+      if (this.isHttpTransport()) {
+        // Fail-closed antes de cualquier red (D2): https-only + sin
+        // loopback/RFC1918/link-local/metadata + sin credenciales en URL.
+        assertSafeMcpHttpUrl(this.config);
+      } else {
+        this.spawnProcess();
+      }
 
       // Handshake inicial initialize
       const initResult = await this.sendRequest<McpInitializeResult>("initialize", {
@@ -164,10 +176,12 @@ export class McpClient extends EventEmitter {
   }
 
   /**
-   * Desconecta limpiamente el cliente y finaliza el proceso hijo.
+   * Desconecta limpiamente el cliente (stdio: mata el proceso; http: olvida
+   * la sesión stateless) y finaliza el proceso hijo si lo hay.
    */
   public async disconnect(): Promise<void> {
     this.cleanupProcess();
+    this.httpSessionId = undefined;
     this.setStatus("disconnected");
   }
 
@@ -411,11 +425,105 @@ export class McpClient extends EventEmitter {
     }
   }
 
+  private isHttpTransport(): boolean {
+    return this.config.transport === "streamable-http";
+  }
+
+  /**
+   * POST JSON-RPC stateless (streamable-http, Spec D1).
+   * Seguridad: re-valida la URL en cada llamada (la config pudo mutar vía
+   * `reload`), `redirect: "error"` (anti-SSRF por redirect a metadata),
+   * timeout del `config.timeoutMs`, cuerpo capado a 1MB, sin eco de
+   * cabeceras ni cuerpo en errores (cero eco).
+   */
+  private async httpPost<TResult>(
+    method: string,
+    params: unknown,
+    signal?: AbortSignal
+  ): Promise<TResult> {
+    const endpoint = assertSafeMcpHttpUrl(this.config);
+    if (signal?.aborted) {
+      throw new Error("Llamada MCP cancelada por AbortSignal.");
+    }
+    const timeoutMs = this.config.timeoutMs ?? 30000;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      ctrl.abort(new Error(`Timeout de ${timeoutMs}ms excedido en MCP http "${this.config.id}".`));
+    }, timeoutMs);
+    const onCallerAbort = (): void => {
+      ctrl.abort(signal?.reason ?? new Error("Llamada MCP cancelada por AbortSignal."));
+    };
+    signal?.addEventListener("abort", onCallerAbort, { once: true });
+    try {
+      const id = ++this.requestId;
+      const payload: JsonRpcRequest = { jsonrpc: "2.0", id, method, params };
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+        accept: "application/json",
+        ...this.config.headers,
+      };
+      if (this.httpSessionId) {
+        headers["mcp-session-id"] = this.httpSessionId;
+      }
+      let res: Response;
+      try {
+        res = await fetch(endpoint.toString(), {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+          redirect: "error",
+          signal: ctrl.signal,
+        });
+      } catch (err) {
+        if (ctrl.signal.aborted) {
+          const reason = ctrl.signal.reason;
+          throw reason instanceof Error ? reason : new Error(String(reason));
+        }
+        throw new Error(
+          `Fallo de red hacia MCP http "${this.config.id}": ${err instanceof Error ? err.message : "error desconocido"}`
+        );
+      }
+      const contentType = res.headers.get("content-type") ?? "";
+      if (contentType.includes("text/event-stream")) {
+        throw new Error(
+          `MCP http "${this.config.id}": respuesta SSE no soportada (STAB-12 solo POST JSON; deuda D1).`
+        );
+      }
+      if (!res.ok) {
+        throw new Error(`MCP http "${this.config.id}": HTTP ${res.status} en "${method}".`);
+      }
+      const sessionId = res.headers.get("mcp-session-id");
+      if (sessionId && sessionId.length > 0 && sessionId.length <= 256) {
+        this.httpSessionId = sessionId;
+      }
+      const text = await res.text();
+      if (text.length > 1_000_000) {
+        throw new Error(`MCP http "${this.config.id}": respuesta excede 1MB (anti-DoS).`);
+      }
+      let msg: JsonRpcResponse;
+      try {
+        msg = JSON.parse(text) as JsonRpcResponse;
+      } catch {
+        throw new Error(`MCP http "${this.config.id}": respuesta no-JSON en "${method}".`);
+      }
+      if (msg.error) {
+        throw new Error(`[MCP Error ${msg.error.code}] ${msg.error.message}`);
+      }
+      return msg.result as TResult;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onCallerAbort);
+    }
+  }
+
   private async sendRequest<TResult>(
     method: string,
     params: unknown,
     signal?: AbortSignal
   ): Promise<TResult> {
+    if (this.isHttpTransport()) {
+      return this.httpPost<TResult>(method, params, signal);
+    }
     if (!this.process || !this.process.stdin) {
       throw new Error(`El proceso MCP "${this.config.id}" no está activo.`);
     }

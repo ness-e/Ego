@@ -230,6 +230,15 @@ export interface EgoPreloadBridge {
     list: (req?: { limit?: number; projectScope?: string }) => Promise<unknown>;
     get: (req: { sessionId: string }) => Promise<unknown>;
     resume: (req: { sessionId: string }) => Promise<unknown>;
+    // STAB-12: fork + handoff formal (validado en main con SessionForkSchema).
+    fork: (req: {
+      fromSessionId: string;
+      toSessionId: string;
+      summary: string;
+      findings?: string[];
+      files?: string[];
+      issues?: string[];
+    }) => Promise<unknown>;
   };
   // T15: catálogo live de modelos por proveedor (keys solo en main; el
   // renderer recibe IDs + `configured`, nunca secretos).
@@ -414,6 +423,7 @@ const egoBridge: EgoPreloadBridge = {
     list: (req?) => ipcRenderer.invoke("ipc.sessions.list", req),
     get: (req) => ipcRenderer.invoke("ipc.sessions.get", req),
     resume: (req) => ipcRenderer.invoke("ipc.sessions.resume", req),
+    fork: (req) => ipcRenderer.invoke("ipc.sessions.fork", req),
   },
   models: {
     listProviders: () => ipcRenderer.invoke("ipc.models.listProviders"),
