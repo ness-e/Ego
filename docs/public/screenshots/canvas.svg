@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" role="img" aria-label="Placeholder canvas Ego">
+  <rect width="1280" height="720" fill="#0d1117"/>
+  <rect x="40" y="40" width="1200" height="640" rx="12" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+  <text x="72" y="100" font-family="monospace" font-size="28" fill="#e6edf3">Ego — Canvas</text>
+  <text x="900" y="100" font-family="monospace" font-size="24" fill="#f0b429">PLACEHOLDER (CFG-14)</text>
+  <rect x="72" y="140" width="360" height="240" rx="8" fill="#0d1117" stroke="#7aa2f7"/>
+  <rect x="460" y="140" width="360" height="240" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <rect x="848" y="140" width="360" height="240" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="96" y="420" font-family="monospace" font-size="20" fill="#8b949e">Dynamic Workspace — sustituir por captura real con display.</text>
+</svg>

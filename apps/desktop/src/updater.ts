@@ -175,6 +175,10 @@ export async function checkForUpdates(
  * configurar `publish` + artefactos firmados; implementarla a mano aquí
  * reinventaría ese stack con riesgo de seguridad. Retorna `deferred`
  * explícito para que ningún caller asuma instalación silenciosa.
+ *
+ * Decisión documentada en `docs/deployment/distribution.md` §4:
+ * NO se implementa electron-updater real en esta tarea (diferido hasta
+ * DIST-04, BLOQUEO owner: certificados + `publish` activo).
  */
 export function downloadUpdate(): UpdateDownloadResult {
   return {

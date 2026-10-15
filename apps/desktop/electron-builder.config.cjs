@@ -29,11 +29,25 @@ module.exports = {
   // candidato natural: repo verificado `ness-e/Ego` vía GitHub Releases).
   // Al activarlo, electron-updater provee la descarga diferencial (blockmap
   // NSIS) automáticamente. `updater.ts` ya detecta + avisa sin esta sección.
+  // `downloadUpdate()` queda `deferred` hasta DIST-04 — ver
+  // docs/deployment/distribution.md §4. NO descomentar sin firma (BLOQUEO
+  // owner DIST-04): generaría updates no verificables.
+  // Plantilla lista — opción A (GitHub Releases):
   // publish: [
   //   {
   //     provider: "github",
   //     owner: "ness-e",
   //     repo: "Ego",
+  //   },
+  // ],
+  // Plantilla lista — opción B (feed genérico vía EGO_UPDATE_FEED_URL):
+  // El updater en runtime lee `EGO_UPDATE_FEED_URL` (ver `updater.ts`
+  // `resolveUpdateFeedUrl()`); al activar electron-updater real (DIST-04),
+  // apuntar `url` al mismo feed. Requiere artefactos firmados.
+  // publish: [
+  //   {
+  //     provider: "generic",
+  //     url: "https://example.com/ego/updates/${os}/${arch}",
   //   },
   // ],
   win: {

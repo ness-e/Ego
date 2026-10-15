@@ -6,6 +6,12 @@
 
 # Índice de documentación de Ego
 
+## Empieza aquí
+
+- [`getting-started.md`](getting-started.md) — quickstart + vistas (shell/chat/canvas)
+- [`changelog.md`](changelog.md) — espejo web de `CHANGELOG.md`
+- Sitio VitePress: `npx vitepress dev docs` (config `docs/.vitepress/config.mts`)
+
 ## Navegación principal
 
 **Product**
