@@ -5,9 +5,59 @@ interface ChartViewProps {
   props: ChartProps;
 }
 
-// T06: paleta categórica de datos (excepción documentada: sin equivalente en
-// tokens semánticos; Recharts → tokens vive en Task 8 con lazy).
-const PALETTE = ["#38bdf8", "#818cf8", "#34d399", "#fbbf24", "#f43f5e", "#a78bfa"];
+// T06: paleta categórica de datos + T-contraste: cada entrada resuelve vía
+// `var(--color-*, fallback)` — el hex histórico queda como fallback (render
+// idéntico) y el token semántico manda con tema. Excepción documentada en
+// design-system.md §1: sin equivalente semántico puro para indigo/violeta
+// (`--color-chart-*` fijos del sistema); Recharts→tokens vive en Task 8 lazy.
+const PALETTE = [
+  "var(--color-brand, #38bdf8)",
+  "var(--color-chart-indigo, #818cf8)",
+  "var(--color-success, #34d399)",
+  "var(--color-warning, #fbbf24)",
+  "var(--color-error, #f43f5e)",
+  "var(--color-chart-violet, #a78bfa)",
+];
+
+export interface PieSlice {
+  label: string;
+  value: number;
+  fraction: number;
+  startAngle: number;
+  endAngle: number;
+  color: string;
+}
+
+export function computePieSlices(
+  data: Array<Record<string, unknown>>,
+  xKey: string,
+  yKeys: string[]
+): PieSlice[] {
+  const yKey = yKeys[0];
+  if (!yKey || data.length === 0) return [];
+  const total = data.reduce((acc, d) => acc + (Number(d[yKey]) || 0), 0);
+  if (total <= 0) return [];
+  let angle = -Math.PI / 2;
+  return data.map((d, idx) => {
+    const value = Number(d[yKey]) || 0;
+    const fraction = value / total;
+    const startAngle = angle;
+    const endAngle = angle + fraction * Math.PI * 2;
+    angle = endAngle;
+    return {
+      label: String(d[xKey] ?? ""),
+      value,
+      fraction,
+      startAngle,
+      endAngle,
+      color: PALETTE[idx % PALETTE.length],
+    };
+  });
+}
+
+function polar(cx: number, cy: number, r: number, angle: number): { x: number; y: number } {
+  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+}
 
 export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
   const { data, xKey, yKeys, chartType, title, legend } = props;
@@ -23,6 +73,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
   const padding = 35;
   const plotWidth = svgWidth - padding * 2;
   const plotHeight = svgHeight - padding * 2;
+  const pieSlices = chartType === "pie" ? computePieSlices(data, xKey, yKeys) : [];
 
   return (
     <div className="rounded-xl border border-hairline bg-panel p-4 shadow-xs select-text">
@@ -44,6 +95,35 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
       </div>
 
       <div className="w-full overflow-x-auto">
+        {chartType === "pie" ? (
+          <svg
+            viewBox="0 0 200 200"
+            role="img"
+            aria-label={title}
+            className="w-full max-w-[260px] h-auto overflow-visible font-mono text-[10px]"
+          >
+            {pieSlices.length === 0 ? (
+              <text x={100} y={100} textAnchor="middle" className="fill-dim">
+                Sin datos
+              </text>
+            ) : (
+              pieSlices.map((s) => {
+                const cx = 100;
+                const cy = 100;
+                const r = 80;
+                const p1 = polar(cx, cy, r, s.startAngle);
+                const p2 = polar(cx, cy, r, s.endAngle);
+                const large = s.fraction > 0.5 ? 1 : 0;
+                const d = `M ${cx} ${cy} L ${p1.x} ${p1.y} A ${r} ${r} 0 ${large} 1 ${p2.x} ${p2.y} Z`;
+                return (
+                  <path key={s.label} d={d} fill={s.color} stroke="var(--color-panel, #171717)" strokeWidth="2">
+                    <title>{`${s.label}: ${s.value} (${Math.round(s.fraction * 100)}%)`}</title>
+                  </path>
+                );
+              })
+            )}
+          </svg>
+        ) : (
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           className="w-full max-w-[500px] h-auto overflow-visible font-mono text-[10px]"
@@ -158,6 +238,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
               );
             })}
         </svg>
+        )}
       </div>
     </div>
   );
