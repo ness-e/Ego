@@ -313,7 +313,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `ci.yml` con matrix `[ubuntu,windows,macos]` e2e-electron (fail-soft win/mac inicial) + `xvfb-run -a` + artefactos `playwright-report/test-results/lcov` + `nightly.yml cron` + 3 `toHaveScreenshot` chromium pinneado `maxDiffRatio 0.02`
 - **Task file:** `docs/agent-ops/tasks/STAB-11.md`
-- **Estado:** 🟡 REVIEW-PENDIENTE (6/6 steps ✅ + verifies contrato + commit `18fa1bc` local; visual 3/3 `-win32`, soak smoke 1686 ops/0 err, golden-full+crash-resume 2/2 DB real; falta veredicto review P2-01 por agente distinto; notas: pin SHA y baselines `-linux`/`-darwin` como deuda owner-gated, `test:e2e` whole-suite flaky `FjallError: Locked` ambiental → FIND orquestador)
+- **Estado:** ✅ COMPLETED (commit `18fa1bc`; matrix+nightly+coverage+visual 3/3; review ego-audit approve 2026-10-16)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -337,7 +337,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** tests `streamable-http` + `allowedMcpServers` enforced + hooks fail-closed registrados `gov/audit` + `session.fork` copia `session/turns` + handoff validado
 - **Task file:** `docs/agent-ops/tasks/STAB-12.md`
-- **Estado:** ✅ COMPLETO (8/8 steps; integrations 27/27, events 28/28, runtime 10/10, memory 16/16, desktop 243+typecheck 0; rojos solo ajenos FloatingWindow; review P2-01 pendiente → orquestador)
+- **Estado:** ✅ COMPLETED (commit `a66b7f4`; http 27/27, hooks, fork; review ego-audit approve 2026-10-16)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -352,7 +352,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
   - **DoD multi-nivel:** task/commit/release (spec SDD)
 
 ### Task 14: STAB-13 — UX motion/Modal/composer/targets/omnibar
-- **Estado:** ✅ COMPLETO (commit `d3d0aee`; renderer 41f/281t, typecheck 0, a11y 15/15; review P2-01 pendiente)
+- **Estado:** ✅ COMPLETED (commit `d3d0aee`; 41f/281t, Stab13 8/8 + a11y 15/15 re-verificados; review ego-audit approve 2026-10-16)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🟠 P1
@@ -362,7 +362,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/renderer test` + `a11y.test` verdes + Modal fade+scale con reduced-motion + `layoutId composer-action` + copy-confirm + targets 44px + omnibar `role=option+aria-selected+activedescendant+↑↓`
 - **Task file:** `docs/agent-ops/tasks/STAB-13.md`
-- **Estado:** 🟡 REVIEW-PENDIENTE (commit `d3d0aee`; renderer 41f/281t, typecheck 0, a11y 15/15, Stab13UxMotion 8/8; falta veredicto review P2-01 por agente distinto)
+- **Estado:** ✅ COMPLETED (ver review approve; residual icon-only p-1 → FIND follow-up STAB-14/next)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
