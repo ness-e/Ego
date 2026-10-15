@@ -155,6 +155,43 @@ import {
 } from "@ego/security";
 import { WindowStateManager } from "./windows/WindowStateManager.js";
 import { initAutoUpdater, resolveUpdateFeedUrl } from "./updater.js";
+// STAB-09: núcleos puros extraídos de este god-file (5047 líneas). La API
+// pública de `main.js` se mantiene vía re-export para las 10 suites de
+// `test/` que importan de aquí.
+import { isTaskKindSafe } from "./main/task-kinds.js";
+import {
+  MAX_TERMINAL_SESSIONS,
+  TERMINAL_DEFAULT_TIMEOUT_MS,
+  TERMINAL_FORBIDDEN_PATTERNS,
+  TERMINAL_SAFE_COMMANDS,
+  isTerminalCommandAllowed,
+} from "./main/terminal-policy.js";
+import {
+  TRAY_COLORS,
+  pngChunk,
+  trayTooltipFor,
+  type EgoTrayStatus,
+} from "./main/tray-status.js";
+import {
+  isMcpSecretEnvName,
+  splitMcpServerEnv,
+  mcpEnvVaultService,
+  isMaskedMcpEnvValue,
+  collectStorableMcpSecrets,
+  type McpEnvSecretsRef,
+  type McpEnvSecretVault,
+} from "./main/mcp-env.js";
+
+export { isTaskKindSafe } from "./main/task-kinds.js";
+export { GIT_SAFE_SUBCOMMANDS } from "./main/terminal-policy.js";
+export {
+  isMcpSecretEnvName,
+  splitMcpServerEnv,
+  mcpEnvVaultService,
+  isMaskedMcpEnvValue,
+  collectStorableMcpSecrets,
+} from "./main/mcp-env.js";
+export type { McpEnvSecretsRef, McpEnvSecretVault } from "./main/mcp-env.js";
 
 let crashRecoveryEngine: CrashRecoveryEngine;
 let opGate: OpGate;
@@ -197,23 +234,7 @@ let workerTaskPool: WorkerTaskPool;
 let proactivityEngine: ProactivityEngine;
 let taskCheckpointManager: TaskCheckpointManager;
 let tray: Tray | null = null;
-type EgoTrayStatus = "idle" | "thinking" | "hitl";
 let trayStatus: EgoTrayStatus = "idle";
-
-/**
- * Conjunto seguro documentado para tareas (R5 deny-by-default): solo estos
- * `metadata.kind` ejecutan directo; cualquier otro queda `paused` y sale
- * vía HITL (`resume()` tras aprobación en ApprovalCard/ActivityTray).
- */
-const TASK_SAFE_KINDS = new Set(["indexing", "sync", "maintenance", "notification"]);
-
-/**
- * `true` si el `metadata.kind` de tarea corre directo (STAB-02, R5
- * deny-by-default); cualquier otro queda `paused` y sale vía HITL.
- */
-export function isTaskKindSafe(kind: unknown): boolean {
-  return typeof kind === "string" && TASK_SAFE_KINDS.has(kind);
-}
 
 interface TerminalSession {
   id: string;
@@ -225,8 +246,6 @@ interface TerminalSession {
 }
 
 const terminalSessions = new Map<string, TerminalSession>();
-const MAX_TERMINAL_SESSIONS = 8;
-const TERMINAL_DEFAULT_TIMEOUT_MS = 60_000;
 
 /**
  * Turnos LLM en curso cancelables (A1 real). Cada `handleLlmStream` registra
@@ -253,44 +272,6 @@ function pushTurnCancelled(turnId: string): void {
   } catch {
     // noop: el push al renderer nunca tumba el main
   }
-}
-
-/**
- * Denylist en el ingress IPC (R5, defensa en profundidad). Espejo intencional
- * de `packages/tools/src/native/terminal/NativeTerminalTool.ts:10-17`: el
- * guardrail fuerte vive en el tool + `PathValidator` + `requiresApproval`;
- * este pre-chequeo evita siquiera spawnear lo letal desde el renderer
- * (untrusted). La lista es bypasseable por naturaleza — nunca es la única
- * defensa (decisión owner T03/R5).
- */
-const TERMINAL_FORBIDDEN_PATTERNS = [
-  /rm\s+-rf\s+[\/\\]/i,
-  /rmdir\s+\/s\s+\/q\s+[a-zA-Z]:[\/\\]/i,
-  /format\s+[a-zA-Z]:/i,
-  /:(){ :|:& };:/,
-  /mkfs/i,
-  /dd\s+if=.*of=\/dev\/(sd|nvme|hd)/i,
-];
-
-/** Conjunto seguro documentado para `ipc.terminal.spawn` (R5 deny-by-default). */
-const TERMINAL_SAFE_COMMANDS = new Set([
-  "ls", "dir", "pwd", "echo", "cat", "type", "git", "pnpm", "node", "npm",
-]);
-
-/** Subcomandos de git de solo lectura permitidos en terminal viva. */
-const GIT_SAFE_SUBCOMMANDS = new Set([
-  "status", "diff", "log", "branch", "show", "rev-parse",
-]);
-
-function isTerminalCommandAllowed(command: string): boolean {
-  const tokens = command.trim().split(/\s+/);
-  const head =
-    (tokens[0] ?? "").split(/[\\/]/).pop()?.toLowerCase().replace(/\.exe$/, "") ?? "";
-  if (!TERMINAL_SAFE_COMMANDS.has(head)) return false;
-  if (head === "git") {
-    return GIT_SAFE_SUBCOMMANDS.has((tokens[1] ?? "").toLowerCase());
-  }
-  return true;
 }
 
 function pushTerminalOutput(sessionId: string, chunk: string): void {
@@ -354,42 +335,6 @@ function killTerminalSession(sessionId: string, reason: string): boolean {
   return true;
 }
 
-const TRAY_COLORS: Record<EgoTrayStatus, [number, number, number]> = {
-  idle: [52, 211, 153], // verde esmeralda
-  thinking: [56, 189, 248], // azul
-  hitl: [251, 113, 133], // rojo
-};
-
-let crcTable: Int32Array | null = null;
-
-function getCrcTable(): Int32Array {
-  if (!crcTable) {
-    crcTable = new Int32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++) {
-        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-      }
-      crcTable[n] = c;
-    }
-  }
-  return crcTable;
-}
-
-function pngChunk(type: string, data: Buffer): Buffer {
-  const typeBuf = Buffer.from(type, "ascii");
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length, 0);
-  const table = getCrcTable();
-  let crc = 0xffffffff;
-  for (const byte of Buffer.concat([typeBuf, data])) {
-    crc = table[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
-  }
-  const crcBuf = Buffer.alloc(4);
-  crcBuf.writeUInt32BE((crc ^ 0xffffffff) >>> 0, 0);
-  return Buffer.concat([len, typeBuf, data, crcBuf]);
-}
-
 /** Icono 16×16 sólido generado en runtime (sin assets binarios nuevos). */
 function createTrayIcon(status: EgoTrayStatus): Electron.NativeImage {
   const [r, g, b] = TRAY_COLORS[status];
@@ -417,12 +362,6 @@ function createTrayIcon(status: EgoTrayStatus): Electron.NativeImage {
     pngChunk("IEND", Buffer.alloc(0)),
   ]);
   return nativeImage.createFromBuffer(png);
-}
-
-function trayTooltipFor(status: EgoTrayStatus): string {
-  if (status === "thinking") return "Ego — pensando…";
-  if (status === "hitl") return "Ego — requiere aprobación (HITL)";
-  return "Ego — inactivo";
 }
 
 /** Deriva verde/azul/rojo del estado real del engine (COUC-19 mínimo). */
@@ -747,113 +686,11 @@ export const maskKey = maskApiKey;
 //   secretos enmascarado con `maskKey` (patrón `toMaskedModelConfigResponse`).
 // ---------------------------------------------------------------------------
 
-/** Segmentos de nombre de var de entorno que denotan secreto. */
-const MCP_SECRET_ENV_SEGMENTS: ReadonlySet<string> = new Set([
-  "KEY",
-  "KEYS",
-  "TOKEN",
-  "TOKENS",
-  "SECRET",
-  "SECRETS",
-  "PAT",
-  "PATS",
-  "PASSWORD",
-  "PASSWD",
-  "PWD",
-  "AUTH",
-  "CREDENTIAL",
-  "CREDENTIALS",
-  "PRIVATE",
-  "SIGNATURE",
-]);
-
-/**
- * Heurística de secreto por nombre de variable de entorno (comparación por
- * segmento en mayúsculas; ver bloque de diseño F1T2/F5T10).
- */
-export function isMcpSecretEnvName(name: unknown): boolean {
-  if (typeof name !== "string" || name.length === 0) return false;
-  const segments = name.toUpperCase().split(/[^A-Z0-9]+/);
-  return segments.some((segment) => MCP_SECRET_ENV_SEGMENTS.has(segment));
-}
-
-/**
- * Divide un `env` MCP en valores públicos (persisten en claro) y nombres de
- * secretos (van al vault + `envRef`). Nunca registra ni retorna valores.
- */
-export function splitMcpServerEnv(env: Record<string, string> | undefined): {
-  publicEnv: Record<string, string>;
-  secretNames: string[];
-} {
-  const publicEnv: Record<string, string> = {};
-  const secretNames: string[] = [];
-  if (!env) return { publicEnv, secretNames };
-  for (const [name, value] of Object.entries(env)) {
-    if (isMcpSecretEnvName(name)) {
-      secretNames.push(name);
-    } else if (typeof value === "string") {
-      publicEnv[name] = value;
-    }
-  }
-  return { publicEnv, secretNames };
-}
-
-/** Servicio del vault para un servidor: `mcp/<server-id>/env` (cuenta = var). */
-export function mcpEnvVaultService(serverId: string): string {
-  return `mcp/${serverId}/env`;
-}
-
-/**
- * Detecta valores enmascarados para el renderer (`sk-t...7890`, `••••`).
- * Una máscara NUNCA se almacena como secreto (patrón settings Task 10).
- */
-export function isMaskedMcpEnvValue(value: unknown): boolean {
-  return (
-    typeof value === "string" && (value.includes("...") || value.includes("••••"))
-  );
-}
-
-/** Referencia persistida a los secretos de un servidor (sin texto plano). */
-export interface McpEnvSecretsRef {
-  service: string;
-  keys: string[];
-  encrypted: Record<string, string>;
-}
-
 /** Registro `gov/mcp_servers`: config saneada + referencia opaca a secretos. */
 export interface PersistedMcpServerRecord {
   config: McpServerConfig;
   enabled: boolean;
   envRef?: McpEnvSecretsRef;
-}
-
-/**
- * Superficie mínima del vault que los handlers MCP necesitan. `CredentialManager`
- * la satisface estructuralmente (también `McpTokenStore.getSecret`).
- */
-export interface McpEnvSecretVault {
-  storeSecret(service: string, account: string, secret: string): Promise<void>;
-  getSecret(service: string, account: string): Promise<string | null>;
-  deleteSecret(service: string, account: string): boolean | Promise<boolean>;
-}
-
-/**
- * Secretos almacenables del env entrante: no vacíos y no enmascarados. Las
- * máscaras del renderer se resuelven contra lo guardado, jamás se persisten.
- */
-export function collectStorableMcpSecrets(
-  env: Record<string, string> | undefined
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!env) return out;
-  const { secretNames } = splitMcpServerEnv(env);
-  for (const name of secretNames) {
-    const value: unknown = env[name];
-    if (typeof value === "string" && value.length > 0 && !isMaskedMcpEnvValue(value)) {
-      out[name] = value;
-    }
-  }
-  return out;
 }
 
 /**
