@@ -1,8 +1,91 @@
 import { vi, beforeEach } from "vitest";
 import type { EgoBridge, SubEgoSummary, ProjectInfo, ModelConfigInfo, McpServerInfo, PendingApprovalInfo } from "../lib/ego.js";
 
+// RTL: matchers jest-dom (toBeInTheDocument, toHaveAttribute, …).
+// Carga dinámica opcional: package.json declara la devDep, pero si aún no se
+// ejecutó `pnpm install` un import estático rompería la suite. Con el
+// especificador en variable tsc no intenta resolver el módulo y el catch la
+// vuelve no-op hasta que la dependencia exista.
+const JEST_DOM_SPEC = "@testing-library/jest-dom/vitest";
+try {
+  await import(/* @vite-ignore */ JEST_DOM_SPEC);
+} catch {
+  // jest-dom pendiente de `pnpm install`; matchers extendidos no disponibles.
+}
+
 // Habilitar soporte de act() de React 19 en entorno headless
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// A11Y/T07: neutralizar WAAPI bajo happy-dom para framer-motion/motion-dom.
+// motion-dom (v14) crea animaciones WAAPI reales (Element.animate) para el
+// prop `layout` + initial/animate/exit; al desmontar (root.unmount en
+// afterEach) cancela animaciones pendientes y happy-dom rechaza `finished`
+// con AbortError sin handler → "Unhandled Rejection" (7-8x en a11y.test.tsx).
+// El stub devuelve una animación fake síncrona que nunca rechaza, así el
+// DOM/axe resultante es idéntico pero sin ruido asíncrono.
+if (typeof Element !== "undefined") {
+  const proto = Element.prototype as unknown as Record<string, unknown> & {
+    animate?: unknown;
+    getAnimations?: unknown;
+  };
+  if (!(proto as Record<string, unknown>).__egoAnimateStubbed) {
+    (proto as Record<string, unknown>).__egoAnimateStubbed = true;
+    proto.animate = function () {
+      const noop = () => {};
+      const fake = {
+        id: "",
+        effect: null,
+        finished: Promise.resolve() as unknown as Promise<Animation>,
+        ready: Promise.resolve() as unknown as Promise<Animation>,
+        currentTime: 0,
+        startTime: 0,
+        playbackRate: 1,
+        playState: "finished" as AnimationPlayState,
+        pending: false,
+        onfinish: null,
+        oncancel: null,
+        onremove: null,
+        cancel: noop,
+        play: noop,
+        pause: noop,
+        finish: noop,
+        reverse: noop,
+        commitStyles: noop,
+        persist: noop,
+        updatePlaybackRate: noop,
+        addEventListener: noop,
+        removeEventListener: noop,
+        dispatchEvent: () => false,
+      };
+      return fake as unknown as Animation;
+    };
+    proto.getAnimations = function () {
+      return [];
+    };
+  }
+}
+
+// prefers-reduced-motion → true: ActivityWidget/CharacterBadge ya tienen rama
+// reduceMotion (duration 0 / initial false); forzarla reduce trabajo de
+// motion-dom sin cambiar asserts (mismo DOM, sin animación).
+if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+  const origMatchMedia = window.matchMedia.bind(window);
+  window.matchMedia = ((query: string) => {
+    if (query.includes("prefers-reduced-motion")) {
+      return {
+        matches: true,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      } as unknown as MediaQueryList;
+    }
+    return origMatchMedia(query);
+  }) as typeof window.matchMedia;
+}
 
 /**
  * Emulador MockEgoBridge determinista para pruebas de UI sin Electron vivo (COUC-15 / CANV-12)

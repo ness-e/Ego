@@ -9,6 +9,7 @@
     "check": "node scripts/check-gui-coverage.cjs",
     "test:gui": "playwright test",
     "test:gui:headed": "playwright test --headed",
+    "test:e2e:electron": "playwright test --config=electron.playwright.config.ts",
     "report": "playwright show-report"
   },
   "devDependencies": {

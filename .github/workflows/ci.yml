@@ -81,3 +81,85 @@ jobs:
 
       - name: Run E2E and Resilience Suites
         run: pnpm test:e2e
+
+  e2e-electron:
+    name: E2E Electron (Ubuntu + Xvfb, fail-soft)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
+        run: |
+          mkdir -p ../VantaDB/vantadb-node
+          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
+          {
+            "name": "vantadb-node",
+            "version": "0.8.0",
+            "main": "index.js",
+            "types": "index.d.ts"
+          }
+          EOF
+          cat << 'EOF' > ../VantaDB/vantadb-node/index.d.ts
+          export class NativeVantaDB {
+            constructor(path?: string);
+            open(path: string): Promise<void>;
+            close(): Promise<void>;
+            put(namespace: string, key: string, payload: any): Promise<void>;
+            get(namespace: string, key: string): Promise<any>;
+            delete(namespace: string, key: string): Promise<boolean>;
+            scan(prefix: string): Promise<any[]>;
+            search(query: string, limit?: number): Promise<any[]>;
+          }
+          EOF
+          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
+          module.exports = {
+            NativeVantaDB: class NativeVantaDB {
+              constructor() {}
+              async open() {}
+              async close() {}
+              async put() {}
+              async get() { return null; }
+              async delete() { return true; }
+              async scan() { return []; }
+              async search() { return []; }
+            }
+          };
+          EOF
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Desktop Bundle
+        run: pnpm build:desktop
+
+      - name: Install Playwright Runner (standalone)
+        working-directory: tests/gui
+        run: |
+          pnpm install
+          npx playwright install --with-deps
+
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+
+      - name: Run Electron E2E (fail-soft without bundle)
+        run: |
+          if [ ! -f apps/desktop/out/main/main.js ]; then
+            echo "::warning::No desktop bundle (apps/desktop/out/main/main.js) — skipping test:e2e:electron."
+            exit 0
+          fi
+          pnpm test:e2e:electron

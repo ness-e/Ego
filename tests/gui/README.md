@@ -45,6 +45,21 @@ cd tests/gui
 pnpm test   # node scripts/check-gui-coverage.cjs (13 specs, trazabilidad T10, skips con motivo)
 ```
 
+## E2E Electron mínimo (shell smoke, `electron/`)
+
+Smoke aparte con el Electron real (`_electron.launch` sobre
+`apps/desktop/out/main/main.js`): header Ego + Chat + Canvas, diálogos
+nativos mockeados, sin VantaDB real. Detalle y precondiciones en
+`docs/engineering/testing-e2e.md`:
+
+```powershell
+pnpm test:e2e:electron   # desde la raíz (requiere `pnpm build` previo)
+```
+
+Sufijo `*.electron.ts` + config propia (`electron.playwright.config.ts`) para
+que ni vitest (`pnpm test:e2e`) ni esta suite GUI (`testDir: ./specs`) lo
+recolecten.
+
 ## Notas de calibración
 
 - Los specs marcados `CALIBRATE` usan el nombre accesible más probable

@@ -19,7 +19,9 @@
     "lint": "oxlint --ignore-path .gitignore apps packages tests && pnpm run typecheck",
     "test": "pnpm -r test",
     "test:memory": "pnpm --filter @ego/memory test",
-    "test:e2e": "pnpm --filter @ego/e2e-tests test"
+    "test:e2e": "pnpm --filter @ego/e2e-tests test",
+    "test:e2e:electron": "pnpm --dir tests/gui run test:e2e:electron",
+    "changelog:preview": "git cliff --unreleased"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",
