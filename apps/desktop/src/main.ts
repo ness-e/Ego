@@ -111,6 +111,7 @@ import {
   SelectFolderRedeemSchema,
   IpcOriginMetaSchema,
   EgoFetchSchema,
+  FloatingSetMutedSchema,
   type EgoFetchRequest,
 } from "./ipc/schema.js";
 import {
@@ -158,6 +159,11 @@ import {
   isDenied,
 } from "@ego/security";
 import { WindowStateManager } from "./windows/WindowStateManager.js";
+import {
+  FloatingWindowManager,
+  shouldAutoShow,
+  syncFromAttention,
+} from "./windows/FloatingWindow.js";
 import { initAutoUpdater, resolveUpdateFeedUrl } from "./updater.js";
 // STAB-09: núcleos puros extraídos de este god-file (5047 líneas). La API
 // pública de `main.js` se mantiene vía re-export para las 10 suites de
@@ -239,6 +245,17 @@ let proactivityEngine: ProactivityEngine;
 let taskCheckpointManager: TaskCheckpointManager;
 let tray: Tray | null = null;
 let trayStatus: EgoTrayStatus = "idle";
+
+// Task4 (D2): singleton del flotante — instancia ÚNICA creada en
+// createWindow (ready); el handler setMuted lo crea lazy si hiciera falta.
+let floatMgr: FloatingWindowManager | null = null;
+
+function ensureFloatMgr(): FloatingWindowManager {
+  if (!floatMgr) {
+    floatMgr = new FloatingWindowManager();
+  }
+  return floatMgr;
+}
 
 interface TerminalSession {
   id: string;
@@ -393,6 +410,40 @@ function refreshTrayStatus(): void {
   }
 }
 
+/** Task4 (D2): snapshot de trabajo para `shouldAutoShow` (engine + flotante). */
+function floatingSnapshot(): {
+  active: number;
+  hitl: number;
+  muted: boolean;
+  disabled: boolean;
+} {
+  let active = 0;
+  let hitl = 0;
+  try {
+    if (backgroundEngine) {
+      active = backgroundEngine.getActiveCount();
+      hitl = backgroundEngine.listTasks({ status: ["paused"] }).length;
+    }
+  } catch {
+    // noop: el flotante nunca tumba el main
+  }
+  const st = floatMgr ? floatMgr.getState() : null;
+  return { active, hitl, muted: st?.muted ?? false, disabled: st?.disabled ?? false };
+}
+
+/** Task4 (D2): sincroniza flotante + tray desde el engine (una sola llamada). */
+function syncFloatingFromEngine(): void {
+  try {
+    const snap = floatingSnapshot();
+    const attention =
+      snap.hitl > 0 ? "hitl_approval" : snap.active > 0 ? "compact" : "hidden";
+    ensureFloatMgr().updateState({ attentionState: syncFromAttention(attention) });
+  } catch {
+    // noop
+  }
+  refreshTrayStatus();
+}
+
 /** Tray mínimo útil: click restaura, menú Mostrar/Salir, tooltip de estado. */
 function ensureTray(): void {
   if (tray) {
@@ -409,6 +460,8 @@ function ensureTray(): void {
           win.show();
           win.focus();
         }
+        // Task4 (D2): al restaurar la principal, ocultar el flotante.
+        if (floatMgr) floatMgr.hide();
       } catch {
         // noop
       }
@@ -2865,14 +2918,14 @@ export async function createWindow(): Promise<void> {
           },
           { source: "desktop.tasks", severity: "warn" }
         );
-        refreshTrayStatus();
+        syncFloatingFromEngine();
       },
     },
     onTaskEvent: (event) => {
       if (win && !win.isDestroyed()) {
         win.webContents.send("ipc.event", { kind: event.type, task: event.task });
       }
-      refreshTrayStatus();
+      syncFloatingFromEngine();
     },
   });
   workerTaskPool = new WorkerTaskPool();
@@ -3074,6 +3127,21 @@ export async function createWindow(): Promise<void> {
   }
 
   windowStateManager.trackWindow(win);
+
+  // Task4 (D2): flotante instanciado UNA vez en ready + autoshow al minimizar
+  // con trabajo/HITL (win.hide + floatMgr.show; sin trabajo = minimize normal).
+  ensureFloatMgr();
+  win.on("minimize", () => {
+    try {
+      if (!win || win.isDestroyed()) return;
+      if (shouldAutoShow(floatingSnapshot())) {
+        win.hide();
+        ensureFloatMgr().show();
+      }
+    } catch {
+      // noop: minimizar nunca falla por el flotante
+    }
+  });
 
   // R13/SEC-01 — CSP estricta vía cabeceras (defensa en profundidad sobre la
   // meta CSP de `renderer/index.html`; `sandbox:true` ya mitiga el riesgo base).
@@ -4506,6 +4574,17 @@ export async function createWindow(): Promise<void> {
     }
     refreshTrayStatus();
     return { ok: true, taskId };
+  });
+
+  // Task4 (D2): cierra la deuda Task3 (preload `egoFloating.setMuted`).
+  // Zod fail-closed; actualiza el manager aunque la ventana aún no exista.
+  ipcMain.handle("ipc.floating.setMuted", async (_e, rawReq: unknown) => {
+    const parseResult = FloatingSetMutedSchema.safeParse(rawReq);
+    if (!parseResult.success) {
+      return { ok: false, error: parseResult.error.message };
+    }
+    ensureFloatMgr().setMuted(parseResult.data.muted);
+    return { ok: true, muted: parseResult.data.muted };
   });
 
   ipcMain.handle("ipc.terminal.spawn", async (_e, rawReq: unknown) => {

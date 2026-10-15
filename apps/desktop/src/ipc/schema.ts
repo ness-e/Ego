@@ -652,6 +652,17 @@ export const TasksCancelSchema = z.object({
 
 export type TasksCancelRequest = z.infer<typeof TasksCancelSchema>;
 
+/**
+ * Esquema Task4 (D2): silenciado del flotante desde el renderer
+ * (`window.egoFloating.setMuted` → `ipc.floating.setMuted`).
+ * Cierra la deuda documentada en `preload.ts:105-111` (Task3).
+ */
+export const FloatingSetMutedSchema = z.object({
+  muted: z.boolean(),
+});
+
+export type FloatingSetMutedRequest = z.infer<typeof FloatingSetMutedSchema>;
+
 export const TerminalSpawnSchema = z.object({
   command: z.string().min(1).max(8000),
   cwd: z.string().min(1).max(1024).optional(),

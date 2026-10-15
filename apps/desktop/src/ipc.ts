@@ -104,6 +104,8 @@ export const EgoIpcInvokeChannels = [
   "ipc.projects.selectFolderRedeem",
   // Fetch-proxy mínimo en main (Authorization desde safeStorage, nunca al renderer).
   "ipc.net.fetch",
+  // Isla flotante Task4 (D2): silenciado desde el renderer (deuda Task3 cerrada aquí).
+  "ipc.floating.setMuted",
 ] as const;
 
 /** Eventos push main→renderer (el renderer solo escucha, nunca emite). */
