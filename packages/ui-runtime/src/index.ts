@@ -1,5 +1,7 @@
 export * from "./schemas/index.js";
 export * from "./CanvasBridge.js";
+export * from "./A2UIAdapter.js";
+export * from "./resolvedCatalog.js";
 export * from "./CanvasPersistence.js";
 export * from "./TerminalSessionStore.js";
 export * from "./MermaidRenderer.js";
@@ -10,3 +12,4 @@ export * from "./WindowState.js";
 export * from "./AnsiParser.js";
 export * from "./FuzzySearch.js";
 export * from "./SlashCommandParser.js";
+export * from "./templates/daily-report.js";
