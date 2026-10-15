@@ -306,6 +306,38 @@ export function buildPromptWithAttachments(prompt: string, atts: ComposerAttachm
 }
 
 /**
+ * CFG-11 — Marcas input-to-paint por frontera (medir, no optimizar a ciegas).
+ * `tSend` se acuña antes de `llmStream`, `tFirst` con el primer delta con
+ * texto, `tPaint` un frame después del flush que lo pinta (doble rAF).
+ * Objetivo documentado: primera pintura <800ms tras el envío. El log
+ * `chat.first_token` sale UNA vez por turno vía `console.debug` (sin spam,
+ * sin secretos: solo turn id + latencias) — el rAF batching existente queda
+ * intacto.
+ */
+export const CFG11_FIRST_PAINT_TARGET_MS = 800;
+
+export interface Cfg11PaintMarks {
+  tSend: number;
+  tFirst: number | null;
+  tPaint: number | null;
+  logged: boolean;
+}
+
+export function createPaintMarks(tSend: number): Cfg11PaintMarks {
+  return { tSend, tFirst: null, tPaint: null, logged: false };
+}
+
+/** Latencia envío → primer delta (null si aún no llegó). */
+export function firstTokenLatencyMs(m: Cfg11PaintMarks): number | null {
+  return m.tFirst === null ? null : m.tFirst - m.tSend;
+}
+
+/** Latencia envío → primera pintura (null si aún no pintó). */
+export function inputToPaintMs(m: Cfg11PaintMarks): number | null {
+  return m.tPaint === null ? null : m.tPaint - m.tSend;
+}
+
+/**
  * Bloqueo mock (decisión owner): sin keys del proveedor activo no hay
  * respuesta simulada — se retorna el mensaje de error BYOK explícito.
  * Retorna null cuando el turno puede proceder.
@@ -371,6 +403,9 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   const streamRafRef = useRef<number | null>(null);
   // Clave estable para actividad de tools (nunca índice de map).
   const toolSeqRef = useRef(0);
+  // CFG-11: marcas input-to-paint del turno en curso (tSend/tFirst/tPaint).
+  // Solo refs + 1 log/turno: ningún setState, ningún cambio de UX.
+  const paintMarksRef = useRef<Cfg11PaintMarks | null>(null);
   // Autoscroll throttled a rAF (evita layout-thrash por frame de stream).
   const stickRafRef = useRef<number | null>(null);
   // T19: coste del turno actual desde `streamRes.usage` (solo lectura;
@@ -596,6 +631,38 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           const target = streamTargetRef.current;
           if (!target) return;
           const c = chunk as ChatDeltaChunk;
+          // CFG-11: marca tFirst con el primer delta con texto y captura
+          // tPaint un frame después del flush que lo pinta (doble rAF).
+          // Fallback headless (sin rAF): captura sincrónica coalescente.
+          const marks = paintMarksRef.current;
+          const firstText = c.delta ?? c.text ?? "";
+          if (marks && marks.tFirst === null && firstText) {
+            marks.tFirst = performance.now();
+            const snapshot = marks;
+            const turn = target;
+            const capture = () => {
+              // Turno cancelado o superado en el medio: no se loguea rancio.
+              if (snapshot.logged || paintMarksRef.current !== snapshot) return;
+              snapshot.logged = true;
+              snapshot.tPaint = performance.now();
+              const ft = firstTokenLatencyMs(snapshot);
+              const ip = inputToPaintMs(snapshot);
+              console.debug(
+                `[chat.first_token] turn=${turn} first_token_ms=${ft} input_to_paint_ms=${ip} target_ms=${CFG11_FIRST_PAINT_TARGET_MS}`
+              );
+            };
+            if (typeof requestAnimationFrame !== "undefined") {
+              requestAnimationFrame(() => {
+                if (typeof requestAnimationFrame !== "undefined") {
+                  requestAnimationFrame(capture);
+                } else {
+                  capture();
+                }
+              });
+            } else {
+              capture();
+            }
+          }
           const tool = toToolActivity(c);
           if (tool) {
             const seq = ++toolSeqRef.current;
@@ -667,6 +734,8 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     // assistant se inserta lazy con el primer chunk o el texto final.
     streamTargetRef.current = a;
     setIsStreaming(true);
+    // CFG-11: tSend se acuña justo antes del invoke (frontera de envío).
+    paintMarksRef.current = createPaintMarks(performance.now());
 
     try {
       const streamRes = await ego().llmStream({
@@ -756,6 +825,9 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       }
     } finally {
       if (streamTargetRef.current === a) streamTargetRef.current = null;
+      // CFG-11: las marcas NO se anulan acá a propósito — la captura tPaint
+      // viaja en doble-rAF y puede disparar después del resolve; el próximo
+      // turno las sobrescribe y `handleCancel` las descarta al cancelar.
       if (abortRef.current === ctrl) abortRef.current = null;
       setIsStreaming(false);
     }
@@ -769,6 +841,9 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     abortRef.current?.abort();
     abortRef.current = null;
     streamTargetRef.current = null;
+    // CFG-11: turno cancelado antes de pintar → sin log rancio (la captura
+    // pendiente verifica `paintMarksRef.current !== snapshot` y se omite).
+    paintMarksRef.current = null;
     // Descarta deltas en buffer + cancela el frame pendiente: sin esto un
     // rAF tardío pintaría texto tras "Turno cancelado".
     pendingStreamRef.current.clear();

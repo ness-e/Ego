@@ -191,6 +191,10 @@ import {
   type McpEnvSecretsRef,
   type McpEnvSecretVault,
 } from "./main/mcp-env.js";
+import {
+  IpcPriorityQueue,
+  type IpcPriority,
+} from "./main/ipc-priority-queue.js";
 
 export { isTaskKindSafe } from "./main/task-kinds.js";
 export { GIT_SAFE_SUBCOMMANDS } from "./main/terminal-policy.js";
@@ -293,6 +297,80 @@ function pushTurnCancelled(turnId: string): void {
   } catch {
     // noop: el push al renderer nunca tumba el main
   }
+}
+
+// ---------------------------------------------------------------------------
+// CFG-11 — Cola priorizada de pushes main→renderer (coalescing + fairness).
+//
+// Niveles: critical > interactive > background (`ipc-priority-queue.ts`,
+// módulo puro sin Electron). Fast-path: cola vacía → send directo (cero
+// cambio observable sin contención); bajo ráfaga se encola y el drenaje
+// `setImmediate` respeta prioridad + fairness (background ≥1 slot cada 8).
+//
+// Cableado: deltas chat y tool events → interactive (orden sensible, SIN
+// coalesce); `recall_status` → interactive + coalesce por turno (lectura
+// idempotente); `ipc.event` (relays) → background SIN coalesce (los eventos
+// genéricos pueden portar secuencias: reemplazarlos perdería datos).
+// Críticos (`turn-cancelled`, `chat.error`, `approval.request`) quedan en
+// send DIRECTO: son raros y latencia-sensibles — nunca esperan la cola.
+// Observabilidad: `getMainPushQueueStats()` (contadores, sin payloads:
+// los logs jamás llevan prompts ni PII, solo canal+prioridad).
+// ---------------------------------------------------------------------------
+const mainPushQueue = new IpcPriorityQueue();
+let mainPushDrainScheduled = false;
+
+function sendMainPushNow(channel: string, payload: unknown): void {
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(channel, payload);
+    }
+  } catch {
+    // noop: el push al renderer nunca tumba el main
+  }
+}
+
+function drainMainPushQueue(): void {
+  mainPushDrainScheduled = false;
+  for (const msg of mainPushQueue.drain(Date.now(), 256)) {
+    sendMainPushNow(msg.channel, msg.payload);
+  }
+  if (mainPushQueue.size() > 0 && !mainPushDrainScheduled) {
+    mainPushDrainScheduled = true;
+    setImmediate(drainMainPushQueue);
+  }
+}
+
+/**
+ * Push priorizado main→renderer. Cola vacía → directo (fast-path idéntico
+ * al `webContents.send` previo); con contención → prioridad + fairness.
+ */
+function enqueueMainPush(
+  channel: string,
+  payload: unknown,
+  priority: IpcPriority,
+  coalesceKey?: string
+): void {
+  if (!win || win.isDestroyed()) return;
+  if (mainPushQueue.size() === 0) {
+    sendMainPushNow(channel, payload);
+    return;
+  }
+  mainPushQueue.enqueue({ channel, payload, priority, coalesceKey });
+  if (!mainPushDrainScheduled) {
+    mainPushDrainScheduled = true;
+    setImmediate(drainMainPushQueue);
+  }
+}
+
+/** Contadores de la cola (observabilidad; sin payloads). */
+export function getMainPushQueueStats(): {
+  enqueued: number;
+  dequeued: number;
+  coalesced: number;
+  expired: number;
+  pending: number;
+} {
+  return { ...mainPushQueue.stats, pending: mainPushQueue.size() };
 }
 
 function pushTerminalOutput(sessionId: string, chunk: string): void {
@@ -2086,11 +2164,12 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
             breakCheck.clarification.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n');
 
           if (win && !win.isDestroyed()) {
-            win.webContents.send("ipc.chat.delta", {
+            // CFG-11: interactiva (orden sensible, sin coalesce).
+            enqueueMainPush("ipc.chat.delta", {
               type: "text",
               text: clarificationText,
               delta: clarificationText
-            });
+            }, "interactive");
           }
 
           return {
@@ -2122,9 +2201,10 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
       }
     }
 
-    // Informar a la UI del estado de memoria inyectada
+    // Informar a la UI del estado de memoria inyectada.
+    // CFG-11: lectura idempotente → coalesce por turno (el último gana).
     if (win && !win.isDestroyed()) {
-      win.webContents.send("ipc.chat.recall_status", recallStatus);
+      enqueueMainPush("ipc.chat.recall_status", recallStatus, "interactive", `recall:${turnId}`);
     }
 
     // STAB-05: trigger pre-compactación (archive-first, nunca trunca aquí).
@@ -2269,13 +2349,14 @@ export async function handleLlmStream(rawReq: unknown): Promise<{
 
     const finalText = loopResult.finalText || "";
 
-    // Retransmitir texto final hacia la UI
+    // Retransmitir texto final hacia la UI.
+    // CFG-11: interactiva (orden sensible, sin coalesce: es autoritativa).
     if (finalText && win && !win.isDestroyed()) {
-      win.webContents.send("ipc.chat.delta", {
+      enqueueMainPush("ipc.chat.delta", {
         type: "text",
         text: finalText,
         delta: finalText
-      });
+      }, "interactive");
     }
 
     // FASE 4: Post-Turn Synchronization (Persistencia inmutable L1 en VantaDB)
@@ -2922,8 +3003,9 @@ export async function createWindow(): Promise<void> {
       },
     },
     onTaskEvent: (event) => {
+      // CFG-11: chatter background (sin coalesce: porta secuencias).
       if (win && !win.isDestroyed()) {
-        win.webContents.send("ipc.event", { kind: event.type, task: event.task });
+        enqueueMainPush("ipc.event", { kind: event.type, task: event.task }, "background");
       }
       syncFloatingFromEngine();
     },
@@ -3065,25 +3147,26 @@ export async function createWindow(): Promise<void> {
         },
     },
     onToolCall: (call) => {
+      // CFG-11: interactiva (stream visible, orden sensible, sin coalesce).
       if (win && !win.isDestroyed()) {
-        win.webContents.send("ipc.chat.delta", {
+        enqueueMainPush("ipc.chat.delta", {
           type: "tool_call",
           callId: call.id,
           toolName: call.name,
           arguments: call.arguments
-        });
+        }, "interactive");
       }
     },
     onToolResult: (res) => {
       if (win && !win.isDestroyed()) {
-        win.webContents.send("ipc.chat.delta", {
+        enqueueMainPush("ipc.chat.delta", {
           type: "tool_result",
           callId: res.callId,
           toolName: res.toolName,
           success: res.success,
           output: res.output,
           error: res.error
-        });
+        }, "interactive");
       }
     }
   });
@@ -3158,10 +3241,11 @@ export async function createWindow(): Promise<void> {
     });
   });
 
-  // Retransmitir eventos hacia Chromium Renderer (Activity Widget, Observabilidad)
+  // Retransmitir eventos hacia Chromium Renderer (Activity Widget, Observabilidad).
+  // CFG-11: chatter background (sin coalesce: porta secuencias).
   eventBus.onAny((event) => {
     if (win && !win.isDestroyed()) {
-      win.webContents.send("ipc.event", event);
+      enqueueMainPush("ipc.event", event, "background");
     }
   });
 

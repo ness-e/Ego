@@ -22,10 +22,48 @@
 | `CFG-08` | 🟡 Media | **Curator programado + checkpoints acotados** | `packages/tasks/src/` · `packages/memory/` | 🟡 1-2d | 🟡 P2 | 🆕 Pendiente | Problema: sin curator interval/stale_after_days ni max_snapshots (solo dream_consolidate + .vdbdump). Acción: job curator (consolida stale, respeta cuarentena) + cap snapshots con rotación. Resultado: memoria y snapshots acotados. | Fuente: informe configs Parte B | Dep: `CFG-05` |
 | `CFG-09` | 🟢 Baja | **Hooks ciclo de vida + statusLine + env** | `packages/events/src/EventBus.ts` · `apps/desktop/src/preload.ts` | 🟡 1-2d | 🔵 P3 | ✅ Completada (task docs/agent-ops/tasks/CFG-09.md) | Problema: sin hooks Pre/PostToolUse, statusLine, env por sesión. Acción: hooks config (comandos validados, kill switch disableAllHooks) + env inyectado + status command. Resultado: automatización ciclo de vida sin plugins. | Fuente: informe configs Parte D | Dep: `CFG-06` |
 | `CFG-10` | 🟡 Media | **Abort mid-token perfecto en router** | `packages/models/src/ModelRouter.ts:273-292` · `packages/runtime/src/ToolExecutionLoop.ts` | 🟢 0.5-1d | 🟡 P2 | ✅ Completada (task docs/agent-ops/tasks/CFG-10.md) | Problema: generateText hace fallback a mock ante AbortError (1 llamada desperdiciada, documentado). Acción: re-throw AbortError en router + checkpoint loop intacto. Resultado: cancelación inmediata sin mock fantasma. | Origen: sesión abort real | Dep: `CFG-01` |
-| `CFG-11` | 🟡 Media | **Coalescing + prioridad + input-to-paint** | `apps/desktop/renderer/components/ego-chat.tsx` · `apps/desktop/src/main.ts` | 🟡 1-2d | 🟡 P2 | 🆕 Pendiente | Problema: sin prioridad críticas>background, coalescing global, expiración obsoletos, métrica input-to-paint. Acción: cola priorizada IPC + coalescing lecturas + marcas tSend/tFirst/tPaint por frontera. Resultado: latencia medida y fairness. | Fuente: informe rendimiento | Dep: `CFG-01` |
+| `CFG-11` | 🟡 Media | **Coalescing + prioridad + input-to-paint** | `apps/desktop/renderer/components/ego-chat.tsx` · `apps/desktop/src/main.ts` | 🟡 1-2d | 🟡 P2 | ✅ Completada (task docs/agent-ops/tasks/CFG-11.md) | Problema: sin prioridad críticas>background, coalescing global, expiración obsoletos, métrica input-to-paint. Acción: cola priorizada IPC + coalescing lecturas + marcas tSend/tFirst/tPaint por frontera. Resultado: latencia medida y fairness. | Fuente: informe rendimiento | Dep: `CFG-01` |
 | `CFG-12` | 🟡 Media | **Composer completo con adjuntos backend** | `apps/desktop/renderer/components/ego-chat.tsx:636-650` · `apps/desktop/src/ipc/schema.ts` | 🟠 2-3d | 🟡 P2 | ✅ Completada (task docs/agent-ops/tasks/CFG-12.md) | Problema: botón + sin backend, ProseMirror solo EditorView (TODO PM-COMPOSER), sin voz/nivel permisos inline. Acción: capabilities.attachments real (límite tamaño/tipo, cuarentena), permisos inline; voz queda Futuro. Resultado: adjuntar funcional y seguro. | Origen: auditoría A1 | Dep: `CFG-06` |
 | `CFG-13` | 🟢 Baja | **Workbench extendido + personalización** | `apps/desktop/renderer/components/canvas/registry.ts` · `apps/desktop/renderer/src/App.tsx` | 🟠 2-3d | 🔵 P3 | ✅ Completada (task docs/agent-ops/tasks/CFG-13.md) | Problema: sin browser dev-servers, preview archivos, temas JSON portables, cron UI, atajos custom, notificaciones. Acción: browser view (solo loopback, con guards navegación), preview read-only, temas JSON import/export, cron UI sobre BackgroundEngine, atajos custom, notificaciones OS. Resultado: checklist features informe cubierto. | Fuente: informe stack §8 | Dep: `CFG-03` |
 | `CFG-14` | 🟡 Media | **Sitio docs + release beta end-to-end** | `docs/` · `scripts/generate-checksums.cjs` · `apps/desktop/electron-builder.config.cjs` | 🟡 1-2d | 🟡 P2 | ✅ Completada (task docs/agent-ops/tasks/CFG-14.md) | Problema: sin sitio (VitePress), sin screenshots/GIFs, sin búsqueda, pipeline beta no probado. Acción: VitePress mínimo + screenshots + SHASUMS en release beta unsigned + release-notes desde CHANGELOG. Firma DIST-04 sigue bloqueada owner (no implementar). Resultado: distribución unsigned verificable. | Origen: sesiones docs/dist | Dep: `CFG-01` |
+
+## CFG-11 — Ejecución (subagente, 2026-10-16)
+
+Entregables (solo `ego-chat.tsx` + sección nueva `main.ts` + 2 tests nuevos;
+`ipc/schema.ts`/ModelRouter/memoria/tools/events/subegos/docs-sitio/floating/*
+intactos, sin install):
+
+- `ego-chat.tsx`: `CFG11_FIRST_PAINT_TARGET_MS=800`, `createPaintMarks`,
+  `firstTokenLatencyMs/inputToPaintMs` (puros exportados) + `paintMarksRef`
+  (tSend antes de `llmStream`, tFirst en primer delta con texto, tPaint en
+  doble-rAF + `console.debug[chat.first_token]` 1/turno, cancel-safe).
+  Sin setState nuevo; aria-live/role=status/Jump/abort/Esc/BYOK intactos.
+- `src/main/ipc-priority-queue.ts` (nuevo, puro, sin Electron):
+  `IpcPriorityQueue` (critical>interactive>background, FIFO/nivel, coalesce
+  por key solo idempotentes, TTL 5s, fairness bg ≥1 slot cada 8 pops) + stats.
+- `main.ts` SOLO sección CFG-11 (`enqueueMainPush` fast-path + `drainMainPushQueue`
+  `setImmediate` acotado 256 + `getMainPushQueueStats`) + 6 call-sites misma
+  canal+payload: deltas/tool-events→interactive, `recall_status`→interactive
+  +coalesce `recall:turnId`, relays `ipc.event`→background. Críticos
+  (`turn-cancelled`/`chat.error`/`approval.request`) quedan directos.
+- `test/input-to-paint-cfg11.test.tsx` (4: puros + 1 DOM con `chat.first_token`)
+  + `test/ipc-priority-queue-cfg11.test.ts` (9: orden, fairness, coalesce, TTL).
+- Deuda: `ipc-contract.test.ts` falla PREEXISTENTE sin mis cambios (vía stash;
+  `floating:state_changed` concurrente fuera del contrato — área prohibida).
+
+=== RECITATION ===
+Objetivo activo: CFG-11 — Coalescing + prioridad + input-to-paint
+Estado: completed (desde: in-progress)
+Última acción: fila CFG-11 a ✅ + sección de ejecución en plan file + task CFG-11.md
+Resultado: ✅
+State: completed (desde: pending)
+Próxima acción: ninguna en CFG-11; resto según orden del plan (decide orquestador)
+Contrato: input-to-paint por frontera + fairness en test (9/9) ✅ + typecheck renderer 0 ✅ + typecheck desktop 0 ✅ + ChatStreaming 6/6 ✅ + a11y 15/15 ✅
+Invariantes: formato 10 columnas intacto; fuera de ego-chat.tsx+sección main+2 tests nuevos nada tocado salvo task/plan; sin schemas/ModelRouter/memoria/docs-sitio/floating; sin pnpm install
+Comandos de verificación: streaming+paint 10/10 ✅; queue 9/9 ✅; tsc renderer/desktop 0/0 ✅; a11y 15/15+snap 7/7 ✅; OCR pwsh7 sin Critical/High ✅; review fast-tier APPROVE ✅
+Deuda: ipc-contract preexistente (floating concurrente, verificado vía stash); getMainPushQueueStats sin callers (hook futuro)
+last-synced: 2026-10-16
+=== END RECITATION ===
 
 ## CFG-12 — Ejecución (subagente, 2026-10-16)
 
