@@ -12,8 +12,12 @@ vi.mock('electron', () => {
     setIgnoreMouseEvents: vi.fn(),
     getSize: vi.fn(() => [180, 180]),
     setPosition: vi.fn(),
+    loadURL: vi.fn(async () => undefined),
+    loadFile: vi.fn(async () => undefined),
     webContents: {
       send: vi.fn(),
+      on: vi.fn(),
+      setWindowOpenHandler: vi.fn(() => ({ action: "deny" as const })),
     },
   };
 
