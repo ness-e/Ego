@@ -13,7 +13,7 @@
 | `REV-02` | 🔴 Crítica | **Revisión seguridad total** | `apps/desktop/src/main.ts:2102-2202` · `apps/desktop/src/preload.ts:195-340` · `apps/desktop/src/ipc/schema.ts` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Problema: regresiones silenciosas en CSP/navegación/IPC/secrets tras 5 agentes paralelos. Acción: verificar webSecurity, guards navegación, CSP packaged estricta, Zod todo IPC, safeStorage sin tokens en renderer, grep secretos. Resultado: checklist seguridad en verde. | Origen: auditoría seguridad · Ver: `REV-01` | Dep: `REV-01` |
 | `REV-03` | 🟠 Alta | **Revisión testing total y suites en verde** | `apps/desktop/renderer/test/` · `apps/desktop/test/` · `.github/workflows/ci.yml:10-83` | 🟡 1-2d | 🔴 P0 | 🆕 Pendiente | Problema: suites parciales, skips por falta de install, fails ambientales. Acción: correr typecheck/build/test raíz, registrar preexistentes vs regresiones, exigir 0 regresiones. Resultado: estado verde documentado con evidencia. | Origen: auditorías testing · Ver: `REV-01` | Dep: `REV-01` |
 | `CFG-01` | 🟠 Alta | **pnpm install + verde total post-instalación** | `apps/desktop/renderer/package.json:36-47` · `apps/desktop/package.json` · `apps/desktop/renderer/test/setup.ts:59-76` | 🟢 0.5-1d | 🔴 P0 | ✅ Completada (task docs/agent-ops/tasks/CFG-01.md) | Problema: RTL/MSW/coverage añadidos sin install (tests skipean), CharacterMorph 2 fails por mock reduced-motion, DelegationRouter 13 fails sin nativo. Acción: pnpm install, conciliar mock CharacterMorph (tests fuerzan matches:false), correr suites con EGO_REAL_DB=1 donde aplique. Resultado: 0 skips injustificados y fails solo ambientales documentados. | Origen: sesiones RTL/MSW 2026-10-15 · Ver: `REV-03` | Dep: `REV-03` |
-| `CFG-02` | 🟠 Alta | **E2E Electron real ejecutado** | `tests/gui/electron/shell.electron.ts:69` · `tests/gui/electron.playwright.config.ts` · `docs/engineering/testing-e2e.md` | 🟡 1-2d | 🟠 P1 | 🆕 Pendiente | Problema: skeleton existe pero nunca corrido (requiere build+install+Xvfb). Acción: build desktop, install gui, correr en Xvfb, mock diálogos, shell pinta header+Chat+Canvas. Resultado: primer E2E real en verde o fails documentados con issue. | Origen: sesión E2E · Ver: `CFG-01` | Dep: `CFG-01` |
+| `CFG-02` | 🟠 Alta | **E2E Electron real ejecutado** | `tests/gui/electron/shell.electron.ts:69` · `tests/gui/electron.playwright.config.ts` · `docs/engineering/testing-e2e.md` | 🟡 1-2d | 🟠 P1 | ✅ Completada (task docs/agent-ops/tasks/CFG-02.md) | Problema: skeleton existe pero nunca corrido (requiere build+install+Xvfb). Acción: build desktop, install gui, correr en Xvfb, mock diálogos, shell pinta header+Chat+Canvas. Resultado: primer E2E real en verde o fails documentados con issue. | Origen: sesión E2E · Ver: `CFG-01` | Dep: `CFG-01` |
 | `CFG-03` | 🟡 Media | **Perfiles nombrados modelo+sandbox+aprobación** | `apps/desktop/src/ipc/schema.ts:238-250` · `packages/subegos/src/SubEgoRegistry.ts` | 🟡 1-2d | 🟠 P1 | 🆕 Pendiente | Problema: sin bundle nombrado planner/reviewer/researcher/builder (Codex explore/build/deep). Acción: schema gov/settings/profiles en VantaDB+Zod (nombre, modelo, sandbox, aprobación, toolsets), sin archivos ~/.codex (guardrail: Zod+VantaDB). Resultado: 4 perfiles creables/listables con least-privilege. | Fuente: informe configs Parte C · Ver: `REV-01` | Dep: `REV-01` |
 | `CFG-04` | 🟡 Media | **Reasoning effort + aliases + review model** | `apps/desktop/src/ipc/schema.ts:238-250` · `packages/models/src/ModelRouter.ts` | 🟢 0.5-1d | 🟡 P2 | 🆕 Pendiente | Problema: sin aliases fast/smart, review_model, effortLevel, availableModels/fallbackModel. Acción: extender ModelConfigSchema+router (effort→provider params, aliases resuelven, fallback chain). Resultado: planner frontier + hijos baratos configurables. | Fuente: informe configs Parte C/D | Dep: `CFG-03` |
 | `CFG-05` | 🟡 Media | **Compresión y retención de contexto** | `packages/runtime/src/` · `packages/memory/` | 🟡 1-2d | 🟠 P1 | 🆕 Pendiente | Problema: sin compression.threshold/target_ratio, auto_compact limit, cleanupPeriodDays, autoMemory. Acción: settings compresión + job compactación (snapshot volátil, nunca mid-turn salvo compresión per PromptAssembly), retención sesiones. Resultado: sin desbordamiento y memoria curada. | Fuente: informe configs Parte B | Dep: `CFG-03` |
@@ -123,6 +123,46 @@ Contrato: install exit 0 ✅ + typechecks renderer/desktop/subegos 0 errores ✅
 Invariantes: formato 10 columnas intacto; fuera de 4 src subegos + task/plan nada tocado; WIP ajeno (ps1/py/png/isla-flotante/__pycache__/verify-audit.jsonl) excluido del commit; commit LOCAL, nunca push
 Comandos de verificación: `pnpm install` EXIT:0 ✅; `tsc --noEmit` renderer/desktop/subegos 0 err ✅; `vitest run` RTL 7/7 ✅ MSW 4/4 ✅ DelegationRouter 13/13 ✅ IPC-DB 5/5 ✅; full subegos 212/212 ✅ renderer 297/297 ✅
 Deuda: ninguna nueva; flaky renderer run 1 no identificado (no reproduce) → FIND-* si reaparece
+last-synced: 2026-10-16
+=== END RECITATION ===
+
+## CFG-02 — Ejecución (subagente, 2026-10-16)
+
+Entregables (solo `tests/gui/electron/shell.electron.ts` + lock reconciliado;
+`main.ts`/renderer/schemas/memoria/runtime/tasks/tools/events/subegos/docs-sitio/floating/*
+intactos, sin install raíz):
+
+- Build fresco `pnpm --filter @ego/desktop build` OK (26.7s, `out/main/main.js`
+  187798 bytes, verify-dist TODOS LOS CHEQUEOS EN VERDE) + `tests/gui`
+  reconciliado mecánicamente (`pnpm-lock.yaml` `^1.49.0→1.64.0`, versión resuelta intacta).
+- `shell.electron.ts` (4 fixes test-side con causa raíz, 1 variable por vez):
+  (1) `REPO_ROOT` off-by-one (`../..`→`../../..`, apuntaba a `tests/` → skip
+  honesto falso); (2) race ventana (`firstWindow` antes del `evaluate`;
+  `createWindow` es async post-`whenReady` — `main.ts:5149-5156` solo lectura);
+  (3) launch por DIRECTORIO (`package.json: main=out/main/main.js` resuelve al
+  mismo bundle; por archivo `getAppPath()=out/main` → `htmlPath` inexistente →
+  `chrome-error://` negro); (4) botón Canvas `exact:true` (tab vs `Ir al Canvas`).
+- Primer E2E real verde 2/2 runs (2.5s/2.6s): `_electron.launch` abre,
+  `BrowserWindow ≥1` (evaluate en main), header `Ego`+`Cognitive OS`,
+  `section[aria-label="Chat"]`, tab Canvas → `Superficie Generativa`,
+  diálogos mockeados vía `evaluate` (sin popups). CI job `e2e-electron`
+  verificado en `ci.yml:158-266` (matriz 3 SO, `xvfb-run -a` Linux, artefactos
+  por-OS) — sin cambios requeridos; Xvfb N/A en Windows documentado.
+- Deuda: `main.ts:5092` frágil en launch desempaquetado por archivo
+  (candidato hardening REV-02, fuera de alcance aquí).
+- Task: `docs/agent-ops/tasks/CFG-02.md`.
+
+=== RECITATION ===
+Objetivo activo: CFG-02 — E2E Electron real ejecutado
+Estado: completed (desde: in-progress)
+Última acción: fila CFG-02 a ✅ + sección de ejecución en plan file + task CFG-02.md
+Resultado: ✅
+State: completed (desde: pending)
+Próxima acción: ninguna en CFG-02; testing cerrado — resto según orden del plan (decide orquestador)
+Contrato: build OK ✅ + gui install OK ✅ + E2E 2/2 verde (header+Chat+Canvas, diálogos mockeados) ✅ + 0 regresiones ✅
+Invariantes: formato 10 columnas intacto; fuera de shell.electron.ts+lock gui nada tocado salvo task/plan; sin main.ts/schemas/ModelRouter/memoria/docs-sitio/floating; WIP ajeno excluido; commit LOCAL, nunca push
+Comandos de verificación: `pnpm --filter @ego/desktop build` ✅; `pnpm test:e2e:electron` 1/1 passed ×2 ✅; `tsc --noEmit -p tsconfig.json` (gui) 0 err ✅; OCR Group 1 sin findings ✅; review degradado APPROVE ✅
+Deuda: `main.ts:5092` htmlPath frágil unpacked-por-archivo (candidato REV-02)
 last-synced: 2026-10-16
 === END RECITATION ===
 

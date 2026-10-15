@@ -20,7 +20,7 @@ import { _electron as electron } from "playwright";
 import { test, expect } from "@playwright/test";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(here, "..", "..");
+const REPO_ROOT = path.resolve(here, "..", "..", "..");
 const DESKTOP_DIR = path.join(REPO_ROOT, "apps", "desktop");
 
 // Bundle del main compilado por `pnpm build` (electron-vite → out/main).
@@ -66,9 +66,17 @@ test("electron shell: header Ego + Chat + Canvas, sin diálogos nativos", async 
   const userDataDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "ego-e2e-electron-"));
   const workspaceDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "ego-e2e-workspace-"));
 
+  // `app.getAppPath()` en launch desempaquetado = dirname del entry
+  // (`out/main`), NO `apps/desktop`: pasar el ARCHIVO como arg deja
+  // `htmlPath` en `out/main/out/renderer/index.html` (inexistente) y la
+  // ventana queda en `chrome-error://` (pantalla negra). Lanzar por
+  // DIRECTORIO (`package.json: main=out/main/main.js` resuelve al mismo
+  // bundle) deja `getAppPath() === apps/desktop`, como en la app empaquetada.
+  // `EGO_ELECTRON_MAIN` = override explícito del owner (se usa tal cual).
+  const launchArg = process.env.EGO_ELECTRON_MAIN ?? DESKTOP_DIR;
   const electronApp = await electron.launch({
     executablePath,
-    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+    args: [launchArg, `--user-data-dir=${userDataDir}`],
     // app.getAppPath() === apps/desktop → resuelve out/renderer/index.html.
     cwd: DESKTOP_DIR,
     env: {
@@ -79,7 +87,13 @@ test("electron shell: header Ego + Chat + Canvas, sin diálogos nativos", async 
     },
   });
   try {
-    // 1. Mock preventivo de diálogos nativos en el proceso MAIN (antes de
+    // 1. Esperar la ventana primero: `createWindow` corre async tras
+    // `app.whenReady` (init de memoria/adapters), así que un `evaluate`
+    // inmediato ve 0 ventanas (race, no bug). `firstWindow` espera hasta 60s.
+    const window = await electronApp.firstWindow({ timeout: 60_000 });
+    await window.waitForLoadState("domcontentloaded", { timeout: 60_000 });
+
+    // 2. Mock preventivo de diálogos nativos en el proceso MAIN (antes de
     // cualquier interacción que pudiera abrirlos).
     await electronApp.evaluate(async (api: unknown) => {
       const { dialog } = api as ElectronSmokeApi;
@@ -96,8 +110,6 @@ test("electron shell: header Ego + Chat + Canvas, sin diálogos nativos", async 
     expect(windowCount).toBeGreaterThanOrEqual(1);
 
     // 3. Shell pinta: header Ego…
-    const window = await electronApp.firstWindow({ timeout: 60_000 });
-    await window.waitForLoadState("domcontentloaded", { timeout: 60_000 });
     await expect(window.getByText("Ego", { exact: true }).first()).toBeVisible();
     await expect(window.getByText("Cognitive OS").first()).toBeVisible();
 
@@ -111,7 +123,7 @@ test("electron shell: header Ego + Chat + Canvas, sin diálogos nativos", async 
     const workspace = window.locator('section[aria-label="Área de trabajo dinámica"]');
     await expect(workspace).toBeVisible();
     await expect(workspace.getByText("Dynamic Workspace").first()).toBeVisible();
-    await workspace.getByRole("button", { name: "Canvas" }).click();
+    await workspace.getByRole("button", { name: "Canvas", exact: true }).click();
     await expect(workspace.getByText("Superficie Generativa").first()).toBeVisible();
   } finally {
     await electronApp.close();
