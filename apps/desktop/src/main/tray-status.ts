@@ -55,3 +55,58 @@ export function trayTooltipFor(status: EgoTrayStatus): string {
   if (status === "hitl") return "Ego — requiere aprobación (HITL)";
   return "Ego — inactivo";
 }
+
+/**
+ * Task10 (COUC-19): dependencia mínima del BackgroundEngine para pausar y
+ * reanudar sin importar `@ego/tasks` (este módulo es puro y testeable en
+ * vitest node). Cubre `pause(taskId)`/`resume(taskId)` + `listTasks`.
+ */
+export interface PausableTaskEngine {
+  listTasks(filter?: { status?: string[] }): Array<{ id: string }>;
+  pause(taskId: string): boolean;
+  resume(taskId: string): boolean;
+}
+
+/**
+ * Pausa todas las tareas activas (`running` + `queued` + `submitted`) sin
+ * cerrar ventanas ni cancelar trabajo: el engine conserva el estado y
+ * `resumeAllTasks` lo re-encola. Retorna los ids efectivamente pausados.
+ */
+export function pauseAllTasks(engine: PausableTaskEngine | null | undefined): string[] {
+  if (!engine) return [];
+  let tasks: Array<{ id: string }> = [];
+  try {
+    tasks = engine.listTasks({ status: ["running", "queued", "submitted"] });
+  } catch {
+    return [];
+  }
+  const paused: string[] = [];
+  for (const t of tasks) {
+    try {
+      if (engine.pause(t.id)) paused.push(t.id);
+    } catch {
+      // best-effort por tarea: una falla no bloquea el resto
+    }
+  }
+  return paused;
+}
+
+/** Re-encola todas las tareas en `paused`. Retorna los ids reanudados. */
+export function resumeAllTasks(engine: PausableTaskEngine | null | undefined): string[] {
+  if (!engine) return [];
+  let tasks: Array<{ id: string }> = [];
+  try {
+    tasks = engine.listTasks({ status: ["paused"] });
+  } catch {
+    return [];
+  }
+  const resumed: string[] = [];
+  for (const t of tasks) {
+    try {
+      if (engine.resume(t.id)) resumed.push(t.id);
+    } catch {
+      // best-effort por tarea
+    }
+  }
+  return resumed;
+}

@@ -14,6 +14,38 @@ export const WindowStateSchema = z.object({
 
 export type WindowState = z.infer<typeof WindowStateSchema>;
 
+/**
+ * Task10 (WIDG-05): estado persistente de la ventana flotante.
+ * `presenceMode`: "auto" (autoshow por trabajo/HITL) | "always" (siempre
+ * visible) | "never" (nunca; equivale a presencia desactivada). Sin TTL:
+ * persiste indefinidamente igual que `main_window` (restore tras crash).
+ */
+export const FloatingPresenceModeSchema = z.enum(["auto", "always", "never"]);
+
+export type FloatingPresenceMode = z.infer<typeof FloatingPresenceModeSchema>;
+
+export const FloatingWindowPersistSchema = z.object({
+  x: z.number().optional(),
+  y: z.number().optional(),
+  muted: z.boolean().default(false),
+  disabled: z.boolean().default(false),
+  presenceMode: FloatingPresenceModeSchema.default("auto"),
+});
+
+export type FloatingWindowPersist = z.infer<typeof FloatingWindowPersistSchema>;
+
+export interface FloatingWindowExtra {
+  muted: boolean;
+  disabled?: boolean;
+  presenceMode?: FloatingPresenceMode;
+}
+
+/** Envelope del fallback local: ambas ventanas en un solo `window-state.json`. */
+const WindowStateFileSchema = z.object({
+  main_window: WindowStateSchema.optional(),
+  floating_window: FloatingWindowPersistSchema.optional(),
+});
+
 export interface WindowStateManagerOptions {
   userDataDir: string;
   adapter?: any;
@@ -28,6 +60,9 @@ export class WindowStateManager {
   private readonly defaultHeight: number;
   private saveTimeout: NodeJS.Timeout | null = null;
   private trackedWindow: BrowserWindow | null = null;
+  /** Task10: debounce y ventana independientes para la flotante. */
+  private floatingSaveTimeout: NodeJS.Timeout | null = null;
+  private trackedFloatingWindow: BrowserWindow | null = null;
 
   constructor(options: WindowStateManagerOptions) {
     this.fallbackFilePath = path.join(options.userDataDir, "window-state.json");
@@ -121,15 +156,114 @@ export class WindowStateManager {
       }
     }
 
-    // 2. Guardar en archivo fallback local
+    // 2. Guardar en archivo fallback local (envelope, preservando flotante)
     try {
-      const dir = path.dirname(this.fallbackFilePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(this.fallbackFilePath, JSON.stringify(state, null, 2), "utf8");
+      const envelope = this.readEnvelopeFile();
+      envelope.main_window = state;
+      this.writeEnvelopeFile(envelope);
     } catch (err) {
       console.warn("[WindowStateManager] Advertencia al persistir en archivo fallback:", err);
+    }
+  }
+
+  /**
+   * Task10 (WIDG-05): restaura el estado persistente de la flotante
+   * (posición + mute + presencia). Sin registro previo → defaults
+   * `{ muted: false, disabled: false, presenceMode: "auto" }`.
+   */
+  public async restoreFloatingState(): Promise<FloatingWindowPersist> {
+    const loaded = await this.loadFloatingState();
+    const state: FloatingWindowPersist = loaded ?? {
+      muted: false,
+      disabled: false,
+      presenceMode: "auto",
+    };
+    return this.validateFloatingBoundsAgainstDisplays(state);
+  }
+
+  /**
+   * Task10: conecta el movimiento de la flotante con guardado mediante
+   * debounce de 500ms (igual que la principal). `getExtra` aporta
+   * muted/disabled/presenceMode vivos del `FloatingWindowManager`.
+   * Re-llamar con la misma ventana no duplica listeners.
+   */
+  public trackFloatingWindow(
+    win: BrowserWindow,
+    getExtra: () => FloatingWindowExtra
+  ): void {
+    if (this.trackedFloatingWindow === win) {
+      return;
+    }
+    this.trackedFloatingWindow = win;
+
+    const debouncedSave = () => {
+      if (this.floatingSaveTimeout) {
+        clearTimeout(this.floatingSaveTimeout);
+      }
+      this.floatingSaveTimeout = setTimeout(() => {
+        void this.saveCurrentFloatingState(getExtra);
+      }, 500);
+    };
+
+    win.on("move", debouncedSave);
+
+    win.on("close", () => {
+      if (this.floatingSaveTimeout) {
+        clearTimeout(this.floatingSaveTimeout);
+      }
+      void this.saveCurrentFloatingState(getExtra);
+    });
+  }
+
+  /** Task10: guarda la posición actual de la flotante + extras vivos. */
+  public async saveCurrentFloatingState(
+    getExtra?: () => FloatingWindowExtra
+  ): Promise<void> {
+    if (!this.trackedFloatingWindow || this.trackedFloatingWindow.isDestroyed()) {
+      return;
+    }
+
+    const bounds = this.trackedFloatingWindow.getBounds();
+    const extra: FloatingWindowExtra = getExtra ? getExtra() : { muted: false };
+
+    await this.persistFloatingState({
+      x: bounds.x,
+      y: bounds.y,
+      muted: extra.muted ?? false,
+      disabled: extra.disabled ?? false,
+      presenceMode: extra.presenceMode ?? "auto",
+    });
+  }
+
+  /** Task10: persiste la flotante en VantaDB (`floating_window`) + fallback. */
+  public async persistFloatingState(state: FloatingWindowPersist): Promise<void> {
+    const parsed = FloatingWindowPersistSchema.safeParse(state);
+    const payload = parsed.success ? parsed.data : state;
+
+    if (this.adapter && typeof this.adapter.put === "function") {
+      try {
+        await this.adapter.put({
+          namespace: "system/window-state",
+          key: "floating_window",
+          payload,
+          metadata: { updated_at: Date.now() },
+        });
+      } catch (err) {
+        console.warn("[WindowStateManager] Advertencia al persistir flotante en VantaDB:", err);
+      }
+    }
+
+    try {
+      const envelope = this.readEnvelopeFile();
+      envelope.floating_window = parsed.success
+        ? parsed.data
+        : FloatingWindowPersistSchema.parse({
+            ...state,
+            presenceMode: (state as { presenceMode?: unknown }).presenceMode ?? "auto",
+          });
+      this.writeEnvelopeFile(envelope);
+    } catch (err) {
+      console.warn("[WindowStateManager] Advertencia al persistir flotante en fallback:", err);
     }
   }
 
@@ -185,6 +319,120 @@ export class WindowStateManager {
     });
   }
 
+  /**
+   * Task10: valida la posición flotante contra las pantallas conectadas.
+   * La flotante es 180×180; si quedó en un monitor desconectado se
+   * resetea a posición por defecto (x/y undefined) conservando
+   * muted/disabled/presenceMode. `displays` inyectable para tests.
+   */
+  public validateFloatingBoundsAgainstDisplays(
+    state: FloatingWindowPersist,
+    displays?: Display[]
+  ): FloatingWindowPersist {
+    if (state.x === undefined || state.y === undefined) {
+      return state;
+    }
+
+    try {
+      const all =
+        displays ??
+        (screen && typeof screen.getAllDisplays === "function"
+          ? screen.getAllDisplays()
+          : []);
+      if (!all || all.length === 0) {
+        return state;
+      }
+
+      const isVisible = WindowStateManager.isVisibleOnAnyDisplay(
+        { x: state.x, y: state.y, width: 180, height: 180 },
+        all
+      );
+
+      if (!isVisible) {
+        const { x: _x, y: _y, ...rest } = state;
+        return { ...rest };
+      }
+    } catch {
+      // Sin API screen (tests) se conserva el estado.
+    }
+
+    return state;
+  }
+
+  private async loadFloatingState(): Promise<FloatingWindowPersist | null> {
+    // 1. VantaDB (`floating_window`); tolera registros viejos sin presenceMode.
+    if (this.adapter && typeof this.adapter.get === "function") {
+      try {
+        const record = await this.adapter.get("system/window-state", "floating_window");
+        if (record) {
+          let payload = record;
+          if (typeof record === "object" && record !== null && "payload" in record) {
+            payload = (record as { payload: unknown }).payload;
+          }
+          const parsed = FloatingWindowPersistSchema.safeParse({
+            ...(payload as Record<string, unknown>),
+            presenceMode:
+              (payload as { presenceMode?: unknown }).presenceMode ?? "auto",
+          });
+          if (parsed.success) {
+            return parsed.data;
+          }
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    // 2. Fallback local (envelope).
+    try {
+      const envelope = this.readEnvelopeFile();
+      if (envelope.floating_window) {
+        return envelope.floating_window;
+      }
+    } catch {
+      // noop
+    }
+
+    return null;
+  }
+
+  /** Lee el envelope local; tolera el shape viejo plano (solo main). */
+  private readEnvelopeFile(): {
+    main_window?: WindowState;
+    floating_window?: FloatingWindowPersist;
+  } {
+    if (!fs.existsSync(this.fallbackFilePath)) {
+      return {};
+    }
+    try {
+      const raw = fs.readFileSync(this.fallbackFilePath, "utf8");
+      const json = JSON.parse(raw) as unknown;
+      const envelope = WindowStateFileSchema.safeParse(json);
+      if (envelope.success) {
+        return { ...envelope.data };
+      }
+      // Shape legado plano = estado de la principal.
+      const legacy = WindowStateSchema.safeParse(json);
+      if (legacy.success) {
+        return { main_window: legacy.data };
+      }
+    } catch {
+      // noop: archivo corrupto → envelope vacío
+    }
+    return {};
+  }
+
+  private writeEnvelopeFile(envelope: {
+    main_window?: WindowState;
+    floating_window?: FloatingWindowPersist;
+  }): void {
+    const dir = path.dirname(this.fallbackFilePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(this.fallbackFilePath, JSON.stringify(envelope, null, 2), "utf8");
+  }
+
   private async loadState(): Promise<WindowState | null> {
     // 1. Intentar cargar desde VantaDB
     if (this.adapter && typeof this.adapter.get === "function") {
@@ -205,17 +453,14 @@ export class WindowStateManager {
       }
     }
 
-    // 2. Intentar cargar desde archivo fallback local
-    if (fs.existsSync(this.fallbackFilePath)) {
-      try {
-        const raw = fs.readFileSync(this.fallbackFilePath, "utf8");
-        const parsed = WindowStateSchema.safeParse(JSON.parse(raw));
-        if (parsed.success) {
-          return parsed.data;
-        }
-      } catch {
-        // noop
+    // 2. Intentar cargar desde archivo fallback local (envelope o legado plano)
+    try {
+      const envelope = this.readEnvelopeFile();
+      if (envelope.main_window) {
+        return envelope.main_window;
       }
+    } catch {
+      // noop
     }
 
     return null;

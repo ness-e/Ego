@@ -139,4 +139,26 @@ export class FloatingWindowManager {
     this.prototype.destroy();
     this.state.visible = false;
   }
+
+  /**
+   * Task10 (WIDG-05/COUC-19): reposiciona la flotante al display actual
+   * (llamado desde `main.ts` en `display-metrics-changed`/`display-added`/
+   * `display-removed`; gap Task4: nunca se llamaba desde main).
+   */
+  public repositionToDisplay(displayPoint?: { x: number; y: number }): void {
+    this.prototype.repositionToDisplay(displayPoint);
+  }
+
+  /** Task10: aplica la posición restaurada de la persistencia. */
+  public setPosition(x: number, y: number): void {
+    const win = this.prototype.getWindow();
+    if (win && !win.isDestroyed()) {
+      win.setPosition(x, y, true);
+    }
+  }
+
+  /** Task10: expone la ventana para `trackFloatingWindow` (persistencia). */
+  public getFloatingWindow(): import('electron').BrowserWindow | null {
+    return this.prototype.getWindow();
+  }
 }

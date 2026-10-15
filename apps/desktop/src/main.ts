@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage, session, shell } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage, screen, session, shell } from "electron";
 import { join, resolve as resolveFsPath, isAbsolute as isAbsoluteFsPath, relative as relativeFsPath } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
@@ -184,6 +184,8 @@ import {
   TRAY_COLORS,
   pngChunk,
   trayTooltipFor,
+  pauseAllTasks,
+  resumeAllTasks,
   type EgoTrayStatus,
 } from "./main/tray-status.js";
 import {
@@ -257,6 +259,10 @@ let trayStatus: EgoTrayStatus = "idle";
 // Task4 (D2): singleton del flotante — instancia ÚNICA creada en
 // createWindow (ready); el handler setMuted lo crea lazy si hiciera falta.
 let floatMgr: FloatingWindowManager | null = null;
+
+// Task10 (WIDG-05): posición flotante restaurada de la persistencia;
+// se aplica al mostrar la flotante (main + flotante sobreviven reinicio).
+let floatingRestoredPosition: { x: number; y: number } | null = null;
 
 function ensureFloatMgr(): FloatingWindowManager {
   if (!floatMgr) {
@@ -530,7 +536,57 @@ function syncFloatingFromEngine(): void {
   refreshTrayStatus();
 }
 
-/** Tray mínimo útil: click restaura, menú Mostrar/Salir, tooltip de estado. */
+/**
+ * Task10 (COUC-19): emite el canal `tray:id` al renderer principal
+ * (el tray es espejo del estado: click/acciones notifican sin tumbar main).
+ */
+function emitTrayId(action: string): void {
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("tray:id", { action, status: trayStatus });
+    }
+  } catch {
+    // noop: el push al renderer nunca tumba el main
+  }
+}
+
+/**
+ * Task10 (COUC-19): Pause detiene el BackgroundEngine (running+queued →
+ * paused) SIN cerrar ventanas; Reanudar lo re-encola. Lógica pura en
+ * `main/tray-status.ts` (testeable); aquí solo wiring + sync visual.
+ */
+function pauseAllBackgroundTasks(): string[] {
+  let paused: string[] = [];
+  try {
+    if (backgroundEngine) {
+      paused = pauseAllTasks(backgroundEngine);
+    }
+  } catch {
+    // noop
+  }
+  try {
+    ensureFloatMgr().updateState({ attentionState: "hidden" });
+  } catch {
+    // noop
+  }
+  refreshTrayStatus();
+  return paused;
+}
+
+function resumeAllBackgroundTasks(): string[] {
+  let resumed: string[] = [];
+  try {
+    if (backgroundEngine) {
+      resumed = resumeAllTasks(backgroundEngine);
+    }
+  } catch {
+    // noop
+  }
+  syncFloatingFromEngine();
+  return resumed;
+}
+
+/** Task10 (WIDG-05/COUC-19): tray completo — Abrir/Settings/Pause/Quit + `tray:id`. */
 function ensureTray(): void {
   if (tray) {
     refreshTrayStatus();
@@ -548,6 +604,19 @@ function ensureTray(): void {
         }
         // Task4 (D2): al restaurar la principal, ocultar el flotante.
         if (floatMgr) floatMgr.hide();
+        emitTrayId("open");
+      } catch {
+        // noop
+      }
+    };
+    const openSettings = (): void => {
+      try {
+        if (win && !win.isDestroyed()) {
+          if (win.isMinimized()) win.restore();
+          win.show();
+          win.focus();
+        }
+        emitTrayId("open-settings");
       } catch {
         // noop
       }
@@ -555,7 +624,23 @@ function ensureTray(): void {
     tray.on("click", restore);
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: "Mostrar Ego", click: restore },
+        { label: "Abrir Ego", click: restore },
+        { label: "Configuración", click: openSettings },
+        { type: "separator" },
+        {
+          label: "Pausar tareas",
+          click: (): void => {
+            const paused = pauseAllBackgroundTasks();
+            emitTrayId(`pause:${paused.length}`);
+          },
+        },
+        {
+          label: "Reanudar tareas",
+          click: (): void => {
+            const resumed = resumeAllBackgroundTasks();
+            emitTrayId(`resume:${resumed.length}`);
+          },
+        },
         { type: "separator" },
         {
           label: "Salir",
@@ -3254,18 +3339,71 @@ export async function createWindow(): Promise<void> {
 
   // Task4 (D2): flotante instanciado UNA vez en ready + autoshow al minimizar
   // con trabajo/HITL (win.hide + floatMgr.show; sin trabajo = minimize normal).
+  // Task10 (WIDG-05): restore de persistencia flotante (mute/presencia/pos).
   ensureFloatMgr();
+  try {
+    const floatingState = await windowStateManager.restoreFloatingState();
+    ensureFloatMgr().setMuted(floatingState.muted);
+    ensureFloatMgr().setDisabled(floatingState.disabled ?? false);
+    floatingRestoredPosition =
+      floatingState.x !== undefined && floatingState.y !== undefined
+        ? { x: floatingState.x, y: floatingState.y }
+        : null;
+  } catch {
+    // noop: sin persistencia previa la flotante arranca con defaults
+  }
   win.on("minimize", () => {
     try {
       if (!win || win.isDestroyed()) return;
       if (shouldAutoShow(floatingSnapshot())) {
         win.hide();
         ensureFloatMgr().show();
+        // Task10: aplica posición restaurada y trackea movimiento (debounce).
+        try {
+          if (floatingRestoredPosition) {
+            ensureFloatMgr().setPosition(
+              floatingRestoredPosition.x,
+              floatingRestoredPosition.y
+            );
+          }
+          const floatingWin = ensureFloatMgr().getFloatingWindow();
+          if (floatingWin && !floatingWin.isDestroyed()) {
+            windowStateManager.trackFloatingWindow(floatingWin, () => {
+              const st = ensureFloatMgr().getState();
+              // presenceMode vive en persistencia (default "auto"; settings UI → Task12).
+              return {
+                muted: st.muted,
+                disabled: st.disabled ?? false,
+                presenceMode: "auto" as const,
+              };
+            });
+          }
+        } catch {
+          // noop: la flotante visible vale más que su persistencia
+        }
       }
     } catch {
       // noop: minimizar nunca falla por el flotante
     }
   });
+
+  // Task10 (COUC-19 cierre): reposiciona la flotante ante cambios de
+  // displays (multi-monitor/DPI). Límite Wayland: el evento puede no
+  // dispararse; el restore ya valida bounds defensivamente.
+  try {
+    const repositionFloatingOnDisplayChange = (): void => {
+      try {
+        ensureFloatMgr().repositionToDisplay();
+      } catch {
+        // noop
+      }
+    };
+    screen.on("display-metrics-changed", repositionFloatingOnDisplayChange);
+    screen.on("display-added", repositionFloatingOnDisplayChange);
+    screen.on("display-removed", repositionFloatingOnDisplayChange);
+  } catch {
+    // noop: sin screen (ciertos tests) no hay suscripción
+  }
 
   // R13/SEC-01 — CSP estricta vía cabeceras (defensa en profundidad sobre la
   // meta CSP de `renderer/index.html`; `sandbox:true` ya mitiga el riesgo base).
@@ -4703,12 +4841,22 @@ export async function createWindow(): Promise<void> {
 
   // Task4 (D2): cierra la deuda Task3 (preload `egoFloating.setMuted`).
   // Zod fail-closed; actualiza el manager aunque la ventana aún no exista.
+  // Task10 (WIDG-05): persiste el mute para que sobreviva reinicio+crash.
   ipcMain.handle("ipc.floating.setMuted", async (_e, rawReq: unknown) => {
     const parseResult = FloatingSetMutedSchema.safeParse(rawReq);
     if (!parseResult.success) {
       return { ok: false, error: parseResult.error.message };
     }
     ensureFloatMgr().setMuted(parseResult.data.muted);
+    try {
+      const current = await windowStateManager.restoreFloatingState();
+      await windowStateManager.persistFloatingState({
+        ...current,
+        muted: parseResult.data.muted,
+      });
+    } catch {
+      // noop: el mute en memoria ya se aplicó
+    }
     return { ok: true, muted: parseResult.data.muted };
   });
 
