@@ -241,7 +241,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/renderer test` verde con `render/screen/user-event/getByRole` en App/ApprovalCard/Omnibar/Chat/Canvas + `test/msw/ego-handlers.ts` browser + `Chat.rtl.msw.test` streaming 🧠 ok/error/latencia
 - **Task file:** `docs/agent-ops/tasks/STAB-08.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (commit `0efcc81` local; 40f/273t + typecheck verdes; 7/7 steps; review P2-01 por agente distinto pendiente → orquestador)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
@@ -265,7 +265,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm build` + `build:verify` verdes + `lazy()` Canvas/Daily/SubEgos/Domains con `Suspense skeleton` + Tailwind `v4.x` estable sin `-beta.8`
 - **Task file:** `docs/agent-ops/tasks/STAB-09.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** 🟡 REVIEW-PENDIENTE (8/8 steps ✅ + `typecheck` 0 err + `build` + `build:verify` verdes + commit `47780a5` local; hunk `App.tsx` vive en `a1419c5` por sweep concurrente STAB-10; falta veredicto review P2-01 por agente distinto)
 - **Branch:**
 - **Commit:**
   **Risk Register:**
