@@ -1,0 +1,34 @@
+name: Feature request
+description: Propose a capability for Ego (aligned to the 12-phase roadmap).
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / capability
+      description: What user capability (QUÉ) does this enable? Keep architecture (CÓMO) out.
+      placeholder: "As a user I want…"
+    validations:
+      required: true
+  - type: input
+    id: phase
+    attributes:
+      label: Roadmap phase (01–12)
+      description: Which phase from AGENTS.md §6? Strict sequential progression applies.
+      placeholder: "01 Core"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Verifiable criteria (functional + error + persistence + no regressions).
+  - type: checkboxes
+    id: guardrails
+    attributes:
+      label: Guardrail notes
+      options:
+        - label: Respects Electron security model (no VantaDB / no business logic in renderer, typed IPC)
+        - label: Accesses memory only via EgoMemoryAdapter (no direct VantaDB access)
+        - label: Uses Sub-Ego terminology for any user-facing naming

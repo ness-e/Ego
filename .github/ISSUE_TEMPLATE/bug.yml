@@ -1,0 +1,47 @@
+name: Bug report
+description: Report a reproducible defect in Ego desktop or packages.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For **security vulnerabilities**, do NOT use this form — see `SECURITY.md` and report privately to the owner.
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Ego version or commit SHA + OS.
+      placeholder: "0.1.0 (abc1234) on Windows 11"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps, expected vs actual behavior.
+      placeholder: "1. Open Ego… 2. … Expected X, got Y."
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, screenshots, failing command output (pnpm test/typecheck).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - apps/desktop (main/preload/renderer/IPC)
+        - packages/memory (EgoMemoryAdapter/VantaDB)
+        - packages/runtime/execution/tools
+        - packages/models (Model Router)
+        - other package
+  - type: checkboxes
+    id: guardrails
+    attributes:
+      label: Checklist
+      options:
+        - label: I ran `pnpm lint` and `pnpm typecheck` where applicable
+        - label: This is not a security vulnerability (those go private per SECURITY.md)
