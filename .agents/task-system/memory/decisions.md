@@ -63,3 +63,6 @@ Formato: `Tema | Decisión | ref: ruta:línea`.
 - **Contexto:** Plan 2026-10-16. Usuario pidió alcance completo/estructurado/detallado.
 - **Decisión:** Voz STT/TTS ahora (groq/edge) + browser loopback con guards + preview + temas JSON + cron UI + atajos + notificaciones; con privacy review y kill switch.
 - **Consecuencias:** Mayor superficie: STT/TTS cuestan y exfiltran audio; browser solo loopback; hooks deshabilitables.
+
+### STAB-2026-10-16: Plan estabilización 17/17 — decisiones Gate P vinculantes
+- **Decisiones:** (1) ToolPermissions `defaultMode=deny` fail-closed, innegociables siempre deny | (2) Compresión thresholds 70/40 + cleanup 30d | (3) Canales permisos `ipc.settings.get/savePermissions` (convención settings.*, no revertir) | (4) STAB-14 completo con ADRs 0006-0011, 5/9 patrones asimilados sin duplicar | (5) STAB-16 docs-only, firma NO fingida, publish comentado, sin electron-updater hasta certs owner. ref: docs/agent-ops/plans/archive/2026-10-16-plan-estabilizacion-ego.md
