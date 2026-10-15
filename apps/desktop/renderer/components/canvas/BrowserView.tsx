@@ -1,0 +1,201 @@
+import React, { useEffect, useRef, useState } from "react";
+import {
+  classifyBrowserUrl,
+  blockReasonMessage,
+  type BrowserBlockReason,
+} from "./workbench-guards.js";
+
+/**
+ * CFG-13 — Browser view solo-loopback (con guards navegación REV-02).
+ *
+ * Política (defensa en profundidad, espejo de `main.ts`):
+ * renderer clasifica ANTES de montar el `<iframe>`; main niega de todos
+ * modos cualquier navegación no-loopback a nivel ventana.
+ * El iframe corre con `sandbox="allow-scripts"` SIN `allow-same-origin`:
+ * el dev-server ejecuta su JS/HMR pero queda en origen opaco (no toca el
+ * DOM del shell ni `window.ego`).
+ *
+ * 9 estados (contrato CFG-13, testeados en `test/workbench-cfg13.test.tsx`):
+ * `empty | editing | invalid | blocked-protocol | blocked-external |
+ *  blocked-credentials | loading | ready | error`
+ */
+export const BROWSER_STATUSES = [
+  "empty",
+  "editing",
+  "invalid",
+  "blocked-protocol",
+  "blocked-external",
+  "blocked-credentials",
+  "loading",
+  "ready",
+  "error",
+] as const;
+
+export type BrowserStatus = (typeof BROWSER_STATUSES)[number];
+
+function reasonToStatus(reason: BrowserBlockReason): BrowserStatus {
+  switch (reason) {
+    case "protocol":
+      return "blocked-protocol";
+    case "external":
+      return "blocked-external";
+    case "credentials":
+      return "blocked-credentials";
+    case "invalid":
+      return "invalid";
+  }
+}
+
+export interface BrowserViewProps {
+  initialUrl?: string;
+}
+
+export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = "" }) => {
+  const [draft, setDraft] = useState(initialUrl);
+  // `committed === null` → aún no se cargó nada (estados de edición).
+  const [committed, setCommitted] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
+  const [frameKey, setFrameKey] = useState(0);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Listeners nativos (no props React `onLoad/onError`): `error` del iframe
+  // no llega vía delegación React en todos los runtimes; nativo es
+  // determinista en Chromium y en happy-dom (tests).
+  useEffect(() => {
+    if (committed === null) return;
+    const node = frameRef.current;
+    if (!node) return;
+    const onLoad = () => setPhase("ready");
+    const onError = () => setPhase("error");
+    node.addEventListener("load", onLoad);
+    node.addEventListener("error", onError);
+    return () => {
+      node.removeEventListener("load", onLoad);
+      node.removeEventListener("error", onError);
+    };
+  }, [committed, frameKey]);
+
+  let status: BrowserStatus;
+  let blockedReason: BrowserBlockReason | null = null;
+  if (committed !== null) {
+    status = phase;
+  } else if (draft.trim() === "") {
+    status = "empty";
+  } else {
+    const verdict = classifyBrowserUrl(draft);
+    if (verdict.allowed) {
+      status = "editing";
+    } else {
+      blockedReason = verdict.reason;
+      status = reasonToStatus(verdict.reason);
+    }
+  }
+
+  const canLoad = committed === null && status === "editing";
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canLoad) return;
+    const verdict = classifyBrowserUrl(draft);
+    if (!verdict.allowed) return;
+    setCommitted(verdict.url);
+    setPhase("loading");
+  };
+
+  const handleClose = () => {
+    setCommitted(null);
+    setPhase("loading");
+  };
+
+  const handleReload = () => {
+    setPhase("loading");
+    setFrameKey((k) => k + 1);
+  };
+
+  return (
+    <div className="flex h-full flex-col gap-2" data-browser-status={status}>
+      <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2">
+        <label htmlFor="cfg13-browser-url" className="sr-only">
+          URL del dev-server (solo loopback)
+        </label>
+        <input
+          id="cfg13-browser-url"
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="http://localhost:5173"
+          spellCheck={false}
+          autoComplete="off"
+          className="min-w-0 flex-1 rounded border border-hairline bg-raised px-2 py-1 font-mono text-[11px] text-ink focus:border-ink/50 focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={!canLoad}
+          className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] font-medium text-ink transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Cargar
+        </button>
+        {committed !== null && (
+          <>
+            <button
+              type="button"
+              onClick={handleReload}
+              className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-dim transition-colors hover:text-ink"
+            >
+              Recargar
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-dim transition-colors hover:text-ink"
+            >
+              Cerrar
+            </button>
+          </>
+        )}
+      </form>
+
+      <div
+        role="status"
+        aria-live="polite"
+        data-testid="browser-status"
+        className="shrink-0 text-[11px] text-faint"
+      >
+        {status === "empty" && "Sin URL: escribí un dev-server loopback (p. ej. http://localhost:5173)."}
+        {status === "editing" && "URL loopback válida: lista para cargar."}
+        {blockedReason !== null && committed === null && (
+          <span className="text-warning">{blockReasonMessage(blockedReason)}</span>
+        )}
+        {status === "loading" && "Cargando dev-server…"}
+        {status === "ready" && (
+          <span className="font-mono text-[10px] text-dim">{committed}</span>
+        )}
+        {status === "error" && "El iframe reportó un error de carga. Verificá que el dev-server esté corriendo."}
+      </div>
+
+      {committed !== null && status !== "error" && (
+        <iframe
+          key={frameKey}
+          ref={frameRef}
+          title="Vista de dev-server (solo loopback)"
+          src={committed}
+          sandbox="allow-scripts"
+          referrerPolicy="no-referrer"
+          className="min-h-[320px] w-full flex-1 rounded border border-hairline bg-paper"
+        />
+      )}
+      {status === "error" && (
+        <div className="flex flex-col items-center gap-2 rounded border border-dashed border-hairline p-6 text-center">
+          <p className="text-[11px] text-faint">No se pudo cargar el contenido.</p>
+          <button
+            type="button"
+            onClick={handleReload}
+            className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-ink"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};

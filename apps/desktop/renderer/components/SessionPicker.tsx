@@ -8,6 +8,8 @@ export interface SessionItem {
   title: string;
   preview: string;
   subEgoId: string;
+  /** A6: scope de proyecto (`SessionSummary.projectScope`); el badge lo prefiere. */
+  scope?: string;
   updatedAt: number;
 }
 
@@ -50,7 +52,7 @@ export const SessionPicker = memo(function SessionPicker({
   const [search, setSearch] = useState("");
 
   const rankedSessions = useMemo(() => {
-    return fuzzyRank(sessions, search, (s) => `${s.title} ${s.preview} ${s.subEgoId}`);
+    return fuzzyRank(sessions, search, (s) => `${s.title} ${s.preview} ${s.subEgoId} ${s.scope ?? ""}`);
   }, [sessions, search]);
 
   return (
@@ -124,9 +126,11 @@ export const SessionPicker = memo(function SessionPicker({
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-ink truncate">{item.title}</span>
-                      <span className="rounded bg-panel px-1 py-0.2 text-[9px] font-mono text-faint border border-hairline">
-                        {item.subEgoId}
-                      </span>
+                      {(item.scope ?? item.subEgoId) && (
+                        <span className="rounded bg-panel px-1 py-0.2 text-[9px] font-mono text-faint border border-hairline">
+                          {item.scope ?? item.subEgoId}
+                        </span>
+                      )}
                     </div>
 
                     <p className="mt-0.5 text-[11px] text-faint truncate">

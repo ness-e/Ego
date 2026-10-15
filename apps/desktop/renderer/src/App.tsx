@@ -3,6 +3,7 @@ import { TerminalWindow, Palette } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Omnibar } from "../components/omnibar";
 import { CanvasRuntime } from "../components/canvas/CanvasRuntime";
+import { WorkbenchView } from "../components/canvas/WorkbenchView.js";
 import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
 import { SubEgosView } from "../components/sub-egos";
 import { Sidebar } from "../components/sidebar";
@@ -39,6 +40,7 @@ function ThemeControl() {
       <select
         value={selectedKey}
         onChange={(e) => applyPreset(e.target.value)}
+        aria-label="Tema de diseño"
         className="rounded bg-raised px-1.5 py-0.5 text-[11px] font-mono text-ink border border-hairline focus:outline-none cursor-pointer"
         title="Ego Generative Design System — Tokens"
       >
@@ -56,10 +58,13 @@ export function App() {
   const [activeProject, setActiveProject] = useState("default");
   const [activeSubEgo, setActiveSubEgo] = useState("ego.nucleus");
   const [activeDomainId, setActiveDomainId] = useState("engineering");
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"daily" | "domains" | "canvas" | "subegos">("daily");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"daily" | "domains" | "canvas" | "workbench" | "subegos">("daily");
   const [sessionNonce, setSessionNonce] = useState(0);
   // T06: el SplitPane dimensiona el sidebar; el colapso lo notifica Sidebar.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // A4: inspector derecho colapsado por defecto (SplitPane reutilizado,
+  // sin tocar PaneShell). Toggle en la workspace bar + Ctrl+I.
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
   const modelPickerOpen = useUiStore((s) => s.modelPickerOpen);
   const activeModelId = useUiStore((s) => s.activeModelId);
   // T18: la sesión activa vive en el store (la fija el resume del Sidebar);
@@ -127,6 +132,18 @@ export function App() {
     void ego()
       .domains?.switch?.(d)
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // A4: Ctrl+I conmuta el inspector derecho (sin robar Ctrl+B/Ctrl+N).
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
+        e.preventDefault();
+        setInspectorCollapsed((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -225,7 +242,7 @@ export function App() {
           </SplitPane>
 
           {/* Panel 1: Conversation River (Chat) */}
-          <section className="flex flex-1 flex-col min-w-[380px] max-w-[550px] bg-paper">
+          <section aria-label="Chat" className="flex flex-1 flex-col min-w-[380px] max-w-[550px] bg-paper">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-3 text-xs text-faint">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-ink text-xs">Chat</span>
@@ -271,7 +288,7 @@ export function App() {
           </section>
 
           {/* Panel 2: Dynamic Canvas (Superficie de Trabajo Interactiva) */}
-          <section className="flex flex-1 flex-col min-w-0 bg-panel">
+          <section aria-label="Área de trabajo dinámica" className="flex flex-1 flex-col min-w-0 bg-panel">
             <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-4 text-xs text-faint">
               <div className="flex items-center gap-2">
                 <TerminalWindow size={14} />
@@ -285,6 +302,20 @@ export function App() {
               </div>
               <div className="flex items-center gap-3">
                 <ThemeControl />
+                <button
+                  type="button"
+                  onClick={() => setInspectorCollapsed((prev) => !prev)}
+                  title="Conmutar inspector (Ctrl+I)"
+                  aria-expanded={!inspectorCollapsed}
+                  aria-label="Conmutar inspector"
+                  className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                    !inspectorCollapsed
+                      ? "bg-raised text-ink font-semibold border border-hairline"
+                      : "text-dim hover:text-ink"
+                  }`}
+                >
+                  Inspector
+                </button>
                 <div className="flex items-center gap-1 border-l border-hairline pl-2">
                   <button
                     onClick={() => setActiveWorkspaceTab("daily")}
@@ -317,6 +348,16 @@ export function App() {
                     Canvas
                   </button>
                   <button
+                    onClick={() => setActiveWorkspaceTab("workbench")}
+                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                      activeWorkspaceTab === "workbench"
+                        ? "bg-raised text-ink font-semibold border border-hairline"
+                        : "text-dim hover:text-ink"
+                    }`}
+                  >
+                    Workbench
+                  </button>
+                  <button
                     onClick={() => setActiveWorkspaceTab("subegos")}
                     className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
                       activeWorkspaceTab === "subegos"
@@ -337,9 +378,57 @@ export function App() {
                 <DomainCanvasView domainId={activeDomainId} />
               )}
               {activeWorkspaceTab === "canvas" && <CanvasRuntime projectId={activeProject} />}
+              {activeWorkspaceTab === "workbench" && <WorkbenchView />}
               {activeWorkspaceTab === "subegos" && <SubEgosView />}
             </div>
           </section>
+
+          {/* A4: Inspector derecho (SplitPane reutilizado, colapsado por
+              defecto). Superficie de detalle del hilo activo: sesión, proyecto
+              y Sub-Ego sin lógica de negocio (solo presentación). */}
+          <SplitPane
+            id="app-inspector"
+            side="right"
+            defaultWidth={300}
+            minWidth={240}
+            maxWidth={480}
+            isCollapsed={inspectorCollapsed}
+          >
+            <aside className="flex h-full flex-col bg-panel" aria-label="Inspector">
+              <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-3 text-xs">
+                <span className="font-medium text-ink">Inspector</span>
+                <button
+                  type="button"
+                  onClick={() => setInspectorCollapsed(true)}
+                  title="Cerrar inspector (Ctrl+I)"
+                  aria-label="Cerrar inspector"
+                  className="rounded p-1 text-faint transition-colors hover:bg-raised hover:text-ink"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 text-[11px] text-faint">
+                <div className="rounded border border-hairline bg-paper p-2">
+                  <p className="font-semibold text-ink">Sesión activa</p>
+                  <p className="mt-0.5 truncate font-mono text-[10px] text-dim">
+                    {activeSessionId ?? "Sin sesión"}
+                  </p>
+                </div>
+                <div className="rounded border border-hairline bg-paper p-2">
+                  <p className="font-semibold text-ink">Proyecto</p>
+                  <p className="mt-0.5 truncate font-mono text-[10px] text-dim">{activeProject}</p>
+                </div>
+                <div className="rounded border border-hairline bg-paper p-2">
+                  <p className="font-semibold text-ink">Sub-Ego</p>
+                  <p className="mt-0.5 truncate font-mono text-[10px] text-dim">{activeSubEgo}</p>
+                </div>
+                <div className="rounded border border-hairline bg-paper p-2">
+                  <p className="font-semibold text-ink">Modelo</p>
+                  <p className="mt-0.5 truncate font-mono text-[10px] text-dim">{activeModelName}</p>
+                </div>
+              </div>
+            </aside>
+          </SplitPane>
         </main>
 
         {/* 3. Bandeja de Actividad en Segundo Plano (Footer) */}

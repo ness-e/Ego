@@ -11,6 +11,7 @@ import {
   ArrowCounterClockwise
 } from "@phosphor-icons/react";
 import type { PendingApprovalInfo } from "../../lib/ego";
+import { DiffView } from "../canvas/DiffView.js";
 
 export interface ApprovalCardProps {
   request: PendingApprovalInfo;
@@ -69,6 +70,14 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
     }
     return null;
   }, [isFilesystem, request.arguments]);
+
+  // A3: diff unificado cuando la solicitud trae el original. `originalContent`
+  // llega en `arguments` (fs_write con lectura previa); sin él se conserva el
+  // bloque de contenido plano (vacío honesto, sin inventar diff).
+  const originalContent = useMemo(() => {
+    const v: unknown = request.arguments.originalContent;
+    return typeof v === "string" ? v : null;
+  }, [request.arguments]);
 
   const handleApprove = useCallback(async () => {
     if (isSubmitting) return;
@@ -207,11 +216,24 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
               <span>Archivo de destino:</span>
               <span className="text-ink truncate">{filePath}</span>
             </div>
-            {fileContent !== null && (
-              <div className="mt-2 max-h-48 overflow-y-auto rounded bg-paper/80 p-2 text-[11px] text-ink border border-hairline whitespace-pre-wrap font-mono">
-                {fileContent}
-              </div>
-            )}
+            {fileContent !== null &&
+              (originalContent !== null ? (
+                <div className="mt-2">
+                  <DiffView
+                    props={{
+                      id: request.approvalId,
+                      filePath,
+                      originalContent,
+                      modifiedContent: fileContent,
+                      viewMode: "unified",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="mt-2 max-h-48 overflow-y-auto rounded bg-paper/80 p-2 text-[11px] text-ink border border-hairline whitespace-pre-wrap font-mono">
+                  {fileContent}
+                </div>
+              ))}
           </div>
         )}
 

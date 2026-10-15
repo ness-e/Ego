@@ -203,7 +203,7 @@ describe("T02: ChatStreaming — deltas reales + skeleton + HITL único + BYOK",
     await sendMessage("hola hilo");
 
     expect(bridge.llmStream).toHaveBeenCalledTimes(1);
-    expect(bridge.llmStream.mock.calls[0][0]).toMatchObject({
+    expect((bridge.llmStream.mock.calls as unknown[][])[0][0]).toMatchObject({
       prompt: "hola hilo",
       sessionId: "sess-test-hilo-1",
     });

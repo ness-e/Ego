@@ -1,8 +1,28 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, memo, lazy, Suspense, Component, type ReactNode } from "react";
 import { CaretRight, Brain, Copy, Check } from "@phosphor-icons/react";
 import { AnsiText } from "./ansi-text.js";
 import { ArtifactCard, type ArtifactKind } from "./artifact-card.js";
 import { AskDirective } from "./ask-directive.js";
+
+// shiki en chunk separado: no entra al bundle inicial (lazy + Suspense).
+// Paquete `@assistant-ui/react-shiki` no existe en npm (404); equivalente
+// válido: `shiki` directo + `@assistant-ui/react-syntax-highlighter`.
+const ShikiHighlightLazy = lazy(() =>
+  import("./shiki-highlight.js").then((m) => ({ default: m.ShikiHighlight }))
+);
+
+class ShikiErrorBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 interface MarkdownTextProps {
   text: string;
@@ -159,12 +179,17 @@ function ExplainabilityAccordion({ content }: { content: string }) {
 
 /**
  * Bloque de código simple con botón de copia rápida y soporte para ANSI.
+ * diff/ts/tsx → shiki lazy (Suspense, chunk separado); fallo → <pre> plano.
+ * Terminal/ANSI intacto. Sin animación token; reduced-motion → estático.
+ * Memoizado: durante el stream solo el último bloque de texto cambia;
+ * los bloques de código ya cerrados no re-renderizan.
  */
-function CodeBlock({ code, language }: { code: string; language?: string }) {
+const CodeBlock = memo(
+  function CodeBlock({ code, language }: { code: string; language?: string }) {
   const [copied, setCopied] = useState(false);
-  const isTerminal = ["bash", "sh", "shell", "console", "terminal", "zsh"].includes(
-    (language || "").toLowerCase()
-  );
+  const lang = (language || "").toLowerCase();
+  const isTerminal = ["bash", "sh", "shell", "console", "terminal", "zsh"].includes(lang);
+  const useShiki = ["diff", "ts", "tsx", "typescript"].includes(lang);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -186,17 +211,33 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
         </button>
       </div>
       <div className="p-3 overflow-x-auto font-mono text-[11px] leading-relaxed">
-        {isTerminal ? <AnsiText text={code} /> : <pre className="m-0">{code}</pre>}
+        {isTerminal ? (
+          <AnsiText text={code} />
+        ) : useShiki ? (
+          <ShikiErrorBoundary fallback={<pre className="m-0">{code}</pre>}>
+            <Suspense fallback={<pre className="m-0">{code}</pre>}>
+              <ShikiHighlightLazy code={code} language={lang} />
+            </Suspense>
+          </ShikiErrorBoundary>
+        ) : (
+          <pre className="m-0">{code}</pre>
+        )}
       </div>
     </div>
   );
-}
+  },
+  (prev, next) => prev.code === next.code && prev.language === next.language
+);
 
 /**
  * MarkdownText — Renderizador robusto y seguro de mensajes de chat.
  * Extraído y adaptado de Hermes Agent (HERM-02) para Ego SOC.
+ * Memo con comparador custom: el padre (burbuja memoizada + Thread) se
+ * re-renderiza por cada frame del stream; solo re-parsea cuando el texto,
+ * el flag de streaming o el handler cambian. `useMemo(blocks)` evita
+ * re-parsear dentro del mismo texto.
  */
-export const MarkdownText = memo(function MarkdownText({
+function MarkdownTextInner({
   text,
   streaming = false,
   onOpenArtifact,
@@ -269,4 +310,13 @@ export const MarkdownText = memo(function MarkdownText({
       })}
     </div>
   );
-});
+}
+
+export const MarkdownText = memo(
+  MarkdownTextInner,
+  (prev, next) =>
+    prev.text === next.text &&
+    (prev.streaming ?? false) === (next.streaming ?? false) &&
+    prev.onOpenArtifact === next.onOpenArtifact
+);
+MarkdownText.displayName = "MarkdownText";

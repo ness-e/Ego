@@ -325,6 +325,20 @@ export interface ModelKeyProbeInfo {
   networkUnreachable?: boolean;
 }
 
+export interface EgoFetchRequest {
+  url: string;
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+}
+
+export interface EgoFetchResult {
+  ok: boolean;
+  status: number;
+  body: string;
+}
+
 /**
  * Formas de respuesta de los canales `ipc.domains.*` (F5T11/M26).
  * Espejos locales de `GitStatusSummary`, `WorkspaceInspection`, `WorktreeInfo`
@@ -424,7 +438,13 @@ export interface EgoBridge {
     text: string;
     recallStatus: RecallBadgeInfo;
     usage?: unknown;
+    status?: string;
   }>;
+  // A1: cancelación real del turno en curso (`ipc.llm.cancel` → aborta el
+  // loop en main y emite `turn-cancelled`). Opcional porque el preload puede
+  // no exponerlo (entonces el renderer solo cierra el estado local).
+  // Sin `turnId` el main aborta todos los turnos activos.
+  llmCancel?: (req?: { turnId?: string }) => Promise<{ ok: boolean; cancelled?: string[]; note?: string } | unknown>;
   approve: (req: { actionId: string; confirmed: boolean; notes?: string }) => Promise<unknown>;
   resolveApproval: (req: {
     approvalId: string;
@@ -495,6 +515,11 @@ export interface EgoBridge {
   models: {
     listProviders: () => Promise<ModelProvidersResult>;
     listModels: (req: { provider: CatalogProviderId; refresh?: boolean }) => Promise<ModelsListResult>;
+  };
+  // Fetch-proxy mínimo en main (solo vía preload `ipc.net.fetch`; el token
+  // nunca llega al renderer). Opcional para no romper mocks existentes.
+  net?: {
+    fetch: (req: EgoFetchRequest) => Promise<EgoFetchResult>;
   };
   daily?: {
     getSummary: (req?: { date?: string }) => Promise<DailySummaryResult>;
@@ -601,6 +626,7 @@ const mock: EgoBridge = {
       tokensEstimate: 140,
     },
   }),
+  llmCancel: async () => ({ ok: true, mock: true }),
   approve: async (args) => ({ ok: true, mock: true, args }),
   resolveApproval: async (req) => ({
     ok: true,
@@ -879,6 +905,9 @@ const mock: EgoBridge = {
       models: [...MOCK_CURATED_CATALOG[req.provider]],
       source: "curated" as const,
     }),
+  },
+  net: {
+    fetch: async () => ({ ok: true, status: 200, body: "" }),
   },
   decision: {
     evaluate: async (req) => ({ ok: true, mock: true, req }),

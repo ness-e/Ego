@@ -39,6 +39,8 @@ function rosterInitials(name: string): string {
 /**
  * T14: mapea un `SessionSummary` del puente `sessions.list` (T13) al
  * `SessionItem` del picker. Sin `sessionId` válido → null (vacío honesto).
+ * A6: el scope del proyecto viaja en `SessionItem.scope` (ya no se abusa de
+ * `subEgoId` para mostrarlo; el picker lo presenta desde `scope`).
  */
 function toSessionItem(s: SessionSummary): SessionItem | null {
   if (!s || typeof s.sessionId !== "string" || s.sessionId.length === 0) return null;
@@ -47,9 +49,26 @@ function toSessionItem(s: SessionSummary): SessionItem | null {
     id: s.sessionId,
     title: s.sessionId.length > 24 ? `${s.sessionId.slice(0, 24)}…` : s.sessionId,
     preview: turnCount === 1 ? "1 turno" : `${turnCount} turnos`,
-    subEgoId: typeof s.projectScope === "string" ? s.projectScope : "",
+    subEgoId: "",
+    scope: typeof s.projectScope === "string" ? s.projectScope : undefined,
     updatedAt: typeof s.lastTimestamp === "number" ? s.lastTimestamp : Date.now(),
   };
+}
+
+/**
+ * A6: badge de estado VantaDB como componente separado (antes texto inline
+ * mezclado con el estado LSM). Solo presentación; sin lógica de negocio.
+ */
+function VantaDbBadge() {
+  return (
+    <div className="flex items-center justify-between px-2 py-1 font-mono text-[10px] text-dim">
+      <span>VantaDB 0.8.0</span>
+      <span className="flex items-center gap-1 font-semibold text-emerald-400">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+        LSM WAL
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -160,11 +179,12 @@ export function Sidebar({
 
   // T14: sesiones reales de `sessions.list` (puente T13) al picker.
   // Sin bridge o ante error: vacío honesto (el picker ya lo muestra).
+  // A6: scopeado por proyecto activo (el main filtra por `projectScope`).
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   useEffect(() => {
     let cancelled = false;
     void ego()
-      .sessions?.list?.()
+      .sessions?.list?.({ projectScope: activeProject })
       .then((res) => {
         if (cancelled || !res || typeof res !== "object") return;
         const list = (res as { sessions?: unknown }).sessions;
@@ -180,7 +200,7 @@ export function Sidebar({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeProject]);
 
   const handleSelectProject = useCallback(
     async (id: string) => {
@@ -215,7 +235,10 @@ export function Sidebar({
   if (isCollapsed) {
     return (
       <>
-        <aside className="flex h-full w-full shrink-0 flex-col items-center justify-between border-r border-hairline bg-panel py-3 select-none">
+        <aside
+          aria-label="Navegación principal colapsada"
+          className="flex h-full w-full shrink-0 flex-col items-center justify-between border-r border-hairline bg-panel py-3 select-none"
+        >
           <div className="flex flex-col items-center gap-4">
             <button
               onClick={() => notifyCollapsed(false)}
@@ -306,7 +329,10 @@ export function Sidebar({
   // 2. MODO EXPANDIDO (Sidebar Completo de 260px)
   return (
     <>
-      <aside className="flex h-full w-full shrink-0 flex-col border-r border-hairline bg-panel select-none">
+      <aside
+        aria-label="Navegación principal"
+        className="flex h-full w-full shrink-0 flex-col border-r border-hairline bg-panel select-none"
+      >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-hairline px-3">
           <div className="flex items-center gap-2">
             <div className="flex h-5 w-5 items-center justify-center rounded-md bg-ink font-mono text-[10px] font-bold text-paper">
@@ -481,13 +507,7 @@ export function Sidebar({
         </div>
 
         <div className="space-y-1 border-t border-hairline bg-paper/60 p-2">
-          <div className="flex items-center justify-between px-2 py-1 font-mono text-[10px] text-dim">
-            <span>VantaDB 0.8.0</span>
-            <span className="flex items-center gap-1 font-semibold text-emerald-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-              LSM WAL
-            </span>
-          </div>
+          <VantaDbBadge />
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs text-faint transition-colors hover:bg-raised hover:text-ink"

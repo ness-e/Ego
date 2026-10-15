@@ -1,10 +1,17 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { VList } from "virtua";
 
 /**
- * T08 (UI-05): lista con windowing honesto. `virtua` necesita layout real
- * (inexistente en happy-dom/tests y en listas cortas): solo virtualiza con
- * N > umbral y `ResizeObserver` disponible; si no, render plano idéntico.
+ * T08 (UI-05) + perf-streaming: lista con windowing honesto.
+ * `virtua` necesita layout real (inexistente en happy-dom/tests y en listas
+ * cortas): solo virtualiza con N > umbral y `ResizeObserver` disponible;
+ * si no, render plano idéntico con `content-visibility:auto` por ítem
+ * (virtualización barata del navegador sin cambiar UX/a11y).
+ *
+ * Claves: `keyOf` DEBE ser un id estable del ítem (nunca el índice) para
+ * que insertar/append no re-monte filas ni rompa el ancla de scroll.
+ * Follow-on-append: si el usuario está al fondo (stick <64px), el contenedor
+ * sigue al último ítem vía rAF; si subió, se preserva su posición y no salta.
  */
 export interface SmartListProps<T> {
   items: T[];
@@ -27,6 +34,41 @@ export function SmartList<T>({
   empty,
   ariaLabel,
 }: SmartListProps<T>) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const stickRef = useRef(true);
+  const [, forceStick] = useState(0);
+
+  // Ancla end: rastrea si el usuario está al fondo para follow-on-append.
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const nearEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 64;
+    if (nearEnd !== stickRef.current) {
+      stickRef.current = nearEnd;
+      forceStick((n) => n + 1);
+    }
+  };
+
+  // Follow-on-append throttled a rAF; preserva ancla si el usuario subió.
+  useEffect(() => {
+    if (!stickRef.current) return undefined;
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    if (typeof requestAnimationFrame !== "undefined") {
+      const raf = requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+      return () => {
+        try {
+          cancelAnimationFrame(raf);
+        } catch {
+          /* noop */
+        }
+      };
+    }
+    el.scrollTop = el.scrollHeight;
+    return undefined;
+  }, [items.length]);
+
   if (items.length === 0) {
     return <>{empty}</>;
   }
@@ -36,22 +78,39 @@ export function SmartList<T>({
     typeof window.ResizeObserver !== "undefined";
   if (!canVirtualize) {
     return (
-      <div aria-label={ariaLabel}>
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        aria-label={ariaLabel}
+        style={{ maxHeight, overflowY: "auto", overflowAnchor: "auto" }}
+      >
         {items.map((item, i) => (
-          <React.Fragment key={keyOf(item, i)}>{renderItem(item, i)}</React.Fragment>
+          <div
+            key={keyOf(item, i)}
+            style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${estimatedItemHeight}px` }}
+          >
+            {renderItem(item, i)}
+          </div>
         ))}
       </div>
     );
   }
+  // Un único contenedor de scroll (VList). Sin wrapper con overflow anidado:
+  // el doble scroll rompía el ancla y duplicaba mediciones de layout.
   return (
-    <div style={{ maxHeight }} className="overflow-y-auto" aria-label={ariaLabel}>
-      <VList
-        style={{ height: Math.min(maxHeight, items.length * estimatedItemHeight) }}
-      >
-        {items.map((item, i) => (
-          <div key={keyOf(item, i)}>{renderItem(item, i)}</div>
-        ))}
-      </VList>
-    </div>
+    <VList
+      style={{ maxHeight }}
+      itemSize={estimatedItemHeight}
+      aria-label={ariaLabel}
+    >
+      {items.map((item, i) => (
+        <div
+          key={keyOf(item, i)}
+          style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${estimatedItemHeight}px` }}
+        >
+          {renderItem(item, i)}
+        </div>
+      ))}
+    </VList>
   );
 }

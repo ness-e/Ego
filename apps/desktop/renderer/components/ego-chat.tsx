@@ -1,11 +1,12 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import {
   AssistantRuntimeProvider,
   useExternalStoreRuntime,
   ThreadPrimitive,
   MessagePrimitive,
   ComposerPrimitive,
+  ActionBarPrimitive,
 } from "@assistant-ui/react";
 import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
 import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
@@ -19,10 +20,20 @@ import { MarkdownText } from "./assistant-ui/markdown-text.js";
 import { MessageRenderBoundary } from "./assistant-ui/message-render-boundary.js";
 import { toTurnUsage, type TurnUsage } from "./daily-state/MetricsConsole.js";
 
-function UserMessage() {
+/**
+ * Virtualización barata por turnos (sin cambiar UX ni romper aria-live):
+ * cada burbuja usa `content-visibility:auto` + `contain-intrinsic-size`
+ * para que el navegador omita layout/paint fuera del viewport. El hilo
+ * sigue siendo `ThreadPrimitive.Messages` (claves estables por message id
+ * del runtime, nunca por índice) + ancla end vía `stick` (<100px).
+ */
+function UserMessageInner() {
   return (
-    <MessagePrimitive.Root className="flex justify-end my-2">
-      <div className="bg-hairline text-ink rounded-card px-3.5 py-2 max-w-[80%]">
+    <MessagePrimitive.Root
+      className="flex justify-end my-2"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 96px" }}
+    >
+      <div className="max-w-[min(82%,600px)] bg-hairline text-ink rounded-card px-3.5 py-2">
         <MessageRenderBoundary resetKey="user-turn">
           <MessagePrimitive.Content
             components={{
@@ -30,19 +41,42 @@ function UserMessage() {
             }}
           />
         </MessageRenderBoundary>
+        <ActionBarPrimitive.Root className="mt-1 flex justify-end gap-1 text-faint">
+          <ActionBarPrimitive.Copy
+            aria-label="Copiar mensaje"
+            className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
+          />
+          {/* TODO: editar-fork vía SessionTimelineRewind — no existe bridge
+              (`ipc.sessions.*` solo list/get/resume); alinear con main antes
+              de cablear ActionBarPrimitive.Edit a un fork real. */}
+        </ActionBarPrimitive.Root>
       </div>
     </MessagePrimitive.Root>
   );
 }
 
-function AssistantMessage({ subEgoId = "ego.nucleus" }: { subEgoId?: string }) {
+// Sin props: nunca re-render por padre; el contenido interno sigue
+// actualizándose vía contexto del runtime (MessagePrimitive).
+const UserMessage = memo(UserMessageInner, () => true);
+UserMessage.displayName = "UserMessage";
+
+function AssistantMessageInner({
+  subEgoId = "ego.nucleus",
+  onRetry,
+}: {
+  subEgoId?: string;
+  onRetry?: () => void;
+}) {
   return (
-    <MessagePrimitive.Root className="flex my-2.5 gap-2.5 items-start">
+    <MessagePrimitive.Root
+      className="flex my-2.5 gap-2.5 items-start"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 140px" }}
+    >
       <div className="mt-0.5 shrink-0">
         {/* T08: avatar por turno según el Sub-Ego activo (antes fijo ego.nucleus). */}
         <CharacterBadge size={26} subEgoId={subEgoId} state="idle" />
       </div>
-      <div className="bg-panel border border-hairline rounded-card px-3.5 py-2.5 max-w-[85%] text-ink">
+      <div className="min-w-0 flex-1 px-3.5 py-2.5 text-ink">
         <MessageRenderBoundary resetKey="assistant-turn">
           <MessagePrimitive.Content
             components={{
@@ -50,10 +84,40 @@ function AssistantMessage({ subEgoId = "ego.nucleus" }: { subEgoId?: string }) {
             }}
           />
         </MessageRenderBoundary>
+        <ActionBarPrimitive.Root className="mt-1 flex items-center gap-1 text-faint">
+          <ActionBarPrimitive.Copy
+            aria-label="Copiar respuesta"
+            className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
+          />
+          <ActionBarPrimitive.Reload
+            aria-label="Regenerar respuesta"
+            className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
+          />
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              aria-label="Reintentar último turno"
+              title="Reintentar último turno"
+              className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
+            >
+              <ArrowClockwise size={13} />
+            </button>
+          )}
+        </ActionBarPrimitive.Root>
       </div>
     </MessagePrimitive.Root>
   );
 }
+
+// Comparador custom: solo subEgoId/onRetry. Los tokens del stream llegan
+// por contexto del runtime, no por props — así las burbujas históricas no
+// re-renderizan cuando el turno en curso acumula deltas.
+const AssistantMessage = memo(
+  AssistantMessageInner,
+  (prev, next) => prev.subEgoId === next.subEgoId && prev.onRetry === next.onRetry
+);
+AssistantMessage.displayName = "AssistantMessage";
 
 type Msg = {
   id: string;
@@ -89,6 +153,8 @@ type ToolActivity = {
   callId?: string;
   toolName: string;
   detail: string;
+  /** Clave estable por evento (nunca índice de map) para followOnAppend. */
+  seq: number;
 };
 
 function summarizeArgs(args: unknown): string {
@@ -101,7 +167,7 @@ function summarizeArgs(args: unknown): string {
 }
 
 /** Convierte un chunk/evento de tool en actividad pintable; null si no es tool. */
-function toToolActivity(chunk: ChatDeltaChunk): ToolActivity | null {
+function toToolActivity(chunk: ChatDeltaChunk): Omit<ToolActivity, "seq"> | null {
   if (chunk.type === "tool_call" && chunk.toolName) {
     return {
       kind: "tool_call",
@@ -123,6 +189,119 @@ function toToolActivity(chunk: ChatDeltaChunk): ToolActivity | null {
 }
 
 const KEYED_PROVIDERS: readonly string[] = ["openai", "anthropic", "google", "deepseek"];
+
+/**
+ * CFG-12 — Composer con adjuntos backend (alcance: solo renderer).
+ * Decisión ponytail: reusar IPC existente (`ipc.llm.*` con `prompt: string`);
+ * sin schema/main nuevos. La validación es fail-closed en el renderer:
+ * tipo fuera de allowlist o tamaño >10MB → cuarentena (nunca viaja al turno).
+ * Permisos inline heredan CFG-06 (deny-gana: deny > ask > allow; sin match → ask).
+ */
+export const CFG12_MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+export const CFG12_ALLOWED_MIME: readonly string[] = [
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/json",
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+];
+const CFG12_ALLOWED_EXT: readonly string[] = [
+  ".txt", ".md", ".csv", ".json", ".pdf", ".png", ".jpg", ".jpeg", ".webp",
+];
+
+export type Cfg12PermissionDecision = "allow" | "ask" | "deny";
+export interface Cfg12PermissionRule {
+  pattern: string;
+  decision: Cfg12PermissionDecision;
+}
+export interface ComposerAttachment {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+  permission: Cfg12PermissionDecision;
+  quarantined: boolean;
+  reason?: string;
+}
+// TODO VOICE (CFG-12): STT/TTS difiere a fase propia si bloquea. Schema listo:
+// el turno futuro llevará `{ audioInput?: { format: "wav"; bytesB64: string } }`
+// por `ipc.llm.*` existente; este tipo es el contrato pendiente de cablear.
+export type VoiceCapabilityState = "disabled-future" | "listening" | "speaking";
+
+export function isAllowedAttachmentType(mime: string, name: string): boolean {
+  const m = mime.toLowerCase();
+  if ((CFG12_ALLOWED_MIME as readonly string[]).includes(m)) return true;
+  const lower = name.toLowerCase();
+  return CFG12_ALLOWED_EXT.some((ext) => lower.endsWith(ext));
+}
+
+function cfg12RuleMatches(rule: Cfg12PermissionRule, att: { mime: string; name: string }): boolean {
+  return att.mime.includes(rule.pattern) || att.name.includes(rule.pattern);
+}
+
+/** Hereda CFG-06: deny-gana entre reglas que matchean; sin match → "ask" (fail-closed). */
+export function resolveAttachmentPermission(
+  rules: Cfg12PermissionRule[],
+  att: { mime: string; name: string }
+): Cfg12PermissionDecision {
+  let sawAsk = false;
+  let sawAllow = false;
+  for (const rule of rules) {
+    if (!cfg12RuleMatches(rule, att)) continue;
+    if (rule.decision === "deny") return "deny";
+    if (rule.decision === "ask") sawAsk = true;
+    else sawAllow = true;
+  }
+  if (sawAsk) return "ask";
+  if (sawAllow) return "allow";
+  return "ask";
+}
+
+export function validateComposerAttachment(
+  file: { name: string; mime: string; size: number },
+  rules: Cfg12PermissionRule[] = []
+): ComposerAttachment {
+  const permission = resolveAttachmentPermission(rules, { mime: file.mime, name: file.name });
+  if (!isAllowedAttachmentType(file.mime, file.name)) {
+    return {
+      id: `${Date.now()}-${file.name}`,
+      name: file.name, mime: file.mime, size: file.size,
+      permission: "deny", quarantined: true, reason: `Tipo no permitido (${file.mime || "sin mime"})`,
+    };
+  }
+  if (file.size > CFG12_MAX_ATTACHMENT_BYTES) {
+    return {
+      id: `${Date.now()}-${file.name}`,
+      name: file.name, mime: file.mime, size: file.size,
+      permission: "deny", quarantined: true, reason: "Supera 10MB",
+    };
+  }
+  if (permission === "deny") {
+    return {
+      id: `${Date.now()}-${file.name}`,
+      name: file.name, mime: file.mime, size: file.size,
+      permission, quarantined: true, reason: "Vetado por permiso inline (deny gana)",
+    };
+  }
+  return {
+    id: `${Date.now()}-${file.name}`,
+    name: file.name, mime: file.mime, size: file.size,
+    permission, quarantined: false,
+  };
+}
+
+/** Prompt efectivo: adjuntos válidos como metadatos; cuarentena nunca viaja. */
+export function buildPromptWithAttachments(prompt: string, atts: ComposerAttachment[]): string {
+  const valid = atts.filter((a) => !a.quarantined);
+  if (valid.length === 0) return prompt;
+  const lines = valid.map(
+    (a) => `- ${a.name} (${a.mime || "mime desconocido"}, ${(a.size / 1024).toFixed(1)}KB, permiso:${a.permission})`
+  );
+  return `${prompt}\n[Adjuntos (${valid.length}):\n${lines.join("\n")}]`;
+}
 
 /**
  * Bloqueo mock (decisión owner): sin keys del proveedor activo no hay
@@ -174,6 +353,24 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolEvents, setToolEvents] = useState<ToolActivity[]>([]);
+  // A1/A2: cancelación del turno en curso. El AbortController vive en el
+  // renderer (cierra el estado de stream local); el backend se cablea vía
+  // `ipc.llm.cancel` cuando el puente lo expone (ver `handleCancel`).
+  const abortRef = useRef<AbortController | null>(null);
+  // A2: stick-to-bottom (<100px). `viewportRef` mide el scroll del
+  // ThreadPrimitive.Viewport; `stick` decide autoscroll vs "Jump to latest".
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [stick, setStick] = useState(true);
+  // Perf-streaming: buffer de deltas por message id + flush 1x rAF.
+  // Los chunks IPC (`onChatDelta`) acumulan texto en `pendingStreamRef`;
+  // un único `setMessages` por frame aplica todos los deltas pendientes.
+  // Sin esto, N tokens = N setState + N parse markdown + N autoscrolls.
+  const pendingStreamRef = useRef<Map<string, string>>(new Map());
+  const streamRafRef = useRef<number | null>(null);
+  // Clave estable para actividad de tools (nunca índice de map).
+  const toolSeqRef = useRef(0);
+  // Autoscroll throttled a rAF (evita layout-thrash por frame de stream).
+  const stickRafRef = useRef<number | null>(null);
   // T19: coste del turno actual desde `streamRes.usage` (solo lectura;
   // streaming y preferencia de modelo intactos). Null = vacío honesto.
   const [lastTurnUsage, setLastTurnUsage] = useState<TurnUsage | null>(null);
@@ -183,6 +380,11 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   // se resuelve en `onNew` sin turno LLM.
   const [draftMentions, setDraftMentions] = useState<string[]>([]);
   const [draftSlash, setDraftSlash] = useState<string | null>(null);
+  // CFG-12: adjuntos del composer (metadata local; el contenido viaja como
+  // resumen en el prompt por `ipc.llm.*` existente — sin binarios al main).
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerWrapRef = useRef<HTMLDivElement>(null);
 
   const handleComposerInput = useCallback((e: React.FormEvent) => {
@@ -274,33 +476,102 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     };
   }, []);
 
-  // Inserta el mensaje assistant del turno en curso si falta, o le anexa texto.
-  // Los deltas llegan antes del invoke final: el turno se pinta incremental.
-  const appendStreamText = useCallback((id: string, text: string) => {
-    if (!text) return;
+  // Drena el buffer de deltas en UN solo setMessages (1x por frame).
+  // Copia única del array + índice por id: O(turnos + deltas del frame).
+  const flushStreamBuffer = useCallback(() => {
+    streamRafRef.current = null;
+    const pending = pendingStreamRef.current;
+    if (pending.size === 0) return;
+    const entries = Array.from(pending.entries());
+    pending.clear();
     setMessages((prev) => {
-      const found = prev.some((x) => x.id === id);
-      if (found) {
-        return prev.map((x) =>
-          x.id === id
-            ? {
-                ...x,
-                content: [
-                  {
-                    type: "text" as const,
-                    text: x.content.map((p) => p.text).join("") + text,
-                  },
-                ],
-              }
-            : x
-        );
+      const idxById = new Map<string, number>();
+      for (let i = 0; i < prev.length; i++) idxById.set(prev[i].id, i);
+      let out: Msg[] | null = null;
+      const ensureOut = () => (out ??= [...prev]);
+      let changed = false;
+      for (const [id, delta] of entries) {
+        if (!delta) continue;
+        const idx = idxById.get(id);
+        if (idx !== undefined) {
+          const arr = ensureOut();
+          const cur = arr[idx];
+          const curText = cur.content.map((p) => p.text).join("");
+          arr[idx] = {
+            ...cur,
+            content: [{ type: "text" as const, text: curText + delta }],
+          };
+          changed = true;
+        } else {
+          const arr = ensureOut();
+          arr.push({
+            id,
+            role: "assistant" as const,
+            content: [{ type: "text" as const, text: delta }],
+          });
+          idxById.set(id, arr.length - 1);
+          changed = true;
+        }
       }
-      return [
-        ...prev,
-        { id, role: "assistant" as const, content: [{ type: "text" as const, text }] },
-      ];
+      return changed && out ? out : prev;
     });
   }, []);
+
+  const scheduleStreamFlush = useCallback(() => {
+    if (streamRafRef.current !== null) return;
+    if (typeof requestAnimationFrame !== "undefined") {
+      streamRafRef.current = requestAnimationFrame(() => {
+        flushStreamBuffer();
+      });
+    } else {
+      // Fallback headless (sin rAF): microtarea coalescente. Centinela -1
+      // (los ids reales de rAF son >= 1): no hay nada que cancelar.
+      streamRafRef.current = -1;
+      queueMicrotask(() => {
+        flushStreamBuffer();
+      });
+    }
+  }, [flushStreamBuffer]);
+
+  // Cancela el rAF pendiente al desmontar (sin setState post-unmount).
+  useEffect(() => {
+    return () => {
+      if (streamRafRef.current !== null) {
+        if (typeof cancelAnimationFrame !== "undefined" && streamRafRef.current >= 0) {
+          try {
+            cancelAnimationFrame(streamRafRef.current);
+          } catch {
+            /* noop */
+          }
+        }
+        streamRafRef.current = null;
+      }
+      pendingStreamRef.current.clear();
+      if (stickRafRef.current !== null) {
+        if (typeof cancelAnimationFrame !== "undefined") {
+          try {
+            cancelAnimationFrame(stickRafRef.current);
+          } catch {
+            /* noop */
+          }
+        }
+        stickRafRef.current = null;
+      }
+    };
+  }, []);
+
+  // Inserta el mensaje assistant del turno en curso si falta, o le anexa texto.
+  // Los deltas llegan antes del invoke final: se acumulan en `pendingStreamRef`
+  // y se pintan 1x por frame (rAF), no 1x por token.
+  const appendStreamText = useCallback(
+    (id: string, text: string) => {
+      if (!text) return;
+      const prev = pendingStreamRef.current.get(id) ?? "";
+      pendingStreamRef.current.set(id, prev + text);
+      scheduleStreamFlush();
+    },
+    [scheduleStreamFlush]
+  );
 
   // Streaming real (T02): el main ya emite `ipc.chat.delta`
   // (text/tool_call/tool_result); acá se suscribe. Sin suscripción no hay stream.
@@ -316,7 +587,8 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           const c = chunk as ChatDeltaChunk;
           const tool = toToolActivity(c);
           if (tool) {
-            setToolEvents((prev) => [...prev, tool]);
+            const seq = ++toolSeqRef.current;
+            setToolEvents((prev) => [...prev, { ...tool, seq }]);
             return;
           }
           appendStreamText(target, c.delta ?? c.text ?? "");
@@ -331,7 +603,10 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         bridge.onEvent((event: unknown) => {
           if (!event || typeof event !== "object") return;
           const tool = toToolActivity(event as ChatDeltaChunk);
-          if (tool) setToolEvents((prev) => [...prev, tool]);
+          if (tool) {
+            const seq = ++toolSeqRef.current;
+            setToolEvents((prev) => [...prev, { ...tool, seq }]);
+          }
         })
       );
     }
@@ -343,7 +618,16 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
 
   const executeTurn = useCallback(async (promptText: string) => {
     if (!promptText.trim()) return;
-    currentPromptRef.current = promptText;
+    // CFG-12: el turno lleva el resumen de adjuntos válidos; la cuarentena
+    // nunca viaja. Se limpia el composer tras acuñar el prompt efectivo.
+    const fullPrompt = buildPromptWithAttachments(promptText, attachments);
+    const promptTextEffective = fullPrompt;
+    setAttachments([]);
+    setAttachError(null);
+    // A1: cada turno acuña su AbortController; `handleCancel`/Esc lo aborta.
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    currentPromptRef.current = promptTextEffective;
     setActiveError(null);
     setToolEvents([]);
     // T19: el badge muestra el turno actual; sin `usage` nuevo no hay
@@ -355,17 +639,17 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       const [u, a] = [nid(), nid()];
       setMessages((prev) => [
         ...prev,
-        { id: u, role: "user", content: [{ type: "text", text: promptText }] },
+        { id: u, role: "user", content: [{ type: "text", text: promptTextEffective }] },
         { id: a, role: "assistant", isError: true, content: [{ type: "text", text: byokBlock }] },
       ]);
-      setActiveError({ message: byokBlock, prompt: promptText, timestamp: Date.now() });
+      setActiveError({ message: byokBlock, prompt: promptTextEffective, timestamp: Date.now() });
       return;
     }
 
     const [u, a] = [nid(), nid()];
     setMessages((prev) => [
       ...prev,
-      { id: u, role: "user", content: [{ type: "text", text: promptText }] },
+      { id: u, role: "user", content: [{ type: "text", text: promptTextEffective }] },
     ]);
     // Sin placeholder "Procesando…": el banner skeleton con altura reservada
     // ocupa su lugar hasta el primer delta (anti layout-shift); el mensaje
@@ -375,7 +659,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
 
     try {
       const streamRes = await ego().llmStream({
-        prompt: promptText,
+        prompt: promptTextEffective,
         projectId,
         subEgoId,
         // 2026-10-15: el hilo SIEMPRE viaja con su sessionId. Sin esto todos
@@ -383,6 +667,22 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         // historial por sesión (picker/resume) jamás acumulaba nada.
         ...(sessionId ? { sessionId } : {}),
       });
+      if ((streamRes as { status?: string }).status === "aborted") {
+        // A1 real: el main abortó el loop (`ipc.llm.cancel`) y el invoke
+        // resolvió `aborted` en vez de rechazar — no es error visible.
+        // El buffer rAF del turno se descarta: el texto final manda.
+        pendingStreamRef.current.delete(a);
+        setMessages((prev) =>
+          prev.some((x) => x.id === a)
+            ? prev.map((x) =>
+                x.id === a
+                  ? { ...x, content: [{ type: "text" as const, text: "_Turno cancelado por el usuario._" }] }
+                  : x
+              )
+            : [...prev, { id: a, role: "assistant" as const, content: [{ type: "text" as const, text: "_Turno cancelado por el usuario._" }] }]
+        );
+        return;
+      }
       if (streamRes.recallStatus) {
         setLatestRecall(streamRes.recallStatus);
       }
@@ -390,11 +690,10 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       // en el turno (main.ts `handleLlmStream`); acá solo se expone en la UI.
       setLastTurnUsage(toTurnUsage(streamRes.usage, streamRes.turnId));
 
-      const badgePrefix = streamRes.recallStatus?.count
-        ? `${streamRes.recallStatus.glyph} [VantaDB: ${streamRes.recallStatus.count} recuerdos recuperados]\n\n`
-        : "";
-
-      const finalReply = badgePrefix + streamRes.text;
+      // A6: sin badge `[VantaDB: …]` inyectado en el texto del turno — el
+      // recall vive como componente separado (banner Memoria Activa +
+      // `recall` del mensaje), nunca como prefijo del contenido.
+      const finalReply = streamRes.text;
       // 2026-10-14: el fallback a mock del router enmascaraba errores de
       // proveedor (ej. modelo retirado 404) como respuesta real. Señal honesta.
       const isSimulated = streamRes.text.startsWith("[MockResponse");
@@ -402,6 +701,8 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         ? `⚠️ Respuesta simulada (el proveedor falló; revisá tu key y el modelo en Ajustes).\n\n${finalReply}`
         : finalReply;
 
+      // El texto final es autoritativo: descarta deltas aún en buffer rAF.
+      pendingStreamRef.current.delete(a);
       setMessages((prev) => {
         const body: { content: Msg["content"]; recall: RecallBadgeInfo } = {
           content: [{ type: "text", text: visibleReply }],
@@ -412,27 +713,130 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           : [...prev, { id: a, role: "assistant" as const, ...body }];
       });
     } catch (err) {
-      const errorStr = err instanceof Error ? err.message : String(err);
-      setActiveError({
-        message: errorStr,
-        prompt: promptText,
-        timestamp: Date.now(),
-      });
+      // A1: turno abortado por el usuario (Cancel/Esc) — no es error visible.
+      pendingStreamRef.current.delete(a);
+      if (ctrl.signal.aborted) {
+        setMessages((prev) =>
+          prev.some((x) => x.id === a)
+            ? prev.map((x) =>
+                x.id === a
+                  ? { ...x, content: [{ type: "text" as const, text: "_Turno cancelado por el usuario._" }] }
+                  : x
+              )
+            : prev
+        );
+      } else {
+        const errorStr = err instanceof Error ? err.message : String(err);
+        setActiveError({
+          message: errorStr,
+          prompt: promptTextEffective,
+          timestamp: Date.now(),
+        });
 
-      setMessages((prev) => {
-        const body: { isError: true; content: Msg["content"] } = {
-          isError: true,
-          content: [{ type: "text", text: `⚠️ Error en ejecución de turno: ${errorStr}` }],
-        };
-        return prev.some((x) => x.id === a)
-          ? prev.map((x) => (x.id === a ? { ...x, ...body } : x))
-          : [...prev, { id: a, role: "assistant" as const, ...body }];
-      });
+        setMessages((prev) => {
+          const body: { isError: true; content: Msg["content"] } = {
+            isError: true,
+            content: [{ type: "text", text: `⚠️ Error en ejecución de turno: ${errorStr}` }],
+          };
+          return prev.some((x) => x.id === a)
+            ? prev.map((x) => (x.id === a ? { ...x, ...body } : x))
+            : [...prev, { id: a, role: "assistant" as const, ...body }];
+        });
+      }
     } finally {
       if (streamTargetRef.current === a) streamTargetRef.current = null;
+      if (abortRef.current === ctrl) abortRef.current = null;
       setIsStreaming(false);
     }
-  }, [projectId, subEgoId, sessionId, appendStreamText]);
+  }, [projectId, subEgoId, sessionId, attachments]);
+
+  // A1/A2: cancela el turno en curso. Cierra el estado local de stream de
+  // inmediato (AbortController) y aborta el loop remoto vía
+  // `ipc.llm.cancel` (el main detiene generate/tools entre turnos y emite
+  // `turn-cancelled`; el invoke resuelve `aborted`, rama tratada arriba).
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    streamTargetRef.current = null;
+    // Descarta deltas en buffer + cancela el frame pendiente: sin esto un
+    // rAF tardío pintaría texto tras "Turno cancelado".
+    pendingStreamRef.current.clear();
+    if (streamRafRef.current !== null) {
+      if (typeof cancelAnimationFrame !== "undefined" && streamRafRef.current >= 0) {
+        try {
+          cancelAnimationFrame(streamRafRef.current);
+        } catch {
+          /* noop */
+        }
+      }
+      streamRafRef.current = null;
+    }
+    setIsStreaming(false);
+    void ego()
+      .llmCancel?.()
+      .catch(() => {});
+  }, []);
+
+  // CFG-12: ingesta de adjuntos (fail-closed: tipo/tamaño/permiso → cuarentena).
+  const handleFiles = useCallback((files: FileList | File[] | null) => {
+    if (!files) return;
+    const list = Array.from(files);
+    const validated = list.map((f) =>
+      validateComposerAttachment({ name: f.name, mime: f.type, size: f.size })
+    );
+    setAttachments((prev) => [...prev, ...validated]);
+    const blocked = validated.filter((v) => v.quarantined);
+    setAttachError(
+      blocked.length > 0
+        ? `${blocked.length} adjunto(s) en cuarentena: ${blocked.map((b) => b.reason ?? b.name).join("; ")}`
+        : null
+    );
+  }, []);
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  // A2: Esc cancela el turno en curso (mismo Abort que el botón Cancel).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && abortRef.current) {
+        e.preventDefault();
+        handleCancel();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleCancel]);
+
+  // A2: autoscroll solo con stick (<100px del fondo). Sin stick se muestra
+  // "Jump to latest" y el viewport no salta (lectura de historial intacta).
+  // Follow-on-append throttled a 1x rAF: sin esto cada delta del stream
+  // forzaba un layout (scrollHeight) + paint.
+  useEffect(() => {
+    if (!stick) return undefined;
+    if (stickRafRef.current !== null) return undefined;
+    if (typeof requestAnimationFrame !== "undefined") {
+      stickRafRef.current = requestAnimationFrame(() => {
+        stickRafRef.current = null;
+        const el = viewportRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+      return () => {
+        if (stickRafRef.current !== null) {
+          try {
+            cancelAnimationFrame(stickRafRef.current);
+          } catch {
+            /* noop */
+          }
+          stickRafRef.current = null;
+        }
+      };
+    }
+    const el = viewportRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    return undefined;
+  }, [messages, isStreaming, toolEvents, stick]);
 
   // Sincronización reactiva: acciones disparadas en el Canvas alimentan el Chat (CANV-03 / COUC-07)
   useEffect(() => {
@@ -499,7 +903,15 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-3 py-2">
+        <ThreadPrimitive.Viewport
+          ref={viewportRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 100);
+          }}
+          className="relative flex-1 overflow-y-auto px-3 py-2"
+          style={{ overflowAnchor: "auto" }}
+        >
           <ThreadPrimitive.Empty>
             <div className="p-10 text-center text-faint">
               <p className="mb-1.5 text-ink font-semibold">Cerebro Operativo de Ego</p>
@@ -512,11 +924,29 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
             components={{
               UserMessage,
               AssistantMessage: () => (
-                <AssistantMessage subEgoId={subEgoId ?? "ego.nucleus"} />
+                <AssistantMessage subEgoId={subEgoId ?? "ego.nucleus"} onRetry={handleRetry} />
               ),
             }}
           />
         </ThreadPrimitive.Viewport>
+
+        {/* A2: Jump to latest — solo sin stick (el viewport no salta solo). */}
+        {!stick && (
+          <div className="flex justify-center border-t border-hairline bg-paper/80 px-3 py-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                const el = viewportRef.current;
+                if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+                setStick(true);
+              }}
+              aria-label="Saltar al último mensaje"
+              className="rounded-card border border-hairline bg-panel px-3 py-1.5 text-[11px] font-semibold text-ink shadow-sm transition-colors hover:bg-raised"
+            >
+              ↓ Jump to latest
+            </button>
+          </div>
+        )}
 
         {/* Skeleton de streaming con altura reservada (anti layout-shift, T02) */}
         {isStreaming && (
@@ -535,11 +965,16 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         {toolEvents.length > 0 && (
           <div
             data-testid="chat-tool-activity"
+            role="status"
             aria-live="polite"
             className="max-h-24 overflow-y-auto border-t border-hairline px-3 py-1.5 font-mono text-[11px] text-dim"
           >
-            {toolEvents.map((t, i) => (
-              <div key={`${t.callId ?? t.toolName}-${i}`} className="truncate">
+            {toolEvents.map((t) => (
+              <div
+                key={t.callId ? `${t.kind}-${t.callId}-${t.seq}` : `${t.kind}-${t.toolName}-${t.seq}`}
+                className="truncate"
+                style={{ contentVisibility: "auto", containIntrinsicSize: "auto 20px" }}
+              >
                 {t.kind === "tool_call"
                   ? `🔧 ${t.toolName}${t.detail ? ` ${t.detail}` : ""}…`
                   : t.detail === "ok"
@@ -554,6 +989,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         {lastTurnUsage && (
           <div
             data-testid="chat-turn-cost"
+            role="status"
             aria-live="polite"
             className="border-t border-hairline px-3 py-1.5 font-mono text-[11px] text-dim"
           >
@@ -619,7 +1055,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
 
         {/* T08: menciones @ y slash / del borrador (FileMentionBadge + hint). */}
         {(draftMentions.length > 0 || draftSlash) && (
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-hairline px-3 pt-2" aria-live="polite">
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-hairline px-3 pt-2" role="status" aria-live="polite">
             {draftMentions.map((path) => (
               <FileMentionBadge key={path} path={path} compact />
             ))}
@@ -633,20 +1069,104 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
+        {/* CFG-12: adjuntos con permiso inline + cuarentena visible. */}
+        {(attachments.length > 0 || attachError) && (
+          <div
+            data-testid="composer-attachments"
+            role="status"
+            aria-live="polite"
+            className="flex flex-wrap items-center gap-1.5 border-t border-hairline px-3 pt-2"
+          >
+            {attachments.map((a) => (
+              <span
+                key={a.id}
+                data-testid={a.quarantined ? "attachment-quarantined" : "attachment-chip"}
+                title={a.quarantined ? `Cuarentena: ${a.reason ?? "bloqueado"}` : `${a.mime}, ${(a.size / 1024).toFixed(1)}KB`}
+                className={`inline-flex items-center gap-1 rounded-card border border-hairline px-2 py-1 font-mono text-[11px] ${a.quarantined ? "bg-rose-950/40 text-rose-200" : "bg-panel text-ink"}`}
+              >
+                {a.quarantined ? "⛔" : "📎"} {a.name}
+                <span className="text-dim">·{a.permission}</span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(a.id)}
+                  aria-label={`Quitar adjunto ${a.name}`}
+                  className="ml-1 rounded p-0.5 hover:bg-raised"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+            {attachError && <span className="font-mono text-[11px] text-rose-300">{attachError}</span>}
+          </div>
+        )}
+
+        {/* TODO(PM-COMPOSER): ProseMirror completo en Composer es reescritura
+            (R-FE-2: el texto fuente vive en el textarea del runtime). Se deja
+            ComposerPrimitive intacto; solo display-only @menciones//slash. */}
+        {/* A1: Ctrl/Cmd+Enter envía (Enter plano = salto de línea), máx 8
+            filas con scroll interno. Sin autoFocus: el foco lo gobiernan los
+            modales (A6). Send/Cancel ≥44px; Cancel solo durante streaming. */}
         <ComposerPrimitive.Root className="flex gap-2 px-3 py-2.5 border-t border-hairline">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            aria-label="Adjuntar archivos"
+            data-testid="composer-file-input"
+            className="hidden"
+            onChange={(e) => {
+              handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Adjuntar archivos"
+            title="Adjuntar (máx 10MB, tipos permitidos)"
+            data-testid="composer-attach-button"
+            className="min-h-[44px] min-w-[44px] px-3 py-2.5 bg-panel border border-hairline rounded-card font-semibold text-[15px] text-ink cursor-pointer transition-colors hover:bg-raised"
+          >
+            ＋
+          </button>
+          {/* TODO VOICE (CFG-12): STT/TTS difiere a fase propia; botón
+              deshabilitado honesto con schema listo (`VoiceCapabilityState`). */}
+          <button
+            type="button"
+            disabled
+            aria-label="Entrada de voz (futuro)"
+            title="Voz STT/TTS — futuro (TODO VOICE)"
+            data-testid="composer-voice-button"
+            className="min-h-[44px] min-w-[44px] px-3 py-2.5 bg-panel border border-hairline rounded-card text-[15px] text-faint opacity-50 cursor-not-allowed"
+          >
+            🎙
+          </button>
           <div ref={composerWrapRef} onInput={handleComposerInput} className="flex min-w-0 flex-1">
           <ComposerPrimitive.Input
-            autoFocus
-            placeholder="Pregunta o instruye a Ego… (@archivo · /help)"
-            className="flex-1 px-3.5 py-2.5 bg-panel border border-hairline rounded-card text-ink text-sm placeholder:text-faint focus:outline-none focus:border-dim"
+            submitMode="ctrlEnter"
+            maxRows={8}
+            placeholder="Pregunta o instruye a Ego… (@archivo · /help · Ctrl+Enter envía)"
+            className="flex-1 max-h-48 overflow-y-auto px-3.5 py-2.5 bg-panel border border-hairline rounded-card text-ink text-sm placeholder:text-faint focus:outline-none focus:border-dim"
           />
           </div>
-          <ComposerPrimitive.Send
-            aria-label="Enviar mensaje"
-            className="px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"
-          >
-            Enviar
-          </ComposerPrimitive.Send>
+          {isStreaming ? (
+            <button
+              type="button"
+              onClick={handleCancel}
+              aria-label="Cancelar turno en curso"
+              title="Cancelar turno (Esc)"
+              className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-rose-600 text-white rounded-card font-semibold text-[13px] cursor-pointer transition-colors hover:bg-rose-500"
+            >
+              Cancelar
+            </button>
+          ) : (
+            <ComposerPrimitive.Send
+              aria-label="Enviar mensaje"
+              className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"
+            >
+              Enviar
+            </ComposerPrimitive.Send>
+          )}
         </ComposerPrimitive.Root>
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
