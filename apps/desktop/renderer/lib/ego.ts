@@ -340,6 +340,37 @@ export interface EgoFetchResult {
 }
 
 /**
+ * VOICE-01 — Formas de respuesta de `ipc.voice.*`.
+ * El renderer nunca recibe secretos: solo texto/estado. La key (groq) vive
+ * en main (env/safeStorage) y la inyecta el handler al proveedor.
+ */
+export interface VoiceStatusResult {
+  ok: boolean;
+  error?: string;
+  disableVoice: boolean;
+  sttProvider: "webspeech" | "groq";
+  ttsProvider: "speechSynthesis" | "edge";
+  privacyAcknowledged: boolean;
+  mock?: boolean;
+}
+
+export interface VoiceSttResult {
+  ok: boolean;
+  error?: string;
+  denied?: boolean;
+  text?: string;
+  mock?: boolean;
+}
+
+export interface VoiceTtsResult {
+  ok: boolean;
+  error?: string;
+  denied?: boolean;
+  mode?: "local";
+  mock?: boolean;
+}
+
+/**
  * Formas de respuesta de los canales `ipc.domains.*` (F5T11/M26).
  * Espejos locales de `GitStatusSummary`, `WorkspaceInspection`, `WorktreeInfo`
  * (`packages/domains/src/engineering/`) y de `BacklogItem`/`Epic`
@@ -520,6 +551,19 @@ export interface EgoBridge {
   // nunca llega al renderer). Opcional para no romper mocks existentes.
   net?: {
     fetch: (req: EgoFetchRequest) => Promise<EgoFetchResult>;
+  };
+  // VOICE-01: voz STT/TTS opt-in con kill switch (`ipc.voice.*` en main).
+  // Opcional para no romper mocks/bridges existentes.
+  voice?: {
+    getStatus: () => Promise<VoiceStatusResult>;
+    setConfig: (req: {
+      disableVoice?: boolean;
+      sttProvider?: "webspeech" | "groq";
+      ttsProvider?: "speechSynthesis" | "edge";
+      privacyAcknowledged?: boolean;
+    }) => Promise<VoiceStatusResult>;
+    stt: (req: { audioB64: string; format?: string; language?: string }) => Promise<VoiceSttResult>;
+    tts: (req: { text: string; voice?: string; rate?: number }) => Promise<VoiceTtsResult>;
   };
   daily?: {
     getSummary: (req?: { date?: string }) => Promise<DailySummaryResult>;
@@ -908,6 +952,27 @@ const mock: EgoBridge = {
   },
   net: {
     fetch: async () => ({ ok: true, status: 200, body: "" }),
+  },
+  // VOICE-01 mock: voz deshabilitada-por-defecto honesta (sin mic en tests).
+  voice: {
+    getStatus: async () => ({
+      ok: true,
+      mock: true,
+      disableVoice: false,
+      sttProvider: "webspeech" as const,
+      ttsProvider: "speechSynthesis" as const,
+      privacyAcknowledged: false,
+    }),
+    setConfig: async (req) => ({
+      ok: true,
+      mock: true,
+      disableVoice: req.disableVoice ?? false,
+      sttProvider: req.sttProvider ?? ("webspeech" as const),
+      ttsProvider: req.ttsProvider ?? ("speechSynthesis" as const),
+      privacyAcknowledged: req.privacyAcknowledged ?? false,
+    }),
+    stt: async () => ({ ok: false, mock: true, error: "STT no disponible en modo mock" }),
+    tts: async () => ({ ok: false, mock: true, error: "TTS no disponible en modo mock" }),
   },
   decision: {
     evaluate: async (req) => ({ ok: true, mock: true, req }),

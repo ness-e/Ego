@@ -276,3 +276,46 @@ Comandos de verificación: `npx vitest run` (packages/tools) 60/60 ✅; `npx tsc
 Deuda: handlers `ipc.mcp.*` para approvals/toolsets en main + persistencia `gov/settings/mcp_tools` = trabajo futuro fuera de alcance
 last-synced: 2026-10-16
 === END RECITATION ===
+
+## VOICE-01 — Ejecución (subagente, 2026-10-16)
+
+Entregables (cierra TODO VOICE de CFG-12; solo `voice/` nuevo + zona TODO
+VOICE de `ego-chat.tsx` + apéndices `schema.ts`/`main.ts`/`preload.ts` +
+tipos mínimos `lib/ego.ts` + 2 tests nuevos; guards/CSP/fetch/folders/
+permissions-CFG-06/queue-CFG-11/ModelRouter/memoria/docs-sitio/floating
+intactos, sin install):
+
+- `renderer/components/voice/useVoice.ts` (nuevo): hook + puros
+  (`sanitizeTranscript`, `resolveVoiceSttEnabled/TtsEnabled` deny-gana,
+  `VOICE_PRIVACY_NOTICE`); WebSpeech/`speechSynthesis` nativos con
+  `webkit` prefix + factories inyectables (sin mic real en CI).
+- `renderer/components/voice/VoiceButton.tsx` (nuevo): botón mic ≥44px con
+  aria-label/aria-pressed/disabled + `VoicePrivacyNotice` visible.
+- `ego-chat.tsx` (solo botón+hook): `VoiceButton` en el composer,
+  `insertTranscript`→textarea, `lastAssistantRef` + "Leer última" opt-in
+  (sin autoplay), kill switch persistido en `gov/settings/voice`, controles
+  DEBAJO del composer (fix regresión CFG-11: checkboxes encima robaban el
+  `querySelector` del test input-to-paint — verificado por stash-protocol).
+- `ipc/schema.ts` (apéndice): `VoiceStt/Tts/SettingsSchema` sin `*Key`.
+- `main.ts` (apéndice + 1 import): `ipc.voice.getStatus/setConfig/stt/tts`
+  fail-closed; groq-whisper real vía `GROQ_API_KEY` env (ModelConfig sin slot
+  por regla no-touch); renderer nunca ve la key.
+- `preload.ts` + `lib/ego.ts`: namespace `voice` aditivo + tipos/mock.
+- `test/voice-cfg.test.tsx` (6/6) + `test/voice-schema.test.ts` (6/6) +
+  `docs/agent-ops/tasks/VOICE-01.md` (10 secciones + review APPROVE degradado).
+- Deuda honesta: groq exige env en main; edge TTS pendiente de red;
+  opt-in TTS session-local (privacy-positivo).
+
+=== RECITATION ===
+Objetivo activo: VOICE-01 — Voz STT/TTS opt-in con kill switch y privacy review
+Estado: completed (desde: pending)
+Última acción: steps 1-6 ✅ + sección de ejecución en plan file + task VOICE-01.md
+Resultado: ✅
+State: completed (desde: pending)
+Próxima acción: ninguna en VOICE-01; voz cerrada — resto según orden del plan (decide orquestador)
+Contrato: botón mic ≥44px + aria ✅ + STT→composer (mock 6/6) ✅ + TTS solo opt-in + kill switch deny-gana ✅ + keys solo main (grep renderer sin key material) ✅ + privacy notice visible ✅ + typechecks 2/2 en 0 ✅ + voz 6/6 ✅ + ChatStreaming 6/6 ✅ + renderer full 307/307 ✅
+Invariantes: formato 10 columnas intacto; main.ts 1 import + 1 hunk apéndice; fuera de voz+apéndices nada tocado salvo task/plan; sin ModelConfig/profiles/permissions/MCP/ModelRouter/memoria/docs-sitio/floating/setup.ts; sin pnpm install; commit LOCAL, nunca push
+Comandos de verificación: `vitest run test/voice-cfg.test.tsx` 6/6 ✅; `vitest run test/voice-schema.test.ts` 6/6 ✅; voz+streaming+composer+paint 24/24 ✅; renderer full 307/307 ✅; desktop bridge/zod/voz 20/20 ✅; `tsc --noEmit` renderer/desktop 0/0 ✅; OCR delegation sin Critical/High ✅; review fast-tier APPROVE (degradado) ✅
+Deuda: groq STT exige GROQ_API_KEY en main; edge TTS pendiente de red; ipc-contract preexistente (floating, verificado CFG-11 vía stash)
+last-synced: 2026-10-16
+=== END RECITATION ===

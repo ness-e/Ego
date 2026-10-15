@@ -259,6 +259,19 @@ export interface EgoPreloadBridge {
     evaluatePreToolUse: (req: { toolName: string; sessionId?: string }) => Promise<unknown>;
     recordPostToolUse: (req: { toolName: string; sessionId?: string }) => Promise<unknown>;
   };
+  // VOICE-01: voz STT/TTS opt-in con kill switch. El renderer nunca ve keys:
+  // este borde solo lleva audio/texto/estado (`ipc.voice.*`, Zod en main).
+  voice: {
+    getStatus: () => Promise<unknown>;
+    setConfig: (req: {
+      disableVoice?: boolean;
+      sttProvider?: "webspeech" | "groq";
+      ttsProvider?: "speechSynthesis" | "edge";
+      privacyAcknowledged?: boolean;
+    }) => Promise<unknown>;
+    stt: (req: { audioB64: string; format?: "webm" | "wav" | "mp3"; language?: string }) => Promise<unknown>;
+    tts: (req: { text: string; voice?: string; rate?: number }) => Promise<unknown>;
+  };
   // WIDG-02 (Task3): superficie flotante (`window.egoFloating`).
   floating: EgoFloatingBridge;
 }
@@ -436,6 +449,13 @@ const egoBridge: EgoPreloadBridge = {
     getStatus: () => ipcRenderer.invoke("ipc.hooks.getStatus"),
     evaluatePreToolUse: (req) => ipcRenderer.invoke("ipc.hooks.evaluatePreToolUse", req),
     recordPostToolUse: (req) => ipcRenderer.invoke("ipc.hooks.recordPostToolUse", req),
+  },
+  // VOICE-01: puente de voz (sin secretos: audio/texto/estado únicamente).
+  voice: {
+    getStatus: () => ipcRenderer.invoke("ipc.voice.getStatus"),
+    setConfig: (req) => ipcRenderer.invoke("ipc.voice.setConfig", req),
+    stt: (req) => ipcRenderer.invoke("ipc.voice.stt", req),
+    tts: (req) => ipcRenderer.invoke("ipc.voice.tts", req),
   },
   floating: {
     onState: (callback) => {

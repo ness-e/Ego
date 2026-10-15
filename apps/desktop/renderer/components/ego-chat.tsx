@@ -18,6 +18,8 @@ import { CharacterBadge } from "./character/CharacterBadge.js";
 import { FileMentionBadge } from "./FileMentionBadge.js";
 import { parseSlashCommand, extractMentions, LOCAL_SLASH_COMMANDS, SLASH_HELP_TEXT } from "./composer-slash.js";
 import { useCanvasBridge } from "../hooks/useCanvasBridge";
+import { useVoice } from "./voice/useVoice.js";
+import { VoiceButton, VoicePrivacyNotice } from "./voice/VoiceButton.js";
 import { MarkdownText } from "./assistant-ui/markdown-text.js";
 import { MessageRenderBoundary } from "./assistant-ui/message-render-boundary.js";
 import { toTurnUsage, type TurnUsage } from "./daily-state/MetricsConsole.js";
@@ -228,9 +230,10 @@ export interface ComposerAttachment {
   quarantined: boolean;
   reason?: string;
 }
-// TODO VOICE (CFG-12): STT/TTS difiere a fase propia si bloquea. Schema listo:
-// el turno futuro llevará `{ audioInput?: { format: "wav"; bytesB64: string } }`
-// por `ipc.llm.*` existente; este tipo es el contrato pendiente de cablear.
+// VOICE-01: STT/TTS opt-in implementado abajo (`useVoice` + `VoiceButton` +
+// `ipc.voice.*` en main). El turno futuro con audio binario sigue pendiente:
+// llevaría `{ audioInput?: { format: "wav"; bytesB64: string } }` por
+// `ipc.voice.stt` (groq en main); este tipo queda como contrato documentado.
 export type VoiceCapabilityState = "disabled-future" | "listening" | "speaking";
 
 export function isAllowedAttachmentType(mime: string, name: string): boolean {
@@ -434,6 +437,55 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   }, []);
   const streamTargetRef = useRef<string | null>(null);
   const currentPromptRef = useRef<string>("");
+  // VOICE-01: última respuesta del asistente (solo lectura por gesto con
+  // opt-in; nunca autoplay). Ref sin setState: `executeTurn` la acuña antes
+  // del setMessages que re-renderiza.
+  const lastAssistantRef = useRef<string>("");
+
+  // VOICE-01: el dictado compone texto al composer (display-only intacto: el
+  // texto fuente sigue en el textarea del runtime; acá solo se anexa).
+  const insertTranscript = useCallback(
+    (text: string) => {
+      const ta = composerWrapRef.current?.querySelector("textarea");
+      if (!ta || !text) return;
+      const sep = ta.value && !ta.value.endsWith(" ") ? " " : "";
+      ta.value = `${ta.value}${sep}${text}`;
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      setDraftMentions(extractMentions(ta.value));
+    },
+    []
+  );
+  const voice = useVoice({ onTranscript: insertTranscript });
+
+  // VOICE-01: el kill switch persiste en main (`gov/settings/voice`); sin
+  // puente (mocks de test) rigen los defaults locales. Solo lectura al montar.
+  useEffect(() => {
+    let cancelled = false;
+    // Sin puente voice (mocks de test viejos) no hay nada que cargar.
+    const statusPromise = ego().voice?.getStatus?.();
+    if (!statusPromise) return;
+    void (statusPromise as Promise<{ ok?: unknown; disableVoice?: unknown }>)
+      .then((s) => {
+        if (cancelled || !s || s.ok !== true) return;
+        if (s.disableVoice) voice.setDisableVoice(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // `voice.*` estable (setState); corre una vez al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleVoiceKillSwitch = useCallback(
+    (v: boolean) => {
+      voice.setDisableVoice(v);
+      void ego()
+        .voice?.setConfig?.({ disableVoice: v, privacyAcknowledged: true })
+        .catch(() => {});
+    },
+    [voice]
+  );
 
   const { focusedContext, onAction } = useCanvasBridge();
 
@@ -780,6 +832,8 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       const visibleReply = isSimulated
         ? `⚠️ Respuesta simulada (el proveedor falló; revisá tu key y el modelo en Ajustes).\n\n${finalReply}`
         : finalReply;
+      // VOICE-01: acuña la última respuesta para "Leer" (opt-in, por gesto).
+      lastAssistantRef.current = visibleReply;
 
       // El texto final es autoritativo: descarta deltas aún en buffer rAF.
       pendingStreamRef.current.delete(a);
@@ -1215,18 +1269,13 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           >
             ＋
           </button>
-          {/* TODO VOICE (CFG-12): STT/TTS difiere a fase propia; botón
-              deshabilitado honesto con schema listo (`VoiceCapabilityState`). */}
-          <button
-            type="button"
-            disabled
-            aria-label="Entrada de voz (futuro)"
-            title="Voz STT/TTS — futuro (TODO VOICE)"
-            data-testid="composer-voice-button"
-            className="min-h-[44px] min-w-[44px] px-3 py-2.5 bg-panel border border-hairline rounded-card text-[15px] text-faint opacity-50 cursor-not-allowed"
-          >
-            🎙
-          </button>
+          {/* VOICE-01: dictado STT→composer (deshabilitado honesto sin
+              soporte o con kill switch; ver `useVoice`). */}
+          <VoiceButton
+            captureState={voice.captureState}
+            disabled={!voice.sttEnabled}
+            onToggleDictation={voice.toggleDictation}
+          />
           <div ref={composerWrapRef} onInput={handleComposerInput} className="flex min-w-0 flex-1">
           <ComposerPrimitive.Input
             submitMode="ctrlEnter"
@@ -1272,6 +1321,50 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           )}
           </AnimatePresence>
         </ComposerPrimitive.Root>
+        {/* VOICE-01: controles debajo del composer (no encima) para no
+            desplazar el textarea en el orden DOM: STT dictado→composer
+            (WebSpeech local) + TTS opt-in por gesto (sin autoplay) + kill
+            switch global. La key groq vive solo en main. */}
+        <div
+          data-testid="voice-controls"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-hairline px-3 pt-2 font-mono text-[11px] text-dim"
+        >
+          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={voice.ttsOptIn}
+              onChange={(e) => voice.setTtsOptIn(e.target.checked)}
+              aria-label="Leer respuestas en voz alta (opt-in)"
+              className="h-4 w-4 accent-current"
+            />
+            🔊 Leer respuestas
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              void voice.speak(lastAssistantRef.current);
+            }}
+            disabled={!voice.ttsEnabled || lastAssistantRef.current.length === 0}
+            aria-label="Leer última respuesta en voz alta"
+            title="Lee la última respuesta (requiere opt-in)"
+            data-testid="voice-read-button"
+            className="min-h-[44px] rounded-card border border-hairline bg-panel px-2.5 py-1 font-semibold text-ink transition-colors hover:bg-raised disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Leer última
+          </button>
+          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={voice.disableVoice}
+              onChange={(e) => handleVoiceKillSwitch(e.target.checked)}
+              aria-label="Desactivar toda la voz (kill switch)"
+              data-testid="voice-killswitch"
+              className="h-4 w-4 accent-current"
+            />
+            ⛔ Desactivar voz
+          </label>
+        </div>
+        <VoicePrivacyNotice />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
   );

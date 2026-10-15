@@ -917,3 +917,53 @@ export const PermissionsSettingsSchema = z.object({
 
 export type PermissionsSettings = z.infer<typeof PermissionsSettingsSchema>;
 
+/**
+ * Voz STT/TTS opt-in con kill switch (VOICE-01).
+ * Cierra el TODO VOICE de CFG-12 (`ego-chat.tsx`: `VoiceCapabilityState` +
+ * botón 🎙 disabled). Decisión: WebSpeech/`speechSynthesis` locales por
+ * defecto (sin costo, sin red); groq-whisper/edge-nube opcionales cuando hay
+ * key configurada en main. El renderer NUNCA ve secretos: este schema no
+ * tiene campos `*Key`; el main inyecta la auth desde safeStorage/env y solo
+ * retorna texto/estado. Kill switch `disableVoice` deny-gana: veta STT y TTS
+ * aunque haya opt-in. `privacyAcknowledged` registra que el usuario vio el
+ * notice ("el audio se envía al proveedor solo al dictar/leer").
+ */
+export const VoiceSttFormatSchema = z.enum(["webm", "wav", "mp3"]);
+
+export type VoiceSttFormat = z.infer<typeof VoiceSttFormatSchema>;
+
+export const VoiceSttSchema = z.object({
+  /** Audio base64 (tope ≈5MB binarios; el dictado local WebSpeech no usa este canal). */
+  audioB64: z.string().min(1, "El audio no puede estar vacío").max(7_000_000),
+  format: VoiceSttFormatSchema.default("webm"),
+  language: z.string().min(2).max(12).optional(),
+});
+
+export type VoiceSttRequest = z.infer<typeof VoiceSttSchema>;
+
+export const VoiceTtsSchema = z.object({
+  text: z.string().min(1, "El texto no puede estar vacío").max(5000),
+  voice: z.string().min(1).max(128).optional(),
+  rate: z.number().min(0.5).max(2).optional(),
+});
+
+export type VoiceTtsRequest = z.infer<typeof VoiceTtsSchema>;
+
+export const VoiceSttProviderSchema = z.enum(["webspeech", "groq"]);
+
+export type VoiceSttProvider = z.infer<typeof VoiceSttProviderSchema>;
+
+export const VoiceTtsProviderSchema = z.enum(["speechSynthesis", "edge"]);
+
+export type VoiceTtsProvider = z.infer<typeof VoiceTtsProviderSchema>;
+
+export const VoiceSettingsSchema = z.object({
+  /** Kill switch global: true veta STT y TTS (deny-gana sobre opt-in). */
+  disableVoice: z.boolean().default(false),
+  sttProvider: VoiceSttProviderSchema.default("webspeech"),
+  ttsProvider: VoiceTtsProviderSchema.default("speechSynthesis"),
+  privacyAcknowledged: z.boolean().default(false),
+});
+
+export type VoiceSettings = z.infer<typeof VoiceSettingsSchema>;
+
