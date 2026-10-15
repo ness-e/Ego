@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { describe, it, expect, afterEach } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { CanvasRuntime } from "../components/canvas/CanvasRuntime";
 import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
 import type { CanvasComponentManifest } from "@ego/ui-runtime";
 
+// STAB-08: migrado de createRoot+act+querySelector a RTL por
+// comportamiento. Sin vi.restoreAllMocks() (ver App.test.tsx).
 const TEST_MANIFESTS: CanvasComponentManifest[] = [
   {
     id: "test-card-1",
@@ -58,88 +60,57 @@ function ThemeTestHelper() {
 }
 
 describe("CANV-02: Canvas Generative Runtime & DesignSystemProvider", () => {
-  let container: HTMLDivElement;
-  let root: Root;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
+  afterEach(() => {
+    cleanup();
   });
 
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-  });
-
-  it("debe renderizar componentes declarativos desde los manifiestos", async () => {
-    await act(async () => {
-      root.render(
-        <DesignSystemProvider>
-          <CanvasRuntime projectId="test-proj" initialComponents={TEST_MANIFESTS} />
-        </DesignSystemProvider>
-      );
-    });
-
-    expect(container.textContent).toContain("Tarjeta de Prueba");
-    expect(container.textContent).toContain("Tabla de Telemetría");
-    expect(container.textContent).toContain("ego.nucleus");
-    expect(container.textContent).toContain("ego.developer");
-  });
-
-  it("debe filtrar componentes según la categoría seleccionada", async () => {
-    await act(async () => {
-      root.render(
-        <DesignSystemProvider>
-          <CanvasRuntime projectId="test-proj" initialComponents={TEST_MANIFESTS} />
-        </DesignSystemProvider>
-      );
-    });
-
-    // Inicialmente se muestran ambos
-    expect(container.textContent).toContain("Tarjeta de Prueba");
-    expect(container.textContent).toContain("Tabla de Telemetría");
-
-    // Click en filtro 'Métricas' (donde table y chart aparecen)
-    const metricsBtn = Array.from(container.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "Métricas"
+  it("renderiza componentes declarativos desde los manifiestos", async () => {
+    render(
+      <DesignSystemProvider>
+        <CanvasRuntime projectId="test-proj" initialComponents={TEST_MANIFESTS} />
+      </DesignSystemProvider>
     );
-    expect(metricsBtn).toBeDefined();
 
-    await act(async () => {
-      metricsBtn?.click();
-    });
-
-    // La tabla sigue presente pero la card no
-    expect(container.textContent).toContain("Tabla de Telemetría");
-    expect(container.textContent).not.toContain("Tarjeta de Prueba");
+    expect(await screen.findByText("Tarjeta de Prueba")).toBeTruthy();
+    expect(screen.getByText("Tabla de Telemetría")).toBeTruthy();
+    expect(screen.getByText(/ego\.nucleus/)).toBeTruthy();
+    expect(screen.getByText(/ego\.developer/)).toBeTruthy();
   });
 
-  it("debe aplicar presets de tokens e inyectar variables CSS en el elemento raíz", async () => {
-    await act(async () => {
-      root.render(
-        <DesignSystemProvider>
-          <ThemeTestHelper />
-        </DesignSystemProvider>
-      );
-    });
+  it("filtra componentes según la categoría seleccionada", async () => {
+    const user = userEvent.setup();
+    render(
+      <DesignSystemProvider>
+        <CanvasRuntime projectId="test-proj" initialComponents={TEST_MANIFESTS} />
+      </DesignSystemProvider>
+    );
 
-    const themeName = container.querySelector('[data-testid="current-theme-name"]');
-    expect(themeName?.textContent).toContain("Slate Oscuro");
+    await screen.findByText("Tarjeta de Prueba");
+    expect(screen.getByText("Tabla de Telemetría")).toBeTruthy();
 
-    const rootElem = container.querySelector("#ego-design-system-root") as HTMLElement;
+    await user.click(screen.getByRole("button", { name: "Métricas" }));
+
+    expect(screen.getByText("Tabla de Telemetría")).toBeTruthy();
+    expect(screen.queryByText("Tarjeta de Prueba")).toBeNull();
+  });
+
+  it("aplica presets de tokens e inyecta variables CSS en el elemento raíz", async () => {
+    const user = userEvent.setup();
+    render(
+      <DesignSystemProvider>
+        <ThemeTestHelper />
+      </DesignSystemProvider>
+    );
+
+    expect(screen.getByTestId("current-theme-name")).toHaveTextContent(/Slate Oscuro/);
+
+    const rootElem = document.querySelector("#ego-design-system-root") as HTMLElement;
     expect(rootElem).not.toBeNull();
     expect(rootElem.style.getPropertyValue("--ego-color-bg")).toBe("#09090b");
 
-    // Cambiar a preset Midnight Cyan
-    const btnCyan = container.querySelector('[data-testid="btn-preset-cyan"]') as HTMLButtonElement;
-    await act(async () => {
-      btnCyan.click();
-    });
+    await user.click(screen.getByTestId("btn-preset-cyan"));
 
-    expect(themeName?.textContent).toContain("Medianoche Cyan");
+    expect(screen.getByTestId("current-theme-name")).toHaveTextContent(/Medianoche Cyan/);
     expect(rootElem.style.getPropertyValue("--ego-color-bg")).toBe("#030712");
     expect(rootElem.style.getPropertyValue("--ego-color-brand")).toBe("#06b6d4");
   });

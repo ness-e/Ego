@@ -1,79 +1,62 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Omnibar, toOmnibarHits, OMNIBAR_CONFIDENCE_CUTOFF } from "../components/omnibar.js";
 import { parseSlashCommand, extractMentions, LOCAL_SLASH_COMMANDS } from "../components/composer-slash.js";
 
+// STAB-08: partes DOM migradas de createRoot+act+dispatchEvent a RTL por
+// comportamiento (render/screen/user-event/getByRole). Las pruebas puras
+// (toOmnibarHits/slash/menciones) no tocan el DOM y se conservan intactas.
+// Sin vi.restoreAllMocks(): vaciaría el MockEgoBridge global de setup.ts.
 describe("T08 UI-05: Omnibar federado + slash/menciones", () => {
-  let container: HTMLDivElement;
-  let root: Root;
-  let originalMemory: unknown;
-
-  const setup = async () => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-    originalMemory = (window as unknown as { ego: { memory: unknown } }).ego.memory;
-    await act(async () => {
-      root.render(<Omnibar />);
-    });
-  };
-
-  afterEach(async () => {
-    (window as unknown as { ego: { memory: unknown } }).ego.memory = originalMemory as never;
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-    document.body.innerHTML = "";
+  afterEach(() => {
+    cleanup();
   });
 
-  it("arranca cerrado y Ctrl+K lo abre con roles menu/option", async () => {
-    await setup();
-    expect(document.body.textContent).not.toContain("Búsqueda federada");
-    await act(async () => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
-    });
-    expect(document.body.textContent).toContain("Búsqueda federada");
-    expect(document.body.querySelector('[role="search"]')).toBeTruthy();
-    expect(document.body.querySelector('[role="listbox"]')).toBeTruthy();
+  it("arranca cerrado y Ctrl+K lo abre con roles search/listbox", async () => {
+    const user = userEvent.setup();
+    render(<Omnibar />);
+
+    expect(screen.queryByText(/búsqueda federada/i)).toBeNull();
+    await user.keyboard("{Control>}k{/Control}");
+
+    expect(await screen.findByRole("search")).toBeTruthy();
+    expect(screen.getByRole("listbox", { name: /resultados/i })).toBeTruthy();
   });
 
   it("debouncea 250ms y llama a memory searchMulti con corte de confianza", async () => {
-    await setup();
+    const user = userEvent.setup();
+    const bridge = window.ego as unknown as { memory: unknown };
+    const originalMemory = bridge.memory;
     const memory = vi.fn().mockResolvedValue([
       { score: 0.94, record: { namespace: "kb/docs", key: "tarifa", payload: JSON.stringify({ titulo: "Tarifas 2026", contenido: "límite 150 USD/hora" }) } },
       { score: 0.1, record: { namespace: "kb/ruido", key: "spam", payload: "basura" } },
     ]);
-    (window as unknown as { ego: { memory: unknown } }).ego.memory = memory;
-    await act(async () => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
-    });
-    const input = document.body.querySelector('input[aria-label="Buscar en memoria federada"]') as HTMLInputElement;
-    expect(input).toBeTruthy();
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      setter?.call(input, "tarifa");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      await new Promise((r) => setTimeout(r, 400));
-    });
-    expect(memory).toHaveBeenCalledWith("searchMulti", ["tarifa"]);
-    expect(document.body.textContent).toContain("Tarifas 2026");
-    // Bajo el corte 0.3 no se muestra.
-    expect(document.body.textContent).not.toContain("basura");
-    expect(OMNIBAR_CONFIDENCE_CUTOFF).toBe(0.3);
+    bridge.memory = memory;
+    try {
+      render(<Omnibar />);
+      await user.keyboard("{Control>}k{/Control}");
+      const input = await screen.findByRole("combobox", { name: /buscar en memoria/i });
+      await user.type(input, "tarifa");
+
+      await waitFor(() => expect(memory).toHaveBeenCalledWith("searchMulti", ["tarifa"]));
+      expect(await screen.findByText("Tarifas 2026")).toBeTruthy();
+      expect(screen.queryByText("basura")).toBeNull();
+      expect(OMNIBAR_CONFIDENCE_CUTOFF).toBe(0.3);
+    } finally {
+      bridge.memory = originalMemory;
+    }
   });
 
   it("Escape cierra el omnibar", async () => {
-    await setup();
-    await act(async () => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
-    });
-    expect(document.body.textContent).toContain("Búsqueda federada");
-    await act(async () => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
-    expect(document.body.textContent).not.toContain("Búsqueda federada");
+    const user = userEvent.setup();
+    render(<Omnibar />);
+
+    await user.keyboard("{Control>}k{/Control}");
+    await screen.findByRole("search");
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("search")).toBeNull();
   });
 
   it("toOmnibarHits: guarda de frontera ante payloads no-array o rotos", () => {

@@ -1,6 +1,6 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { App } from "../src/App.js";
 import { RootErrorBoundary } from "../src/RootErrorBoundary.js";
 
@@ -8,76 +8,66 @@ function Thrower(): never {
   throw new Error("crash de prueba");
 }
 
+// STAB-08: migrado de createRoot+act+textContent+setTimeout a RTL por
+// comportamiento. Queries en prioridad getByRole; espera async vía findBy.
 describe("T08 UI-05: App shell + boundary global", () => {
-  let container: HTMLDivElement;
-  let root: Root;
-
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-    document.body.innerHTML = "";
+  afterEach(() => {
+    // Sin vi.restoreAllMocks(): el MockEgoBridge global de setup.ts usa
+    // vi.fn().mockResolvedValue; restoreAllMocks les quitaría la
+    // implementación y el 2º render de App reventaría en `.then`
+    // (Sidebar:187, ego-chat:413, ActivityTray:122, App:122).
+    // setup.ts ya hace vi.clearAllMocks() en beforeEach.
+    cleanup();
   });
 
-  const setup = async () => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-    await act(async () => {
-      root.render(<App />);
-      await Promise.resolve();
-    });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-    });
-  };
+  it("renderiza chrome, chat, workspace y tabs", async () => {
+    render(<App />);
 
-  it("renderiza chrome, chat, workspace resizable y tabs", async () => {
-    await setup();
-    expect(container.textContent).toContain("Ego");
-    expect(container.textContent).toContain("Chat");
-    expect(container.textContent).toContain("Dynamic Workspace");
-    // SplitPane resizable montado (App.tsx:96, T06 + T08).
-    expect(container.querySelector('[data-pane-id="app-sidebar"]')).toBeTruthy();
+    expect(await screen.findByText("Dynamic Workspace")).toBeTruthy();
+    expect(screen.getByText("Ego")).toBeTruthy();
+    const workspace = screen.getByRole("region", { name: /área de trabajo/i });
     for (const tab of ["Daily State", "Dominio", "Canvas", "Sub-Egos Fábrica"]) {
-      expect(container.textContent).toContain(tab);
+      expect(
+        within(workspace).getByRole("button", { name: tab }),
+      ).toBeTruthy();
     }
+    expect(screen.getByRole("region", { name: "Chat" })).toBeTruthy();
   });
 
   it("omnibar montado global: Ctrl+K lo abre desde App", async () => {
-    await setup();
-    await act(async () => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
-    });
-    expect(document.body.textContent).toContain("Búsqueda federada");
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.keyboard("{Control>}k{/Control}");
+
+    const dialog = await screen.findByRole("dialog", { name: /búsqueda federada/i });
+    expect(within(dialog).getByRole("search")).toBeTruthy();
+    expect(
+      within(dialog).getByRole("heading", { name: /búsqueda federada/i }),
+    ).toBeTruthy();
   });
 
   it("Daily honesto: sin aprobaciones falsas appr-pending-init", async () => {
-    await setup();
-    expect(document.body.textContent).not.toContain("appr-pending-init");
-    expect(container.textContent).not.toContain("Ejecución de mutación en filesystem");
+    render(<App />);
+
+    await screen.findByText("Dynamic Workspace");
+    expect(screen.queryByText("appr-pending-init")).toBeNull();
+    expect(screen.queryByText(/Ejecución de mutación en filesystem/)).toBeNull();
   });
 
   it("RootErrorBoundary: captura crash y ofrece reintento", async () => {
-    const errSpy = console.error;
-    console.error = () => {};
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      container = document.createElement("div");
-      document.body.appendChild(container);
-      root = createRoot(container);
-      await act(async () => {
-        root.render(
-          <RootErrorBoundary>
-            <Thrower />
-          </RootErrorBoundary>
-        );
-      });
-      const alert = document.body.querySelector('[role="alert"]');
-      expect(alert?.textContent).toContain("Reintentar");
-      expect(alert?.textContent).toContain("crash de prueba");
+      render(
+        <RootErrorBoundary>
+          <Thrower />
+        </RootErrorBoundary>,
+      );
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(/Reintentar/);
+      expect(alert).toHaveTextContent(/crash de prueba/);
     } finally {
-      console.error = errSpy;
+      errSpy.mockRestore();
     }
   });
 });

@@ -263,11 +263,11 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
       const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) =>
         v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
       );
-      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      return 0.2126 * (c[0] ?? 0) + 0.7152 * (c[1] ?? 0) + 0.0722 * (c[2] ?? 0);
     };
     const ratio = (a: string, b: string): number => {
       const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
-      return (hi + 0.05) / (lo + 0.05);
+      return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
     };
     expect(ratio("#8a8a92", "#0a0a0b")).toBeGreaterThanOrEqual(4.5);
     // Anillo de foco brand sobre paper: componente UI ≥ 3:1.
