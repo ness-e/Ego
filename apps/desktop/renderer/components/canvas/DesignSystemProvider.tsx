@@ -183,6 +183,25 @@ const FIXED_DIM = "#8a8a92";
 const FIXED_CHART_INDIGO = "#818cf8";
 const FIXED_CHART_VIOLET = "#a78bfa";
 
+/**
+ * STAB-10: motion tokens FIJOS del sistema (no derivan del preset, igual
+ * que FIXED_DIM & co.). micro 150ms / ui 200ms / surface 350ms; out =
+ * entradas, in = salidas. Se escriben como `--motion-*` en documentElement
+ * (mismo puente que los `--color-*`) y se exponen en segundos para
+ * framer-motion vía `MOTION` (la lib no acepta CSS vars en `duration`).
+ */
+const FIXED_MOTION_DURATION_MICRO = "150ms";
+const FIXED_MOTION_DURATION_UI = "200ms";
+const FIXED_MOTION_DURATION_SURFACE = "350ms";
+const FIXED_MOTION_EASE_OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
+const FIXED_MOTION_EASE_IN = "cubic-bezier(0.3, 0, 0.7, 1)";
+
+export const MOTION = {
+  micro: 0.15,
+  ui: 0.2,
+  surface: 0.35,
+} as const;
+
 function radiusOf(radius: string): string {
   return RADIUS_MAP[radius] || "8px";
 }
@@ -192,7 +211,7 @@ function densityPadOf(density: string): string {
 }
 
 function fontStackOf(family: string): string {
-  return FONT_STACK_MAP[family] || FONT_STACK_MAP.sans;
+  return FONT_STACK_MAP[family] || FONT_STACK_MAP.sans || "sans-serif";
 }
 
 export const useDesignSystem = (): DesignSystemContextValue => {
@@ -214,13 +233,16 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
 }) => {
   const [tokens, setTokens] = useState<DesignSystemTokens>(() => {
     const persisted = loadPersistedPresetKey();
-    return persisted ? PRESET_THEMES[persisted] : initialTokens;
+    // STAB-10 (noUncheckedIndexedAccess): clave validada por resolvePresetKey,
+    // fallback a initialTokens por invariante defensivo.
+    return (persisted ? PRESET_THEMES[persisted] : undefined) ?? initialTokens;
   });
 
   const applyPreset = (presetId: string) => {
     const key = resolvePresetKey(presetId);
-    if (key) {
-      setTokens(PRESET_THEMES[key]);
+    const preset = key ? PRESET_THEMES[key] : undefined;
+    if (preset) {
+      setTokens(preset);
     }
   };
 
@@ -256,6 +278,12 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
     root.setProperty("--color-error", c.error);
     root.setProperty("--color-chart-indigo", FIXED_CHART_INDIGO);
     root.setProperty("--color-chart-violet", FIXED_CHART_VIOLET);
+    // STAB-10: motion tokens (fijos del sistema; ver bloque FIXED_MOTION_*).
+    root.setProperty("--motion-duration-micro", FIXED_MOTION_DURATION_MICRO);
+    root.setProperty("--motion-duration-ui", FIXED_MOTION_DURATION_UI);
+    root.setProperty("--motion-duration-surface", FIXED_MOTION_DURATION_SURFACE);
+    root.setProperty("--motion-ease-out", FIXED_MOTION_EASE_OUT);
+    root.setProperty("--motion-ease-in", FIXED_MOTION_EASE_IN);
     root.setProperty("--ego-color-border-strong", FIXED_BORDER_STRONG);
     root.setProperty("--ego-color-focus-ring", FIXED_FOCUS_RING);
     root.setProperty("--ego-color-text-on-brand", FIXED_TEXT_ON_BRAND);
@@ -298,6 +326,13 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
       "--ego-color-dim": FIXED_DIM,
       "--ego-color-chart-indigo": FIXED_CHART_INDIGO,
       "--ego-color-chart-violet": FIXED_CHART_VIOLET,
+      // STAB-10: motion tokens en el div del provider (referencia directa;
+      // documentElement lleva los valores resueltos globales).
+      "--motion-duration-micro": FIXED_MOTION_DURATION_MICRO,
+      "--motion-duration-ui": FIXED_MOTION_DURATION_UI,
+      "--motion-duration-surface": FIXED_MOTION_DURATION_SURFACE,
+      "--motion-ease-out": FIXED_MOTION_EASE_OUT,
+      "--motion-ease-in": FIXED_MOTION_EASE_IN,
       "--ego-radius": radiusOf(tokens.geometry.radius),
       "--ego-density-pad": densityPadOf(tokens.geometry.density),
       "--ego-font-family": fontMap[tokens.typography.fontFamily] || "sans-serif",

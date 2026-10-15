@@ -1,11 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { TerminalWindow, Palette } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Omnibar } from "../components/omnibar";
-import { CanvasRuntime } from "../components/canvas/CanvasRuntime";
-import { WorkbenchView } from "../components/canvas/WorkbenchView.js";
 import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
-import { SubEgosView } from "../components/sub-egos";
 import { Sidebar } from "../components/sidebar";
 import { SubEgoSelector } from "../components/SubEgoSelector";
 import { ModelPicker, CANONICAL_MODELS, type ModelOption } from "../components/ModelPicker";
@@ -14,9 +11,50 @@ import { useUiStore, mintSessionId, loadPersistedSessionId } from "../components
 import { ego } from "../lib/ego";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
 import { ActivityTray } from "../components/activity-tray/ActivityTray";
-import { DailyDashboard } from "../components/daily-state";
 import { DomainSelector, type DomainMeta } from "../components/domains/DomainSelector";
-import { DomainCanvasView } from "../components/domains/DomainCanvasView";
+
+// STAB-09: code-splitting por vista del workspace. Los paneles pesados
+// (Canvas/Daily/SubEgos/Domains) cargan bajo demanda; el shell + chat +
+// workbench quedan en el chunk inicial. Los chunks `vendor-*` de
+// `manualChunks` no se tocan (solo particionan `node_modules`).
+const CanvasRuntime = lazy(() =>
+  import("../components/canvas/CanvasRuntime").then((m) => ({ default: m.CanvasRuntime }))
+);
+const SubEgosView = lazy(() =>
+  import("../components/sub-egos").then((m) => ({ default: m.SubEgosView }))
+);
+const DailyDashboard = lazy(() =>
+  import("../components/daily-state").then((m) => ({ default: m.DailyDashboard }))
+);
+const DomainCanvasView = lazy(() =>
+  import("../components/domains/DomainCanvasView").then((m) => ({
+    default: m.DomainCanvasView,
+  }))
+);
+// STAB-09 nota de alcance: el contrato nombra 4 paneles; WorkbenchView (5º
+// tab del mismo workspace) se incluye con el mismo patrón porque el entry
+// superaba el budget DIST-03 de 1MB por 0.15% con solo 4 lazy.
+const WorkbenchView = lazy(() =>
+  import("../components/canvas/WorkbenchView.js").then((m) => ({
+    default: m.WorkbenchView,
+  }))
+);
+
+/** Skeleton de carga de un panel del workspace (Suspense fallback). */
+function WorkspaceSkeleton({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label={`Cargando ${label}`}
+      className="animate-pulse space-y-3 p-2"
+    >
+      <div className="h-4 w-1/3 rounded bg-raised" />
+      <div className="h-24 rounded border border-hairline bg-panel" />
+      <div className="h-16 rounded border border-hairline bg-panel" />
+    </div>
+  );
+}
 
 const CANONICAL_DOMAINS: DomainMeta[] = [
   { id: "engineering", name: "Engineering", description: "Árbol de código, Git worktrees e inspección", icon: "code", defaultSubEgoId: "ego.dev" },
@@ -33,7 +71,7 @@ function ThemeControl() {
   // los presets no conmutaban desde la UI.
   const presetKeys = Object.keys(availablePresets);
   const selectedKey =
-    presetKeys.find((k) => availablePresets[k].id === tokens.id) ?? "default-dark";
+    presetKeys.find((k) => availablePresets[k]?.id === tokens.id) ?? "default-dark";
   return (
     <div className="flex items-center gap-1.5 text-xs">
       <Palette size={13} className="text-dim" />
@@ -46,7 +84,7 @@ function ThemeControl() {
       >
         {presetKeys.map((k) => (
           <option key={k} value={k}>
-            {availablePresets[k].name}
+            {availablePresets[k]?.name ?? k}
           </option>
         ))}
       </select>
@@ -372,14 +410,30 @@ export function App() {
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
               {activeWorkspaceTab === "daily" && (
-                <DailyDashboard onNavigateToCanvas={() => setActiveWorkspaceTab("canvas")} />
+                <Suspense fallback={<WorkspaceSkeleton label="Daily State" />}>
+                  <DailyDashboard onNavigateToCanvas={() => setActiveWorkspaceTab("canvas")} />
+                </Suspense>
               )}
               {activeWorkspaceTab === "domains" && (
-                <DomainCanvasView domainId={activeDomainId} />
+                <Suspense fallback={<WorkspaceSkeleton label="Dominio" />}>
+                  <DomainCanvasView domainId={activeDomainId} />
+                </Suspense>
               )}
-              {activeWorkspaceTab === "canvas" && <CanvasRuntime projectId={activeProject} />}
-              {activeWorkspaceTab === "workbench" && <WorkbenchView />}
-              {activeWorkspaceTab === "subegos" && <SubEgosView />}
+              {activeWorkspaceTab === "canvas" && (
+                <Suspense fallback={<WorkspaceSkeleton label="Canvas" />}>
+                  <CanvasRuntime projectId={activeProject} />
+                </Suspense>
+              )}
+              {activeWorkspaceTab === "workbench" && (
+                <Suspense fallback={<WorkspaceSkeleton label="Workbench" />}>
+                  <WorkbenchView />
+                </Suspense>
+              )}
+              {activeWorkspaceTab === "subegos" && (
+                <Suspense fallback={<WorkspaceSkeleton label="Sub-Egos" />}>
+                  <SubEgosView />
+                </Suspense>
+              )}
             </div>
           </section>
 

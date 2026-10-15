@@ -486,7 +486,10 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     pending.clear();
     setMessages((prev) => {
       const idxById = new Map<string, number>();
-      for (let i = 0; i < prev.length; i++) idxById.set(prev[i].id, i);
+      for (let i = 0; i < prev.length; i++) {
+        const m = prev[i];
+        if (m) idxById.set(m.id, i);
+      }
       let out: Msg[] | null = null;
       const ensureOut = () => (out ??= [...prev]);
       let changed = false;
@@ -496,6 +499,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         if (idx !== undefined) {
           const arr = ensureOut();
           const cur = arr[idx];
+          if (!cur) continue;
           const curText = cur.content.map((p) => p.text).join("");
           arr[idx] = {
             ...cur,

@@ -52,7 +52,7 @@ export const ComponentRenderer: React.FC<ComponentRendererProps> = ({
     <div
       data-component-id={validManifest.id}
       onClick={() => onSelect?.(validManifest.id)}
-      className={`group relative rounded-2xl transition-all ${
+      className={`group relative rounded-2xl transition-colors transition-shadow ${
         isSelected ? "ring-2 ring-ink shadow-md" : "hover:border-ink/20"
       }`}
     >

@@ -70,21 +70,23 @@ function parseContentBlocks(rawText: string): ParsedBlock[] {
 
       if (askMatch) {
         const [whole, question, options] = askMatch;
+        const wholeLen = whole?.length ?? 0;
         const pre = fullText.substring(0, askMatch.index || 0).trim();
-        const post = fullText.substring((askMatch.index || 0) + whole.length).trim();
+        const post = fullText.substring((askMatch.index || 0) + wholeLen).trim();
         if (pre) blocks.push({ type: "text", content: pre });
         blocks.push({
           type: "directive_ask",
-          content: question,
-          meta: { question, options: options || "" },
+          content: question ?? "",
+          meta: { question: question ?? "", options: options || "" },
         });
         if (post) blocks.push({ type: "text", content: post });
       } else if (whyMatch) {
         const [whole, whyContent] = whyMatch;
+        const wholeLen = whole?.length ?? 0;
         const pre = fullText.substring(0, whyMatch.index || 0).trim();
-        const post = fullText.substring((whyMatch.index || 0) + whole.length).trim();
+        const post = fullText.substring((whyMatch.index || 0) + wholeLen).trim();
         if (pre) blocks.push({ type: "text", content: pre });
-        blocks.push({ type: "why", content: whyContent.trim() });
+        blocks.push({ type: "why", content: (whyContent ?? "").trim() });
         if (post) blocks.push({ type: "text", content: post });
       } else {
         blocks.push({ type: "text", content: fullText });
@@ -94,7 +96,7 @@ function parseContentBlocks(rawText: string): ParsedBlock[] {
   };
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i] ?? "";
     if (line.trim().startsWith("```")) {
       if (inCode) {
         // Cierre de código

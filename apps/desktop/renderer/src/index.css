@@ -55,6 +55,15 @@
   --ego-color-error: #f43f5e;
   --ego-color-chart-indigo: #818cf8;
   --ego-color-chart-violet: #a78bfa;
+  /* STAB-10: motion tokens fijos del sistema (no derivan del preset).
+     micro 150ms = micro-interacciones (press/scale); ui 200ms = hover/color
+     (alinea `duration-200` existente); surface 350ms = paneles/morph
+     (alinea framer 0.35 existente). Easings: out = entradas, in = salidas. */
+  --motion-duration-micro: 150ms;
+  --motion-duration-ui: 200ms;
+  --motion-duration-surface: 350ms;
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-in: cubic-bezier(0.3, 0, 0.7, 1);
 }
 
 html,

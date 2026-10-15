@@ -12,8 +12,8 @@ describe("ChartView pie", () => {
       ["v"]
     );
     expect(slices).toHaveLength(2);
-    expect(slices[0].fraction).toBeCloseTo(0.5);
-    expect(slices[1].fraction).toBeCloseTo(0.5);
+    expect(slices[0]?.fraction).toBeCloseTo(0.5);
+    expect(slices[1]?.fraction).toBeCloseTo(0.5);
   });
 
   it("datos vacíos o ceros no crashean", () => {

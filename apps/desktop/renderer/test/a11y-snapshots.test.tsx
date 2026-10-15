@@ -161,7 +161,7 @@ describe("T07 UI-04: snapshots base del árbol accesible (advisory visual pendie
     expect(checked?.textContent).toContain("Engineering");
     // Segunda opción seleccionable con click.
     await act(async () => {
-      options[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      options[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onSelect).toHaveBeenCalledWith("product");
     expect(container.querySelector('[role="menu"]')).toBeNull();

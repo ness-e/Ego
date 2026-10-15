@@ -79,7 +79,8 @@ export function SubEgosView() {
       const list = await ego().subegos.getTemplates();
       setTemplates(list);
       if (list.length > 0 && !selectedTemplateId) {
-        setSelectedTemplateId((list[0].templateId || list[0].id) || "developer");
+        const first = list[0];
+        if (first) setSelectedTemplateId(first.templateId || first.id || "developer");
       }
     } catch (err: unknown) {
       console.warn("[SubEgosView] Error al cargar plantillas:", err);

@@ -566,6 +566,7 @@ export class CharacterEngine {
     // Partículas
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
+      if (!p) continue;
       p.age += dt;
       if (p.age >= p.life) {
         this.particles.splice(i, 1);

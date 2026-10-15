@@ -138,9 +138,12 @@ export function capClip(H: HeadFrame, y: number, s: number, extraTop = 3): Path2
   const arc = frontArc(H, y, s);
   const p = new Path2D();
   if (arc.length === 0) return p;
-  p.moveTo(arc[0].x - H.rx, arc[0].y);
+  const first = arc[0];
+  const last = arc[arc.length - 1];
+  if (!first || !last) return p;
+  p.moveTo(first.x - H.rx, first.y);
   for (const q of arc) p.lineTo(q.x, q.y);
-  p.lineTo(arc[arc.length - 1].x + H.rx, arc[arc.length - 1].y);
+  p.lineTo(last.x + H.rx, last.y);
   p.lineTo(H.rx * 2, -H.ry * extraTop);
   p.lineTo(-H.rx * 2, -H.ry * extraTop);
   p.closePath();
@@ -151,7 +154,9 @@ export function frontRun(ring: Array<{ x: number; y: number; z: number }>): Arra
   const n = ring.length - 1;
   let start = -1;
   for (let i = 0; i < n; i++) {
-    if (ring[i].z >= 0 && ring[(i - 1 + n) % n].z < 0) {
+    const cur = ring[i];
+    const prev = ring[(i - 1 + n) % n];
+    if (cur && prev && cur.z >= 0 && prev.z < 0) {
       start = i;
       break;
     }
@@ -163,10 +168,12 @@ export function frontRun(ring: Array<{ x: number; y: number; z: number }>): Arra
   const out = [];
   for (let k = 0; k < n; k++) {
     const q = ring[(start + k) % n];
-    if (q.z < 0) break;
+    if (!q || q.z < 0) break;
     out.push(q);
   }
-  if (out.length > 1 && out[0].x > out[out.length - 1].x) out.reverse();
+  const outFirst = out[0];
+  const outLast = out[out.length - 1];
+  if (out.length > 1 && outFirst && outLast && outFirst.x > outLast.x) out.reverse();
   return out;
 }
 
@@ -210,6 +217,7 @@ export function fuzzyBand(ctx: CanvasRenderingContext2D, arc: Array<{ x: number;
   const step = Math.max(2, Math.floor(arc.length / 16));
   for (let i = 0; i < arc.length; i += step) {
     const q = arc[i];
+    if (!q) continue;
     const r = thick * (0.32 + 0.1 * Math.sin(i * 1.7));
     ctx.fillStyle = rad(ctx, q.x - r * 0.3, q.y - thick * 0.35 - r * 0.3, 0, r * 1.2, [[0, base], [1, shade]]);
     ctx.beginPath();
@@ -299,7 +307,9 @@ export const OUTFITS: Record<string, OutfitDefinition> = {
       const s = 1.05, yEdge = 0.52;
       const arc = frontArc(H, yEdge, s);
       if (arc.length === 0) return;
-      const L = arc[0], Rt = arc[arc.length - 1];
+      const L = arc[0];
+      const Rt = arc[arc.length - 1];
+      if (!L || !Rt) return;
       const crown = proj(H, [0, 1.05, 0]);
       const side = 1;
       const tip = { x: crown.x + side * H.rx * (0.95 + H.phys.dx * 0.35), y: crown.y + H.ry * (0.05 + H.phys.dy * 0.2) };
@@ -310,7 +320,11 @@ export const OUTFITS: Record<string, OutfitDefinition> = {
       bag.quadraticCurveTo(tip.x - H.rx * 0.05, peak.y - H.ry * 0.02, tip.x, tip.y);
       bag.quadraticCurveTo(tip.x - H.rx * 0.12, tip.y - H.ry * 0.22, peak.x + H.rx * 0.18, peak.y + H.ry * 0.32);
       bag.bezierCurveTo(Rt.x + H.rx * 0.05, peak.y + H.ry * 0.45, Rt.x + H.rx * 0.08, Rt.y - H.ry * 0.35, Rt.x, Rt.y);
-      for (let i = arc.length - 1; i >= 0; i--) bag.lineTo(arc[i].x, arc[i].y);
+      for (let i = arc.length - 1; i >= 0; i--) {
+        const seg = arc[i];
+        if (!seg) continue;
+        bag.lineTo(seg.x, seg.y);
+      }
       bag.closePath();
 
       ctx.save();
@@ -327,11 +341,13 @@ export const OUTFITS: Record<string, OutfitDefinition> = {
       ctx.clip(bag);
       ctx.lineCap = "round";
       for (const [a, b, w] of [[0.15, 0.55, 0.10], [0.45, 0.85, 0.08]]) {
+        const aa = a ?? 0;
+        const bb = b ?? 0;
         ctx.beginPath();
-        ctx.moveTo(peak.x - H.rx * 0.1 + (Rt.x - L.x) * a * 0.3, peak.y + H.ry * 0.15);
-        ctx.quadraticCurveTo(peak.x + H.rx * 0.35, peak.y + H.ry * (0.05 + a * 0.3), tip.x - H.rx * (0.45 - b * 0.3), tip.y - H.ry * 0.12);
+        ctx.moveTo(peak.x - H.rx * 0.1 + (Rt.x - L.x) * aa * 0.3, peak.y + H.ry * 0.15);
+        ctx.quadraticCurveTo(peak.x + H.rx * 0.35, peak.y + H.ry * (0.05 + aa * 0.3), tip.x - H.rx * (0.45 - bb * 0.3), tip.y - H.ry * 0.12);
         ctx.strokeStyle = "rgba(90,0,0,0.20)";
-        ctx.lineWidth = H.R * w;
+        ctx.lineWidth = H.R * (w ?? 0);
         ctx.stroke();
       }
       ctx.fillStyle = rad(ctx, peak.x - H.rx * 0.25, peak.y + H.ry * 0.05, 0, H.R * 0.5, [[0, "rgba(255,255,255,0.32)"], [1, "rgba(255,255,255,0)"]]);
@@ -362,7 +378,11 @@ export const OUTFITS: Record<string, OutfitDefinition> = {
       cone.quadraticCurveTo((left.x + apex.x) / 2 - H.rx * 0.06, (left.y + apex.y) / 2, apex.x - H.R * 0.05, apex.y + H.R * 0.06);
       cone.quadraticCurveTo(apex.x, apex.y - H.R * 0.03, apex.x + H.R * 0.05, apex.y + H.R * 0.06);
       cone.quadraticCurveTo((right.x + apex.x) / 2 + H.rx * 0.06, (right.y + apex.y) / 2, right.x, right.y);
-      for (let i = front.length - 1; i >= 0; i--) cone.lineTo(front[i].x, front[i].y);
+      for (let i = front.length - 1; i >= 0; i--) {
+        const seg = front[i];
+        if (!seg) continue;
+        cone.lineTo(seg.x, seg.y);
+      }
       cone.closePath();
 
       ctx.fillStyle = lin(ctx, left.x, apex.y, right.x, left.y, [[0, "#FF9BD0"], [0.5, "#F15BAE"], [1, "#C2187A"]]);
@@ -371,11 +391,13 @@ export const OUTFITS: Record<string, OutfitDefinition> = {
       ctx.clip(cone);
       const dots = [[0.25, -0.35], [0.3, 0.3], [0.55, -0.05], [0.72, 0.28], [0.8, -0.3], [0.45, 0.6], [0.48, -0.65]];
       for (const [t, u] of dots) {
-        const bx = left.x + (right.x - left.x) * (0.5 + u * 0.5);
-        const by = left.y + (right.y - left.y) * (0.5 + u * 0.5);
-        const x = bx + (apex.x - bx) * (1 - t);
-        const y = by + (apex.y - by) * (1 - t);
-        const r = H.R * 0.075 * (0.6 + t * 0.5);
+        const tt = t ?? 0;
+        const uu = u ?? 0;
+        const bx = left.x + (right.x - left.x) * (0.5 + uu * 0.5);
+        const by = left.y + (right.y - left.y) * (0.5 + uu * 0.5);
+        const x = bx + (apex.x - bx) * (1 - tt);
+        const y = by + (apex.y - by) * (1 - tt);
+        const r = H.R * 0.075 * (0.6 + tt * 0.5);
         ctx.beginPath();
         ctx.ellipse(x, y, r, r * 0.9, 0, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255,255,255,0.92)";
@@ -514,7 +536,11 @@ export const OUTFITS: Record<string, OutfitDefinition> = {
       const top = frontArc(H, y0, s), bot = frontArc(H, y1, s);
       const band = new Path2D();
       top.forEach((q, i) => (i ? band.lineTo(q.x, q.y) : band.moveTo(q.x, q.y)));
-      for (let i = bot.length - 1; i >= 0; i--) band.lineTo(bot[i].x, bot[i].y);
+      for (let i = bot.length - 1; i >= 0; i--) {
+        const seg = bot[i];
+        if (!seg) continue;
+        band.lineTo(seg.x, seg.y);
+      }
       band.closePath();
 
       ctx.save();
@@ -625,7 +651,11 @@ function drawCrownPart(ctx: CanvasRenderingContext2D, H: HeadFrame, side: number
   keep.sort((a, b) => a.b.x - b.b.x);
   const shape = new Path2D();
   keep.forEach((q, i) => (i ? shape.lineTo(q.tt.x, q.tt.y) : shape.moveTo(q.tt.x, q.tt.y)));
-  for (let i = keep.length - 1; i >= 0; i--) shape.lineTo(keep[i].b.x, keep[i].b.y);
+  for (let i = keep.length - 1; i >= 0; i--) {
+    const segPt = keep[i];
+    if (!segPt) continue;
+    shape.lineTo(segPt.b.x, segPt.b.y);
+  }
   shape.closePath();
   const dark = side < 0;
   ctx.fillStyle = lin(ctx, 0, -H.ry * 1.05, 0, -H.ry * 0.45, dark ? [[0, "#C98A12"], [1, "#8A5A06"]] : [[0, "#FFE58A"], [0.5, "#FBBF24"], [1, "#D08A0B"]]);
@@ -651,7 +681,7 @@ function drawCrownPart(ctx: CanvasRenderingContext2D, H: HeadFrame, side: number
       const gr = H.R * 0.075;
       ctx.beginPath();
       ctx.ellipse(mid.x, mid.y, gr * Math.max(0.35, mid.z), gr, 0, 0, Math.PI * 2);
-      ctx.fillStyle = gems[k % gems.length];
+      ctx.fillStyle = gems[k % gems.length] ?? "#EF4444";
       ctx.fill();
       ctx.beginPath();
       ctx.arc(mid.x - gr * 0.25 * mid.z, mid.y - gr * 0.35, gr * 0.28, 0, Math.PI * 2);

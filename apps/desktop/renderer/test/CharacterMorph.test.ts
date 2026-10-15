@@ -57,6 +57,23 @@ describe("CHAR-09: CharacterMorph — Interpolación y Transiciones de Identidad
       const updates: MorphTarget[] = [];
       const onComplete = vi.fn();
 
+      // EGO-FIND-17: estos tests ejercitan la animación completa → el entorno
+      // global (setup.ts) fuerza prefers-reduced-motion:true, que activaría el
+      // corte instantáneo de start(). Se mockea reduce=false solo aquí; el
+      // test de corte instantáneo mockea lo contrario más abajo.
+      vi.spyOn(window, "matchMedia").mockImplementation((query: string) => {
+        return {
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        } as unknown as MediaQueryList;
+      });
+
       let mockNow = 1000;
       vi.spyOn(performance, "now").mockImplementation(() => mockNow);
 
@@ -83,7 +100,7 @@ describe("CHAR-09: CharacterMorph — Interpolación y Transiciones de Identidad
 
       expect(updates.length).toBeGreaterThan(0);
       const mid = updates[updates.length - 1];
-      expect(mid.eyeShape).toBe("wink"); // Conmuta en >= 0.5
+      expect(mid?.eyeShape).toBe("wink"); // Conmuta en >= 0.5
 
       // Avanzar al final del tiempo (450ms)
       mockNow = 1500;
@@ -92,8 +109,8 @@ describe("CHAR-09: CharacterMorph — Interpolación y Transiciones de Identidad
       expect(controller.isActive()).toBe(false);
       expect(onComplete).toHaveBeenCalled();
       const end = updates[updates.length - 1];
-      expect(end.bodyColor).toEqual([200, 80, 40]);
-      expect(end.outfitId).toBe("sunglasses");
+      expect(end?.bodyColor).toEqual([200, 80, 40]);
+      expect(end?.outfitId).toBe("sunglasses");
     });
 
     it("debe aplicar corte instantáneo si el usuario prefiere movimiento reducido (prefers-reduced-motion)", () => {
@@ -132,6 +149,20 @@ describe("CHAR-09: CharacterMorph — Interpolación y Transiciones de Identidad
     it("cancel debe detener inmediatamente cualquier animación en curso", () => {
       const cancelSpy = vi.spyOn(window, "cancelAnimationFrame");
       const controller = new CharacterMorphController(450);
+
+      // EGO-FIND-17: ver mock en el test de transición completa (reduce=false).
+      vi.spyOn(window, "matchMedia").mockImplementation((query: string) => {
+        return {
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        } as unknown as MediaQueryList;
+      });
 
       vi.spyOn(window, "requestAnimationFrame").mockReturnValue(999);
 

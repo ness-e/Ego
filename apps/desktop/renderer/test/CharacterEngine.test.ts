@@ -121,7 +121,7 @@ describe("CHAR-05: CharacterEngine — Motor procedural Canvas 2D", () => {
       mockNow(t0);
       const eng = new CharacterEngine();
       const dist = (a: readonly number[], b: readonly number[]) =>
-        Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+        Math.hypot((a[0] ?? 0) - (b[0] ?? 0), (a[1] ?? 0) - (b[1] ?? 0), (a[2] ?? 0) - (b[2] ?? 0));
       const before = dist(eng.col, BOT_STATES.working.color);
       eng.setState("working");
       for (let i = 0; i < 40; i++) {

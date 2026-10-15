@@ -143,7 +143,9 @@ export const DomainSelector: React.FC<DomainSelectorProps> = ({
         aria-controls={menuId}
       >
         <span className="flex items-center justify-center">
-          {DOMAIN_ICONS[activeDomain?.id] || <Code size={16} />}
+          {activeDomain && activeDomain.id
+            ? (DOMAIN_ICONS[activeDomain.id] ?? <Code size={16} />)
+            : (<Code size={16} />)}
         </span>
         <span className="font-semibold">{activeDomain?.name || "Dominio"}</span>
         <CaretDown size={14} className={`text-faint transition-transform ${isOpen ? "rotate-180" : ""}`} />

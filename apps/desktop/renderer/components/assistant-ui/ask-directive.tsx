@@ -85,7 +85,7 @@ export const AskDirective = memo(function AskDirective({
               type="button"
               disabled={isClosed || streaming}
               onClick={() => handleSelect(option)}
-              className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-all ${
+              className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
                 isSelected
                   ? "border-brand bg-brand text-paper font-semibold shadow-xs"
                   : isClosed

@@ -105,7 +105,7 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({ props, onAction 
           type="button"
           onClick={handleApprove}
           disabled={isApproved}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1 rounded font-medium transition-colors ${
             isApproved
               ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default"
               : "bg-ink text-paper hover:opacity-90"

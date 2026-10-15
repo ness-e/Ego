@@ -57,7 +57,9 @@ export const ThemeIO: React.FC = () => {
       const first = parsed.error.issues[0];
       setIsError(true);
       setMessage(
-        `Tema rechazado: ${first.path.join(".") || "(raíz)"} — ${first.message}`
+        first
+          ? `Tema rechazado: ${first.path.join(".") || "(raíz)"} — ${first.message}`
+          : "Tema rechazado: inválido."
       );
       return;
     }

@@ -63,7 +63,7 @@ describe("CHAR-10: WardrobeSelector — Personalización y persistencia de avata
     });
 
     expect(handleSave).toHaveBeenCalledTimes(1);
-    const savedConfig = handleSave.mock.calls[0][0];
+    const savedConfig = handleSave.mock.calls[0]?.[0];
     expect(savedConfig.subEgoId).toBe("ego.nucleus");
     expect(savedConfig.baseForm).toBe("coucou-mochi");
 

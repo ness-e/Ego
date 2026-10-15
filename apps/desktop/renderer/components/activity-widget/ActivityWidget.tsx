@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Sparkle, Warning, Check, X } from "@phosphor-icons/react";
 import { useActivityState } from "./useActivityState.js";
 import { Modal } from "../ui-kit/Modal.js";
+import { MOTION } from "../canvas/DesignSystemProvider.js";
 
 export function ActivityWidget() {
   const { status, activeSubEgo, currentAction, pendingApprovals, vantaDbOk, resolveApproval } =
@@ -11,8 +12,8 @@ export function ActivityWidget() {
   const reduceMotion = useReducedMotion();
 
   const currentApproval = pendingApprovals[0];
-  // reduced-motion → sin animación: transición instantánea + animation none.
-  const transition = reduceMotion ? { duration: 0 } : { duration: 0.18 };
+  // STAB-10: duración alineada al motion token ui (--motion-duration-ui).
+  const transition = reduceMotion ? { duration: 0 } : { duration: MOTION.ui };
   const noAnimStyle = reduceMotion ? { animation: "none" } : undefined;
 
   // Atajos de teclado en el modal de aprobación rápida (Enter: aprobar).

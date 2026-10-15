@@ -70,7 +70,7 @@ describe("CHAR-11: bench y golden frames del CharacterEngine", () => {
     vi.spyOn(performance, "now").mockImplementation(() => nowMs);
     const randoms = [0.1, 0.5, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6, 0.15];
     let ri = 0;
-    vi.spyOn(Math, "random").mockImplementation(() => randoms[ri++ % randoms.length]);
+    vi.spyOn(Math, "random").mockImplementation(() => randoms[ri++ % randoms.length] ?? 0.5);
 
     const eng = new CharacterEngine();
     eng.setState("working");

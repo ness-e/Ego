@@ -183,9 +183,9 @@ export function soundFor(attention: string): SoundName {
       return "blip";
     default:
       // STATE/EMOTE/ACTION passthrough por si llega la clave cruda del avatar.
-      if (Object.hasOwn(STATE_SOUND, attention)) return STATE_SOUND[attention];
-      if (Object.hasOwn(EMOTE_SOUND, attention)) return EMOTE_SOUND[attention];
-      if (Object.hasOwn(ACTION_SOUND, attention)) return ACTION_SOUND[attention];
+      if (Object.hasOwn(STATE_SOUND, attention)) return STATE_SOUND[attention] ?? "blip";
+      if (Object.hasOwn(EMOTE_SOUND, attention)) return EMOTE_SOUND[attention] ?? "blip";
+      if (Object.hasOwn(ACTION_SOUND, attention)) return ACTION_SOUND[attention] ?? "blip";
       if ((SOUND_NAMES as readonly string[]).includes(attention)) {
         return attention as SoundName;
       }

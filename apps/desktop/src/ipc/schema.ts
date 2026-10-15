@@ -569,6 +569,9 @@ export const DailyGetSnapshotSchema = z
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .refine((s) => {
     const [y, m, d] = s.split("-").map(Number);
+    // STAB-10 (noUncheckedIndexedAccess): el regex garantiza 3 partes
+    // numéricas; el guard es defensivo y nunca dispara en runtime.
+    if (y === undefined || m === undefined || d === undefined) return false;
     if (m < 1 || m > 12 || d < 1 || d > 31) return false;
     const dt = new Date(Date.UTC(y, m - 1, d));
     return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;

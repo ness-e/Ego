@@ -160,7 +160,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
 
   return (
     <div
-      className={`my-3 rounded-xl border p-4 shadow-lg transition-all ${
+      className={`my-3 rounded-xl border p-4 shadow-lg transition-colors ${
         isDestructive
           ? "border-rose-500/40 bg-rose-950/40 text-rose-50 shadow-rose-950/20"
           : "border-amber-500/40 bg-amber-950/40 text-amber-50 shadow-amber-950/20"
@@ -325,7 +325,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
             type="button"
             disabled={isSubmitting}
             onClick={handleApprove}
-            className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-white shadow transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-white shadow transition-colors disabled:opacity-50"
           >
             {isSubmitting ? (
               <ArrowCounterClockwise size={12} className="animate-spin" />

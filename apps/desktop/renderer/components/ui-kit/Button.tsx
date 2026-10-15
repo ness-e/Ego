@@ -10,7 +10,7 @@ import { cva, cn } from "./cva.js";
  * `--radius-card` en uso (cierra deuda del token muerto).
  */
 const buttonVariants = cva({
-  base: "inline-flex items-center justify-center gap-1.5 rounded-[var(--radius-card)] px-3 py-1.5 text-xs font-medium transition-all cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 overflow-hidden",
+  base: "inline-flex items-center justify-center gap-1.5 rounded-[var(--radius-card)] px-3 py-1.5 text-xs font-medium transition-colors transition-transform duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 overflow-hidden",
   variants: {
     variant: {
       primary: "bg-ink text-paper hover:opacity-90",

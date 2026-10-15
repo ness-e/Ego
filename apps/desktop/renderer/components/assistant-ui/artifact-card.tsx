@@ -99,7 +99,7 @@ export const ArtifactCard = memo(function ArtifactCard({
           handleOpen();
         }
       }}
-      className={`my-2 flex w-full max-w-lg items-center justify-between rounded-lg border border-hairline bg-panel p-2.5 text-xs transition-all ${
+      className={`my-2 flex w-full max-w-lg items-center justify-between rounded-lg border border-hairline bg-panel p-2.5 text-xs transition-colors ${
         streaming ? "opacity-75 animate-pulse" : "hover:border-dim hover:bg-raised cursor-pointer"
       }`}
     >

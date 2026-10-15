@@ -24,10 +24,10 @@ describe("T18: session-resume — turnos persistidos hidratan mensajes", () => {
   it("un turno persistido hidrata un par user + assistant con textos exactos", () => {
     const msgs = turnsToMessages([turn()]);
     expect(msgs).toHaveLength(2);
-    expect(msgs[0].role).toBe("user");
-    expect(msgs[0].content[0].text).toBe("¿Cuál es la tarifa base?");
-    expect(msgs[1].role).toBe("assistant");
-    expect(msgs[1].content[0].text).toBe("La tarifa base es $150 USD/hora.");
+    expect(msgs[0]?.role).toBe("user");
+    expect(msgs[0]?.content[0]?.text).toBe("¿Cuál es la tarifa base?");
+    expect(msgs[1]?.role).toBe("assistant");
+    expect(msgs[1]?.content[0]?.text).toBe("La tarifa base es $150 USD/hora.");
   });
 
   it("ordena por timestamp ascendente aunque el listado llegue desordenado", () => {
@@ -44,7 +44,7 @@ describe("T18: session-resume — turnos persistidos hidratan mensajes", () => {
       metadata: { sessionId: "sess_1", timestamp: 2000 },
     });
     const msgs = turnsToMessages([t2, turn()]);
-    expect(msgs.map((m) => m.content[0].text)).toEqual([
+    expect(msgs.map((m) => m.content[0]?.text)).toEqual([
       "¿Cuál es la tarifa base?",
       "La tarifa base es $150 USD/hora.",
       "Segunda pregunta",
@@ -68,8 +68,8 @@ describe("T18: session-resume — turnos persistidos hidratan mensajes", () => {
       }),
     ]);
     expect(msgs).toHaveLength(2);
-    expect(msgs[0].content[0].text).toBe("legacy user");
-    expect(msgs[1].content[0].text).toBe("legacy assistant");
+    expect(msgs[0]?.content[0]?.text).toBe("legacy user");
+    expect(msgs[1]?.content[0]?.text).toBe("legacy assistant");
   });
 
   it("sesión sin turnos hidrata vacío honesto (sin inventar mensajes)", () => {
@@ -90,7 +90,7 @@ describe("T18: session-resume — turnos persistidos hidratan mensajes", () => {
     });
     const msgs = turnsToMessages([empty, turn()]);
     expect(msgs).toHaveLength(2);
-    expect(msgs[0].content[0].text).toBe("¿Cuál es la tarifa base?");
+    expect(msgs[0]?.content[0]?.text).toBe("¿Cuál es la tarifa base?");
   });
 
   it("omite payloads no-objeto sin romper la hidratación", () => {

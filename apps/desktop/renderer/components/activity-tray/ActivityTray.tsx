@@ -193,7 +193,7 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
 
   return (
     <footer
-      className="relative flex flex-col border-t border-hairline bg-raised text-ink text-xs transition-all duration-200"
+      className="relative flex flex-col border-t border-hairline bg-raised text-ink text-xs transition-colors duration-[var(--motion-duration-ui)]"
       onKeyDown={handleTrayKeyDown}
     >
       {/* Barra compacta siempre visible en el footer */}

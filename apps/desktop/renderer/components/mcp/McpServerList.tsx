@@ -97,7 +97,7 @@ export function McpServerList({
             return (
               <div
                 key={server.id}
-                className={`flex flex-col rounded-lg border p-3.5 transition-all ${
+                className={`flex flex-col rounded-lg border p-3.5 transition-colors ${
                   server.enabled
                     ? "border-hairline bg-paper/60 hover:border-ink/20"
                     : "border-hairline/60 bg-paper/20 opacity-70"

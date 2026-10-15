@@ -82,7 +82,8 @@ export const ShortcutsPanel: React.FC = () => {
     const parsed = CustomShortcutSchema.safeParse({ id, label, keys, action });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
-      setFormError(`${first.path.join(".") || "atajo"}: ${first.message}`);
+      const detail = first ? `${first.path.join(".") || "atajo"}: ${first.message}` : "atajo: inválido";
+      setFormError(detail);
       return;
     }
     if (shortcuts.some((s) => s.id === parsed.data.id)) {

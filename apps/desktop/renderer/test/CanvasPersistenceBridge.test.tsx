@@ -85,10 +85,10 @@ describe("T04: useCanvasBridge persiste a VantaDB vía ego().memory()", () => {
 
     const puts = memoryMock.mock.calls.filter((c) => c[0] === "put");
     expect(puts.length).toBeGreaterThan(0);
-    const item = puts[0][1][0] as { namespace: string; key: string; payload: { data: string } };
-    expect(item.namespace).toBe("projects/persist-proj");
-    expect(item.key).toBe(CanvasPersistenceManager.getVantaKey("persist-proj"));
-    expect(item.payload.data).toContain("comp-injected-1");
+    const item = puts[0]?.[1]?.[0] as { namespace: string; key: string; payload: { data: string } } | undefined;
+    expect(item?.namespace).toBe("projects/persist-proj");
+    expect(item?.key).toBe(CanvasPersistenceManager.getVantaKey("persist-proj"));
+    expect(item?.payload.data).toContain("comp-injected-1");
     expect(container.textContent).toContain("Tarjeta Inyectada");
   });
 

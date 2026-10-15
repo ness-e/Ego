@@ -2,16 +2,10 @@ import { vi, beforeEach } from "vitest";
 import type { EgoBridge, SubEgoSummary, ProjectInfo, ModelConfigInfo, McpServerInfo, PendingApprovalInfo } from "../lib/ego.js";
 
 // RTL: matchers jest-dom (toBeInTheDocument, toHaveAttribute, …).
-// Carga dinámica opcional: package.json declara la devDep, pero si aún no se
-// ejecutó `pnpm install` un import estático rompería la suite. Con el
-// especificador en variable tsc no intenta resolver el módulo y el catch la
-// vuelve no-op hasta que la dependencia exista.
-const JEST_DOM_SPEC = "@testing-library/jest-dom/vitest";
-try {
-  await import(/* @vite-ignore */ JEST_DOM_SPEC);
-} catch {
-  // jest-dom pendiente de `pnpm install`; matchers extendidos no disponibles.
-}
+// STAB-07/10: import estático — la devDep está instalada; el import dinámico
+// con especulador en variable impedía que tsc resolviera la aumentación de
+// tipos de `vitest` (TS2339 toHaveTextContent) aunque en runtime sí cargaba.
+import "@testing-library/jest-dom/vitest";
 
 // Habilitar soporte de act() de React 19 en entorno headless
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

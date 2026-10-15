@@ -70,12 +70,12 @@ describe("CHAR-10: persistencia UI de personalización a VantaDB", () => {
       const gateway = fakeGateway(store);
       await saveCharacterConfig(CONFIG, gateway);
       expect(gateway.put).toHaveBeenCalledTimes(1);
-      const item = (gateway.put as ReturnType<typeof vi.fn>).mock.calls[0][0] as {
+      const item = (gateway.put as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as {
         namespace: string;
         key: string;
-      };
-      expect(item.namespace).toBe("egos/ego.nucleus");
-      expect(item.key).toBe("character");
+      } | undefined;
+      expect(item?.namespace).toBe("egos/ego.nucleus");
+      expect(item?.key).toBe("character");
 
       const loaded = await loadCharacterConfig("ego.nucleus", gateway);
       expect(loaded).toEqual(CONFIG);
@@ -137,10 +137,10 @@ describe("CHAR-10: persistencia UI de personalización a VantaDB", () => {
 
       const puts = memoryMock().mock.calls.filter((c) => c[0] === "put");
       expect(puts.length).toBeGreaterThan(0);
-      const item = puts[0][1][0] as { namespace: string; key: string; payload: { id: string } };
-      expect(item.namespace).toBe("egos/ego.nucleus");
-      expect(item.key).toBe("character");
-      expect(item.payload.id.startsWith("char_")).toBe(true);
+      const item = puts[0]?.[1]?.[0] as { namespace: string; key: string; payload: { id: string } } | undefined;
+      expect(item?.namespace).toBe("egos/ego.nucleus");
+      expect(item?.key).toBe("character");
+      expect(item?.payload.id.startsWith("char_")).toBe(true);
     });
 
     it("al montar restaura la personalización guardada", async () => {

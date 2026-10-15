@@ -349,6 +349,7 @@ export class TraitRegistry {
       for (let j = i + 1; j < traits.length; j++) {
         const a = traits[i];
         const b = traits[j];
+        if (!a || !b) continue;
         if (a.category === b.category) {
           conflicts.push(`Categoría duplicada '${a.category}' entre '${a.id}' y '${b.id}'`);
         } else if (!a.compatibleCategories.includes(b.category)) {

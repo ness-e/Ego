@@ -289,7 +289,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 - **Gate Result:** ✅ DO
 - **Contrato:** `pnpm --filter @ego/renderer test` + `typecheck` verdes + `--motion-duration-micro/ui/surface --motion-ease-out/in` + `transition-colors,transform` + `noUncheckedIndexedAccess:true` sin nuevos errores
 - **Task file:** `docs/agent-ops/tasks/STAB-10.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (motion tokens 5 vars + provider MOTION + 14/14 transition-all migrados + noUncheckedIndexedAccess + EGO-FIND-17 cerrado; renderer 273/273 + typechecks renderer/desktop 0 errores; commit local; review P2-01 pendiente → orquestador)
 - **Branch:**
 - **Commit:**
   **Risk Register:**

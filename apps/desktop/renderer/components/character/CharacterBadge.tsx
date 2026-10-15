@@ -9,6 +9,7 @@ import { CharacterEngine } from "./core/CharacterEngine.js";
 import { CharacterStateMachine, type CharacterState } from "./state/CharacterStateMachine.js";
 import { TraitRegistry, type DomainCharacterPreset } from "./traits/TraitRegistry.js";
 import type { HeadFrame } from "./wardrobe/CharacterWardrobe.js";
+import { MOTION } from "../canvas/DesignSystemProvider.js";
 import {
   CharacterMorphController,
   presetToMorphTarget,
@@ -194,7 +195,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
       layout={reduceMotion ? false : true}
       initial={reduceMotion ? false : { opacity: 0.6, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={reduceMotion ? { duration: 0 } : { duration: 0.35 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: MOTION.surface }}
       role="img"
       aria-label={title || preset.name}
       className={`inline-flex items-center justify-center overflow-hidden shrink-0 select-none ${className}`}

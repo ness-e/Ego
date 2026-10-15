@@ -107,7 +107,7 @@ export function PendingApprovals({
           return (
             <div
               key={appr.approvalId}
-              className="flex items-center justify-between gap-3 rounded border border-hairline bg-panel p-2.5 transition-all"
+              className="flex items-center justify-between gap-3 rounded border border-hairline bg-panel p-2.5 transition-colors"
             >
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="flex items-center gap-2">

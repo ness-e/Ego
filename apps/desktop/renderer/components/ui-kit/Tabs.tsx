@@ -57,7 +57,7 @@ export function Tabs({
         </div>
       )}
       <RadixTabs.Root
-        defaultValue={defaultValue ?? tabs[0].value}
+        defaultValue={defaultValue ?? tabs[0]?.value}
         value={value}
         onValueChange={onValueChange}
       >

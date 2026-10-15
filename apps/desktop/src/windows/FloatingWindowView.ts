@@ -129,8 +129,10 @@ export class FloatingWindow {
     const { x: areaX, y: areaY, width: areaWidth, height: areaHeight } = currentDisplay.workArea;
 
     const [winWidth, winHeight] = this.window.getSize();
-    const newX = areaX + areaWidth - winWidth - 24;
-    const newY = areaY + areaHeight - winHeight - 24;
+    // STAB-10 (noUncheckedIndexedAccess): getSize() devuelve [w, h] siempre;
+    // guards defensivos sin cambio de comportamiento.
+    const newX = areaX + areaWidth - (winWidth ?? 0) - 24;
+    const newY = areaY + areaHeight - (winHeight ?? 0) - 24;
 
     this.window.setPosition(newX, newY, true);
   }

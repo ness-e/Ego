@@ -39,6 +39,14 @@ function asMetric(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+/**
+ * STAB-10 (noUncheckedIndexedAccess): `split("T")[0]` es `string|undefined`;
+ * `slice(0, 10)` devuelve `string` siempre con idéntico resultado.
+ */
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /** T14: `daily.listApprovals` es canónico tras T13 (`EgoBridge.daily`,
  * `DailyApprovalsResult`). Acceso directo tipado con `?.` (sin bridge en
  * tests → no-op honesto, solo HITL en vivo). */
@@ -130,7 +138,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
           if (decisionsRes?.ok) setDecisions(decisionsRes.decisions || []);
 
           // Cargar Journal del día
-          const today = summaryRes?.summary?.date || new Date().toISOString().split("T")[0];
+          const today = summaryRes?.summary?.date || todayISO();
           const journalRes = await ego.daily.journal({ action: "get", date: today });
           if (journalRes?.ok && mounted) {
             setJournalContent(journalRes.content || "");
@@ -195,7 +203,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
         const res = await ego.daily.refineGoals({ date: summary?.date });
         if (res?.ok && res.goals) {
           setSummary((prev) => ({
-            date: prev?.date ?? new Date().toISOString().split("T")[0],
+            date: prev?.date ?? todayISO(),
             pendingApprovalsCount: prev?.pendingApprovalsCount ?? 0,
             ...prev,
             suggestedGoals: res.goals,
@@ -232,7 +240,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
       });
       setApprovals((prev) => prev.filter((a) => a.approvalId !== approvalId));
       setSummary((prev) => ({
-        date: prev?.date ?? new Date().toISOString().split("T")[0],
+        date: prev?.date ?? todayISO(),
         pendingApprovalsCount: Math.max(0, (prev?.pendingApprovalsCount ?? 1) - 1),
         ...prev,
       }));
@@ -248,7 +256,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
       const resolvedIds = new Set(items.map((i) => i.approvalId));
       setApprovals((prev) => prev.filter((a) => !resolvedIds.has(a.approvalId)));
       setSummary((prev) => ({
-        date: prev?.date ?? new Date().toISOString().split("T")[0],
+        date: prev?.date ?? todayISO(),
         pendingApprovalsCount: Math.max(0, (prev?.pendingApprovalsCount ?? 0) - items.length),
         ...prev,
       }));
@@ -423,7 +431,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
 
           {/* Journal Personal */}
           <JournalView
-            date={summary?.date || new Date().toISOString().split("T")[0]}
+            date={summary?.date || todayISO()}
             initialContent={journalContent}
             onSave={handleSaveJournal}
             onInsertDailyDecisions={handleInsertDecisionsIntoJournal}

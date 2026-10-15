@@ -31,7 +31,7 @@ function getBasename(filePath: string): string {
 
 function getExtension(filePath: string): string {
   const parts = filePath.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+  return parts.length > 1 ? (parts[parts.length - 1]?.toLowerCase() ?? "") : "";
 }
 
 /**

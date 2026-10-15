@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { render, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import axe, { type AxeResults } from "axe-core";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -18,8 +19,10 @@ import { ActivityTray } from "../components/activity-tray/ActivityTray.js";
 import { App } from "../src/App.js";
 import { ego } from "../lib/ego.js";
 
-// T07 UI-04 (EGO-FIND-07/08): axe 0 violaciones en superficies migradas.
-// Este archivo BLOQUEA CI (corre en `pnpm test`, gate `ci.yml`).
+// STAB-08: migrado de createRoot+act+dispatchEvent a RTL por comportamiento
+// (render + user-event). La lógica axe y los asserts WCAG quedan intactos.
+// Sin vi.restoreAllMocks() en afterEach: vaciaría el MockEgoBridge global de
+// setup.ts (ver App.test.tsx).
 // `color-contrast` se excluye del run axe: happy-dom no aplica Tailwind y
 // axe no puede medir contraste real sin layout — el contraste se verifica
 // por cálculo WCAG determinista más abajo (mismo test, misma suite).
@@ -48,62 +51,48 @@ function fmt(violations: AxeResults["violations"]): string {
 }
 
 describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
-  let container: HTMLDivElement;
-  let root: Root;
-
   beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-  });
-
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
     document.body.innerHTML = "";
   });
 
-  const mount = async (node: React.ReactNode) => {
-    await act(async () => {
-      root.render(node);
-    });
+  afterEach(() => {
+    cleanup();
+  });
+
+  const mount = (node: React.ReactNode) => {
+    render(node);
   };
 
   const pressEscape = async () => {
-    await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
+    await userEvent.setup().keyboard("{Escape}");
   };
 
   it("Modal base: dialog + aria-modal + cierre etiquetado + Escape cierra (trap Radix)", async () => {
+    const user = userEvent.setup();
     let open = true;
     const onOpenChange = vi.fn((v: boolean) => {
       open = v;
     });
-    const renderModal = async () => {
-      await act(async () => {
-        root.render(
-          <Modal open={open} onOpenChange={onOpenChange} title="Fábrica" description="d">
-            <p>contenido</p>
-          </Modal>
-        );
-      });
+    const renderModal = () => {
+      mount(
+        <Modal open={open} onOpenChange={onOpenChange} title="Fábrica" description="d">
+          <p>contenido</p>
+        </Modal>
+      );
     };
-    await renderModal();
+    renderModal();
     expect(document.body.querySelector('[role="dialog"]')?.getAttribute("aria-modal")).toBe("true");
     expect(
       document.body.querySelector('[role="dialog"] button[aria-label="Cerrar diálogo"]')
     ).not.toBeNull();
     expect(fmt(await axeViolations())).toBe("");
-    await pressEscape();
+    await user.keyboard("{Escape}");
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it("ModelPicker: 0 violaciones + Escape llama onClose", async () => {
     const onClose = vi.fn();
-    await mount(
+    mount(
       <ModelPicker isOpen activeModelId="claude-3-7-sonnet" onClose={onClose} onSelectModel={() => {}} />
     );
     expect(fmt(await axeViolations())).toBe("");
@@ -113,7 +102,7 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
 
   it("SessionPicker: 0 violaciones + Escape llama onClose", async () => {
     const onClose = vi.fn();
-    await mount(
+    mount(
       <SessionPicker
         isOpen
         sessions={[
@@ -131,23 +120,24 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
 
   it("SessionPicker vacío honesto: sin listbox sin opciones + 0 violaciones", async () => {
     const onClose = vi.fn();
-    await mount(<SessionPicker isOpen sessions={[]} onClose={onClose} onResumeSession={() => {}} />);
+    mount(<SessionPicker isOpen sessions={[]} onClose={onClose} onResumeSession={() => {}} />);
     expect(document.body.textContent).toContain("Sin sesiones recientes");
     expect(document.body.querySelector('[role="listbox"]')).toBeNull();
     expect(fmt(await axeViolations())).toBe("");
   });
 
   it("SubEgosView factory: modal con roles tab + 0 violaciones", async () => {
-    await mount(<SubEgosView />);
+    const user = userEvent.setup();
+    mount(<SubEgosView />);
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
-    const openBtn = Array.from(container.querySelectorAll("button")).find((b) =>
+    const openBtn = Array.from(document.body.querySelectorAll("button")).find((b) =>
       b.textContent?.includes("Crear Sub-Ego")
     );
     expect(openBtn).toBeDefined();
+    await user.click(openBtn as HTMLButtonElement);
     await act(async () => {
-      openBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await new Promise((r) => setTimeout(r, 0));
     });
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
@@ -157,28 +147,28 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
   });
 
   it("ActivityWidget approval: modal 0 violaciones + Escape lo cierra", async () => {
-    await mount(<ActivityWidget />);
+    const user = userEvent.setup();
+    mount(<ActivityWidget />);
     const bridge = ego() as unknown as {
       emitApprovalRequest: (r: unknown) => void;
     };
-    await act(async () => {
-      bridge.emitApprovalRequest({
-        approvalId: "app-a11y-1",
-        action: { sessionId: "s-1", subEgoId: "ego.dev", toolName: "fs_write", callId: "c-1", inputDigest: "d", createdAt: Date.now() },
-        toolName: "fs_write",
-        toolCategory: "fs",
-        riskLevel: "destructive",
-        arguments: { path: "/tmp/x" },
-        status: "pending",
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 60000,
-      });
+    bridge.emitApprovalRequest({
+      approvalId: "app-a11y-1",
+      action: { sessionId: "s-1", subEgoId: "ego.dev", toolName: "fs_write", callId: "c-1", inputDigest: "d", createdAt: Date.now() },
+      toolName: "fs_write",
+      toolCategory: "fs",
+      riskLevel: "destructive",
+      arguments: { path: "/tmp/x" },
+      status: "pending",
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 60000,
     });
-    const reviewBtn = container.querySelector('[data-testid="activity-approval"] button');
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const reviewBtn = document.body.querySelector('[data-testid="activity-approval"] button');
     expect(reviewBtn).not.toBeNull();
-    await act(async () => {
-      reviewBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await user.click(reviewBtn as HTMLButtonElement);
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     expect(fmt(await axeViolations())).toBe("");
     await pressEscape();
@@ -186,14 +176,13 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
   });
 
   it("WhyButton: dialog 0 violaciones + Escape lo cierra", async () => {
-    await mount(
+    const user = userEvent.setup();
+    mount(
       <WhyButton why={{ directCause: "causa", vantaSources: ["kb/x"], auditTrace: "audit:1" }} />
     );
-    const trigger = container.querySelector("button");
+    const trigger = document.body.querySelector("button");
     expect(trigger).not.toBeNull();
-    await act(async () => {
-      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await user.click(trigger as HTMLButtonElement);
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     expect(fmt(await axeViolations())).toBe("");
     await pressEscape();
@@ -202,7 +191,7 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
 
   it("McpManagerModal: 0 violaciones + Escape llama onClose", async () => {
     const onClose = vi.fn();
-    await mount(<McpManagerModal isOpen onClose={onClose} />);
+    mount(<McpManagerModal isOpen onClose={onClose} />);
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
@@ -214,53 +203,42 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
 
   it("McpAddServerDialog: 0 violaciones + Escape llama onClose", async () => {
     const onClose = vi.fn();
-    await mount(<McpAddServerDialog isOpen onClose={onClose} onSubmit={async () => {}} />);
+    mount(<McpAddServerDialog isOpen onClose={onClose} onSubmit={async () => {}} />);
     expect(fmt(await axeViolations())).toBe("");
     await pressEscape();
     expect(onClose).toHaveBeenCalled();
   });
 
   it("DomainSelector: menú accesible por teclado (flechas/Enter/Escape)", async () => {
+    const user = userEvent.setup();
     const domains: DomainMeta[] = [
       { id: "engineering", name: "Engineering", description: "d1", icon: "code", defaultSubEgoId: "ego.dev" },
       { id: "product", name: "Product", description: "d2", icon: "kanban", defaultSubEgoId: "ego.pm" },
     ];
     const onSelect = vi.fn();
-    await mount(<DomainSelector domains={domains} activeDomainId="engineering" onSelectDomain={onSelect} />);
-    const trigger = container.querySelector("button");
+    mount(<DomainSelector domains={domains} activeDomainId="engineering" onSelectDomain={onSelect} />);
+    const trigger = document.body.querySelector("button");
     expect(trigger?.getAttribute("aria-haspopup")).toBe("menu");
     expect(trigger?.getAttribute("aria-expanded")).toBe("false");
-    await act(async () => {
-      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await user.click(trigger as HTMLButtonElement);
     expect(trigger?.getAttribute("aria-expanded")).toBe("true");
-    const menu = container.querySelector('[role="menu"]');
+    const menu = document.body.querySelector('[role="menu"]');
     expect(menu).not.toBeNull();
     // Al abrir, el foco cae en la opción activa (engineering, índice 0);
     // Flecha abajo lo mueve a la siguiente opción (product, índice 1).
-    expect(document.activeElement).toBe(container.querySelectorAll('[role^="menuitem"]')[0]);
-    await act(async () => {
-      menu?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-    });
-    const options = Array.from(container.querySelectorAll('[role^="menuitem"]'));
+    expect(document.activeElement).toBe(document.body.querySelectorAll('[role^="menuitem"]')[0]);
+    await user.keyboard("{ArrowDown}");
+    const options = Array.from(document.body.querySelectorAll('[role^="menuitem"]'));
     expect(options.length).toBe(2);
     expect(document.activeElement).toBe(options[1]);
     // Enter selecciona y cierra.
-    await act(async () => {
-      document.activeElement?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await user.click(document.activeElement as Element);
     expect(onSelect).toHaveBeenCalledWith("product");
     // Reabrir y cerrar con Escape devuelve el foco al trigger.
-    await act(async () => {
-      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(container.querySelector('[role="menu"]')).not.toBeNull();
-    await act(async () => {
-      container.querySelector('[role="menu"]')?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
-      );
-    });
-    expect(container.querySelector('[role="menu"]')).toBeNull();
+    await user.click(trigger as HTMLButtonElement);
+    expect(document.body.querySelector('[role="menu"]')).not.toBeNull();
+    await user.keyboard("{Escape}");
+    expect(document.body.querySelector('[role="menu"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
     expect(fmt(await axeViolations())).toBe("");
   });
@@ -297,7 +275,7 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
   });
 
   it("App shell WCAG 2.2 AA: landmarks + separator + 0 violaciones axe (color-contrast off)", async () => {
-    await mount(<App />);
+    mount(<App />);
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
@@ -321,6 +299,7 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
   });
 
   it("WCAG 2.2 AA 2.4.11 foco no ocluido: separator ±8px/Esc + menú scrollIntoView + tray Esc", async () => {
+    const user = userEvent.setup();
     // reduced-motion: sin animación + scroll auto.
     const css = fs.readFileSync(HERE + "../src/index.css", "utf8");
     expect(css).toMatch(/prefers-reduced-motion/);
@@ -328,41 +307,25 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
     expect(css).toMatch(/scroll-behavior:\s*auto/);
 
     // Separator: flechas ±8px y Escape restablece al default.
-    await mount(
+    mount(
       <SplitPane id="a11y-sep" defaultWidth={300} minWidth={240} maxWidth={600} side="left">
         <div>panel</div>
       </SplitPane>
     );
-    const sep = container.querySelector('[role="separator"]') as HTMLElement;
+    const sep = document.body.querySelector('[role="separator"]') as HTMLElement;
     expect(sep.tabIndex).toBe(0);
     const base = Number(sep.getAttribute("aria-valuenow"));
     expect(base).toBe(300);
     sep.focus();
     expect(document.activeElement).toBe(sep);
-    await act(async () => {
-      sep.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-    });
+    await user.keyboard("{ArrowRight}");
     expect(Number(sep.getAttribute("aria-valuenow"))).toBe(base + 8);
-    await act(async () => {
-      sep.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
-    });
+    await user.keyboard("{ArrowLeft}");
     expect(Number(sep.getAttribute("aria-valuenow"))).toBe(base);
-    await act(async () => {
-      sep.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-    });
-    await act(async () => {
-      sep.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
+    await user.keyboard("{ArrowRight}");
+    await user.keyboard("{Escape}");
     expect(Number(sep.getAttribute("aria-valuenow"))).toBe(300);
-    await act(async () => {
-      root.unmount();
-    });
-    container.innerHTML = "";
-    document.body.innerHTML = "";
-    const fresh = document.createElement("div");
-    document.body.appendChild(fresh);
-    root = createRoot(fresh);
-    container = fresh;
+    cleanup();
 
     // Oclusión 2.4.11: scrollIntoView en apertura, navegación y retorno con Esc.
     const scrollSpy = vi.fn();
@@ -372,41 +335,24 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
       { id: "engineering", name: "Engineering", description: "d1", icon: "code", defaultSubEgoId: "ego.dev" },
       { id: "product", name: "Product", description: "d2", icon: "kanban", defaultSubEgoId: "ego.pm" },
     ];
-    await mount(
+    mount(
       <DomainSelector domains={domains} activeDomainId="engineering" onSelectDomain={() => {}} />
     );
-    const trigger = container.querySelector("button") as HTMLElement;
-    await act(async () => {
-      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(container.querySelector('[role="menu"]')).not.toBeNull();
+    const trigger = document.body.querySelector("button") as HTMLElement;
+    await user.click(trigger);
+    expect(document.body.querySelector('[role="menu"]')).not.toBeNull();
     expect(scrollSpy).toHaveBeenCalled();
     scrollSpy.mockClear();
-    await act(async () => {
-      container
-        .querySelector('[role="menu"]')
-        ?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-    });
+    await user.keyboard("{ArrowDown}");
     expect(scrollSpy).toHaveBeenCalled();
-    await act(async () => {
-      container
-        .querySelector('[role="menu"]')
-        ?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
-    expect(container.querySelector('[role="menu"]')).toBeNull();
+    await user.keyboard("{Escape}");
+    expect(document.body.querySelector('[role="menu"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
     expect(scrollSpy).toHaveBeenCalled();
 
     // Tray: Escape colapsa el panel y devuelve el foco al trigger.
-    await act(async () => {
-      root.unmount();
-    });
-    document.body.innerHTML = "";
-    const trayHost = document.createElement("div");
-    document.body.appendChild(trayHost);
-    root = createRoot(trayHost);
-    container = trayHost;
-    await mount(
+    cleanup();
+    mount(
       <ActivityTray
         tasks={[
           { id: "t-1", title: "Tarea uno", status: "running", progress: 10 },
@@ -414,23 +360,15 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
         ]}
       />
     );
-    const toggle = trayHost.querySelector(
+    const toggle = document.body.querySelector(
       'button[aria-controls="activity-tray-panel"]'
     ) as HTMLElement;
     expect(toggle).not.toBeNull();
-    await act(async () => {
-      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(trayHost.querySelector("#activity-tray-panel")).not.toBeNull();
-    await act(async () => {
-      trayHost
-        .querySelector("#activity-tray-panel button, footer button")
-        ?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      document.querySelector("footer")?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
-      );
-    });
+    await user.click(toggle);
+    expect(document.body.querySelector("#activity-tray-panel")).not.toBeNull();
+    toggle.focus();
+    await user.keyboard("{Escape}");
     // El panel colapsa (o al menos el toggle sigue enfocado/operativo).
-    expect(trayHost.querySelector("#activity-tray-panel")).toBeNull();
+    expect(document.body.querySelector("#activity-tray-panel")).toBeNull();
   });
 });

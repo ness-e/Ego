@@ -21,7 +21,7 @@ export const LOCAL_SLASH_COMMANDS = new Set(["help", "clear"]);
 export function parseSlashCommand(text: string): SlashCommand | null {
   const m = /^\s*\/([a-zA-Z][a-zA-Z0-9_-]*)([\s\S]*)$/.exec(text);
   if (!m) return null;
-  return { name: m[1].toLowerCase(), args: m[2].trim() };
+  return { name: (m[1] ?? "").toLowerCase(), args: (m[2] ?? "").trim() };
 }
 
 /** Texto de ayuda del composer (comando local `/help`). */

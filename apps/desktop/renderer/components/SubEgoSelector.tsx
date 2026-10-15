@@ -75,7 +75,7 @@ export const SubEgoSelector: React.FC<SubEgoSelectorProps> = ({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised/70 px-2.5 py-1 text-xs text-ink hover:bg-raised transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+        className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised/70 px-2.5 py-1 text-xs text-ink hover:bg-raised transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
         title={`Especialista activo: ${displayName} (${displayRole})`}
       >
         <CharacterBadge subEgoId={activeSubEgoId} size={18} state="idle" />

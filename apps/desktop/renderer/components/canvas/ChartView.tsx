@@ -50,7 +50,7 @@ export function computePieSlices(
       fraction,
       startAngle,
       endAngle,
-      color: PALETTE[idx % PALETTE.length],
+      color: PALETTE[idx % PALETTE.length] ?? PALETTE[0] ?? "#818cf8",
     };
   });
 }
@@ -172,7 +172,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
                         height={barHeight}
                         fill={PALETTE[yIdx % PALETTE.length]}
                         rx="2"
-                        className="transition-all hover:opacity-80"
+                        className="transition-opacity hover:opacity-80"
                       >
                         <title>{`${d[xKey]} - ${yKey}: ${val}`}</title>
                       </rect>
@@ -229,7 +229,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
                       cy={pt.y}
                       r="3.5"
                       fill={color}
-                      className="hover:r-5 transition-all cursor-pointer"
+                      className="hover:r-5 transition-[r] cursor-pointer"
                     >
                       <title>{`${pt.label} - ${yKey}: ${pt.val}`}</title>
                     </circle>

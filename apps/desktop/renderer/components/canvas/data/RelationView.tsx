@@ -80,7 +80,7 @@ export const RelationView: React.FC<RelationViewComponentProps> = ({ props }) =>
                   key={node.id}
                   type="button"
                   onClick={() => setSelectedNodeId(node.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
                     isSelected
                       ? `${colors.bg} ${colors.border} ${colors.text} font-semibold ring-1 ring-hairline`
                       : "bg-raised/70 border-hairline text-dim hover:text-ink hover:bg-raised"
