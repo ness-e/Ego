@@ -30,7 +30,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 ## Tasks
 
 ### Task 1: STAB-00 — Revisión global consistencia + funciona
-- **Estado:** ✅ COMPLETO (código+matriz, commit `4f294d9`; review ego-audit pendiente → veredicto formal en wave review; fallo 44 tests `VantaError connect` preexistente registrado → STAB-07)
+- **Estado:** ✅ COMPLETED (commit `4f294d9`; review ego-audit approve 2026-10-16 con 2 file:line corregidos; fallo 44 tests `VantaError connect` preexistente → STAB-07)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴 P0
@@ -56,7 +56,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
   - **DoD multi-nivel:** task: matriz + verifies; commit: `docs:` atómico; release: N/A docs-only
 
 ### Task 2: STAB-01 — Drift electron-vite AGENTS/ADR/stack
-- **Estado:** 🟡 INCOMPLETO (3/3 steps, commit `c0a30f2`, build:verify verde; pendiente review ego-audit P2-01 → wave review)
+- **Estado:** ✅ COMPLETED (commit `c0a30f2`, build:verify verde; review ego-audit approve 2026-10-16, append-only verificado)
 - **Appetite:** max 1h
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🔴 P0
@@ -82,6 +82,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 
 ### Task 3: STAB-02 — Permissions deny-gana + terminal hardening
 - **Estado:** ✅ COMPLETO (commit `dbd63a5` feat + `4addebf` plan; security 89/89, ipc-zod-coverage 10/10, permissions-policy 13/13; review P2-01 pendiente; pregunta Gate D batcheada: canales `ipc.settings.get/savePermissions` implementados, renombro a `ipc.permissions.*` en follow-up si lo pides)
+- **Review:** ✅ approve ego-audit 2026-10-16 (B correcto, tríada 1:1, cero R5; pendiente menor: `path_outside_workspace` explícito bajo allow → follow-up)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴 P0
@@ -108,6 +109,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 
 ### Task 4: STAB-03 — Cablear PromptAssembly al turno real
 - **Estado:** 🟡 INCOMPLETO (código propio commiteado `98f4947` + hunks main absorbidos por `c087862` ajeno; subegos 177/177, PromptAssembly 22/22, typecheck 0; rojos literales ajenos: DelegationTools WIP STAB-04, FloatingWindow, ipc-contract, golden timeout; review P2-01 pendiente)
+- **Review:** ✅ aprobado con observación trazabilidad ego-audit 2026-10-16 (wiring en `c087862` ajeno declarado; no bloqueante)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴 P0
@@ -133,6 +135,7 @@ Regla DAG: Wave N+1 arranca si Wave N ✅ o con FAILED aislado no bloqueante. ST
 
 ### Task 5: STAB-04 — delegate_task fin-a-fin en ToolExecutionLoop
 - **Estado:** ✅ COMPLETO (commit `c8c7b45`; subegos 17f/192t, runtime 11f/60t, typecheck 0; registro en composición main queda futura; review P2-01 pendiente)
+- **Review:** ✅ approve ego-audit 2026-10-16 (goal/context, BLOCKED, sin recursión, suites verdes)
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴 P0

@@ -19,7 +19,7 @@
 ## Evidencia file:line (verificable por grep)
 
 ### 1. Stack — drift electron-vite a 4 bandas vs ADR
-- Dicen MIGRADO (4): `AGENTS.md:9` (electron-vite 5.x MIGRADO T11), `apps/desktop/AGENTS.md:16` (T11-migrated), `docs/engineering/stack-tecnico.md:17` (MIGRADO T11 `fa58b8c`), `apps/desktop/package.json:45` (`"electron-vite": "^5.0.0"`) + `apps/desktop/electron.vite.config.ts:1,6` (config real) + `apps/desktop/src/main.ts:2673` (nota T11-S6 `out/main/main.js`).
+- Dicen MIGRADO (4): `AGENTS.md:9` (electron-vite 5.x MIGRADO T11), `apps/desktop/AGENTS.md:16` (T11-migrated), `docs/engineering/stack-tecnico.md:17` (MIGRADO T11 `fa58b8c`), `apps/desktop/package.json:45` (`"electron-vite": "^5.0.0"`) + `apps/desktop/electron.vite.config.ts:1,6` (config real) + `apps/desktop/src/main.ts:2103` (nota T11-S6 `out/main/main.js`).
 - Contradice (1): `docs/adr/0001-electron-vite.md:23-24` ("No se adopta `electron-vite`… descartada; ver `AGENTS.md` §1") — obsoleto tras T11. Fix: STAB-01 (supersede ADR, no reescribir; + `README.md:51` ya dice MIGRADO).
 
 ### 2. Testing/CI — stub `get→null`, single-ubuntu, skips honestos
@@ -34,7 +34,7 @@
 - `apps/desktop/src/updater.ts` existe (updater puro sin electron-updater; `downloadUpdate→deferred`, `publish` comentado en `electron-builder.config.cjs:32-52` — docs-only en STAB-16, prohibido descomentar sin certs).
 
 ### 4. Agentes/contexto — PromptAssembly sin cablear, leases volátiles
-- Sin cablear: `packages/subegos/src/PromptAssembly.ts:225` (`formatOutOfBandUserMessage`), `:362` (`assembleSystemPrompt`), `:413` (`assertSystemPromptStable`) existen; `apps/desktop/src/main.ts:1867` construye system ad-hoc (`"Eres Ego…" + contextText`, `:1866-1874`); grep `PromptAssembly|assembleHermes|drainSteer|OutOfBand` en `main.ts` = 0 matches → diseño de caché/inyección decorativo. Fix: STAB-03.
+- Sin cablear: `packages/subegos/src/PromptAssembly.ts:225` (`formatOutOfBandUserMessage`), `:362` (`assembleSystemPrompt`), `:413` (`assertSystemPromptStable`) existen; `apps/desktop/src/main.ts:1661` construye system ad-hoc (`"Eres Ego…" + contextText`, `:1661-1669`); grep `PromptAssembly|assembleHermes|drainSteer|OutOfBand` en `main.ts` = 0 matches → diseño de caché/inyección decorativo. Fix: STAB-03.
 - Leases volátiles: `packages/subegos/src/SharedMemory.ts:194` (`leases: Map<…> = new Map()` RAM) + `:435` (`cleanExpiredLeases()` manual, nadie lo llama en prod según auditoría) → sin TTL ni persistencia; `publish version+1` sin CAS (`SharedMemory.ts:485-566,636-683` según plan). Fix: STAB-05/06.
 - Delegación: `DelegationRouter.ts:681-850,911-996` API existe, no expuesta como tool del loop; `McpClient` stdio-duro, sin http, sin hooks, `scratchpad:Map` RAM (verificar exacto en STAB-04/12).
 

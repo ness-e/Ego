@@ -9,7 +9,7 @@
 - **Turns estimados:** 15-30
 - **Creado:** 2026-10-16
 - **last-synced:** 2026-10-16
-- **Estado:** ✅ COMPLETED (commit 50c8cc3; verify parcial con fallo preexistente registrado — ver Step 3)
+- **Estado:** ✅ COMPLETED (commit 4f294d9; review ego-audit approve con 2 file:line corregidos 2026-10-16; verify parcial con fallo preexistente registrado — ver Step 3)
 - **Incógnitas (uphill):** 2 (alcance real por área, certs owner)
 - **Pendientes (downhill):** 4 steps
 
