@@ -6,7 +6,7 @@
 ## 1. STACK TECNOLÓGICO Y VERSIONES
 
 * Runtime: Node.js ≥22 en toolchain del sistema (build/test/lint) + Electron 33.4.11 cuyo main corre sobre su Node 20.18 embebido (F5T11/M29: upgrade a ≥36 diferido — el `.node` napi-rs de VantaDB es N-API estable y carga verificado en la suite; subir exige descarga de binario + re-verificación de empaquetado, fuera de esta task) + Chromium (renderer)
-* Framework desktop: Electron 33 + electron-builder (pipeline real: `tsc` en main + `vite build` en renderer; F5T11/M28: `electron-vite` no es dependencia — era mención aspiracional, migración explícitamente NO hecha en esta task)
+* Framework desktop: Electron 33 + electron-builder con `electron-vite` 5.x (MIGRADO — T11, layout `out/`; ver `docs/engineering/stack-tecnico.md:17`)
 * Frontend: React 19 + TypeScript (strict) + Vite
 * Chat UI: `@assistant-ui/react`
 * Memoria: VantaDB 0.8.0 vía `NativeVantaDB` de `"vantadb/native"` (napi-rs, solo en main process) + `vantadb-mcp` como subprocess cognitivo (88 tools, vanta-memory L0-L3)
