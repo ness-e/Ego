@@ -474,15 +474,14 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
                 <SmartList
                   items={knowledgeData}
                   ariaLabel="Hechos verificados"
-                  keyOf={(_f, idx) => idx}
+                  keyOf={(f) => `${f.source}::${f.claim}`}
                   empty={
                     <p className="py-4 text-center text-xs text-faint">
                       No se encontraron hechos para la búsqueda activa.
                     </p>
                   }
-                  renderItem={(fact, idx) => (
+                  renderItem={(fact) => (
                     <div
-                      key={idx}
                       className="bg-paper/80 border border-hairline/80 rounded-lg p-2.5 text-xs"
                     >
                       <div className="font-medium text-ink">{fact.claim}</div>
@@ -539,7 +538,7 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
                   xKey="date"
                   yKey="totalTokens"
                   gradientId="domainTokensGrad"
-                  stroke="#10b981"
+                  stroke="var(--color-success, #10b981)"
                 />
               </Suspense>
             </div>

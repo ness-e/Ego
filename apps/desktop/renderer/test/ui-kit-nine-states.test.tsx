@@ -335,9 +335,13 @@ describe("T16 FIND-12: Badge — 9 estados P22", () => {
     expect(root?.className).toContain("focus-visible:outline");
   });
 
-  it("disabled: tono dim atenúa (opacity-70)", async () => {
+  it("disabled: tono dim sin opacity (contraste AA)", async () => {
     const el = await mount(<Badge tone="dim">Off</Badge>);
-    expect(el.querySelector("span")?.className).toContain("opacity-70");
+    const cls = el.querySelector("span")?.className ?? "";
+    expect(cls).toContain("border-hairline/60");
+    expect(cls).toContain("bg-panel");
+    expect(cls).toContain("text-faint");
+    expect(cls).not.toContain("opacity-70");
   });
 
   it("loading: aria-busy + pulse + spinner", async () => {

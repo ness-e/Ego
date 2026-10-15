@@ -5,7 +5,9 @@ import { cva, cn } from "./cva.js";
 /**
  * T06 UI-03 — Badge del kit.
  * 9 estados P22: default / hover / active / focus (tabIndex opcional) /
- * disabled (tone dim + opacity) / loading (aria-busy + pulse) /
+ * disabled (tone dim SIN opacity: el contraste lo da dim #8a8a92 fijo AA,
+ * nunca `opacity-70` que hunde el ratio por debajo de AA) /
+ * loading (aria-busy + pulse) /
  * error (tone risk) / empty (placeholder "—") / overflow (truncate + title).
  */
 const badgeVariants = cva({
@@ -16,7 +18,7 @@ const badgeVariants = cva({
       warn: "border-amber-800/40 bg-amber-950/60 text-amber-400",
       risk: "border-red-800/40 bg-red-950/60 text-red-300",
       info: "border-hairline bg-raised text-dim",
-      dim: "border-hairline/60 bg-panel text-faint opacity-70",
+      dim: "border-hairline/60 bg-panel text-faint",
     },
   },
   defaultVariants: { tone: "info" },

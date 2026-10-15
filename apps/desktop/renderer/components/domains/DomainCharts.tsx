@@ -19,8 +19,11 @@ export interface TelemetryChartProps {
 /**
  * T08 (UI-05): recharts aislado en módulo propio para `React.lazy`
  * (el bundle de charts ~384KB deja de cargarse en el arranque).
+ *
+ * T-contraste: strokes/fondos vía `var(--color-*, fallback)` — el hex queda
+ * como fallback (render idéntico sin tokens) y el token manda con tema.
  */
-export function TelemetryChart({ data, xKey, yKey, gradientId, stroke = "#10b981" }: TelemetryChartProps) {
+export function TelemetryChart({ data, xKey, yKey, gradientId, stroke = "var(--color-success, #10b981)" }: TelemetryChartProps) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -30,12 +33,12 @@ export function TelemetryChart({ data, xKey, yKey, gradientId, stroke = "#10b981
             <stop offset="95%" stopColor={stroke} stopOpacity={0.0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
-        <XAxis dataKey={xKey} stroke="#737373" fontSize={10} tickLine={false} />
-        <YAxis stroke="#737373" fontSize={10} tickLine={false} axisLine={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-hairline, #262626)" vertical={false} />
+        <XAxis dataKey={xKey} stroke="var(--color-dim, #737373)" fontSize={10} tickLine={false} />
+        <YAxis stroke="var(--color-dim, #737373)" fontSize={10} tickLine={false} axisLine={false} />
         <Tooltip
-          contentStyle={{ backgroundColor: "#171717", borderColor: "#262626", borderRadius: "8px" }}
-          labelStyle={{ color: "#a3a3a3", fontSize: "11px" }}
+          contentStyle={{ backgroundColor: "var(--color-raised, #171717)", borderColor: "var(--color-hairline, #262626)", borderRadius: "8px" }}
+          labelStyle={{ color: "var(--color-faint, #a3a3a3)", fontSize: "11px" }}
         />
         <Area
           type="monotone"

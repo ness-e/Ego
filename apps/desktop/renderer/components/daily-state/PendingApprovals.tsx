@@ -133,12 +133,13 @@ export function PendingApprovals({
                 )}
               </div>
 
-              {/* Botones individuales */}
+              {/* Botones individuales (WCAG 2.2 AA: nombre accesible + 24px) */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => handleResolve(appr.approvalId, true)}
                   disabled={isProcessing || isBatchBusy}
-                  className="flex items-center justify-center h-6 w-6 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                  aria-label={`Aprobar ${appr.toolName || appr.action}`}
+                  className="flex items-center justify-center h-6 w-6 min-h-[24px] min-w-[24px] rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                   title="Aprobar ejecución"
                 >
                   <Check size={12} weight="bold" />
@@ -146,7 +147,8 @@ export function PendingApprovals({
                 <button
                   onClick={() => handleResolve(appr.approvalId, false)}
                   disabled={isProcessing || isBatchBusy}
-                  className="flex items-center justify-center h-6 w-6 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                  aria-label={`Rechazar ${appr.toolName || appr.action}`}
+                  className="flex items-center justify-center h-6 w-6 min-h-[24px] min-w-[24px] rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
                   title="Rechazar ejecución"
                 >
                   <X size={12} weight="bold" />

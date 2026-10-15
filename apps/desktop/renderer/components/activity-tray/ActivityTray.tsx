@@ -96,6 +96,18 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
 }) => {
   const [tasks, setTasks] = useState<TaskItem[]>(propTasks ?? []);
   const [isExpanded, setIsExpanded] = useState(false);
+  const toggleRef = React.useRef<HTMLButtonElement>(null);
+  const panelRef = React.useRef<HTMLDivElement>(null);
+
+  // WCAG 2.2 AA: Escape colapsa el panel y devuelve el foco al trigger.
+  const handleTrayKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape" && isExpanded) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsExpanded(false);
+      toggleRef.current?.focus();
+    }
+  };
 
   useEffect(() => {
     if (propTasks) {
@@ -180,7 +192,10 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
   }
 
   return (
-    <footer className="relative flex flex-col border-t border-hairline bg-raised text-ink text-xs transition-all duration-200">
+    <footer
+      className="relative flex flex-col border-t border-hairline bg-raised text-ink text-xs transition-all duration-200"
+      onKeyDown={handleTrayKeyDown}
+    >
       {/* Barra compacta siempre visible en el footer */}
       <div className="flex h-7 shrink-0 items-center justify-between px-3 select-none">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -214,8 +229,12 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
         </div>
 
         <button
+          ref={toggleRef}
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-dim hover:text-ink hover:bg-panel transition-colors"
+          aria-expanded={isExpanded}
+          aria-controls="activity-tray-panel"
+          aria-label={isExpanded ? "Ocultar cola de tareas" : "Ver cola de tareas"}
+          className="flex min-h-[24px] min-w-[24px] items-center gap-1 rounded px-2 py-1 text-[11px] text-dim hover:text-ink hover:bg-panel transition-colors"
           title="Ver cola de tareas"
         >
           <span className="font-mono">Cola ({tasks.length})</span>
@@ -225,7 +244,13 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
 
       {/* Panel desplegable con la lista de tareas */}
       {isExpanded && (
-        <div className="max-h-48 overflow-y-auto border-t border-hairline bg-panel p-2 space-y-1.5">
+        <div
+          ref={panelRef}
+          id="activity-tray-panel"
+          role="region"
+          aria-label="Cola de tareas en segundo plano"
+          className="max-h-48 overflow-y-auto border-t border-hairline bg-panel p-2 space-y-1.5"
+        >
           {tasks.length === 0 ? (
             <p className="text-[11px] text-faint p-2">No hay tareas registradas.</p>
           ) : (
@@ -265,7 +290,8 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
                   {task.status === "running" && onPauseTask && (
                     <button
                       onClick={() => onPauseTask(task.id)}
-                      className="rounded p-1 text-dim hover:text-ink hover:bg-raised"
+                      aria-label={`Pausar tarea ${task.title}`}
+                      className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-dim hover:text-ink hover:bg-raised"
                       title="Pausar"
                     >
                       <Pause size={12} />
@@ -274,7 +300,8 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
                   {task.status === "paused" && onResumeTask && (
                     <button
                       onClick={() => onResumeTask(task.id)}
-                      className="rounded p-1 text-dim hover:text-ink hover:bg-raised"
+                      aria-label={`Reanudar tarea ${task.title}`}
+                      className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-dim hover:text-ink hover:bg-raised"
                       title="Reanudar"
                     >
                       <Play size={12} />
@@ -283,7 +310,8 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
                   {(task.status === "running" || task.status === "queued") && (
                     <button
                       onClick={() => handleCancel(task.id)}
-                      className="rounded p-1 text-rose-500/80 hover:text-rose-500 hover:bg-raised"
+                      aria-label={`Cancelar tarea ${task.title}`}
+                      className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-rose-500/80 hover:text-rose-500 hover:bg-raised"
                       title="Cancelar"
                     >
                       <XCircle size={12} />

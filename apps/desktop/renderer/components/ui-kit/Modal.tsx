@@ -65,7 +65,7 @@ export function Modal({
                 <button
                   type="button"
                   aria-label="Cerrar diálogo"
-                  className="rounded p-1 text-faint transition-colors hover:bg-raised hover:text-ink active:scale-95 focus-visible:outline-2 focus-visible:outline-brand"
+                  className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-faint transition-colors hover:bg-raised hover:text-ink active:scale-95 focus-visible:outline-2 focus-visible:outline-brand"
                 >
                   <X size={15} />
                 </button>

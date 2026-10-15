@@ -166,6 +166,23 @@ const FONT_STACK_MAP: Record<string, string> = {
   serif: 'ui-serif, Georgia, serif',
 };
 
+/**
+ * T-contraste: tokens FIJOS del sistema (no derivan del preset).
+ * - `FIXED_DIM` #8a8a92 ≈5.8:1 sobre paper (AA). El provider NUNCA lo pisa
+ *   con `muted` del preset sin medir cada preset (riesgo emerald-terminal
+ *   verdoso: rompería el AA silenciosamente).
+ * - `FIXED_BORDER_STRONG` #52525b ≈2.4:1 sobre panel (medido 2026-10-14:
+ *   NO alcanza 3:1 como color único → bordes siempre con 2º indicador).
+ * - `FIXED_FOCUS_RING` #f59e0b ≈9.2:1 sobre paper (componente UI ≥3:1 ✅).
+ * - `FIXED_TEXT_ON_BRAND` #0a0a0b sobre ámbar ≈9.2:1 ✅.
+ */
+const FIXED_BORDER_STRONG = "#52525b";
+const FIXED_FOCUS_RING = "#f59e0b";
+const FIXED_TEXT_ON_BRAND = "#0a0a0b";
+const FIXED_DIM = "#8a8a92";
+const FIXED_CHART_INDIGO = "#818cf8";
+const FIXED_CHART_VIOLET = "#a78bfa";
+
 function radiusOf(radius: string): string {
   return RADIUS_MAP[radius] || "8px";
 }
@@ -226,6 +243,28 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
     root.setProperty("--color-hairline", c.border);
     root.setProperty("--color-faint", c.muted);
     root.setProperty("--radius-card", radiusOf(tokens.geometry.radius));
+    // T-contraste: fijos del sistema (no del preset). `--color-dim` NO se
+    // deriva de `c.muted`: queda anclado a #8a8a92 hasta medir cada preset.
+    root.setProperty("--color-strong", FIXED_BORDER_STRONG);
+    root.setProperty("--color-border-strong", FIXED_BORDER_STRONG);
+    root.setProperty("--color-focus-ring", FIXED_FOCUS_RING);
+    root.setProperty("--color-on-brand", FIXED_TEXT_ON_BRAND);
+    root.setProperty("--color-text-on-brand", FIXED_TEXT_ON_BRAND);
+    root.setProperty("--color-dim", FIXED_DIM);
+    root.setProperty("--color-success", c.success);
+    root.setProperty("--color-warning", c.warning);
+    root.setProperty("--color-error", c.error);
+    root.setProperty("--color-chart-indigo", FIXED_CHART_INDIGO);
+    root.setProperty("--color-chart-violet", FIXED_CHART_VIOLET);
+    root.setProperty("--ego-color-border-strong", FIXED_BORDER_STRONG);
+    root.setProperty("--ego-color-focus-ring", FIXED_FOCUS_RING);
+    root.setProperty("--ego-color-text-on-brand", FIXED_TEXT_ON_BRAND);
+    root.setProperty("--ego-color-dim", FIXED_DIM);
+    root.setProperty("--ego-color-success", c.success);
+    root.setProperty("--ego-color-warning", c.warning);
+    root.setProperty("--ego-color-error", c.error);
+    root.setProperty("--ego-color-chart-indigo", FIXED_CHART_INDIGO);
+    root.setProperty("--ego-color-chart-violet", FIXED_CHART_VIOLET);
     root.setProperty("--font-sans", fontStackOf(tokens.typography.fontFamily));
     try {
       localStorage.setItem(THEME_STORAGE_KEY, presetKeyOf(tokens));
@@ -252,6 +291,13 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
       "--ego-color-success": tokens.colors.success,
       "--ego-color-warning": tokens.colors.warning,
       "--ego-color-error": tokens.colors.error,
+      // T-contraste: fijos del sistema; el preset no los gobierna.
+      "--ego-color-border-strong": FIXED_BORDER_STRONG,
+      "--ego-color-focus-ring": FIXED_FOCUS_RING,
+      "--ego-color-text-on-brand": FIXED_TEXT_ON_BRAND,
+      "--ego-color-dim": FIXED_DIM,
+      "--ego-color-chart-indigo": FIXED_CHART_INDIGO,
+      "--ego-color-chart-violet": FIXED_CHART_VIOLET,
       "--ego-radius": radiusOf(tokens.geometry.radius),
       "--ego-density-pad": densityPadOf(tokens.geometry.density),
       "--ego-font-family": fontMap[tokens.typography.fontFamily] || "sans-serif",

@@ -197,7 +197,7 @@ export function Omnibar() {
               type="button"
               aria-label="Limpiar búsqueda"
               onClick={() => handleChange("")}
-              className="text-dim hover:text-ink"
+              className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-dim hover:text-ink"
             >
               <X size={13} />
             </button>

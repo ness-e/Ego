@@ -26,7 +26,8 @@ export const SelectionToolbar: React.FC = () => {
       <button
         type="button"
         onClick={() => sendSelectionToChat()}
-        className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-raised transition-colors font-medium text-[11px]"
+        aria-label="Preguntar a Sub-Ego sobre la selección"
+        className="flex min-h-[24px] items-center gap-1.5 px-2 py-1 rounded hover:bg-raised transition-colors font-medium text-[11px]"
       >
         <ChatCircleDots size={14} className="text-cyan-300" weight="bold" />
         <span>Preguntar a Sub-Ego</span>
@@ -38,7 +39,8 @@ export const SelectionToolbar: React.FC = () => {
         type="button"
         onClick={handleCopy}
         title="Copiar selección"
-        className="p-1 rounded hover:bg-raised text-ink hover:text-ink transition-colors"
+        aria-label="Copiar selección"
+        className="p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center rounded hover:bg-raised text-ink hover:text-ink transition-colors"
       >
         <Copy size={13} />
       </button>
@@ -47,7 +49,8 @@ export const SelectionToolbar: React.FC = () => {
         type="button"
         onClick={clearSelection}
         title="Cerrar"
-        className="p-1 rounded hover:bg-raised text-faint hover:text-ink transition-colors"
+        aria-label="Descartar selección"
+        className="p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center rounded hover:bg-raised text-faint hover:text-ink transition-colors"
       >
         <X size={13} />
       </button>

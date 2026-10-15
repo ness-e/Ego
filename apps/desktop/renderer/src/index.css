@@ -16,8 +16,23 @@
   --color-raised: var(--ego-color-raised, #17171a);
   --color-hairline: var(--ego-color-border, #26262b);
   --color-faint: var(--ego-color-muted, #8e8e93);
-  /* dim fijo AA sobre fondo paper (~6:1); el gris anterior (~2.8:1) no pasaba. */
+  /* dim fijo AA sobre fondo paper (~5.8:1); el gris anterior (~2.8:1) no pasaba. */
   --color-dim: #8a8a92;
+  /* T-contraste: bordes interactivos + foco + texto-sobre-brand + estados.
+     `--color-strong` y `--color-border-strong` son alias del mismo token
+     `--ego-color-border-strong` (clases `border-strong` y `border-border-strong`).
+     Igual para on-brand: `--color-on-brand` / `--color-text-on-brand`. */
+  --color-strong: var(--ego-color-border-strong, #52525b);
+  --color-border-strong: var(--ego-color-border-strong, #52525b);
+  --color-focus-ring: var(--ego-color-focus-ring, #f59e0b);
+  --color-on-brand: var(--ego-color-text-on-brand, #0a0a0b);
+  --color-text-on-brand: var(--ego-color-text-on-brand, #0a0a0b);
+  --color-success: var(--ego-color-success, #10b981);
+  --color-warning: var(--ego-color-warning, #f59e0b);
+  --color-error: var(--ego-color-error, #f43f5e);
+  /* Paleta categórica de charts (fallbacks = hex históricos; ver ChartView). */
+  --color-chart-indigo: var(--ego-color-chart-indigo, #818cf8);
+  --color-chart-violet: var(--ego-color-chart-violet, #a78bfa);
 
   --radius-card: var(--ego-radius, 8px);
 }
@@ -27,6 +42,19 @@
      referencia como var(--font-geist-*) con fallback. */
   --font-geist-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  /* T-contraste: valores fijos del sistema (no derivar de presets sin medir).
+     border-strong #52525b ≈2.4:1 sobre panel (decorativo + 2º indicador);
+     dim #8a8a92 ≈5.8:1 sobre paper (AA); focus-ring #f59e0b ≈9.2:1;
+     text-on-brand #0a0a0b sobre ámbar ≈9.2:1. */
+  --ego-color-border-strong: #52525b;
+  --ego-color-focus-ring: #f59e0b;
+  --ego-color-text-on-brand: #0a0a0b;
+  --ego-color-dim: #8a8a92;
+  --ego-color-success: #10b981;
+  --ego-color-warning: #f59e0b;
+  --ego-color-error: #f43f5e;
+  --ego-color-chart-indigo: #818cf8;
+  --ego-color-chart-violet: #a78bfa;
 }
 
 html,
@@ -52,15 +80,18 @@ body,
 /* T07 (UI-04) WCAG 2.4.7: anillo de foco visible global. Los componentes del
    kit ya usan `focus-visible:outline-brand`; esta regla cubre elementos
    nativos y superficies sin clase explícita. El contorno nunca se elimina
-   sin un reemplazo visible. */
+   sin un reemplazo visible.
+   T-contraste: `--color-focus-ring` alias de brand (#f59e0b ≈9.2:1 sobre
+   paper); se mantiene `var(--color-brand` en la cadena para el contrato
+   de tests existentes. */
 :focus-visible {
-  outline: 2px solid var(--color-brand, #f59e0b);
+  outline: 2px solid var(--color-focus-ring, var(--color-brand, #f59e0b));
   outline-offset: 2px;
 }
 
 @supports not selector(:focus-visible) {
   :focus {
-    outline: 2px solid var(--color-brand, #f59e0b);
+    outline: 2px solid var(--color-focus-ring, var(--color-brand, #f59e0b));
     outline-offset: 2px;
   }
 }
@@ -74,7 +105,8 @@ body,
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }

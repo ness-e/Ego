@@ -53,14 +53,22 @@ export const DomainSelector: React.FC<DomainSelectorProps> = ({
 
   const close = (returnFocus: boolean) => {
     setIsOpen(false);
-    if (returnFocus) triggerRef.current?.focus();
+    if (returnFocus) {
+      triggerRef.current?.focus();
+      // WCAG 2.2 AA 2.4.11: el foco nunca queda ocluido tras cerrar con Esc.
+      triggerRef.current?.scrollIntoView?.({ block: "nearest" });
+    }
   };
 
   // Al abrir, el foco cae en la opción activa (single-select).
+  // WCAG 2.4.11: la opción enfocada se desplaza a la vista (scrollIntoView)
+  // para no quedar ocluida por contenedores con overflow.
   React.useEffect(() => {
     if (isOpen) {
       const idx = domains.findIndex((d) => d.id === activeDomainId);
-      optionRefs.current[idx < 0 ? 0 : idx]?.focus();
+      const el = optionRefs.current[idx < 0 ? 0 : idx];
+      el?.focus();
+      el?.scrollIntoView?.({ block: "nearest" });
     }
   }, [isOpen, domains, activeDomainId]);
 
@@ -79,7 +87,10 @@ export const DomainSelector: React.FC<DomainSelectorProps> = ({
   const focusOption = (index: number) => {
     const n = domains.length;
     if (n === 0) return;
-    optionRefs.current[((index % n) + n) % n]?.focus();
+    const el = optionRefs.current[((index % n) + n) % n];
+    el?.focus();
+    // WCAG 2.4.11: la opción con foco nunca queda ocluida.
+    el?.scrollIntoView?.({ block: "nearest" });
   };
 
   const onMenuKeyDown = (e: React.KeyboardEvent) => {

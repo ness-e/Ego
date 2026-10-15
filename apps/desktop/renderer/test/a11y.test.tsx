@@ -13,6 +13,9 @@ import { WhyButton } from "../components/explainability/WhyButton.js";
 import { McpManagerModal } from "../components/mcp/McpManagerModal.js";
 import { McpAddServerDialog } from "../components/mcp/McpAddServerDialog.js";
 import { DomainSelector, type DomainMeta } from "../components/domains/DomainSelector.js";
+import { SplitPane } from "../components/PaneShell.js";
+import { ActivityTray } from "../components/activity-tray/ActivityTray.js";
+import { App } from "../src/App.js";
 import { ego } from "../lib/ego.js";
 
 // T07 UI-04 (EGO-FIND-07/08): axe 0 violaciones en superficies migradas.
@@ -291,5 +294,143 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
     expect(ratio("#8a8a92", "#0a0a0b")).toBeGreaterThanOrEqual(4.5);
     // Anillo de foco brand sobre paper: componente UI ≥ 3:1.
     expect(ratio("#f59e0b", "#0a0a0b")).toBeGreaterThanOrEqual(3);
+  });
+
+  it("App shell WCAG 2.2 AA: landmarks + separator + 0 violaciones axe (color-contrast off)", async () => {
+    await mount(<App />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    // Landmarks con nombre accesible (App.tsx + Sidebar).
+    expect(document.querySelector("header")).not.toBeNull();
+    expect(document.querySelector("main")).not.toBeNull();
+    expect(document.querySelector("footer")).not.toBeNull();
+    expect(document.querySelector('section[aria-label="Chat"]')).not.toBeNull();
+    expect(
+      document.querySelector('section[aria-label="Área de trabajo dinámica"]')
+    ).not.toBeNull();
+    expect(document.querySelector("aside[aria-label]")).not.toBeNull();
+    // Divisor como separator con valor y foco por teclado.
+    const sep = document.querySelector('[role="separator"]') as HTMLElement | null;
+    expect(sep).not.toBeNull();
+    expect(sep?.tabIndex).toBe(0);
+    expect(sep?.getAttribute("aria-valuenow")).not.toBeNull();
+    expect(sep?.getAttribute("aria-valuemin")).not.toBeNull();
+    expect(sep?.getAttribute("aria-valuemax")).not.toBeNull();
+    expect(fmt(await axeViolations())).toBe("");
+  });
+
+  it("WCAG 2.2 AA 2.4.11 foco no ocluido: separator ±8px/Esc + menú scrollIntoView + tray Esc", async () => {
+    // reduced-motion: sin animación + scroll auto.
+    const css = fs.readFileSync(HERE + "../src/index.css", "utf8");
+    expect(css).toMatch(/prefers-reduced-motion/);
+    expect(css).toMatch(/animation:\s*none/);
+    expect(css).toMatch(/scroll-behavior:\s*auto/);
+
+    // Separator: flechas ±8px y Escape restablece al default.
+    await mount(
+      <SplitPane id="a11y-sep" defaultWidth={300} minWidth={240} maxWidth={600} side="left">
+        <div>panel</div>
+      </SplitPane>
+    );
+    const sep = container.querySelector('[role="separator"]') as HTMLElement;
+    expect(sep.tabIndex).toBe(0);
+    const base = Number(sep.getAttribute("aria-valuenow"));
+    expect(base).toBe(300);
+    sep.focus();
+    expect(document.activeElement).toBe(sep);
+    await act(async () => {
+      sep.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
+    expect(Number(sep.getAttribute("aria-valuenow"))).toBe(base + 8);
+    await act(async () => {
+      sep.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    });
+    expect(Number(sep.getAttribute("aria-valuenow"))).toBe(base);
+    await act(async () => {
+      sep.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
+    await act(async () => {
+      sep.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(Number(sep.getAttribute("aria-valuenow"))).toBe(300);
+    await act(async () => {
+      root.unmount();
+    });
+    container.innerHTML = "";
+    document.body.innerHTML = "";
+    const fresh = document.createElement("div");
+    document.body.appendChild(fresh);
+    root = createRoot(fresh);
+    container = fresh;
+
+    // Oclusión 2.4.11: scrollIntoView en apertura, navegación y retorno con Esc.
+    const scrollSpy = vi.fn();
+    (window.HTMLElement.prototype as unknown as Record<string, unknown>).scrollIntoView =
+      scrollSpy;
+    const domains: DomainMeta[] = [
+      { id: "engineering", name: "Engineering", description: "d1", icon: "code", defaultSubEgoId: "ego.dev" },
+      { id: "product", name: "Product", description: "d2", icon: "kanban", defaultSubEgoId: "ego.pm" },
+    ];
+    await mount(
+      <DomainSelector domains={domains} activeDomainId="engineering" onSelectDomain={() => {}} />
+    );
+    const trigger = container.querySelector("button") as HTMLElement;
+    await act(async () => {
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container.querySelector('[role="menu"]')).not.toBeNull();
+    expect(scrollSpy).toHaveBeenCalled();
+    scrollSpy.mockClear();
+    await act(async () => {
+      container
+        .querySelector('[role="menu"]')
+        ?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    });
+    expect(scrollSpy).toHaveBeenCalled();
+    await act(async () => {
+      container
+        .querySelector('[role="menu"]')
+        ?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(scrollSpy).toHaveBeenCalled();
+
+    // Tray: Escape colapsa el panel y devuelve el foco al trigger.
+    await act(async () => {
+      root.unmount();
+    });
+    document.body.innerHTML = "";
+    const trayHost = document.createElement("div");
+    document.body.appendChild(trayHost);
+    root = createRoot(trayHost);
+    container = trayHost;
+    await mount(
+      <ActivityTray
+        tasks={[
+          { id: "t-1", title: "Tarea uno", status: "running", progress: 10 },
+          { id: "t-2", title: "Tarea dos", status: "queued", progress: 0 },
+        ]}
+      />
+    );
+    const toggle = trayHost.querySelector(
+      'button[aria-controls="activity-tray-panel"]'
+    ) as HTMLElement;
+    expect(toggle).not.toBeNull();
+    await act(async () => {
+      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(trayHost.querySelector("#activity-tray-panel")).not.toBeNull();
+    await act(async () => {
+      trayHost
+        .querySelector("#activity-tray-panel button, footer button")
+        ?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      document.querySelector("footer")?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+      );
+    });
+    // El panel colapsa (o al menos el toggle sigue enfocado/operativo).
+    expect(trayHost.querySelector("#activity-tray-panel")).toBeNull();
   });
 });

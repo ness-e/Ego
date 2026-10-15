@@ -116,6 +116,55 @@ export function SplitPane({
     }
   };
 
+  // WCAG 2.2 AA (2.1.1 + 4.1.2): divisor operable por teclado como separator.
+  // Flechas ±8px, Esc restablece al ancho por defecto.
+  const clampWidth = useCallback(
+    (next: number) => Math.min(maxWidth, Math.max(minWidth, next)),
+    [minWidth, maxWidth],
+  );
+
+  const handleSeparatorKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const step = 8;
+      const delta =
+        e.key === "ArrowRight" ? step : e.key === "ArrowLeft" ? -step : 0;
+      if (delta !== 0) {
+        e.preventDefault();
+        const oriented = side === "left" ? delta : -delta;
+        const next = clampWidth(width + oriented);
+        setWidth(next);
+        onWidthChange?.(next);
+        return;
+      }
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const oriented = e.key === "ArrowUp" ? step : -step;
+        const next = clampWidth(width + (side === "left" ? oriented : -oriented));
+        setWidth(next);
+        onWidthChange?.(next);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setWidth(defaultWidth);
+        onWidthChange?.(defaultWidth);
+        return;
+      }
+      if (e.key === "Home") {
+        e.preventDefault();
+        setWidth(minWidth);
+        onWidthChange?.(minWidth);
+        return;
+      }
+      if (e.key === "End") {
+        e.preventDefault();
+        setWidth(maxWidth);
+        onWidthChange?.(maxWidth);
+      }
+    },
+    [width, side, defaultWidth, minWidth, maxWidth, onWidthChange, clampWidth],
+  );
+
   useEffect(() => {
     try {
       getStorage()?.setItem(storageKey, String(width));
@@ -136,14 +185,22 @@ export function SplitPane({
     >
       <div className="flex-1 overflow-hidden min-h-0 min-w-0">{children}</div>
 
-      {/* Divisor interactivo */}
+      {/* Divisor interactivo (WCAG 2.2 AA: separator con valor + teclado) */}
       <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-valuenow={Math.round(width)}
+        aria-valuemin={minWidth}
+        aria-valuemax={maxWidth}
+        aria-label={`Redimensionar panel ${id}. Flechas ajustan 8 píxeles, Escape restablece.`}
+        tabIndex={0}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
+        onKeyDown={handleSeparatorKeyDown}
         title="Arrastra para cambiar ancho · Doble clic para restablecer"
         className={`absolute inset-y-0 ${
           side === "left" ? "right-0" : "left-0"
-        } w-1 cursor-col-resize hover:bg-brand/40 active:bg-brand transition-colors z-20`}
+        } w-1 cursor-col-resize hover:bg-brand/40 active:bg-brand transition-colors z-20 focus-visible:bg-brand/60 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-1`}
       />
     </div>
   );

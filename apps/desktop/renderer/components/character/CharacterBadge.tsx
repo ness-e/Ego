@@ -4,6 +4,7 @@
 // Solo anima si animated={true} (turno activo).
 
 import React, { useEffect, useRef } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { CharacterEngine } from "./core/CharacterEngine.js";
 import { CharacterStateMachine, type CharacterState } from "./state/CharacterStateMachine.js";
 import { TraitRegistry, type DomainCharacterPreset } from "./traits/TraitRegistry.js";
@@ -41,6 +42,8 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   const morphRef = useRef<CharacterMorphController | null>(null);
   const prevTargetRef = useRef<MorphTarget | null>(null);
   const renderSingleFrameRef = useRef<(() => void) | null>(null);
+  // Microanim framer-motion: morph crossfade envuelto; reduced-motion → animation none.
+  const reduceMotion = useReducedMotion() ?? false;
 
   // Inicialización de FSM y Engine en ref
   if (!fsmRef.current) {
@@ -187,22 +190,31 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   }, [size, animated, fsm, engine, preset]);
 
   return (
-    <span
+    <motion.span
+      layout={reduceMotion ? false : true}
+      initial={reduceMotion ? false : { opacity: 0.6, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.35 }}
+      role="img"
+      aria-label={title || preset.name}
       className={`inline-flex items-center justify-center overflow-hidden shrink-0 select-none ${className}`}
       title={title || preset.name}
-      style={{
-        width: `${size}px`,
-        height: `${size}px`,
-      }}
+      data-morph="wrapped"
+      style={
+        reduceMotion
+          ? { width: `${size}px`, height: `${size}px`, animation: "none" }
+          : { width: `${size}px`, height: `${size}px` }
+      }
     >
       <canvas
         ref={canvasRef}
+        aria-hidden="true"
         style={{
           width: `${size / 0.6}px`,
           height: `${size / 0.6}px`,
           pointerEvents: "none",
         }}
       />
-    </span>
+    </motion.span>
   );
 };
