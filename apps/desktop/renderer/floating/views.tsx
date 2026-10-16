@@ -189,6 +189,7 @@ export function buildHeader(opts: {
   const soundBtn = document.createElement("button");
   soundBtn.type = "button";
   soundBtn.className = "ego-sound-btn";
+  soundBtn.setAttribute("aria-label", "Audio cabecera");
   soundBtn.addEventListener("click", () => opts.onToggleSound());
   const settingsBtn = document.createElement("button");
   settingsBtn.type = "button";
@@ -208,7 +209,7 @@ export function buildHeader(opts: {
     sync() {
       for (const b of tabBtns) b.classList.toggle("on", b.dataset.view === opts.view);
       settingsBtn.classList.toggle("on", opts.view === "settings");
-      soundBtn.textContent = opts.soundEnabled ? "Sonido" : "Mudo";
+      soundBtn.textContent = opts.soundEnabled ? "Audio" : "Mudo";
       soundBtn.setAttribute("aria-pressed", String(opts.soundEnabled));
     },
   };

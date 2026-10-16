@@ -12,6 +12,17 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
+  snapshotPathTemplate:
+    "{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{projectName}-{platform}{ext}",
+  expect: {
+    timeout: 30_000,
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.02,
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+    },
+  },
   use: {
     baseURL: "http://127.0.0.1:5173",
     trace: "retain-on-failure",

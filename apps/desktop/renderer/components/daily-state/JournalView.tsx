@@ -80,15 +80,15 @@ export function JournalView({
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-hairline bg-raised/30 p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookBookmark size={16} className="text-dim" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-ink">
+      <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <BookBookmark size={16} className="text-dim shrink-0" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-ink truncate">
             Journal Personal & Notas ({date})
           </h3>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {onInsertDailyDecisions && (
             <button
               onClick={handleInsertDecisions}

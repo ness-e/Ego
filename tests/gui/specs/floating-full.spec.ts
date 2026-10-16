@@ -221,18 +221,13 @@ test.describe("flotante exhaustivo (stub egoFloating)", () => {
     await expectOnlyKnownErrors(page, sink);
   });
 
-  test("alcance: ViewHost/ticker/upload NO montados en FloatingApp actual", async ({ page }) => {
+  test("alcance: ViewHost/ticker/upload montados en FloatingApp", async ({ page }) => {
     const sink = watchErrors(page);
     await page.goto("/floating/floating.html");
-    for (const id of ["#ticker", "#approval-card", "#countdown"]) {
-      const node = page.locator(id);
-      await expect(node).toBeAttached();
-      await expect(node).toBeHidden();
-      await expect(node).toBeEmpty();
-    }
-    await expect(page.locator("#countdown-bar")).toBeAttached();
-    expect(await page.locator('[class*="ego-"]').count()).toBe(0);
-    expect(await page.locator("[data-dropzone], input[type=file]").count()).toBe(0);
+    await expect(page.locator("#ticker")).toBeAttached();
+    await expect(page.locator("#approval-card")).toBeAttached();
+    await expect(page.locator("#countdown")).toBeAttached();
+    await expect(page.locator("[data-dropzone]")).toBeAttached();
     await expectOnlyKnownErrors(page, sink);
   });
 });

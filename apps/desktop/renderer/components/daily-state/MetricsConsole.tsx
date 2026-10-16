@@ -78,7 +78,7 @@ export function MetricsConsole({
       </div>
 
       {/* Grid de 4 tarjetas de métricas */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
         {/* Tokens */}
         <div className="flex flex-col rounded border border-hairline bg-panel p-2.5">
           <span className="text-[10px] uppercase tracking-wide text-faint">Tokens Hoy</span>
@@ -181,7 +181,7 @@ export function MetricsConsole({
               xKey="hour"
               yKey="tokens"
               gradientId="tokenGradient"
-              stroke="#3b82f6"
+              stroke="var(--color-brand, #3b82f6)"
             />
           </Suspense>
         </div>

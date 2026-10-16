@@ -78,8 +78,19 @@ export function Modal({
                 asChild
                 aria-modal="true"
                 aria-busy={loading || undefined}
+                onOpenAutoFocus={(e) => {
+                  const container = e.currentTarget as HTMLElement | null;
+                  const input = container?.querySelector<HTMLElement>(
+                    'input:not([type="hidden"]):not([disabled]), [role="combobox"]:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+                  );
+                  if (input) {
+                    e.preventDefault();
+                    input.focus();
+                  }
+                }}
               >
                 <motion.div
+                  title={title}
                   initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.96 }}

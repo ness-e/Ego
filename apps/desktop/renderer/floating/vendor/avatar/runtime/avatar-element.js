@@ -2162,6 +2162,19 @@ export class EgoAvatar extends ElementBase {
     return this._presence;
   }
 
+  set presence(v) {
+    if (typeof v === 'string') {
+      if (this.getAttribute?.('presence') !== v) {
+        this.setAttribute?.('presence', v);
+      } else if (this._mounted && this._presence) {
+        const map = { hidden: 'forceHidden', compact: 'forceCompact', home: 'forceHome', greet: 'launch' };
+        this._presence[map[v] || 'forceCompact']?.();
+      }
+    } else if (v && typeof v === 'object') {
+      this._presence = v;
+    }
+  }
+
   /** Snapshot SVG del estado actual (exportación/miniaturas; '' en modo studio). */
   toSVGString() {
     if (this._isStudio()) return '';

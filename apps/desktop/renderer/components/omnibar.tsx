@@ -217,6 +217,7 @@ export function Omnibar() {
           <input
             type="text"
             role="combobox"
+            autoFocus
             aria-expanded={hits.length > 0}
             aria-controls={listboxId}
             aria-label="Buscar en memoria federada"

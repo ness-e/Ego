@@ -291,7 +291,7 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
                     <button
                       onClick={() => onPauseTask(task.id)}
                       aria-label={`Pausar tarea ${task.title}`}
-                      className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-dim hover:text-ink hover:bg-raised"
+                      className="rounded p-1.5 min-h-[28px] min-w-[28px] inline-flex items-center justify-center text-dim hover:text-ink hover:bg-raised"
                       title="Pausar"
                     >
                       <Pause size={12} />
@@ -301,7 +301,7 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
                     <button
                       onClick={() => onResumeTask(task.id)}
                       aria-label={`Reanudar tarea ${task.title}`}
-                      className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-dim hover:text-ink hover:bg-raised"
+                      className="rounded p-1.5 min-h-[28px] min-w-[28px] inline-flex items-center justify-center text-dim hover:text-ink hover:bg-raised"
                       title="Reanudar"
                     >
                       <Play size={12} />
@@ -311,7 +311,7 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
                     <button
                       onClick={() => handleCancel(task.id)}
                       aria-label={`Cancelar tarea ${task.title}`}
-                      className="rounded p-1.5 min-h-[24px] min-w-[24px] inline-flex items-center justify-center text-rose-500/80 hover:text-rose-500 hover:bg-raised"
+                      className="rounded p-1.5 min-h-[28px] min-w-[28px] inline-flex items-center justify-center text-rose-500/80 hover:text-rose-500 hover:bg-raised"
                       title="Cancelar"
                     >
                       <XCircle size={12} />

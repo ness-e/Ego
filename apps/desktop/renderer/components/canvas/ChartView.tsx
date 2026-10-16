@@ -183,8 +183,9 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
                     x={groupX + groupWidth / 2}
                     y={svgHeight - padding + 15}
                     textAnchor="middle"
-                    className="fill-dim text-[9px]"
+                    className="fill-dim text-[10px]"
                   >
+                    <title>{String(d[xKey])}</title>
                     {String(d[xKey]).slice(0, 8)}
                   </text>
                 </g>

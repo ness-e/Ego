@@ -344,7 +344,7 @@ export function Sidebar({
             <button
               onClick={onNewSession}
               title="Nueva conversación (Ctrl+N)"
-              className="flex h-7 items-center gap-1 rounded border border-hairline bg-raised px-2 text-[11px] font-medium text-ink transition-colors hover:bg-raised/80"
+              className="flex h-8 items-center gap-1 rounded border border-hairline bg-raised px-2.5 text-[11px] font-medium text-ink transition-colors hover:bg-raised/80 min-h-[32px]"
             >
               <Plus size={13} weight="bold" />
               <span>Nuevo</span>
@@ -353,7 +353,7 @@ export function Sidebar({
               onClick={() => notifyCollapsed(true)}
               title="Colapsar barra lateral (Ctrl+B)"
               aria-label="Colapsar barra lateral"
-              className="flex h-7 w-7 items-center justify-center rounded text-faint transition-colors hover:bg-raised hover:text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded text-faint transition-colors hover:bg-raised hover:text-ink min-h-[32px] min-w-[32px]"
             >
               <SidebarSimple size={16} />
             </button>
@@ -382,7 +382,7 @@ export function Sidebar({
                 onClick={() => setIsNewProjectModalOpen(true)}
                 title="Crear nuevo proyecto"
                 aria-label="Crear nuevo proyecto"
-                className="rounded p-0.5 text-dim transition-colors hover:bg-raised hover:text-ink"
+                className="flex items-center justify-center rounded p-1 text-dim transition-colors hover:bg-raised hover:text-ink min-h-[28px] min-w-[28px]"
               >
                 <Plus size={12} />
               </button>

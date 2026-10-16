@@ -79,7 +79,7 @@ function ThemeControl() {
         value={selectedKey}
         onChange={(e) => applyPreset(e.target.value)}
         aria-label="Tema de diseño"
-        className="rounded bg-raised px-1.5 py-0.5 text-[11px] font-mono text-ink border border-hairline focus:outline-none cursor-pointer"
+        className="rounded bg-raised px-1.5 py-0.5 text-[11px] font-mono text-ink border border-hairline focus:outline-none cursor-pointer max-w-[130px] truncate"
         title="Ego Generative Design System — Tokens"
       >
         {presetKeys.map((k) => (
@@ -327,10 +327,10 @@ export function App() {
 
           {/* Panel 2: Dynamic Canvas (Superficie de Trabajo Interactiva) */}
           <section aria-label="Área de trabajo dinámica" className="flex flex-1 flex-col min-w-0 bg-panel">
-            <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-4 text-xs text-faint">
-              <div className="flex items-center gap-2">
+            <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-4 text-xs text-faint gap-2 overflow-x-auto min-w-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <TerminalWindow size={14} />
-                <span className="font-medium text-ink">Dynamic Workspace</span>
+                <span className="font-medium text-ink whitespace-nowrap">Dynamic Workspace</span>
                 <span className="text-hairline">|</span>
                 <DomainSelector
                   domains={CANONICAL_DOMAINS}
@@ -338,7 +338,7 @@ export function App() {
                   onSelectDomain={handleSelectDomain}
                 />
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 <ThemeControl />
                 <button
                   type="button"
@@ -346,7 +346,7 @@ export function App() {
                   title="Conmutar inspector (Ctrl+I)"
                   aria-expanded={!inspectorCollapsed}
                   aria-label="Conmutar inspector"
-                  className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                  className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer shrink-0 ${
                     !inspectorCollapsed
                       ? "bg-raised text-ink font-semibold border border-hairline"
                       : "text-dim hover:text-ink"
@@ -354,7 +354,7 @@ export function App() {
                 >
                   Inspector
                 </button>
-                <div className="flex items-center gap-1 border-l border-hairline pl-2">
+                <div className="flex items-center gap-1 border-l border-hairline pl-2 shrink-0">
                   <button
                     onClick={() => setActiveWorkspaceTab("daily")}
                     className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
