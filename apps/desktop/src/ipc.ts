@@ -106,6 +106,11 @@ export const EgoIpcInvokeChannels = [
   "ipc.net.fetch",
   // Isla flotante Task4 (D2): silenciado desde el renderer (deuda Task3 cerrada aquí).
   "ipc.floating.setMuted",
+  // Voz STT/TTS opt-in con kill switch (VOICE-01).
+  "ipc.voice.getStatus",
+  "ipc.voice.setConfig",
+  "ipc.voice.stt",
+  "ipc.voice.tts",
 ] as const;
 
 /** Eventos push main→renderer (el renderer solo escucha, nunca emite). */
@@ -117,6 +122,7 @@ export const EgoIpcPushChannels = [
   "ipc.chat.error",
   "ipc.approval.request",
   "ipc.event",
+  "ipc.floating.state_changed",
 ] as const;
 
 /** Superficie IPC total (invoke + push). Nombre histórico conservado. */
@@ -125,3 +131,12 @@ export const EgoIpc = [...EgoIpcInvokeChannels, ...EgoIpcPushChannels] as const;
 export type EgoIpcChannel = (typeof EgoIpc)[number];
 export type EgoIpcInvokeChannel = (typeof EgoIpcInvokeChannels)[number];
 export type EgoIpcPushChannel = (typeof EgoIpcPushChannels)[number];
+
+export {
+  VoiceSttSchema,
+  VoiceTtsSchema,
+  VoiceSettingsSchema,
+  type VoiceSttRequest,
+  type VoiceTtsRequest,
+  type VoiceSettings,
+} from "./ipc/schema.js";

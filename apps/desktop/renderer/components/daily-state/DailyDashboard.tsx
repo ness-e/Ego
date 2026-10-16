@@ -11,6 +11,8 @@ import { PendingApprovals, PendingApprovalItem } from "./PendingApprovals";
 import { JournalView } from "./JournalView";
 import { ego as egoBridge } from "../../lib/ego";
 import type { DailySummaryPayload, DailyDecisionEntry, PendingApprovalInfo } from "../../lib/ego";
+import { dailyReportTemplate } from "@ego/ui-runtime";
+import { getSharedCanvasBridge } from "../../lib/canvasBridgeSingleton.js";
 
 export interface DailyDashboardProps {
   onNavigateToCanvas: () => void;
@@ -270,6 +272,48 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
       // T12: navegar al Canvas solo ante snapshot ok real.
       if (res?.ok) {
         setIsFirstLaunch(false);
+        try {
+          const activeBriefing = {
+            date: summary?.date || todayISO(),
+            summaryText: (summary?.summaryText as string) || (summary?.summary as string) || "",
+            metrics: {
+              totalTokensToday: asMetric(summary?.totalTokensToday),
+              estimatedCostUsd: asMetric(summary?.estimatedCostUsd),
+            },
+            completedOvernight: Array.isArray(summary?.completedOvernight)
+              ? summary.completedOvernight
+              : Array.from({ length: asMetric(summary?.completedTasksCount) }),
+            pendingApprovals: approvals,
+          };
+
+          const manifests =
+            typeof dailyReportTemplate === "function"
+              ? (dailyReportTemplate as any)({
+                  date: activeBriefing.date,
+                  summaryText: activeBriefing.summaryText || "Sin resumen disponible.",
+                  totalTokens: activeBriefing.metrics.totalTokensToday,
+                  costUsd: activeBriefing.metrics.estimatedCostUsd,
+                  completedTasks: activeBriefing.completedOvernight.length,
+                  pendingApprovals: activeBriefing.pendingApprovals.length,
+                })
+              : ((dailyReportTemplate as any)?.components ?? []);
+
+          if (Array.isArray(manifests) && manifests.length > 0) {
+            const bridge = getSharedCanvasBridge();
+            if (typeof bridge.applyA2UISurfaceUpdate === "function") {
+              bridge.applyA2UISurfaceUpdate({
+                surfaceId: "main",
+                components: manifests,
+              });
+            } else {
+              for (const m of manifests) {
+                bridge.injectComponent(m);
+              }
+            }
+          }
+        } catch (injectErr) {
+          console.warn("[DailyDashboard] Error generando o inyectando reporte diario en Canvas:", injectErr);
+        }
         onNavigateToCanvas();
       } else {
         setDailyError(res?.error || "No se pudo guardar el snapshot diario — sin navegar al Canvas.");

@@ -97,7 +97,7 @@ export interface FloatingStateSnapshot {
 }
 
 export interface EgoFloatingBridge {
-  /** Push del manager (`floating:state_changed`); retorna unsubscribe. */
+  /** Push del manager (`ipc.floating.state_changed`); retorna unsubscribe. */
   onState: (callback: (state: FloatingStateSnapshot) => void) => () => void;
   /** Resuelve vía `ipc.approval.resolve` (handler ya existe en main). */
   approve: (approvalId: string) => Promise<unknown>;
@@ -461,9 +461,9 @@ const egoBridge: EgoPreloadBridge = {
     onState: (callback) => {
       const sub = (_event: Electron.IpcRendererEvent, state: FloatingStateSnapshot) =>
         callback(state);
-      ipcRenderer.on("floating:state_changed", sub);
+      ipcRenderer.on("ipc.floating.state_changed", sub);
       return () => {
-        ipcRenderer.removeListener("floating:state_changed", sub);
+        ipcRenderer.removeListener("ipc.floating.state_changed", sub);
       };
     },
     approve: (approvalId) =>

@@ -64,7 +64,7 @@ export interface UseVoiceDeps {
   onTranscript?: (text: string) => void;
 }
 
-function createNativeRecognition(): VoiceRecognitionLike | null {
+function getSpeechRecognitionCtor() {
   if (typeof window === "undefined") return null;
   const w = window as unknown as Record<string, unknown>;
   const Ctor = (w["SpeechRecognition"] ?? w["webkitSpeechRecognition"]) as
@@ -77,32 +77,153 @@ function createNativeRecognition(): VoiceRecognitionLike | null {
         stop: () => void;
       })
     | undefined;
-  if (typeof Ctor !== "function") return null;
-  const native = new Ctor();
+  return typeof Ctor === "function" ? Ctor : null;
+}
+
+function createIpcMediaRecorderRecognition(): VoiceRecognitionLike | null {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return null;
+  const ego = (window as unknown as { ego?: { voice?: { stt?: (req: { audioB64: string }) => Promise<{ ok?: boolean; text?: string; denied?: boolean }> } } })?.ego;
+  if (
+    !ego?.voice?.stt ||
+    !navigator.mediaDevices?.getUserMedia ||
+    typeof MediaRecorder === "undefined"
+  ) {
+    return null;
+  }
+
+  let mediaStream: MediaStream | null = null;
+  let mediaRecorder: MediaRecorder | null = null;
+  let chunks: Blob[] = [];
+  let isStopped = false;
+
   const like: VoiceRecognitionLike = {
     onresult: null,
     onerror: null,
     onend: null,
-    start: () => native.start(),
+    start: () => {
+      isStopped = false;
+      chunks = [];
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          if (isStopped) {
+            stream.getTracks().forEach((t) => t.stop());
+            like.onend?.();
+            return;
+          }
+          mediaStream = stream;
+          try {
+            const recorder = new MediaRecorder(stream);
+            mediaRecorder = recorder;
+            recorder.ondataavailable = (ev) => {
+              if (ev.data && ev.data.size > 0) {
+                chunks.push(ev.data);
+              }
+            };
+            recorder.onerror = () => {
+              like.onerror?.("error");
+            };
+            recorder.onstop = () => {
+              mediaStream?.getTracks().forEach((t) => t.stop());
+              mediaStream = null;
+              if (chunks.length === 0) {
+                like.onend?.();
+                return;
+              }
+              const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+              const reader = new FileReader();
+              reader.onloadend = async () => {
+                try {
+                  const resultStr = typeof reader.result === "string" ? reader.result : "";
+                  const commaIdx = resultStr.indexOf(",");
+                  const audioB64 = commaIdx >= 0 ? resultStr.slice(commaIdx + 1) : resultStr;
+                  const res = await ego.voice!.stt!({ audioB64 });
+                  if (res?.ok && typeof res.text === "string") {
+                    like.onresult?.(res.text);
+                  } else if (res?.denied) {
+                    like.onerror?.("denied");
+                  } else {
+                    like.onerror?.("error");
+                  }
+                } catch {
+                  like.onerror?.("error");
+                } finally {
+                  like.onend?.();
+                }
+              };
+              reader.onerror = () => {
+                like.onerror?.("error");
+                like.onend?.();
+              };
+              reader.readAsDataURL(blob);
+            };
+            recorder.start();
+          } catch {
+            stream.getTracks().forEach((t) => t.stop());
+            mediaStream = null;
+            like.onerror?.("error");
+          }
+        })
+        .catch((err: unknown) => {
+          const name = (err as { name?: string })?.name;
+          if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+            like.onerror?.("denied");
+          } else {
+            like.onerror?.("error");
+          }
+        });
+    },
     stop: () => {
-      try {
-        native.stop();
-      } catch {
-        /* noop: stop idempotente */
+      isStopped = true;
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        try {
+          mediaRecorder.stop();
+        } catch {
+          // noop
+        }
+      } else if (mediaStream) {
+        mediaStream.getTracks().forEach((t) => t.stop());
+        mediaStream = null;
+        like.onend?.();
       }
     },
   };
-  native.onresult = (ev) => {
-    const last = ev.results[ev.results.length - 1]?.[0]?.transcript ?? "";
-    like.onresult?.(last);
-  };
-  native.onerror = (ev) => {
-    like.onerror?.(ev.error === "not-allowed" ? "denied" : "error");
-  };
-  native.onend = () => {
-    like.onend?.();
-  };
+
   return like;
+}
+
+function createNativeRecognition(): VoiceRecognitionLike | null {
+  const Ctor = getSpeechRecognitionCtor();
+  if (Ctor) {
+    const native = new Ctor();
+    const like: VoiceRecognitionLike = {
+      onresult: null,
+      onerror: null,
+      onend: null,
+      start: () => native.start(),
+      stop: () => {
+        try {
+          native.stop();
+        } catch {
+          /* noop: stop idempotente */
+        }
+      },
+    };
+    native.onresult = (ev) => {
+      const last = ev.results[ev.results.length - 1]?.[0]?.transcript ?? "";
+      like.onresult?.(last);
+    };
+    native.onerror = (ev) => {
+      like.onerror?.(ev.error === "not-allowed" ? "denied" : "error");
+    };
+    native.onend = () => {
+      like.onend?.();
+    };
+    return like;
+  }
+
+  // Fallback: si no hay WebSpeech en window, recurrir a IPC STT con MediaRecorder
+  return createIpcMediaRecorderRecognition();
 }
 
 function resolveSynthesis(deps: UseVoiceDeps): VoiceSynthesisLike | null {
@@ -234,9 +355,15 @@ export function useVoice(deps: UseVoiceDeps = {}): UseVoiceApi {
 /** Feature-detect sin instanciar (render puro, sin efectos). */
 function createNativeSupportProbe(): boolean {
   if (typeof window === "undefined") return false;
-  const w = window as unknown as Record<string, unknown>;
-  return (
-    typeof w["SpeechRecognition"] === "function" ||
-    typeof w["webkitSpeechRecognition"] === "function"
-  );
+  if (getSpeechRecognitionCtor() !== null) return true;
+
+  // Fallback IPC STT: si existe window.ego?.voice?.stt y soporte MediaRecorder/getUserMedia
+  const ego = (window as unknown as { ego?: { voice?: { stt?: unknown } } })?.ego;
+  const hasIpcStt = typeof ego?.voice?.stt === "function";
+  const hasMediaDevices =
+    typeof navigator !== "undefined" &&
+    typeof navigator.mediaDevices?.getUserMedia === "function" &&
+    typeof MediaRecorder !== "undefined";
+
+  return Boolean(hasIpcStt && hasMediaDevices);
 }

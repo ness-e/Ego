@@ -118,7 +118,7 @@ export class FloatingWindowManager {
     }
 
     // Transmitir estado actualizado al renderizador de la ventana flotante si está cargado
-    win.webContents.send('floating:state_changed', this.state);
+    win.webContents.send('ipc.floating.state_changed', this.state);
   }
 
   public getState(): FloatingWindowState {

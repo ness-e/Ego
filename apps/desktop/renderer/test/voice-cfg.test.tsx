@@ -170,4 +170,113 @@ describe("VOICE-01: voz opt-in + kill switch", () => {
     });
     container.remove();
   });
+
+  it("fallback IPC STT: usa MediaRecorder + window.ego.voice.stt cuando SpeechRecognition no existe", async () => {
+    // Simular ausencia de SpeechRecognition y presencia de MediaDevices + ego.voice.stt
+    const origSpeech = (window as any).SpeechRecognition;
+    const origWebkit = (window as any).webkitSpeechRecognition;
+    delete (window as any).SpeechRecognition;
+    delete (window as any).webkitSpeechRecognition;
+
+    const mockTracks = [{ stop: vi.fn() }];
+    const mockStream = { getTracks: () => mockTracks };
+    const mockGetUserMedia = vi.fn(async () => mockStream);
+
+    let recordedOnDataAvailable: ((ev: any) => void) | null = null;
+    let recordedOnStop: (() => void) | null = null;
+    const recorderStart = vi.fn();
+    const recorderStop = vi.fn(function (this: any) {
+      recordedOnStop?.();
+    });
+
+    class MockMediaRecorder {
+      mimeType = "audio/webm";
+      state = "recording";
+      start = recorderStart;
+      stop = recorderStop;
+      set ondataavailable(fn: any) {
+        recordedOnDataAvailable = fn;
+      }
+      set onstop(fn: any) {
+        recordedOnStop = fn;
+      }
+    }
+
+    const origMediaDevices = navigator.mediaDevices;
+    const origRecorder = (globalThis as any).MediaRecorder;
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: mockGetUserMedia },
+      configurable: true,
+    });
+    (globalThis as any).MediaRecorder = MockMediaRecorder;
+
+    const mockStt = vi.fn(async () => ({ ok: true, text: "transcripcion desde ipc stt" }));
+    (window as any).ego = {
+      voice: {
+        stt: mockStt,
+      },
+    };
+
+    const transcripts: string[] = [];
+    function FallbackHarness() {
+      const v = useVoice({
+        onTranscript: (t) => transcripts.push(t),
+      });
+      return (
+        <div>
+          <span data-testid="supported">{String(v.supported)}</span>
+          <button type="button" data-testid="dictate" onClick={v.toggleDictation}>
+            dictar
+          </button>
+        </div>
+      );
+    }
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root: Root = createRoot(container);
+    await act(async () => {
+      root.render(<FallbackHarness />);
+    });
+
+    expect(container.querySelector('[data-testid="supported"]')?.textContent).toBe("true");
+
+    // Iniciar dictado
+    await act(async () => {
+      (container.querySelector('[data-testid="dictate"]') as HTMLButtonElement).click();
+    });
+
+    expect(mockGetUserMedia).toHaveBeenCalled();
+    expect(recorderStart).toHaveBeenCalled();
+
+    // Simular llegada de audio y parada
+    await act(async () => {
+      recordedOnDataAvailable?.({ data: new Blob(["fake-audio-bytes"], { type: "audio/webm" }) });
+      (container.querySelector('[data-testid="dictate"]') as HTMLButtonElement).click();
+    });
+
+    // Esperar a FileReader + mockStt
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+
+    expect(mockStt).toHaveBeenCalled();
+    expect(transcripts).toContain("transcripcion desde ipc stt");
+
+    // Cleanup
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+
+    // Restaurar entorno
+    if (origSpeech) (window as any).SpeechRecognition = origSpeech;
+    if (origWebkit) (window as any).webkitSpeechRecognition = origWebkit;
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: origMediaDevices,
+      configurable: true,
+    });
+    (globalThis as any).MediaRecorder = origRecorder;
+    delete (window as any).ego;
+  });
 });

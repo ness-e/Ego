@@ -1,4 +1,11 @@
 import type { CanvasComponentManifest } from "./schemas/components.js";
+import {
+  translateSurfaceUpdate,
+  translateDataModelUpdate,
+  type A2UISurfaceUpdate,
+  type A2UIDataModelUpdate,
+  type A2UIOp,
+} from "./A2UIAdapter.js";
 
 export interface CanvasChangeSet<T = unknown> {
   id: string;
@@ -270,6 +277,30 @@ export class CanvasBridge {
   public getFocusedContext(): { componentId: string; excerpt?: string } | null {
     return this.focusedContext;
   }
+
+  /**
+   * Traduce y aplica un `A2UISurfaceUpdate` (inject/remove/fallback) sobre esta superficie.
+   */
+  public applyA2UISurfaceUpdate(msg: A2UISurfaceUpdate): A2UIOp[] {
+    const ops = translateSurfaceUpdate(msg);
+    for (const op of ops) {
+      if (op.kind === "inject") {
+        this.injectComponent(op.manifest);
+      } else if (op.kind === "remove") {
+        this.removeComponent(op.componentId);
+      }
+    }
+    return ops;
+  }
+
+  /**
+   * Traduce y aplica un `A2UIDataModelUpdate` como `CanvasChangeSet` atómico.
+   */
+  public applyA2UIDataModelUpdate(msg: A2UIDataModelUpdate): boolean {
+    const changeSet = translateDataModelUpdate(msg);
+    if (!changeSet) return false;
+    return this.applyChangeSet(changeSet);
+  }
 }
 
 /**
@@ -287,6 +318,7 @@ function setPathValue(
   let current: Record<string, unknown> = root;
   for (let i = 0; i < parts.length - 1; i++) {
     const key = parts[i];
+    if (key === undefined) return false;
     const next = current[key];
     if (next === undefined) {
       if (!create) return false;
@@ -299,7 +331,9 @@ function setPathValue(
       return false;
     }
   }
-  current[parts[parts.length - 1]] = value;
+  const leaf = parts[parts.length - 1];
+  if (leaf === undefined) return false;
+  current[leaf] = value;
   return true;
 }
 
@@ -311,12 +345,14 @@ function deletePathValue(root: Record<string, unknown>, path: string): boolean {
   const parts = path.split(".");
   let current: Record<string, unknown> = root;
   for (let i = 0; i < parts.length - 1; i++) {
-    const next = current[parts[i]];
+    const key = parts[i];
+    if (key === undefined) return false;
+    const next = current[key];
     if (typeof next !== "object" || next === null) return false;
     current = next as Record<string, unknown>;
   }
   const leaf = parts[parts.length - 1];
-  if (!(leaf in current)) return false;
+  if (leaf === undefined || !(leaf in current)) return false;
   delete current[leaf];
   return true;
 }

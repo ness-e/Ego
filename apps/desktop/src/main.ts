@@ -22,7 +22,11 @@ import type { PreferredModel, ModelProviderFactory } from "@ego/models";
 import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext, type ToolRiskLevel } from "@ego/tools";
 import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
 import { EventBus, StructuredLogger } from "@ego/events";
-import { ToolExecutionLoop, type LoopExecutionResult } from "@ego/runtime";
+import {
+  ToolExecutionLoop,
+  AttentionStateMachine,
+  type LoopExecutionResult,
+} from "@ego/runtime";
 import { ApprovalEngine, ExecutionManager, WidgetHitlBridge, type PendingApproval } from "@ego/execution";
 import {
   SubEgoRegistry,
@@ -513,9 +517,13 @@ function floatingSnapshot(): {
   let hitl = 0;
   try {
     if (backgroundEngine) {
-      active = backgroundEngine.getActiveCount();
-      hitl = backgroundEngine.listTasks({ status: ["paused"] }).length;
+      active += backgroundEngine.getActiveCount();
+      hitl += backgroundEngine.listTasks({ status: ["paused"] }).length;
     }
+    if (approvalEngine) {
+      hitl += approvalEngine.listPendingApprovals().length;
+    }
+    active += llmAbortControllers.size;
   } catch {
     // noop: el flotante nunca tumba el main
   }
@@ -523,17 +531,66 @@ function floatingSnapshot(): {
   return { active, hitl, muted: st?.muted ?? false, disabled: st?.disabled ?? false };
 }
 
-/** Task4 (D2): sincroniza flotante + tray desde el engine (una sola llamada). */
-function syncFloatingFromEngine(): void {
+let attentionFsm: AttentionStateMachine | null = null;
+function getAttentionFsm(): AttentionStateMachine {
+  if (!attentionFsm) {
+    attentionFsm = new AttentionStateMachine({
+      onTransition: (ev) => {
+        try {
+          ensureFloatMgr().updateState({ attentionState: syncFromAttention(ev.currentState) });
+        } catch {
+          // noop
+        }
+      },
+    });
+  }
+  return attentionFsm;
+}
+
+/**
+ * Recomputa la atención de la isla flotante y el tray usando AttentionStateMachine canónica.
+ * Mantiene jerarquía de estados: hitl_approval (approval) > compact/expanded > hidden.
+ */
+function recomputeFloatingAttention(): void {
   try {
     const snap = floatingSnapshot();
-    const attention =
-      snap.hitl > 0 ? "hitl_approval" : snap.active > 0 ? "compact" : "hidden";
-    ensureFloatMgr().updateState({ attentionState: syncFromAttention(attention) });
+    const fsm = getAttentionFsm();
+
+    if (snap.hitl > 0) {
+      fsm.requestAttention({
+        id: "hitl-approval",
+        priority: 100,
+        state: "hitl_approval",
+        title: "Aprobación HITL requerida",
+        pinned: true,
+      });
+    } else {
+      fsm.releaseAttention("hitl-approval");
+    }
+
+    if (snap.active > 0) {
+      fsm.requestAttention({
+        id: "active-work",
+        priority: 50,
+        state: "compact",
+        title: "Trabajo activo en curso",
+        pinned: true,
+      });
+    } else {
+      fsm.releaseAttention("active-work");
+    }
+
+    const state = fsm.getState();
+    ensureFloatMgr().updateState({ attentionState: syncFromAttention(state) });
   } catch {
-    // noop
+    // noop: defensivo contra fallos en cálculo de atención
   }
   refreshTrayStatus();
+}
+
+/** Task4 (D2): sincroniza flotante + tray desde el engine (una sola llamada). */
+function syncFloatingFromEngine(): void {
+  recomputeFloatingAttention();
 }
 
 /**
@@ -543,7 +600,7 @@ function syncFloatingFromEngine(): void {
 function emitTrayId(action: string): void {
   try {
     if (win && !win.isDestroyed()) {
-      win.webContents.send("tray:id", { action, status: trayStatus });
+      win.webContents.send("ipc.event", { event: "tray:id", action, status: trayStatus });
     }
   } catch {
     // noop: el push al renderer nunca tumba el main
