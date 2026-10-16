@@ -28,7 +28,10 @@ declare global {
   }
 }
 
-const AVATAR_ELEMENT_SPEC = "../../repos-referencia/avatar/src/index.js";
+// FIND-12-01: avatar vendorizado bajo el root servido (renderer/floating/
+// vendor/avatar/). El import del elemento DEBE ser un LITERAL dentro del root:
+// Vite no analiza `import(CONST)` y lo deja suelto → 404 en prod
+// (out/renderer/). Test: floating-avatar-vendor.
 
 /**
  * Criatura avatar mini para el flotante (D1, NO Mochi).
@@ -52,7 +55,9 @@ export function FloatingAvatar({ attentionState, subEgoId = null, size = 120 }: 
       if (typeof window === "undefined" || typeof customElements === "undefined") return;
       if (customElements.get("ego-avatar")) return;
       try {
-        await import(/* @vite-ignore */ AVATAR_ELEMENT_SPEC);
+        // Literal a propósito (ver nota arriba): el bundler lo emite en dev
+        // y prod (out/renderer/floating/) como chunk code-split.
+        await import("./vendor/avatar/runtime/avatar-element.js");
       } catch {
         if (!cancelled) {
           // Sin elemento registrado el tag queda inerte; no romper el flotante.

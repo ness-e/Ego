@@ -361,7 +361,8 @@ export function createFloatingSound(opts: FloatingSoundOptions = {}): FloatingSo
   return new FloatingSound(opts);
 }
 
-const AVATAR_SOUND_SPEC = "../../../repos-referencia/avatar/src/runtime/sound.js";
+// FIND-12-01: sonido vendorizado bajo el root servido (ver floating-avatar.tsx:
+// specifier LITERAL dentro del root, sin @vite-ignore para code-split dev+prod).
 
 /**
  * Crea el wrapper conectado al motor real del avatar (solo browser).
@@ -375,9 +376,8 @@ export async function createFloatingSoundWithAvatar(
     return new FloatingSound({ ...opts });
   }
   try {
-    const mod = (await import(
-      /* @vite-ignore */ AVATAR_SOUND_SPEC
-    )) as {
+    // Literal a propósito (ver floating-avatar.tsx): code-split dev+prod.
+    const mod = (await import("./vendor/avatar/runtime/sound.js")) as {
       createSoundEngine: (o: FloatingSoundEngineOptions) => AvatarSoundEngine;
     };
     if (typeof mod.createSoundEngine !== "function") {
