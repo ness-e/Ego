@@ -249,6 +249,7 @@ function isBlockedIpv4(ip: string): boolean {
   const parts = ip.split(".").map(Number);
   if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return false;
   const [a, b] = parts;
+  if (a === undefined || b === undefined) return false;
   if (a === 127 || a === 0 || a === 10) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
   if (a === 192 && b === 168) return true;
@@ -326,7 +327,7 @@ export function evaluateToolCall(
   const workspace = request.workspacePath ?? options.workspacePath;
   if (typeof request.path === "string" && request.path.length > 0) {
     if (!workspace || workspace.trim().length === 0) {
-      return failClosed("missing_workspace", "Sin workspace configurado: paths denegados por defecto.");
+      return deny("missing_workspace", "Sin workspace configurado: paths denegados por defecto.");
     }
     const verdict = checkPath(
       request.path,
@@ -338,7 +339,7 @@ export function evaluateToolCall(
   } else if (request.category === "filesystem" || request.category === "git") {
     // Estas categorías operan sobre paths: sin workspace no hay perímetro.
     if (!workspace || workspace.trim().length === 0) {
-      return failClosed("missing_workspace", "Sin workspace configurado: denegado por defecto.");
+      return deny("missing_workspace", "Sin workspace configurado: denegado por defecto.");
     }
   }
 

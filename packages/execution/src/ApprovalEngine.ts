@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import { assertSameApproval, type ApprovalIdentity } from "@ego/events";
 import type { ToolCategory, ToolDefinition, ToolExecutionContext, ToolRiskLevel } from "@ego/tools";
 import type {
   ActionIdentity,
@@ -330,13 +331,22 @@ export class ApprovalEngine {
   }
 
   /**
+   * Calcula el digest SHA-256 canónico de los argumentos de una herramienta.
+   */
+  public static computeArgsDigest(_toolName: string, args: unknown): string {
+    const canonical = canonicalJsonStringify(args);
+    return crypto.createHash("sha256").update(canonical, "utf8").digest("hex");
+  }
+
+  /**
    * Resuelve una solicitud pendiente de aprobación humana.
    * Valida la identidad causal esperada si se especifica (COUC-03).
    */
   public resolveApproval(
     approvalId: string,
     decision: ApprovalDecision,
-    options?: { expectedDigest?: string }
+    optionsOrExpectedIdentity?: { expectedDigest?: string; expectedIdentity?: ApprovalIdentity } | ApprovalIdentity,
+    maybeExpectedIdentity?: ApprovalIdentity
   ): boolean {
     const entry = this.pendingMap.get(approvalId);
     if (!entry) {
@@ -347,14 +357,72 @@ export class ApprovalEngine {
       return false;
     }
 
+    let options: { expectedDigest?: string; expectedIdentity?: ApprovalIdentity } | undefined;
+    let expectedIdentity: ApprovalIdentity | undefined;
+
+    if (maybeExpectedIdentity) {
+      expectedIdentity = maybeExpectedIdentity;
+      if (optionsOrExpectedIdentity && typeof optionsOrExpectedIdentity === "object" && "expectedDigest" in optionsOrExpectedIdentity) {
+        options = optionsOrExpectedIdentity as { expectedDigest?: string };
+      }
+    } else if (optionsOrExpectedIdentity) {
+      if (typeof optionsOrExpectedIdentity === "object") {
+        if ("expectedDigest" in optionsOrExpectedIdentity || "expectedIdentity" in optionsOrExpectedIdentity) {
+          options = optionsOrExpectedIdentity as { expectedDigest?: string; expectedIdentity?: ApprovalIdentity };
+          expectedIdentity = options.expectedIdentity;
+        } else {
+          expectedIdentity = optionsOrExpectedIdentity as ApprovalIdentity;
+        }
+      }
+    }
+
+    const request = entry.approval;
+
     // Validación de identidad causal estricta (COUC-03)
     if (options?.expectedDigest) {
-      if (entry.approval.action.inputDigest !== options.expectedDigest) {
+      if (request.action.inputDigest !== options.expectedDigest) {
         throw new Error(
           `[ApprovalEngine] Violación de identidad causal: el digest esperado (${options.expectedDigest}) ` +
-          `no coincide con la acción retenida (${entry.approval.action.inputDigest}).`
+          `no coincide con la acción retenida (${request.action.inputDigest}).`
         );
       }
+    }
+
+    if (expectedIdentity) {
+      const argsDigest =
+        (request as any).argsDigest ??
+        ApprovalEngine.computeArgsDigest(request.toolName, request.arguments);
+
+      const actualIdentity = {
+        id: request.approvalId,
+        toolName: request.toolName,
+        argsDigest,
+        runId: request.action?.sessionId ?? request.approvalId,
+        taskId: request.action?.callId ?? request.approvalId,
+        subEgoId: request.action?.subEgoId ?? "ego.nucleus",
+        toolId: request.toolName,
+        inputDigest: argsDigest,
+      } as unknown as ApprovalIdentity;
+
+      const expAny = expectedIdentity as any;
+      if (expAny.toolId === undefined && expAny.toolName !== undefined) {
+        expAny.toolId = expAny.toolName;
+      }
+      if (expAny.inputDigest === undefined && expAny.argsDigest !== undefined) {
+        expAny.inputDigest = expAny.argsDigest;
+      }
+      if (expAny.runId === undefined && expAny.id !== undefined) {
+        expAny.runId = expAny.id;
+        (actualIdentity as any).runId = (actualIdentity as any).id;
+      }
+      if (expAny.taskId === undefined) {
+        expAny.taskId = (actualIdentity as any).taskId;
+      }
+      if (expAny.subEgoId === undefined) {
+        expAny.subEgoId = (actualIdentity as any).subEgoId;
+      }
+
+      assertSameApproval(expectedIdentity, actualIdentity);
     }
 
     clearTimeout(entry.timer);

@@ -65,6 +65,31 @@ describe("ToolPermissions — sandbox de paths (CARP-03)", () => {
     expect(r.rule).toBe("missing_workspace");
   });
 
+  it("con defaultMode 'allow', missing_workspace devuelve estrictamente deny", () => {
+    const r1 = evaluateToolCall(
+      { toolName: "fs_read_file", category: "filesystem", path: "a.txt" },
+      { defaultMode: "allow" }
+    );
+    expect(r1.decision).toBe("deny");
+    expect(r1.rule).toBe("missing_workspace");
+
+    const r2 = evaluateToolCall(
+      { toolName: "fs_list_dir", category: "filesystem" },
+      { defaultMode: "allow" }
+    );
+    expect(r2.decision).toBe("deny");
+    expect(r2.rule).toBe("missing_workspace");
+  });
+
+  it("con defaultMode 'allow', path_outside_workspace devuelve estrictamente deny", () => {
+    const r = evaluateToolCall(
+      { toolName: "fs_read_file", category: "filesystem", path: "../../etc/passwd", workspacePath: WS },
+      { defaultMode: "allow", workspacePath: WS }
+    );
+    expect(r.decision).toBe("deny");
+    expect(r.rule).toBe("path_outside_workspace");
+  });
+
   it("permite lectura dentro del workspace", () => {
     const r = evaluateToolCall(
       { toolName: "fs_read_file", category: "filesystem", riskLevel: "safe", path: "notes/a.md", workspacePath: WS },
@@ -290,7 +315,7 @@ describe("ToolPermissions — STAB-02 orden deny→approval→allow + defaultMod
     expect(
       evaluateToolCall({ toolName: "fs_read_file", category: "filesystem", path: "a.txt" }, opts)
         .decision
-    ).toBe("allow");
+    ).toBe("deny");
     expect(
       evaluateToolCall(
         { toolName: "t", category: "terminal", command: "rm -rf /", workspacePath: WS },

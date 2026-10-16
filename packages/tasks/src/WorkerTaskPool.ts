@@ -1,4 +1,5 @@
 import { availableParallelism } from "node:os";
+import { WorkerPolicy } from "./WorkerPolicy.js";
 
 export interface WorkerTask<TInput = unknown, TOutput = unknown> {
   id: string;
@@ -12,7 +13,23 @@ export interface WorkerTask<TInput = unknown, TOutput = unknown> {
 export interface WorkerTaskPoolConfig {
   maxWorkers?: number;
   defaultTimeoutMs?: number;
+  policy?: WorkerPolicy;
 }
+
+export interface PolicyAdmission {
+  admitted: boolean;
+  reason?: string;
+}
+
+export type TaskSubmitInput<T = unknown> =
+  | (() => Promise<T> | T)
+  | {
+      id?: string;
+      name?: string;
+      run?: () => Promise<T> | T;
+      execute?: () => Promise<T> | T;
+      handler?: () => Promise<T> | T;
+    };
 
 /** Alias honesto de {@link LocalTaskPoolConfig} (retrocompatibilidad). */
 export type LocalTaskPoolConfig = WorkerTaskPoolConfig;
@@ -62,15 +79,80 @@ export class LocalTaskPool {
   private readonly maxWorkers: number;
   private readonly defaultTimeoutMs: number;
   private readonly queue: PooledTask[] = [];
+  private readonly policy: WorkerPolicy;
   private activeWorkers = 0;
   private totalCompleted = 0;
   private totalFailed = 0;
   private isTerminated = false;
 
-  constructor(config: WorkerTaskPoolConfig = {}) {
+  constructor(
+    configOrMaxConcurrency: WorkerTaskPoolConfig | number = 4,
+    policy?: WorkerPolicy
+  ) {
     const cpus = typeof availableParallelism === "function" ? availableParallelism() : 4;
-    this.maxWorkers = config.maxWorkers ?? Math.max(1, cpus - 1);
-    this.defaultTimeoutMs = config.defaultTimeoutMs ?? 30_000;
+    let maxConcurrency: number;
+    if (typeof configOrMaxConcurrency === "number") {
+      maxConcurrency = configOrMaxConcurrency;
+      this.maxWorkers = Math.max(1, maxConcurrency);
+      this.defaultTimeoutMs = 30_000;
+      this.policy = policy ?? new WorkerPolicy({ maxConcurrent: Math.max(1, maxConcurrency) });
+    } else {
+      maxConcurrency = configOrMaxConcurrency.maxWorkers ?? Math.max(1, cpus - 1);
+      this.maxWorkers = maxConcurrency;
+      this.defaultTimeoutMs = configOrMaxConcurrency.defaultTimeoutMs ?? 30_000;
+      this.policy =
+        policy ??
+        configOrMaxConcurrency.policy ??
+        new WorkerPolicy({ maxConcurrent: Math.max(1, maxConcurrency) });
+    }
+  }
+
+  public get activeCount(): number {
+    return this.activeWorkers;
+  }
+
+  public getPolicy(): WorkerPolicy {
+    return this.policy;
+  }
+
+  /**
+   * Envía una tarea al pool verificando la política de admisión de WorkerPolicy.
+   */
+  public async submit<T = unknown>(task: TaskSubmitInput<T>): Promise<T> {
+    if (this.isTerminated) {
+      throw new Error("LocalTaskPool se encuentra terminado.");
+    }
+
+    const rawAdmission = (this.policy as unknown as { shouldAdmit: (...args: any[]) => boolean | PolicyAdmission }).shouldAdmit(
+      this.activeCount,
+      this.queue.length
+    );
+    const admission: PolicyAdmission =
+      typeof rawAdmission === "boolean"
+        ? { admitted: rawAdmission, reason: rawAdmission ? undefined : "capacity exceeded" }
+        : rawAdmission;
+
+    if (!admission.admitted) {
+      throw new Error(`Task rejected by WorkerPolicy: ${admission.reason}`);
+    }
+
+    const runFn =
+      typeof task === "function"
+        ? task
+        : typeof task.run === "function"
+          ? () => task.run!()
+          : typeof task.execute === "function"
+            ? () => task.execute!()
+            : typeof task.handler === "function"
+              ? () => task.handler!()
+              : () => Promise.reject(new Error("Invalid task: no run, execute, or handler method provided"));
+
+    const name =
+      typeof task === "object" && task && "name" in task && typeof task.name === "string"
+        ? task.name
+        : "submitted_task";
+
+    return this.execute<void, T>(name, undefined, () => runFn());
   }
 
   /**
@@ -105,6 +187,7 @@ export class LocalTaskPool {
         task.settled = true;
         if (task.timeoutTimer) clearTimeout(task.timeoutTimer);
         this.totalCompleted++;
+        this.policy.recordSuccess();
         resolve(value as TOutput);
       };
 
@@ -113,6 +196,7 @@ export class LocalTaskPool {
         task.settled = true;
         if (task.timeoutTimer) clearTimeout(task.timeoutTimer);
         this.totalFailed++;
+        this.policy.recordFailure();
         reject(reason);
       };
 
@@ -211,7 +295,10 @@ export class LocalTaskPool {
  * worker threads (ver F4T8 H11).
  */
 export class WorkerTaskPool extends LocalTaskPool {
-  constructor(config: WorkerTaskPoolConfig = {}) {
-    super(config);
+  constructor(
+    configOrMaxConcurrency: WorkerTaskPoolConfig | number = 4,
+    policy?: WorkerPolicy
+  ) {
+    super(configOrMaxConcurrency, policy);
   }
 }

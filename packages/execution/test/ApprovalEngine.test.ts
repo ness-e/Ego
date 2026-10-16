@@ -319,4 +319,70 @@ describe("@ego/execution — ApprovalEngine Suite (ACT-06)", () => {
       expect(engine.listPendingApprovals().length).toBe(0);
     });
   });
+
+  describe("6. Validación de expectedIdentity vía assertSameApproval (STAB-14)", () => {
+    it("resuelve con éxito cuando expectedIdentity coincide exactamente", async () => {
+      const engine = new ApprovalEngine();
+      const reqPromise = engine.requestApproval({
+        tool: { name: "fs_write", category: "filesystem", riskLevel: "destructive" },
+        arguments: { path: "secret.txt", content: "data" },
+        context: dummyContext,
+        callId: "call_ident_1"
+      });
+
+      const pending = engine.listPendingApprovals();
+      expect(pending.length).toBe(1);
+      const app = pending[0]!;
+
+      const expectedDigest = ApprovalEngine.computeArgsDigest(app.toolName, app.arguments);
+      const expectedIdentity = {
+        id: app.approvalId,
+        toolName: app.toolName,
+        argsDigest: expectedDigest
+      };
+
+      const resolved = engine.resolveApproval(
+        app.approvalId,
+        { approved: true, reason: "Identidad verificada" },
+        expectedIdentity as any
+      );
+
+      expect(resolved).toBe(true);
+      const decision = await reqPromise;
+      expect(decision.approved).toBe(true);
+    });
+
+    it("lanza error en caso de mismatch en expectedIdentity", async () => {
+      const engine = new ApprovalEngine();
+      const reqPromise = engine.requestApproval({
+        tool: { name: "fs_write", category: "filesystem", riskLevel: "destructive" },
+        arguments: { path: "secret.txt", content: "data" },
+        context: dummyContext,
+        callId: "call_ident_2"
+      });
+
+      const pending = engine.listPendingApprovals();
+      expect(pending.length).toBe(1);
+      const app = pending[0]!;
+
+      const mismatchedIdentity = {
+        id: app.approvalId,
+        toolName: "different_tool",
+        argsDigest: "mismatched_digest_hash"
+      };
+
+      expect(() => {
+        engine.resolveApproval(
+          app.approvalId,
+          { approved: true },
+          mismatchedIdentity as any
+        );
+      }).toThrow();
+
+      // La aprobación sigue pendiente al fallar por mismatch
+      expect(engine.listPendingApprovals().length).toBe(1);
+      engine.clearAll("cleanup");
+      await reqPromise;
+    });
+  });
 });

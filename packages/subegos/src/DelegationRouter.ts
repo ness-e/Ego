@@ -302,6 +302,23 @@ export interface DelegationRouterOptions {
   projectAgentsMd?: string;
 }
 
+const SECRET_PATTERNS: RegExp[] = [
+  /sk-[A-Za-z0-9_-]{8,}/g,
+  /ghp_[A-Za-z0-9]{10,}/g,
+  /AIza[0-9A-Za-z_-]{20,}/g,
+  /Bearer\s+[A-Za-z0-9._-]+/gi,
+  /(?:api[_-]?key|token|secret|password)\s*[:=]\s*["']?[A-Za-z0-9._-]{8,}["']?/gi
+];
+
+export function redactSecrets(text: string): string {
+  let result = text;
+  for (const pattern of SECRET_PATTERNS) {
+    pattern.lastIndex = 0;
+    result = result.replace(pattern, "[REDACTED]");
+  }
+  return result;
+}
+
 /**
  * DelegationRouter (SUB-06 / Principios §4 y §7).
  * Protocolo de delegación jerárquica inter-Sub-Ego con prevención de ciclos infinitos,
@@ -774,8 +791,8 @@ export class DelegationRouter {
       );
     }
     const o = output as Record<string, unknown>;
-    const summary = typeof o["summary"] === "string" ? (o["summary"] as string).trim() : "";
-    if (summary.length === 0) {
+    const rawSummary = typeof o["summary"] === "string" ? (o["summary"] as string).trim() : "";
+    if (rawSummary.length === 0) {
       throw new DelegationValidationError("Salida del hijo inválida: 'summary' (qué hizo) no puede estar vacío.");
     }
     const asStringArray = (v: unknown): string[] => {
@@ -783,10 +800,10 @@ export class DelegationRouter {
       return v.filter((x): x is string => typeof x === "string").map((s) => s.trim()).filter((s) => s.length > 0);
     };
     return {
-      summary,
-      findings: asStringArray(o["findings"]),
+      summary: redactSecrets(rawSummary),
+      findings: asStringArray(o["findings"]).map(redactSecrets),
       files: asStringArray(o["files"]),
-      issues: asStringArray(o["issues"])
+      issues: asStringArray(o["issues"]).map(redactSecrets)
     };
   }
 

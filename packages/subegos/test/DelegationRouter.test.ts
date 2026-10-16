@@ -423,4 +423,36 @@ describe("DelegationRouter — Comunicación y Delegación Inter-Sub-Ego (SUB-06
       expect(runtime.isLoaded("ego.remote-specialist")).toBe(true);
     });
   });
+
+  describe("7. Sanitización y Redacción de Secretos en normalizeStructuredOutput", () => {
+    it("redacta credenciales accidentales en summary, findings e issues a [REDACTED]", () => {
+      const router = new DelegationRouter({ runtime });
+
+      const rawOutput = {
+        summary: "Tarea completada usando sk-test12345678 y Bearer my_jwt_token_12345",
+        findings: [
+          "Se encontró credencial ghp_abcdef123456789 en el código",
+          "Google API key expuesta: AIzaSyD1234567890abcdefghij"
+        ],
+        files: ["src/index.ts", "config.json"],
+        issues: [
+          "Fallo de conexión con api_key: 'super_secret_key_123'",
+          "Password en logs: password = mypassword123"
+        ]
+      };
+
+      const normalized = router.normalizeStructuredOutput(rawOutput);
+
+      expect(normalized.summary).toBe("Tarea completada usando [REDACTED] y [REDACTED]");
+      expect(normalized.findings).toEqual([
+        "Se encontró credencial [REDACTED] en el código",
+        "Google API key expuesta: [REDACTED]"
+      ]);
+      expect(normalized.files).toEqual(["src/index.ts", "config.json"]);
+      expect(normalized.issues).toEqual([
+        "Fallo de conexión con [REDACTED]",
+        "Password en logs: [REDACTED]"
+      ]);
+    });
+  });
 });

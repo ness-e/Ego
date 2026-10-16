@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { WorkerTaskPool } from "../src/WorkerTaskPool.js";
+import { describe, it, expect, vi } from "vitest";
+import { WorkerTaskPool, LocalTaskPool } from "../src/WorkerTaskPool.js";
+import { WorkerPolicy } from "../src/WorkerPolicy.js";
 
 describe("WorkerTaskPool Suite (OCLW-10)", () => {
   it("debe ejecutar tareas concurrentes respetando el límite de maxWorkers", async () => {
@@ -37,5 +38,38 @@ describe("WorkerTaskPool Suite (OCLW-10)", () => {
     ).rejects.toThrow(/Timeout de 40ms excedido/);
 
     pool.terminate();
+  });
+
+  it("debe integrar WorkerPolicy en LocalTaskPool para admisión y tracking de salud", async () => {
+    const policy = new WorkerPolicy({ maxConcurrent: 2, maxQueue: 5 });
+    const pool = new LocalTaskPool(2, policy);
+
+    expect(pool.getPolicy()).toBe(policy);
+    expect(policy.isHealthy()).toBe(true);
+
+    // Ejecución exitosa registra éxito en policy
+    const res = await pool.submit(async () => 42);
+    expect(res).toBe(42);
+    expect(policy.consecutiveFailureCount()).toBe(0);
+
+    // Ejecución fallida registra fallo en policy
+    await expect(
+      pool.submit(async () => {
+        throw new Error("task crash");
+      })
+    ).rejects.toThrow("task crash");
+    expect(policy.consecutiveFailureCount()).toBe(1);
+
+    // Tarea rechazada por shouldAdmit
+    const rejectingPolicy = new WorkerPolicy();
+    vi.spyOn(rejectingPolicy, "shouldAdmit").mockReturnValue(false);
+    const rejectingPool = new LocalTaskPool(2, rejectingPolicy);
+
+    await expect(
+      rejectingPool.submit(async () => "never runs")
+    ).rejects.toThrow(/Task rejected by WorkerPolicy/);
+
+    pool.terminate();
+    rejectingPool.terminate();
   });
 });
