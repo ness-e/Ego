@@ -37,3 +37,10 @@ docs/agent-ops/tasks/archive/
 
 # Repos de referencia (clones de terceros, no son código de Ego)
 repos-referencia/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Worktrees
+.ego-worktrees/

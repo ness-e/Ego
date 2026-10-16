@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-10-13T18:14:43.239Z",
+  "lastUpdated": "2026-10-16T15:50:00Z",
   "activePlan": "docs/agent-ops/plans/2026-10-09-plan-20-tareas-mvp.md",
   "inProgressTask": null,
   "completedTasks": [
@@ -90,7 +90,59 @@
     "T19",
     "T21",
     "T23",
-    "T22"
+    "T22",
+    "STAB-00",
+    "STAB-01",
+    "STAB-02",
+    "STAB-03",
+    "STAB-04",
+    "STAB-05",
+    "STAB-06",
+    "STAB-07",
+    "STAB-08",
+    "STAB-09",
+    "STAB-10",
+    "STAB-11",
+    "STAB-12",
+    "STAB-13",
+    "STAB-14",
+    "STAB-15",
+    "STAB-16",
+    "REV-01",
+    "REV-02",
+    "REV-03",
+    "CFG-01",
+    "CFG-02",
+    "CFG-03",
+    "CFG-04",
+    "CFG-05",
+    "CFG-06",
+    "CFG-07",
+    "CFG-08",
+    "CFG-09",
+    "CFG-10",
+    "CFG-11",
+    "CFG-12",
+    "CFG-13",
+    "CFG-14",
+    "VOICE-01",
+    "T-isla-00",
+    "T-isla-01",
+    "T-isla-02",
+    "T-isla-03",
+    "T-isla-04",
+    "T-isla-05",
+    "T-isla-06",
+    "T-isla-07",
+    "T-isla-08",
+    "T-isla-09",
+    "T-isla-10",
+    "T-isla-11",
+    "T-isla-12",
+    "DYN-01",
+    "DYN-02",
+    "DYN-03",
+    "DYN-04"
   ],
   "failedTasks": [],
   "tasks": {
@@ -621,6 +673,358 @@
       "updatedAt": "2026-10-15T07:45:00.000Z",
       "evidence": "Suite Playwright 13 specs + gate estático verde. Run vivo owner-pendiente.",
       "commitSha": "efbb079"
+    },
+    "STAB-00": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-00 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-01 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-02": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-02 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-03": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-03 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-04": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-04 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-05": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-05 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-06": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-06 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-07": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-07 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-08": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-08 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-09": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-09 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-10": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-10 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-11": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-11 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-12": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-12 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-13": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-13 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-14": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-14 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-15": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-15 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "STAB-16": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "STAB-16 completado y verificado en plan de estabilización",
+      "commitSha": "2336a86"
+    },
+    "REV-01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "REV-01 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "REV-02": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "REV-02 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "REV-03": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "REV-03 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-01 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-02": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-02 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-03": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-03 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-04": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-04 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-05": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-05 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-06": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-06 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-07": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-07 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-08": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-08 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-09": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-09 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-10": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-10 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-11": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-11 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-12": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-12 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-13": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-13 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "CFG-14": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "CFG-14 completado y verificado en plan configs-revision-total",
+      "commitSha": "07f8c73"
+    },
+    "VOICE-01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "VOICE-01 STT/TTS opt-in con kill switch y privacy review",
+      "commitSha": "fb07544"
+    },
+    "T-isla-00": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-00 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-01 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-02": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-02 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-03": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-03 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-04": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-04 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-05": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-05 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-06": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-06 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-07": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-07 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-08": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-08 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-09": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-09 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-10": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-10 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-11": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-11 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "T-isla-12": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "T-isla-12 paridad isla flotante completada y verificada",
+      "commitSha": "a98fd98"
+    },
+    "DYN-01": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "Fix Chart pie en ChartView custom SVG",
+      "commitSha": "95fef17"
+    },
+    "DYN-02": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "Adapter A2UI mínimo en packages/ui-runtime/src/a2ui.ts",
+      "commitSha": "95fef17"
+    },
+    "DYN-03": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "LayoutTemplate daily-report en packages/ui-runtime/src/templates/daily-report.ts",
+      "commitSha": "95fef17"
+    },
+    "DYN-04": {
+      "state": "COMPLETED",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "SPEC descarte documentado runtime iframe en docs/architecture/ui-iframe-sandbox-spec.md",
+      "commitSha": "95fef17"
+    }
+  },
+  "updatedAt": "2026-10-16T15:50:00Z",
+  "campaigns": {
+    "STAB": {
+      "name": "estabilizacion-ego",
+      "plan": "docs/agent-ops/plans/archive/2026-10-16-plan-estabilizacion-ego.md",
+      "state": "COMPLETED",
+      "tasksTotal": 17,
+      "tasksCompleted": 17,
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "17/17 tareas completadas, suites verdes, archivado en commit 2336a86"
+    },
+    "configs-revision-total": {
+      "name": "configs-revision-total",
+      "plan": "docs/agent-ops/plans/archive/2026-10-16-plan-configs-revision-total.md",
+      "state": "COMPLETED",
+      "tasksTotal": 18,
+      "tasksCompleted": 18,
+      "note": "17/17 + VOICE-01",
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "17/17 tareas + VOICE-01 completadas, commit 07f8c73 y fb07544"
+    },
+    "floating-island-parity": {
+      "name": "floating-island-parity",
+      "plan": "docs/agent-ops/plans/archive/2026-10-15-isla-flotante-ego-completa.md",
+      "state": "COMPLETED",
+      "tasksTotal": 12,
+      "tasksCompleted": 12,
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "12/12 tareas completadas, paridad Coucou/avatar verificada, commit a98fd98 y 4831d50"
+    },
+    "dynamic-ui-daily-report": {
+      "name": "dynamic-ui-daily-report",
+      "plan": "docs/agent-ops/plans/2026-10-15-dynamic-ui-ego.md",
+      "state": "COMPLETED",
+      "tasksTotal": 4,
+      "tasksCompleted": 4,
+      "updatedAt": "2026-10-16T15:50:00Z",
+      "evidence": "4/4 tareas completadas: ChartView pie fix, A2UI adapter, layoutTemplate daily-report, iframe sandbox spec"
     }
   }
 }
