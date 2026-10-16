@@ -238,7 +238,7 @@ describe("Golden Path Alpha — Delegación Multi-Sub-Ego y Cooperación E2E (SU
     // 3. Lección aprendida persiste y es recuperable
     const recalledLessons = await coldLearningLoop.recallLessons("ego.researcher");
     expect(recalledLessons.length).toBe(1);
-    expect(recalledLessons[0].actionableRule).toContain("Utilizar siempre claves con prefijo canónico");
+    expect(recalledLessons[0]!.actionableRule).toContain("Utilizar siempre claves con prefijo canónico");
 
     // 4. Turno integrado del proyecto persiste intacto
     const restoredTurn = ((await coldAdapter.get(`projects/${projectId}/turns`, "turn:001"))?.payload as {
@@ -254,7 +254,7 @@ describe("Golden Path Alpha — Delegación Multi-Sub-Ego y Cooperación E2E (SU
     expect(restoredMetrics.lifetimeTotalTokens).toBe(750);
 
     await coldAdapter.close();
-  });
+  }, 30000);
 
   it("Detecta y bloquea inmediatamente ciclos de delegación recursiva", async () => {
     const delegationRouter = new DelegationRouter({

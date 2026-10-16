@@ -46,7 +46,7 @@ export class AnalyticsDomain {
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = d.toISOString().split("T")[0] ?? "";
 
       // Valores base deterministas (si memory está conectado se pueden consultar metrics/telemetry)
       const input = 1200 + Math.floor(Math.sin(i * 1.5) * 400 + 400);

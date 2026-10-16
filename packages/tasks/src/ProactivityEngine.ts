@@ -272,7 +272,7 @@ export class ProactivityEngine {
     const parts = expr.trim().split(/\s+/);
     if (parts.length !== 5) return false;
 
-    const [minPart, hourPart, domPart, monthPart, dowPart] = parts;
+    const [minPart = '', hourPart = '', domPart = '', monthPart = '', dowPart = ''] = parts;
 
     return (
       this.matchesField(minPart, minute, 0, 59) &&
@@ -302,7 +302,7 @@ export class ProactivityEngine {
 
     // rango: 1-5
     if (field.includes('-')) {
-      const [startStr, endStr] = field.split('-');
+      const [startStr = '', endStr = ''] = field.split('-');
       const start = parseInt(startStr, 10);
       const end = parseInt(endStr, 10);
       if (isNaN(start) || isNaN(end)) return false;

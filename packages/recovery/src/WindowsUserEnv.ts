@@ -22,7 +22,7 @@ export function parseRegQueryValue(stdout: string | null | undefined, name: stri
     const line = rawLine.trim();
     const match = line.match(typePattern);
 
-    if (match && match[1].toLowerCase() === name.toLowerCase()) {
+    if (match && match[1] && match[2] !== undefined && match[1].toLowerCase() === name.toLowerCase()) {
       return match[2];
     }
   }

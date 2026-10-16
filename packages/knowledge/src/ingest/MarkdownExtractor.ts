@@ -34,7 +34,7 @@ export class MarkdownExtractor {
       };
     }
 
-    const frontmatterBlock = match[1];
+    const frontmatterBlock = match[1] ?? "";
     const rawText = normalized.substring(match[0].length);
     const frontmatter: Record<string, string> = {};
 
@@ -64,7 +64,7 @@ export class MarkdownExtractor {
     const lines = text.split("\n");
     for (const line of lines) {
       const h1Match = line.match(/^#\s+(.*)$/);
-      if (h1Match) {
+      if (h1Match && h1Match[1]) {
         return h1Match[1].trim();
       }
     }

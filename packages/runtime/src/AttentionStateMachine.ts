@@ -166,6 +166,12 @@ export class AttentionStateMachine {
     }
 
     const highest = this.requestQueue[0];
+    if (!highest) {
+      this.activeRequest = null;
+      this.collapseTimerMs = 0;
+      this.transitionTo('hidden');
+      return;
+    }
     this.activeRequest = highest;
 
     // Configurar temporizador de colapso si no está fijado.

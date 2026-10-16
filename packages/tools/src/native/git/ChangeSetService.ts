@@ -251,11 +251,13 @@ export class ChangeSetService {
     // Matriz DP de LCS
     const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
     for (let i = 1; i <= m; i++) {
+      const row = dp[i]!;
+      const prevRow = dp[i - 1]!;
       for (let j = 1; j <= n; j++) {
         if (oldLines[i - 1] === newLines[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1] + 1;
+          row[j] = prevRow[j - 1]! + 1;
         } else {
-          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+          row[j] = Math.max(prevRow[j]!, row[j - 1]!);
         }
       }
     }
@@ -269,7 +271,7 @@ export class ChangeSetService {
         matches.push([i - 1, j - 1]);
         i--;
         j--;
-      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+      } else if (dp[i - 1]![j]! >= dp[i]![j - 1]!) {
         i--;
       } else {
         j--;
@@ -284,25 +286,25 @@ export class ChangeSetService {
     for (const [oi, ni] of matches) {
       // Líneas eliminadas entre el match previo y este old match
       for (let k = prevOld + 1; k < oi; k++) {
-        result.push({ kind: "removed", text: oldLines[k], origLine: k + 1, newLine: -1 });
+        result.push({ kind: "removed", text: oldLines[k] ?? "", origLine: k + 1, newLine: -1 });
       }
       // Líneas agregadas entre el match previo y este new match
       for (let k = prevNew + 1; k < ni; k++) {
-        result.push({ kind: "added", text: newLines[k], origLine: -1, newLine: k + 1 });
+        result.push({ kind: "added", text: newLines[k] ?? "", origLine: -1, newLine: k + 1 });
       }
       // Línea de contexto común
-      result.push({ kind: "context", text: oldLines[oi], origLine: oi + 1, newLine: ni + 1 });
+      result.push({ kind: "context", text: oldLines[oi] ?? "", origLine: oi + 1, newLine: ni + 1 });
       prevOld = oi;
       prevNew = ni;
     }
 
     // Líneas eliminadas restantes
     for (let k = prevOld + 1; k < m; k++) {
-      result.push({ kind: "removed", text: oldLines[k], origLine: k + 1, newLine: -1 });
+      result.push({ kind: "removed", text: oldLines[k] ?? "", origLine: k + 1, newLine: -1 });
     }
     // Líneas agregadas restantes
     for (let k = prevNew + 1; k < n; k++) {
-      result.push({ kind: "added", text: newLines[k], origLine: -1, newLine: k + 1 });
+      result.push({ kind: "added", text: newLines[k] ?? "", origLine: -1, newLine: k + 1 });
     }
 
     return result;
@@ -313,7 +315,8 @@ export class ChangeSetService {
 
     const changedIndices: number[] = [];
     for (let idx = 0; idx < lines.length; idx++) {
-      if (lines[idx].kind !== "context") {
+      const line = lines[idx];
+      if (line && line.kind !== "context") {
         changedIndices.push(idx);
       }
     }

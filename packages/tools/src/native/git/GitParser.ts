@@ -57,9 +57,10 @@ export class GitParser {
         // Formato: ## main...origin/main [ahead 1, behind 2] o ## main
         const header = line.slice(3).trim();
         const branchParts = header.split("...");
-        branch = branchParts[0].trim();
+        const branch0 = branchParts[0];
+        branch = branch0 ? branch0.trim() : "";
 
-        if (branchParts.length > 1) {
+        if (branchParts.length > 1 && branchParts[1]) {
           const rest = branchParts[1].trim();
           const bracketIdx = rest.indexOf("[");
           if (bracketIdx !== -1) {
@@ -67,12 +68,12 @@ export class GitParser {
             const branchMeta = rest.slice(bracketIdx);
 
             const aheadMatch = branchMeta.match(/ahead\s+(\d+)/);
-            if (aheadMatch) {
+            if (aheadMatch && aheadMatch[1]) {
               ahead = parseInt(aheadMatch[1], 10);
             }
 
             const behindMatch = branchMeta.match(/behind\s+(\d+)/);
-            if (behindMatch) {
+            if (behindMatch && behindMatch[1]) {
               behind = parseInt(behindMatch[1], 10);
             }
           } else {
@@ -86,6 +87,7 @@ export class GitParser {
 
       const x = line[0];
       const y = line[1];
+      if (!x || !y) continue;
       const filePath = line.slice(3).trim();
 
       if (x === "?" && y === "?") {
@@ -135,7 +137,7 @@ export class GitParser {
       if (line.startsWith("diff --git ")) {
         filesChanged++;
         const parts = line.split(" ");
-        if (parts.length >= 4) {
+        if (parts.length >= 4 && parts[3]) {
           const bPath = parts[3].replace(/^b\//, "");
           if (!files.includes(bPath)) {
             files.push(bPath);

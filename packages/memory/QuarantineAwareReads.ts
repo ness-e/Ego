@@ -75,7 +75,7 @@ function splitEnvelope(raw: unknown, fallbackKey: string): { key: string; payloa
 function toListRows(raw: unknown): QuarantineAwareListRow[] {
   if (Array.isArray(raw)) return raw as QuarantineAwareListRow[];
   if (raw && typeof raw === "object" && Array.isArray((raw as Record<string, unknown>)["records"])) {
-    return (raw as Record<string, Array<QuarantineAwareListRow>>)["records"];
+    return (raw as Record<string, Array<QuarantineAwareListRow>>)["records"] ?? [];
   }
   return [];
 }

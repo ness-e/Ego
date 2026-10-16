@@ -23,9 +23,11 @@ export function searchFold(value: string): string {
 function isBoundary(target: string, index: number): boolean {
   if (index === 0) return true;
   const prev = target[index - 1];
+  if (prev === undefined) return false;
   if (WORD_BOUNDARY.test(prev)) return true;
 
   const cur = target[index];
+  if (cur === undefined) return false;
   return prev === prev.toLowerCase() && cur !== cur.toLowerCase() && cur === cur.toUpperCase();
 }
 
@@ -50,7 +52,7 @@ export function fuzzyScore(target: string, query: string): FuzzyMatch | null {
 
   for (let i = 0; i < lowerQuery.length; i++) {
     const qChar = lowerQuery[i];
-    if (qChar === " ") continue;
+    if (qChar === undefined || qChar === " ") continue;
 
     const hit = lowerTarget.indexOf(qChar, searchFrom);
     if (hit === -1) {

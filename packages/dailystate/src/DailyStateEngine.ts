@@ -154,7 +154,7 @@ export class DailyStateEngine {
           latencies.length - 1,
           Math.floor(latencies.length * 0.99)
         );
-        p99LatencyMs = latencies[p99Index];
+        p99LatencyMs = latencies[p99Index] ?? 0;
       }
     } catch {
       // Degradación elegante

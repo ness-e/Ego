@@ -239,6 +239,9 @@ export class SessionTimelineRewind {
     }
 
     const targetTurn = this.state.turns[targetIndex];
+    if (!targetTurn) {
+      throw new Error(`Turno no encontrado en el timeline: ${targetTurnId}`);
+    }
 
     if (options.forkBranch) {
       const newBranchId = `branch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -261,8 +264,9 @@ export class SessionTimelineRewind {
 
     // Modo in-branch: marca los turnos posteriores como superseded sin borrarlos físicamente
     for (let i = targetIndex + 1; i < this.state.turns.length; i++) {
-      if (this.state.turns[i].branchId === targetTurn.branchId) {
-        this.state.turns[i].superseded = true;
+      const turn = this.state.turns[i];
+      if (turn && turn.branchId === targetTurn.branchId) {
+        turn.superseded = true;
       }
     }
 

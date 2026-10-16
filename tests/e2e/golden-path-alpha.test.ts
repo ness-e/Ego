@@ -134,7 +134,7 @@ describe("Golden Path Alpha — Durabilidad y Recuperación E2E (CORE-11)", () =
     );
 
     expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0].score).toBeGreaterThan(0);
+    expect(hits[0]!.score).toBeGreaterThan(0);
 
     // Validar restauración e importDump en base de datos secundaria limpia
     const restoreDir = path.join(os.tmpdir(), `ego-golden-restore-${Date.now()}`);

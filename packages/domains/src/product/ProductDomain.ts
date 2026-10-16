@@ -87,7 +87,7 @@ export class ProductDomain {
       }
     }
 
-    for (const rec of pages[0]) {
+    for (const rec of pages[0] ?? []) {
       const parsed = BacklogItemSchema.safeParse(ProductDomain.parsePayload(rec.payload));
       if (!parsed.success) {
         report.skipped++;
@@ -96,7 +96,7 @@ export class ProductDomain {
       this.inMemoryBacklog.set(parsed.data.id, parsed.data);
       report.backlogItems++;
     }
-    for (const rec of pages[1]) {
+    for (const rec of pages[1] ?? []) {
       const parsed = EpicSchema.safeParse(ProductDomain.parsePayload(rec.payload));
       if (!parsed.success) {
         report.skipped++;
@@ -105,7 +105,7 @@ export class ProductDomain {
       this.inMemoryEpics.set(parsed.data.id, parsed.data);
       report.epics++;
     }
-    for (const rec of pages[2]) {
+    for (const rec of pages[2] ?? []) {
       const parsed = ProductPrdSchema.safeParse(ProductDomain.parsePayload(rec.payload));
       if (!parsed.success) {
         report.skipped++;

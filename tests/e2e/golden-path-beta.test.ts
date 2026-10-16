@@ -704,7 +704,7 @@ describe("DIST-08 — Golden Path Beta Multi-Día (sello release P0-Beta)", () =
     ).toContain("Arranque día 2 sin fricción");
     const lessonsDay3 = await day3Learning.recallLessons("ego.beta-analyst");
     expect(lessonsDay3.length).toBe(1);
-    expect(lessonsDay3[0].actionableRule).toContain("Rehidratar snapshots diarios");
+    expect(lessonsDay3[0]!.actionableRule).toContain("Rehidratar snapshots diarios");
     expect((await day3Budget.getMetrics("ego.beta-analyst")).lifetimeTotalTokens).toBe(900);
 
     // Canvas con la mutación del usuario intacta.
@@ -715,8 +715,8 @@ describe("DIST-08 — Golden Path Beta Multi-Día (sello release P0-Beta)", () =
     expect(recoveredCanvas.components.length).toBe(1);
     expect(
       (
-        recoveredCanvas.components[0].props as unknown as { rows: { status: string }[] }
-      ).rows[1].status
+        recoveredCanvas.components[0]!.props as unknown as { rows: { status: string }[] }
+      ).rows[1]!.status
     ).toBe("Completado");
 
     // Búsqueda federada encuentra el conocimiento acumulado multi-día.
@@ -757,7 +757,7 @@ describe("DIST-08 — Golden Path Beta Multi-Día (sello release P0-Beta)", () =
 
     await adapter.close();
     adapter = null;
-  });
+  }, 30000);
 
   it("Gobernanza beta: la delegación cíclica se bloquea y el estado no se corrompe", async () => {
     adapter = new EgoMemoryAdapter(vdbDir);

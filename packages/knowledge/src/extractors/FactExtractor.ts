@@ -26,7 +26,7 @@ export class FactExtractor {
 
       // Patrón clave: valor (ej. "Editor: VSCode", "Runtime: Node 22")
       const kvMatch = line.match(/^([^:]+):\s*(.+)$/);
-      if (kvMatch) {
+      if (kvMatch && kvMatch[1] && kvMatch[2]) {
         const subject = kvMatch[1].trim();
         const object = kvMatch[2].trim();
         const factId = `fact_${createHash("sha256").update(`${subject}:${object}:${source}`).digest("hex").substring(0, 12)}`;
@@ -54,7 +54,7 @@ export class FactExtractor {
 
       // Patrón verbal común: "X usa Y", "X requiere Y", "X implementa Y"
       const verbMatch = line.match(/^([A-Za-z0-9_.\s]+)\s+(usa|utiliza|requiere|implementa|extiende|contiene)\s+(.+)$/i);
-      if (verbMatch) {
+      if (verbMatch && verbMatch[1] && verbMatch[2] && verbMatch[3]) {
         const subject = verbMatch[1].trim();
         const predicate = verbMatch[2].toLowerCase().trim();
         const object = verbMatch[3].trim();

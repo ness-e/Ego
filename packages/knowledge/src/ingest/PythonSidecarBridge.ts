@@ -62,7 +62,7 @@ export class PythonSidecarBridge {
           ? [path.resolve(moduleDir, "../../../../scripts/ingest/bulk_import.py")]
           : []),
       ];
-      this.scriptPath = candidates.find((c) => fs.existsSync(c)) || candidates[0];
+      this.scriptPath = candidates.find((c) => fs.existsSync(c)) || candidates[0] || "";
     }
   }
 

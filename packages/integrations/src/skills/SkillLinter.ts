@@ -126,17 +126,17 @@ export class SkillLinter {
     } else {
       // Parseo ligero de frontmatter YAML: --- ... ---
       const frontmatterMatch = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content);
-      if (frontmatterMatch) {
+      if (frontmatterMatch && frontmatterMatch[1] !== undefined) {
         const yamlBlock = frontmatterMatch[1];
         this.parseSimpleYaml(yamlBlock, metadata, errors);
       } else {
         // Intento de extracción por cabeceras Markdown (# Nombre, descripción en primer párrafo)
         const titleMatch = /^#\s+(.+)$/m.exec(content);
-        if (titleMatch) {
+        if (titleMatch && titleMatch[1]) {
           metadata.name = titleMatch[1].trim();
         }
         const descMatch = /^#\s+.+\r?\n\r?\n([^\r\n#]+)/m.exec(content);
-        if (descMatch) {
+        if (descMatch && descMatch[1]) {
           metadata.description = descMatch[1].trim();
         }
         warnings.push("La Skill carece de bloque formal de metadatos (frontmatter '---'); se infirió de Markdown.");

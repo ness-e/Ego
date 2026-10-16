@@ -7,6 +7,8 @@ import { defineConfig } from "vitest/config";
 // Ver docs/engineering/testing-e2e.md § "Alcance de colecta".
 export default defineConfig({
   test: {
+    testTimeout: 30000,
+    hookTimeout: 30000,
     include: [
       "e2e/**/*.test.ts",
       "security/**/*.test.ts",

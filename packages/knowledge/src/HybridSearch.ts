@@ -103,6 +103,7 @@ export class HybridSearch {
 
       for (let i = 0; i < remaining.length; i++) {
         const candidate = remaining[i];
+        if (!candidate) continue;
         const relevance = candidate.score ?? 0;
 
         // Calcular redundancia máxima respecto a los ya seleccionados (solapamiento de texto jaccard simple)
@@ -119,7 +120,10 @@ export class HybridSearch {
         }
       }
 
-      selected.push(remaining.splice(bestIndex, 1)[0]);
+      const picked = remaining.splice(bestIndex, 1)[0];
+      if (picked) {
+        selected.push(picked);
+      }
     }
 
     return selected;

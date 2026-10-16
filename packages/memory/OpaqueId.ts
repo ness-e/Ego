@@ -52,9 +52,9 @@ export function parseOpaqueId(id: string): ParsedOpaqueId {
     };
   }
 
-  const prefix = match[1];
-  const tsRaw = match[2];
-  const entropy = match[3];
+  const prefix = match[1] ?? "";
+  const tsRaw = match[2] ?? "";
+  const entropy = match[3] ?? "";
   const timestamp = parseInt(tsRaw, 36);
 
   return {

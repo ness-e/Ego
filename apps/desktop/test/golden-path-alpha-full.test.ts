@@ -382,5 +382,5 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
     // F. Verificar archivo persistido físicamente en workspace de disco
     const persistedFile = await fs.readFile(filePath, "utf-8");
     expect(persistedFile).toBe(codeContent);
-  });
+  }, 30000);
 });

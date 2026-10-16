@@ -95,9 +95,11 @@ export class AdaptiveChunker {
         const retainedLines: string[] = [];
         let retainedTokens = 0;
         for (let i = currentLines.length - 1; i >= 0; i--) {
-          const lineTokens = this.estimateTokens(currentLines[i]);
+          const cLine = currentLines[i];
+          if (cLine === undefined) continue;
+          const lineTokens = this.estimateTokens(cLine);
           if (retainedTokens + lineTokens <= this.overlapTokens) {
-            retainedLines.unshift(currentLines[i]);
+            retainedLines.unshift(cLine);
             retainedTokens += lineTokens;
           } else {
             break;
@@ -113,6 +115,7 @@ export class AdaptiveChunker {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      if (line === undefined) continue;
 
       // Detección de bloques de código (```)
       if (line.trim().startsWith("```")) {
@@ -122,7 +125,7 @@ export class AdaptiveChunker {
       // Detección de encabezados Markdown fuera de bloques de código (KHOJ-02)
       if (!inCodeBlock) {
         const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
-        if (headingMatch) {
+        if (headingMatch && headingMatch[1] && headingMatch[2] !== undefined) {
           const level = headingMatch[1].length; // 1 to 6
           const title = headingMatch[2].trim();
 

@@ -82,7 +82,8 @@ export class MermaidRenderer {
       return { valid: false, error: "El diagrama solo contiene comentarios." };
     }
 
-    const firstWord = lines[0].split(/\s+/)[0].toLowerCase();
+    const firstLine = lines[0] ?? "";
+    const firstWord = (firstLine.split(/\s+/)[0] ?? "").toLowerCase();
     const isKnown = KNOWN_DIAGRAM_TYPES.includes(firstWord);
 
     if (!isKnown) {

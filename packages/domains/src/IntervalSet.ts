@@ -47,11 +47,13 @@ export class IntervalSet {
     if (valid.length === 0) return [];
 
     const merged: TimeInterval[] = [];
-    let currentStart = valid[0].start;
-    let currentEnd = valid[0].end;
+    const first = valid[0]!;
+    let currentStart = first.start;
+    let currentEnd = first.end;
 
     for (let i = 1; i < valid.length; i++) {
       const next = valid[i];
+      if (!next) continue;
       if (next.start <= currentEnd) {
         // Solapamiento o contigüidad: extendemos el límite derecho
         currentEnd = Math.max(currentEnd, next.end);

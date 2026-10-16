@@ -37,7 +37,8 @@ export class NetPolicy {
       return false;
     }
 
-    const [a, b] = parts;
+    const a = parts[0]!;
+    const b = parts[1]!;
 
     // 127.0.0.0/8 (Loopback)
     if (a === 127) return true;

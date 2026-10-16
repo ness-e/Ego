@@ -453,22 +453,28 @@ export class ErrorHandler {
   private levenshteinDistance(a: string, b: string): number {
     const matrix: number[][] = [];
     for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    const row0 = matrix[0];
+    if (row0) {
+      for (let j = 0; j <= a.length; j++) row0[j] = j;
+    }
 
     for (let i = 1; i <= b.length; i++) {
+      const curRow = matrix[i];
+      const prevRow = matrix[i - 1];
+      if (!curRow || !prevRow) continue;
       for (let j = 1; j <= a.length; j++) {
         if (b.charAt(i - 1) === a.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
+          curRow[j] = prevRow[j - 1] ?? 0;
         } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
+          curRow[j] = Math.min(
+            (prevRow[j - 1] ?? 0) + 1,
+            (curRow[j - 1] ?? 0) + 1,
+            (prevRow[j] ?? 0) + 1
           );
         }
       }
     }
 
-    return matrix[b.length][a.length];
+    return matrix[b.length]?.[a.length] ?? 0;
   }
 }

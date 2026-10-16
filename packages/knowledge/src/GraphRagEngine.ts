@@ -192,7 +192,7 @@ export class GraphRagEngine {
     for (const match of mentionMatches) {
       if (refs.length >= maxDegree) break;
       const refId = match[1];
-      if (refId !== node.id && !refs.some((r) => r.targetId.includes(refId))) {
+      if (refId && refId !== node.id && !refs.some((r) => r.targetId.includes(refId))) {
         refs.push({
           targetId: refId.startsWith("doc_") ? `kb/docs:${refId}` : `kb/facts:${refId}`,
           relation: "mentions",

@@ -37,15 +37,19 @@ function sha256Sync(str: string): string {
       w[i] = view.getUint32(chunk + i * 4, false);
     }
     for (let i = 16; i < 64; i++) {
+      const w15 = w[i - 15] ?? 0;
+      const w2 = w[i - 2] ?? 0;
+      const w16 = w[i - 16] ?? 0;
+      const w7 = w[i - 7] ?? 0;
       const s0 =
-        ((w[i - 15] >>> 7) | (w[i - 15] << 25)) ^
-        ((w[i - 15] >>> 18) | (w[i - 15] << 14)) ^
-        (w[i - 15] >>> 3);
+        ((w15 >>> 7) | (w15 << 25)) ^
+        ((w15 >>> 18) | (w15 << 14)) ^
+        (w15 >>> 3);
       const s1 =
-        ((w[i - 2] >>> 17) | (w[i - 2] << 15)) ^
-        ((w[i - 2] >>> 19) | (w[i - 2] << 13)) ^
-        (w[i - 2] >>> 10);
-      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+        ((w2 >>> 17) | (w2 << 15)) ^
+        ((w2 >>> 19) | (w2 << 13)) ^
+        (w2 >>> 10);
+      w[i] = (w16 + s0 + w7 + s1) | 0;
     }
 
     let a = h0;
@@ -60,7 +64,7 @@ function sha256Sync(str: string): string {
     for (let i = 0; i < 64; i++) {
       const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
       const ch = (e & f) ^ (~e & g);
-      const temp1 = (h + S1 + ch + K[i] + w[i]) | 0;
+      const temp1 = (h + S1 + ch + (K[i] ?? 0) + (w[i] ?? 0)) | 0;
       const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
       const maj = (a & b) ^ (a & c) ^ (b & c);
       const temp2 = (S0 + maj) | 0;

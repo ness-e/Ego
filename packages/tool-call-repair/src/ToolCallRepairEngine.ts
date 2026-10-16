@@ -71,8 +71,9 @@ export class ToolCallRepairEngine {
     // Caso 2: Se provee texto sin procesar donde el modelo emitió llamadas en texto plano
     if (input.rawText) {
       const calls = this.extractFromText(input.rawText);
-      if (calls.length > 0) {
-        return calls[0];
+      const firstCall = calls[0];
+      if (firstCall) {
+        return firstCall;
       }
     }
 

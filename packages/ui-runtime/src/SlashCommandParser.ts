@@ -88,8 +88,8 @@ export function parseSlashCommand(input: string): ParsedSlashCommand {
   }
 
   return {
-    name: match[1].toLowerCase(),
-    arg: match[2].trim(),
+    name: (match[1] ?? "").toLowerCase(),
+    arg: (match[2] ?? "").trim(),
   };
 }
 

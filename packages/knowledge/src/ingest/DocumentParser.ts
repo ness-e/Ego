@@ -115,7 +115,7 @@ export class DocumentParser {
     const lines = content.replace(/\r\n/g, "\n").split("\n").filter((l) => l.trim().length > 0);
 
     let formattedText = "";
-    if (lines.length > 0) {
+    if (lines.length > 0 && lines[0] !== undefined) {
       const headers = lines[0].split(",").map((h) => h.trim());
       const rows = lines.slice(1);
 

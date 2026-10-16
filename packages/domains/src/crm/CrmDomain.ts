@@ -114,7 +114,7 @@ export class CrmDomain {
       }
     };
 
-    for (const rec of pages[0]) {
+    for (const rec of pages[0] ?? []) {
       const parsed = CrmContactSchema.safeParse(CrmDomain.parsePayload(rec.payload));
       if (!parsed.success) {
         report.skipped++;
@@ -124,7 +124,7 @@ export class CrmDomain {
       mark(parsed.data.id, rec.quarantined);
       report.contacts++;
     }
-    for (const rec of pages[1]) {
+    for (const rec of pages[1] ?? []) {
       const parsed = CrmDealSchema.safeParse(CrmDomain.parsePayload(rec.payload));
       if (!parsed.success) {
         report.skipped++;
@@ -135,7 +135,7 @@ export class CrmDomain {
       report.deals++;
     }
     const seen = new Set(this.interactions.map((i) => i.id));
-    for (const rec of pages[2]) {
+    for (const rec of pages[2] ?? []) {
       const parsed = CrmInteractionSchema.safeParse(CrmDomain.parsePayload(rec.payload));
       if (!parsed.success) {
         report.skipped++;

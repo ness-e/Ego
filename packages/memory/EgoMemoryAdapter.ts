@@ -747,8 +747,9 @@ export class EgoMemoryAdapter {
         exclude_superseded: true,
       });
 
-      if (hits.length > 0 && hits[0].record) {
-        return this.parseRecord(hits[0].record);
+      const firstHit = hits[0];
+      if (firstHit?.record) {
+        return this.parseRecord(firstHit.record);
       }
 
       return null;
@@ -1033,12 +1034,13 @@ export class EgoMemoryAdapter {
       }
     }
 
-    if (history[0].createdAt > targetTimestamp) {
+    const firstNode = history[0];
+    if (!firstNode || firstNode.createdAt > targetTimestamp) {
       return null;
     }
 
     const priorNodes = history.filter((n) => n.createdAt <= targetTimestamp);
-    return priorNodes.length > 0 ? priorNodes[priorNodes.length - 1] : null;
+    return priorNodes[priorNodes.length - 1] ?? null;
   }
 
   private unwrapMetadata(metadata?: Record<string, unknown>): Record<string, unknown> {
@@ -1277,8 +1279,10 @@ export class EgoMemoryAdapter {
     const namespacesSeen = new Set<string>();
 
     for (let i = 1; i < rawLines.length; i++) {
+      const rawLine = rawLines[i];
+      if (!rawLine) continue;
       try {
-        const parsed = JSON.parse(rawLines[i]) as MemoryRecord;
+        const parsed = JSON.parse(rawLine) as MemoryRecord;
         if (parsed.namespace && parsed.key) {
           namespacesSeen.add(parsed.namespace);
           recordsToPut.push({

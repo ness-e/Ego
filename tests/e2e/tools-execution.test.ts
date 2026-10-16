@@ -188,7 +188,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
         sessionId,
         turnIndex: 1,
         userPrompt,
-        assistantResponse: loopResult.messages[loopResult.messages.length - 1].content,
+        assistantResponse: loopResult.messages[loopResult.messages.length - 1]?.content ?? "",
         toolExecutions: [
           {
             toolName: "fs_write_file",
@@ -238,6 +238,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
 
     // Paso 12.7: Verificación de Recuperación y Resiliencia en frío tras Reinicio
     const restoredAdapter = new EgoMemoryAdapter(vdbDir);
+    activeAdapter = restoredAdapter;
     await restoredAdapter.init();
     expect(restoredAdapter.ready).toBe(true);
 
@@ -249,9 +250,9 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
     });
     expect(restoredTurn).toBeDefined();
     expect(restoredTurn.sessionId).toBe(sessionId);
-    expect(restoredTurn.toolExecutions[0].toolName).toBe("fs_write_file");
-    expect(restoredTurn.toolExecutions[0].output.success).toBe(true);
-    expect(path.normalize(restoredTurn.toolExecutions[0].output.path)).toBe(path.normalize(targetFilePath));
+    expect(restoredTurn.toolExecutions[0]!.toolName).toBe("fs_write_file");
+    expect(restoredTurn.toolExecutions[0]!.output.success).toBe(true);
+    expect(path.normalize(restoredTurn.toolExecutions[0]!.output.path)).toBe(path.normalize(targetFilePath));
     expect(restoredTurn.messages.length).toBe(loopResult.messages.length);
 
     // 2. Recuperar artefacto persistido
@@ -279,7 +280,8 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
     expect(searchResults.length).toBeGreaterThan(0);
 
     await restoredAdapter.close();
-  });
+    activeAdapter = null;
+  }, 30000);
 
   it("Variante B: Rechazo Humano en HITL (La herramienta NO se ejecuta, el archivo NO se crea y la negativa se audita)", async () => {
     activeAdapter = new EgoMemoryAdapter(vdbDir);
@@ -359,7 +361,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
 
     await activeAdapter.close();
     activeAdapter = null;
-  });
+  }, 30000);
 
   it("Variante C: Edición Humana de Parámetros previa a Aprobación (Ejecuta con argumentos saneados)", async () => {
     activeAdapter = new EgoMemoryAdapter(vdbDir);
@@ -427,7 +429,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
 
     await activeAdapter.close();
     activeAdapter = null;
-  });
+  }, 30000);
 
   it("Variante D: Detección Causal contra Man-in-the-Middle (COUC-03)", async () => {
     const registry = new ToolRegistry();

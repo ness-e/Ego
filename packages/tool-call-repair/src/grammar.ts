@@ -28,19 +28,22 @@ export function scanPlainTextToolCalls(text: string): ParsedToolCallBlock[] {
   while ((match = xmlFunctionRegex.exec(text)) !== null) {
     const name = match[1];
     const body = match[2];
+    if (!name || body === undefined) continue;
     // Extraer parámetros si están en formato <parameter=key>value</parameter>
     const paramRegex = /<parameter=([a-zA-Z0-9_\-]+)>([\s\S]*?)<\/parameter>/g;
     const argsObj: Record<string, unknown> = {};
     let paramMatch: RegExpExecArray | null;
     let foundParams = false;
     while ((paramMatch = paramRegex.exec(body)) !== null) {
-      foundParams = true;
       const key = paramMatch[1];
-      const val = paramMatch[2].trim();
+      const val = paramMatch[2];
+      if (!key || val === undefined) continue;
+      foundParams = true;
+      const trimmedVal = val.trim();
       try {
-        argsObj[key] = JSON.parse(val);
+        argsObj[key] = JSON.parse(trimmedVal);
       } catch {
-        argsObj[key] = val;
+        argsObj[key] = trimmedVal;
       }
     }
 
@@ -58,10 +61,12 @@ export function scanPlainTextToolCalls(text: string): ParsedToolCallBlock[] {
   // 2. Detección Tool-call tag: <tool_call>...</tool_call>
   const toolCallTagRegex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
   while ((match = toolCallTagRegex.exec(text)) !== null) {
-    const body = match[1].trim();
+    const body = match[1];
+    if (!body) continue;
+    const trimmedBody = body.trim();
     // Intenta extraer JSON interno
     try {
-      const parsed = JSON.parse(body);
+      const parsed = JSON.parse(trimmedBody);
       if (parsed && typeof parsed === "object" && typeof parsed.name === "string") {
         results.push({
           name: parsed.name,
@@ -80,11 +85,13 @@ export function scanPlainTextToolCalls(text: string): ParsedToolCallBlock[] {
   const bracketToolRegex = /\[(?:tool:\s*)?([a-zA-Z0-9_\-]+)\s*\n?([\s\S]*?)\]/g;
   while ((match = bracketToolRegex.exec(text)) !== null) {
     const name = match[1];
-    const rawArgs = match[2].trim();
-    if (rawArgs.startsWith("{") && rawArgs.endsWith("}")) {
+    const rawArgs = match[2];
+    if (!name || !rawArgs) continue;
+    const trimmedArgs = rawArgs.trim();
+    if (trimmedArgs.startsWith("{") && trimmedArgs.endsWith("}")) {
       results.push({
         name,
-        argumentsRaw: rawArgs,
+        argumentsRaw: trimmedArgs,
         syntax: "bracket",
         startIndex: match.index,
         endIndex: match.index + match[0].length,
@@ -95,9 +102,11 @@ export function scanPlainTextToolCalls(text: string): ParsedToolCallBlock[] {
   // 4. Detección Markdown Code Fence con objeto conteniendo name/tool:
   const markdownFenceRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
   while ((match = markdownFenceRegex.exec(text)) !== null) {
-    const inner = match[1].trim();
+    const inner = match[1];
+    if (!inner) continue;
+    const trimmedInner = inner.trim();
     try {
-      const parsed = JSON.parse(inner);
+      const parsed = JSON.parse(trimmedInner);
       if (parsed && typeof parsed === "object") {
         const candidateName = parsed.name ?? parsed.tool ?? parsed.tool_name;
         if (typeof candidateName === "string") {

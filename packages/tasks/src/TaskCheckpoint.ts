@@ -109,7 +109,7 @@ export class TaskCheckpointManager {
       }
       return b.stepIndex - a.stepIndex;
     });
-    return validRecords[0];
+    return validRecords[0] ?? null;
   }
 
   public async clearCheckpoints(taskId: string): Promise<void> {

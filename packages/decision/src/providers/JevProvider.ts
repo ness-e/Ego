@@ -69,7 +69,7 @@ export class JevProvider implements DecisionScorerProvider {
       const latencyMs = Math.round(performance.now() - startTime);
 
       return {
-        chosenOption: data.chosen ?? request.options[0],
+        chosenOption: data.chosen ?? request.options[0] ?? "",
         confidence: typeof data.confidence === 'number' ? data.confidence : 0.8,
         scores: data.scores ?? {},
         latencyMs
