@@ -111,7 +111,7 @@ describe("FIND-11-02: Escape colapsa la flotante (vista local)", () => {
     document.body.focus();
     await pressKeyAct("Escape");
     expect(main()?.dataset.attention).toBe("compact");
-    const mute = main()?.querySelector("button");
+    const mute = main()?.querySelector("button[data-mute]");
     expect(mute).not.toBeNull();
     expect(document.activeElement).toBe(mute);
   });
