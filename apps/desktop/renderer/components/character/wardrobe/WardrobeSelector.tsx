@@ -258,7 +258,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
   };
 
   return (
-    <div className="flex flex-col bg-panel border border-hairline rounded-2xl p-5 shadow-lg max-w-xl w-full text-xs select-none">
+    <div className="flex flex-col bg-panel border border-hairline rounded-2xl p-5 shadow-lg max-w-2xl w-full text-xs select-none">
       {/* Cabecera */}
       <div className="flex items-center justify-between pb-3 border-b border-hairline mb-4">
         <div className="flex items-center gap-2">
@@ -271,11 +271,11 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Panel izquierdo: Preview viva del Avatar en grande (size=96) con Robot Studio 2.5D */}
+        {/* Panel izquierdo: Preview viva del Avatar en grande (size=140) con Robot Studio 2.5D */}
         <div className="flex flex-col items-center justify-between p-4 bg-paper rounded-xl border border-hairline">
           <div className="flex flex-col items-center justify-center w-full">
             <div
-              className="h-28 w-28 flex items-center justify-center overflow-hidden cursor-pointer rounded-2xl bg-raised/50 border border-hairline p-2 mb-2"
+              className="w-44 h-44 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-2xl flex items-center justify-center overflow-hidden cursor-pointer p-2 mb-2"
               onClick={() => {
                 const el = studioAvatarRef.current as any;
                 if (el && typeof el.play === "function") {
@@ -288,13 +288,13 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
                 ref: studioAvatarRef,
                 seed: subEgoId,
                 state: previewState === "happy" ? "finished" : previewState,
-                size: "96",
+                size: "140",
                 mode: currentConfig.baseForm === "delta-core" ? "svg" : "studio",
                 preset: currentConfig.studioPreset || "cx-faithful",
                 "pointer-follow": "true",
                 sound: "false",
                 motion: "auto",
-                style: { width: "96px", height: "96px", display: "block" },
+                style: { width: "140px", height: "140px", display: "block" },
               })}
             </div>
             <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 font-semibold">

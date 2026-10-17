@@ -383,6 +383,7 @@ export class EgoAvatar extends ElementBase {
     // HybridRobotAvatar). El backend pesado lo crea el host por demanda.
     this._renderMode = 'svg';
     this._studioHost = null;
+    this._resizeObserver = null;
   }
 
   /* ─── ciclo de vida ─────────────────────────────────────────── */
@@ -474,6 +475,8 @@ export class EgoAvatar extends ElementBase {
     this.removeEventListener?.('click', this._onHostClick);
     this.removeEventListener?.('keydown', this._onKeyDown);
     this._n.svg?.removeEventListener?.('pointerdown', this._onDragStart);
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = null;
     this._studioHost?.detach();
     this._studioHost = null;
     this._sound.idle(); // el contexto de audio no debe quedar girando solo
@@ -570,6 +573,8 @@ export class EgoAvatar extends ElementBase {
 
   _mount() {
     if (this._isStudio()) return this._mountStudio();
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = null;
     this._studioHost?.detach();
     this._studioHost = null;
     if (typeof document === 'undefined' || typeof this.attachShadow !== 'function') return;
@@ -717,6 +722,13 @@ export class EgoAvatar extends ElementBase {
     }
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this._onVisibility);
+    }
+    if (typeof ResizeObserver !== 'undefined' && canvas) {
+      this._resizeObserver?.disconnect();
+      this._resizeObserver = new ResizeObserver(() => {
+        this._studioHost?.resize();
+      });
+      this._resizeObserver.observe(canvas);
     }
     this._mounted = true;
   }

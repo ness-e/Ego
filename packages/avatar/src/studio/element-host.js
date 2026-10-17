@@ -65,6 +65,7 @@ export class StudioHost {
     this.pointerOn = true;
     this.soundOn = true;
     this.userScale = 1; // multiplicador sobre el auto-encuadre
+    this._pendingPreset = null; // preset fijado antes de que cargue el motor
     this._pendingParams = {}; // params fijados antes de que cargue el motor
     this._dead = false;
   }
@@ -96,6 +97,16 @@ export class StudioHost {
         backend.parallaxIntensity = this.pointerOn ? 1 : 0;
         this.sound = sound;
         this.backend = backend;
+        this.syncGenome();
+        const presetToApply = this._pendingPreset || this.el?.getAttribute?.('preset');
+        if (presetToApply && STUDIO_PRESET_NAMES.includes(presetToApply)) {
+          const effective = presetToApply === 'coucou-mochi' ? 'cx-faithful' : presetToApply;
+          try {
+            backend.applyPreset(effective);
+          } catch {
+            /* preset inválido tolerado */
+          }
+        }
         // params pendientes (fijados antes de cargar) + encuadre
         for (const [k, v] of Object.entries(this._pendingParams)) {
           if (k === 'userScale') this.userScale = Number(v) || 1;
@@ -109,7 +120,6 @@ export class StudioHost {
         }
         this._pendingParams = {};
         this._sizeBackend();
-        this.syncGenome();
         // montaje silencioso: el estado ya lo tiene el elemento
         this.expect = studioStateForEgo(this.el.getState ? this.el.getState() : 'idle');
         try {
@@ -143,8 +153,9 @@ export class StudioHost {
     } catch {
       rect = null;
     }
-    const w = Math.max(1, Math.round((rect && rect.width) || c.clientWidth || 300));
-    const h = Math.max(1, Math.round((rect && rect.height) || c.clientHeight || 300));
+    const fallbackSize = parseFloat(this.el?.getAttribute?.('size')) || 120;
+    const w = Math.max(1, Math.round((rect && rect.width) || c.clientWidth || fallbackSize));
+    const h = Math.max(1, Math.round((rect && rect.height) || c.clientHeight || fallbackSize));
     try {
       c.width = Math.round(w * dpr);
       c.height = Math.round(h * dpr);
@@ -153,21 +164,23 @@ export class StudioHost {
     }
     const b = this.backend;
     if (!b) return;
-    if (b.ctx && typeof b.ctx.setTransform === 'function') {
-      try {
-        b.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      } catch {
-        /* ctx stub */
+    if (b.ctx) {
+      if (typeof b.ctx.setTransform === 'function') {
+        try {
+          b.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        } catch {
+          /* ctx stub */
+        }
       }
+      b.ctx.imageSmoothingEnabled = true;
+      b.ctx.imageSmoothingQuality = 'high';
     }
     b.width = w;
     b.height = h;
     b.homeX = w / 2;
-    b.homeY = h / 2;
-    // auto-encuadre: el avatar del studio mide ~240 px con manos fuera;
-    // se escala para que quepa entero en el elemento (el override manual de
-    // globalScale queda para la demo a pantalla completa, no para el elemento)
-    b.globalScale = (Math.min(w, h) / 240) * (Number(this.userScale) || 1);
+    b.homeY = h * 0.54; // deja espacio arriba para antenas/coronas
+    // auto-encuadre: escala para que quepa entero con antena, orejas y manos sin cortarse
+    b.globalScale = (Math.min(w, h) / 285) * (Number(this.userScale) || 1);
     if (!b.isDragging) {
       b.x = b.homeX;
       b.y = b.homeY;
@@ -177,6 +190,16 @@ export class StudioHost {
   /** Reaplica genoma/paleta del elemento sobre el backend. */
   syncGenome() {
     if (!this.backend) return false;
+    const activePreset = this._pendingPreset || this.el?.getAttribute?.('preset');
+    if (activePreset && STUDIO_PRESET_NAMES.includes(activePreset)) {
+      const effective = activePreset === 'coucou-mochi' ? 'cx-faithful' : activePreset;
+      try {
+        this.backend.applyPreset(effective);
+        return true;
+      } catch {
+        /* fallback al genoma estándar */
+      }
+    }
     return applyGenomeToStudio(this.backend, this.el._genome, this.el._palette);
   }
 
@@ -320,6 +343,7 @@ export class StudioHost {
   applyPreset(name) {
     if (!STUDIO_PRESET_NAMES.includes(name)) return false;
     const effectiveName = name === 'coucou-mochi' ? 'cx-faithful' : name;
+    this._pendingPreset = effectiveName;
     this._pendingParams = {};
     if (!this.backend) {
       this.ensure();

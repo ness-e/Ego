@@ -4,6 +4,7 @@
 
 import { STUDIO_SOUND_NAMES as STUDIO_SOUNDS } from './sound.js';
 import { MICRO_NAMES as EGO_MICROS } from '../runtime/micro.js';
+import { toHexColor } from './render/helpers.js';
 
 /** Nombres válidos para SoundSynthesizer.play() (conjunto para búsqueda). */
 const STUDIO_SOUND_NAMES = new Set(STUDIO_SOUNDS);
@@ -79,8 +80,8 @@ export function studioConfigForGenome(genome, palette = {}) {
   const roundness = Number.isFinite(shape.roundness) ? shape.roundness : 50;
   return {
     variantMode: 'cx-faithful',
-    bodyColor: palette.ink || '#1e222d',
-    eyeColor: palette.accent || '#dbf59d',
+    bodyColor: toHexColor(palette.ink, '#1e222d'),
+    eyeColor: toHexColor(palette.accent, '#dbf59d'),
     autoStateColors: true,
     eyeStyle: 'cx-led',
     mouthStyle: 'none',

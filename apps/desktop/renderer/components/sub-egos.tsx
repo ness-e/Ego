@@ -404,7 +404,9 @@ export function SubEgosView() {
                 <div>
                   <div className="mb-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <CharacterBadge subEgoId={se.id} size={40} state="idle" animated={true} />
+                      <div className="w-16 h-16 rounded-2xl bg-[#0d0f17] border border-white/10 shadow-inner flex items-center justify-center shrink-0">
+                        <CharacterBadge subEgoId={se.id} size={56} state="idle" animated={true} />
+                      </div>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
                           <h3 className="font-semibold text-ink text-xs leading-tight">{se.name}</h3>

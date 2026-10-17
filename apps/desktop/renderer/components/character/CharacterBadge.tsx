@@ -105,9 +105,12 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   const preset = TraitRegistry.getPreset(subEgoId);
   const badgeTitle = title || preset?.name || subEgoId;
 
-  // Modo por defecto: Robot Studio si size >= 24 (salvo delta-core explícito), SVG si es diminuto (< 24)
+  // Tamaño visual ampliado para encuadre y nitidez de estudio
+  const displaySize = size < 36 ? Math.max(size + 10, 36) : size;
+
+  // Modo por defecto: Robot Studio siempre (salvo que explícitamente mode === "svg" o baseForm === "delta-core")
   const effectiveMode: "svg" | "studio" =
-    mode ?? (baseForm === "delta-core" ? "svg" : size >= 24 ? "studio" : "svg");
+    mode ?? (baseForm === "delta-core" ? "svg" : "studio");
   const studioPreset = subEgoIdToStudioPreset(subEgoId);
   const avatarState = mapCharacterStateToAvatarState(state);
 
@@ -169,21 +172,21 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
       transition={reduceMotion ? { duration: 0 } : { duration: MOTION.surface }}
       role="img"
       aria-label={badgeTitle}
-      className={`inline-flex items-center justify-center overflow-hidden shrink-0 select-none cursor-pointer ${className}`}
+      className={`inline-flex items-center justify-center shrink-0 select-none cursor-pointer rounded-xl bg-[#11131a]/90 border border-white/[0.08] shadow-inner overflow-visible p-0.5 ${className}`}
       title={badgeTitle}
       data-morph="wrapped"
       onClick={handleClick}
       style={
         reduceMotion
-          ? { width: `${size}px`, height: `${size}px`, animation: "none" }
-          : { width: `${size}px`, height: `${size}px` }
+          ? { width: `${displaySize}px`, height: `${displaySize}px`, animation: "none" }
+          : { width: `${displaySize}px`, height: `${displaySize}px` }
       }
     >
       {React.createElement("ego-avatar", {
         ref: avatarRef,
         seed: subEgoId,
         state: avatarState,
-        size: String(size),
+        size: String(displaySize),
         mode: effectiveMode,
         preset: studioPreset,
         "pointer-follow": animated ? "true" : "false",
