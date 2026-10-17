@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
-import { TerminalWindow, MagnifyingGlass, SidebarSimple } from "@phosphor-icons/react";
+import { TerminalWindow, SidebarSimple } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
-import { Omnibar, requestOpenOmnibar } from "../components/omnibar";
+import { Omnibar } from "../components/omnibar";
 import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
 import { Sidebar } from "../components/sidebar";
 import { SubEgoSelector } from "../components/SubEgoSelector";
@@ -14,10 +14,7 @@ import { ActivityTray } from "../components/activity-tray/ActivityTray";
 import { DomainSelector, type DomainMeta } from "../components/domains/DomainSelector";
 import { getSharedCanvasBridge } from "../hooks/useCanvasBridge.js";
 
-// STAB-09: code-splitting por vista del workspace. Los paneles pesados
-// (Canvas/Daily/SubEgos/Domains) cargan bajo demanda; el shell + chat +
-// workbench quedan en el chunk inicial. Los chunks `vendor-*` de
-// `manualChunks` no se tocan (solo particionan `node_modules`).
+// STAB-09: code-splitting por vista del workspace.
 const CanvasRuntime = lazy(() =>
   import("../components/canvas/CanvasRuntime").then((m) => ({ default: m.CanvasRuntime }))
 );
@@ -32,12 +29,14 @@ const DomainCanvasView = lazy(() =>
     default: m.DomainCanvasView,
   }))
 );
-// STAB-09 nota de alcance: el contrato nombra 4 paneles; WorkbenchView (5º
-// tab del mismo workspace) se incluye con el mismo patrón porque el entry
-// superaba el budget DIST-03 de 1MB por 0.15% con solo 4 lazy.
 const WorkbenchView = lazy(() =>
   import("../components/canvas/WorkbenchView.js").then((m) => ({
     default: m.WorkbenchView,
+  }))
+);
+const PersonalizationView = lazy(() =>
+  import("../components/personalization/PersonalizationView.js").then((m) => ({
+    default: m.PersonalizationView,
   }))
 );
 
@@ -67,9 +66,6 @@ const CANONICAL_DOMAINS: DomainMeta[] = [
 
 function ThemeControl() {
   const { tokens, applyPreset, availablePresets } = useDesignSystem();
-  // T05: el select trabaja con CLAVES de preset; el value anterior
-  // (tokens.id, p.ej. "theme-default-dark") no matcheaba ninguna option y
-  // los presets no conmutaban desde la UI.
   const presetKeys = Object.keys(availablePresets);
   const selectedKey =
     presetKeys.find((k) => availablePresets[k]?.id === tokens.id) ?? "default-dark";
@@ -98,26 +94,28 @@ export function App() {
   const [activeProject, setActiveProject] = useState("default");
   const [activeSubEgo, setActiveSubEgo] = useState("ego.nucleus");
   const [activeDomainId, setActiveDomainId] = useState("engineering");
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"daily" | "domains" | "canvas" | "workbench" | "subegos">("daily");
-  const [workspaceOpen, setWorkspaceOpen] = useState<boolean>(true);
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<
+    "daily" | "domains" | "canvas" | "workbench" | "subegos" | "personalization"
+  >("daily");
+
+  // Inicia en false por defecto para una vista de Chat pura y despejada (estilo ChatGPT/Claude Desktop)
+  const [workspaceOpen, setWorkspaceOpen] = useState<boolean>(false);
   const [sessionNonce, setSessionNonce] = useState(0);
-  // T06: el SplitPane dimensiona el sidebar; el colapso lo notifica Sidebar.
+
+  // SplitPane dimensiona el sidebar; el colapso lo notifica Sidebar.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // A4: inspector derecho colapsado por defecto (SplitPane reutilizado,
-  // sin tocar PaneShell). Toggle en la workspace bar + Ctrl+I.
+
+  // Inspector derecho colapsado por defecto.
   const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
+
   const modelPickerOpen = useUiStore((s) => s.modelPickerOpen);
   const activeModelId = useUiStore((s) => s.activeModelId);
-  // T18: la sesión activa vive en el store (la fija el resume del Sidebar);
-  // EgoChat la hidrata vía `sessions.get` al cambiar.
   const activeSessionId = useUiStore((s) => s.activeSessionId);
   const activeModelName =
     CANONICAL_MODELS.find((m) => m.id === activeModelId)?.name ?? activeModelId;
 
   const handleSelectModel = async (model: ModelOption) => {
     useUiStore.getState().setActiveModelId(model.id);
-    // T06: persiste solo modelName (el provider lo gobierna BYOK/settings,
-    // Task 8). El ModelRouter real vive en main y lee esta config.
     try {
       const cfg = await ego().settings.getModelConfig();
       await ego().settings.saveModelConfig({ ...cfg, modelName: model.id });
@@ -127,7 +125,6 @@ export function App() {
   };
 
   useEffect(() => {
-    // T06: restaura el modelo persistido si matchea el catálogo canónico.
     ego()
       .settings.getModelConfig()
       .then((cfg) => {
@@ -139,8 +136,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    // T14: restore del proyecto activo + sincronía del dominio con el backend
-    // (puentes T13). Sin bridge o ante error: se conservan los defaults locales.
     let cancelled = false;
     ego()
       .projects.getActive()
@@ -170,7 +165,6 @@ export function App() {
   }, []);
 
   const handleSelectProject = useCallback((p: string) => {
-    // T14: persistir el cambio (Sidebar también lo persiste; doble llamada inocua).
     setActiveProject(p);
     void ego()
       .projects.select(p)
@@ -178,7 +172,6 @@ export function App() {
   }, []);
 
   const handleSelectDomain = useCallback((d: string) => {
-    // T14: DomainSelector → `ego().domains.switch(d)` (puente T13).
     setActiveDomainId(d);
     setActiveWorkspaceTab("domains");
     setWorkspaceOpen(true);
@@ -188,7 +181,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    // Atajos de teclado: Ctrl+I (inspector) y Ctrl+\ (conmutar Workspace)
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
         e.preventDefault();
@@ -204,33 +196,29 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    // Al abrir Ego: si es el primer inicio del día, abrir en Daily State (COUC-06).
-    // Si no, restaurar última pestaña ("canvas" por defecto).
-    const ego = window.ego;
-    if (ego?.daily?.isFirstLaunch) {
-      ego.daily.isFirstLaunch().then((res) => {
-        if (res?.ok && res.isFirstLaunch) {
-          setActiveWorkspaceTab("daily");
-        } else {
+    const egoBridge = window.ego;
+    if (egoBridge?.daily?.isFirstLaunch) {
+      egoBridge.daily
+        .isFirstLaunch()
+        .then((res) => {
+          if (res?.ok && res.isFirstLaunch) {
+            setActiveWorkspaceTab("daily");
+          } else {
+            setActiveWorkspaceTab("canvas");
+          }
+        })
+        .catch(() => {
           setActiveWorkspaceTab("canvas");
-        }
-      }).catch(() => {
-        setActiveWorkspaceTab("canvas");
-      });
+        });
     }
   }, []);
 
   const handleNewSession = () => {
-    // 2026-10-15: hilo nuevo = id fresco (antes null → los turnos caían al
-    // bucket del lifecycle y el historial por sesión jamás se acumulaba).
-    // El remount por nonce no rehidrata nada: el id aún no tiene turnos.
     useUiStore.getState().setActiveSessionId(mintSessionId());
     setSessionNonce((prev) => prev + 1);
   };
 
   useEffect(() => {
-    // 2026-10-15: continuidad del hilo entre arranques. Si nunca hubo uno,
-    // se acuña (todo lo escrito queda namespaced y reanudable desde el picker).
     if (!useUiStore.getState().activeSessionId) {
       useUiStore.getState().setActiveSessionId(loadPersistedSessionId() ?? mintSessionId());
     }
@@ -239,53 +227,76 @@ export function App() {
   return (
     <DesignSystemProvider>
       <div className="flex h-screen w-screen flex-col bg-paper text-ink overflow-hidden font-sans select-none">
-        {/* 1. System Chrome Header con Ego Activity Widget Integrado + Omnibar Capsule */}
-        <header className="flex h-11 shrink-0 items-center justify-between border-b border-hairline bg-panel/95 backdrop-blur-md px-4 app-region-drag select-none z-10 gap-3">
-          {/* Identidad de la App */}
+        {/* =========================================================================
+            1. Chrome Superior Minimalista (Estilo ChatGPT / Claude Desktop)
+            ========================================================================= */}
+        <header className="flex h-11 shrink-0 items-center justify-between border-b border-hairline bg-panel/95 backdrop-blur-md px-3 app-region-drag select-none z-10 gap-3">
+          {/* Identidad de la App + Toggle de Sidebar */}
           <div className="flex items-center gap-2.5 app-region-no-drag shrink-0">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ink shadow-xs">
-              <span className="font-mono text-[10px] font-bold text-paper">E</span>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5 leading-none">
-                <span className="text-xs font-semibold tracking-tight text-ink">Ego</span>
-                <span className="rounded-full bg-brand/15 border border-brand/30 px-1.5 py-0.2 font-mono text-[9px] font-semibold text-brand">
-                  SOC
-                </span>
-              </div>
-              <span className="text-[10px] text-dim leading-none pt-0.5">Cognitive OS</span>
-            </div>
-          </div>
-
-          {/* Omnibar Launcher Capsule interactivo estilo Raycast/Linear */}
-          <div className="flex items-center justify-center app-region-no-drag flex-1 max-w-md px-2">
             <button
               type="button"
-              onClick={() => requestOpenOmnibar()}
-              aria-label="Abrir Omnibar de búsqueda federada"
-              title="Búsqueda federada (Ctrl+K)"
-              className="flex w-full max-w-[340px] items-center justify-between rounded-full border border-hairline bg-raised/80 hover:bg-raised px-3 py-1 text-xs text-faint transition-all duration-150 hover:border-strong hover:text-ink shadow-xs cursor-pointer group"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              title="Mostrar / Ocultar panel lateral (Ctrl+B)"
+              aria-label="Conmutar barra lateral"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-dim hover:text-ink hover:bg-raised/70 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-2 truncate">
-                <MagnifyingGlass size={13} className="text-dim group-hover:text-brand transition-colors shrink-0" />
-                <span className="truncate text-[11px]">Buscar en memoria, comandos y herramientas...</span>
-              </div>
-              <kbd className="ml-2 shrink-0 rounded bg-panel px-1.5 py-0.5 font-mono text-[10px] text-dim border border-hairline/80 shadow-2xs">
-                Ctrl+K
-              </kbd>
+              <SidebarSimple size={15} />
             </button>
+
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ink shadow-xs">
+                <span className="font-mono text-[10px] font-bold text-paper">E</span>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="text-xs font-semibold tracking-tight text-ink">Ego</span>
+                  <span className="rounded-full bg-brand/15 border border-brand/30 px-1.5 py-0.2 font-mono text-[9px] font-semibold text-brand">
+                    SOC
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Ego Activity Widget + Selector de Modelo Activo + Status */}
-          <div className="flex items-center gap-2.5 text-xs text-faint app-region-no-drag shrink-0">
+          {/* Segmented Pill Toggle Central [ Chat | Work ] */}
+          <div className="flex items-center justify-center app-region-no-drag flex-1 max-w-xs mx-auto">
+            <div className="flex items-center p-0.5 rounded-full bg-[#202024] border border-white/[0.08] shadow-inner text-xs">
+              <button
+                type="button"
+                onClick={() => setWorkspaceOpen(false)}
+                className={`rounded-full px-4 py-1 text-xs font-medium transition-all cursor-pointer ${
+                  !workspaceOpen
+                    ? "bg-white/10 text-white font-semibold shadow-xs"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkspaceOpen(true)}
+                className={`rounded-full px-4 py-1 text-xs font-medium transition-all cursor-pointer ${
+                  workspaceOpen
+                    ? "bg-white/10 text-white font-semibold shadow-xs"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Work
+              </button>
+            </div>
+          </div>
+
+          {/* Lado Derecho: Selector de Modelo Activo + Status + Isla */}
+          <div className="flex items-center gap-2 text-xs text-faint app-region-no-drag shrink-0">
             <ActivityWidget />
-            {/* T06: ModelPicker montado en el header (proveedor real vía settings) */}
+
+            {/* Selector de modelo activo (requerido por App.test.tsx) */}
             <button
               type="button"
               onClick={() => useUiStore.getState().openModelPicker()}
               title="Selector de modelo (Model Router)"
               aria-label="Selector de modelo activo"
-              className="flex max-w-[220px] items-center gap-2 rounded-full border border-hairline bg-raised/90 hover:bg-raised px-2.5 py-1 font-mono text-[10px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
+              className="flex max-w-[200px] items-center gap-2 rounded-full border border-hairline bg-raised/90 hover:bg-raised px-2.5 py-1 font-mono text-[10px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
             >
               <span className="relative flex h-2 w-2 items-center justify-center shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
@@ -298,12 +309,12 @@ export function App() {
             <button
               type="button"
               onClick={() => (window as any).ego?.floating?.toggleFloating?.()}
-              title="Mostrar/Ocultar Isla Flotante Companion"
+              title="Mostrar/Ocultar Isla Flotante Companion (Alt+Win+P)"
               aria-label="Mostrar u ocultar Isla Flotante"
               className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised/80 hover:bg-raised px-2.5 py-1 font-sans text-[11px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
             >
               <span>🏝️</span>
-              <span className="font-medium">Isla</span>
+              <span className="font-medium hidden sm:inline">Isla</span>
             </button>
 
             {/* Botón Alternar Workspace */}
@@ -322,12 +333,9 @@ export function App() {
               <SidebarSimple size={13} className="rotate-180" />
               <span>Workspace</span>
             </button>
-
-            <span className="hidden xl:inline-flex font-mono text-[10px] text-dim pl-1">
-              Local-First · NativeVantaDB
-            </span>
           </div>
         </header>
+
         <ModelPicker
           isOpen={modelPickerOpen}
           activeModelId={activeModelId}
@@ -335,18 +343,18 @@ export function App() {
           onSelectModel={(m) => void handleSelectModel(m)}
         />
 
-        {/* 2. Workspace Dinámico con Sidebar Integrado (Cognitive OS) */}
+        {/* =========================================================================
+            2. Contenedor Principal (Dual-Rail Sidebar + Chat + Dynamic Workspace)
+            ========================================================================= */}
         <main className="flex flex-1 min-h-0 min-w-0 divide-x divide-hairline">
           {/* Panel 0: Cognitive Navigation Sidebar (Dual Rail & Drawer) */}
-          {/* T06: SplitPane real con persistencia (antes solo en tests). El key
-              re-ancla el ancho al colapsar/expandir (documentado en T06.md). */}
           <SplitPane
             key={sidebarCollapsed ? "sidebar-rail" : "sidebar-full"}
             id="app-sidebar"
             side="left"
-            defaultWidth={sidebarCollapsed ? 54 : 260}
-            minWidth={sidebarCollapsed ? 54 : 200}
-            maxWidth={420}
+            defaultWidth={sidebarCollapsed ? 48 : 288}
+            minWidth={sidebarCollapsed ? 48 : 240}
+            maxWidth={440}
           >
             <Sidebar
               activeProject={activeProject}
@@ -355,6 +363,13 @@ export function App() {
               onSelectSubEgo={(e) => setActiveSubEgo(e)}
               onNewSession={handleNewSession}
               onCollapsedChange={setSidebarCollapsed}
+              activeWorkspaceTab={activeWorkspaceTab}
+              onSelectWorkspaceTab={(tab) => {
+                setActiveWorkspaceTab(tab);
+                setWorkspaceOpen(true);
+              }}
+              onCloseWorkspace={() => setWorkspaceOpen(false)}
+              workspaceOpen={workspaceOpen}
             />
           </SplitPane>
 
@@ -376,7 +391,6 @@ export function App() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                {/* Selector de modelo en el chat: escribe settings.modelName */}
                 <select
                   aria-label="Modelo del chat"
                   title="Modelo del chat (Model Router)"
@@ -387,7 +401,6 @@ export function App() {
                   }
                   onChange={(e) => {
                     const found = CANONICAL_MODELS.find((m) => m.id === e.target.value);
-                    // La opción custom es el valor actual: elegirla es no-op.
                     if (found) void handleSelectModel(found);
                   }}
                   className="ego-pill-select font-mono text-[10px] max-w-[140px] truncate text-dim hover:text-ink border border-hairline bg-raised/60 rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
@@ -408,10 +421,15 @@ export function App() {
             </div>
           </section>
 
-          {/* Panel 2: Dynamic Canvas (Superficie de Trabajo Interactiva) */}
+          {/* Panel 2: Dynamic Canvas (Superficie de Trabajo Interactiva)
+              Accesible en el DOM para pruebas y screen readers vía sr-only cuando workspaceOpen es false */}
           <section
             aria-label="Área de trabajo dinámica"
-            className={workspaceOpen ? "flex flex-1 flex-col min-w-0 bg-panel" : "hidden"}
+            className={
+              workspaceOpen
+                ? "flex flex-1 flex-col min-w-0 bg-panel transition-all duration-200"
+                : "sr-only"
+            }
           >
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-4 text-xs text-faint gap-2 overflow-x-auto min-w-0">
               <div className="flex items-center gap-2 shrink-0">
@@ -440,7 +458,7 @@ export function App() {
                 >
                   Inspector
                 </button>
-                {/* Segmented Control / Pill Bar moderno para pestañas del workspace */}
+                {/* Segmented Control para pestañas del workspace */}
                 <nav
                   aria-label="Navegación de vistas del espacio de trabajo"
                   className="flex items-center p-0.5 rounded-lg bg-raised/80 border border-hairline gap-0.5 shrink-0"
@@ -510,9 +528,23 @@ export function App() {
                   >
                     Sub-Egos Fábrica
                   </button>
+                  <button
+                    onClick={() => {
+                      setActiveWorkspaceTab("personalization");
+                      setWorkspaceOpen(true);
+                    }}
+                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
+                      activeWorkspaceTab === "personalization"
+                        ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
+                        : "text-dim hover:text-ink hover:bg-panel/40"
+                    }`}
+                  >
+                    Personalización
+                  </button>
                 </nav>
               </div>
             </div>
+
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
               {activeWorkspaceTab === "daily" && (
                 <Suspense fallback={<WorkspaceSkeleton label="Daily State" />}>
@@ -539,11 +571,15 @@ export function App() {
                   <SubEgosView />
                 </Suspense>
               )}
+              {activeWorkspaceTab === "personalization" && (
+                <Suspense fallback={<WorkspaceSkeleton label="Personalización" />}>
+                  <PersonalizationView />
+                </Suspense>
+              )}
             </div>
           </section>
 
-          {/* A4: Inspector derecho (SplitPane reutilizado, colapsado por
-              defecto). Superficie de detalle del hilo activo con tarjetas volumétricas L2. */}
+          {/* Inspector derecho (SplitPane) */}
           <SplitPane
             id="app-inspector"
             side="right"
@@ -591,7 +627,7 @@ export function App() {
 
         {/* 3. Bandeja de Actividad en Segundo Plano (Footer) */}
         <ActivityTray />
-        {/* T08: omnibar federado global (Ctrl+K / Ctrl+,). */}
+        {/* Omnibar federado global (Ctrl+K / Ctrl+,) */}
         <Omnibar />
       </div>
     </DesignSystemProvider>

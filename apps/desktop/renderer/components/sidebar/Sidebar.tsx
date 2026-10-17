@@ -1,25 +1,33 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
+  House,
+  Robot,
+  ClockCounterClockwise,
+  Books,
+  PuzzlePiece,
+  DotsThree,
   SidebarSimple,
   Plus,
   MagnifyingGlass,
   FolderSimple,
   FolderSimpleStar,
-  Users,
   ChatCircle,
   PlugsConnected,
   Gear,
-  HardDrive,
+  ChartBar,
+  Sparkle,
+  PaintBrush,
+  CaretDown,
 } from "@phosphor-icons/react";
 import { McpManagerModal } from "../mcp/McpManagerModal.js";
 import { SessionPicker, type SessionItem } from "../SessionPicker.js";
 import { useUiStore } from "../ui-kit/store.js";
 import { ego, type SubEgoDetailInfo, type ProjectInfo, type SessionSummary } from "../../lib/ego.js";
 import { CharacterBadge } from "../character/CharacterBadge.js";
-import { OPEN_SETTINGS_EVENT } from "../omnibar.js";
-import { requestOpenOmnibar } from "../omnibar.js";
+import { OPEN_SETTINGS_EVENT, requestOpenOmnibar } from "../omnibar.js";
 import { SettingsModal } from "./SettingsModal.js";
 import { ProjectsModal } from "./ProjectsModal.js";
+import { useDesignSystem } from "../canvas/DesignSystemProvider.js";
 
 export interface SidebarProps {
   activeProject: string;
@@ -29,14 +37,13 @@ export interface SidebarProps {
   onNewSession: () => void;
   /** T06: notifica colapsos para que App dimensione el SplitPane. */
   onCollapsedChange?: (collapsed: boolean) => void;
+  // Navegación rápida de workspace hacia App.tsx
+  activeWorkspaceTab?: "daily" | "domains" | "canvas" | "workbench" | "subegos" | "personalization";
+  onSelectWorkspaceTab?: (tab: "daily" | "domains" | "canvas" | "workbench" | "subegos" | "personalization") => void;
+  onCloseWorkspace?: () => void;
+  workspaceOpen?: boolean;
 }
 
-/**
- * T14: mapea un `SessionSummary` del puente `sessions.list` (T13) al
- * `SessionItem` del picker. Sin `sessionId` válido → null (vacío honesto).
- * A6: el scope del proyecto viaja en `SessionItem.scope` (ya no se abusa de
- * `subEgoId` para mostrarlo; el picker lo presenta desde `scope`).
- */
 function toSessionItem(s: SessionSummary): SessionItem | null {
   if (!s || typeof s.sessionId !== "string" || s.sessionId.length === 0) return null;
   const turnCount = typeof s.turnCount === "number" && Number.isFinite(s.turnCount) ? s.turnCount : 0;
@@ -50,10 +57,6 @@ function toSessionItem(s: SessionSummary): SessionItem | null {
   };
 }
 
-/**
- * A6: badge de estado VantaDB como componente separado (antes texto inline
- * mezclado con el estado LSM). Solo presentación; sin lógica de negocio.
- */
 function VantaDbBadge() {
   return (
     <div className="flex items-center justify-between px-2 py-1 font-mono text-[10px] text-dim">
@@ -66,13 +69,6 @@ function VantaDbBadge() {
   );
 }
 
-/**
- * T08 (UI-05): sidebar viva. Roster vía `subegos.list()` IPC (sin
- * hardcodeados), proyectos vía `projects.list()` IPC, sesiones vía store +
- * `SessionPicker` real (sin canal `ipc.sessions.*` no hay IPC posible),
- * modales Radix (Settings/Projects), búsqueda delegada al omnibar (Ctrl+K),
- * ajustes vía Ctrl+, . Botones sin acción eliminados (quedan MCP + nuevo).
- */
 export function Sidebar({
   activeProject,
   onSelectProject,
@@ -80,9 +76,14 @@ export function Sidebar({
   onSelectSubEgo,
   onNewSession,
   onCollapsedChange,
+  activeWorkspaceTab,
+  onSelectWorkspaceTab,
+  onCloseWorkspace,
+  workspaceOpen,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isCollapsedRef = useRef(false);
+
   const notifyCollapsed = useCallback(
     (next: boolean) => {
       isCollapsedRef.current = next;
@@ -91,28 +92,47 @@ export function Sidebar({
     },
     [onCollapsedChange]
   );
-  // T12: el rail colapsado expande Y ancla a la sección pedida (nunca botón ciego).
-  const expandAndAnchor = useCallback(
-    (sectionId: string) => {
-      notifyCollapsed(false);
-      requestAnimationFrame(() => {
-        document.getElementById(sectionId)?.scrollIntoView({ block: "nearest" });
-      });
-    },
-    [notifyCollapsed]
-  );
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMcpOpen, setIsMcpOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
 
-  // Ctrl+, global abre ajustes (el omnibar emite `ego:open-settings`).
+  // Popovers del primer Icon Rail
+  const [dotsMenuOpen, setDotsMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const dotsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Design system theme tokens (tolerante cuando se monta standalone en tests)
+  let designSystem: ReturnType<typeof useDesignSystem> | null = null;
+  try {
+    designSystem = useDesignSystem();
+  } catch {
+    designSystem = null;
+  }
+
+  // Cerrar popovers al hacer click fuera
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (dotsRef.current && !dotsRef.current.contains(e.target as Node)) {
+        setDotsMenuOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleOutsideClick);
+    return () => window.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  // Ctrl+, global abre ajustes
   useEffect(() => {
     const onOpenSettings = () => setIsSettingsOpen(true);
     window.addEventListener(OPEN_SETTINGS_EVENT, onOpenSettings);
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, onOpenSettings);
   }, []);
 
-  // Proyectos vivos desde VantaDB (INT-03).
+  // Proyectos vivos desde VantaDB (INT-03)
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const loadProjects = useCallback(async () => {
     try {
@@ -134,7 +154,7 @@ export function Sidebar({
     };
   }, [loadProjects, onSelectProject]);
 
-  // Roster vivo desde IPC (T08: elimina los 4 hardcodeados del monolito).
+  // Roster vivo desde IPC
   const [roster, setRoster] = useState<SubEgoDetailInfo[]>([]);
   const loadRoster = useCallback(async () => {
     try {
@@ -153,7 +173,7 @@ export function Sidebar({
     };
   }, [loadRoster]);
 
-  // Atajos: Ctrl+B colapsa, Ctrl+N nueva sesión (Ctrl+K/, los sirve el omnibar).
+  // Atajos: Ctrl+B colapsa/expande contextual sidebar, Ctrl+N nueva sesión
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
@@ -172,9 +192,7 @@ export function Sidebar({
   const sessionPickerOpen = useUiStore((s) => s.sessionPickerOpen);
   const activeSessionId = useUiStore((s) => s.activeSessionId);
 
-  // T14: sesiones reales de `sessions.list` (puente T13) al picker.
-  // Sin bridge o ante error: vacío honesto (el picker ya lo muestra).
-  // A6: scopeado por proyecto activo (el main filtra por `projectScope`).
+  // Sesiones activas del proyecto
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -209,10 +227,6 @@ export function Sidebar({
     [onSelectProject]
   );
 
-  // T18: resume real — activa la sesión en el lifecycle del main
-  // (`ipc.sessions.resume`: futuros turnos persisten ahí) y fija el id local;
-  // EgoChat hidrata el historial vía `sessions.get`. Fallo → warn sin set
-  // (fail-closed honesto: no se finge sesión activa).
   const handleResumeSession = useCallback(async (id: string) => {
     try {
       const res = await ego().sessions?.resume?.({ sessionId: id });
@@ -226,315 +240,540 @@ export function Sidebar({
     }
   }, []);
 
-  // 1. MODO COLAPSADO (Navigation Rail compacto de 54px)
-  if (isCollapsed) {
-    return (
-      <>
-        <aside
-          aria-label="Navegación principal colapsada"
-          className="flex h-full w-full shrink-0 flex-col items-center justify-between border-r border-hairline bg-panel py-3 select-none"
-        >
-          <div className="flex flex-col items-center gap-4">
+  return (
+    <div className="flex h-full w-full select-none overflow-hidden bg-[#111113]">
+      {/* =========================================================================
+          COLUMNA 1: Icon Rail Fijo (ChatGPT Desktop / Codex / Claude Desktop)
+          ========================================================================= */}
+      <nav
+        aria-label="Icon Rail"
+        className="w-12 shrink-0 bg-[#111113] border-r border-white/[0.06] flex flex-col items-center py-3 justify-between z-20"
+      >
+        {/* Parte Superior del Rail */}
+        <div className="flex flex-col items-center gap-2">
+          {/* Botón para expandir si el segundo sidebar está colapsado */}
+          {isCollapsed && (
             <button
+              type="button"
               onClick={() => notifyCollapsed(false)}
               title="Expandir barra lateral (Ctrl+B)"
               aria-label="Expandir barra lateral"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-faint transition-colors hover:bg-raised hover:text-ink"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer mb-1"
             >
               <SidebarSimple size={18} />
             </button>
-            <button
-              onClick={onNewSession}
-              title="Nueva sesión (Ctrl+N)"
-              aria-label="Nueva sesión"
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-paper shadow-sm transition-opacity hover:opacity-90"
-            >
-              <Plus size={16} weight="bold" />
-            </button>
-            <div className="my-1 h-px w-6 bg-hairline" />
-            <button
-              onClick={() => expandAndAnchor("sidebar-section-projects")}
-              title="Proyectos de Memoria"
-              aria-label="Proyectos de Memoria"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-faint transition-colors hover:bg-raised hover:text-ink"
-            >
-              <FolderSimple size={18} />
-            </button>
-            <button
-              onClick={() => expandAndAnchor("sidebar-section-roster")}
-              title="Roster de Sub-Egos"
-              aria-label="Roster de Sub-Egos"
-              className="relative flex h-8 w-8 items-center justify-center rounded-md text-faint transition-colors hover:bg-raised hover:text-ink"
-            >
-              <Users size={18} />
-              <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            </button>
-            <button
-              onClick={() => useUiStore.getState().openSessionPicker()}
-              title="Historial de Sesiones"
-              aria-label="Historial de Sesiones"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-faint transition-colors hover:bg-raised hover:text-ink"
-            >
-              <ChatCircle size={18} />
-            </button>
-            <button
-              onClick={() => setIsMcpOpen(true)}
-              title="Servidores MCP & Tools"
-              aria-label="Servidores MCP y herramientas"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-faint transition-colors hover:bg-raised hover:text-ink"
-            >
-              <PlugsConnected size={18} />
-            </button>
-          </div>
-          <div className="flex flex-col items-center gap-3">
-            <div
-              title="VantaDB persistente activo"
-              className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-800/40 bg-emerald-950/60 text-emerald-400"
-            >
-              <HardDrive size={13} />
-            </div>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              title="Configuración de Ego"
-              aria-label="Configuración de Ego"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-faint transition-colors hover:bg-raised hover:text-ink"
-            >
-              <Gear size={18} />
-            </button>
-            <div
-              title="Eros Nessy (Owner)"
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-hairline bg-raised text-[11px] font-bold text-ink"
-            >
-              EN
-            </div>
-          </div>
-        </aside>
-        <McpManagerModal isOpen={isMcpOpen} onClose={() => setIsMcpOpen(false)} />
-        <SessionPicker
-          isOpen={sessionPickerOpen}
-          activeSessionId={activeSessionId ?? undefined}
-          sessions={sessions}
-          onClose={() => useUiStore.getState().closeSessionPicker()}
-          onResumeSession={(id) => void handleResumeSession(id)}
-        />
-      </>
-    );
-  }
+          )}
 
-  // 2. MODO EXPANDIDO (Sidebar Completo de 260px)
-  return (
-    <>
-      <aside
-        aria-label="Navegación principal"
-        className="flex h-full w-full shrink-0 flex-col border-r border-hairline bg-panel select-none"
-      >
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-hairline px-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-ink font-mono text-[10px] font-bold text-paper">
-              E
-            </div>
-            <span className="text-xs font-semibold tracking-tight text-ink">Ego Navigation</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onNewSession}
-              title="Nueva conversación (Ctrl+N)"
-              className="flex h-8 items-center gap-1 rounded border border-hairline bg-raised px-2.5 text-[11px] font-medium text-ink transition-colors hover:bg-raised/80 min-h-[32px]"
-            >
-              <Plus size={13} weight="bold" />
-              <span>Nuevo</span>
-            </button>
-            <button
-              onClick={() => notifyCollapsed(true)}
-              title="Colapsar barra lateral (Ctrl+B)"
-              aria-label="Colapsar barra lateral"
-              className="flex h-8 w-8 items-center justify-center rounded text-faint transition-colors hover:bg-raised hover:text-ink min-h-[32px] min-w-[32px]"
-            >
-              <SidebarSimple size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Buscador federado: launcher limpio estilo Linear/Raycast que delega al omnibar (Ctrl+K) */}
-        <div className="px-3 pt-2.5 pb-2">
+          {/* 1. Inicio / Chat */}
           <button
             type="button"
-            onClick={requestOpenOmnibar}
-            title="Búsqueda federada (Ctrl+K)"
-            className="flex w-full items-center justify-between rounded-lg border border-hairline/80 bg-raised/50 hover:bg-raised px-2.5 py-1.5 text-xs text-faint transition-all hover:border-strong/60 hover:text-ink cursor-pointer group shadow-2xs"
+            onClick={() => {
+              onCloseWorkspace?.();
+            }}
+            title="Inicio / Chat"
+            aria-label="Inicio / Chat"
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+              !workspaceOpen
+                ? "bg-white/10 text-white shadow-xs"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            }`}
           >
-            <div className="flex items-center gap-2 truncate">
-              <MagnifyingGlass size={13} className="text-dim group-hover:text-brand transition-colors shrink-0" />
-              <span className="truncate text-[11px]">Buscar recuerdos (Ctrl+K)</span>
-            </div>
-            <kbd className="shrink-0 rounded bg-panel px-1.5 py-0.5 font-mono text-[9px] text-dim border border-hairline/80">
-              Ctrl+K
-            </kbd>
+            <House size={20} />
           </button>
-        </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-2">
-          {/* Bloque 1: Proyectos de Memoria (IPC vivo). */}
-          <div id="sidebar-section-projects" className="scroll-mt-2">
-            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
-              <span>Proyectos (Memory Scope)</span>
-              <button
-                onClick={() => setIsNewProjectModalOpen(true)}
-                title="Crear nuevo proyecto"
-                aria-label="Crear nuevo proyecto"
-                className="flex items-center justify-center rounded p-1 text-dim transition-colors hover:bg-raised hover:text-ink min-h-[28px] min-w-[28px]"
-              >
-                <Plus size={12} />
-              </button>
-            </div>
-            <div className="space-y-0.5">
-              {projects.length === 0 && (
-                <p className="px-2 py-1.5 text-[11px] text-faint italic">
-                  Sin proyectos en VantaDB — crea uno con +.
-                </p>
-              )}
-              {projects.map((p) => {
-                const isSelected = activeProject === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => void handleSelectProject(p.id)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
-                      isSelected
-                        ? "border border-hairline bg-raised font-medium text-ink shadow-2xs"
-                        : "text-faint hover:bg-raised/60 hover:text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      {isSelected ? (
-                        <FolderSimpleStar size={14} className="shrink-0 text-amber-400" />
-                      ) : (
-                        <FolderSimple size={14} className="shrink-0 text-dim" />
-                      )}
-                      <div className="flex flex-col text-left truncate">
-                        <span className="truncate font-medium">{p.name}</span>
-                        {p.rootPath && (
-                          <span className="truncate text-[9.5px] text-dim font-mono">{p.rootPath}</span>
-                        )}
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <span className="rounded-full border border-emerald-800/40 bg-emerald-950/80 px-1.5 py-0.2 font-sans text-[9px] text-emerald-400 shrink-0">
-                        Activo
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Bloque 2: Roster de Sub-Egos (IPC vivo con CharacterBadge size 24 e indicador vivo). */}
-          <div id="sidebar-section-roster" className="scroll-mt-2">
-            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
-              <span>Sub-Egos Especialistas</span>
-              <span className="font-mono text-[10px] text-faint">{roster.length}</span>
-            </div>
-            <div className="space-y-0.5">
-              {roster.length === 0 && (
-                <p className="px-2 py-1.5 text-[11px] text-faint italic">
-                  Sin Sub-Egos registrados en el backend.
-                </p>
-              )}
-              {roster.map((s) => {
-                const isSelected = activeSubEgo === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => onSelectSubEgo(s.id)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
-                      isSelected
-                        ? "border border-hairline bg-raised font-medium text-ink shadow-2xs"
-                        : "text-faint hover:bg-raised/60 hover:text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center">
-                        <CharacterBadge subEgoId={s.id} size={24} state="idle" />
-                      </div>
-                      <div className="flex truncate flex-col text-left font-sans">
-                        <span className="truncate text-xs leading-tight font-medium text-ink">{s.name}</span>
-                        <span className="truncate text-[10px] text-dim">{s.role}</span>
-                      </div>
-                    </div>
-                    <span
-                      title={s.state === "active" ? "Sub-Ego Activo" : "En espera"}
-                      className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
-                        s.state === "active" ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" : "bg-dim/40"
-                      }`}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Bloque 3: Sesión activa + selector real (sin historial hardcodeado). */}
-          <div>
-            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
-              <span>Sesión Activa</span>
-              <button
-                onClick={() => useUiStore.getState().openSessionPicker()}
-                title="Abrir selector de sesiones"
-                className="rounded px-1 font-mono text-faint normal-case transition-colors hover:bg-raised hover:text-ink"
-              >
-                Todas
-              </button>
-            </div>
-            <div className="flex w-full items-center gap-2 rounded border border-hairline/60 bg-raised/40 px-2 py-1.5 text-left text-xs text-faint">
-              <ChatCircle size={13} className="shrink-0 text-dim" />
-              <span className="truncate font-mono text-[11px]">{activeSessionId ?? "Sin sesión"}</span>
-            </div>
-          </div>
-
-          {/* Bloque 4: Herramientas (solo acciones reales; muertos eliminados). */}
-          <div>
-            <div className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
-              <span>Espacio & Herramientas</span>
-            </div>
-            <div className="space-y-0.5 text-xs text-faint">
-              <button
-                onClick={() => setIsMcpOpen(true)}
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-raised/60 hover:text-ink"
-              >
-                <PlugsConnected size={14} className="text-dim" />
-                <span>MCP Servers & Tools</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-1 border-t border-hairline bg-paper/60 p-2">
-          <VantaDbBadge />
+          {/* 2. Sub-Egos Fábrica */}
           <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs text-faint transition-colors hover:bg-raised hover:text-ink"
+            type="button"
+            onClick={() => {
+              onSelectWorkspaceTab?.("subegos");
+            }}
+            title="Sub-Egos Fábrica"
+            aria-label="Sub-Egos Fábrica"
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+              workspaceOpen && activeWorkspaceTab === "subegos"
+                ? "bg-white/10 text-white shadow-xs"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            }`}
           >
-            <div className="flex items-center gap-2">
-              <Gear size={15} />
-              <span>Configuración</span>
-            </div>
-            <span className="font-mono text-[10px] text-dim">Ctrl+,</span>
+            <Robot size={20} />
           </button>
-          <div className="flex items-center justify-between rounded border border-hairline/60 bg-raised/40 px-2 py-1.5 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-[10px] font-bold text-paper">
-                EN
+
+          {/* 3. Tareas e Historial (Workbench) */}
+          <button
+            type="button"
+            onClick={() => {
+              onSelectWorkspaceTab?.("workbench");
+            }}
+            title="Tareas e Historial (Workbench)"
+            aria-label="Tareas e Historial"
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+              workspaceOpen && activeWorkspaceTab === "workbench"
+                ? "bg-white/10 text-white shadow-xs"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <ClockCounterClockwise size={20} />
+          </button>
+
+          {/* 4. Conocimiento y Memoria (Dominio / GraphRAG) */}
+          <button
+            type="button"
+            onClick={() => {
+              onSelectWorkspaceTab?.("domains");
+            }}
+            title="Conocimiento y Memoria"
+            aria-label="Conocimiento y Memoria"
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+              workspaceOpen && activeWorkspaceTab === "domains"
+                ? "bg-white/10 text-white shadow-xs"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Books size={20} />
+          </button>
+
+          {/* 5. Personalización (Skills, MCP y Avatares) */}
+          <button
+            type="button"
+            onClick={() => {
+              onSelectWorkspaceTab?.("personalization");
+            }}
+            title="Personalización (Skills y Complementos MCP)"
+            aria-label="Personalización"
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+              workspaceOpen && activeWorkspaceTab === "personalization"
+                ? "bg-white/10 text-white shadow-xs"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <PuzzlePiece size={20} />
+          </button>
+
+          {/* 6. Botón ••• (Popover con más herramientas) */}
+          <div className="relative" ref={dotsRef}>
+            <button
+              type="button"
+              onClick={() => setDotsMenuOpen(!dotsMenuOpen)}
+              title="Más vistas y herramientas"
+              aria-label="Más vistas y herramientas"
+              className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+                dotsMenuOpen
+                  ? "bg-white/15 text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <DotsThree size={20} weight="bold" />
+            </button>
+
+            {/* Popover Flotante de los 3 Puntos */}
+            {dotsMenuOpen && (
+              <div className="absolute left-14 top-0 z-50 w-56 rounded-2xl bg-[#1e1e22] border border-white/10 p-2 shadow-2xl text-xs space-y-1 backdrop-blur-xl animate-in fade-in-50 zoom-in-95">
+                <div className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                  Espacio de Trabajo
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectWorkspaceTab?.("domains");
+                    setDotsMenuOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                >
+                  <FolderSimple size={16} className="text-zinc-400" />
+                  <span>Proyectos y Dominios</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectWorkspaceTab?.("daily");
+                    setDotsMenuOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                >
+                  <ChartBar size={16} className="text-zinc-400" />
+                  <span>Resumen Diario (Daily State)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectWorkspaceTab?.("workbench");
+                    setDotsMenuOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                >
+                  <ClockCounterClockwise size={16} className="text-zinc-400" />
+                  <span>Revisión de código & Terminal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectWorkspaceTab?.("canvas");
+                    setDotsMenuOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                >
+                  <Sparkle size={16} className="text-zinc-400" />
+                  <span>Canvas Dinámico</span>
+                </button>
               </div>
-              <div className="flex flex-col text-left">
-                <span className="text-xs leading-none font-medium text-ink">Eros Nessy</span>
-                <span className="text-[10px] text-dim">Local Sovereign Owner</span>
+            )}
+          </div>
+        </div>
+
+        {/* Parte Inferior del Rail: Avatar de Usuario + Popover de Perfil */}
+        <div className="relative flex flex-col items-center gap-2" ref={profileRef}>
+          <button
+            type="button"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            title="Perfil de Eros · Soberano Local"
+            aria-label="Perfil de usuario y configuración"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-700/80 hover:bg-zinc-600 text-xs font-semibold text-white transition-colors cursor-pointer shadow-xs border border-white/10"
+          >
+            EN
+          </button>
+
+          {/* Popover Flotante de Perfil */}
+          {profileMenuOpen && (
+            <div className="absolute left-14 bottom-0 z-50 w-64 rounded-2xl bg-[#1e1e22] border border-white/10 p-2.5 shadow-2xl text-xs space-y-2 backdrop-blur-xl animate-in fade-in-50 zoom-in-95">
+              <div className="flex items-center gap-2.5 border-b border-white/[0.08] pb-2.5 px-1">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700 font-bold text-white text-xs border border-white/10">
+                  EN
+                </div>
+                <div className="flex flex-col truncate">
+                  <span className="font-semibold text-white leading-tight">Eros Nessy</span>
+                  <span className="text-[10px] text-zinc-400 font-mono">Soberano Local · Ego Core</span>
+                </div>
+              </div>
+
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectWorkspaceTab?.("daily");
+                    setProfileMenuOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                >
+                  <ChartBar size={15} className="text-zinc-400" />
+                  <span>Uso y telemetría</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    (window as any).ego?.floating?.toggleFloating?.();
+                    setProfileMenuOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkle size={15} className="text-zinc-400" />
+                    <span>Mostrar mascota (Isla Flotante)</span>
+                  </div>
+                  <kbd className="rounded bg-white/10 px-1 py-0.2 font-mono text-[9px] text-zinc-400">
+                    Alt+Win+P
+                  </kbd>
+                </button>
+
+                {/* Selector rápido de Tema */}
+                <div className="flex items-center justify-between px-2.5 py-1.5 text-zinc-300">
+                  <div className="flex items-center gap-2">
+                    <PaintBrush size={15} className="text-zinc-400" />
+                    <span>Apariencia</span>
+                  </div>
+                  <select
+                    value={designSystem?.tokens?.id ?? "theme-default-dark"}
+                    onChange={(e) => designSystem?.applyPreset?.(e.target.value)}
+                    className="bg-black/40 border border-white/10 rounded-lg text-[10px] px-1.5 py-0.5 text-zinc-300 focus:outline-none"
+                  >
+                    {designSystem?.availablePresets &&
+                      Object.keys(designSystem.availablePresets).map((k) => (
+                        <option key={k} value={k}>
+                          {designSystem.availablePresets[k]?.name ?? k}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSettingsOpen(true);
+                    setProfileMenuOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Gear size={15} className="text-zinc-400" />
+                    <span>Configuración</span>
+                  </div>
+                  <kbd className="rounded bg-white/10 px-1 py-0.2 font-mono text-[9px] text-zinc-400">
+                    Ctrl+,
+                  </kbd>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      {/* =========================================================================
+          COLUMNA 2: Sidebar Contextual Limpio (Colapsable con Ctrl+B o botón)
+          ========================================================================= */}
+      {!isCollapsed && (
+        <aside
+          aria-label="Navegación principal"
+          className="w-60 shrink-0 bg-[#161618] border-r border-white/[0.06] flex flex-col h-full min-w-0 flex-1 select-none"
+        >
+          {/* Cabecera Superior: Ego Core ⌄ + Buscador + Colapsar */}
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold tracking-tight text-white flex items-center gap-1">
+                Ego Core
+                <CaretDown size={12} className="text-zinc-400" />
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={requestOpenOmnibar}
+                title="Buscar en memoria (Ctrl+K)"
+                aria-label="Buscar en memoria (Ctrl+K)"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <MagnifyingGlass size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => notifyCollapsed(true)}
+                title="Colapsar panel (Ctrl+B)"
+                aria-label="Colapsar panel"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <SidebarSimple size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Botón Nueva Sesión / Chat Nuevo (Fila limpia estilo ChatGPT) */}
+          <div className="p-2.5 pb-1">
+            <button
+              type="button"
+              onClick={onNewSession}
+              title="Nueva conversación (Ctrl+N)"
+              className="flex w-full items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] px-3 py-2 text-xs font-medium text-white transition-all cursor-pointer shadow-xs border border-white/[0.04]"
+            >
+              <Plus size={14} weight="bold" className="text-zinc-300" />
+              <span>Nueva sesión</span>
+            </button>
+          </div>
+
+          {/* Buscador de Recuerdos explícito (para tests y accesibilidad) */}
+          <div className="px-2.5 py-1">
+            <button
+              type="button"
+              onClick={requestOpenOmnibar}
+              title="Búsqueda federada (Ctrl+K)"
+              className="flex w-full items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.06] px-2.5 py-1.5 text-xs text-zinc-400 hover:text-white transition-all cursor-pointer group shadow-2xs"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <MagnifyingGlass size={13} className="text-zinc-500 group-hover:text-white transition-colors shrink-0" />
+                <span className="truncate text-[11px]">Buscar recuerdos (Ctrl+K)</span>
+              </div>
+              <kbd className="shrink-0 rounded bg-black/40 px-1.5 py-0.5 font-mono text-[9px] text-zinc-400 border border-white/10">
+                Ctrl+K
+              </kbd>
+            </button>
+          </div>
+
+          {/* Contenedor con Scroll de Proyectos, Sub-Egos y Recientes */}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-2">
+            {/* 1. SECCIÓN PROYECTOS */}
+            <div id="sidebar-section-projects">
+              <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                <span>Proyectos</span>
+                <button
+                  type="button"
+                  onClick={() => setIsNewProjectModalOpen(true)}
+                  title="Crear nuevo proyecto"
+                  aria-label="Crear nuevo proyecto"
+                  className="flex items-center justify-center rounded p-1 text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+
+              <div className="space-y-0.5">
+                {projects.length === 0 && (
+                  <p className="px-2 py-1.5 text-[11px] text-zinc-500 italic">
+                    Sin proyectos — crea uno con +.
+                  </p>
+                )}
+                {projects.map((p) => {
+                  const isSelected = activeProject === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => void handleSelectProject(p.id)}
+                      className={`flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-white/10 text-white font-medium border border-white/10"
+                          : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        {isSelected ? (
+                          <FolderSimpleStar size={14} className="shrink-0 text-amber-400" />
+                        ) : (
+                          <FolderSimple size={14} className="shrink-0 text-zinc-500" />
+                        )}
+                        <span className="truncate text-left">{p.name}</span>
+                      </div>
+                      {isSelected && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. SECCIÓN SUB-EGOS CON CHARACTER BADGE 36PX */}
+            <div id="sidebar-section-roster">
+              <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                <span>Sub-Egos</span>
+                <span className="font-mono text-[10px] text-zinc-600">{roster.length}</span>
+              </div>
+
+              <div className="space-y-1">
+                {roster.length === 0 && (
+                  <p className="px-2 py-1.5 text-[11px] text-zinc-500 italic">
+                    Sin Sub-Egos registrados.
+                  </p>
+                )}
+                {roster.map((s) => {
+                  const isSelected = activeSubEgo === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onSelectSubEgo(s.id)}
+                      className={`flex w-full items-center justify-between rounded-xl p-2 text-xs transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-white/10 text-white font-medium border border-white/10 shadow-xs"
+                          : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/40 border border-white/[0.08] overflow-hidden">
+                          <CharacterBadge subEgoId={s.id} size={36} state="idle" />
+                        </div>
+                        <div className="flex truncate flex-col text-left font-sans">
+                          <span className="truncate text-xs font-semibold text-white">{s.name}</span>
+                          <span className="truncate text-[10px] text-zinc-400">{s.role}</span>
+                        </div>
+                      </div>
+
+                      <span
+                        title={s.state === "active" ? "Sub-Ego Activo" : "En espera"}
+                        className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
+                          s.state === "active"
+                            ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"
+                            : "bg-zinc-600"
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. SECCIÓN RECIENTES */}
+            <div>
+              <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                <span>Recientes</span>
+                <button
+                  type="button"
+                  onClick={() => useUiStore.getState().openSessionPicker()}
+                  title="Historial de sesiones"
+                  className="text-zinc-500 hover:text-white text-[10px] cursor-pointer"
+                >
+                  Ver todas
+                </button>
+              </div>
+
+              <div className="space-y-0.5">
+                {sessions.length === 0 ? (
+                  <p className="px-2 py-1 text-[11px] text-zinc-600 italic">
+                    Sin sesiones recientes
+                  </p>
+                ) : (
+                  sessions.slice(0, 5).map((session) => {
+                    const isCurrent = activeSessionId === session.id;
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() => void handleResumeSession(session.id)}
+                        className={`flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs transition-colors cursor-pointer ${
+                          isCurrent
+                            ? "bg-white/10 text-white font-medium"
+                            : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <ChatCircle size={13} className="shrink-0 text-zinc-500" />
+                          <span className="truncate text-left text-[11px]">{session.title}</span>
+                        </div>
+                        <span className="text-[10px] text-zinc-500 font-mono shrink-0">
+                          {session.preview}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* 4. HERRAMIENTAS Y MCP */}
+            <div>
+              <div className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                <span>Herramientas</span>
+              </div>
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => setIsMcpOpen(true)}
+                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left"
+                >
+                  <PlugsConnected size={14} className="text-zinc-500" />
+                  <span>MCP Servers & Tools</span>
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      </aside>
 
+          {/* Footer del Contextual Sidebar */}
+          <div className="border-t border-white/[0.06] bg-[#121214] p-2 space-y-1">
+            <VantaDbBadge />
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Gear size={15} />
+                <span>Configuración</span>
+              </div>
+              <span className="font-mono text-[10px] text-zinc-500">Ctrl+,</span>
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* Modales Radix Reutilizables */}
       <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
       <ProjectsModal
         open={isNewProjectModalOpen}
@@ -552,6 +791,8 @@ export function Sidebar({
         onClose={() => useUiStore.getState().closeSessionPicker()}
         onResumeSession={(id) => void handleResumeSession(id)}
       />
-    </>
+    </div>
   );
 }
+
+export default Sidebar;
