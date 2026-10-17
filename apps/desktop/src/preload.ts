@@ -108,9 +108,14 @@ export interface EgoFloatingBridge {
    * que Task4 lo cablee; el flotante optimista ya refleja `muted` local.
    */
   setMuted: (muted: boolean) => Promise<unknown>;
+  restoreMain: () => Promise<unknown>;
+  toggleExpand: (state?: "compact" | "expanded" | "hidden") => Promise<unknown>;
+  toggleFloating?: (state?: "compact" | "expanded" | "hidden") => Promise<unknown>;
 }
 
 export interface EgoPreloadBridge {
+  restoreMain?: () => Promise<unknown>;
+  toggleFloating?: (state?: "compact" | "expanded" | "hidden") => Promise<unknown>;
   memory: (op: string, args: unknown[]) => Promise<unknown>;
   llmStream: (req: LlmStreamBridgeRequest) => Promise<unknown>;
   // A1: cancelación real del turno en curso (`ipc.llm.cancel` en main).
@@ -471,7 +476,15 @@ const egoBridge: EgoPreloadBridge = {
     deny: (approvalId, reason?) =>
       ipcRenderer.invoke("ipc.approval.resolve", { approvalId, approved: false, reason }),
     setMuted: (muted) => ipcRenderer.invoke("ipc.floating.setMuted", { muted }),
+    restoreMain: () => ipcRenderer.invoke("ipc.floating.restoreMain", {}),
+    toggleExpand: (state?: "compact" | "expanded" | "hidden") =>
+      ipcRenderer.invoke("ipc.floating.toggle", { state }),
+    toggleFloating: (state?: "compact" | "expanded" | "hidden") =>
+      ipcRenderer.invoke("ipc.floating.toggle", { state }),
   },
+  restoreMain: () => ipcRenderer.invoke("ipc.floating.restoreMain", {}),
+  toggleFloating: (state?: "compact" | "expanded" | "hidden") =>
+    ipcRenderer.invoke("ipc.floating.toggle", { state }),
 };
 
 const egoFloatingBridge: EgoFloatingBridge = egoBridge.floating;

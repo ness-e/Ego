@@ -503,14 +503,80 @@ export function FloatingApp() {
           color: #ffffff;
         }
       `}</style>
+      {attention === "expanded" && (
+        <div
+          id="panel"
+          className="flex items-center justify-between w-full max-w-sm px-2 py-1.5 mb-2 gap-2 text-xs border-b border-white/10"
+        >
+          <button
+            type="button"
+            className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 rounded-md cursor-pointer transition font-medium flex items-center gap-1"
+            onClick={() => {
+              void window.egoFloating?.restoreMain?.();
+            }}
+          >
+            Abrir Ego ↗
+          </button>
+          <button
+            type="button"
+            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white/80 border border-white/15 rounded-md cursor-pointer transition"
+            onClick={() => {
+              void window.egoFloating?.toggleExpand?.("compact");
+              setSnapshot((prev) => ({ ...prev, attentionState: "compact" }));
+            }}
+          >
+            Minimizar a Píldora
+          </button>
+        </div>
+      )}
       <AvatarSafe>
-        <FloatingAvatar
-          attentionState={snapshot.attentionState}
-          subEgoId={snapshot.activeSubEgoId ?? null}
-          size={120}
-        />
+        <div
+          id="avatar-stage"
+          role="button"
+          tabIndex={0}
+          style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
+          onClick={() => {
+            if (snapshot.attentionState === "compact") {
+              void window.egoFloating?.toggleExpand?.("expanded");
+              setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
+            }
+          }}
+          onKeyDown={(e) => {
+            if ((e.key === "Enter" || e.key === " ") && snapshot.attentionState === "compact") {
+              e.preventDefault();
+              void window.egoFloating?.toggleExpand?.("expanded");
+              setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
+            }
+          }}
+        >
+          <FloatingAvatar
+            attentionState={snapshot.attentionState}
+            subEgoId={snapshot.activeSubEgoId ?? null}
+            size={120}
+          />
+        </div>
       </AvatarSafe>
-      <div id="status-pill">{labelFor(snapshot.attentionState)}</div>
+      <div
+        id="status-pill"
+        role="button"
+        tabIndex={0}
+        style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
+        onClick={() => {
+          if (snapshot.attentionState === "compact") {
+            void window.egoFloating?.toggleExpand?.("expanded");
+            setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
+          }
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && snapshot.attentionState === "compact") {
+            e.preventDefault();
+            void window.egoFloating?.toggleExpand?.("expanded");
+            setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
+          }
+        }}
+      >
+        {labelFor(snapshot.attentionState)}
+      </div>
       <div id="floating-header-slot">
         <StaticMount id="floating-header-slot" host={headerHost} mountKey={`${headerView}:${snapshot.muted}`} visible={showTicker} />
       </div>

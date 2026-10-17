@@ -110,15 +110,24 @@ export class FloatingWindowManager {
     const win = this.prototype.getWindow();
     if (!win || win.isDestroyed()) return;
 
+    if (partial.attentionState) {
+      this.prototype.resizeForState(this.state.attentionState);
+    }
+
     if (this.state.muted || this.state.attentionState === 'hidden') {
       this.prototype.setClickThrough(true);
-    } else if (this.state.attentionState === 'hitl_approval') {
-      // Cuando se requiere confirmación HITL, permitir interacción directa
+    } else {
+      // En cualquier otro estado ("compact", "expanded", "hitl_approval", "alert"),
+      // permitir interacción directa para que el usuario siempre pueda hacer clic
       this.prototype.setClickThrough(false);
     }
 
     // Transmitir estado actualizado al renderizador de la ventana flotante si está cargado
     win.webContents.send('ipc.floating.state_changed', this.state);
+  }
+
+  public resizeForState(attentionState: string): void {
+    this.prototype.resizeForState(attentionState);
   }
 
   public getState(): FloatingWindowState {

@@ -169,7 +169,6 @@ import {
 import { WindowStateManager } from "./windows/WindowStateManager.js";
 import {
   FloatingWindowManager,
-  shouldAutoShow,
   syncFromAttention,
 } from "./windows/FloatingWindow.js";
 import { initAutoUpdater, resolveUpdateFeedUrl } from "./updater.js";
@@ -267,6 +266,8 @@ let floatMgr: FloatingWindowManager | null = null;
 // Task10 (WIDG-05): posición flotante restaurada de la persistencia;
 // se aplica al mostrar la flotante (main + flotante sobreviven reinicio).
 let floatingRestoredPosition: { x: number; y: number } | null = null;
+let floatingPinnedManually = false;
+let floatingAutoShownOnMinimize = false;
 
 function ensureFloatMgr(): FloatingWindowManager {
   if (!floatMgr) {
@@ -3422,9 +3423,19 @@ export async function createWindow(): Promise<void> {
   win.on("minimize", () => {
     try {
       if (!win || win.isDestroyed()) return;
-      if (shouldAutoShow(floatingSnapshot())) {
+      const st = ensureFloatMgr().getState();
+      const presenceMode = (windowStateManager as any)?.lastFloatingState?.presenceMode ?? "auto";
+      if (presenceMode !== "never" && !st.muted && !st.disabled) {
         win.hide();
         ensureFloatMgr().show();
+        if (st.attentionState === "hidden") {
+          ensureFloatMgr().updateState({ attentionState: "compact" });
+          floatingAutoShownOnMinimize = true;
+        }
+        const floatingWin = ensureFloatMgr().getFloatingWindow();
+        if (floatingWin && !floatingWin.isDestroyed()) {
+          floatingWin.webContents.send("ipc.floating.state_changed", ensureFloatMgr().getState());
+        }
         // Task10: aplica posición restaurada y trackea movimiento (debounce).
         try {
           if (floatingRestoredPosition) {
@@ -3433,14 +3444,13 @@ export async function createWindow(): Promise<void> {
               floatingRestoredPosition.y
             );
           }
-          const floatingWin = ensureFloatMgr().getFloatingWindow();
           if (floatingWin && !floatingWin.isDestroyed()) {
             windowStateManager.trackFloatingWindow(floatingWin, () => {
-              const st = ensureFloatMgr().getState();
+              const currentSt = ensureFloatMgr().getState();
               // presenceMode vive en persistencia (default "auto"; settings UI → Task12).
               return {
-                muted: st.muted,
-                disabled: st.disabled ?? false,
+                muted: currentSt.muted,
+                disabled: currentSt.disabled ?? false,
                 presenceMode: "auto" as const,
               };
             });
@@ -3453,6 +3463,26 @@ export async function createWindow(): Promise<void> {
       // noop: minimizar nunca falla por el flotante
     }
   });
+
+  const onMainRestoreOrFocus = (): void => {
+    try {
+      const snap = floatingSnapshot();
+      if (
+        floatingAutoShownOnMinimize &&
+        !floatingPinnedManually &&
+        snap.active === 0 &&
+        snap.hitl === 0
+      ) {
+        ensureFloatMgr().updateState({ attentionState: "hidden" });
+        ensureFloatMgr().hide();
+        floatingAutoShownOnMinimize = false;
+      }
+    } catch {
+      // noop
+    }
+  };
+  win.on("restore", onMainRestoreOrFocus);
+  win.on("focus", onMainRestoreOrFocus);
 
   // Task10 (COUC-19 cierre): reposiciona la flotante ante cambios de
   // displays (multi-monitor/DPI). Límite Wayland: el evento puede no
@@ -3553,15 +3583,149 @@ export async function createWindow(): Promise<void> {
     }
   });
 
+const CANONICAL_SPECIALIST_SUBEGOS = [
+  {
+    id: "researcher",
+    name: "Investigador Cognitivo",
+    domain: "knowledge",
+    role: "Investigación profunda, síntesis documental y GraphRAG en VantaDB",
+    description: "Investigación profunda, síntesis documental y GraphRAG en VantaDB",
+    capabilities: ["memory_search", "web_search", "knowledge_ingest"],
+    status: "idle",
+    state: "active" as const,
+    systemPrompt: "Eres el Investigador Cognitivo de Ego. Especialista en GraphRAG, síntesis documental y exploración de conocimiento.",
+    responsibilities: ["Investigación profunda", "Síntesis documental", "Búsqueda GraphRAG"],
+    tools: ["memory_search", "web_search", "knowledge_ingest"],
+    permissions: ["memory:read", "web:search"],
+  },
+  {
+    id: "code_reviewer",
+    name: "Arquitecto & Revisor",
+    domain: "engineering",
+    role: "Ingeniería de sistemas, revisión de diffs, tests y seguridad",
+    description: "Ingeniería de sistemas, revisión de diffs, tests y seguridad",
+    capabilities: ["fs_read_file", "fs_write_file", "git_status", "git_diff", "terminal_exec"],
+    status: "idle",
+    state: "active" as const,
+    systemPrompt: "Eres el Arquitecto & Revisor de Ego. Especialista en ingeniería de software, arquitectura de sistemas, diffs y seguridad.",
+    responsibilities: ["Revisión de diffs", "Ejecución de tests", "Auditoría de arquitectura"],
+    tools: ["fs_read_file", "fs_write_file", "git_status", "git_diff", "terminal_exec"],
+    permissions: ["fs:read", "fs:write", "terminal:exec"],
+  },
+  {
+    id: "copywriter",
+    name: "Estratega de Producto",
+    domain: "product",
+    role: "PRDs, historias de usuario, roadmaps y comunicación ejecutiva",
+    description: "PRDs, historias de usuario, roadmaps y comunicación ejecutiva",
+    capabilities: ["canvas_render", "memory_search"],
+    status: "idle",
+    state: "active" as const,
+    systemPrompt: "Eres el Estratega de Producto de Ego. Diseñas PRDs, historias de usuario, roadmaps y artefactos Canvas.",
+    responsibilities: ["Definición de PRDs", "Roadmaps", "Canvas UI"],
+    tools: ["canvas_render", "memory_search"],
+    permissions: ["canvas:write", "memory:read"],
+  },
+  {
+    id: "analyst",
+    name: "Analista de Telemetría",
+    domain: "analytics",
+    role: "Métricas de inferencia, costos, latencias P99 y proyecciones en Canvas",
+    description: "Métricas de inferencia, costos, latencias P99 y proyecciones en Canvas",
+    capabilities: ["canvas_render", "memory_search"],
+    status: "idle",
+    state: "active" as const,
+    systemPrompt: "Eres el Analista de Telemetría de Ego. Monitoreas latencias P99, tokens, consumo de APIs y proyecciones.",
+    responsibilities: ["Monitoreo de telemetría", "Métricas P99", "Análisis de costos"],
+    tools: ["canvas_render", "memory_search"],
+    permissions: ["canvas:write", "memory:read"],
+  },
+  {
+    id: "planner",
+    name: "Orquestador de Tareas",
+    domain: "planning",
+    role: "Descomposición de objetivos complejos, cron jobs y delegación multi-agente",
+    description: "Descomposición de objetivos complejos, cron jobs y delegación multi-agente",
+    capabilities: ["delegate_task", "canvas_render"],
+    status: "idle",
+    state: "active" as const,
+    systemPrompt: "Eres el Orquestador de Tareas de Ego. Descompones objetivos complejos, planificas tareas y orquestas sub-egos.",
+    responsibilities: ["Descomposición de metas", "Planificación de tareas", "Delegación"],
+    tools: ["delegate_task", "canvas_render"],
+    permissions: ["tasks:manage", "canvas:write"],
+  },
+];
+
+async function seedCanonicalSubEgos(adapterInstance: EgoMemoryAdapter, registryInstance?: SubEgoRegistry): Promise<void> {
+  for (const se of CANONICAL_SPECIALIST_SUBEGOS) {
+    try {
+      const existing = await adapterInstance.get(`egos/${se.id}/profile`, "profile").catch(() => null);
+      if (!existing) {
+        await adapterInstance.put({
+          namespace: `egos/${se.id}/profile`,
+          key: "profile",
+          payload: se,
+          metadata: { seeded: true, id: se.id, domain: se.domain },
+        }).catch((err) => console.warn(`[Ego Main] Error sembrando perfil ego ${se.id}:`, err));
+      }
+      if (registryInstance) {
+        const manifest = fromMemoryManifest({
+          id: se.id,
+          name: se.name,
+          role: se.role,
+          description: se.description,
+          systemPrompt: se.systemPrompt,
+          creator: "ego-nucleus",
+          createdAtMs: Date.now(),
+          namespaces: {
+            read: ["kb/docs", `egos/${se.id}/*`],
+            write: [`egos/${se.id}/*`, "quarantine/pending"],
+          },
+          tools: se.tools,
+          budget: {
+            maxTokensPerCall: 4000,
+            maxDailyCostUsd: 2.0,
+            requiresApprovalAboveUsd: 0.5,
+          },
+          trigger: "manual",
+          state: "active",
+        });
+        await registryInstance.register(manifest).catch(() => {});
+        await adapterInstance.registerSubEgo(manifest).catch(() => {});
+      }
+    } catch (err) {
+      console.warn(`[Ego Main] Error sembrando subego ${se.id}:`, err);
+    }
+  }
+}
+
   // 2. Canales de Sub-Egos con validación Zod y Fábrica Inteligente (INT-04 / SUB-02)
   ipcMain.handle("ipc.subegos.list", async () => {
     try {
-      const list = await subEgoRegistry.list();
-      if (list && list.length > 0) return list;
-      return adapter.listSubEgos();
+      let list = await subEgoRegistry.list();
+      if (!list || list.length === 0) {
+        const fromAdapter = await adapter.listSubEgos();
+        list = fromAdapter.map((m) => fromMemoryManifest(m));
+      }
+      if (!list || list.length === 0) {
+        await seedCanonicalSubEgos(adapter, subEgoRegistry);
+        list = await subEgoRegistry.list();
+        if (!list || list.length === 0) {
+          const fromAdapter = await adapter.listSubEgos();
+          list = fromAdapter.map((m) => fromMemoryManifest(m));
+        }
+        if (!list || list.length === 0) {
+          return CANONICAL_SPECIALIST_SUBEGOS;
+        }
+      }
+      return list;
     } catch (err) {
       console.warn("[Ego Main] Error al listar Sub-Egos:", err);
-      return adapter.listSubEgos();
+      try {
+        const fallbackList = await adapter.listSubEgos();
+        if (fallbackList && fallbackList.length > 0) return fallbackList;
+      } catch {}
+      return CANONICAL_SPECIALIST_SUBEGOS;
     }
   });
 
@@ -4925,6 +5089,64 @@ export async function createWindow(): Promise<void> {
       // noop: el mute en memoria ya se aplicó
     }
     return { ok: true, muted: parseResult.data.muted };
+  });
+
+  ipcMain.handle("ipc.floating.restoreMain", async () => {
+    try {
+      if (win && !win.isDestroyed()) {
+        if (win.isMinimized()) {
+          win.restore();
+        }
+        win.show();
+        win.focus();
+      }
+      const snap = floatingSnapshot();
+      if (!floatingPinnedManually && snap.active === 0 && snap.hitl === 0) {
+        ensureFloatMgr().updateState({ attentionState: "hidden" });
+        ensureFloatMgr().hide();
+        floatingAutoShownOnMinimize = false;
+      }
+      return { ok: true };
+    } catch (err) {
+      console.warn("[Ego Main] Error en ipc.floating.restoreMain:", err);
+      return { ok: false, error: String(err) };
+    }
+  });
+
+  ipcMain.handle("ipc.floating.toggle", async (_e, rawReq: unknown) => {
+    try {
+      const mgr = ensureFloatMgr();
+      const current = mgr.getState();
+      const req = rawReq as { state?: "compact" | "expanded" | "hidden" } | undefined;
+
+      if (req?.state) {
+        if (req.state === "hidden") {
+          floatingPinnedManually = false;
+          floatingAutoShownOnMinimize = false;
+          mgr.updateState({ attentionState: "hidden" });
+          mgr.hide();
+        } else {
+          floatingPinnedManually = true;
+          mgr.show();
+          mgr.updateState({ attentionState: req.state });
+        }
+      } else {
+        if (current.visible && current.attentionState !== "hidden") {
+          floatingPinnedManually = false;
+          floatingAutoShownOnMinimize = false;
+          mgr.updateState({ attentionState: "hidden" });
+          mgr.hide();
+        } else {
+          floatingPinnedManually = true;
+          mgr.show();
+          mgr.updateState({ attentionState: "compact" });
+        }
+      }
+      return { ok: true, state: mgr.getState() };
+    } catch (err) {
+      console.warn("[Ego Main] Error en ipc.floating.toggle:", err);
+      return { ok: false, error: String(err) };
+    }
   });
 
   ipcMain.handle("ipc.terminal.spawn", async (_e, rawReq: unknown) => {

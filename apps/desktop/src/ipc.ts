@@ -106,6 +106,8 @@ export const EgoIpcInvokeChannels = [
   "ipc.net.fetch",
   // Isla flotante Task4 (D2): silenciado desde el renderer (deuda Task3 cerrada aquí).
   "ipc.floating.setMuted",
+  "ipc.floating.restoreMain",
+  "ipc.floating.toggle",
   // Voz STT/TTS opt-in con kill switch (VOICE-01).
   "ipc.voice.getStatus",
   "ipc.voice.setConfig",
@@ -131,6 +133,18 @@ export const EgoIpc = [...EgoIpcInvokeChannels, ...EgoIpcPushChannels] as const;
 export type EgoIpcChannel = (typeof EgoIpc)[number];
 export type EgoIpcInvokeChannel = (typeof EgoIpcInvokeChannels)[number];
 export type EgoIpcPushChannel = (typeof EgoIpcPushChannels)[number];
+
+import { z } from "zod";
+
+export const FloatingRestoreMainSchema = z.object({}).optional();
+export const FloatingToggleSchema = z.object({
+  state: z.enum(["compact", "expanded", "hidden"]).optional(),
+}).optional();
+
+export const EgoIpcSchemas = {
+  "ipc.floating.restoreMain": FloatingRestoreMainSchema,
+  "ipc.floating.toggle": FloatingToggleSchema,
+};
 
 export {
   VoiceSttSchema,

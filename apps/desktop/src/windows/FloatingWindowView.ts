@@ -137,6 +137,50 @@ export class FloatingWindow {
     this.window.setPosition(newX, newY, true);
   }
 
+  /**
+   * Redimensiona dinámicamente la ventana flotante según el estado de atención.
+   * Compact: 220x220 en la esquina inferior derecha.
+   * Expanded / HITL / Alert: 720x400 en la esquina inferior derecha.
+   */
+  public resizeForState(attentionState: string): void {
+    if (!this.window || this.window.isDestroyed()) return;
+
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const workArea = primaryDisplay?.workArea || { x: 0, y: 0, width: 1920, height: 1080 };
+    const areaX = workArea.x ?? 0;
+    const areaY = workArea.y ?? 0;
+    const screenWidth = workArea.width ?? 1920;
+    const screenHeight = workArea.height ?? 1080;
+
+    const isLarge =
+      attentionState === "expanded" ||
+      attentionState === "hitl_approval" ||
+      attentionState === "alert";
+
+    const targetWidth = isLarge ? 720 : 220;
+    const targetHeight = isLarge ? 400 : 220;
+
+    const newX = areaX + screenWidth - targetWidth - 24;
+    const newY = areaY + screenHeight - targetHeight - 24;
+
+    const anyWin = this.window as any;
+    if (typeof anyWin?.setBounds === "function") {
+      anyWin.setBounds({
+        x: newX,
+        y: newY,
+        width: targetWidth,
+        height: targetHeight,
+      }, true);
+    } else {
+      if (typeof anyWin?.setSize === "function") {
+        anyWin.setSize(targetWidth, targetHeight, true);
+      }
+      if (typeof anyWin?.setPosition === "function") {
+        anyWin.setPosition(newX, newY, true);
+      }
+    }
+  }
+
   public isWindowInteractive(): boolean {
     return this.isInteractive;
   }

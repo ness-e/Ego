@@ -13,6 +13,10 @@ export interface FloatingAvatarProps {
   subEgoId?: string | null;
   /** Tamaño px del mini (default 120). */
   size?: number;
+  /** Modo de renderizado: "studio" (Robot Studio 2.5D) o "svg". Default "studio". */
+  mode?: "studio" | "svg";
+  /** Preset del studio (default: "ego-nucleus"). */
+  preset?: string;
 }
 
 declare global {
@@ -35,11 +39,17 @@ declare global {
 
 /**
  * Criatura avatar mini para el flotante (D1, NO Mochi).
- * Render presentation-only: `<ego-avatar seed size state presence motion>`.
+ * Render presentation-only: `<ego-avatar seed size state presence motion mode="studio" preset="ego-nucleus">`.
  * El custom element se importa diferido solo en browser y una sola vez;
  * sin DOM/customElements (SSR/tests) renderiza el tag sin registrar.
  */
-export function FloatingAvatar({ attentionState, subEgoId = null, size = 120 }: FloatingAvatarProps) {
+export function FloatingAvatar({
+  attentionState,
+  subEgoId = null,
+  size = 120,
+  mode = "studio",
+  preset = "ego-nucleus",
+}: FloatingAvatarProps) {
   const seed = seedForSubEgo(subEgoId);
   const state = avatarStateFor(attentionState);
   const presence = presenceFor(attentionState);
@@ -76,6 +86,8 @@ export function FloatingAvatar({ attentionState, subEgoId = null, size = 120 }: 
     size: String(size),
     presence,
     motion,
+    mode,
+    preset,
     "pointer-follow": "false",
     sound: "false",
     "data-attention": attentionState,
