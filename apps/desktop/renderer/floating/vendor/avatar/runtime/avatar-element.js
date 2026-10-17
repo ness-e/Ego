@@ -200,7 +200,7 @@ function deepFreeze(obj) {
 
 export class EgoAvatar extends ElementBase {
   static get observedAttributes() {
-    return ['seed', 'state', 'size', 'motion', 'auto-sleep', 'presence', 'pointer-follow', 'sound', 'mode'];
+    return ['seed', 'state', 'size', 'motion', 'auto-sleep', 'presence', 'pointer-follow', 'sound', 'mode', 'preset'];
   }
 
   constructor() {
@@ -515,6 +515,10 @@ export class EgoAvatar extends ElementBase {
       }
       return;
     }
+    if (name === 'preset' && newV) {
+      this.applyStudioPreset(newV);
+      return;
+    }
     if (name === 'size' && this._studioHost) this._studioHost.resize();
   }
 
@@ -681,6 +685,8 @@ export class EgoAvatar extends ElementBase {
     }
     host.pointerOn = this._pointerFollow !== false;
     host.soundOn = this._soundEnabled !== false;
+    const presetAttr = this.getAttribute?.('preset');
+    if (presetAttr) host.applyPreset(presetAttr);
     host.attach(canvas);
     // listeners mínimos (el resto los pone el studio en su canvas)
     if (typeof window !== 'undefined') {

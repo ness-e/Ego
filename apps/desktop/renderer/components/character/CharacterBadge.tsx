@@ -1,30 +1,88 @@
-// CharacterBadge.tsx — Mini-Avatar Adaptativo con FSM y TraitRegistry (CHAR-08)
-// Diseñado para chat river, selector de Sub-Egos y tarjetas del catálogo.
-// Regla anti-fatiga y rendimiento: por defecto opera en StillPose estático (1 solo render).
-// Solo anima si animated={true} (turno activo).
+// CharacterBadge.tsx — Mini-Avatar 2.5D Adaptativo basado en <ego-avatar> (Robot Studio)
+// Diseñado para chat river, selector de Sub-Egos, ActivityWidget y tarjetas de catálogo.
+// Reemplaza el antiguo triángulo plano por el Robot Studio 2.5D (HybridRobotAvatar) con visor oscuro,
+// ojos LED expresivos, accesorios tácticos y micro-animaciones interactivas al clic.
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { CharacterEngine } from "./core/CharacterEngine.js";
-import { CharacterStateMachine, type CharacterState } from "./state/CharacterStateMachine.js";
-import { TraitRegistry, type DomainCharacterPreset } from "./traits/TraitRegistry.js";
-import type { HeadFrame } from "./wardrobe/CharacterWardrobe.js";
+import { TraitRegistry } from "./traits/TraitRegistry.js";
+import type { CharacterState } from "./state/CharacterStateMachine.js";
 import { MOTION } from "../canvas/DesignSystemProvider.js";
-import {
-  CharacterMorphController,
-  presetToMorphTarget,
-  type MorphTarget,
-} from "./transitions/CharacterMorph.js";
+
+// Registro automático del web component <ego-avatar>
+import "../../floating/vendor/avatar/runtime/avatar-element.js";
+
+import type { BaseFormType } from "./wardrobe/WardrobeSelector.js";
 
 export interface CharacterBadgeProps {
   subEgoId?: string;
-  state?: CharacterState;
+  state?: CharacterState | string;
   size?: number;          // Dimensión en píxeles CSS (default: 28)
-  animated?: boolean;     // Si es false, renderiza 1 fotograma estático sin rAF continuo
-  baseForm?: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi"; // Geometría de silueta
+  animated?: boolean;     // Si es false, renderiza sin rAF continuo
+  baseForm?: BaseFormType; // Geometría de silueta
   outfitId?: string | null; // Override opcional de atuendo
   className?: string;
   title?: string;
+  mode?: "svg" | "studio";
+  onClick?: (e: React.MouseEvent<HTMLSpanElement>) => void;
+}
+
+/**
+ * Mapea cada Sub-Ego a un Preset fiel del Robot Studio de Ego.
+ */
+export function subEgoIdToStudioPreset(subEgoId: string = "ego.nucleus"): string {
+  const id = subEgoId.toLowerCase();
+  if (id === "ego.nucleus" || id.includes("nucleus")) return "ego-nucleus";
+  if (id === "researcher" || id === "planner" || id.includes("cyber") || id.includes("search")) return "ego-cyber";
+  if (id === "code_reviewer" || id.includes("dev") || id.includes("code")) return "cx-faithful";
+  if (id === "copywriter" || id.includes("sentinel") || id.includes("security") || id.includes("guard")) return "ego-sentinel";
+  if (id === "analyst" || id.includes("architect") || id.includes("arch")) return "ego-architect";
+  return "cx-faithful";
+}
+
+/**
+ * Mapea estados canónicos del CharacterStateMachine al vocabulario de <ego-avatar>.
+ */
+export function mapCharacterStateToAvatarState(state?: CharacterState | string): string {
+  if (!state) return "idle";
+  const s = String(state).toLowerCase();
+  switch (s) {
+    case "idle":
+      return "idle";
+    case "listening":
+      return "listening";
+    case "thinking":
+      return "thinking";
+    case "generating":
+    case "working":
+    case "using_tool":
+      return "working";
+    case "searching":
+      return "searching";
+    case "waiting":
+      return "waiting";
+    case "approval_required":
+    case "approval":
+    case "alert":
+    case "attention":
+      return "approval";
+    case "question":
+      return "question";
+    case "success":
+      return "success";
+    case "finished":
+      return "finished";
+    case "error":
+      return "error";
+    case "ratelimit":
+      return "ratelimit";
+    case "sleeping":
+      return "sleeping";
+    case "dizzy":
+      return "dizzy";
+    default:
+      return "idle";
+  }
 }
 
 export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
@@ -33,164 +91,75 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   size = 28,
   animated = false,
   baseForm,
-  outfitId,
+  outfitId: _outfitId,
   className = "",
   title,
+  mode,
+  onClick,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const fsmRef = useRef<CharacterStateMachine | null>(null);
-  const engineRef = useRef<CharacterEngine | null>(null);
-  const morphRef = useRef<CharacterMorphController | null>(null);
-  const prevTargetRef = useRef<MorphTarget | null>(null);
-  const renderSingleFrameRef = useRef<(() => void) | null>(null);
-  // Microanim framer-motion: morph crossfade envuelto; reduced-motion → animation none.
+  const avatarRef = useRef<HTMLElement | null>(null);
   const reduceMotion = useReducedMotion() ?? false;
 
-  // Inicialización de FSM y Engine en ref
-  if (!fsmRef.current) {
-    fsmRef.current = new CharacterStateMachine(state);
-  }
-  if (!engineRef.current) {
-    const eng = new CharacterEngine();
-    eng.isMini = true;
-    engineRef.current = eng;
-  }
-  if (!morphRef.current) {
-    morphRef.current = new CharacterMorphController(450);
-  }
+  // Inicializar TraitRegistry para obtener el nombre canónico si no se provee title
+  TraitRegistry.initialize();
+  const preset = TraitRegistry.getPreset(subEgoId);
+  const badgeTitle = title || preset?.name || subEgoId;
 
-  const fsm = fsmRef.current;
-  const engine = engineRef.current;
-  const morph = morphRef.current;
+  // Modo por defecto: Robot Studio si size >= 24 (salvo delta-core explícito), SVG si es diminuto (< 24)
+  const effectiveMode: "svg" | "studio" =
+    mode ?? (baseForm === "delta-core" ? "svg" : size >= 24 ? "studio" : "svg");
+  const studioPreset = subEgoIdToStudioPreset(subEgoId);
+  const avatarState = mapCharacterStateToAvatarState(state);
 
-  // Obtener preset de dominio
-  const preset: DomainCharacterPreset = TraitRegistry.getPreset(subEgoId);
-
-  // Sincronizar estado en FSM y engine
+  // Sincronizar preset del studio en el web component si cambia
   useEffect(() => {
-    fsm.setState(state);
-  }, [state, fsm]);
-
-  useEffect(() => {
-    const morphForm: "delta-core" | "coucou-mochi" | undefined =
-      baseForm === "delta-core" ? "delta-core" : baseForm ? "coucou-mochi" : undefined;
-    const nextTarget = presetToMorphTarget(preset, outfitId, morphForm);
-
-    // Configurar dibujado de traits mediante capas si existen
-    engine.customBackDraw = (ctx: CanvasRenderingContext2D, head: HeadFrame) => {
-      if (preset.traits && preset.traits.length > 0) {
-        TraitRegistry.renderLayer("back", ctx, head, preset.traits, preset.accentColor, 0.9);
-      }
-    };
-
-    engine.customFrontDraw = (ctx: CanvasRenderingContext2D, head: HeadFrame) => {
-      if (preset.traits && preset.traits.length > 0) {
-        TraitRegistry.renderLayer("front", ctx, head, preset.traits, preset.accentColor, 0.95);
-        TraitRegistry.renderLayer("overlay", ctx, head, preset.traits, preset.accentColor, fsm.channels.aura);
-      }
-    };
-
-    const prevTarget = prevTargetRef.current;
-    if (
-      prevTarget &&
-      (prevTarget.bodyColor[0] !== nextTarget.bodyColor[0] ||
-        prevTarget.bodyColor[1] !== nextTarget.bodyColor[1] ||
-        prevTarget.bodyColor[2] !== nextTarget.bodyColor[2] ||
-        prevTarget.eyeShape !== nextTarget.eyeShape ||
-        prevTarget.baseForm !== nextTarget.baseForm ||
-        prevTarget.outfitId !== nextTarget.outfitId)
-    ) {
-      // Iniciar interpolación morfológica (CHAR-09)
-      morph.start(
-        prevTarget,
-        nextTarget,
-        (current) => {
-          engine.bodyColor = current.bodyColor;
-          engine.permanentEye = current.eyeShape;
-          engine.setShape(current.baseForm ?? "delta-core");
-          engine.setOutfit(current.outfitId ?? null);
-          if (!animated && renderSingleFrameRef.current) {
-            renderSingleFrameRef.current();
-          }
-        },
-        () => {
-          prevTargetRef.current = nextTarget;
-        }
-      );
-    } else {
-      // Primera inicialización o sin cambios morfológicos
-      engine.bodyColor = nextTarget.bodyColor;
-      engine.permanentEye = nextTarget.eyeShape;
-      engine.setShape(nextTarget.baseForm ?? "delta-core");
-      engine.setOutfit(nextTarget.outfitId ?? null);
-      prevTargetRef.current = nextTarget;
-      if (!animated && renderSingleFrameRef.current) {
-        renderSingleFrameRef.current();
-      }
+    const el = avatarRef.current as any;
+    if (!el) return;
+    if (typeof el.applyStudioPreset === "function") {
+      try {
+        el.applyStudioPreset(studioPreset);
+      } catch {}
+    } else if (typeof el.setAttribute === "function") {
+      try {
+        el.setAttribute("preset", studioPreset);
+      } catch {}
     }
+  }, [studioPreset]);
 
-    return () => {
-      morph.cancel();
-    };
-  }, [preset, outfitId, baseForm, engine, fsm, animated, morph]);
-
-  // Ciclo de renderizado (Estático vs Animado continuo)
+  // Sincronizar estado en el web component
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const engineSize = size / 0.6;
-    canvas.width = Math.round(engineSize * dpr);
-    canvas.height = Math.round(engineSize * dpr);
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const renderFrame = () => {
-      ctx.save();
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, engineSize, engineSize);
-
-      // Sincronizar parámetros de la FSM en el engine
-      engine.tilt = fsm.channels.tilt;
-
-      // Dibujar criatura
-      engine.draw(ctx, engineSize, engineSize);
-      ctx.restore();
-    };
-
-    renderSingleFrameRef.current = renderFrame;
-
-    if (!animated) {
-      // Modo StillPose: 1 solo fotograma determinista sin consumir rAF
-      fsm.update(0.016);
-      engine.update(0.016);
-      renderFrame();
-      return;
+    const el = avatarRef.current as any;
+    if (!el) return;
+    if (typeof el.setState === "function") {
+      try {
+        el.setState(avatarState, { immediate: true });
+      } catch {}
+    } else if (typeof el.setAttribute === "function") {
+      try {
+        el.setAttribute("state", avatarState);
+      } catch {}
     }
+  }, [avatarState]);
 
-    // Modo Animado: rAF a 60fps para el turno activo
-    let animId: number;
-    let lastTime = performance.now();
-
-    const tick = (now: number) => {
-      const dt = Math.min(0.05, (now - lastTime) / 1000);
-      lastTime = now;
-
-      fsm.update(dt);
-      engine.update(dt);
-      renderFrame();
-
-      animId = requestAnimationFrame(tick);
-    };
-
-    animId = requestAnimationFrame(tick);
-
-    return () => {
-      cancelAnimationFrame(animId);
-    };
-  }, [size, animated, fsm, engine, preset]);
+  // Disparar emote interactivo al hacer clic
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLSpanElement>) => {
+      onClick?.(e);
+      const el = avatarRef.current as any;
+      if (!el) return;
+      if (typeof el.play === "function") {
+        void el.play("happy").catch(() => {});
+      } else if (typeof el.setAttribute === "function") {
+        el.setAttribute("state", "finished");
+        setTimeout(() => {
+          try {
+            el.setAttribute("state", avatarState);
+          } catch {}
+        }, 1500);
+      }
+    },
+    [onClick, avatarState]
+  );
 
   return (
     <motion.span
@@ -199,25 +168,35 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
       animate={{ opacity: 1, scale: 1 }}
       transition={reduceMotion ? { duration: 0 } : { duration: MOTION.surface }}
       role="img"
-      aria-label={title || preset.name}
-      className={`inline-flex items-center justify-center overflow-hidden shrink-0 select-none ${className}`}
-      title={title || preset.name}
+      aria-label={badgeTitle}
+      className={`inline-flex items-center justify-center overflow-hidden shrink-0 select-none cursor-pointer ${className}`}
+      title={badgeTitle}
       data-morph="wrapped"
+      onClick={handleClick}
       style={
         reduceMotion
           ? { width: `${size}px`, height: `${size}px`, animation: "none" }
           : { width: `${size}px`, height: `${size}px` }
       }
     >
-      <canvas
-        ref={canvasRef}
-        aria-hidden="true"
-        style={{
-          width: `${size / 0.6}px`,
-          height: `${size / 0.6}px`,
+      {React.createElement("ego-avatar", {
+        ref: avatarRef,
+        seed: subEgoId,
+        state: avatarState,
+        size: String(size),
+        mode: effectiveMode,
+        preset: studioPreset,
+        "pointer-follow": animated ? "true" : "false",
+        sound: "false",
+        motion: reduceMotion || !animated ? "reduce" : "auto",
+        style: {
+          width: "100%",
+          height: "100%",
+          display: "block",
           pointerEvents: "none",
-        }}
-      />
+        },
+        "aria-hidden": "true",
+      })}
     </motion.span>
   );
 };

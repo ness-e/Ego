@@ -1,5 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { CharacterBadge } from "../CharacterBadge.js";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { TraitRegistry, type DomainCharacterPreset, type CharacterTrait } from "../traits/TraitRegistry.js";
 import { Sparkle, Check, ArrowClockwise, FloppyDisk } from "@phosphor-icons/react";
 import {
@@ -7,6 +6,9 @@ import {
   saveCharacterConfig,
   liveCharacterGateway,
 } from "./characterProfileBridge.js";
+
+// Registro del custom element <ego-avatar>
+import "../../../floating/vendor/avatar/runtime/avatar-element.js";
 
 export type BaseFormType =
   | "delta-core"
@@ -79,6 +81,16 @@ const EYE_SHAPES: Array<{ id: CustomCharacterConfig["eyeShape"]; label: string }
   { id: "cup", label: "Curvo" },
 ];
 
+const TEST_STATES: Array<{ id: string; label: string; emoji: string }> = [
+  { id: "idle", label: "Idle", emoji: "👁️" },
+  { id: "thinking", label: "Pensando", emoji: "💭" },
+  { id: "working", label: "Trabajando", emoji: "⚡" },
+  { id: "searching", label: "Buscando", emoji: "🔍" },
+  { id: "approval", label: "Aprobación", emoji: "⚠️" },
+  { id: "happy", label: "Feliz", emoji: "✨" },
+  { id: "error", label: "Error", emoji: "❌" },
+];
+
 export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
   subEgoId = "ego.nucleus",
   onSave,
@@ -100,14 +112,9 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
     roundness: 50,
   }));
 
+  const [previewState, setPreviewState] = useState<string>("idle");
   const [savedSuccess, setSavedSuccess] = useState(false);
-
-  // Carga diferida del web component <ego-avatar>
-  useEffect(() => {
-    if (typeof window !== "undefined" && typeof customElements !== "undefined" && !customElements.get("ego-avatar")) {
-      void import("../../../floating/vendor/avatar/runtime/avatar-element.js").catch(() => {});
-    }
-  }, []);
+  const studioAvatarRef = useRef<HTMLElement | null>(null);
 
   // CHAR-10: restore al montar — la personalización sobrevive reinicios vía
   // VantaDB (`egos/<subEgoId>` + `character`, gateway único). Ausente o
@@ -135,6 +142,42 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       cancelled = true;
     };
   }, [subEgoId]);
+
+  // Sincronizar preset del studio en el web component si cambia
+  useEffect(() => {
+    const el = studioAvatarRef.current as any;
+    if (!el) return;
+    if (typeof el.applyStudioPreset === "function") {
+      try {
+        el.applyStudioPreset(currentConfig.studioPreset || "cx-faithful");
+      } catch {}
+    } else if (typeof el.setAttribute === "function") {
+      try {
+        el.setAttribute("preset", currentConfig.studioPreset || "cx-faithful");
+      } catch {}
+    }
+  }, [currentConfig.studioPreset]);
+
+  // Sincronizar accesorio
+  useEffect(() => {
+    const el = studioAvatarRef.current as any;
+    if (!el) return;
+    const host = el._studio?.();
+    if (host && typeof host.setParam === "function") {
+      host.setParam("accessory", currentConfig.accessory || "none");
+    }
+  }, [currentConfig.accessory]);
+
+  // Sincronizar redondez de cabeza (squircleN)
+  useEffect(() => {
+    const el = studioAvatarRef.current as any;
+    if (!el) return;
+    const host = el._studio?.();
+    if (host && typeof host.setParam === "function") {
+      const n = 2.0 + ((currentConfig.roundness ?? 50) / 100) * 3.0;
+      host.setParam("squircleN", n);
+    }
+  }, [currentConfig.roundness]);
 
   const availableTraits = useMemo(() => {
     return TraitRegistry.listTraits();
@@ -187,6 +230,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       accessory: "none",
       roundness: 50,
     });
+    setPreviewState("idle");
     setSavedSuccess(false);
   };
 
@@ -227,44 +271,75 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Panel izquierdo: Preview viva del Avatar (Dual: CharacterBadge + ego-avatar) */}
-        <div className="flex flex-col items-center justify-center p-4 bg-paper rounded-xl border border-hairline">
-          <div className="relative mb-3 flex flex-col items-center justify-center gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-center">
-                <div className="h-20 w-20 flex items-center justify-center">
-                  <CharacterBadge
-                    subEgoId={subEgoId}
-                    baseForm={currentConfig.baseForm}
-                    outfitId={null}
-                    size={72}
-                    animated={true}
-                    title={`Vista previa Badge de ${currentConfig.name}`}
-                  />
-                </div>
-                <span className="text-[9px] text-faint font-mono mt-1">2.5D Badge</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <div className="h-20 w-20 flex items-center justify-center overflow-hidden">
-                  {React.createElement("ego-avatar", {
-                    seed: subEgoId,
-                    state: "idle",
-                    size: "72",
-                    motion: "auto",
-                    "pointer-follow": "true",
-                    sound: "false",
-                  })}
-                </div>
-                <span className="text-[9px] text-faint font-mono mt-1">Robot SVG/Studio</span>
-              </div>
+        {/* Panel izquierdo: Preview viva del Avatar en grande (size=96) con Robot Studio 2.5D */}
+        <div className="flex flex-col items-center justify-between p-4 bg-paper rounded-xl border border-hairline">
+          <div className="flex flex-col items-center justify-center w-full">
+            <div
+              className="h-28 w-28 flex items-center justify-center overflow-hidden cursor-pointer rounded-2xl bg-raised/50 border border-hairline p-2 mb-2"
+              onClick={() => {
+                const el = studioAvatarRef.current as any;
+                if (el && typeof el.play === "function") {
+                  void el.play("happy").catch(() => {});
+                }
+              }}
+              title="Haz clic para interactuar con el avatar"
+            >
+              {React.createElement("ego-avatar", {
+                ref: studioAvatarRef,
+                seed: subEgoId,
+                state: previewState === "happy" ? "finished" : previewState,
+                size: "96",
+                mode: currentConfig.baseForm === "delta-core" ? "svg" : "studio",
+                preset: currentConfig.studioPreset || "cx-faithful",
+                "pointer-follow": "true",
+                sound: "false",
+                motion: "auto",
+                style: { width: "96px", height: "96px", display: "block" },
+              })}
+            </div>
+            <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 font-semibold">
+              <Sparkle size={12} weight="bold" /> Robot Studio 2.5D
+            </span>
+            <span className="font-semibold text-ink text-center text-xs mt-1">
+              {currentConfig.name}
+            </span>
+            <span className="text-[10px] text-faint mt-0.5 font-mono text-center">
+              {currentConfig.baseForm === "delta-core"
+                ? "Delta Core (Triángulo C₃)"
+                : "Robot Studio CX (Squircle / Superelipse)"}
+            </span>
+          </div>
+
+          {/* Selector de prueba de estados en vivo */}
+          <div className="mt-4 w-full pt-3 border-t border-hairline">
+            <span className="block text-[10px] font-semibold text-dim mb-1.5 text-center">
+              Probar Animación de Estado
+            </span>
+            <div className="flex flex-wrap justify-center gap-1">
+              {TEST_STATES.map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => {
+                    setPreviewState(st.id);
+                    const el = studioAvatarRef.current as any;
+                    if (st.id === "happy" && el && typeof el.play === "function") {
+                      void el.play("happy").catch(() => {});
+                    }
+                  }}
+                  className={`px-1.5 py-0.5 rounded text-[9px] border transition-colors flex items-center gap-1 ${
+                    previewState === st.id
+                      ? "bg-ink text-paper border-ink font-semibold"
+                      : "border-hairline text-dim hover:text-ink hover:bg-raised"
+                  }`}
+                  title={`Estado ${st.label}`}
+                >
+                  <span>{st.emoji}</span>
+                  <span>{st.label}</span>
+                </button>
+              ))}
             </div>
           </div>
-          <span className="font-semibold text-ink text-center text-xs">
-            {currentConfig.name}
-          </span>
-          <span className="text-[10px] text-faint mt-0.5 font-mono">
-            {currentConfig.baseForm === "delta-core" ? "Delta Core (Triángulo C₃)" : "Robot Studio CX (Squircle / Superelipse)"}
-          </span>
         </div>
 
         {/* Panel derecho: Controles de Personalización */}
@@ -400,7 +475,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
             />
           </div>
 
-          {/* 2. Rasgos Anatómicos y Sensores (Cero Ropa Humana) */}
+          {/* 5. Rasgos Anatómicos y Sensores */}
           <div>
             <label className="block text-[11px] font-semibold text-dim mb-1.5">
               Rasgos Anatómicos & Sensores ({currentConfig.traits.length} activos)
@@ -427,7 +502,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
             </div>
           </div>
 
-          {/* 3. Paletas de Color */}
+          {/* 6. Paletas de Color */}
           <div>
             <label className="block text-[11px] font-semibold text-dim mb-1.5">
               Gradiente Energético Corporal
@@ -461,7 +536,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
             </div>
           </div>
 
-          {/* 4. Forma de Ojos */}
+          {/* 7. Forma de Ojos */}
           <div>
             <label className="block text-[11px] font-semibold text-dim mb-1.5">
               Expresión Ocular

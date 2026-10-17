@@ -1,0 +1,16 @@
+{
+  "name": "@ego/avatar",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": "./src/index.js",
+    "./static": "./src/render/static.js",
+    "./studio": "./src/studio/index.js"
+  },
+  "scripts": {
+    "typecheck": "node -e \"process.exit(0)\"",
+    "build": "node -e \"const fs=require('node:fs');fs.mkdirSync('dist',{recursive:true});fs.writeFileSync('dist/index.js','export * from \\'../src/index.js\\';\\n');fs.copyFileSync('index.d.ts','dist/index.d.ts');\""
+  }
+}

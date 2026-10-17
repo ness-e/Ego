@@ -4,6 +4,7 @@ import { Sparkle, Warning, Check, X } from "@phosphor-icons/react";
 import { useActivityState } from "./useActivityState.js";
 import { Modal } from "../ui-kit/Modal.js";
 import { MOTION } from "../canvas/DesignSystemProvider.js";
+import { CharacterBadge } from "../character/CharacterBadge.js";
 
 export function ActivityWidget() {
   const { status, activeSubEgo, currentAction, pendingApprovals, vantaDbOk, resolveApproval } =
@@ -37,7 +38,7 @@ export function ActivityWidget() {
   return (
     <div className="flex items-center gap-2 app-region-no-drag relative">
       <AnimatePresence initial={false}>
-        {/* 1. Estado Idle — badge con salud real (T12: error si snapshots() falla). */}
+        {/* 1. Estado Idle — badge con salud real (T12: error si snapshots() falla) y Avatar en vivo */}
         {status === "idle" &&
           (vantaDbOk ? (
             <motion.div
@@ -51,6 +52,12 @@ export function ActivityWidget() {
               data-testid="activity-idle"
               className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised px-2.5 py-0.5 text-[11px] text-faint"
             >
+              <CharacterBadge
+                subEgoId="ego.nucleus"
+                size={22}
+                state="idle"
+                animated={!reduceMotion}
+              />
               <span
                 className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
                 style={noAnimStyle}
@@ -70,6 +77,12 @@ export function ActivityWidget() {
               role="alert"
               className="flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-950/30 px-2.5 py-0.5 text-[11px] text-rose-300"
             >
+              <CharacterBadge
+                subEgoId="ego.nucleus"
+                size={22}
+                state="error"
+                animated={!reduceMotion}
+              />
               <span className="h-1.5 w-1.5 rounded-full bg-rose-500" style={noAnimStyle} />
               <span>VantaDB error — sin verificación de snapshots</span>
             </motion.div>
@@ -88,6 +101,12 @@ export function ActivityWidget() {
             data-testid="activity-working"
             className="flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-950/20 px-3 py-0.5 text-[11px] text-cyan-300"
           >
+            <CharacterBadge
+              subEgoId={activeSubEgo || "ego.nucleus"}
+              size={22}
+              state="working"
+              animated={!reduceMotion}
+            />
             <Sparkle className="text-cyan-400" style={noAnimStyle} size={13} />
             <span className="truncate max-w-[200px]">
               {activeSubEgo ? `${activeSubEgo}: ` : ""}
@@ -109,6 +128,12 @@ export function ActivityWidget() {
             data-testid="activity-approval"
             className="flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-950/30 px-3 py-0.5 text-[11px] text-amber-200 shadow-sm"
           >
+            <CharacterBadge
+              subEgoId={currentApproval?.action?.subEgoId || activeSubEgo || "ego.nucleus"}
+              size={22}
+              state="approval"
+              animated={!reduceMotion}
+            />
             <Warning size={14} className="text-amber-400" />
             <span>
               HITL Requerido{pendingApprovals.length > 1 ? ` (${pendingApprovals.length})` : ""}
@@ -133,6 +158,19 @@ export function ActivityWidget() {
           description="Revisa los parámetros y resuelve la operación sensible pendiente."
         >
           <div className="space-y-3 text-xs">
+            <div className="flex items-center gap-3 p-2 rounded-lg bg-raised border border-hairline">
+              <CharacterBadge
+                subEgoId={currentApproval.action.subEgoId}
+                size={32}
+                state="approval"
+                animated={!reduceMotion}
+              />
+              <div className="flex flex-col">
+                <span className="font-semibold text-ink">{currentApproval.action.subEgoId}</span>
+                <span className="text-[10px] font-mono text-amber-300">HITL en espera</span>
+              </div>
+            </div>
+
             <div>
               <span className="text-faint">Herramienta: </span>
               <span className="font-mono font-bold text-amber-300">{currentApproval.toolName}</span>
