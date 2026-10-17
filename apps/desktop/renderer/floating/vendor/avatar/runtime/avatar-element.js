@@ -2175,6 +2175,67 @@ export class EgoAvatar extends ElementBase {
     }
   }
 
+  /** Compatibilidad React 19: getters y setters seguros que delegan en atributos */
+  get seed() {
+    return this.getAttribute?.('seed') ?? this._seed ?? 'ego';
+  }
+
+  set seed(v) {
+    if (v != null) {
+      this.setAttribute?.('seed', String(v));
+    } else {
+      this.removeAttribute?.('seed');
+    }
+  }
+
+  get state() {
+    return this.getAttribute?.('state') ?? this._state ?? 'idle';
+  }
+
+  set state(v) {
+    if (v != null) {
+      this.setAttribute?.('state', String(v));
+    } else {
+      this.removeAttribute?.('state');
+    }
+  }
+
+  get size() {
+    return this.getAttribute?.('size') ?? '112';
+  }
+
+  set size(v) {
+    if (v != null) {
+      this.setAttribute?.('size', String(v));
+    } else {
+      this.removeAttribute?.('size');
+    }
+  }
+
+  get mode() {
+    return this.getAttribute?.('mode') ?? (this._isStudio() ? 'studio' : 'svg');
+  }
+
+  set mode(v) {
+    if (v != null) {
+      this.setAttribute?.('mode', String(v));
+    } else {
+      this.removeAttribute?.('mode');
+    }
+  }
+
+  get motion() {
+    return this.getAttribute?.('motion') ?? 'auto';
+  }
+
+  set motion(v) {
+    if (v != null) {
+      this.setAttribute?.('motion', String(v));
+    } else {
+      this.removeAttribute?.('motion');
+    }
+  }
+
   /** Snapshot SVG del estado actual (exportación/miniaturas; '' en modo studio). */
   toSVGString() {
     if (this._isStudio()) return '';

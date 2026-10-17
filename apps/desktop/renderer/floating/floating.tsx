@@ -465,7 +465,44 @@ export function FloatingApp() {
   const tickerKey = `${attention}`;
 
   return (
-    <main data-attention={snapshot.attentionState} data-muted={snapshot.muted}>
+    <main
+      data-attention={snapshot.attentionState}
+      data-muted={snapshot.muted}
+      className="relative flex flex-col items-center justify-center p-3.5 rounded-3xl bg-zinc-950/80 backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/5 transition-all duration-300 select-none overflow-hidden"
+    >
+      <style>{`
+        main[data-attention] {
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #status-pill {
+          margin-top: 6px;
+          padding: 2px 8px;
+          border-radius: 9999px;
+          font-size: 10px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: rgba(255, 255, 255, 0.85);
+          letter-spacing: 0.02em;
+        }
+        button[data-mute] {
+          margin-top: 8px;
+          padding: 3px 10px;
+          border-radius: 6px;
+          font-size: 10px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: rgba(255, 255, 255, 0.65);
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        button[data-mute]:hover {
+          background: rgba(255, 255, 255, 0.12);
+          color: #ffffff;
+        }
+      `}</style>
       <AvatarSafe>
         <FloatingAvatar
           attentionState={snapshot.attentionState}

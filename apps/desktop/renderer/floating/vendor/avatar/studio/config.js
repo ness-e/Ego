@@ -61,8 +61,8 @@ export const PRESET_DIM_RESET = Object.freeze({
 });
 
 /**
- * Presets fieles (ramas de applyPreset). `play` = estado disparado al aplicar.
- * NOTA: la rama coucou-mochi NO toca visorColor (fiel al original).
+ * Presets fieles del Robot Studio de Ego.
+ * CERO MOCHI: 'coucou-mochi' se redirige internamente a 'cx-faithful'.
  */
 export const STUDIO_PRESETS = Object.freeze({
   'cx-faithful': Object.freeze({
@@ -81,19 +81,86 @@ export const STUDIO_PRESETS = Object.freeze({
     play: 'idle',
     playOptions: Object.freeze({ keepHandsHidden: true }),
   }),
+  'ego-nucleus': Object.freeze({
+    variantMode: 'cx-faithful',
+    bodyColor: '#141720',
+    visorColor: '#06080e',
+    showVisor: true,
+    showSidePods: true,
+    eyeColor: '#f59e0b',
+    autoStateColors: true,
+    eyeStyle: 'cx-led',
+    mouthStyle: 'none',
+    accessory: 'cx-antenna',
+    squircleN: 4.0,
+    handsActiveTimer: 0,
+    play: 'idle',
+    playOptions: Object.freeze({ keepHandsHidden: true }),
+  }),
+  'ego-cyber': Object.freeze({
+    variantMode: 'cx-faithful',
+    bodyColor: '#0f172a',
+    visorColor: '#06080e',
+    showVisor: true,
+    showSidePods: true,
+    eyeColor: '#38bdf8',
+    autoStateColors: true,
+    eyeStyle: 'cyber-visor',
+    mouthStyle: 'none',
+    accessory: 'cyber-goggles',
+    squircleN: 4.0,
+    handsActiveTimer: 0,
+    play: 'idle',
+    playOptions: Object.freeze({ keepHandsHidden: true }),
+  }),
+  'ego-sentinel': Object.freeze({
+    variantMode: 'cx-faithful',
+    bodyColor: '#1f1218',
+    visorColor: '#06080e',
+    showVisor: true,
+    showSidePods: true,
+    eyeColor: '#f43f5e',
+    autoStateColors: true,
+    eyeStyle: 'cyclops',
+    mouthStyle: 'none',
+    accessory: 'cx-full-kit',
+    squircleN: 4.0,
+    handsActiveTimer: 0,
+    play: 'idle',
+    playOptions: Object.freeze({ keepHandsHidden: true }),
+  }),
+  'ego-architect': Object.freeze({
+    variantMode: 'cx-faithful',
+    bodyColor: '#0d1f1a',
+    visorColor: '#06080e',
+    showVisor: true,
+    showSidePods: true,
+    eyeColor: '#10b981',
+    autoStateColors: true,
+    eyeStyle: 'terminal',
+    mouthStyle: 'none',
+    accessory: 'headphones',
+    squircleN: 4.0,
+    handsActiveTimer: 0,
+    play: 'idle',
+    playOptions: Object.freeze({ keepHandsHidden: true }),
+  }),
   'coucou-mochi': Object.freeze({
-    variantMode: 'coucou-mochi',
-    bodyColor: '#D97757',
-    showVisor: false,
-    showSidePods: false,
-    eyeColor: '#09090b',
-    autoStateColors: false,
-    eyeStyle: 'mochi-sphere',
-    mouthStyle: 'mochi-cute',
-    accessory: 'witch',
-    squircleN: 4.1,
-    play: 'wave',
-    playOptions: Object.freeze({}),
+    // Redirigido internamente a cx-faithful (CERO MOCHI)
+    variantMode: 'cx-faithful',
+    bodyColor: '#1e222d',
+    visorColor: '#06080e',
+    showVisor: true,
+    showSidePods: true,
+    eyeColor: '#dbf59d',
+    autoStateColors: true,
+    eyeStyle: 'cx-led',
+    mouthStyle: 'none',
+    accessory: 'none',
+    squircleN: 4.0,
+    handsActiveTimer: 0,
+    play: 'idle',
+    playOptions: Object.freeze({ keepHandsHidden: true }),
   }),
 });
 
@@ -123,15 +190,15 @@ export const STUDIO_STATES = Object.freeze([
   Object.freeze({ name: 'love', label: 'love', emoji: '😍' }),
 ]);
 
-/** Estilos de ojo del dock (botones .eye-btn[data-eyes]). */
+/** Estilos de ojo del dock (predeterminados no-mochi). */
 export const EYE_STYLE_NAMES = Object.freeze([
-  'cx-led', 'mochi-sphere', 'cyber-visor', 'pixel', 'anime',
+  'cx-led', 'cyber-visor', 'pixel', 'anime',
   'cyclops', 'heart', 'zen-arc', 'terminal',
 ]);
 
-/** Estilos de boca del dock (botones .mouth-btn[data-mouth]). */
+/** Estilos de boca del dock (predeterminados no-mochi). */
 export const MOUTH_STYLE_NAMES = Object.freeze([
-  'none', 'led-wave', 'mochi-cute', 'cat-kawaii', 'vocoder', 'pixel-mouth',
+  'none', 'led-wave', 'cat-kawaii', 'vocoder', 'pixel-mouth',
 ]);
 
 /** Accesorios del dock (botones .acc-btn[data-acc]). */

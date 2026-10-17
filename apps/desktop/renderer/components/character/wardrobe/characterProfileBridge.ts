@@ -178,6 +178,9 @@ function asCustomConfig(raw: unknown, subEgoId: string): CustomCharacterConfig |
     baseForm: c.baseForm as CustomCharacterConfig["baseForm"],
     outfitId: null,
     traits: c.traits.map(String),
+    studioPreset: typeof c.studioPreset === "string" ? (c.studioPreset as CustomCharacterConfig["studioPreset"]) : undefined,
+    accessory: typeof c.accessory === "string" ? c.accessory : undefined,
+    roundness: typeof c.roundness === "number" ? c.roundness : undefined,
   };
 }
 

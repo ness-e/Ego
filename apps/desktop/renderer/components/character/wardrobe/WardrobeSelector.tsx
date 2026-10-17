@@ -8,14 +8,31 @@ import {
   liveCharacterGateway,
 } from "./characterProfileBridge.js";
 
+export type BaseFormType =
+  | "delta-core"
+  | "quantum-monolith"
+  | "energy-core"
+  | "fractal-polyhedron"
+  | "coucou-mochi";
+
+export type StudioPresetType =
+  | "cx-faithful"
+  | "ego-nucleus"
+  | "ego-cyber"
+  | "ego-sentinel"
+  | "ego-architect";
+
 export interface CustomCharacterConfig {
   subEgoId: string;
   name: string;
   bodyColors: [string, string];
   eyeShape: "pill" | "wide" | "dot" | "line" | "flat" | "happy" | "cup";
-  baseForm: "delta-core" | "coucou-mochi";
+  baseForm: BaseFormType;
   outfitId?: string | null;
   traits: string[];
+  studioPreset?: StudioPresetType;
+  accessory?: string;
+  roundness?: number;
 }
 
 export interface WardrobeSelectorProps {
@@ -23,6 +40,25 @@ export interface WardrobeSelectorProps {
   onSave?: (config: CustomCharacterConfig) => void;
   onClose?: () => void;
 }
+
+export const STUDIO_PRESETS_OPTIONS: Array<{ id: StudioPresetType; label: string }> = [
+  { id: "cx-faithful", label: "Fiel CX Grafito" },
+  { id: "ego-nucleus", label: "Ego Nucleus" },
+  { id: "ego-cyber", label: "Ego Cyber" },
+  { id: "ego-sentinel", label: "Ego Sentinel" },
+  { id: "ego-architect", label: "Ego Architect" },
+];
+
+export const ACCESSORY_OPTIONS: Array<{ id: string; label: string }> = [
+  { id: "none", label: "Ninguno" },
+  { id: "cx-full-kit", label: "Kit Completo CX" },
+  { id: "cx-antenna", label: "Antena CX" },
+  { id: "headphones", label: "Auriculares" },
+  { id: "cyber-goggles", label: "Gafas Cyber" },
+  { id: "crown", label: "Corona" },
+  { id: "halo", label: "Halo" },
+  { id: "sprout", label: "Brote" },
+];
 
 const COLOR_PALETTES: Array<{ name: string; colors: [string, string] }> = [
   { name: "Cyan Neón", colors: ["#06b6d4", "#083344"] },
@@ -59,9 +95,19 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
     baseForm: defaultPreset.baseForm ?? "delta-core",
     outfitId: null,
     traits: [...defaultPreset.traits],
+    studioPreset: "cx-faithful",
+    accessory: "none",
+    roundness: 50,
   }));
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Carga diferida del web component <ego-avatar>
+  useEffect(() => {
+    if (typeof window !== "undefined" && typeof customElements !== "undefined" && !customElements.get("ego-avatar")) {
+      void import("../../../floating/vendor/avatar/runtime/avatar-element.js").catch(() => {});
+    }
+  }, []);
 
   // CHAR-10: restore al montar — la personalización sobrevive reinicios vía
   // VantaDB (`egos/<subEgoId>` + `character`, gateway único). Ausente o
@@ -98,8 +144,20 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
     setCurrentConfig((prev) => ({ ...prev, bodyColors: colors }));
   };
 
-  const handleShapeSelect = (baseForm: "delta-core" | "coucou-mochi") => {
+  const handleShapeSelect = (baseForm: BaseFormType) => {
     setCurrentConfig((prev) => ({ ...prev, baseForm }));
+  };
+
+  const handleStudioPresetSelect = (studioPreset: StudioPresetType) => {
+    setCurrentConfig((prev) => ({ ...prev, studioPreset }));
+  };
+
+  const handleAccessorySelect = (accessory: string) => {
+    setCurrentConfig((prev) => ({ ...prev, accessory }));
+  };
+
+  const handleRoundnessChange = (roundness: number) => {
+    setCurrentConfig((prev) => ({ ...prev, roundness }));
   };
 
   const handleTraitToggle = (traitId: string) => {
@@ -125,6 +183,9 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       baseForm: defaultPreset.baseForm ?? "delta-core",
       outfitId: null,
       traits: [...defaultPreset.traits],
+      studioPreset: "cx-faithful",
+      accessory: "none",
+      roundness: 50,
     });
     setSavedSuccess(false);
   };
@@ -135,7 +196,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       ...defaultPreset,
       bodyColors: currentConfig.bodyColors,
       eyeShape: currentConfig.eyeShape,
-      baseForm: currentConfig.baseForm,
+      baseForm: currentConfig.baseForm === "delta-core" ? "delta-core" : "coucou-mochi",
       outfitId: null,
       traits: currentConfig.traits,
     };
@@ -166,28 +227,48 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Panel izquierdo: Preview viva del Avatar */}
+        {/* Panel izquierdo: Preview viva del Avatar (Dual: CharacterBadge + ego-avatar) */}
         <div className="flex flex-col items-center justify-center p-4 bg-paper rounded-xl border border-hairline">
-          <div className="relative mb-3 flex items-center justify-center h-28 w-28">
-            <CharacterBadge
-              subEgoId={subEgoId}
-              baseForm={currentConfig.baseForm}
-              outfitId={null}
-              size={96}
-              animated={true}
-              title={`Vista previa de ${currentConfig.name}`}
-            />
+          <div className="relative mb-3 flex flex-col items-center justify-center gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-center">
+                <div className="h-20 w-20 flex items-center justify-center">
+                  <CharacterBadge
+                    subEgoId={subEgoId}
+                    baseForm={currentConfig.baseForm}
+                    outfitId={null}
+                    size={72}
+                    animated={true}
+                    title={`Vista previa Badge de ${currentConfig.name}`}
+                  />
+                </div>
+                <span className="text-[9px] text-faint font-mono mt-1">2.5D Badge</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="h-20 w-20 flex items-center justify-center overflow-hidden">
+                  {React.createElement("ego-avatar", {
+                    seed: subEgoId,
+                    state: "idle",
+                    size: "72",
+                    motion: "auto",
+                    "pointer-follow": "true",
+                    sound: "false",
+                  })}
+                </div>
+                <span className="text-[9px] text-faint font-mono mt-1">Robot SVG/Studio</span>
+              </div>
+            </div>
           </div>
           <span className="font-semibold text-ink text-center text-xs">
             {currentConfig.name}
           </span>
           <span className="text-[10px] text-faint mt-0.5 font-mono">
-            {currentConfig.baseForm === "delta-core" ? "Delta Core (Triángulo C₃)" : "Superelipse (Squircle)"}
+            {currentConfig.baseForm === "delta-core" ? "Delta Core (Triángulo C₃)" : "Robot Studio CX (Squircle / Superelipse)"}
           </span>
         </div>
 
         {/* Panel derecho: Controles de Personalización */}
-        <div className="md:col-span-2 space-y-4">
+        <div className="md:col-span-2 space-y-4 max-h-[460px] overflow-y-auto pr-1">
           {/* 1. Geometría de Silueta */}
           <div>
             <label className="block text-[11px] font-semibold text-dim mb-1.5">
@@ -203,7 +284,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
                     : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
                 }`}
               >
-                <span>🔺 Delta Core (C₃)</span>
+                <span>🔺 Delta Core (Triangular)</span>
                 {currentConfig.baseForm === "delta-core" && <Check size={12} weight="bold" className="text-emerald-400" />}
               </button>
               <button
@@ -215,10 +296,108 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
                     : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
                 }`}
               >
-                <span>🔘 Superelipse</span>
+                <span>🤖 Robot Studio CX (Squircle / Superelipse)</span>
                 {currentConfig.baseForm === "coucou-mochi" && <Check size={12} weight="bold" className="text-emerald-400" />}
               </button>
+              <button
+                type="button"
+                onClick={() => handleShapeSelect("fractal-polyhedron")}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
+                  currentConfig.baseForm === "fractal-polyhedron"
+                    ? "bg-raised border-ink text-ink font-semibold"
+                    : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
+                }`}
+              >
+                <span>🔷 Fractal Polyhedron (Hexagonal)</span>
+                {currentConfig.baseForm === "fractal-polyhedron" && <Check size={12} weight="bold" className="text-emerald-400" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShapeSelect("quantum-monolith")}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
+                  currentConfig.baseForm === "quantum-monolith"
+                    ? "bg-raised border-ink text-ink font-semibold"
+                    : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
+                }`}
+              >
+                <span>⚡ Quantum Monolith</span>
+                {currentConfig.baseForm === "quantum-monolith" && <Check size={12} weight="bold" className="text-emerald-400" />}
+              </button>
             </div>
+          </div>
+
+          {/* 2. Preset Robot Studio */}
+          <div>
+            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+              Preset Robot Studio (Ego Native)
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {STUDIO_PRESETS_OPTIONS.map((p) => {
+                const isSelected = (currentConfig.studioPreset ?? "cx-faithful") === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleStudioPresetSelect(p.id)}
+                    className={`flex items-center justify-between px-2 py-1.5 rounded text-[10px] border transition-colors ${
+                      isSelected
+                        ? "bg-raised border-ink text-ink font-semibold"
+                        : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
+                    }`}
+                  >
+                    <span>{p.label}</span>
+                    {isSelected && <Check size={12} weight="bold" className="text-cyan-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3. Accesorio de Cabecera */}
+          <div>
+            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+              Accesorio de Cabecera
+            </label>
+            <div className="grid grid-cols-4 gap-1">
+              {ACCESSORY_OPTIONS.map((acc) => {
+                const isSelected = (currentConfig.accessory ?? "none") === acc.id;
+                return (
+                  <button
+                    key={acc.id}
+                    type="button"
+                    onClick={() => handleAccessorySelect(acc.id)}
+                    className={`px-1.5 py-1 rounded text-[10px] border transition-colors truncate ${
+                      isSelected
+                        ? "bg-raised border-ink text-ink font-semibold"
+                        : "border-hairline text-dim hover:text-ink"
+                    }`}
+                    title={acc.label}
+                  >
+                    {acc.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 4. Redondez de Cabeza (Roundness) */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-semibold text-dim">
+                Redondez de Cabeza (Roundness)
+              </label>
+              <span className="font-mono text-[10px] text-ink font-medium">
+                {currentConfig.roundness ?? 50}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={currentConfig.roundness ?? 50}
+              onChange={(e) => handleRoundnessChange(Number(e.target.value))}
+              className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-raised rounded-lg appearance-none"
+            />
           </div>
 
           {/* 2. Rasgos Anatómicos y Sensores (Cero Ropa Humana) */}

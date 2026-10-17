@@ -8,7 +8,7 @@ import type { DomainCharacterPreset } from "../traits/TraitRegistry.js";
 export interface MorphTarget {
   bodyColor: RGB;
   eyeShape: EyeShape;
-  baseForm?: "delta-core" | "coucou-mochi";
+  baseForm?: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi";
   outfitId?: string | null;
   accentColor?: RGB;
 }
@@ -50,7 +50,7 @@ export function isReducedMotionPreferred(): boolean {
 export function presetToMorphTarget(
   preset: DomainCharacterPreset,
   overrideOutfitId?: string | null,
-  overrideBaseForm?: "delta-core" | "coucou-mochi"
+  overrideBaseForm?: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi"
 ): MorphTarget {
   const primaryHex = preset.bodyColors[0] || "#93c5fd";
   return {

@@ -21,7 +21,7 @@ export interface CharacterBadgeProps {
   state?: CharacterState;
   size?: number;          // Dimensión en píxeles CSS (default: 28)
   animated?: boolean;     // Si es false, renderiza 1 fotograma estático sin rAF continuo
-  baseForm?: "delta-core" | "coucou-mochi"; // Geometría de silueta
+  baseForm?: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi"; // Geometría de silueta
   outfitId?: string | null; // Override opcional de atuendo
   className?: string;
   title?: string;
@@ -72,7 +72,9 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   }, [state, fsm]);
 
   useEffect(() => {
-    const nextTarget = presetToMorphTarget(preset, outfitId, baseForm);
+    const morphForm: "delta-core" | "coucou-mochi" | undefined =
+      baseForm === "delta-core" ? "delta-core" : baseForm ? "coucou-mochi" : undefined;
+    const nextTarget = presetToMorphTarget(preset, outfitId, morphForm);
 
     // Configurar dibujado de traits mediante capas si existen
     engine.customBackDraw = (ctx: CanvasRenderingContext2D, head: HeadFrame) => {

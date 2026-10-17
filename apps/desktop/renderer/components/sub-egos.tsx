@@ -10,9 +10,13 @@ import {
   X,
   CheckCircle,
   Cpu,
+  Sparkle,
+  PencilSimple,
+  Trash,
 } from "@phosphor-icons/react";
 import { ego, SubEgoDetailInfo, DomainTemplateInfo } from "../lib/ego";
 import { CharacterBadge } from "./character/CharacterBadge.js";
+import { WardrobeSelector } from "./character/wardrobe/WardrobeSelector.js";
 import { Modal } from "./ui-kit/Modal.js";
 import { Tabs } from "./ui-kit/Tabs.js";
 
@@ -61,6 +65,90 @@ export function SubEgosView() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [filterState, setFilterState] = useState<"all" | "active" | "paused">("all");
+
+  // Modal de Personalización de Avatar (WardrobeSelector)
+  const [wardrobeSubEgoId, setWardrobeSubEgoId] = useState<string | null>(null);
+
+  // Modal de Edición de Sub-Ego
+  const [editingSubEgo, setEditingSubEgo] = useState<SubEgoDetailInfo | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editInstructions, setEditInstructions] = useState("");
+  const [editMaxDailyCost, setEditMaxDailyCost] = useState("2.0");
+
+  const handleOpenEdit = (se: SubEgoDetailInfo) => {
+    setEditingSubEgo(se);
+    setEditName(se.name);
+    setEditRole(se.role);
+    setEditDescription(se.description);
+    setEditInstructions(se.instructions || se.systemPrompt || "");
+    setEditMaxDailyCost(String(se.budget?.maxDailyCostUsd ?? 2.0));
+    setModalError(null);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSubEgo) return;
+    setIsSubmitting(true);
+    setModalError(null);
+    try {
+      const updatedPayload: SubEgoDetailInfo = {
+        ...editingSubEgo,
+        name: editName.trim() || editingSubEgo.name,
+        role: editRole.trim() || editingSubEgo.role,
+        description: editDescription.trim() || editingSubEgo.description,
+        instructions: editInstructions.trim() || editingSubEgo.instructions,
+        budget: {
+          ...editingSubEgo.budget,
+          maxDailyCostUsd: parseFloat(editMaxDailyCost) || 2.0,
+        },
+      };
+
+      await ego().memory("put", [
+        {
+          namespace: "gov/sub_egos",
+          key: editingSubEgo.id,
+          payload: updatedPayload,
+        },
+      ]);
+
+      await ego().memory("put", [
+        {
+          namespace: `egos/${editingSubEgo.id.replace(/^ego\./, "")}`,
+          key: "manifest",
+          payload: updatedPayload,
+        },
+      ]).catch(() => {});
+
+      setEditingSubEgo(null);
+      setFeedback(`Sub-Ego '${updatedPayload.name}' actualizado con éxito.`);
+      await loadSubEgos();
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err: unknown) {
+      setModalError(toMessage(err, "Error al actualizar Sub-Ego."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteSubEgo = async (subEgo: SubEgoDetailInfo) => {
+    if (subEgo.id === "ego.nucleus") return;
+    const confirmed = typeof window !== "undefined" && typeof window.confirm === "function"
+      ? window.confirm(`¿Estás seguro de que deseas eliminar el Sub-Ego '${subEgo.name}' (${subEgo.id})?`)
+      : true;
+    if (!confirmed) return;
+
+    try {
+      await ego().subegos.toggleState({ subEgoId: subEgo.id, state: "paused" }).catch(() => {});
+      await ego().memory("delete", ["gov/sub_egos", subEgo.id]).catch(() => {});
+      setSubEgos((prev) => prev.filter((s) => s.id !== subEgo.id));
+      setFeedback(`Sub-Ego '${subEgo.name}' eliminado.`);
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err: unknown) {
+      console.warn("[SubEgosView] Error al eliminar Sub-Ego:", err);
+    }
+  };
 
   const loadSubEgos = useCallback(async () => {
     setIsLoading(true);
@@ -253,6 +341,15 @@ export function SubEgosView() {
           </div>
 
           <button
+            type="button"
+            onClick={() => setWardrobeSubEgoId("ego.nucleus")}
+            className="flex items-center gap-1.5 rounded border border-hairline bg-paper px-3 py-1.5 text-xs font-semibold text-ink hover:bg-raised transition-colors shadow-xs"
+          >
+            <Sparkle size={14} className="text-amber-400" />
+            <span>Personalizar Avatar de Ego</span>
+          </button>
+
+          <button
             onClick={() => {
               setModalError(null);
               setShowModal(true);
@@ -282,7 +379,7 @@ export function SubEgosView() {
         </div>
       )}
 
-      {/* Cuadrícula de Sub-Egos */}
+      {/* Cuadrícula Bento de Sub-Egos */}
       {isLoading ? (
         <div className="flex h-32 items-center justify-center text-xs text-dim">
           <span>Cargando catálogo desde VantaDB (gov/sub_egos)...</span>
@@ -302,14 +399,19 @@ export function SubEgosView() {
             return (
               <div
                 key={se.id}
-                className="flex flex-col justify-between rounded-lg border border-hairline bg-panel p-4 transition-colors hover:border-ink/30 shadow-xs"
+                className="flex flex-col justify-between rounded-xl border border-hairline bg-panel p-4.5 transition-all hover:border-ink/40 hover:shadow-md shadow-xs group"
               >
                 <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <CharacterBadge subEgoId={se.id} size={28} state="idle" />
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CharacterBadge subEgoId={se.id} size={36} state="idle" />
                       <div className="flex flex-col">
-                        <h3 className="font-semibold text-ink text-xs leading-tight">{se.name}</h3>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-semibold text-ink text-xs leading-tight">{se.name}</h3>
+                          <span className="font-mono text-[9px] uppercase tracking-wider text-dim bg-raised px-1 py-0.2 rounded border border-hairline">
+                            {isNucleus ? "NÚCLEO" : "ESPECIALISTA"}
+                          </span>
+                        </div>
                         <span className="font-mono text-[10px] text-dim">{se.id}</span>
                       </div>
                     </div>
@@ -353,20 +455,53 @@ export function SubEgosView() {
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-hairline pt-3 text-[10px]">
-                  <span className="font-mono text-dim truncate max-w-[150px]">
+                  <span className="font-mono text-dim truncate max-w-[120px]">
                     egos/{se.id.replace(/^ego\./, "")}/*
                   </span>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setWardrobeSubEgoId(se.id)}
+                      title="Personalizar Avatar de este Sub-Ego"
+                      className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-dim hover:bg-raised/80 hover:text-ink transition-colors border border-hairline"
+                    >
+                      <Sparkle size={12} className="text-amber-400" />
+                      <span>Personalizar Avatar</span>
+                    </button>
+
                     {!isNucleus && (
-                      <button
-                        onClick={() => handleToggleState(se)}
-                        title={isActive ? "Pausar Sub-Ego" : "Activar Sub-Ego"}
-                        className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-dim hover:bg-raised/80 hover:text-ink transition-colors border border-hairline"
-                      >
-                        {isActive ? <Pause size={12} /> : <Play size={12} className="text-emerald-400" />}
-                        <span>{isActive ? "Pausar" : "Activar"}</span>
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(se)}
+                          title="Editar Sub-Ego"
+                          className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-dim hover:bg-raised/80 hover:text-ink transition-colors border border-hairline"
+                        >
+                          <PencilSimple size={12} />
+                          <span>Editar</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSubEgo(se)}
+                          title="Eliminar Sub-Ego"
+                          className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition-colors border border-hairline"
+                        >
+                          <Trash size={12} />
+                          <span>Eliminar</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleState(se)}
+                          title={isActive ? "Pausar Sub-Ego" : "Activar Sub-Ego"}
+                          className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-dim hover:bg-raised/80 hover:text-ink transition-colors border border-hairline"
+                        >
+                          {isActive ? <Pause size={12} /> : <Play size={12} className="text-emerald-400" />}
+                          <span>{isActive ? "Pausar" : "Activar"}</span>
+                        </button>
+                      </>
                     )}
+
                     {isNucleus && (
                       <span
                         title="Identidad protegida e inmutable del sistema"
@@ -614,6 +749,133 @@ export function SubEgosView() {
               )}
             </div>
           </Modal>
+      )}
+
+      {/* Modal de Personalización de Avatar con WardrobeSelector */}
+      {wardrobeSubEgoId && (
+        <Modal
+          open={!!wardrobeSubEgoId}
+          onOpenChange={(open) => {
+            if (!open) setWardrobeSubEgoId(null);
+          }}
+          title={`Personalizar Avatar: ${wardrobeSubEgoId}`}
+          description="Ajusta la morfología, geometría, sensores y estética del avatar en VantaDB."
+          wide
+        >
+          <div className="flex justify-center py-2">
+            <WardrobeSelector
+              subEgoId={wardrobeSubEgoId}
+              onSave={(_config) => {
+                setFeedback(`Avatar de '${wardrobeSubEgoId}' actualizado con éxito.`);
+                setWardrobeSubEgoId(null);
+                setTimeout(() => setFeedback(null), 3000);
+              }}
+              onClose={() => setWardrobeSubEgoId(null)}
+            />
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal de Edición de Sub-Ego */}
+      {editingSubEgo && (
+        <Modal
+          open={!!editingSubEgo}
+          onOpenChange={(open) => {
+            if (!open) setEditingSubEgo(null);
+          }}
+          title={`Editar Sub-Ego: ${editingSubEgo.name}`}
+          description={`Modifica los metadatos y directivas operativas de ${editingSubEgo.id}.`}
+          error={modalError ?? undefined}
+        >
+          <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
+            <div>
+              <label htmlFor="edit-name" className="block text-[11px] font-semibold text-dim mb-1">
+                Nombre del Sub-Ego
+              </label>
+              <input
+                id="edit-name"
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+                className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink focus:outline-none focus:border-ink"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit-role" className="block text-[11px] font-semibold text-dim mb-1">
+                Rol o Especialidad
+              </label>
+              <input
+                id="edit-role"
+                type="text"
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value)}
+                required
+                className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink focus:outline-none focus:border-ink"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit-desc" className="block text-[11px] font-semibold text-dim mb-1">
+                Descripción
+              </label>
+              <input
+                id="edit-desc"
+                type="text"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink focus:outline-none focus:border-ink"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit-inst" className="block text-[11px] font-semibold text-dim mb-1">
+                Instrucciones Operativas / Prompt del Sistema
+              </label>
+              <textarea
+                id="edit-inst"
+                rows={4}
+                value={editInstructions}
+                onChange={(e) => setEditInstructions(e.target.value)}
+                className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink font-mono focus:outline-none focus:border-ink"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit-cost" className="block text-[11px] font-semibold text-dim mb-1">
+                Presupuesto Diario Máximo (USD)
+              </label>
+              <input
+                id="edit-cost"
+                type="number"
+                step="0.5"
+                min="0.5"
+                max="50"
+                value={editMaxDailyCost}
+                onChange={(e) => setEditMaxDailyCost(e.target.value)}
+                className="w-32 rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink font-mono focus:outline-none focus:border-ink"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-hairline pt-3 mt-4">
+              <button
+                type="button"
+                onClick={() => setEditingSubEgo(null)}
+                className="rounded px-3 py-1 text-xs text-faint hover:text-ink transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded bg-ink px-4 py-1.5 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {isSubmitting ? "Guardando..." : "Guardar Cambios"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

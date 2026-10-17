@@ -41,8 +41,15 @@ export const STUDIO_PARAM_KEYS = new Set([
   'userScale', 'squircleN',
 ]);
 
-/** Presets que el backend sabe aplicar. */
-export const STUDIO_PRESET_NAMES = Object.freeze(['cx-faithful', 'coucou-mochi']);
+/** Presets que el backend sabe aplicar (Ego Robot Studio). */
+export const STUDIO_PRESET_NAMES = Object.freeze([
+  'cx-faithful',
+  'ego-nucleus',
+  'ego-cyber',
+  'ego-sentinel',
+  'ego-architect',
+  'coucou-mochi',
+]);
 
 export class StudioHost {
   /**
@@ -312,17 +319,18 @@ export class StudioHost {
    */
   applyPreset(name) {
     if (!STUDIO_PRESET_NAMES.includes(name)) return false;
+    const effectiveName = name === 'coucou-mochi' ? 'cx-faithful' : name;
     this._pendingParams = {};
     if (!this.backend) {
       this.ensure();
       return true;
     }
     try {
-      this.backend.applyPreset(name);
+      this.backend.applyPreset(effectiveName);
     } catch {
       return false;
     }
-    this.expect = name === 'coucou-mochi' ? 'wave' : 'idle';
+    this.expect = 'idle';
     this._sizeBackend();
     return true;
   }

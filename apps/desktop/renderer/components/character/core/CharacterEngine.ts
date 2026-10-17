@@ -271,8 +271,8 @@ export class CharacterEngine {
     this.activeOutfit = outfitId;
   }
 
-  setShape(shapeName: "delta-core" | "triangle" | "coucou-mochi" | "superellipse") {
-    const isTri = shapeName === "delta-core" || shapeName === "triangle";
+  setShape(shapeName: "delta-core" | "triangle" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi" | "superellipse") {
+    const isTri = shapeName === "delta-core" || shapeName === "triangle" || shapeName === "fractal-polyhedron";
     const target = isTri ? 1 : 0;
     this.anim("triangleMorph", [[target, 520, Ease.inOut]], () => {
       this.emit("spark", 4);
