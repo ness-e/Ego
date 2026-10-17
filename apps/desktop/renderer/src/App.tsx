@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
-import { TerminalWindow, MagnifyingGlass } from "@phosphor-icons/react";
+import { TerminalWindow, MagnifyingGlass, SidebarSimple } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Omnibar, requestOpenOmnibar } from "../components/omnibar";
 import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
@@ -12,6 +12,7 @@ import { ego } from "../lib/ego";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
 import { ActivityTray } from "../components/activity-tray/ActivityTray";
 import { DomainSelector, type DomainMeta } from "../components/domains/DomainSelector";
+import { getSharedCanvasBridge } from "../hooks/useCanvasBridge.js";
 
 // STAB-09: code-splitting por vista del workspace. Los paneles pesados
 // (Canvas/Daily/SubEgos/Domains) cargan bajo demanda; el shell + chat +
@@ -98,6 +99,7 @@ export function App() {
   const [activeSubEgo, setActiveSubEgo] = useState("ego.nucleus");
   const [activeDomainId, setActiveDomainId] = useState("engineering");
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"daily" | "domains" | "canvas" | "workbench" | "subegos">("daily");
+  const [workspaceOpen, setWorkspaceOpen] = useState<boolean>(true);
   const [sessionNonce, setSessionNonce] = useState(0);
   // T06: el SplitPane dimensiona el sidebar; el colapso lo notifica Sidebar.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -156,6 +158,17 @@ export function App() {
     };
   }, []);
 
+  // Apertura automática del Workspace cuando llega un evento del CanvasBridge
+  useEffect(() => {
+    const bridge = getSharedCanvasBridge();
+    const unsub = bridge.on("*", () => {
+      setWorkspaceOpen(true);
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
+
   const handleSelectProject = useCallback((p: string) => {
     // T14: persistir el cambio (Sidebar también lo persiste; doble llamada inocua).
     setActiveProject(p);
@@ -168,14 +181,19 @@ export function App() {
     // T14: DomainSelector → `ego().domains.switch(d)` (puente T13).
     setActiveDomainId(d);
     setActiveWorkspaceTab("domains");
+    setWorkspaceOpen(true);
     void ego()
       .domains?.switch?.(d)
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    // A4: Ctrl+I conmuta el inspector derecho (sin robar Ctrl+B/Ctrl+N).
+    // Atajos de teclado: Ctrl+I (inspector) y Ctrl+\ (conmutar Workspace)
     const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
+        e.preventDefault();
+        setWorkspaceOpen((prev) => !prev);
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
         e.preventDefault();
         setInspectorCollapsed((prev) => !prev);
@@ -275,6 +293,36 @@ export function App() {
               </span>
               <span className="truncate font-medium">{activeModelName}</span>
             </button>
+
+            {/* Botón Isla Flotante Companion */}
+            <button
+              type="button"
+              onClick={() => (window as any).ego?.floating?.toggleFloating?.()}
+              title="Mostrar/Ocultar Isla Flotante Companion"
+              aria-label="Mostrar u ocultar Isla Flotante"
+              className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised/80 hover:bg-raised px-2.5 py-1 font-sans text-[11px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
+            >
+              <span>🏝️</span>
+              <span className="font-medium">Isla</span>
+            </button>
+
+            {/* Botón Alternar Workspace */}
+            <button
+              type="button"
+              onClick={() => setWorkspaceOpen((v) => !v)}
+              title="Alternar panel de Workspace (Ctrl+\)"
+              aria-label="Alternar panel de Workspace"
+              aria-expanded={workspaceOpen}
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-sans text-[11px] transition-all shadow-xs cursor-pointer ${
+                workspaceOpen
+                  ? "border-strong bg-raised text-ink font-semibold"
+                  : "border-hairline bg-panel text-dim hover:text-ink hover:bg-raised/70"
+              }`}
+            >
+              <SidebarSimple size={13} className="rotate-180" />
+              <span>Workspace</span>
+            </button>
+
             <span className="hidden xl:inline-flex font-mono text-[10px] text-dim pl-1">
               Local-First · NativeVantaDB
             </span>
@@ -311,8 +359,15 @@ export function App() {
           </SplitPane>
 
           {/* Panel 1: Conversation River (Chat) */}
-          <section aria-label="Chat" className="flex flex-1 flex-col min-w-[380px] max-w-[550px] bg-paper">
-            <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-3 text-xs text-faint">
+          <section
+            aria-label="Chat"
+            className={`flex flex-col bg-paper transition-all duration-200 ${
+              workspaceOpen
+                ? "w-[46%] min-w-[420px] max-w-[680px]"
+                : "flex-1 w-full min-w-0"
+            }`}
+          >
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-3.5 text-xs text-faint bg-paper">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-ink text-xs">Chat</span>
                 <SubEgoSelector
@@ -321,10 +376,7 @@ export function App() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-dim font-mono">River</span>
-                {/* Selector de modelo en el chat (estilo claude/codex): escribe
-                    settings.modelName y el router lo honra (T02-dynamic). Incluye
-                    el activo aunque sea un ID personalizado fuera del catálogo. */}
+                {/* Selector de modelo en el chat: escribe settings.modelName */}
                 <select
                   aria-label="Modelo del chat"
                   title="Modelo del chat (Model Router)"
@@ -338,7 +390,7 @@ export function App() {
                     // La opción custom es el valor actual: elegirla es no-op.
                     if (found) void handleSelectModel(found);
                   }}
-                  className="max-w-[170px] truncate rounded border border-hairline bg-raised px-1.5 py-0.5 font-mono text-[10px] text-dim hover:text-ink focus:border-ink/50 focus:outline-none"
+                  className="ego-pill-select font-mono text-[10px] max-w-[140px] truncate text-dim hover:text-ink border border-hairline bg-raised/60 rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
                 >
                   {CANONICAL_MODELS.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -357,7 +409,10 @@ export function App() {
           </section>
 
           {/* Panel 2: Dynamic Canvas (Superficie de Trabajo Interactiva) */}
-          <section aria-label="Área de trabajo dinámica" className="flex flex-1 flex-col min-w-0 bg-panel">
+          <section
+            aria-label="Área de trabajo dinámica"
+            className={workspaceOpen ? "flex flex-1 flex-col min-w-0 bg-panel" : "hidden"}
+          >
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-4 text-xs text-faint gap-2 overflow-x-auto min-w-0">
               <div className="flex items-center gap-2 shrink-0">
                 <TerminalWindow size={14} className="text-dim" />
@@ -391,7 +446,10 @@ export function App() {
                   className="flex items-center p-0.5 rounded-lg bg-raised/80 border border-hairline gap-0.5 shrink-0"
                 >
                   <button
-                    onClick={() => setActiveWorkspaceTab("daily")}
+                    onClick={() => {
+                      setActiveWorkspaceTab("daily");
+                      setWorkspaceOpen(true);
+                    }}
                     className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "daily"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
@@ -401,7 +459,10 @@ export function App() {
                     Daily State
                   </button>
                   <button
-                    onClick={() => setActiveWorkspaceTab("domains")}
+                    onClick={() => {
+                      setActiveWorkspaceTab("domains");
+                      setWorkspaceOpen(true);
+                    }}
                     className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "domains"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
@@ -411,7 +472,10 @@ export function App() {
                     Dominio
                   </button>
                   <button
-                    onClick={() => setActiveWorkspaceTab("canvas")}
+                    onClick={() => {
+                      setActiveWorkspaceTab("canvas");
+                      setWorkspaceOpen(true);
+                    }}
                     className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "canvas"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
@@ -421,7 +485,10 @@ export function App() {
                     Canvas
                   </button>
                   <button
-                    onClick={() => setActiveWorkspaceTab("workbench")}
+                    onClick={() => {
+                      setActiveWorkspaceTab("workbench");
+                      setWorkspaceOpen(true);
+                    }}
                     className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "workbench"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
@@ -431,7 +498,10 @@ export function App() {
                     Workbench
                   </button>
                   <button
-                    onClick={() => setActiveWorkspaceTab("subegos")}
+                    onClick={() => {
+                      setActiveWorkspaceTab("subegos");
+                      setWorkspaceOpen(true);
+                    }}
                     className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "subegos"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"

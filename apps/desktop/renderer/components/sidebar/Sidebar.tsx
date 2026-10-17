@@ -355,16 +355,21 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Buscador federado: delega al omnibar (Ctrl+K). */}
-        <div className="px-3 pt-3 pb-2">
+        {/* Buscador federado: launcher limpio estilo Linear/Raycast que delega al omnibar (Ctrl+K) */}
+        <div className="px-3 pt-2.5 pb-2">
           <button
             type="button"
             onClick={requestOpenOmnibar}
             title="Búsqueda federada (Ctrl+K)"
-            className="flex w-full items-center gap-2 rounded-md border border-hairline bg-paper px-2.5 py-1.5 text-xs text-faint transition-colors focus-within:border-ink/40 hover:border-ink/40"
+            className="flex w-full items-center justify-between rounded-lg border border-hairline/80 bg-raised/50 hover:bg-raised px-2.5 py-1.5 text-xs text-faint transition-all hover:border-strong/60 hover:text-ink cursor-pointer group shadow-2xs"
           >
-            <MagnifyingGlass size={14} className="text-dim" />
-            <span>Buscar recuerdos (Ctrl+K)…</span>
+            <div className="flex items-center gap-2 truncate">
+              <MagnifyingGlass size={13} className="text-dim group-hover:text-brand transition-colors shrink-0" />
+              <span className="truncate text-[11px]">Buscar recuerdos (Ctrl+K)</span>
+            </div>
+            <kbd className="shrink-0 rounded bg-panel px-1.5 py-0.5 font-mono text-[9px] text-dim border border-hairline/80">
+              Ctrl+K
+            </kbd>
           </button>
         </div>
 
@@ -394,7 +399,7 @@ export function Sidebar({
                   <button
                     key={p.id}
                     onClick={() => void handleSelectProject(p.id)}
-                    className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
+                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
                       isSelected
                         ? "border border-hairline bg-raised font-medium text-ink shadow-2xs"
                         : "text-faint hover:bg-raised/60 hover:text-ink"
@@ -406,10 +411,15 @@ export function Sidebar({
                       ) : (
                         <FolderSimple size={14} className="shrink-0 text-dim" />
                       )}
-                      <span className="truncate">{p.name}</span>
+                      <div className="flex flex-col text-left truncate">
+                        <span className="truncate font-medium">{p.name}</span>
+                        {p.rootPath && (
+                          <span className="truncate text-[9.5px] text-dim font-mono">{p.rootPath}</span>
+                        )}
+                      </div>
                     </div>
                     {isSelected && (
-                      <span className="rounded border border-emerald-800/40 bg-emerald-950/80 px-1.5 py-0.2 font-mono text-[9px] text-emerald-400">
+                      <span className="rounded-full border border-emerald-800/40 bg-emerald-950/80 px-1.5 py-0.2 font-sans text-[9px] text-emerald-400 shrink-0">
                         Activo
                       </span>
                     )}
@@ -419,7 +429,7 @@ export function Sidebar({
             </div>
           </div>
 
-          {/* Bloque 2: Roster de Sub-Egos (IPC vivo con CharacterBadge). */}
+          {/* Bloque 2: Roster de Sub-Egos (IPC vivo con CharacterBadge size 24 e indicador vivo). */}
           <div id="sidebar-section-roster" className="scroll-mt-2">
             <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
               <span>Sub-Egos Especialistas</span>
@@ -437,24 +447,25 @@ export function Sidebar({
                   <button
                     key={s.id}
                     onClick={() => onSelectSubEgo(s.id)}
-                    className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
+                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
                       isSelected
                         ? "border border-hairline bg-raised font-medium text-ink shadow-2xs"
                         : "text-faint hover:bg-raised/60 hover:text-ink"
                     }`}
                   >
-                    <div className="flex items-center gap-2 truncate">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        <CharacterBadge subEgoId={s.id} size={20} state="idle" />
+                    <div className="flex items-center gap-2.5 truncate">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center">
+                        <CharacterBadge subEgoId={s.id} size={24} state="idle" />
                       </div>
-                      <div className="flex truncate flex-col text-left">
-                        <span className="truncate text-xs leading-none font-medium">{s.name}</span>
+                      <div className="flex truncate flex-col text-left font-sans">
+                        <span className="truncate text-xs leading-tight font-medium text-ink">{s.name}</span>
                         <span className="truncate text-[10px] text-dim">{s.role}</span>
                       </div>
                     </div>
                     <span
-                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                        s.state === "active" ? "bg-emerald-500" : "bg-dim"
+                      title={s.state === "active" ? "Sub-Ego Activo" : "En espera"}
+                      className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
+                        s.state === "active" ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" : "bg-dim/40"
                       }`}
                     />
                   </button>

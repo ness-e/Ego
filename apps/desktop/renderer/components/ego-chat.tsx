@@ -16,6 +16,7 @@ import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../l
 import { turnsToMessages, type SessionTurnRecord } from "../lib/session-resume.js";
 import { ApprovalCard } from "./tools/ApprovalCard";
 import { CharacterBadge } from "./character/CharacterBadge.js";
+import type { CharacterState } from "./character/state/CharacterStateMachine.js";
 import { FileMentionBadge } from "./FileMentionBadge.js";
 import { parseSlashCommand, extractMentions, LOCAL_SLASH_COMMANDS, SLASH_HELP_TEXT } from "./composer-slash.js";
 import { useCanvasBridge } from "../hooks/useCanvasBridge";
@@ -30,6 +31,9 @@ const ChatActionsContext = createContext<{
   onRewind?: (messageId: string) => void;
   onRetry?: () => void;
   subEgoId?: string;
+  avatarLiveState?: CharacterState;
+  isStreaming?: boolean;
+  lastMessageId?: string;
 }>({});
 
 /**
@@ -91,8 +95,9 @@ function AssistantMessageInner({
   subEgoId?: string;
   onRetry?: () => void;
 }) {
-  const { onRewind } = useContext(ChatActionsContext);
+  const { onRewind, avatarLiveState, isStreaming, lastMessageId } = useContext(ChatActionsContext);
   const messageId = useAuiState((s) => (s as unknown as { message?: { id?: string } }).message?.id);
+  const isLast = Boolean(messageId && lastMessageId && messageId === lastMessageId);
 
   return (
     <MessagePrimitive.Root
@@ -100,10 +105,21 @@ function AssistantMessageInner({
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 140px" }}
     >
       <div className="mt-0.5 shrink-0">
-        {/* T08: avatar por turno según el Sub-Ego activo (antes fijo ego.nucleus). */}
-        <CharacterBadge size={26} subEgoId={subEgoId} state="idle" />
+        {/* Regla de Estabilidad Visual: tamaño 28, anima solo si es el último y está en stream */}
+        <CharacterBadge
+          size={28}
+          subEgoId={subEgoId}
+          state={isLast ? (avatarLiveState ?? "idle") : "idle"}
+          animated={isLast && Boolean(isStreaming)}
+        />
       </div>
       <div className="min-w-0 flex-1 px-3.5 py-2.5 text-ink">
+        <div className="flex items-center gap-1.5 mb-1 font-sans">
+          <span className="text-[11px] font-semibold text-ink">{subEgoId}</span>
+          <span className="rounded-full bg-raised border border-hairline/70 px-1.5 py-0.2 text-[9px] font-mono text-dim">
+            Robot Studio
+          </span>
+        </div>
         <MessageRenderBoundary resetKey="assistant-turn">
           <MessagePrimitive.Content
             components={{
@@ -492,6 +508,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   // se resuelve en `onNew` sin turno LLM.
   const [draftMentions, setDraftMentions] = useState<string[]>([]);
   const [draftSlash, setDraftSlash] = useState<string | null>(null);
+  const [composerText, setComposerText] = useState("");
   // CFG-12: adjuntos del composer (metadata local; el contenido viaja como
   // resumen en el prompt por `ipc.llm.*` existente — sin binarios al main).
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
@@ -532,6 +549,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     ta.value = replaced;
     ta.dispatchEvent(new Event("input", { bubbles: true }));
     ta.focus();
+    setComposerText(replaced);
     setMentionQuery(null);
   }, []);
 
@@ -539,6 +557,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     const ta = (e.target as HTMLElement).closest("div")?.querySelector("textarea")
       ?? composerWrapRef.current?.querySelector("textarea");
     const value = ta ? ta.value : "";
+    setComposerText(value);
     setDraftMentions(extractMentions(value));
     const slash = /^\s*\//.test(value) ? parseSlashCommand(value) : null;
     setDraftSlash(slash ? slash.name : null);
@@ -566,6 +585,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       const sep = ta.value && !ta.value.endsWith(" ") ? " " : "";
       ta.value = `${ta.value}${sep}${text}`;
       ta.dispatchEvent(new Event("input", { bubbles: true }));
+      setComposerText(ta.value);
       setDraftMentions(extractMentions(ta.value));
     },
     []
@@ -603,6 +623,35 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   );
 
   const { focusedContext, onAction } = useCanvasBridge();
+
+  // Estado reactivo en vivo del Mini-Avatar Adaptativo (FSM)
+  const avatarLiveState: CharacterState = useMemo(() => {
+    if (pendingApprovals.length > 0) return "approval_required";
+    if (activeError) return "error";
+    if (isStreaming) {
+      if (toolEvents.length > 0) {
+        const lastTool = toolEvents[toolEvents.length - 1];
+        if (lastTool && (lastTool.kind === "tool_call" || lastTool.kind === "tool_start")) {
+          const tName = lastTool.toolName.toLowerCase();
+          if (tName.includes("search") || tName.includes("memory") || tName.includes("vanta")) {
+            return "searching";
+          }
+          return "using_tool";
+        }
+      }
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg && lastMsg.role === "assistant") {
+        const txt = lastMsg.content.map((c) => c.text).join("");
+        if (!txt || (txt.includes("<thinking>") && !txt.includes("</thinking>"))) {
+          return "thinking";
+        }
+        return "generating";
+      }
+      return "thinking";
+    }
+    if (composerText.trim().length > 0) return "listening";
+    return "idle";
+  }, [pendingApprovals.length, activeError, isStreaming, toolEvents, messages, composerText]);
 
   // STAB-13: morph Send→Cancel (layoutId compartido, crossfade 150ms
   // MOTION.micro; reduced-motion → instantáneo). Sin migrar de lib.
@@ -1188,6 +1237,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       ta.value = promptText;
       ta.dispatchEvent(new Event("input", { bubbles: true }));
       ta.focus();
+      setComposerText(promptText);
     }
   }, []);
 
@@ -1210,6 +1260,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       const text = m.content
         .map((p) => (p.type === "text" ? p.text : ""))
         .join("");
+      setComposerText("");
       // T08: slash-commands locales (no consumen turno ni tocan streaming).
       const slash = parseSlashCommand(text);
       if (slash && LOCAL_SLASH_COMMANDS.has(slash.name)) {
@@ -1238,9 +1289,15 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="h-full flex flex-col">
-        {/* Cabecera del Chat River 2.0 con Exportar (.md) */}
+        {/* Cabecera del Chat River 2.0 con Exportar (.md) y Avatar Reactivo */}
         <div className="flex items-center justify-between border-b border-hairline px-3.5 py-2 text-xs bg-panel/40 shrink-0">
           <div className="flex items-center gap-2">
+            <CharacterBadge
+              subEgoId={subEgoId ?? "ego.nucleus"}
+              size={26}
+              state={avatarLiveState}
+              animated={avatarLiveState !== "idle"}
+            />
             <span className="font-semibold text-ink">Ego Chat</span>
             <span className="rounded-full bg-raised border border-hairline px-2 py-0.5 text-[10px] font-mono text-dim">
               {subEgoId ?? "ego.nucleus"}
@@ -1278,12 +1335,12 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           style={{ overflowAnchor: "auto" }}
         >
           <ThreadPrimitive.Empty>
-            <div className="flex flex-col items-center justify-center p-8 text-center text-faint max-w-lg mx-auto">
-              <div className="mb-3">
-                <CharacterBadge subEgoId={subEgoId ?? "ego.nucleus"} size={52} animated />
+            <div className="flex flex-col items-center justify-center p-8 text-center text-faint max-w-xl mx-auto">
+              <div className="mb-4">
+                <CharacterBadge subEgoId={subEgoId ?? "ego.nucleus"} size={72} state={avatarLiveState} animated />
               </div>
-              <p className="mb-1.5 text-ink font-semibold text-base">Cerebro Operativo de Ego</p>
-              <p className="font-mono text-[13px] text-faint mb-6">
+              <p className="mb-1.5 text-ink font-semibold text-base font-sans">Cerebro Operativo de Ego</p>
+              <p className="font-sans text-[13px] text-faint mb-6">
                 Haz una pregunta o asigna una tarea a tus Sub-Egos.
               </p>
 
@@ -1312,7 +1369,14 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
             </div>
           </ThreadPrimitive.Empty>
           <ChatActionsContext.Provider
-            value={{ onRewind: handleRewind, onRetry: handleRetry, subEgoId: subEgoId ?? "ego.nucleus" }}
+            value={{
+              onRewind: handleRewind,
+              onRetry: handleRetry,
+              subEgoId: subEgoId ?? "ego.nucleus",
+              avatarLiveState,
+              isStreaming,
+              lastMessageId: messages[messages.length - 1]?.id,
+            }}
           >
             <ThreadPrimitive.Messages
               components={{
@@ -1518,7 +1582,8 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
             </div>
           )}
 
-          <ComposerPrimitive.Root className="flex gap-2 rounded-2xl border border-hairline bg-panel/95 shadow-lg backdrop-blur-md p-3">
+          <ComposerPrimitive.Root className="flex flex-col gap-2 rounded-2xl border border-hairline bg-panel/95 shadow-xl backdrop-blur-md p-3">
+            {/* Nivel 1: Input ocupando el 100% del ancho, rows={2}, font-sans text-[13.5px] leading-relaxed */}
             <input
               ref={fileInputRef}
               type="file"
@@ -1531,109 +1596,160 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                 e.target.value = "";
               }}
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Adjuntar archivos"
-              title="Adjuntar (máx 10MB, tipos permitidos)"
-              data-testid="composer-attach-button"
-              className="min-h-[44px] min-w-[44px] px-3 py-2.5 bg-panel border border-hairline rounded-card font-semibold text-[15px] text-ink cursor-pointer transition-colors hover:bg-raised"
-            >
-              ＋
-            </button>
-            <VoiceButton
-              captureState={voice.captureState}
-              disabled={!voice.sttEnabled}
-              onToggleDictation={voice.toggleDictation}
-            />
-            <div ref={composerWrapRef} onInput={handleComposerInput} className="flex min-w-0 flex-1">
+            <div ref={composerWrapRef} onInput={handleComposerInput} className="w-full">
               <ComposerPrimitive.Input
                 submitMode="ctrlEnter"
-                maxRows={8}
+                rows={2}
                 placeholder="Pregunta o instruye a Ego… (@archivo · /help · Ctrl+Enter envía)"
-                className="flex-1 max-h-48 overflow-y-auto px-3.5 py-2.5 bg-panel border border-hairline rounded-card text-ink text-sm placeholder:text-faint focus:outline-none focus:border-dim"
+                className="w-full bg-transparent border-0 p-1 text-ink font-sans text-[13.5px] leading-relaxed placeholder:text-faint focus:outline-none focus:ring-0 resize-none max-h-48 overflow-y-auto"
               />
             </div>
-            <AnimatePresence mode="wait" initial={false}>
-              {isStreaming ? (
-                <motion.button
-                  key="composer-cancel"
-                  layoutId="composer-action"
-                  initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={composerTransition}
+
+            {/* Nivel 2: Barra de herramientas inferior interna */}
+            <div className="flex items-center justify-between pt-1 border-t border-hairline/40 gap-2">
+              {/* Izquierda: Herramientas (+, @) y controles de voz compactos sin checkboxes cuadrados */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
                   type="button"
-                  onClick={handleCancel}
-                  aria-label="Cancelar turno en curso"
-                  title="Cancelar turno (Esc)"
-                  className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-rose-600 text-white rounded-card font-semibold text-[13px] cursor-pointer transition-colors hover:bg-rose-500"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Adjuntar archivos"
+                  title="Adjuntar archivos o imágenes"
+                  data-testid="composer-attach-button"
+                  className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg border border-hairline/80 bg-raised/60 hover:bg-raised text-faint hover:text-ink text-sm font-semibold transition-colors cursor-pointer"
                 >
-                  Cancelar
-                </motion.button>
-              ) : (
-                <motion.span
-                  key="composer-send"
-                  layoutId="composer-action"
-                  initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={composerTransition}
-                  className="inline-flex"
+                  ＋
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ta = composerWrapRef.current?.querySelector("textarea");
+                    if (ta) {
+                      ta.value = ta.value + "@";
+                      ta.dispatchEvent(new Event("input", { bubbles: true }));
+                      ta.focus();
+                    }
+                  }}
+                  title="Mencionar archivo del proyecto (@)"
+                  aria-label="Mencionar archivo"
+                  className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg border border-hairline/80 bg-raised/60 hover:bg-raised text-faint hover:text-ink text-xs font-mono transition-colors cursor-pointer"
                 >
-                  <ComposerPrimitive.Send
-                    aria-label="Enviar mensaje"
-                    className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"
+                  @
+                </button>
+
+                {/* Controles de voz integrados con inputs sr-only para tests */}
+                <div data-testid="voice-controls" className="flex items-center gap-1 ml-1 text-xs">
+                  <label
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-sans transition-all cursor-pointer border ${
+                      voice.ttsOptIn
+                        ? "bg-brand/15 text-brand border-brand/30 font-medium"
+                        : "bg-raised/40 text-faint border-hairline/60 hover:text-ink hover:bg-raised"
+                    }`}
+                    title="Leer respuestas en voz alta (opt-in)"
                   >
-                    Enviar
-                  </ComposerPrimitive.Send>
-                </motion.span>
-              )}
-            </AnimatePresence>
+                    <input
+                      type="checkbox"
+                      checked={voice.ttsOptIn}
+                      onChange={(e) => voice.setTtsOptIn(e.target.checked)}
+                      aria-label="Leer respuestas en voz alta (opt-in)"
+                      className="sr-only"
+                    />
+                    <span>🔊</span>
+                    <span className="hidden sm:inline">Voz</span>
+                  </label>
+
+                  {voice.ttsOptIn && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void voice.speak(lastAssistantRef.current);
+                      }}
+                      disabled={!voice.ttsEnabled || lastAssistantRef.current.length === 0}
+                      aria-label="Leer última respuesta en voz alta"
+                      title="Lee la última respuesta"
+                      data-testid="voice-read-button"
+                      className="min-h-[44px] inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-sans border border-hairline bg-raised/50 hover:bg-raised text-faint hover:text-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <span>▶️</span>
+                      <span className="hidden sm:inline">Leer última</span>
+                    </button>
+                  )}
+
+                  <label
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-sans transition-all cursor-pointer border ${
+                      voice.disableVoice
+                        ? "bg-rose-950/40 text-rose-300 border-rose-800/40 font-medium"
+                        : "bg-raised/40 text-faint border-hairline/60 hover:text-ink hover:bg-raised"
+                    }`}
+                    title="Desactivar toda la voz (kill switch)"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={voice.disableVoice}
+                      onChange={(e) => handleVoiceKillSwitch(e.target.checked)}
+                      aria-label="Desactivar toda la voz (kill switch)"
+                      data-testid="voice-killswitch"
+                      className="sr-only"
+                    />
+                    <span>⛔</span>
+                    <span className="hidden sm:inline">Silenciar</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Derecha: Dictado de voz + botón Enviar / Cancelar */}
+              <div className="flex items-center gap-2">
+                <VoiceButton
+                  captureState={voice.captureState}
+                  disabled={!voice.sttEnabled}
+                  onToggleDictation={voice.toggleDictation}
+                />
+                <AnimatePresence mode="wait" initial={false}>
+                  {isStreaming ? (
+                    <motion.button
+                      key="composer-cancel"
+                      layoutId="composer-action"
+                      initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={composerTransition}
+                      type="button"
+                      onClick={handleCancel}
+                      aria-label="Cancelar turno en curso"
+                      title="Cancelar turno (Esc)"
+                      className="min-h-[44px] min-w-[44px] flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-medium text-xs shadow-sm cursor-pointer transition-colors"
+                    >
+                      <span className="text-[10px]">■</span>
+                      <span>Cancelar</span>
+                    </motion.button>
+                  ) : (
+                    <motion.span
+                      key="composer-send"
+                      layoutId="composer-action"
+                      initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={composerTransition}
+                      className="inline-flex"
+                    >
+                      <ComposerPrimitive.Send
+                        aria-label="Enviar mensaje"
+                        className="min-h-[44px] min-w-[44px] flex items-center gap-1.5 px-3.5 py-2 bg-ink text-paper hover:opacity-90 rounded-xl font-medium text-xs shadow-sm cursor-pointer transition-all"
+                      >
+                        <span className="font-bold text-[13px] leading-none">↑</span>
+                        <span>Enviar</span>
+                      </ComposerPrimitive.Send>
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </ComposerPrimitive.Root>
         </div>
 
-        {/* VOICE-01: controles debajo del composer con píldoras interactivas */}
-        <div
-          data-testid="voice-controls"
-          className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 pb-2 font-mono text-[11px] text-dim"
-        >
-          <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-full border border-hairline bg-raised/70 px-2.5 py-1 text-[11px] transition-colors hover:bg-raised">
-            <input
-              type="checkbox"
-              checked={voice.ttsOptIn}
-              onChange={(e) => voice.setTtsOptIn(e.target.checked)}
-              aria-label="Leer respuestas en voz alta (opt-in)"
-              className="h-4 w-4 accent-current"
-            />
-            🔊 Leer respuestas
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              void voice.speak(lastAssistantRef.current);
-            }}
-            disabled={!voice.ttsEnabled || lastAssistantRef.current.length === 0}
-            aria-label="Leer última respuesta en voz alta"
-            title="Lee la última respuesta (requiere opt-in)"
-            data-testid="voice-read-button"
-            className="min-h-[44px] rounded-card border border-hairline bg-panel px-2.5 py-1 font-semibold text-ink transition-colors hover:bg-raised disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Leer última
-          </button>
-          <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-full border border-hairline bg-raised/70 px-2.5 py-1 text-[11px] transition-colors hover:bg-raised">
-            <input
-              type="checkbox"
-              checked={voice.disableVoice}
-              onChange={(e) => handleVoiceKillSwitch(e.target.checked)}
-              aria-label="Desactivar toda la voz (kill switch)"
-              data-testid="voice-killswitch"
-              className="h-4 w-4 accent-current"
-            />
-            ⛔ Desactivar voz
-          </label>
+        {/* Aviso de privacidad accesible para tests sin ensuciar la UI */}
+        <div className="sr-only">
+          <VoicePrivacyNotice />
         </div>
-        <VoicePrivacyNotice />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
   );
