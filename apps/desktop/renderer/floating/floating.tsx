@@ -1,6 +1,7 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { FloatingAvatar } from "./floating-avatar.js";
+import "./floating.css";
 import type { EgoFloatingBridge, FloatingStateSnapshot } from "../../src/preload";
 import {
   buildApproval,
@@ -82,6 +83,13 @@ const PREVIEW_QUESTION: QuestionData = {
     },
   ],
 };
+
+const SUB_EGOS = [
+  { id: "researcher", name: "Investigador", role: "Discovery", color: "#34d399" },
+  { id: "architect", name: "Arquitecto", role: "Estructura", color: "#f59e0b" },
+  { id: "strategist", name: "Estratega", role: "Planificación", color: "#818cf8" },
+  { id: "analyst", name: "Analista", role: "Auditoría", color: "#f472b6" },
+];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -464,53 +472,31 @@ export function FloatingApp() {
   const approvalKey = approval?.approvalId ?? "floating-preview";
   const tickerKey = `${attention}`;
 
+  const isCompact = attention === "compact" || attention === "hidden";
+  const avatarSize = isCompact ? 128 : 124;
+
   return (
     <main
       data-attention={snapshot.attentionState}
       data-muted={snapshot.muted}
-      className="relative flex flex-col items-center justify-center p-3.5 rounded-3xl bg-zinc-950/80 backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/5 transition-all duration-300 select-none overflow-hidden"
+      className="ego-island-shell"
     >
-      <style>{`
-        main[data-attention] {
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        #status-pill {
-          margin-top: 6px;
-          padding: 2px 8px;
-          border-radius: 9999px;
-          font-size: 10px;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          color: rgba(255, 255, 255, 0.85);
-          letter-spacing: 0.02em;
-        }
-        button[data-mute] {
-          margin-top: 8px;
-          padding: 3px 10px;
-          border-radius: 6px;
-          font-size: 10px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          color: rgba(255, 255, 255, 0.65);
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease;
-        }
-        button[data-mute]:hover {
-          background: rgba(255, 255, 255, 0.12);
-          color: #ffffff;
-        }
-      `}</style>
-      {attention === "expanded" && (
-        <div
-          id="panel"
-          className="flex items-center justify-between w-full max-w-sm px-2 py-1.5 mb-2 gap-2 text-xs border-b border-white/10"
-        >
+      {/* ── Barra Superior (Topbar): pestañas de vistas y acciones ── */}
+      <div className="ego-island-topbar">
+        <div className="ego-island-topbar-left">
+          <div id="floating-header-slot">
+            <StaticMount
+              id="floating-header-slot"
+              host={headerHost}
+              mountKey={`${headerView}:${snapshot.muted}`}
+              visible={showTicker}
+            />
+          </div>
+        </div>
+        <div className="ego-island-topbar-actions">
           <button
             type="button"
-            className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 rounded-md cursor-pointer transition font-medium flex items-center gap-1"
+            className="ego-btn-restore"
             onClick={() => {
               void window.egoFloating?.restoreMain?.();
             }}
@@ -519,83 +505,193 @@ export function FloatingApp() {
           </button>
           <button
             type="button"
-            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white/80 border border-white/15 rounded-md cursor-pointer transition"
+            className="ego-btn-minimize"
             onClick={() => {
               void window.egoFloating?.toggleExpand?.("compact");
               setSnapshot((prev) => ({ ...prev, attentionState: "compact" }));
             }}
           >
-            Minimizar a Píldora
+            Minimizar
           </button>
         </div>
-      )}
-      <AvatarSafe>
-        <div
-          id="avatar-stage"
-          role="button"
-          tabIndex={0}
-          style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
-          onClick={() => {
-            if (snapshot.attentionState === "compact") {
-              void window.egoFloating?.toggleExpand?.("expanded");
-              setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
-            }
-          }}
-          onKeyDown={(e) => {
-            if ((e.key === "Enter" || e.key === " ") && snapshot.attentionState === "compact") {
-              e.preventDefault();
-              void window.egoFloating?.toggleExpand?.("expanded");
-              setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
-            }
-          }}
-        >
-          <FloatingAvatar
-            attentionState={snapshot.attentionState}
-            subEgoId={snapshot.activeSubEgoId ?? null}
-            size={120}
-          />
-        </div>
-      </AvatarSafe>
-      <div
-        id="status-pill"
-        role="button"
-        tabIndex={0}
-        style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
-        onClick={() => {
-          if (snapshot.attentionState === "compact") {
-            void window.egoFloating?.toggleExpand?.("expanded");
-            setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
-          }
-        }}
-        onKeyDown={(e) => {
-          if ((e.key === "Enter" || e.key === " ") && snapshot.attentionState === "compact") {
-            e.preventDefault();
-            void window.egoFloating?.toggleExpand?.("expanded");
-            setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
-          }
-        }}
-      >
-        {labelFor(snapshot.attentionState)}
       </div>
-      <div id="floating-header-slot">
-        <StaticMount id="floating-header-slot" host={headerHost} mountKey={`${headerView}:${snapshot.muted}`} visible={showTicker} />
-      </div>
-      {headerView === "prompt" ? (
-        <div id="floating-prompt-slot">
-          <StaticMount id="floating-prompt-slot" host={promptNote} mountKey="prompt" visible={showTicker} />
+
+      {/* ── Cuerpo Principal de 2 Columnas Estilo Coucou ── */}
+      <div className="ego-island-body">
+        {/* Columna Izquierda: Escenario de Avatar + Ego Core + Slots dinámicos */}
+        <div className="ego-island-stage-card">
+          <AvatarSafe>
+            <div
+              id="avatar-stage"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
+              onClick={() => {
+                if (snapshot.attentionState === "compact") {
+                  void window.egoFloating?.toggleExpand?.("expanded");
+                  setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
+                }
+              }}
+              onKeyDown={(e) => {
+                if ((e.key === "Enter" || e.key === " ") && snapshot.attentionState === "compact") {
+                  e.preventDefault();
+                  void window.egoFloating?.toggleExpand?.("expanded");
+                  setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
+                }
+              }}
+            >
+              <FloatingAvatar
+                attentionState={snapshot.attentionState}
+                subEgoId={snapshot.activeSubEgoId ?? null}
+                size={avatarSize}
+              />
+            </div>
+          </AvatarSafe>
+
+          <div className="ego-island-stage-info">
+            <div className="ego-stage-header">
+              <span className="ego-stage-title">Ego Core</span>
+              <span className="ego-stage-badge">Sistema Cognitivo</span>
+            </div>
+
+            <div className="ego-stage-status">
+              <span className="ego-stage-status-dot" />
+              <span>Conectado · VantaDB LSM OK</span>
+            </div>
+
+            <div className="ego-stage-slot">
+              {/* Ticker / overview */}
+              <div id="ticker" className="ego-island-ticker-mount">
+                <StaticMount
+                  id="ticker"
+                  host={overviewHost}
+                  mountKey={tickerKey}
+                  visible={showTicker && headerView === "overview"}
+                />
+              </div>
+
+              {/* Approval / question */}
+              <div id="approval-card" className="ego-island-approval-mount">
+                {attention === "hitl_approval" ? (
+                  <StaticMount
+                    id="approval-card"
+                    host={approvalHost}
+                    mountKey={`approval:${approvalKey}`}
+                    visible={showApproval}
+                  />
+                ) : attention === "alert" ? (
+                  <StaticMount
+                    id="approval-card"
+                    host={questionHost}
+                    mountKey="question:preview"
+                    visible={showApproval}
+                  />
+                ) : null}
+              </div>
+
+              {/* Prompt note slot */}
+              <div id="floating-prompt-slot" className="ego-island-prompt-mount">
+                {headerView === "prompt" ? (
+                  <StaticMount
+                    id="floating-prompt-slot"
+                    host={promptNote}
+                    mountKey="prompt"
+                    visible={showTicker}
+                  />
+                ) : null}
+              </div>
+            </div>
+
+            <div className="ego-stage-quickactions">
+              <div
+                id="status-pill"
+                role="button"
+                tabIndex={0}
+                style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
+                onClick={() => {
+                  if (snapshot.attentionState === "compact") {
+                    void window.egoFloating?.toggleExpand?.("expanded");
+                    setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && snapshot.attentionState === "compact") {
+                    e.preventDefault();
+                    void window.egoFloating?.toggleExpand?.("expanded");
+                    setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
+                  }
+                }}
+              >
+                <span
+                  className="ego-status-dot"
+                  style={{
+                    background:
+                      snapshot.attentionState === "hitl_approval" || snapshot.attentionState === "alert"
+                        ? "#f59e0b"
+                        : "#22c55e",
+                    boxShadow:
+                      snapshot.attentionState === "hitl_approval" || snapshot.attentionState === "alert"
+                        ? "0 0 8px #f59e0b"
+                        : "0 0 8px #22c55e",
+                  }}
+                />
+                {labelFor(snapshot.attentionState)}
+              </div>
+
+              <button
+                ref={muteRef}
+                type="button"
+                data-mute="true"
+                onClick={toggleMute}
+                aria-pressed={snapshot.muted}
+              >
+                {snapshot.muted ? "Silenciado" : "Sonido"}
+              </button>
+
+              <button
+                type="button"
+                className="ego-btn-restore ego-quick-open"
+                onClick={() => {
+                  void window.egoFloating?.restoreMain?.();
+                }}
+              >
+                Abrir Ego ↗
+              </button>
+            </div>
+          </div>
         </div>
-      ) : null}
-      {/* Ticker/overview (Task6 StepTicker) en el mount estable #ticker. */}
-      <StaticMount id="ticker" host={overviewHost} mountKey={tickerKey} visible={showTicker && headerView === "overview"} />
-      {/* Approval/question (Task6) en el mount estable #approval-card. */}
-      {attention === "hitl_approval" ? (
-        <StaticMount id="approval-card" host={approvalHost} mountKey={`approval:${approvalKey}`} visible={showApproval} />
-      ) : attention === "alert" ? (
-        <StaticMount id="approval-card" host={questionHost} mountKey="question:preview" visible={showApproval} />
-      ) : null}
-      {/* Countdown (Task6) en el mount estable #countdown. */}
-      <StaticMount id="countdown" host={countdownHost} mountKey="countdown" visible={showCountdown} />
-      {/* Zona drop (Task9 UploadCanvas + DropQueue → knowledge.ingest existente). */}
+
+        {/* Columna Derecha: Sub-Egos Especialistas estilo Coucou */}
+        <div className="ego-island-subegos-card">
+          {SUB_EGOS.map((sub) => (
+            <button
+              key={sub.id}
+              type="button"
+              className="ego-subego-pill"
+              onClick={() => {
+                void window.egoFloating?.restoreMain?.();
+              }}
+              title={`Abrir Sub-Ego ${sub.name}`}
+            >
+              <div className="ego-subego-pill-head">
+                <span
+                  className="ego-subego-dot"
+                  style={{ background: sub.color, boxShadow: `0 0 6px ${sub.color}` }}
+                />
+                <span className="ego-subego-name">{sub.name}</span>
+              </div>
+              <span className="ego-subego-desc">{sub.role}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Countdown (Task6) en el mount estable #countdown */}
+      <div id="countdown" className="ego-island-countdown-mount">
+        <StaticMount id="countdown" host={countdownHost} mountKey="countdown" visible={showCountdown} />
+      </div>
+
+      {/* Zona drop (Task9 UploadCanvas + DropQueue → knowledge.ingest existente) */}
       <div
         data-dropzone="true"
         data-active={dragOver}
@@ -608,9 +704,6 @@ export function FloatingApp() {
       >
         <div ref={canvasSlotRef} data-canvas-slot="true" />
       </div>
-      <button ref={muteRef} type="button" data-mute="true" onClick={toggleMute} aria-pressed={snapshot.muted}>
-        {snapshot.muted ? "Silenciado" : "Sonido"}
-      </button>
     </main>
   );
 }

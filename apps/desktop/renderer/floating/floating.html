@@ -10,28 +10,12 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     />
-    <title>Ego — Isla Flotante</title>
-    <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        background: transparent;
-        overflow: hidden;
-        font-family: system-ui, sans-serif;
-        user-select: none;
-        -webkit-user-select: none;
-      }
-    </style>
+    <link rel="stylesheet" href="./floating.css" />
   </head>
   <body>
-    <!-- WIDG-02 (Task3): raíz del flotante real. Mount points con ids
-         estables: #floating-root (React), #ticker (Task6), #approval-card
-         (Task6 ViewHost), #countdown (Task6 CountdownBar). -->
+    <!-- WIDG-02: raíz del flotante real. Mount points ahora integrados
+         dentro del layout visual de la isla flotante (floating.tsx). -->
     <div id="floating-root"></div>
-    <div id="ticker" hidden></div>
-    <div id="approval-card" hidden></div>
-    <div id="countdown" hidden></div>
     <script type="module" src="./floating.tsx"></script>
   </body>
 </html>

@@ -27,8 +27,8 @@ export class FloatingWindow {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
-    const width = this.options.width ?? 160;
-    const height = this.options.height ?? 160;
+    const width = this.options.width ?? 240;
+    const height = this.options.height ?? 240;
 
     // Posición por defecto: esquina inferior derecha sobre la bandeja del sistema
     const x = screenWidth - width - 24;
@@ -157,8 +157,8 @@ export class FloatingWindow {
       attentionState === "hitl_approval" ||
       attentionState === "alert";
 
-    const targetWidth = isLarge ? 720 : 220;
-    const targetHeight = isLarge ? 400 : 220;
+    const targetWidth = isLarge ? 720 : 240;
+    const targetHeight = isLarge ? 300 : 240;
 
     const newX = areaX + screenWidth - targetWidth - 24;
     const newY = areaY + screenHeight - targetHeight - 24;
