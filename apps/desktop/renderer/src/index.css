@@ -77,6 +77,30 @@ body,
   color: var(--color-ink);
 }
 
+/* Scrollbars oscuras y discretas globales (elimina barras blancas nativas de Windows) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
 /* Región arrastrable de la ventana Electron (usada en App.tsx header y
    ActivityWidget; los controles interactivos llevan .app-region-no-drag). */
 .app-region-drag {

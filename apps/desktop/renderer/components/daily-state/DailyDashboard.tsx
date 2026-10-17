@@ -90,6 +90,79 @@ function toApprovalItems(value: unknown): PendingApprovalItem[] {
   return out;
 }
 
+/**
+ * Traduce identificadores crudos de auditoría a lenguaje humano claro.
+ */
+export function formatDecisionSummary(raw: string): string {
+  if (!raw) return "Acción operativa sin descripción";
+  const trimmed = raw.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower === "dream_consolidation_reinforce") {
+    return "Consolidación cognitiva L0–L3 y refuerzo de memoria en VantaDB";
+  }
+  if (lower === "session_start") {
+    return "Inicio de sesión soberana y verificación de índices LSM";
+  }
+  if (lower === "model_config_saved") {
+    return "Actualización de configuración del Model Router";
+  }
+  if (lower === "tool_execution") {
+    return "Ejecución de herramienta de sistema";
+  }
+  if (lower === "approval_resolved") {
+    return "Resolución de solicitud de aprobación HITL";
+  }
+  if (trimmed.includes("_")) {
+    const withSpaces = trimmed.replace(/_/g, " ");
+    return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+  }
+  return trimmed;
+}
+
+export interface GroupedDecision {
+  id: string;
+  subEgoId: string;
+  title: string;
+  formattedTitle: string;
+  impact?: string;
+  timestamp: number;
+  count: number;
+}
+
+export function groupConsecutiveDecisions(items: DailyDecisionEntry[]): GroupedDecision[] {
+  if (!items || items.length === 0) return [];
+  const groups: GroupedDecision[] = [];
+
+  for (const item of items) {
+    const formatted = formatDecisionSummary(item.title);
+    const last = groups[groups.length - 1];
+    if (
+      last &&
+      last.subEgoId === item.subEgoId &&
+      last.formattedTitle === formatted &&
+      last.impact === item.impact
+    ) {
+      last.count += 1;
+      if (item.timestamp > last.timestamp) {
+        last.timestamp = item.timestamp;
+      }
+    } else {
+      groups.push({
+        id: item.id,
+        subEgoId: item.subEgoId,
+        title: item.title,
+        formattedTitle: formatted,
+        impact: item.impact,
+        timestamp: item.timestamp,
+        count: 1,
+      });
+    }
+  }
+
+  return groups;
+}
+
 export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<DailySummaryPayload | null>(null);
@@ -229,8 +302,12 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
 
   const handleInsertDecisionsIntoJournal = async (): Promise<string> => {
     if (decisions.length === 0) return "_No se registraron decisiones hoy._";
-    return decisions
-      .map((d) => `- **${d.subEgoId}**: ${d.title} (${d.impact || "Operativo"})`)
+    const grouped = groupConsecutiveDecisions(decisions);
+    return grouped
+      .map(
+        (d) =>
+          `- **${d.subEgoId}**: ${d.formattedTitle}${d.count > 1 ? ` (×${d.count})` : ""} (${d.impact || "Operativo"})`
+      )
       .join("\n");
   };
 
@@ -405,7 +482,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
             {asSuggestedGoals(summary?.suggestedGoals).map((goal) => (
               <div
                 key={goal.id}
-                className="flex items-start gap-2.5 rounded-lg border border-hairline bg-raised/40 p-2.5 hover:border-dim/40 transition-colors"
+                className="flex items-start gap-2.5 rounded-lg border border-white/5 bg-raised/30 p-2.5 hover:border-white/10 hover:bg-raised/50 transition-colors"
               >
                 <CheckCircle
                   size={16}
@@ -433,37 +510,44 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Columna Izquierda: Decisiones Feed & Journal */}
         <div className="flex flex-col gap-4">
-          {/* Feed de Decisiones */}
-          <div className="flex flex-col gap-2 rounded-xl border border-hairline/80 bg-raised/40 p-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-ink">
+          {/* Feed de Decisiones Flat (sin box-in-box y con deduplicación visual) */}
+          <div className="flex flex-col gap-2 rounded-xl border border-white/5 bg-raised/30 p-4 shadow-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-white/5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-ink font-sans">
                 Decisiones Acordadas Recientes ({decisions.length})
               </h3>
               <span className="font-mono text-[10px] text-faint">gov/audit · Inmutable</span>
             </div>
 
-            <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto">
+            <div className="divide-y divide-white/5 max-h-56 overflow-y-auto">
               {decisions.length === 0 ? (
-                <span className="text-xs text-faint italic p-3 text-center">
+                <div className="text-xs text-faint italic p-3 text-center font-sans">
                   No se registran decisiones recientes en el proyecto actual.
-                </span>
+                </div>
               ) : (
-                decisions.map((d) => (
+                groupConsecutiveDecisions(decisions).map((d) => (
                   <div
                     key={d.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-hairline bg-panel/90 px-3 py-2 text-xs"
+                    className="flex items-center justify-between gap-2 py-2 px-1 text-xs hover:bg-white/[0.02] transition-colors"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-mono text-[10px] text-dim shrink-0">
                         {new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
-                      <span className="rounded bg-raised px-1.5 py-0.2 font-mono text-[10px] text-blue-400 border border-hairline shrink-0">
+                      <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-blue-400 shrink-0">
                         {d.subEgoId}
                       </span>
-                      <span className="text-xs text-ink truncate font-medium">{d.title}</span>
+                      <span className="text-xs text-ink truncate font-sans font-medium">
+                        {d.formattedTitle}
+                      </span>
+                      {d.count > 1 && (
+                        <span className="rounded-full bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.2 font-mono text-[9px] font-bold text-blue-300 shrink-0">
+                          ×{d.count}
+                        </span>
+                      )}
                     </div>
                     {d.impact && (
-                      <span className="text-[10px] text-faint shrink-0 font-mono">
+                      <span className="text-[10px] text-faint shrink-0 font-sans">
                         {d.impact}
                       </span>
                     )}
