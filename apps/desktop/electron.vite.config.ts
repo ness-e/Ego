@@ -51,6 +51,9 @@ export default defineConfig({
             if (id.includes("node_modules/recharts")) return "vendor-charts";
             if (id.includes("node_modules/@phosphor-icons")) return "vendor-icons";
             if (id.includes("node_modules/@tanstack")) return "vendor-table";
+            if (id.includes("node_modules/motion") || id.includes("node_modules/framer-motion")) return "vendor-motion";
+            if (id.includes("node_modules/zod")) return "vendor-zod";
+            if (id.includes("floating/vendor/avatar") || id.includes("components/character")) return "vendor-avatar";
             if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) {
               return "vendor-react";
             }
@@ -67,7 +70,7 @@ export default defineConfig({
     server: {
       host: "127.0.0.1",
       port: 5173,
-      strictPort: true,
+      strictPort: false,
     },
   },
 });

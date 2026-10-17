@@ -15,6 +15,7 @@ import { McpManagerModal } from "../mcp/McpManagerModal.js";
 import { SessionPicker, type SessionItem } from "../SessionPicker.js";
 import { useUiStore } from "../ui-kit/store.js";
 import { ego, type SubEgoDetailInfo, type ProjectInfo, type SessionSummary } from "../../lib/ego.js";
+import { CharacterBadge } from "../character/CharacterBadge.js";
 import { OPEN_SETTINGS_EVENT } from "../omnibar.js";
 import { requestOpenOmnibar } from "../omnibar.js";
 import { SettingsModal } from "./SettingsModal.js";
@@ -28,12 +29,6 @@ export interface SidebarProps {
   onNewSession: () => void;
   /** T06: notifica colapsos para que App dimensione el SplitPane. */
   onCollapsedChange?: (collapsed: boolean) => void;
-}
-
-function rosterInitials(name: string): string {
-  const words = name.trim().split(/\s+/);
-  if (words.length >= 2) return ((words[0]?.[0] ?? "") + (words[1]?.[0] ?? "")).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
 }
 
 /**
@@ -376,7 +371,7 @@ export function Sidebar({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-2">
           {/* Bloque 1: Proyectos de Memoria (IPC vivo). */}
           <div id="sidebar-section-projects" className="scroll-mt-2">
-            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
+            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
               <span>Proyectos (Memory Scope)</span>
               <button
                 onClick={() => setIsNewProjectModalOpen(true)}
@@ -401,7 +396,7 @@ export function Sidebar({
                     onClick={() => void handleSelectProject(p.id)}
                     className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
                       isSelected
-                        ? "border border-hairline bg-raised font-medium text-ink"
+                        ? "border border-hairline bg-raised font-medium text-ink shadow-2xs"
                         : "text-faint hover:bg-raised/60 hover:text-ink"
                     }`}
                   >
@@ -424,9 +419,9 @@ export function Sidebar({
             </div>
           </div>
 
-          {/* Bloque 2: Roster de Sub-Egos (IPC vivo, sin hardcodeados). */}
+          {/* Bloque 2: Roster de Sub-Egos (IPC vivo con CharacterBadge). */}
           <div id="sidebar-section-roster" className="scroll-mt-2">
-            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
+            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
               <span>Sub-Egos Especialistas</span>
               <span className="font-mono text-[10px] text-faint">{roster.length}</span>
             </div>
@@ -444,16 +439,16 @@ export function Sidebar({
                     onClick={() => onSelectSubEgo(s.id)}
                     className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
                       isSelected
-                        ? "border border-hairline bg-raised font-medium text-ink"
+                        ? "border border-hairline bg-raised font-medium text-ink shadow-2xs"
                         : "text-faint hover:bg-raised/60 hover:text-ink"
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate">
-                      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-raised text-[9px] font-bold text-ink">
-                        {rosterInitials(s.name)}
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+                        <CharacterBadge subEgoId={s.id} size={20} state="idle" />
                       </div>
                       <div className="flex truncate flex-col text-left">
-                        <span className="truncate text-xs leading-none">{s.name}</span>
+                        <span className="truncate text-xs leading-none font-medium">{s.name}</span>
                         <span className="truncate text-[10px] text-dim">{s.role}</span>
                       </div>
                     </div>
@@ -470,7 +465,7 @@ export function Sidebar({
 
           {/* Bloque 3: Sesión activa + selector real (sin historial hardcodeado). */}
           <div>
-            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
+            <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
               <span>Sesión Activa</span>
               <button
                 onClick={() => useUiStore.getState().openSessionPicker()}
@@ -488,7 +483,7 @@ export function Sidebar({
 
           {/* Bloque 4: Herramientas (solo acciones reales; muertos eliminados). */}
           <div>
-            <div className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim uppercase">
+            <div className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-dim/80 uppercase">
               <span>Espacio & Herramientas</span>
             </div>
             <div className="space-y-0.5 text-xs text-faint">
@@ -499,9 +494,6 @@ export function Sidebar({
                 <PlugsConnected size={14} className="text-dim" />
                 <span>MCP Servers & Tools</span>
               </button>
-              {/* T12: fila muerta "Artifacts del Canvas (vía Chat)" eliminada —
-                  era un div sin acción; sin canal de navegación a Canvas en este
-                  componente, mostrarla sería un botón muerto. */}
             </div>
           </div>
         </div>

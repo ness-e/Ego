@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Modal } from "../ui-kit/Modal.js";
 import { ego, type ModelConfigInfo, type StorageInfoResult, type GovPoliciesResult } from "../../lib/ego.js";
 
@@ -50,6 +50,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [govPolicies, setGovPolicies] = useState<GovPoliciesResult | null>(null);
   const [govError, setGovError] = useState<string | null>(null);
   const [govLoading, setGovLoading] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadModelConfig = useCallback(async () => {
     try {
@@ -149,6 +153,63 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       return `El proveedor "${p}" exige una key no vacía (propia o genérica). Sin key, el chat se bloquea con error BYOK explícito.`;
     }
     return null;
+  };
+
+  const handleExportBackup = async () => {
+    setIsExporting(true);
+    setBackupMessage(null);
+    try {
+      let payload: unknown;
+      const knowledge = ego().knowledge;
+      const exportFn = knowledge?.exportPackage as unknown as ((arg?: unknown) => Promise<unknown>) | undefined;
+      const res = await (exportFn ? exportFn({ projectId: "default" }).catch(() => exportFn("default")) : undefined);
+      if (res && typeof res === "object") {
+        payload = res;
+      } else {
+        payload = {
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          projectId: "default",
+          modelConfig,
+          storageInfo,
+        };
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ego-sovereign-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBackupMessage("Snapshot exportado exitosamente.");
+    } catch (err) {
+      setBackupMessage(`Error al exportar: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+    setBackupMessage(null);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as unknown;
+      const knowledge = ego().knowledge;
+      if (knowledge && typeof knowledge.importPackage === "function") {
+        await knowledge.importPackage(parsed);
+        setBackupMessage(`Snapshot importado exitosamente desde "${file.name}".`);
+      } else {
+        setBackupMessage(`Snapshot leído (${file.name}), pero el bridge de importación no está disponible.`);
+      }
+    } catch (err) {
+      setBackupMessage(`Error al importar snapshot: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleSave = async () => {
@@ -432,6 +493,42 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   )}
                 </div>
               )}
+
+              {/* Tarjeta de Respaldo Soberano y Portabilidad */}
+              <div className="space-y-2 rounded border border-hairline bg-paper p-3">
+                <h4 className="text-xs font-semibold text-ink">Respaldo Soberano y Portabilidad (Export / Import)</h4>
+                <p className="text-[11px] leading-relaxed text-faint">
+                  Exporta o restaura snapshots completos de memoria y configuración de Ego en formato JSON portable.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => void handleExportBackup()}
+                    disabled={isExporting}
+                    className="rounded border border-hairline bg-raised px-2.5 py-1 text-xs font-medium text-ink hover:bg-raised/80 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isExporting ? "Exportando..." : "Exportar Snapshot JSON"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isImporting}
+                    className="rounded border border-hairline bg-raised px-2.5 py-1 text-xs font-medium text-ink hover:bg-raised/80 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isImporting ? "Importando..." : "Importar Snapshot JSON"}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={(e) => void handleImportFile(e)}
+                  />
+                </div>
+                {backupMessage && (
+                  <p className="font-mono text-[10px] text-brand pt-1">{backupMessage}</p>
+                )}
+              </div>
             </div>
           )}
           {activeTab === "gov" && (

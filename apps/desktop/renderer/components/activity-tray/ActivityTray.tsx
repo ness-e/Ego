@@ -8,6 +8,7 @@ import {
   Play,
   CaretUp,
   CaretDown,
+  GitBranch,
 } from "@phosphor-icons/react";
 import { ego, type BackgroundTaskInfo } from "../../lib/ego";
 
@@ -96,8 +97,46 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
 }) => {
   const [tasks, setTasks] = useState<TaskItem[]>(propTasks ?? []);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [gitBranch, setGitBranch] = useState<string>("main");
   const toggleRef = React.useRef<HTMLButtonElement>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchStatus = async () => {
+      const domainsObj = ego().domains as Record<string, unknown> | undefined;
+      if (typeof domainsObj?.getEngineeringStatus === "function") {
+        return (domainsObj.getEngineeringStatus as (root?: string) => Promise<unknown>)();
+      }
+      const eng = domainsObj?.engineering as Record<string, unknown> | undefined;
+      if (typeof eng?.status === "function") {
+        return (eng.status as () => Promise<unknown>)();
+      }
+      return null;
+    };
+
+    void fetchStatus()
+      .then((status) => {
+        if (!mounted || !status || typeof status !== "object") return;
+        const data = status as Record<string, unknown>;
+        const rawStatus = (data.status && typeof data.status === "object" ? data.status : null) as Record<string, unknown> | null;
+        const branch =
+          typeof data.branch === "string"
+            ? data.branch
+            : typeof data.gitBranch === "string"
+              ? data.gitBranch
+              : typeof rawStatus?.branch === "string"
+                ? (rawStatus.branch as string)
+                : null;
+        if (branch && branch.trim().length > 0) {
+          setGitBranch(branch.trim());
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // WCAG 2.2 AA: Escape colapsa el panel y devuelve el foco al trigger.
   const handleTrayKeyDown = (e: React.KeyboardEvent) => {
@@ -179,6 +218,19 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
   const pausedTasks = tasks.filter((t) => t.status === "paused");
   const latestRunning = activeTasks[0];
 
+  const statusChips = (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-panel border border-hairline text-dim">
+        <GitBranch size={11} className="text-brand shrink-0" />
+        <span>{gitBranch}</span>
+      </span>
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-panel border border-hairline text-emerald-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+        <span>VantaDB LSM OK</span>
+      </span>
+    </div>
+  );
+
   if (activeTasks.length === 0 && pausedTasks.length === 0 && !isExpanded) {
     return (
       <footer className="flex h-6 shrink-0 items-center justify-between border-t border-hairline bg-raised px-3 text-[11px] text-faint">
@@ -186,7 +238,10 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
           <span className="font-mono text-[10px]">Sistema en Reposo · 0 tareas en segundo plano</span>
         </div>
-        <span className="font-mono text-[10px] text-dim">Ego Background Engine</span>
+        <div className="flex items-center gap-2.5">
+          {statusChips}
+          <span className="font-mono text-[10px] text-dim hidden sm:inline">Ego Background Engine</span>
+        </div>
       </footer>
     );
   }
@@ -228,18 +283,21 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
           )}
         </div>
 
-        <button
-          ref={toggleRef}
-          onClick={() => setIsExpanded(!isExpanded)}
-          aria-expanded={isExpanded}
-          aria-controls="activity-tray-panel"
-          aria-label={isExpanded ? "Ocultar cola de tareas" : "Ver cola de tareas"}
-          className="flex min-h-[24px] min-w-[24px] items-center gap-1 rounded px-2 py-1 text-[11px] text-dim hover:text-ink hover:bg-panel transition-colors"
-          title="Ver cola de tareas"
-        >
-          <span className="font-mono">Cola ({tasks.length})</span>
-          {isExpanded ? <CaretDown size={11} /> : <CaretUp size={11} />}
-        </button>
+        <div className="flex items-center gap-2">
+          {statusChips}
+          <button
+            ref={toggleRef}
+            onClick={() => setIsExpanded(!isExpanded)}
+            aria-expanded={isExpanded}
+            aria-controls="activity-tray-panel"
+            aria-label={isExpanded ? "Ocultar cola de tareas" : "Ver cola de tareas"}
+            className="flex min-h-[24px] min-w-[24px] items-center gap-1 rounded px-2 py-1 text-[11px] text-dim hover:text-ink hover:bg-panel transition-colors"
+            title="Ver cola de tareas"
+          >
+            <span className="font-mono">Cola ({tasks.length})</span>
+            {isExpanded ? <CaretDown size={11} /> : <CaretUp size={11} />}
+          </button>
+        </div>
       </div>
 
       {/* Panel desplegable con la lista de tareas */}

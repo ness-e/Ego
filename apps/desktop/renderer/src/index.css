@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/theme-tokens.css";
 
 @theme {
   --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -22,8 +23,8 @@
      `--color-strong` y `--color-border-strong` son alias del mismo token
      `--ego-color-border-strong` (clases `border-strong` y `border-border-strong`).
      Igual para on-brand: `--color-on-brand` / `--color-text-on-brand`. */
-  --color-strong: var(--ego-color-border-strong, #52525b);
-  --color-border-strong: var(--ego-color-border-strong, #52525b);
+  --color-strong: var(--ego-color-border-strong, #71717a);
+  --color-border-strong: var(--ego-color-border-strong, #71717a);
   --color-focus-ring: var(--ego-color-focus-ring, #f59e0b);
   --color-on-brand: var(--ego-color-text-on-brand, #0a0a0b);
   --color-text-on-brand: var(--ego-color-text-on-brand, #0a0a0b);
@@ -43,10 +44,10 @@
   --font-geist-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   /* T-contraste: valores fijos del sistema (no derivar de presets sin medir).
-     border-strong #52525b ≈2.4:1 sobre panel (decorativo + 2º indicador);
+     border-strong #71717a >= 3.2:1 sobre panel (WCAG 2.2 AA en componentes interactivos);
      dim #8a8a92 ≈5.8:1 sobre paper (AA); focus-ring #f59e0b ≈9.2:1;
      text-on-brand #0a0a0b sobre ámbar ≈9.2:1. */
-  --ego-color-border-strong: #52525b;
+  --ego-color-border-strong: #71717a;
   --ego-color-focus-ring: #f59e0b;
   --ego-color-text-on-brand: #0a0a0b;
   --ego-color-dim: #8a8a92;

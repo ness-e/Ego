@@ -10,7 +10,7 @@ export interface DesignSystemContextValue {
 
 export const DEFAULT_DESIGN_TOKENS: DesignSystemTokens = {
   id: "theme-default-dark",
-  name: "Slate Oscuro (Por Defecto)",
+  name: "Obsidian Graphite · Slate Oscuro",
   version: 1,
   colors: {
     brand: "#38bdf8",
@@ -38,7 +38,7 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
   "default-dark": DEFAULT_DESIGN_TOKENS,
   "midnight-cyan": {
     id: "theme-midnight-cyan",
-    name: "Medianoche Cyan",
+    name: "Midnight Cyan · Medianoche Cyan",
     version: 1,
     colors: {
       brand: "#06b6d4",
@@ -63,7 +63,7 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
   },
   "emerald-terminal": {
     id: "theme-emerald-terminal",
-    name: "Terminal Esmeralda",
+    name: "Emerald Studio",
     version: 1,
     colors: {
       brand: "#10b981",
@@ -88,7 +88,7 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
   },
   "amber-warm": {
     id: "theme-amber-warm",
-    name: "Ámbar Cálido",
+    name: "Warm Sepia (Paper Ink)",
     version: 1,
     colors: {
       brand: "#f59e0b",
@@ -172,11 +172,11 @@ const FONT_STACK_MAP: Record<string, string> = {
  *   con `muted` del preset sin medir cada preset (riesgo emerald-terminal
  *   verdoso: rompería el AA silenciosamente).
  * - `FIXED_BORDER_STRONG` #52525b ≈2.4:1 sobre panel (medido 2026-10-14:
- *   NO alcanza 3:1 como color único → bordes siempre con 2º indicador).
+ * - `FIXED_BORDER_STRONG` #71717a >= 3.2:1 sobre panel (WCAG 2.2 AA en componentes interactivos).
  * - `FIXED_FOCUS_RING` #f59e0b ≈9.2:1 sobre paper (componente UI ≥3:1 ✅).
  * - `FIXED_TEXT_ON_BRAND` #0a0a0b sobre ámbar ≈9.2:1 ✅.
  */
-const FIXED_BORDER_STRONG = "#52525b";
+const FIXED_BORDER_STRONG = "#71717a";
 const FIXED_FOCUS_RING = "#f59e0b";
 const FIXED_TEXT_ON_BRAND = "#0a0a0b";
 const FIXED_DIM = "#8a8a92";

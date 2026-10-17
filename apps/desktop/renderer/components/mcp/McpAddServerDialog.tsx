@@ -17,6 +17,61 @@ interface McpAddServerDialogProps {
   }) => Promise<void>;
 }
 
+interface McpPreset {
+  label: string;
+  id: string;
+  name: string;
+  command: string;
+  args: string;
+  toolPrefix: string;
+  env?: string;
+}
+
+const MCP_PRESETS: McpPreset[] = [
+  {
+    label: "GitHub",
+    id: "github-mcp",
+    name: "GitHub Oficial",
+    command: "npx",
+    args: "-y @modelcontextprotocol/server-github",
+    toolPrefix: "gh",
+    env: "GITHUB_PERSONAL_ACCESS_TOKEN=",
+  },
+  {
+    label: "Filesystem",
+    id: "filesystem-mcp",
+    name: "Filesystem Local",
+    command: "npx",
+    args: "-y @modelcontextprotocol/server-filesystem .",
+    toolPrefix: "fs",
+  },
+  {
+    label: "Postgres",
+    id: "postgres-mcp",
+    name: "PostgreSQL Database",
+    command: "npx",
+    args: "-y @modelcontextprotocol/server-postgres postgresql://localhost/mydb",
+    toolPrefix: "pg",
+  },
+  {
+    label: "Brave Search",
+    id: "brave-search-mcp",
+    name: "Brave Search API",
+    command: "npx",
+    args: "-y @modelcontextprotocol/server-brave-search",
+    toolPrefix: "brave",
+    env: "BRAVE_API_KEY=",
+  },
+  {
+    label: "SQLite",
+    id: "sqlite-mcp",
+    name: "SQLite Local",
+    command: "npx",
+    args: "-y @modelcontextprotocol/server-sqlite --db-path ./data.db",
+    toolPrefix: "sqlite",
+  },
+];
+
 /**
  * T07 (UI-04): sobre ui-kit `Modal` (Radix Dialog — trap de foco + Escape +
  * `role="dialog"` + `aria-modal` nativos). Cada campo lleva `htmlFor` + `id`
@@ -35,6 +90,16 @@ export function McpAddServerDialog({ isOpen, onClose, onSubmit }: McpAddServerDi
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const applyPreset = (preset: McpPreset) => {
+    setId(preset.id);
+    setName(preset.name);
+    setCommand(preset.command);
+    setArgsRaw(preset.args);
+    setToolPrefix(preset.toolPrefix);
+    if (preset.env) setEnvRaw(preset.env);
+    setError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,6 +164,26 @@ export function McpAddServerDialog({ isOpen, onClose, onSubmit }: McpAddServerDi
       title="Añadir Servidor MCP (stdio)"
       description="Subproceso local para el Tool Registry de Ego (Nivel B). Esc para salir."
     >
+      {/* Plantillas Rápidas (1-Clic) */}
+      <div className="mb-3 space-y-1.5 rounded-lg border border-hairline bg-paper/60 p-2.5">
+        <span className="block text-[10px] font-semibold tracking-wider uppercase text-dim/80">
+          Plantillas Rápidas (1-Clic)
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {MCP_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => applyPreset(p)}
+              className="rounded-full border border-hairline bg-raised hover:bg-raised/80 hover:border-strong px-2.5 py-0.5 text-[11px] font-mono text-ink transition-colors cursor-pointer shadow-2xs"
+              title={`Autocompletar configuración para ${p.name}`}
+            >
+              + {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Formulario */}
       <form onSubmit={handleSubmit} className="space-y-3 text-xs">
         {error && (

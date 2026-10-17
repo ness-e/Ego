@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
-import { TerminalWindow, Palette } from "@phosphor-icons/react";
+import { TerminalWindow, MagnifyingGlass } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
-import { Omnibar } from "../components/omnibar";
+import { Omnibar, requestOpenOmnibar } from "../components/omnibar";
 import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
 import { Sidebar } from "../components/sidebar";
 import { SubEgoSelector } from "../components/SubEgoSelector";
@@ -74,20 +74,21 @@ function ThemeControl() {
     presetKeys.find((k) => availablePresets[k]?.id === tokens.id) ?? "default-dark";
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <Palette size={13} className="text-dim" />
-      <select
-        value={selectedKey}
-        onChange={(e) => applyPreset(e.target.value)}
-        aria-label="Tema de diseño"
-        className="rounded bg-raised px-1.5 py-0.5 text-[11px] font-mono text-ink border border-hairline focus:outline-none cursor-pointer max-w-[130px] truncate"
-        title="Ego Generative Design System — Tokens"
-      >
-        {presetKeys.map((k) => (
-          <option key={k} value={k}>
-            {availablePresets[k]?.name ?? k}
-          </option>
-        ))}
-      </select>
+      <div className="relative flex items-center">
+        <select
+          value={selectedKey}
+          onChange={(e) => applyPreset(e.target.value)}
+          aria-label="Tema de diseño"
+          className="ego-pill-select font-mono text-[11px] max-w-[155px] truncate"
+          title="Ego Generative Design System — Tokens"
+        >
+          {presetKeys.map((k) => (
+            <option key={k} value={k}>
+              {availablePresets[k]?.name ?? k}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
@@ -220,33 +221,63 @@ export function App() {
   return (
     <DesignSystemProvider>
       <div className="flex h-screen w-screen flex-col bg-paper text-ink overflow-hidden font-sans select-none">
-        {/* 1. System Chrome Header con Ego Activity Widget Integrado */}
-        <header className="flex h-10 shrink-0 items-center justify-between border-b border-hairline bg-panel px-4 app-region-drag">
+        {/* 1. System Chrome Header con Ego Activity Widget Integrado + Omnibar Capsule */}
+        <header className="flex h-11 shrink-0 items-center justify-between border-b border-hairline bg-panel/95 backdrop-blur-md px-4 app-region-drag select-none z-10 gap-3">
           {/* Identidad de la App */}
-          <div className="flex items-center gap-2 app-region-no-drag">
-            <div className="h-4 w-4 rounded-full bg-ink flex items-center justify-center">
-              <span className="font-mono text-[9px] font-bold text-paper">E</span>
+          <div className="flex items-center gap-2.5 app-region-no-drag shrink-0">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ink shadow-xs">
+              <span className="font-mono text-[10px] font-bold text-paper">E</span>
             </div>
-            <span className="text-xs font-semibold tracking-tight">Ego</span>
-            <span className="text-[11px] text-faint">· Cognitive OS</span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className="text-xs font-semibold tracking-tight text-ink">Ego</span>
+                <span className="rounded-full bg-brand/15 border border-brand/30 px-1.5 py-0.2 font-mono text-[9px] font-semibold text-brand">
+                  SOC
+                </span>
+              </div>
+              <span className="text-[10px] text-dim leading-none pt-0.5">Cognitive OS</span>
+            </div>
           </div>
 
-          {/* Ego Activity Widget (Superficie Canónica de Telemetría y HITL) */}
-          <ActivityWidget />
+          {/* Omnibar Launcher Capsule interactivo estilo Raycast/Linear */}
+          <div className="flex items-center justify-center app-region-no-drag flex-1 max-w-md px-2">
+            <button
+              type="button"
+              onClick={() => requestOpenOmnibar()}
+              aria-label="Abrir Omnibar de búsqueda federada"
+              title="Búsqueda federada (Ctrl+K)"
+              className="flex w-full max-w-[340px] items-center justify-between rounded-full border border-hairline bg-raised/80 hover:bg-raised px-3 py-1 text-xs text-faint transition-all duration-150 hover:border-strong hover:text-ink shadow-xs cursor-pointer group"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <MagnifyingGlass size={13} className="text-dim group-hover:text-brand transition-colors shrink-0" />
+                <span className="truncate text-[11px]">Buscar en memoria, comandos y herramientas...</span>
+              </div>
+              <kbd className="ml-2 shrink-0 rounded bg-panel px-1.5 py-0.5 font-mono text-[10px] text-dim border border-hairline/80 shadow-2xs">
+                Ctrl+K
+              </kbd>
+            </button>
+          </div>
 
-          {/* Indicadores Auxiliares */}
-          <div className="flex items-center gap-3 text-xs text-faint app-region-no-drag">
-            {/* T06: ModelPicker montado en el header (proveedor real vía settings). */}
+          {/* Ego Activity Widget + Selector de Modelo Activo + Status */}
+          <div className="flex items-center gap-2.5 text-xs text-faint app-region-no-drag shrink-0">
+            <ActivityWidget />
+            {/* T06: ModelPicker montado en el header (proveedor real vía settings) */}
             <button
               type="button"
               onClick={() => useUiStore.getState().openModelPicker()}
               title="Selector de modelo (Model Router)"
-              className="flex max-w-[220px] items-center gap-1.5 rounded border border-hairline bg-raised px-2 py-0.5 font-mono text-[10px] text-dim transition-colors hover:text-ink"
+              aria-label="Selector de modelo activo"
+              className="flex max-w-[220px] items-center gap-2 rounded-full border border-hairline bg-raised/90 hover:bg-raised px-2.5 py-1 font-mono text-[10px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
             >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
-              <span className="truncate">{activeModelName}</span>
+              <span className="relative flex h-2 w-2 items-center justify-center shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+              </span>
+              <span className="truncate font-medium">{activeModelName}</span>
             </button>
-            <span className="font-mono text-[10px] text-dim">Local-First · NativeVantaDB</span>
+            <span className="hidden xl:inline-flex font-mono text-[10px] text-dim pl-1">
+              Local-First · NativeVantaDB
+            </span>
           </div>
         </header>
         <ModelPicker
@@ -327,9 +358,9 @@ export function App() {
 
           {/* Panel 2: Dynamic Canvas (Superficie de Trabajo Interactiva) */}
           <section aria-label="Área de trabajo dinámica" className="flex flex-1 flex-col min-w-0 bg-panel">
-            <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-4 text-xs text-faint gap-2 overflow-x-auto min-w-0">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-4 text-xs text-faint gap-2 overflow-x-auto min-w-0">
               <div className="flex items-center gap-2 shrink-0">
-                <TerminalWindow size={14} />
+                <TerminalWindow size={14} className="text-dim" />
                 <span className="font-medium text-ink whitespace-nowrap">Dynamic Workspace</span>
                 <span className="text-hairline">|</span>
                 <DomainSelector
@@ -338,7 +369,7 @@ export function App() {
                   onSelectDomain={handleSelectDomain}
                 />
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2.5 shrink-0">
                 <ThemeControl />
                 <button
                   type="button"
@@ -346,66 +377,70 @@ export function App() {
                   title="Conmutar inspector (Ctrl+I)"
                   aria-expanded={!inspectorCollapsed}
                   aria-label="Conmutar inspector"
-                  className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer shrink-0 ${
+                  className={`rounded-full px-2.5 py-1 text-xs transition-colors cursor-pointer shrink-0 border ${
                     !inspectorCollapsed
-                      ? "bg-raised text-ink font-semibold border border-hairline"
-                      : "text-dim hover:text-ink"
+                      ? "bg-raised text-ink font-semibold border-strong shadow-xs"
+                      : "border-hairline text-dim hover:text-ink hover:bg-raised/60"
                   }`}
                 >
                   Inspector
                 </button>
-                <div className="flex items-center gap-1 border-l border-hairline pl-2 shrink-0">
+                {/* Segmented Control / Pill Bar moderno para pestañas del workspace */}
+                <nav
+                  aria-label="Navegación de vistas del espacio de trabajo"
+                  className="flex items-center p-0.5 rounded-lg bg-raised/80 border border-hairline gap-0.5 shrink-0"
+                >
                   <button
                     onClick={() => setActiveWorkspaceTab("daily")}
-                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "daily"
-                        ? "bg-raised text-ink font-semibold border border-hairline"
-                        : "text-dim hover:text-ink"
+                        ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
+                        : "text-dim hover:text-ink hover:bg-panel/40"
                     }`}
                   >
                     Daily State
                   </button>
                   <button
                     onClick={() => setActiveWorkspaceTab("domains")}
-                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "domains"
-                        ? "bg-raised text-ink font-semibold border border-hairline"
-                        : "text-dim hover:text-ink"
+                        ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
+                        : "text-dim hover:text-ink hover:bg-panel/40"
                     }`}
                   >
                     Dominio
                   </button>
                   <button
                     onClick={() => setActiveWorkspaceTab("canvas")}
-                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "canvas"
-                        ? "bg-raised text-ink font-semibold border border-hairline"
-                        : "text-dim hover:text-ink"
+                        ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
+                        : "text-dim hover:text-ink hover:bg-panel/40"
                     }`}
                   >
                     Canvas
                   </button>
                   <button
                     onClick={() => setActiveWorkspaceTab("workbench")}
-                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "workbench"
-                        ? "bg-raised text-ink font-semibold border border-hairline"
-                        : "text-dim hover:text-ink"
+                        ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
+                        : "text-dim hover:text-ink hover:bg-panel/40"
                     }`}
                   >
                     Workbench
                   </button>
                   <button
                     onClick={() => setActiveWorkspaceTab("subegos")}
-                    className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
                       activeWorkspaceTab === "subegos"
-                        ? "bg-raised text-ink font-semibold border border-hairline"
-                        : "text-dim hover:text-ink"
+                        ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
+                        : "text-dim hover:text-ink hover:bg-panel/40"
                     }`}
                   >
                     Sub-Egos Fábrica
                   </button>
-                </div>
+                </nav>
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
@@ -438,8 +473,7 @@ export function App() {
           </section>
 
           {/* A4: Inspector derecho (SplitPane reutilizado, colapsado por
-              defecto). Superficie de detalle del hilo activo: sesión, proyecto
-              y Sub-Ego sin lógica de negocio (solo presentación). */}
+              defecto). Superficie de detalle del hilo activo con tarjetas volumétricas L2. */}
           <SplitPane
             id="app-inspector"
             side="right"
@@ -449,8 +483,8 @@ export function App() {
             isCollapsed={inspectorCollapsed}
           >
             <aside className="flex h-full flex-col bg-panel" aria-label="Inspector">
-              <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline px-3 text-xs">
-                <span className="font-medium text-ink">Inspector</span>
+              <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-3 text-xs">
+                <span className="font-semibold text-ink">Inspector</span>
                 <button
                   type="button"
                   onClick={() => setInspectorCollapsed(true)}
@@ -461,24 +495,24 @@ export function App() {
                   ✕
                 </button>
               </div>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 text-[11px] text-faint">
-                <div className="rounded border border-hairline bg-paper p-2">
+              <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3 text-[11px] text-faint">
+                <div className="ego-surface-l2 rounded-lg p-2.5">
                   <p className="font-semibold text-ink">Sesión activa</p>
-                  <p className="mt-0.5 truncate font-mono text-[10px] text-dim">
+                  <p className="mt-1 truncate font-mono text-[10px] text-dim">
                     {activeSessionId ?? "Sin sesión"}
                   </p>
                 </div>
-                <div className="rounded border border-hairline bg-paper p-2">
+                <div className="ego-surface-l2 rounded-lg p-2.5">
                   <p className="font-semibold text-ink">Proyecto</p>
-                  <p className="mt-0.5 truncate font-mono text-[10px] text-dim">{activeProject}</p>
+                  <p className="mt-1 truncate font-mono text-[10px] text-dim">{activeProject}</p>
                 </div>
-                <div className="rounded border border-hairline bg-paper p-2">
+                <div className="ego-surface-l2 rounded-lg p-2.5">
                   <p className="font-semibold text-ink">Sub-Ego</p>
-                  <p className="mt-0.5 truncate font-mono text-[10px] text-dim">{activeSubEgo}</p>
+                  <p className="mt-1 truncate font-mono text-[10px] text-dim">{activeSubEgo}</p>
                 </div>
-                <div className="rounded border border-hairline bg-paper p-2">
+                <div className="ego-surface-l2 rounded-lg p-2.5">
                   <p className="font-semibold text-ink">Modelo</p>
-                  <p className="mt-0.5 truncate font-mono text-[10px] text-dim">{activeModelName}</p>
+                  <p className="mt-1 truncate font-mono text-[10px] text-dim">{activeModelName}</p>
                 </div>
               </div>
             </aside>
