@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, memo, createContext, useContext, useMemo } from "react";
 import {
   AssistantRuntimeProvider,
   useExternalStoreRuntime,
@@ -7,8 +7,9 @@ import {
   MessagePrimitive,
   ComposerPrimitive,
   ActionBarPrimitive,
+  useAuiState,
 } from "@assistant-ui/react";
-import { Warning, X, ArrowClockwise } from "@phosphor-icons/react";
+import { Warning, X, ArrowClockwise, ArrowCounterClockwise, DownloadSimple } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { MOTION } from "./canvas/DesignSystemProvider.js";
 import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
@@ -23,6 +24,13 @@ import { VoiceButton, VoicePrivacyNotice } from "./voice/VoiceButton.js";
 import { MarkdownText } from "./assistant-ui/markdown-text.js";
 import { MessageRenderBoundary } from "./assistant-ui/message-render-boundary.js";
 import { toTurnUsage, type TurnUsage } from "./daily-state/MetricsConsole.js";
+import { ToolExecutionCard } from "./chat/ToolExecutionCard.js";
+
+const ChatActionsContext = createContext<{
+  onRewind?: (messageId: string) => void;
+  onRetry?: () => void;
+  subEgoId?: string;
+}>({});
 
 /**
  * Virtualización barata por turnos (sin cambiar UX ni romper aria-live):
@@ -32,6 +40,9 @@ import { toTurnUsage, type TurnUsage } from "./daily-state/MetricsConsole.js";
  * del runtime, nunca por índice) + ancla end vía `stick` (<100px).
  */
 function UserMessageInner() {
+  const { onRewind } = useContext(ChatActionsContext);
+  const messageId = useAuiState((s) => (s as unknown as { message?: { id?: string } }).message?.id);
+
   return (
     <MessagePrimitive.Root
       className="flex justify-end my-2"
@@ -45,14 +56,23 @@ function UserMessageInner() {
             }}
           />
         </MessageRenderBoundary>
-        <ActionBarPrimitive.Root className="mt-1 flex justify-end gap-1 text-faint">
+        <ActionBarPrimitive.Root className="mt-1 flex items-center justify-end gap-1 text-faint">
           <ActionBarPrimitive.Copy
             aria-label="Copiar mensaje"
             className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
           />
-          {/* TODO: editar-fork vía SessionTimelineRewind — no existe bridge
-              (`ipc.sessions.*` solo list/get/resume); alinear con main antes
-              de cablear ActionBarPrimitive.Edit a un fork real. */}
+          {messageId && onRewind && (
+            <button
+              type="button"
+              onClick={() => onRewind(messageId)}
+              aria-label="Rebobinar aquí"
+              title="Rebobinar historial hasta este turno"
+              className="rounded p-1 text-[11px] font-mono flex items-center gap-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
+            >
+              <ArrowCounterClockwise size={12} />
+              <span>Rebobinar</span>
+            </button>
+          )}
         </ActionBarPrimitive.Root>
       </div>
     </MessagePrimitive.Root>
@@ -61,7 +81,7 @@ function UserMessageInner() {
 
 // Sin props: nunca re-render por padre; el contenido interno sigue
 // actualizándose vía contexto del runtime (MessagePrimitive).
-const UserMessage = memo(UserMessageInner, () => true);
+const UserMessage = memo(UserMessageInner);
 UserMessage.displayName = "UserMessage";
 
 function AssistantMessageInner({
@@ -71,6 +91,9 @@ function AssistantMessageInner({
   subEgoId?: string;
   onRetry?: () => void;
 }) {
+  const { onRewind } = useContext(ChatActionsContext);
+  const messageId = useAuiState((s) => (s as unknown as { message?: { id?: string } }).message?.id);
+
   return (
     <MessagePrimitive.Root
       className="flex my-2.5 gap-2.5 items-start"
@@ -97,6 +120,18 @@ function AssistantMessageInner({
             aria-label="Regenerar respuesta"
             className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
           />
+          {messageId && onRewind && (
+            <button
+              type="button"
+              onClick={() => onRewind(messageId)}
+              aria-label="Rebobinar aquí"
+              title="Rebobinar historial hasta este turno"
+              className="rounded p-1 text-[11px] font-mono flex items-center gap-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
+            >
+              <ArrowCounterClockwise size={12} />
+              <span>Rebobinar</span>
+            </button>
+          )}
           {onRetry && (
             <button
               type="button"
@@ -122,6 +157,7 @@ const AssistantMessage = memo(
   (prev, next) => prev.subEgoId === next.subEgoId && prev.onRetry === next.onRetry
 );
 AssistantMessage.displayName = "AssistantMessage";
+
 
 type Msg = {
   id: string;
@@ -153,10 +189,15 @@ type ChatDeltaChunk = {
 };
 
 type ToolActivity = {
-  kind: "tool_call" | "tool_result";
+  kind: "tool_call" | "tool_result" | "tool_start" | "tool_end" | "tool_error";
   callId?: string;
   toolName: string;
   detail: string;
+  arguments?: unknown;
+  output?: unknown;
+  error?: unknown;
+  success?: boolean;
+  durationMs?: number;
   /** Clave estable por evento (nunca índice de map) para followOnAppend. */
   seq: number;
 };
@@ -172,21 +213,32 @@ function summarizeArgs(args: unknown): string {
 
 /** Convierte un chunk/evento de tool en actividad pintable; null si no es tool. */
 function toToolActivity(chunk: ChatDeltaChunk): Omit<ToolActivity, "seq"> | null {
-  if (chunk.type === "tool_call" && chunk.toolName) {
+  const type = chunk.type;
+  if (!chunk.toolName && type !== "tool_call" && type !== "tool_result" && type !== "tool_start" && type !== "tool_end" && type !== "tool_error") {
+    return null;
+  }
+  const toolName = chunk.toolName || "tool";
+
+  if (type === "tool_call" || type === "tool_start") {
     return {
-      kind: "tool_call",
+      kind: type === "tool_start" ? "tool_start" : "tool_call",
       callId: chunk.callId,
-      toolName: chunk.toolName,
+      toolName,
       detail: summarizeArgs(chunk.arguments),
+      arguments: chunk.arguments,
     };
   }
-  if (chunk.type === "tool_result" && chunk.toolName) {
+  if (type === "tool_result" || type === "tool_end" || type === "tool_error") {
     const err = typeof chunk.error === "string" ? chunk.error : "";
     return {
-      kind: "tool_result",
+      kind: type === "tool_error" ? "tool_error" : type === "tool_end" ? "tool_end" : "tool_result",
       callId: chunk.callId,
-      toolName: chunk.toolName,
+      toolName,
       detail: err || (chunk.success === false ? "falló" : "ok"),
+      output: chunk.output,
+      error: chunk.error,
+      success: chunk.success,
+      arguments: chunk.arguments,
     };
   }
   return null;
@@ -229,6 +281,8 @@ export interface ComposerAttachment {
   permission: Cfg12PermissionDecision;
   quarantined: boolean;
   reason?: string;
+  textContent?: string;
+  dataUrl?: string;
 }
 // VOICE-01: STT/TTS opt-in implementado abajo (`useVoice` + `VoiceButton` +
 // `ipc.voice.*` en main). El turno futuro con audio binario sigue pendiente:
@@ -305,7 +359,25 @@ export function buildPromptWithAttachments(prompt: string, atts: ComposerAttachm
   const lines = valid.map(
     (a) => `- ${a.name} (${a.mime || "mime desconocido"}, ${(a.size / 1024).toFixed(1)}KB, permiso:${a.permission})`
   );
-  return `${prompt}\n[Adjuntos (${valid.length}):\n${lines.join("\n")}]`;
+  let out = `${prompt}\n[Adjuntos (${valid.length}):\n${lines.join("\n")}]`;
+
+  const extraBlocks = valid
+    .map((a) => {
+      if (a.textContent) {
+        return `\n\n--- Adjunto: ${a.name} ---\n\`\`\`\n${a.textContent}\n\`\`\``;
+      }
+      if (a.dataUrl) {
+        return `\n\n[Imagen adjunta: ${a.name} (${a.mime})]`;
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+  if (extraBlocks.length > 0) {
+    out += extraBlocks.join("");
+  }
+
+  return out;
 }
 
 /**
@@ -426,6 +498,42 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   const [attachError, setAttachError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerWrapRef = useRef<HTMLDivElement>(null);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+
+  const defaultFileSuggestions = useMemo(
+    () => [
+      "apps/desktop/renderer/App.tsx",
+      "apps/desktop/src/main.ts",
+      "packages/memory/src/index.ts",
+      "packages/runtime/src/index.ts",
+      "docs/architecture/vision-general.md",
+      "README.md",
+      "package.json",
+    ],
+    []
+  );
+
+  const filteredSuggestions = useMemo(() => {
+    if (mentionQuery === null) return [];
+    if (!mentionQuery) return defaultFileSuggestions;
+    const q = mentionQuery.toLowerCase();
+    const matched = defaultFileSuggestions.filter((f) => f.toLowerCase().includes(q));
+    return matched.length > 0 ? matched : [mentionQuery];
+  }, [mentionQuery, defaultFileSuggestions]);
+
+  const handleSelectMention = useCallback((filePath: string) => {
+    const ta = composerWrapRef.current?.querySelector("textarea");
+    if (!ta) return;
+    const currentVal = ta.value;
+    const replaced = currentVal.replace(/(?:^|\s)@([a-zA-Z0-9_\-\./]*)$/, (match) => {
+      const prefix = match.startsWith(" ") ? " " : "";
+      return `${prefix}@${filePath} `;
+    });
+    ta.value = replaced;
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+    ta.focus();
+    setMentionQuery(null);
+  }, []);
 
   const handleComposerInput = useCallback((e: React.FormEvent) => {
     const ta = (e.target as HTMLElement).closest("div")?.querySelector("textarea")
@@ -434,6 +542,13 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     setDraftMentions(extractMentions(value));
     const slash = /^\s*\//.test(value) ? parseSlashCommand(value) : null;
     setDraftSlash(slash ? slash.name : null);
+
+    const m = /(?:^|\s)@([a-zA-Z0-9_\-\./]*)$/.exec(value);
+    if (m) {
+      setMentionQuery(m[1] ?? "");
+    } else {
+      setMentionQuery(null);
+    }
   }, []);
   const streamTargetRef = useRef<string | null>(null);
   const currentPromptRef = useRef<string>("");
@@ -759,7 +874,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     abortRef.current = ctrl;
     currentPromptRef.current = promptTextEffective;
     setActiveError(null);
-    setToolEvents([]);
+    // Conserva los toolEvents previos para que no desaparezcan de golpe entre turnos
     // T19: el badge muestra el turno actual; sin `usage` nuevo no hay
     // coste que mostrar (nunca rastro del turno anterior).
     setLastTurnUsage(null);
@@ -931,6 +1046,42 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         ? `${blocked.length} adjunto(s) en cuarentena: ${blocked.map((b) => b.reason ?? b.name).join("; ")}`
         : null
     );
+
+    // Lectura real de archivos adjuntos (multimodalidad / texto en vivo)
+    list.forEach((f, idx) => {
+      const v = validated[idx];
+      if (!v || v.quarantined) return;
+
+      if (f.type && f.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          setAttachments((prev) =>
+            prev.map((att) => (att.id === v.id ? { ...att, dataUrl } : att))
+          );
+        };
+        reader.readAsDataURL(f);
+      } else if (f.size <= 64 * 1024) {
+        if (typeof f.text === "function") {
+          f.text()
+            .then((text) => {
+              setAttachments((prev) =>
+                prev.map((att) => (att.id === v.id ? { ...att, textContent: text } : att))
+              );
+            })
+            .catch(() => {});
+        } else {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const text = reader.result as string;
+            setAttachments((prev) =>
+              prev.map((att) => (att.id === v.id ? { ...att, textContent: text } : att))
+            );
+          };
+          reader.readAsText(f);
+        }
+      }
+    });
   }, []);
 
   const removeAttachment = useCallback((id: string) => {
@@ -998,10 +1149,63 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     executeTurn(promptToRetry);
   }, [activeError, executeTurn]);
 
+  const handleRewind = useCallback((targetId: string) => {
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === targetId);
+      if (idx < 0) return prev;
+      return prev.slice(0, idx + 1);
+    });
+  }, []);
+
+  const exportConversationMarkdown = useCallback(() => {
+    if (messages.length === 0) return;
+    const lines: string[] = [
+      `# Conversación de Ego SOC`,
+      `Fecha: ${new Date().toLocaleString()}`,
+      `Sub-Ego: ${subEgoId ?? "ego.nucleus"}`,
+      `---`,
+      "",
+    ];
+    for (const m of messages) {
+      const roleName = m.role === "user" ? "Usuario" : `Sub-Ego (${subEgoId ?? "ego.nucleus"})`;
+      const text = m.content
+        .map((c) => (c.type === "text" ? c.text : ""))
+        .join("\n");
+      lines.push(`### ${roleName}:\n\n${text}\n`);
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ego-chat-${Date.now()}.md`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [messages, subEgoId]);
+
+  const fillComposer = useCallback((promptText: string) => {
+    const ta = composerWrapRef.current?.querySelector("textarea");
+    if (ta) {
+      ta.value = promptText;
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      ta.focus();
+    }
+  }, []);
+
   const runtime = useExternalStoreRuntime({
     messages,
     setMessages: (msgs) => setMessages([...msgs]),
     convertMessage: (m) => m,
+    onReload: async () => {
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+      if (lastUserMsg) {
+        const text = lastUserMsg.content
+          .map((p) => (p.type === "text" ? p.text : ""))
+          .join("");
+        if (text) {
+          await executeTurn(text);
+        }
+      }
+    },
     onNew: async (m) => {
       const text = m.content
         .map((p) => (p.type === "text" ? p.text : ""))
@@ -1034,6 +1238,27 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="h-full flex flex-col">
+        {/* Cabecera del Chat River 2.0 con Exportar (.md) */}
+        <div className="flex items-center justify-between border-b border-hairline px-3.5 py-2 text-xs bg-panel/40 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-ink">Ego Chat</span>
+            <span className="rounded-full bg-raised border border-hairline px-2 py-0.5 text-[10px] font-mono text-dim">
+              {subEgoId ?? "ego.nucleus"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={exportConversationMarkdown}
+            aria-label="Exportar conversación a Markdown"
+            title="Exportar conversación actual (.md)"
+            disabled={messages.length === 0}
+            className="flex items-center gap-1.5 rounded-lg border border-hairline bg-raised/70 px-2.5 py-1 text-[11px] font-medium text-faint hover:text-ink hover:bg-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <DownloadSimple size={13} />
+            <span>Exportar (.md)</span>
+          </button>
+        </div>
+
         {/* Banner de Memoria Viva (Hermes RecallStatus + VantaDB) */}
         {latestRecall && latestRecall.count > 0 && (
           <div className="flex items-center gap-2 border-b border-hairline bg-raised/40 px-3 py-1 text-[11px] text-faint">
@@ -1053,21 +1278,51 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           style={{ overflowAnchor: "auto" }}
         >
           <ThreadPrimitive.Empty>
-            <div className="p-10 text-center text-faint">
-              <p className="mb-1.5 text-ink font-semibold">Cerebro Operativo de Ego</p>
-              <p className="font-mono text-[13px] text-faint">
+            <div className="flex flex-col items-center justify-center p-8 text-center text-faint max-w-lg mx-auto">
+              <div className="mb-3">
+                <CharacterBadge subEgoId={subEgoId ?? "ego.nucleus"} size={52} animated />
+              </div>
+              <p className="mb-1.5 text-ink font-semibold text-base">Cerebro Operativo de Ego</p>
+              <p className="font-mono text-[13px] text-faint mb-6">
                 Haz una pregunta o asigna una tarea a tus Sub-Egos.
               </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
+                {[
+                  { title: "Analizar arquitectura del proyecto", desc: "Revisa estructura y dependencias" },
+                  { title: "Proyectar reporte de métricas en el Canvas", desc: "Abre el dashboard en Workspace" },
+                  { title: "Buscar decisiones clave en VantaDB", desc: "Consulta el historial persistente" },
+                  { title: "Revisar estado de Git y tareas pendientes", desc: "Verifica cambios y roadmap" },
+                ].map((starter) => (
+                  <button
+                    key={starter.title}
+                    type="button"
+                    onClick={() => fillComposer(starter.title)}
+                    className="group flex flex-col p-3 rounded-xl border border-hairline bg-panel hover:bg-raised hover:border-dim transition-all text-left shadow-sm cursor-pointer"
+                  >
+                    <span className="font-medium text-[12px] text-ink group-hover:text-brand transition-colors">
+                      {starter.title}
+                    </span>
+                    <span className="text-[11px] text-faint mt-0.5 line-clamp-1">
+                      {starter.desc}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </ThreadPrimitive.Empty>
-          <ThreadPrimitive.Messages
-            components={{
-              UserMessage,
-              AssistantMessage: () => (
-                <AssistantMessage subEgoId={subEgoId ?? "ego.nucleus"} onRetry={handleRetry} />
-              ),
-            }}
-          />
+          <ChatActionsContext.Provider
+            value={{ onRewind: handleRewind, onRetry: handleRetry, subEgoId: subEgoId ?? "ego.nucleus" }}
+          >
+            <ThreadPrimitive.Messages
+              components={{
+                UserMessage,
+                AssistantMessage: () => (
+                  <AssistantMessage subEgoId={subEgoId ?? "ego.nucleus"} onRetry={handleRetry} />
+                ),
+              }}
+            />
+          </ChatActionsContext.Provider>
         </ThreadPrimitive.Viewport>
 
         {/* A2: Jump to latest — solo sin stick (el viewport no salta solo). */}
@@ -1081,7 +1336,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                 setStick(true);
               }}
               aria-label="Saltar al último mensaje"
-              className="rounded-card border border-hairline bg-panel px-3 py-1.5 text-[11px] font-semibold text-ink shadow-sm transition-colors hover:bg-raised"
+              className="rounded-card border border-hairline bg-panel px-3 py-1.5 text-[11px] font-semibold text-ink shadow-sm transition-colors hover:bg-raised cursor-pointer"
             >
               ↓ Jump to latest
             </button>
@@ -1101,26 +1356,19 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* Actividad de tools inline (tool_call/tool_result del stream, T02) */}
+        {/* Actividad de tools inline (ToolExecutionCard interactiva, T02) */}
         {toolEvents.length > 0 && (
           <div
             data-testid="chat-tool-activity"
             role="status"
             aria-live="polite"
-            className="max-h-24 overflow-y-auto border-t border-hairline px-3 py-1.5 font-mono text-[11px] text-dim"
+            className="max-h-48 overflow-y-auto border-t border-hairline px-3 py-1.5 font-mono text-[11px] text-dim space-y-1"
           >
             {toolEvents.map((t) => (
-              <div
+              <ToolExecutionCard
                 key={t.callId ? `${t.kind}-${t.callId}-${t.seq}` : `${t.kind}-${t.toolName}-${t.seq}`}
-                className="truncate"
-                style={{ contentVisibility: "auto", containIntrinsicSize: "auto 20px" }}
-              >
-                {t.kind === "tool_call"
-                  ? `🔧 ${t.toolName}${t.detail ? ` ${t.detail}` : ""}…`
-                  : t.detail === "ok"
-                    ? `✓ ${t.toolName} ok`
-                    : `✗ ${t.toolName}: ${t.detail}`}
-              </div>
+                event={t}
+              />
             ))}
           </div>
         )}
@@ -1222,15 +1470,20 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                 key={a.id}
                 data-testid={a.quarantined ? "attachment-quarantined" : "attachment-chip"}
                 title={a.quarantined ? `Cuarentena: ${a.reason ?? "bloqueado"}` : `${a.mime}, ${(a.size / 1024).toFixed(1)}KB`}
-                className={`inline-flex items-center gap-1 rounded-card border border-hairline px-2 py-1 font-mono text-[11px] ${a.quarantined ? "bg-rose-950/40 text-rose-200" : "bg-panel text-ink"}`}
+                className={`inline-flex items-center gap-1.5 rounded-card border border-hairline px-2 py-1 font-mono text-[11px] ${a.quarantined ? "bg-rose-950/40 text-rose-200" : "bg-panel text-ink"}`}
               >
-                {a.quarantined ? "⛔" : "📎"} {a.name}
+                {a.dataUrl ? (
+                  <img src={a.dataUrl} alt={a.name} className="h-4 w-4 rounded object-cover shrink-0" />
+                ) : (
+                  <span>{a.quarantined ? "⛔" : "📎"}</span>
+                )}
+                <span className="truncate max-w-[120px]">{a.name}</span>
                 <span className="text-dim">·{a.permission}</span>
                 <button
                   type="button"
                   onClick={() => removeAttachment(a.id)}
                   aria-label={`Quitar adjunto ${a.name}`}
-                  className="ml-1 rounded p-0.5 hover:bg-raised"
+                  className="ml-1 rounded p-0.5 hover:bg-raised cursor-pointer"
                 >
                   <X size={11} />
                 </button>
@@ -1240,96 +1493,112 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* TODO(PM-COMPOSER): ProseMirror completo en Composer es reescritura
-            (R-FE-2: el texto fuente vive en el textarea del runtime). Se deja
-            ComposerPrimitive intacto; solo display-only @menciones//slash. */}
-        {/* A1: Ctrl/Cmd+Enter envía (Enter plano = salto de línea), máx 8
-            filas con scroll interno. Sin autoFocus: el foco lo gobiernan los
-            modales (A6). Send/Cancel ≥44px; Cancel solo durante streaming. */}
-        <ComposerPrimitive.Root className="flex gap-2 px-3 py-2.5 border-t border-hairline">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            aria-label="Adjuntar archivos"
-            data-testid="composer-file-input"
-            className="hidden"
-            onChange={(e) => {
-              handleFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            aria-label="Adjuntar archivos"
-            title="Adjuntar (máx 10MB, tipos permitidos)"
-            data-testid="composer-attach-button"
-            className="min-h-[44px] min-w-[44px] px-3 py-2.5 bg-panel border border-hairline rounded-card font-semibold text-[15px] text-ink cursor-pointer transition-colors hover:bg-raised"
-          >
-            ＋
-          </button>
-          {/* VOICE-01: dictado STT→composer (deshabilitado honesto sin
-              soporte o con kill switch; ver `useVoice`). */}
-          <VoiceButton
-            captureState={voice.captureState}
-            disabled={!voice.sttEnabled}
-            onToggleDictation={voice.toggleDictation}
-          />
-          <div ref={composerWrapRef} onInput={handleComposerInput} className="flex min-w-0 flex-1">
-          <ComposerPrimitive.Input
-            submitMode="ctrlEnter"
-            maxRows={8}
-            placeholder="Pregunta o instruye a Ego… (@archivo · /help · Ctrl+Enter envía)"
-            className="flex-1 max-h-48 overflow-y-auto px-3.5 py-2.5 bg-panel border border-hairline rounded-card text-ink text-sm placeholder:text-faint focus:outline-none focus:border-dim"
-          />
-          </div>
-          <AnimatePresence mode="wait" initial={false}>
-          {isStreaming ? (
-            <motion.button
-              key="composer-cancel"
-              layoutId="composer-action"
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={composerTransition}
-              type="button"
-              onClick={handleCancel}
-              aria-label="Cancelar turno en curso"
-              title="Cancelar turno (Esc)"
-              className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-rose-600 text-white rounded-card font-semibold text-[13px] cursor-pointer transition-colors hover:bg-rose-500"
-            >
-              Cancelar
-            </motion.button>
-          ) : (
-            <motion.span
-              key="composer-send"
-              layoutId="composer-action"
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={composerTransition}
-              className="inline-flex"
-            >
-              <ComposerPrimitive.Send
-                aria-label="Enviar mensaje"
-                className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"
-              >
-                Enviar
-              </ComposerPrimitive.Send>
-            </motion.span>
+        {/* Floating Capsule Composer */}
+        <div className="relative p-2.5">
+          {/* Autocompletado @archivo popover */}
+          {mentionQuery !== null && filteredSuggestions.length > 0 && (
+            <div className="absolute bottom-full mb-2 left-3 z-30 w-72 rounded-xl border border-hairline bg-panel/95 shadow-xl backdrop-blur-md p-1.5 text-xs font-mono">
+              <div className="px-2 py-1 text-[10px] text-faint border-b border-hairline mb-1 font-sans font-medium flex items-center justify-between">
+                <span>Mencionar archivo</span>
+                <span className="text-[9px] text-dim">click para insertar</span>
+              </div>
+              <div className="max-h-40 overflow-y-auto space-y-0.5">
+                {filteredSuggestions.map((path) => (
+                  <button
+                    key={path}
+                    type="button"
+                    onClick={() => handleSelectMention(path)}
+                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-raised text-ink text-[11px] flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <span className="truncate">{path}</span>
+                    <span className="text-[10px] text-faint ml-2 shrink-0">@</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
-          </AnimatePresence>
-        </ComposerPrimitive.Root>
-        {/* VOICE-01: controles debajo del composer (no encima) para no
-            desplazar el textarea en el orden DOM: STT dictado→composer
-            (WebSpeech local) + TTS opt-in por gesto (sin autoplay) + kill
-            switch global. La key groq vive solo en main. */}
+
+          <ComposerPrimitive.Root className="flex gap-2 rounded-2xl border border-hairline bg-panel/95 shadow-lg backdrop-blur-md p-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              aria-label="Adjuntar archivos"
+              data-testid="composer-file-input"
+              className="hidden"
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Adjuntar archivos"
+              title="Adjuntar (máx 10MB, tipos permitidos)"
+              data-testid="composer-attach-button"
+              className="min-h-[44px] min-w-[44px] px-3 py-2.5 bg-panel border border-hairline rounded-card font-semibold text-[15px] text-ink cursor-pointer transition-colors hover:bg-raised"
+            >
+              ＋
+            </button>
+            <VoiceButton
+              captureState={voice.captureState}
+              disabled={!voice.sttEnabled}
+              onToggleDictation={voice.toggleDictation}
+            />
+            <div ref={composerWrapRef} onInput={handleComposerInput} className="flex min-w-0 flex-1">
+              <ComposerPrimitive.Input
+                submitMode="ctrlEnter"
+                maxRows={8}
+                placeholder="Pregunta o instruye a Ego… (@archivo · /help · Ctrl+Enter envía)"
+                className="flex-1 max-h-48 overflow-y-auto px-3.5 py-2.5 bg-panel border border-hairline rounded-card text-ink text-sm placeholder:text-faint focus:outline-none focus:border-dim"
+              />
+            </div>
+            <AnimatePresence mode="wait" initial={false}>
+              {isStreaming ? (
+                <motion.button
+                  key="composer-cancel"
+                  layoutId="composer-action"
+                  initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={composerTransition}
+                  type="button"
+                  onClick={handleCancel}
+                  aria-label="Cancelar turno en curso"
+                  title="Cancelar turno (Esc)"
+                  className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-rose-600 text-white rounded-card font-semibold text-[13px] cursor-pointer transition-colors hover:bg-rose-500"
+                >
+                  Cancelar
+                </motion.button>
+              ) : (
+                <motion.span
+                  key="composer-send"
+                  layoutId="composer-action"
+                  initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={composerTransition}
+                  className="inline-flex"
+                >
+                  <ComposerPrimitive.Send
+                    aria-label="Enviar mensaje"
+                    className="min-h-[44px] min-w-[44px] px-[18px] py-2.5 bg-ink text-paper rounded-card font-semibold text-[13px] cursor-pointer"
+                  >
+                    Enviar
+                  </ComposerPrimitive.Send>
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </ComposerPrimitive.Root>
+        </div>
+
+        {/* VOICE-01: controles debajo del composer con píldoras interactivas */}
         <div
           data-testid="voice-controls"
-          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-hairline px-3 pt-2 font-mono text-[11px] text-dim"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 pb-2 font-mono text-[11px] text-dim"
         >
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+          <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-full border border-hairline bg-raised/70 px-2.5 py-1 text-[11px] transition-colors hover:bg-raised">
             <input
               type="checkbox"
               checked={voice.ttsOptIn}
@@ -1352,7 +1621,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           >
             Leer última
           </button>
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+          <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-full border border-hairline bg-raised/70 px-2.5 py-1 text-[11px] transition-colors hover:bg-raised">
             <input
               type="checkbox"
               checked={voice.disableVoice}

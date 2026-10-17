@@ -3,6 +3,7 @@ import { CaretRight, Brain, Copy, Check } from "@phosphor-icons/react";
 import { AnsiText } from "./ansi-text.js";
 import { ArtifactCard, type ArtifactKind } from "./artifact-card.js";
 import { AskDirective } from "./ask-directive.js";
+import { ThinkingBlock } from "../chat/ThinkingBlock.js";
 
 // shiki en chunk separado: no entra al bundle inicial (lazy + Suspense).
 // Paquete `@assistant-ui/react-shiki` no existe en npm (404); equivalente
@@ -40,10 +41,27 @@ interface ParsedBlock {
 /**
  * Pre-procesador que elimina Raw CoT (<thinking>...</thinking>) según §9 de la arquitectura canónica.
  */
-function sanitizeRawCoT(input: string): string {
+export function sanitizeRawCoT(input: string): string {
   if (!input) return "";
   // Suprime completamente etiquetas thinking internas
   return input.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").trim();
+}
+
+/**
+ * Extrae bloques de pensamiento <thinking>...</thinking> y devuelve el texto limpio.
+ */
+export function extractThinkingAndClean(input: string): { thinkingBlocks: string[]; cleanText: string } {
+  if (!input) return { thinkingBlocks: [], cleanText: "" };
+  const thinkingBlocks: string[] = [];
+  const re = /<thinking>([\s\S]*?)<\/thinking>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(input)) !== null) {
+    if (m[1]?.trim()) {
+      thinkingBlocks.push(m[1].trim());
+    }
+  }
+  const cleanText = input.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").trim();
+  return { thinkingBlocks, cleanText };
 }
 
 /**
@@ -186,12 +204,35 @@ function ExplainabilityAccordion({ content }: { content: string }) {
  * Memoizado: durante el stream solo el último bloque de texto cambia;
  * los bloques de código ya cerrados no re-renderizan.
  */
+export const SHIKI_SUPPORTED_LANGUAGES: readonly string[] = [
+  "diff",
+  "ts",
+  "tsx",
+  "typescript",
+  "js",
+  "jsx",
+  "javascript",
+  "json",
+  "python",
+  "py",
+  "rust",
+  "rs",
+  "bash",
+  "sh",
+  "html",
+  "css",
+  "sql",
+  "yaml",
+  "md",
+  "markdown",
+];
+
 const CodeBlock = memo(
   function CodeBlock({ code, language }: { code: string; language?: string }) {
   const [copied, setCopied] = useState(false);
   const lang = (language || "").toLowerCase();
   const isTerminal = ["bash", "sh", "shell", "console", "terminal", "zsh"].includes(lang);
-  const useShiki = ["diff", "ts", "tsx", "typescript"].includes(lang);
+  const useShiki = SHIKI_SUPPORTED_LANGUAGES.includes(lang);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -244,14 +285,18 @@ function MarkdownTextInner({
   streaming = false,
   onOpenArtifact,
 }: MarkdownTextProps) {
-  const blocks = useMemo(() => parseContentBlocks(text), [text]);
+  const { thinkingBlocks, cleanText } = useMemo(() => extractThinkingAndClean(text), [text]);
+  const blocks = useMemo(() => parseContentBlocks(cleanText), [cleanText]);
 
-  if (!blocks.length) {
+  if (!blocks.length && !thinkingBlocks.length) {
     return null;
   }
 
   return (
     <div className="space-y-1.5 leading-normal">
+      {thinkingBlocks.length > 0 && (
+        <ThinkingBlock thoughts={thinkingBlocks} />
+      )}
       {blocks.map((block, index) => {
         switch (block.type) {
           case "directive_ask":
@@ -322,3 +367,6 @@ export const MarkdownText = memo(
     prev.onOpenArtifact === next.onOpenArtifact
 );
 MarkdownText.displayName = "MarkdownText";
+
+export const PlainMarkdown = MarkdownText;
+
