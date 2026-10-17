@@ -66,7 +66,7 @@ export function MetricsConsole({
   }, [hourlyTelemetry, totalTokensToday, estimatedCostUsd]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-raised/30 p-4">
+    <div className="flex flex-col gap-3 rounded-xl border border-hairline/80 bg-raised/40 p-4 shadow-xs">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Cpu size={16} className="text-dim" />
@@ -77,63 +77,63 @@ export function MetricsConsole({
         <span className="font-mono text-[11px] text-faint">Fast-Path · $0 Overhead</span>
       </div>
 
-      {/* Grid de 4 tarjetas de métricas */}
-      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+      {/* Grid Bento de 4 tarjetas de métricas */}
+      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
         {/* Tokens */}
-        <div className="flex flex-col rounded border border-hairline bg-panel p-2.5">
-          <span className="text-[10px] uppercase tracking-wide text-faint">Tokens Hoy</span>
-          <span className="mt-1 font-mono text-sm font-bold text-ink">
+        <div className="flex flex-col rounded-lg border border-hairline bg-panel/90 p-3 hover:border-dim/40 transition-colors">
+          <span className="text-[10px] uppercase font-semibold tracking-wider text-faint">Tokens Hoy</span>
+          <span className="mt-1 font-mono text-base font-bold text-ink">
             {totalTokensToday.toLocaleString()}
           </span>
-          <span className="text-[9px] text-dim">Prompt + Inferencia</span>
+          <span className="text-[9px] text-dim mt-0.5">Prompt + Inferencia</span>
         </div>
 
         {/* Coste USD */}
-        <div className="flex flex-col rounded border border-hairline bg-panel p-2.5">
+        <div className="flex flex-col rounded-lg border border-hairline bg-panel/90 p-3 hover:border-dim/40 transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-wide text-faint">Coste Estimado</span>
-            <CurrencyDollar size={12} className="text-dim" />
+            <span className="text-[10px] uppercase font-semibold tracking-wider text-faint">Coste Estimado</span>
+            <CurrencyDollar size={13} className="text-emerald-400" />
           </div>
-          <span className="mt-1 font-mono text-sm font-bold text-ink">
+          <span className="mt-1 font-mono text-base font-bold text-ink">
             ${estimatedCostUsd.toFixed(4)}
           </span>
-          <span className="text-[9px] text-dim">USD Tarifado</span>
+          <span className="text-[9px] text-dim mt-0.5">USD Tarifado</span>
         </div>
 
         {/* Latencia p99 */}
-        <div className="flex flex-col rounded border border-hairline bg-panel p-2.5">
+        <div className="flex flex-col rounded-lg border border-hairline bg-panel/90 p-3 hover:border-dim/40 transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-wide text-faint">Latencia p99</span>
-            <Clock size={12} className="text-dim" />
+            <span className="text-[10px] uppercase font-semibold tracking-wider text-faint">Latencia p99</span>
+            <Clock size={13} className="text-amber-400" />
           </div>
-          <span className="mt-1 font-mono text-sm font-bold text-ink">
+          <span className="mt-1 font-mono text-base font-bold text-ink">
             {p99LatencyMs} ms
           </span>
-          <span className="text-[9px] text-dim">Percentil 99</span>
+          <span className="text-[9px] text-dim mt-0.5">Percentil 99</span>
         </div>
 
         {/* Tareas */}
-        <div className="flex flex-col rounded border border-hairline bg-panel p-2.5">
+        <div className="flex flex-col rounded-lg border border-hairline bg-panel/90 p-3 hover:border-dim/40 transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-wide text-faint">Tareas</span>
-            <CheckCircle size={12} className="text-dim" />
+            <span className="text-[10px] uppercase font-semibold tracking-wider text-faint">Tareas</span>
+            <CheckCircle size={13} className="text-blue-400" />
           </div>
-          <span className="mt-1 font-mono text-sm font-bold text-ink">
+          <span className="mt-1 font-mono text-base font-bold text-ink">
             {completedTasksCount} / {completedTasksCount + pendingTasksCount}
           </span>
-          <span className="text-[9px] text-dim">{pendingTasksCount} en background</span>
+          <span className="text-[9px] text-dim mt-0.5">{pendingTasksCount} en background</span>
         </div>
       </div>
 
       {/* T19: coste real por turno (HERM-21). Sin `turns`: vacío honesto. */}
-      <div className="mt-1 rounded border border-hairline bg-panel p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-[11px] font-medium text-dim">Coste por Turno</span>
+      <div className="mt-1 rounded-lg border border-hairline bg-panel/90 p-3.5">
+        <div className="mb-2.5 flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-ink">Coste por Turno</span>
           <span className="font-mono text-[10px] text-faint">usage real · sin estimaciones</span>
         </div>
         {turns && turns.length > 0 ? (
-          <div data-testid="metrics-turns-table" className="flex flex-col gap-1">
-            <div className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 px-1 font-mono text-[9px] uppercase tracking-wide text-faint">
+          <div data-testid="metrics-turns-table" className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 px-1 font-mono text-[9px] uppercase tracking-wider text-faint">
               <span>Turno</span>
               <span className="text-right">Prompt</span>
               <span className="text-right">Respuesta</span>
@@ -142,12 +142,12 @@ export function MetricsConsole({
             {turns.map((t, i) => (
               <div
                 key={t.turnId ?? `turn-${i}`}
-                className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 rounded border border-hairline bg-raised/40 px-2 py-1 font-mono text-[11px] text-ink"
+                className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 rounded-md border border-hairline bg-raised/40 px-2.5 py-1.5 font-mono text-[11px] text-ink"
               >
-                <span className="truncate text-dim">{t.turnId ?? `turno ${i + 1}`}</span>
+                <span className="truncate text-dim font-medium">{t.turnId ?? `turno ${i + 1}`}</span>
                 <span className="text-right">{t.promptTokens.toLocaleString()}</span>
                 <span className="text-right">{t.completionTokens.toLocaleString()}</span>
-                <span className="text-right">${t.estimatedCostUsd.toFixed(4)}</span>
+                <span className="text-right font-semibold text-emerald-400">${t.estimatedCostUsd.toFixed(4)}</span>
               </div>
             ))}
           </div>
@@ -163,9 +163,9 @@ export function MetricsConsole({
       </div>
 
       {/* Gráfico interactivo Recharts */}
-      <div className="mt-1 rounded border border-hairline bg-panel p-3">
+      <div className="mt-1 rounded-lg border border-hairline bg-panel/90 p-3.5">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-[11px] font-medium text-dim">Distribución Temporal de Tokens</span>
+          <span className="text-[11px] font-semibold text-ink">Distribución Temporal de Tokens</span>
           <span className="font-mono text-[10px] text-faint">Área de Inferencia</span>
         </div>
         <div className="h-40 w-full">

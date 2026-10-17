@@ -345,15 +345,15 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
           {dailyError}
         </div>
       )}
-      {/* 1. Header de Bienvenida & Ritual Matutino */}
-      <div className="flex flex-col gap-2 rounded-xl border border-hairline bg-gradient-to-r from-blue-950/20 via-panel to-panel p-5">
+      {/* 1. Header de Bienvenida & Ritual Matutino en Tarjeta Bento */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-hairline/80 bg-gradient-to-r from-blue-950/30 via-panel to-panel p-5 shadow-xs">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <Sun size={18} weight="bold" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-xs">
+              <Sun size={20} weight="bold" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-ink">
+              <h2 className="text-base font-bold text-ink tracking-tight">
                 Briefing Diario · {summary?.date || "Jornada Actual"}
               </h2>
               <span className="text-[11px] text-faint">
@@ -367,7 +367,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={handleSaveDailySnapshot}
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors cursor-pointer"
             >
               <span>Ir al Canvas</span>
               <ArrowRight size={14} weight="bold" />
@@ -376,8 +376,8 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
         </div>
 
         {/* 2. Objetivos sugeridos para la jornada */}
-        <div className="mt-2 rounded-lg border border-hairline bg-raised/40 p-3">
-          <div className="flex items-center justify-between mb-2">
+        <div className="mt-1 rounded-xl border border-hairline/70 bg-panel/80 p-3.5">
+          <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2">
               <ListBullets size={15} className="text-dim" />
               <span className="text-xs font-semibold text-ink uppercase tracking-wider">
@@ -388,7 +388,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
             <button
               onClick={handleRefineGoalsWithAI}
               disabled={isRefiningGoals}
-              className="flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-[11px] font-medium text-ink border border-hairline hover:bg-panel transition-colors disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg bg-raised px-2.5 py-1 text-[11px] font-medium text-ink border border-hairline hover:bg-panel transition-colors disabled:opacity-50 cursor-pointer"
               title="Gastar inferencia para sintetizar recomendaciones de alto nivel"
             >
               <Sparkle size={13} className="text-amber-400" />
@@ -396,16 +396,16 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
             {asSuggestedGoals(summary?.suggestedGoals).length === 0 && (
-              <p className="text-[11px] text-faint italic">
+              <p className="text-[11px] text-faint italic py-1">
                 Sin objetivos sugeridos — el backend no devolvió metas (vacío honesto).
               </p>
             )}
             {asSuggestedGoals(summary?.suggestedGoals).map((goal) => (
               <div
                 key={goal.id}
-                className="flex items-start gap-2.5 rounded border border-hairline bg-panel p-2.5"
+                className="flex items-start gap-2.5 rounded-lg border border-hairline bg-raised/40 p-2.5 hover:border-dim/40 transition-colors"
               >
                 <CheckCircle
                   size={16}
@@ -421,7 +421,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-faint mt-0.5">{goal.reason}</span>
+                  <span className="text-[10px] text-faint mt-0.5 leading-normal">{goal.reason}</span>
                 </div>
               </div>
             ))}
@@ -434,7 +434,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
         {/* Columna Izquierda: Decisiones Feed & Journal */}
         <div className="flex flex-col gap-4">
           {/* Feed de Decisiones */}
-          <div className="flex flex-col gap-2 rounded-lg border border-hairline bg-raised/30 p-4">
+          <div className="flex flex-col gap-2 rounded-xl border border-hairline/80 bg-raised/40 p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-ink">
                 Decisiones Acordadas Recientes ({decisions.length})
@@ -451,7 +451,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
                 decisions.map((d) => (
                   <div
                     key={d.id}
-                    className="flex items-center justify-between gap-2 rounded border border-hairline bg-panel px-3 py-2"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-hairline bg-panel/90 px-3 py-2 text-xs"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-mono text-[10px] text-dim shrink-0">

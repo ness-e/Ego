@@ -198,6 +198,25 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
     summary: { totalPipelineUsd: 0, weightedPipelineUsd: 0, dealsCount: 0 },
   });
 
+  // Estados interactivos agregados
+  const [showIngestForm, setShowIngestForm] = useState(false);
+  const [ingestTitle, setIngestTitle] = useState("");
+  const [ingestType, setIngestType] = useState<"markdown" | "text" | "code">("markdown");
+  const [ingestContent, setIngestContent] = useState("");
+  const [ingesting, setIngesting] = useState(false);
+  const [ingestMessage, setIngestMessage] = useState<string | null>(null);
+
+  const [graphNodes, setGraphNodes] = useState<Array<{ id: string; label: string; type: string }>>([]);
+  const [graphEdges, setGraphEdges] = useState<Array<{ source: string; target: string; relation: string }>>([]);
+  const [quarantineItems, setQuarantineItems] = useState<Array<{ key: string; notice: string; kind: string }>>([]);
+
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [newProductTitle, setNewProductTitle] = useState("");
+  const [newProductPriority, setNewProductPriority] = useState("high");
+  const [newProductStatus, setNewProductStatus] = useState("backlog");
+
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -243,6 +262,32 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
           } else if (mounted) {
             setKnowledgeData(flatMapValid(res.results, toKnowledgeFact));
           }
+
+          if (bridge.knowledge?.graphRag) {
+            try {
+              const gRes = (await bridge.knowledge.graphRag({ query: debouncedQuery || "vanta" })) as {
+                ok?: boolean;
+                nodes?: Array<{ id: string; label: string; type: string }>;
+                edges?: Array<{ source: string; target: string; relation: string }>;
+              };
+              if (mounted && gRes?.ok) {
+                if (Array.isArray(gRes.nodes)) setGraphNodes(gRes.nodes);
+                if (Array.isArray(gRes.edges)) setGraphEdges(gRes.edges);
+              }
+            } catch {}
+          }
+
+          if (bridge.knowledge?.quarantine) {
+            try {
+              const qRes = (await bridge.knowledge.quarantine({ action: "list" })) as {
+                ok?: boolean;
+                items?: Array<{ key: string; notice: string; kind: string }>;
+              };
+              if (mounted && qRes?.ok && Array.isArray(qRes.items)) {
+                setQuarantineItems(qRes.items);
+              }
+            } catch {}
+          }
         } else if (domainId === "analytics") {
           const res = await bridge.domains?.analyticsSeries(7);
           if (!res) {
@@ -284,6 +329,83 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
       mounted = false;
     };
   }, [domainId, debouncedQuery]);
+
+  const handleIngest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ingestTitle.trim() || !ingestContent.trim()) return;
+    setIngesting(true);
+    setIngestMessage(null);
+    try {
+      if (bridge.knowledge?.ingest) {
+        await bridge.knowledge.ingest({
+          title: ingestTitle.trim(),
+          type: ingestType,
+          content: ingestContent.trim(),
+        });
+      } else {
+        await bridge.memory?.("put", [
+          {
+            namespace: "kb/docs",
+            key: `doc_${Date.now()}`,
+            payload: {
+              title: ingestTitle.trim(),
+              type: ingestType,
+              content: ingestContent.trim(),
+              createdAt: Date.now(),
+            },
+          },
+        ]);
+      }
+      setIngestMessage("Documento ingerido exitosamente en VantaDB.");
+      setIngestTitle("");
+      setIngestContent("");
+      setShowIngestForm(false);
+      const res = await bridge.domains?.knowledgeSearch(debouncedQuery || "vanta");
+      if (res?.ok) {
+        setKnowledgeData(flatMapValid(res.results, toKnowledgeFact));
+      }
+    } catch {
+      setIngestMessage("Fallo al ingerir el documento en VantaDB.");
+    } finally {
+      setIngesting(false);
+    }
+  };
+
+  const handleCreateProductItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductTitle.trim()) return;
+    const newItem: ProductListItem = {
+      id: `p-${Date.now()}`,
+      title: newProductTitle.trim(),
+      priority: newProductPriority,
+      status: newProductStatus,
+    };
+    try {
+      await bridge.domains?.productBacklog?.({
+        action: "create",
+        payload: newItem,
+      });
+    } catch {}
+    setProductData((prev) => ({
+      ...prev,
+      items: [newItem, ...prev.items],
+    }));
+    setNewProductTitle("");
+    setShowProductForm(false);
+  };
+
+  const handleUpdateDealStage = async (dealId: string, nextStage: string) => {
+    try {
+      await bridge.domains?.crmDeals?.({
+        action: "updateStage",
+        payload: { dealId, stage: nextStage },
+      });
+      setCrmData((prev) => ({
+        ...prev,
+        deals: prev.deals.map((d) => (d.id === dealId ? { ...d, stage: nextStage } : d)),
+      }));
+    } catch {}
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-paper text-ink overflow-y-auto p-4 space-y-4">
@@ -382,18 +504,68 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               <Kanban size={20} className="text-amber-400" />
               <h2 className="text-base font-semibold">Tablero de Producto & Backlog (ego.product)</h2>
             </div>
-            {/* T12: crear sin formulario inventaría datos → deshabilitado honesto
-                hasta que el canal productBacklog/create tenga UI de alta real. */}
             <button
-              disabled
-              aria-disabled="true"
-              title="Crear ítem no disponible: el backend no expone alta con formulario en este canal"
-              className="flex items-center gap-1.5 text-xs bg-amber-500/10 text-amber-300/50 border border-amber-500/20 px-3 py-1.5 rounded-lg font-medium cursor-not-allowed"
+              type="button"
+              onClick={() => setShowProductForm(!showProductForm)}
+              className="flex items-center gap-1.5 text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-lg font-medium hover:bg-amber-500/30 transition-colors cursor-pointer"
             >
               <Plus size={14} />
-              <span>Nuevo Ítem</span>
+              <span>{showProductForm ? "Cerrar" : "Nuevo Ítem"}</span>
             </button>
           </div>
+
+          {showProductForm && (
+            <form
+              onSubmit={handleCreateProductItem}
+              className="bg-raised/80 border border-amber-500/30 rounded-xl p-3 text-xs flex flex-col gap-2"
+            >
+              <span className="font-semibold text-ink">Nuevo Ítem del Backlog</span>
+              <div className="flex flex-col gap-1">
+                <input
+                  type="text"
+                  placeholder="Título del ítem o historia de usuario..."
+                  value={newProductTitle}
+                  onChange={(e) => setNewProductTitle(e.target.value)}
+                  className="rounded border border-hairline bg-paper px-2.5 py-1 text-xs text-ink placeholder:text-faint focus:outline-hidden"
+                  required
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <label className="text-[10px] text-faint">Prioridad:</label>
+                  <select
+                    value={newProductPriority}
+                    onChange={(e) => setNewProductPriority(e.target.value)}
+                    className="rounded border border-hairline bg-paper px-2 py-0.5 text-xs text-ink"
+                  >
+                    <option value="high">Alta</option>
+                    <option value="medium">Media</option>
+                    <option value="low">Baja</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-1">
+                  <label className="text-[10px] text-faint">Columna:</label>
+                  <select
+                    value={newProductStatus}
+                    onChange={(e) => setNewProductStatus(e.target.value)}
+                    className="rounded border border-hairline bg-paper px-2 py-0.5 text-xs text-ink"
+                  >
+                    <option value="backlog">Backlog</option>
+                    <option value="in_progress">En Progreso</option>
+                    <option value="review">Revisión / QA</option>
+                    <option value="done">Completado</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={!newProductTitle.trim()}
+                  className="ml-auto rounded border border-hairline bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Guardar Ítem
+                </button>
+              </div>
+            </form>
+          )}
 
           {productData.items.length === 0 && (
             <p className="text-xs text-faint italic">
@@ -453,17 +625,77 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
               <BookOpen size={20} className="text-purple-400" />
               <h2 className="text-base font-semibold">GraphRAG & Base de Conocimiento (ego.researcher)</h2>
             </div>
-            <div className="relative w-64">
-              <MagnifyingGlass size={14} className="absolute left-2.5 top-2.5 text-faint" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar facts o conceptos..."
-                className="w-full bg-raised border border-hairline rounded-lg pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-hidden focus:border-brand"
-              />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowIngestForm(!showIngestForm)}
+                className="flex items-center gap-1 text-xs bg-purple-500/20 text-purple-300 border border-purple-500/40 px-3 py-1.5 rounded-lg font-medium hover:bg-purple-500/30 transition-colors cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>{showIngestForm ? "Cerrar" : "+ Ingerir Documento"}</span>
+              </button>
+              <div className="relative w-64">
+                <MagnifyingGlass size={14} className="absolute left-2.5 top-2.5 text-faint" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar facts o conceptos..."
+                  className="w-full bg-raised border border-hairline rounded-lg pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-hidden focus:border-brand"
+                />
+              </div>
             </div>
           </div>
+
+          {showIngestForm && (
+            <form
+              onSubmit={handleIngest}
+              className="bg-raised/80 border border-purple-500/30 rounded-xl p-3.5 text-xs flex flex-col gap-2.5"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-ink">Ingerir Documento en VantaDB</span>
+                {ingestMessage && (
+                  <span className="text-[11px] text-emerald-400 font-medium">{ingestMessage}</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Título del documento o nota técnica..."
+                  value={ingestTitle}
+                  onChange={(e) => setIngestTitle(e.target.value)}
+                  className="flex-1 rounded border border-hairline bg-paper px-2.5 py-1 text-xs text-ink placeholder:text-faint focus:outline-hidden"
+                  required
+                />
+                <select
+                  value={ingestType}
+                  onChange={(e) => setIngestType(e.target.value as "markdown" | "text" | "code")}
+                  className="rounded border border-hairline bg-paper px-2 py-1 text-xs text-ink"
+                >
+                  <option value="markdown">Markdown</option>
+                  <option value="text">Texto Plano</option>
+                  <option value="code">Código</option>
+                </select>
+              </div>
+              <textarea
+                placeholder="Contenido a persistir e indexar para RAG semántico e híbrido en VantaDB..."
+                value={ingestContent}
+                onChange={(e) => setIngestContent(e.target.value)}
+                rows={3}
+                className="w-full rounded border border-hairline bg-paper p-2 font-mono text-xs text-ink placeholder:text-faint focus:outline-hidden resize-y"
+                required
+              />
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={ingesting || !ingestTitle.trim() || !ingestContent.trim()}
+                  className="rounded border border-hairline bg-purple-600 px-3.5 py-1 text-xs font-semibold text-white hover:bg-purple-500 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {ingesting ? "Ingiriendo en VantaDB..." : "Ingerir en VantaDB"}
+                </button>
+              </div>
+            </form>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-raised/60 border border-hairline rounded-xl p-4">
@@ -503,13 +735,81 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
                   <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">
                     Grafo Conceptual GraphRAG
                   </h3>
-                  <p className="text-xs text-faint italic">
-                    Sin visualización cableada — el canal graphRag existe pero no
-                    devuelve nodos en este kicker (vacío honesto, sin grafo inventado).
-                  </p>
+                  {graphNodes.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {graphNodes.map((node) => (
+                          <div
+                            key={node.id}
+                            className="flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-950/20 px-2.5 py-1 text-xs"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+                            <span className="font-medium text-ink">{node.label}</span>
+                            <span className="text-[9px] text-faint font-mono">({node.type})</span>
+                          </div>
+                        ))}
+                      </div>
+                      {graphEdges.length > 0 && (
+                        <div className="pt-2 border-t border-hairline space-y-1">
+                          <span className="text-[10px] text-faint font-semibold uppercase tracking-wider">
+                            Relaciones detectadas
+                          </span>
+                          {graphEdges.map((edge, i) => (
+                            <div key={i} className="flex items-center gap-1.5 text-[10px] font-mono text-dim">
+                              <span className="text-purple-300">{edge.source}</span>
+                              <span className="text-faint">──[{edge.relation}]──▶</span>
+                              <span className="text-purple-300">{edge.target}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-faint italic">
+                      Sin visualización cableada — el canal graphRag existe pero no
+                      devuelve nodos en este kicker (vacío honesto, sin grafo inventado).
+                    </p>
+                  )}
                 </div>
               </div>
             ) : null}
+          </div>
+
+          {/* Bandeja de Cuarentena (SEC-09) */}
+          <div className="bg-raised/60 border border-hairline rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={16} className="text-amber-400" />
+                <h3 className="text-xs font-semibold text-ink uppercase tracking-wider">
+                  Bandeja de Cuarentena (SEC-09)
+                </h3>
+              </div>
+              <span className="text-[10px] text-faint font-mono">
+                {quarantineItems.length} artefactos aislados
+              </span>
+            </div>
+            {quarantineItems.length === 0 ? (
+              <p className="text-xs text-faint italic py-1">
+                Sin artefactos en cuarentena — no hay documentos aislados por políticas de seguridad.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {quarantineItems.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between bg-paper/80 border border-amber-500/30 rounded-lg p-2.5 text-xs"
+                  >
+                    <div>
+                      <span className="font-mono text-amber-300 font-medium">{item.key}</span>
+                      <p className="text-[10px] text-faint mt-0.5">{item.notice}</p>
+                    </div>
+                    <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+                      {item.kind || "Aislado"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -574,39 +874,75 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {crmData.deals.map((deal) => (
-              <div
-                key={deal.id}
-                className="bg-raised/60 border border-hairline rounded-xl p-4 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-mono uppercase text-rose-400 font-semibold">
-                      {deal.stage}
-                    </span>
-                    <span className="text-[10px] text-faint">
-                      {deal.probabilityPct}% prob
-                    </span>
+            {crmData.deals.map((deal) => {
+              const isExpanded = selectedDealId === deal.id;
+
+              return (
+                <div
+                  key={deal.id}
+                  className={`bg-raised/60 border rounded-xl p-4 flex flex-col justify-between transition-colors ${
+                    isExpanded ? "border-rose-400/50 bg-raised/90" : "border-hairline"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono uppercase text-rose-400 font-semibold">
+                        {deal.stage}
+                      </span>
+                      <span className="text-[10px] text-faint">
+                        {deal.probabilityPct}% prob
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-ink">{deal.title}</h4>
                   </div>
-                  <h4 className="text-sm font-semibold text-ink">{deal.title}</h4>
+
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-hairline/80 space-y-2 text-xs">
+                      <div className="flex items-center justify-between text-[11px] text-faint">
+                        <span>Ponderado:</span>
+                        <span className="font-mono text-ink">
+                          ${Math.round((deal.valueUsd * deal.probabilityPct) / 100).toLocaleString()} USD
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-faint">Cambiar Etapa:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {["qualified", "proposal", "negotiation", "closed_won"].map((stage) => (
+                            <button
+                              key={stage}
+                              type="button"
+                              onClick={() => handleUpdateDealStage(deal.id, stage)}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-mono uppercase transition-colors cursor-pointer ${
+                                deal.stage === stage
+                                  ? "bg-rose-500/30 text-rose-300 font-bold border border-rose-500/50"
+                                  : "bg-paper text-dim hover:text-ink border border-hairline"
+                              }`}
+                            >
+                              {stage}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 pt-3 border-t border-hairline flex items-center justify-between">
+                    <span className="text-sm font-mono font-bold text-emerald-400">
+                      ${deal.valueUsd.toLocaleString()} USD
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDealId(isExpanded ? null : deal.id)}
+                      aria-label={`Detalle de ${deal.title}`}
+                      title={isExpanded ? "Ocultar detalle" : "Ver detalle"}
+                      className="p-1 rounded text-dim hover:text-ink transition-colors cursor-pointer"
+                    >
+                      <ArrowRight size={14} className={isExpanded ? "rotate-90 transition-transform" : "transition-transform"} />
+                    </button>
+                  </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-hairline flex items-center justify-between">
-                  <span className="text-sm font-mono font-bold text-emerald-400">
-                    ${deal.valueUsd.toLocaleString()} USD
-                  </span>
-                  {/* T12: detalle sin canal → deshabilitado honesto, nunca botón muerto. */}
-                  <button
-                    disabled
-                    aria-disabled="true"
-                    aria-label={`Detalle de ${deal.title} no disponible`}
-                    title="Detalle del deal no disponible en este canal"
-                    className="text-faint/40 cursor-not-allowed"
-                  >
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
