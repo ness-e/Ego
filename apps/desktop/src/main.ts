@@ -21,7 +21,7 @@ import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvide
 import type { PreferredModel, ModelProviderFactory } from "@ego/models";
 import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext, type ToolRiskLevel } from "@ego/tools";
 import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
-import { EventBus, StructuredLogger } from "@ego/events";
+import { EventBus, StructuredLogger, type EgoEventType } from "@ego/events";
 import {
   ToolExecutionLoop,
   AttentionStateMachine,
@@ -3083,7 +3083,17 @@ export async function createWindow(): Promise<void> {
 
   toolRegistry = new ToolRegistry();
   registerNativeTools(toolRegistry, {
-    workspacePath: process.env.EGO_WORKSPACE_PATH || process.cwd()
+    workspacePath: process.env.EGO_WORKSPACE_PATH || process.cwd(),
+    enableCanvas: true,
+    canvasOptions: {
+      onRender: (manifest) => {
+        eventBus.emit(
+          "canvas.component_injected" as unknown as EgoEventType,
+          manifest,
+          { source: "NativeCanvasTool", severity: "info" }
+        );
+      },
+    },
   });
 
   mcpManager = new McpManager(toolRegistry);

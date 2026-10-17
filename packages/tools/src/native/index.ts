@@ -13,6 +13,10 @@ import {
   createTerminalExecTool,
   NativeTerminalOptions,
 } from "./terminal/NativeTerminalTool.js";
+import {
+  createCanvasRenderTool,
+  NativeCanvasOptions,
+} from "./canvas/NativeCanvasTool.js";
 
 export * from "./fs/PathValidator.js";
 export * from "./fs/FileLockManager.js";
@@ -25,7 +29,7 @@ export * from "./git/ChangeSetService.js";
 export * from "./security/NetPolicy.js";
 export * from "./security/ResourcePolicy.js";
 
-
+export * from "./canvas/NativeCanvasTool.js";
 
 export * from "./terminal/TerminalOutputBuffer.js";
 export * from "./terminal/NativeTerminalTool.js";
@@ -37,9 +41,11 @@ export interface NativeToolsOptions {
   enableFs?: boolean;
   enableGit?: boolean;
   enableTerminal?: boolean;
+  enableCanvas?: boolean;
   fsOptions?: NativeFsOptions;
   gitOptions?: NativeGitOptions;
   terminalOptions?: NativeTerminalOptions;
+  canvasOptions?: NativeCanvasOptions;
 }
 
 /**
@@ -53,6 +59,7 @@ export function registerNativeTools(
   const enableFs = options.enableFs ?? true;
   const enableGit = options.enableGit ?? true;
   const enableTerminal = options.enableTerminal ?? true;
+  const enableCanvas = options.enableCanvas ?? false;
 
   if (enableFs) {
     registry.register(
@@ -92,5 +99,9 @@ export function registerNativeTools(
         ...options.terminalOptions,
       })
     );
+  }
+
+  if (enableCanvas) {
+    registry.register(createCanvasRenderTool(options.canvasOptions));
   }
 }

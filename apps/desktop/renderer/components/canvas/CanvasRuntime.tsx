@@ -1,8 +1,11 @@
-import React, { useState } from "react";
-import type { CanvasComponentManifest } from "@ego/ui-runtime";
+import React, { useState, useEffect } from "react";
+import type { CanvasComponentManifest, CanvasBridge } from "@ego/ui-runtime";
 import { ComponentRenderer } from "./ComponentRenderer";
 import { SelectionToolbar } from "./SelectionToolbar";
 import { SquaresFour, Sparkle } from "@phosphor-icons/react";
+import { useCanvasBridge } from "../../hooks/useCanvasBridge";
+import { getSharedCanvasBridge } from "../../lib/canvasBridgeSingleton.js";
+import { ego } from "../../lib/ego";
 
 export interface CanvasRuntimeProps {
   projectId?: string;
@@ -10,6 +13,7 @@ export interface CanvasRuntimeProps {
   selectedComponentId?: string | null;
   onSelectComponent?: (id: string) => void;
   onAction?: (actionId: string, payload?: Record<string, unknown>) => void;
+  bridge?: CanvasBridge;
 }
 
 /**
@@ -17,23 +21,35 @@ export interface CanvasRuntimeProps {
  * o por restore desde VantaDB (`projects/<id>/workspace/canvas` vía `useCanvasBridge`).
  * Sin ambos, el canvas arranca vacío (estado honesto, ver abajo).
  */
-
-import { useCanvasBridge } from "../../hooks/useCanvasBridge";
-import { ego } from "../../lib/ego";
-
 export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
   projectId = "default",
   initialComponents = [],
   selectedComponentId: externalSelectedId,
   onSelectComponent,
   onAction,
+  bridge: propBridge,
 }) => {
+  const bridgeHook = useCanvasBridge({ initialComponents, projectId });
+  const activeBridge = propBridge || bridgeHook.bridge || getSharedCanvasBridge(initialComponents);
+
   const {
     components,
     selectedId: bridgeSelectedId,
     focusComponent,
     dispatchAction,
-  } = useCanvasBridge({ initialComponents, projectId });
+  } = bridgeHook;
+
+  useEffect(() => {
+    const unsub = ego().onEvent?.((rawEvent: unknown) => {
+      const event = rawEvent as { type?: string; payload?: unknown };
+      if (event?.type === "canvas.component_injected" && event.payload) {
+        activeBridge.injectComponent(event.payload as CanvasComponentManifest);
+      }
+    });
+    return () => {
+      unsub?.();
+    };
+  }, [activeBridge]);
 
   const [activeFilter, setActiveFilter] = useState<"all" | "boards" | "code" | "metrics">("all");
 
