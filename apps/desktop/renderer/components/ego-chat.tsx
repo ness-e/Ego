@@ -9,7 +9,24 @@ import {
   ActionBarPrimitive,
   useAuiState,
 } from "@assistant-ui/react";
-import { Warning, X, ArrowClockwise, ArrowCounterClockwise, DownloadSimple } from "@phosphor-icons/react";
+import {
+  Warning,
+  X,
+  ArrowClockwise,
+  ArrowCounterClockwise,
+  DownloadSimple,
+  Paperclip,
+  Books,
+  Globe,
+  Flask,
+  ChartBar,
+  Robot,
+  CaretDown,
+  Check,
+  Sparkle,
+  Lightning,
+  ShieldCheck,
+} from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { MOTION } from "./canvas/DesignSystemProvider.js";
 import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
@@ -39,9 +56,7 @@ const ChatActionsContext = createContext<{
 /**
  * Virtualización barata por turnos (sin cambiar UX ni romper aria-live):
  * cada burbuja usa `content-visibility:auto` + `contain-intrinsic-size`
- * para que el navegador omita layout/paint fuera del viewport. El hilo
- * sigue siendo `ThreadPrimitive.Messages` (claves estables por message id
- * del runtime, nunca por índice) + ancla end vía `stick` (<100px).
+ * para que el navegador omita layout/paint fuera del viewport.
  */
 function UserMessageInner() {
   const { onRewind } = useContext(ChatActionsContext);
@@ -52,7 +67,7 @@ function UserMessageInner() {
       className="flex justify-end my-2"
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 96px" }}
     >
-      <div className="max-w-[min(82%,600px)] bg-hairline text-ink rounded-card px-3.5 py-2">
+      <div className="max-w-[min(82%,600px)] bg-hairline text-ink rounded-2xl px-4 py-2.5 shadow-sm">
         <MessageRenderBoundary resetKey="user-turn">
           <MessagePrimitive.Content
             components={{
@@ -63,7 +78,7 @@ function UserMessageInner() {
         <ActionBarPrimitive.Root className="mt-1 flex items-center justify-end gap-1 text-faint">
           <ActionBarPrimitive.Copy
             aria-label="Copiar mensaje"
-            className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
+            className="rounded-lg p-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
           />
           {messageId && onRewind && (
             <button
@@ -71,7 +86,7 @@ function UserMessageInner() {
               onClick={() => onRewind(messageId)}
               aria-label="Rebobinar aquí"
               title="Rebobinar historial hasta este turno"
-              className="rounded p-1 text-[11px] font-mono flex items-center gap-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
+              className="rounded-lg p-1 text-[11px] font-mono flex items-center gap-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
             >
               <ArrowCounterClockwise size={12} />
               <span>Rebobinar</span>
@@ -83,8 +98,6 @@ function UserMessageInner() {
   );
 }
 
-// Sin props: nunca re-render por padre; el contenido interno sigue
-// actualizándose vía contexto del runtime (MessagePrimitive).
 const UserMessage = memo(UserMessageInner);
 UserMessage.displayName = "UserMessage";
 
@@ -101,22 +114,22 @@ function AssistantMessageInner({
 
   return (
     <MessagePrimitive.Root
-      className="flex my-2.5 gap-2.5 items-start"
+      className="flex my-3 gap-3 items-start"
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 140px" }}
     >
-      <div className="mt-0.5 shrink-0">
-        {/* Regla de Estabilidad Visual: tamaño 28, anima solo si es el último y está en stream */}
+      {/* Recuadro de Avatar de 44x44px de alta calidad */}
+      <div className="w-11 h-11 rounded-2xl bg-[#13151f] border border-white/10 p-0.5 shadow-md flex items-center justify-center shrink-0">
         <CharacterBadge
-          size={28}
+          size={40}
           subEgoId={subEgoId}
           state={isLast ? (avatarLiveState ?? "idle") : "idle"}
           animated={isLast && Boolean(isStreaming)}
         />
       </div>
-      <div className="min-w-0 flex-1 px-3.5 py-2.5 text-ink">
-        <div className="flex items-center gap-1.5 mb-1 font-sans">
-          <span className="text-[11px] font-semibold text-ink">{subEgoId}</span>
-          <span className="rounded-full bg-raised border border-hairline/70 px-1.5 py-0.2 text-[9px] font-mono text-dim">
+      <div className="min-w-0 flex-1 px-3.5 py-1 text-ink">
+        <div className="flex items-center gap-1.5 mb-1.5 font-sans">
+          <span className="text-[12px] font-semibold text-ink">{subEgoId}</span>
+          <span className="rounded-full bg-raised/80 border border-hairline px-2 py-0.2 text-[9.5px] font-mono text-dim">
             Robot Studio
           </span>
         </div>
@@ -130,11 +143,11 @@ function AssistantMessageInner({
         <ActionBarPrimitive.Root className="mt-1 flex items-center gap-1 text-faint">
           <ActionBarPrimitive.Copy
             aria-label="Copiar respuesta"
-            className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
+            className="rounded-lg p-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
           />
           <ActionBarPrimitive.Reload
             aria-label="Regenerar respuesta"
-            className="rounded p-1 transition-colors hover:bg-raised hover:text-ink"
+            className="rounded-lg p-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
           />
           {messageId && onRewind && (
             <button
@@ -142,7 +155,7 @@ function AssistantMessageInner({
               onClick={() => onRewind(messageId)}
               aria-label="Rebobinar aquí"
               title="Rebobinar historial hasta este turno"
-              className="rounded p-1 text-[11px] font-mono flex items-center gap-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
+              className="rounded-lg p-1 text-[11px] font-mono flex items-center gap-1 transition-colors hover:bg-raised hover:text-ink cursor-pointer"
             >
               <ArrowCounterClockwise size={12} />
               <span>Rebobinar</span>
@@ -154,7 +167,7 @@ function AssistantMessageInner({
               onClick={onRetry}
               aria-label="Reintentar último turno"
               title="Reintentar último turno"
-              className="rounded p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center transition-colors hover:bg-raised hover:text-ink"
+              className="rounded-lg p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center transition-colors hover:bg-raised hover:text-ink cursor-pointer"
             >
               <ArrowClockwise size={13} />
             </button>
@@ -165,15 +178,11 @@ function AssistantMessageInner({
   );
 }
 
-// Comparador custom: solo subEgoId/onRetry. Los tokens del stream llegan
-// por contexto del runtime, no por props — así las burbujas históricas no
-// re-renderizan cuando el turno en curso acumula deltas.
 const AssistantMessage = memo(
   AssistantMessageInner,
   (prev, next) => prev.subEgoId === next.subEgoId && prev.onRetry === next.onRetry
 );
 AssistantMessage.displayName = "AssistantMessage";
-
 
 type Msg = {
   id: string;
@@ -214,7 +223,6 @@ type ToolActivity = {
   error?: unknown;
   success?: boolean;
   durationMs?: number;
-  /** Clave estable por evento (nunca índice de map) para followOnAppend. */
   seq: number;
 };
 
@@ -227,7 +235,6 @@ function summarizeArgs(args: unknown): string {
   }
 }
 
-/** Convierte un chunk/evento de tool en actividad pintable; null si no es tool. */
 function toToolActivity(chunk: ChatDeltaChunk): Omit<ToolActivity, "seq"> | null {
   const type = chunk.type;
   if (!chunk.toolName && type !== "tool_call" && type !== "tool_result" && type !== "tool_start" && type !== "tool_end" && type !== "tool_error") {
@@ -262,13 +269,6 @@ function toToolActivity(chunk: ChatDeltaChunk): Omit<ToolActivity, "seq"> | null
 
 const KEYED_PROVIDERS: readonly string[] = ["openai", "anthropic", "google", "deepseek"];
 
-/**
- * CFG-12 — Composer con adjuntos backend (alcance: solo renderer).
- * Decisión ponytail: reusar IPC existente (`ipc.llm.*` con `prompt: string`);
- * sin schema/main nuevos. La validación es fail-closed en el renderer:
- * tipo fuera de allowlist o tamaño >10MB → cuarentena (nunca viaja al turno).
- * Permisos inline heredan CFG-06 (deny-gana: deny > ask > allow; sin match → ask).
- */
 export const CFG12_MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const CFG12_ALLOWED_MIME: readonly string[] = [
   "text/plain",
@@ -300,10 +300,7 @@ export interface ComposerAttachment {
   textContent?: string;
   dataUrl?: string;
 }
-// VOICE-01: STT/TTS opt-in implementado abajo (`useVoice` + `VoiceButton` +
-// `ipc.voice.*` en main). El turno futuro con audio binario sigue pendiente:
-// llevaría `{ audioInput?: { format: "wav"; bytesB64: string } }` por
-// `ipc.voice.stt` (groq en main); este tipo queda como contrato documentado.
+
 export type VoiceCapabilityState = "disabled-future" | "listening" | "speaking";
 
 export function isAllowedAttachmentType(mime: string, name: string): boolean {
@@ -317,7 +314,6 @@ function cfg12RuleMatches(rule: Cfg12PermissionRule, att: { mime: string; name: 
   return att.mime.includes(rule.pattern) || att.name.includes(rule.pattern);
 }
 
-/** Hereda CFG-06: deny-gana entre reglas que matchean; sin match → "ask" (fail-closed). */
 export function resolveAttachmentPermission(
   rules: Cfg12PermissionRule[],
   att: { mime: string; name: string }
@@ -368,7 +364,6 @@ export function validateComposerAttachment(
   };
 }
 
-/** Prompt efectivo: adjuntos válidos como metadatos; cuarentena nunca viaja. */
 export function buildPromptWithAttachments(prompt: string, atts: ComposerAttachment[]): string {
   const valid = atts.filter((a) => !a.quarantined);
   if (valid.length === 0) return prompt;
@@ -396,15 +391,6 @@ export function buildPromptWithAttachments(prompt: string, atts: ComposerAttachm
   return out;
 }
 
-/**
- * CFG-11 — Marcas input-to-paint por frontera (medir, no optimizar a ciegas).
- * `tSend` se acuña antes de `llmStream`, `tFirst` con el primer delta con
- * texto, `tPaint` un frame después del flush que lo pinta (doble rAF).
- * Objetivo documentado: primera pintura <800ms tras el envío. El log
- * `chat.first_token` sale UNA vez por turno vía `console.debug` (sin spam,
- * sin secretos: solo turn id + latencias) — el rAF batching existente queda
- * intacto.
- */
 export const CFG11_FIRST_PAINT_TARGET_MS = 800;
 
 export interface Cfg11PaintMarks {
@@ -418,27 +404,20 @@ export function createPaintMarks(tSend: number): Cfg11PaintMarks {
   return { tSend, tFirst: null, tPaint: null, logged: false };
 }
 
-/** Latencia envío → primer delta (null si aún no llegó). */
 export function firstTokenLatencyMs(m: Cfg11PaintMarks): number | null {
   return m.tFirst === null ? null : m.tFirst - m.tSend;
 }
 
-/** Latencia envío → primera pintura (null si aún no pintó). */
 export function inputToPaintMs(m: Cfg11PaintMarks): number | null {
   return m.tPaint === null ? null : m.tPaint - m.tSend;
 }
 
-/**
- * Bloqueo mock (decisión owner): sin keys del proveedor activo no hay
- * respuesta simulada — se retorna el mensaje de error BYOK explícito.
- * Retorna null cuando el turno puede proceder.
- */
 async function getByokBlockReason(): Promise<string | null> {
   let cfg: ModelConfigInfo;
   try {
     cfg = await ego().settings.getModelConfig();
   } catch {
-    return null; // settings no disponible: no bloquear
+    return null;
   }
   if (!cfg || typeof cfg.activeProvider !== "string") return null;
   const provider = cfg.activeProvider;
@@ -464,10 +443,26 @@ async function getByokBlockReason(): Promise<string | null> {
   return null;
 }
 
+function formatModelName(id: string): string {
+  const lower = id.toLowerCase();
+  if (lower.includes("3-7-sonnet") || lower.includes("3.7-sonnet")) return "Claude 3.7 Sonnet";
+  if (lower.includes("3-5-sonnet") || lower.includes("3.5-sonnet") || lower.includes("sonnet-4")) return "Claude 3.5 Sonnet";
+  if (lower.includes("3-5-haiku") || lower.includes("3.5-haiku")) return "Claude 3.5 Haiku";
+  if (lower.includes("gemini-2.5-pro") || lower.includes("gemini-pro")) return "Gemini 2.5 Pro";
+  if (lower.includes("gemini-2.5-flash") || lower.includes("gemini-3.8-flash") || lower.includes("gemini-flash")) return "Gemini Flash";
+  if (lower.includes("gpt-4o-mini")) return "GPT-4o Mini";
+  if (lower.includes("gpt-4o")) return "GPT-4o";
+  if (lower.includes("o3-mini")) return "o3 Mini";
+  if (lower.includes("deepseek-reasoner") || lower.includes("r1")) return "DeepSeek R1";
+  if (lower.includes("deepseek-chat")) return "DeepSeek Chat";
+  if (lower.includes("llama")) return "Llama 3.2 Local";
+  if (lower.includes("qwen")) return "Qwen 2.5 Local";
+  return id.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export interface EgoChatProps {
   projectId?: string;
   subEgoId?: string;
-  /** T18: sesión activa a hidratar (`ipc.sessions.get`); null = hilo vacío honesto. */
   sessionId?: string | null;
 }
 
@@ -478,44 +473,162 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolEvents, setToolEvents] = useState<ToolActivity[]>([]);
-  // A1/A2: cancelación del turno en curso. El AbortController vive en el
-  // renderer (cierra el estado de stream local); el backend se cablea vía
-  // `ipc.llm.cancel` cuando el puente lo expone (ver `handleCancel`).
+
   const abortRef = useRef<AbortController | null>(null);
-  // A2: stick-to-bottom (<100px). `viewportRef` mide el scroll del
-  // ThreadPrimitive.Viewport; `stick` decide autoscroll vs "Jump to latest".
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [stick, setStick] = useState(true);
-  // Perf-streaming: buffer de deltas por message id + flush 1x rAF.
-  // Los chunks IPC (`onChatDelta`) acumulan texto en `pendingStreamRef`;
-  // un único `setMessages` por frame aplica todos los deltas pendientes.
-  // Sin esto, N tokens = N setState + N parse markdown + N autoscrolls.
+
   const pendingStreamRef = useRef<Map<string, string>>(new Map());
   const streamRafRef = useRef<number | null>(null);
-  // Clave estable para actividad de tools (nunca índice de map).
   const toolSeqRef = useRef(0);
-  // CFG-11: marcas input-to-paint del turno en curso (tSend/tFirst/tPaint).
-  // Solo refs + 1 log/turno: ningún setState, ningún cambio de UX.
   const paintMarksRef = useRef<Cfg11PaintMarks | null>(null);
-  // Autoscroll throttled a rAF (evita layout-thrash por frame de stream).
   const stickRafRef = useRef<number | null>(null);
-  // T19: coste del turno actual desde `streamRes.usage` (solo lectura;
-  // streaming y preferencia de modelo intactos). Null = vacío honesto.
+
   const [lastTurnUsage, setLastTurnUsage] = useState<TurnUsage | null>(null);
-  // T08: reflejo en vivo del borrador del composer (@menciones y /comandos).
-  // Display-only: el texto fuente sigue en el textarea del runtime (R-FE-2,
-  // no se reimplementa el composer). El @ viaja en el prompt; el / local
-  // se resuelve en `onNew` sin turno LLM.
   const [draftMentions, setDraftMentions] = useState<string[]>([]);
   const [draftSlash, setDraftSlash] = useState<string | null>(null);
   const [composerText, setComposerText] = useState("");
-  // CFG-12: adjuntos del composer (metadata local; el contenido viaja como
-  // resumen en el prompt por `ipc.llm.*` existente — sin binarios al main).
+
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerWrapRef = useRef<HTMLDivElement>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+
+  // Estados de controles del Composer (Estilo inicio claude.png + Inicio.png + Boton de mas.png)
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [isEffortMenuOpen, setIsEffortMenuOpen] = useState(false);
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const [isSubEgoMenuOpen, setIsSubEgoMenuOpen] = useState(false);
+
+  const [selectedModel, setSelectedModel] = useState<string>("claude-3-7-sonnet");
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; provider: string }>>([
+    { id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet", provider: "anthropic" },
+    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "google" },
+    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "google" },
+    { id: "gpt-4o", name: "GPT-4o", provider: "openai" },
+    { id: "deepseek-r1", name: "DeepSeek R1", provider: "deepseek" },
+  ]);
+  const [reasoningEffort, setReasoningEffort] = useState<"auto" | "low" | "medium" | "high">("auto");
+  const [executionMode, setExecutionMode] = useState<"manual" | "auto">("manual");
+  const [availableSubEgos, setAvailableSubEgos] = useState<Array<{ id: string; name: string }>>([
+    { id: "ego.nucleus", name: "Ego Núcleo" },
+    { id: "ego.dev", name: "Sub-Ego Dev" },
+    { id: "ego.copywriter", name: "Ego Copywriter" },
+  ]);
+
+  const plusMenuRef = useRef<HTMLDivElement>(null);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
+  const effortMenuRef = useRef<HTMLDivElement>(null);
+  const modeMenuRef = useRef<HTMLDivElement>(null);
+  const subEgoMenuRef = useRef<HTMLDivElement>(null);
+
+  // Carga de modelos disponibles desde el bridge
+  useEffect(() => {
+    let cancelled = false;
+    async function initCatalog() {
+      try {
+        const provRes = await ego().models?.listProviders?.();
+        const configuredProviders = provRes?.providers?.filter((p) => p.configured) ?? [];
+        const loaded: Array<{ id: string; name: string; provider: string }> = [];
+
+        for (const prov of configuredProviders) {
+          if (prov.id === "mock") continue;
+          try {
+            const mRes = await ego().models?.listModels?.({ provider: prov.id as "openai" | "anthropic" | "google" | "deepseek" | "ollama" });
+            if (mRes && mRes.models) {
+              for (const m of mRes.models) {
+                loaded.push({ id: m, name: formatModelName(m), provider: prov.id });
+              }
+            }
+          } catch {
+            // Ignorar fallos de red por proveedor
+          }
+        }
+
+        if (!cancelled && loaded.length > 0) {
+          setAvailableModels(loaded);
+          const first = loaded[0];
+          if (first) {
+            setSelectedModel(first.id);
+          }
+        }
+
+        // Cargar Sub-Egos
+        const subRes = await ego().subegos?.list?.();
+        if (!cancelled && subRes && subRes.length > 0) {
+          setAvailableSubEgos(subRes.map((s) => ({ id: s.id, name: s.name })));
+        }
+      } catch {
+        // Fallback activo sin romper
+      }
+    }
+    void initCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Cierre de menús flotantes al hacer clic afuera o presionar Escape
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (plusMenuRef.current && !plusMenuRef.current.contains(target)) {
+        setIsPlusMenuOpen(false);
+      }
+      if (modelMenuRef.current && !modelMenuRef.current.contains(target)) {
+        setIsModelMenuOpen(false);
+      }
+      if (effortMenuRef.current && !effortMenuRef.current.contains(target)) {
+        setIsEffortMenuOpen(false);
+      }
+      if (modeMenuRef.current && !modeMenuRef.current.contains(target)) {
+        setIsModeMenuOpen(false);
+      }
+      if (subEgoMenuRef.current && !subEgoMenuRef.current.contains(target)) {
+        setIsSubEgoMenuOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsPlusMenuOpen(false);
+        setIsModelMenuOpen(false);
+        setIsEffortMenuOpen(false);
+        setIsModeMenuOpen(false);
+        setIsSubEgoMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleOutsideClick);
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("mousedown", handleOutsideClick);
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
+
+  const handleSelectModel = useCallback((modelId: string) => {
+    setSelectedModel(modelId);
+    setIsModelMenuOpen(false);
+    try {
+      const win = window as unknown as { ego?: { models?: { setActiveModel?: (m: string) => void }; settings?: { setConfig?: (c: { key: string; value: unknown }) => void } } };
+      win.ego?.models?.setActiveModel?.(modelId);
+      win.ego?.settings?.setConfig?.({ key: "defaultModel", value: modelId });
+    } catch {
+      // Ignorar
+    }
+  }, []);
+
+  const handleSelectEffort = useCallback((eff: "auto" | "low" | "medium" | "high") => {
+    setReasoningEffort(eff);
+    setIsEffortMenuOpen(false);
+    try {
+      const win = window as unknown as { ego?: { settings?: { setConfig?: (c: { key: string; value: unknown }) => void } } };
+      win.ego?.settings?.setConfig?.({ key: "reasoningEffort", value: eff });
+    } catch {
+      // Ignorar
+    }
+  }, []);
 
   const defaultFileSuggestions = useMemo(
     () => [
@@ -569,15 +682,11 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       setMentionQuery(null);
     }
   }, []);
+
   const streamTargetRef = useRef<string | null>(null);
   const currentPromptRef = useRef<string>("");
-  // VOICE-01: última respuesta del asistente (solo lectura por gesto con
-  // opt-in; nunca autoplay). Ref sin setState: `executeTurn` la acuña antes
-  // del setMessages que re-renderiza.
   const lastAssistantRef = useRef<string>("");
 
-  // VOICE-01: el dictado compone texto al composer (display-only intacto: el
-  // texto fuente sigue en el textarea del runtime; acá solo se anexa).
   const insertTranscript = useCallback(
     (text: string) => {
       const ta = composerWrapRef.current?.querySelector("textarea");
@@ -592,11 +701,8 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
   );
   const voice = useVoice({ onTranscript: insertTranscript });
 
-  // VOICE-01: el kill switch persiste en main (`gov/settings/voice`); sin
-  // puente (mocks de test) rigen los defaults locales. Solo lectura al montar.
   useEffect(() => {
     let cancelled = false;
-    // Sin puente voice (mocks de test viejos) no hay nada que cargar.
     const statusPromise = ego().voice?.getStatus?.();
     if (!statusPromise) return;
     void (statusPromise as Promise<{ ok?: unknown; disableVoice?: unknown }>)
@@ -608,7 +714,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     return () => {
       cancelled = true;
     };
-    // `voice.*` estable (setState); corre una vez al montar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -624,7 +729,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
 
   const { focusedContext, onAction } = useCanvasBridge();
 
-  // Estado reactivo en vivo del Mini-Avatar Adaptativo (FSM)
   const avatarLiveState: CharacterState = useMemo(() => {
     if (pendingApprovals.length > 0) return "approval_required";
     if (activeError) return "error";
@@ -653,14 +757,9 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     return "idle";
   }, [pendingApprovals.length, activeError, isStreaming, toolEvents, messages, composerText]);
 
-  // STAB-13: morph Send→Cancel (layoutId compartido, crossfade 150ms
-  // MOTION.micro; reduced-motion → instantáneo). Sin migrar de lib.
   const reduceMotion = useReducedMotion();
   const composerTransition = reduceMotion ? { duration: 0 } : { duration: MOTION.micro };
 
-  // T18: resume real — al cambiar la sesión activa se hidratan los turnos
-  // persistidos (`ipc.sessions.get` → `session/turns` en VantaDB) en mensajes.
-  // Vacío honesto si no hay turnos o el puente falla: nunca se inventan.
   useEffect(() => {
     if (!sessionId) {
       setMessages([]);
@@ -682,7 +781,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     };
   }, [sessionId]);
 
-  // Subscripción reactiva a solicitudes de aprobación HITL (ACT-07)
   useEffect(() => {
     const unsub = ego().onApprovalRequest?.((req) => {
       setPendingApprovals((prev) => {
@@ -704,9 +802,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         modifiedArguments?: Record<string, unknown>;
       }
     ) => {
-      // HITL unificado (T02): canal ÚNICO `ipc.approval.resolve` para widget y
-      // card, misma firma (motivo/args opcionales). `ipc.gov.approve` queda
-      // DEPRECATED (se mantiene en main/preload por compatibilidad; no usar).
       await ego().resolveApproval({
         approvalId,
         approved: decision.approved,
@@ -720,7 +815,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     []
   );
 
-  // Subscripción reactiva a eventos de error de IPC emitidos desde el main process
   useEffect(() => {
     const unsub = ego().onChatError?.((err) => {
       setActiveError({
@@ -734,8 +828,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     };
   }, []);
 
-  // Drena el buffer de deltas en UN solo setMessages (1x por frame).
-  // Copia única del array + índice por id: O(turnos + deltas del frame).
   const flushStreamBuffer = useCallback(() => {
     streamRafRef.current = null;
     const pending = pendingStreamRef.current;
@@ -786,8 +878,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         flushStreamBuffer();
       });
     } else {
-      // Fallback headless (sin rAF): microtarea coalescente. Centinela -1
-      // (los ids reales de rAF son >= 1): no hay nada que cancelar.
       streamRafRef.current = -1;
       queueMicrotask(() => {
         flushStreamBuffer();
@@ -795,7 +885,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     }
   }, [flushStreamBuffer]);
 
-  // Cancela el rAF pendiente al desmontar (sin setState post-unmount).
   useEffect(() => {
     return () => {
       if (streamRafRef.current !== null) {
@@ -822,9 +911,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     };
   }, []);
 
-  // Inserta el mensaje assistant del turno en curso si falta, o le anexa texto.
-  // Los deltas llegan antes del invoke final: se acumulan en `pendingStreamRef`
-  // y se pintan 1x por frame (rAF), no 1x por token.
   const appendStreamText = useCallback(
     (id: string, text: string) => {
       if (!text) return;
@@ -835,8 +921,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     [scheduleStreamFlush]
   );
 
-  // Streaming real (T02): el main ya emite `ipc.chat.delta`
-  // (text/tool_call/tool_result); acá se suscribe. Sin suscripción no hay stream.
   useEffect(() => {
     const unsubs: Array<() => void> = [];
     const bridge = ego();
@@ -847,9 +931,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           const target = streamTargetRef.current;
           if (!target) return;
           const c = chunk as ChatDeltaChunk;
-          // CFG-11: marca tFirst con el primer delta con texto y captura
-          // tPaint un frame después del flush que lo pinta (doble rAF).
-          // Fallback headless (sin rAF): captura sincrónica coalescente.
           const marks = paintMarksRef.current;
           const firstText = c.delta ?? c.text ?? "";
           if (marks && marks.tFirst === null && firstText) {
@@ -857,7 +938,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
             const snapshot = marks;
             const turn = target;
             const capture = () => {
-              // Turno cancelado o superado en el medio: no se loguea rancio.
               if (snapshot.logged || paintMarksRef.current !== snapshot) return;
               snapshot.logged = true;
               snapshot.tPaint = performance.now();
@@ -912,20 +992,14 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
 
   const executeTurn = useCallback(async (promptText: string) => {
     if (!promptText.trim()) return;
-    // CFG-12: el turno lleva el resumen de adjuntos válidos; la cuarentena
-    // nunca viaja. Se limpia el composer tras acuñar el prompt efectivo.
     const fullPrompt = buildPromptWithAttachments(promptText, attachments);
     const promptTextEffective = fullPrompt;
     setAttachments([]);
     setAttachError(null);
-    // A1: cada turno acuña su AbortController; `handleCancel`/Esc lo aborta.
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     currentPromptRef.current = promptTextEffective;
     setActiveError(null);
-    // Conserva los toolEvents previos para que no desaparezcan de golpe entre turnos
-    // T19: el badge muestra el turno actual; sin `usage` nuevo no hay
-    // coste que mostrar (nunca rastro del turno anterior).
     setLastTurnUsage(null);
 
     const byokBlock = await getByokBlockReason();
@@ -945,12 +1019,8 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       ...prev,
       { id: u, role: "user", content: [{ type: "text", text: promptTextEffective }] },
     ]);
-    // Sin placeholder "Procesando…": el banner skeleton con altura reservada
-    // ocupa su lugar hasta el primer delta (anti layout-shift); el mensaje
-    // assistant se inserta lazy con el primer chunk o el texto final.
     streamTargetRef.current = a;
     setIsStreaming(true);
-    // CFG-11: tSend se acuña justo antes del invoke (frontera de envío).
     paintMarksRef.current = createPaintMarks(performance.now());
 
     try {
@@ -958,15 +1028,9 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         prompt: promptTextEffective,
         projectId,
         subEgoId,
-        // 2026-10-15: el hilo SIEMPRE viaja con su sessionId. Sin esto todos
-        // los turnos caían al bucket del lifecycle (`default_session`) y el
-        // historial por sesión (picker/resume) jamás acumulaba nada.
         ...(sessionId ? { sessionId } : {}),
       });
       if ((streamRes as { status?: string }).status === "aborted") {
-        // A1 real: el main abortó el loop (`ipc.llm.cancel`) y el invoke
-        // resolvió `aborted` en vez de rechazar — no es error visible.
-        // El buffer rAF del turno se descarta: el texto final manda.
         pendingStreamRef.current.delete(a);
         setMessages((prev) =>
           prev.some((x) => x.id === a)
@@ -982,24 +1046,15 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       if (streamRes.recallStatus) {
         setLatestRecall(streamRes.recallStatus);
       }
-      // T19: `usage.{promptTokens,completionTokens,estimatedCostUsd}` ya viaja
-      // en el turno (main.ts `handleLlmStream`); acá solo se expone en la UI.
       setLastTurnUsage(toTurnUsage(streamRes.usage, streamRes.turnId));
 
-      // A6: sin badge `[VantaDB: …]` inyectado en el texto del turno — el
-      // recall vive como componente separado (banner Memoria Activa +
-      // `recall` del mensaje), nunca como prefijo del contenido.
       const finalReply = streamRes.text;
-      // 2026-10-14: el fallback a mock del router enmascaraba errores de
-      // proveedor (ej. modelo retirado 404) como respuesta real. Señal honesta.
       const isSimulated = streamRes.text.startsWith("[MockResponse");
       const visibleReply = isSimulated
         ? `⚠️ Respuesta simulada (el proveedor falló; revisá tu key y el modelo en Ajustes).\n\n${finalReply}`
         : finalReply;
-      // VOICE-01: acuña la última respuesta para "Leer" (opt-in, por gesto).
       lastAssistantRef.current = visibleReply;
 
-      // El texto final es autoritativo: descarta deltas aún en buffer rAF.
       pendingStreamRef.current.delete(a);
       setMessages((prev) => {
         const body: { content: Msg["content"]; recall: RecallBadgeInfo } = {
@@ -1011,7 +1066,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           : [...prev, { id: a, role: "assistant" as const, ...body }];
       });
     } catch (err) {
-      // A1: turno abortado por el usuario (Cancel/Esc) — no es error visible.
       pendingStreamRef.current.delete(a);
       if (ctrl.signal.aborted) {
         setMessages((prev) =>
@@ -1043,27 +1097,16 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       }
     } finally {
       if (streamTargetRef.current === a) streamTargetRef.current = null;
-      // CFG-11: las marcas NO se anulan acá a propósito — la captura tPaint
-      // viaja en doble-rAF y puede disparar después del resolve; el próximo
-      // turno las sobrescribe y `handleCancel` las descarta al cancelar.
       if (abortRef.current === ctrl) abortRef.current = null;
       setIsStreaming(false);
     }
   }, [projectId, subEgoId, sessionId, attachments]);
 
-  // A1/A2: cancela el turno en curso. Cierra el estado local de stream de
-  // inmediato (AbortController) y aborta el loop remoto vía
-  // `ipc.llm.cancel` (el main detiene generate/tools entre turnos y emite
-  // `turn-cancelled`; el invoke resuelve `aborted`, rama tratada arriba).
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     streamTargetRef.current = null;
-    // CFG-11: turno cancelado antes de pintar → sin log rancio (la captura
-    // pendiente verifica `paintMarksRef.current !== snapshot` y se omite).
     paintMarksRef.current = null;
-    // Descarta deltas en buffer + cancela el frame pendiente: sin esto un
-    // rAF tardío pintaría texto tras "Turno cancelado".
     pendingStreamRef.current.clear();
     if (streamRafRef.current !== null) {
       if (typeof cancelAnimationFrame !== "undefined" && streamRafRef.current >= 0) {
@@ -1081,7 +1124,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
       .catch(() => {});
   }, []);
 
-  // CFG-12: ingesta de adjuntos (fail-closed: tipo/tamaño/permiso → cuarentena).
   const handleFiles = useCallback((files: FileList | File[] | null) => {
     if (!files) return;
     const list = Array.from(files);
@@ -1096,7 +1138,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         : null
     );
 
-    // Lectura real de archivos adjuntos (multimodalidad / texto en vivo)
     list.forEach((f, idx) => {
       const v = validated[idx];
       if (!v || v.quarantined) return;
@@ -1137,7 +1178,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
-  // A2: Esc cancela el turno en curso (mismo Abort que el botón Cancel).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && abortRef.current) {
@@ -1149,10 +1189,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleCancel]);
 
-  // A2: autoscroll solo con stick (<100px del fondo). Sin stick se muestra
-  // "Jump to latest" y el viewport no salta (lectura de historial intacta).
-  // Follow-on-append throttled a 1x rAF: sin esto cada delta del stream
-  // forzaba un layout (scrollHeight) + paint.
   useEffect(() => {
     if (!stick) return undefined;
     if (stickRafRef.current !== null) return undefined;
@@ -1178,11 +1214,8 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     return undefined;
   }, [messages, isStreaming, toolEvents, stick]);
 
-  // Sincronización reactiva: acciones disparadas en el Canvas alimentan el Chat (CANV-03 / COUC-07)
   useEffect(() => {
     const unsub = onAction((act) => {
-      // T04: el evento ya viaja estructurado (payload ?? {} en CanvasBridge);
-      // se adjunta serializado para que el turno conserve la carga útil.
       const payload = act.payload ?? {};
       const suffix = Object.keys(payload).length > 0 ? ` ${JSON.stringify(payload)}` : "";
       void executeTurn(`[Acción de Canvas en ${act.componentId}]: ${act.actionId}${suffix}`);
@@ -1261,7 +1294,6 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
         .map((p) => (p.type === "text" ? p.text : ""))
         .join("");
       setComposerText("");
-      // T08: slash-commands locales (no consumen turno ni tocan streaming).
       const slash = parseSlashCommand(text);
       if (slash && LOCAL_SLASH_COMMANDS.has(slash.name)) {
         if (slash.name === "clear") {
@@ -1286,37 +1318,60 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     },
   });
 
+  const effortLabels: Record<string, string> = {
+    auto: "Auto",
+    low: "Bajo",
+    medium: "Medio",
+    high: "Alto",
+  };
+
+  const currentModelDisplayName = useMemo(() => {
+    const found = availableModels.find((m) => m.id === selectedModel);
+    return found ? found.name : formatModelName(selectedModel);
+  }, [availableModels, selectedModel]);
+
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="h-full flex flex-col">
-        {/* Cabecera del Chat River 2.0 con Exportar (.md) y Avatar Reactivo */}
-        <div className="flex items-center justify-between border-b border-hairline px-3.5 py-2 text-xs bg-panel/40 shrink-0">
-          <div className="flex items-center gap-2">
-            <CharacterBadge
-              subEgoId={subEgoId ?? "ego.nucleus"}
-              size={26}
-              state={avatarLiveState}
-              animated={avatarLiveState !== "idle"}
-            />
-            <span className="font-semibold text-ink">Ego Chat</span>
-            <span className="rounded-full bg-raised border border-hairline px-2 py-0.5 text-[10px] font-mono text-dim">
-              {subEgoId ?? "ego.nucleus"}
-            </span>
+        {/* Cabecera del Chat con Avatar de size 36 y acción discreta */}
+        <div className="flex items-center justify-between border-b border-hairline px-4 py-2 text-xs bg-panel/40 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#13151f] border border-white/10 flex items-center justify-center p-0.5 shadow-sm">
+              <CharacterBadge
+                subEgoId={subEgoId ?? "ego.nucleus"}
+                size={36}
+                state={avatarLiveState}
+                animated={avatarLiveState !== "idle"}
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-ink text-[12.5px]">Ego Chat</span>
+                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 text-[9px] font-mono text-emerald-400">
+                  En línea
+                </span>
+              </div>
+              <span className="text-[10.5px] text-faint font-mono">
+                {subEgoId ?? "ego.nucleus"}
+              </span>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={exportConversationMarkdown}
-            aria-label="Exportar conversación a Markdown"
-            title="Exportar conversación actual (.md)"
-            disabled={messages.length === 0}
-            className="flex items-center gap-1.5 rounded-lg border border-hairline bg-raised/70 px-2.5 py-1 text-[11px] font-medium text-faint hover:text-ink hover:bg-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <DownloadSimple size={13} />
-            <span>Exportar (.md)</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={exportConversationMarkdown}
+              aria-label="Exportar conversación a Markdown"
+              title="Exportar conversación actual (.md)"
+              disabled={messages.length === 0}
+              className="flex items-center gap-1.5 rounded-xl border border-hairline bg-raised/50 px-2.5 py-1.5 text-[11px] font-medium text-faint hover:text-ink hover:bg-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <DownloadSimple size={13} />
+              <span className="hidden sm:inline">Exportar (.md)</span>
+            </button>
+          </div>
         </div>
 
-        {/* Banner de Memoria Viva (Hermes RecallStatus + VantaDB) */}
+        {/* Banner de Memoria Activa */}
         {latestRecall && latestRecall.count > 0 && (
           <div className="flex items-center gap-2 border-b border-hairline bg-raised/40 px-3 py-1 text-[11px] text-faint">
             <span>{latestRecall.glyph}</span>
@@ -1334,40 +1389,81 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           className="relative flex-1 overflow-y-auto px-3 py-2"
           style={{ overflowAnchor: "auto" }}
         >
+          {/* Estado Inicial Sereno (¿Por dónde empezamos? + Avatar de Estudio Grande) */}
           <ThreadPrimitive.Empty>
-            <div className="flex flex-col items-center justify-center p-8 text-center text-faint max-w-xl mx-auto">
-              <div className="mb-4">
-                <CharacterBadge subEgoId={subEgoId ?? "ego.nucleus"} size={72} state={avatarLiveState} animated />
+            <div className="h-full min-h-[440px] flex flex-col items-center justify-center p-6 text-center text-faint max-w-2xl w-full mx-auto my-auto select-none">
+              {/* Recuadro de estudio grande de alta calidad */}
+              <div className="w-28 h-28 rounded-3xl bg-[#13151f] border border-white/10 shadow-2xl flex items-center justify-center mx-auto mb-5 p-2 transition-transform hover:scale-105 duration-300">
+                <CharacterBadge
+                  subEgoId={subEgoId ?? "ego.nucleus"}
+                  size={104}
+                  state={avatarLiveState}
+                  animated
+                />
               </div>
-              <p className="mb-1.5 text-ink font-semibold text-base font-sans">Cerebro Operativo de Ego</p>
-              <p className="font-sans text-[13px] text-faint mb-6">
-                Haz una pregunta o asigna una tarea a tus Sub-Egos.
+
+              {/* Título principal limpio y subtítulo canónico exacto */}
+              <h1 className="text-2xl sm:text-3xl font-semibold text-ink tracking-tight mb-1.5 font-sans">
+                ¿Por dónde empezamos?
+              </h1>
+              <p className="font-sans text-[13px] text-faint mb-8 font-medium">
+                Cerebro Operativo de Ego · Inteligencia, memoria y ejecución local
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
+              {/* 3–4 filas de sugerencias limpias con icono sutil */}
+              <div className="w-full max-w-lg space-y-2.5 mb-2">
                 {[
-                  { title: "Analizar arquitectura del proyecto", desc: "Revisa estructura y dependencias" },
-                  { title: "Proyectar reporte de métricas en el Canvas", desc: "Abre el dashboard en Workspace" },
-                  { title: "Buscar decisiones clave en VantaDB", desc: "Consulta el historial persistente" },
-                  { title: "Revisar estado de Git y tareas pendientes", desc: "Verifica cambios y roadmap" },
+                  {
+                    icon: "🖼️",
+                    title: "Proyectar un dashboard o tabla en el Canvas",
+                    desc: "Crea visualizaciones interactivas y tablas de datos",
+                    prompt: "Proyecta en Canvas un dashboard interactivo con tablas y gráficos",
+                  },
+                  {
+                    icon: "✏️",
+                    title: "Analizar arquitectura y revisar código del proyecto",
+                    desc: "Inspecciona dependencias, estructura y áreas de mejora",
+                    prompt: "Analiza la arquitectura del proyecto y revisa el código fuente actual",
+                  },
+                  {
+                    icon: "🌐",
+                    title: "Buscar en memoria VantaDB o investigar en la web",
+                    desc: "Consulta hechos persistentes y conocimiento conectado",
+                    prompt: "Busca en la memoria VantaDB las decisiones clave del proyecto",
+                  },
+                  {
+                    icon: "🤖",
+                    title: "Delegar una tarea a un Sub-Ego especialista",
+                    desc: "Asigna tareas a ingenieros, investigadores o redactores",
+                    prompt: "Delega la tarea a un Sub-Ego especialista",
+                  },
                 ].map((starter) => (
                   <button
                     key={starter.title}
                     type="button"
-                    onClick={() => fillComposer(starter.title)}
-                    className="group flex flex-col p-3 rounded-xl border border-hairline bg-panel hover:bg-raised hover:border-dim transition-all text-left shadow-sm cursor-pointer"
+                    onClick={() => fillComposer(starter.prompt)}
+                    className="group w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border border-white/5 bg-[#18181b]/40 hover:bg-[#202024] hover:border-white/15 transition-all text-left shadow-sm cursor-pointer"
                   >
-                    <span className="font-medium text-[12px] text-ink group-hover:text-brand transition-colors">
-                      {starter.title}
+                    <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">
+                      {starter.icon}
                     </span>
-                    <span className="text-[11px] text-faint mt-0.5 line-clamp-1">
-                      {starter.desc}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-[13px] text-ink group-hover:text-brand transition-colors truncate">
+                        {starter.title}
+                      </div>
+                      <div className="text-[11.5px] text-faint truncate mt-0.5">
+                        {starter.desc}
+                      </div>
+                    </div>
+                    <span className="text-faint/60 group-hover:text-ink text-sm transition-colors shrink-0">
+                      →
                     </span>
                   </button>
                 ))}
               </div>
             </div>
           </ThreadPrimitive.Empty>
+
           <ChatActionsContext.Provider
             value={{
               onRewind: handleRewind,
@@ -1389,7 +1485,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </ChatActionsContext.Provider>
         </ThreadPrimitive.Viewport>
 
-        {/* A2: Jump to latest — solo sin stick (el viewport no salta solo). */}
+        {/* Jump to latest */}
         {!stick && (
           <div className="flex justify-center border-t border-hairline bg-paper/80 px-3 py-1.5">
             <button
@@ -1400,27 +1496,27 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                 setStick(true);
               }}
               aria-label="Saltar al último mensaje"
-              className="rounded-card border border-hairline bg-panel px-3 py-1.5 text-[11px] font-semibold text-ink shadow-sm transition-colors hover:bg-raised cursor-pointer"
+              className="rounded-xl border border-hairline bg-panel px-3 py-1.5 text-[11px] font-semibold text-ink shadow-sm transition-colors hover:bg-raised cursor-pointer"
             >
               ↓ Jump to latest
             </button>
           </div>
         )}
 
-        {/* Skeleton de streaming con altura reservada (anti layout-shift, T02) */}
+        {/* Skeleton de streaming */}
         {isStreaming && (
           <div
             data-testid="chat-streaming-skeleton"
             aria-busy="true"
             aria-label="Generando respuesta"
-            className="mx-3 my-2 min-h-[56px] rounded-card border border-hairline bg-panel px-3.5 py-2.5"
+            className="mx-3 my-2 min-h-[56px] rounded-2xl border border-hairline bg-panel px-3.5 py-2.5"
           >
             <div className="h-2.5 w-2/3 animate-pulse rounded bg-hairline" />
             <div className="mt-2 h-2.5 w-1/2 animate-pulse rounded bg-hairline" />
           </div>
         )}
 
-        {/* Actividad de tools inline (ToolExecutionCard interactiva, T02) */}
+        {/* Actividad de tools inline */}
         {toolEvents.length > 0 && (
           <div
             data-testid="chat-tool-activity"
@@ -1437,7 +1533,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* T19: badge de coste del turno actual (HERM-21). Solo si `usage` vino. */}
+        {/* Badge de coste de turno */}
         {lastTurnUsage && (
           <div
             data-testid="chat-turn-cost"
@@ -1451,7 +1547,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* Tarjeta interactiva de Error de Turno con Reintento (CORE-14) */}
+        {/* Error interactivo */}
         {activeError && (
           <div className="flex items-center justify-between border-t border-rose-500/30 bg-rose-950/40 px-3.5 py-2 text-xs text-rose-200">
             <div className="flex items-center gap-2 min-w-0 pr-2">
@@ -1465,7 +1561,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
               <button
                 type="button"
                 onClick={handleRetry}
-                className="flex items-center gap-1 rounded bg-rose-500/20 px-2.5 py-1 min-h-[44px] text-[11px] font-semibold text-rose-200 hover:bg-rose-500/30 transition-colors"
+                className="flex items-center gap-1 rounded-xl bg-rose-500/20 px-2.5 py-1 min-h-[44px] text-[11px] font-semibold text-rose-200 hover:bg-rose-500/30 transition-colors cursor-pointer"
               >
                 <ArrowClockwise size={12} weight="bold" />
                 <span>Reintentar</span>
@@ -1474,7 +1570,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                 type="button"
                 onClick={() => setActiveError(null)}
                 aria-label="Cerrar advertencia"
-                className="p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-rose-400 hover:text-rose-200 transition-colors"
+                className="p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-rose-400 hover:text-rose-200 transition-colors cursor-pointer"
               >
                 <X size={13} />
               </button>
@@ -1482,7 +1578,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* Panel de Solicitudes de Aprobación HITL activas (ACT-07 / HERM-03 / OCLW-08) */}
+        {/* Aprobaciones HITL */}
         {pendingApprovals.length > 0 && (
           <div className="border-t border-hairline bg-raised/20 px-3.5 py-2 max-h-72 overflow-y-auto">
             {pendingApprovals.map((req) => (
@@ -1495,7 +1591,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* Pastilla de contexto enfocado en Canvas (CANV-03 / CANV-04) */}
+        {/* Enfoque Canvas */}
         {focusedContext && (
           <div className="flex items-center justify-between bg-raised/60 px-3 py-1.5 text-[11px] text-dim border-t border-hairline font-mono">
             <span className="truncate">
@@ -1505,7 +1601,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* T08: menciones @ y slash / del borrador (FileMentionBadge + hint). */}
+        {/* Menciones @ y /comandos */}
         {(draftMentions.length > 0 || draftSlash) && (
           <div className="flex flex-wrap items-center gap-1.5 border-t border-hairline px-3 pt-2" role="status" aria-live="polite">
             {draftMentions.map((path) => (
@@ -1521,7 +1617,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* CFG-12: adjuntos con permiso inline + cuarentena visible. */}
+        {/* Adjuntos del composer */}
         {(attachments.length > 0 || attachError) && (
           <div
             data-testid="composer-attachments"
@@ -1534,7 +1630,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                 key={a.id}
                 data-testid={a.quarantined ? "attachment-quarantined" : "attachment-chip"}
                 title={a.quarantined ? `Cuarentena: ${a.reason ?? "bloqueado"}` : `${a.mime}, ${(a.size / 1024).toFixed(1)}KB`}
-                className={`inline-flex items-center gap-1.5 rounded-card border border-hairline px-2 py-1 font-mono text-[11px] ${a.quarantined ? "bg-rose-950/40 text-rose-200" : "bg-panel text-ink"}`}
+                className={`inline-flex items-center gap-1.5 rounded-xl border border-hairline px-2.5 py-1 font-mono text-[11px] ${a.quarantined ? "bg-rose-950/40 text-rose-200" : "bg-panel text-ink"}`}
               >
                 {a.dataUrl ? (
                   <img src={a.dataUrl} alt={a.name} className="h-4 w-4 rounded object-cover shrink-0" />
@@ -1557,11 +1653,11 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </div>
         )}
 
-        {/* Floating Capsule Composer */}
-        <div className="relative p-2.5">
+        {/* Composer Flotante tipo Cápsula Elegante (Estilo Claude / Inicio.png) */}
+        <div className="relative p-3">
           {/* Autocompletado @archivo popover */}
           {mentionQuery !== null && filteredSuggestions.length > 0 && (
-            <div className="absolute bottom-full mb-2 left-3 z-30 w-72 rounded-xl border border-hairline bg-panel/95 shadow-xl backdrop-blur-md p-1.5 text-xs font-mono">
+            <div className="absolute bottom-full mb-2 left-3 z-30 w-72 rounded-2xl border border-hairline bg-panel/95 shadow-xl backdrop-blur-md p-1.5 text-xs font-mono">
               <div className="px-2 py-1 text-[10px] text-faint border-b border-hairline mb-1 font-sans font-medium flex items-center justify-between">
                 <span>Mencionar archivo</span>
                 <span className="text-[9px] text-dim">click para insertar</span>
@@ -1582,81 +1678,365 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
             </div>
           )}
 
-          <ComposerPrimitive.Root className="flex flex-col gap-2 rounded-2xl border border-hairline bg-panel/95 shadow-xl backdrop-blur-md p-3">
-            {/* Nivel 1: Input ocupando el 100% del ancho, rows={2}, font-sans text-[13.5px] leading-relaxed */}
+          {/* Menú flotante desplegable del botón + (Idéntico a Boton de mas.png) */}
+          {isPlusMenuOpen && (
+            <div
+              ref={plusMenuRef}
+              className="absolute bottom-full mb-3 left-3 z-50 w-80 rounded-2xl bg-[#202024] border border-white/10 shadow-2xl p-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="px-3 py-1.5 text-[10.5px] font-medium text-faint border-b border-white/5 mb-1 flex items-center justify-between">
+                <span>Acciones y adjuntos</span>
+                <span className="text-[9.5px] text-dim font-mono">Ego SOC</span>
+              </div>
+              <div className="space-y-0.5">
+                {[
+                  {
+                    icon: <Paperclip size={16} className="text-sky-400" />,
+                    title: "Agregar fotos y archivos",
+                    desc: "Cargar desde la computadora",
+                    action: () => {
+                      setIsPlusMenuOpen(false);
+                      fileInputRef.current?.click();
+                    },
+                  },
+                  {
+                    icon: <Books size={16} className="text-amber-400" />,
+                    title: "Agregar desde la biblioteca",
+                    desc: "Explora y menciona archivos (@)",
+                    action: () => {
+                      setIsPlusMenuOpen(false);
+                      const ta = composerWrapRef.current?.querySelector("textarea");
+                      if (ta) {
+                        ta.value = ta.value ? `${ta.value} @` : "@";
+                        ta.dispatchEvent(new Event("input", { bubbles: true }));
+                        ta.focus();
+                      }
+                    },
+                  },
+                  {
+                    icon: <Globe size={16} className="text-emerald-400" />,
+                    title: "Busca en la web",
+                    desc: "Información en tiempo real",
+                    action: () => {
+                      setIsPlusMenuOpen(false);
+                      fillComposer("Busca en la web sobre ");
+                    },
+                  },
+                  {
+                    icon: <Flask size={16} className="text-violet-400" />,
+                    title: "Investigación profunda",
+                    desc: "Obtén un informe detallado con VantaDB",
+                    action: () => {
+                      setIsPlusMenuOpen(false);
+                      fillComposer("Investiga a fondo en VantaDB ");
+                    },
+                  },
+                  {
+                    icon: <ChartBar size={16} className="text-rose-400" />,
+                    title: "Proyectar en Canvas",
+                    desc: "Crea tablas, gráficos o artefactos interactivos",
+                    action: () => {
+                      setIsPlusMenuOpen(false);
+                      fillComposer("Proyecta en Canvas un dashboard interactivo de ");
+                    },
+                  },
+                  {
+                    icon: <Robot size={16} className="text-cyan-400" />,
+                    title: "Delegar a especialista",
+                    desc: "Asigna la tarea a un Sub-Ego",
+                    action: () => {
+                      setIsPlusMenuOpen(false);
+                      fillComposer("@investigador ");
+                    },
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.title}
+                    type="button"
+                    onClick={item.action}
+                    className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-white/5 text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 border border-white/5 group-hover:border-white/10">
+                      {item.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] font-medium text-white group-hover:text-white/90">
+                        {item.title}
+                      </div>
+                      <div className="text-[10.5px] text-faint group-hover:text-dim truncate">
+                        {item.desc}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <ComposerPrimitive.Root className="flex flex-col gap-2 rounded-3xl border border-white/10 bg-[#161822]/90 shadow-2xl backdrop-blur-xl p-3.5 transition-all focus-within:border-white/20">
+            {/* Input de archivo montado para tests */}
             <input
               ref={fileInputRef}
               type="file"
               multiple
               aria-label="Adjuntar archivos"
               data-testid="composer-file-input"
-              className="hidden"
+              className="sr-only"
               onChange={(e) => {
                 handleFiles(e.target.files);
                 e.target.value = "";
               }}
             />
+
+            {/* Nivel 1: Textarea espaciosa y legible */}
             <div ref={composerWrapRef} onInput={handleComposerInput} className="w-full">
               <ComposerPrimitive.Input
                 submitMode="ctrlEnter"
                 rows={2}
                 placeholder="Pregunta o instruye a Ego… (@archivo · /help · Ctrl+Enter envía)"
-                className="w-full bg-transparent border-0 p-1 text-ink font-sans text-[13.5px] leading-relaxed placeholder:text-faint focus:outline-none focus:ring-0 resize-none max-h-48 overflow-y-auto"
+                className="w-full bg-transparent border-0 p-1 text-ink font-sans text-[14px] leading-relaxed placeholder:text-faint/70 focus:outline-none focus:ring-0 resize-none max-h-48 overflow-y-auto"
               />
             </div>
 
-            {/* Nivel 2: Barra de herramientas inferior interna */}
-            <div className="flex items-center justify-between pt-1 border-t border-hairline/40 gap-2">
-              {/* Izquierda: Herramientas (+, @) y controles de voz compactos sin checkboxes cuadrados */}
+            {/* Nivel 2: Barra de herramientas inferior con selectores (Estilo Claude) */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/5 gap-2 flex-wrap">
+              {/* Izquierda: Herramientas (+, @, Sub-Ego) */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setIsPlusMenuOpen((prev) => !prev)}
                   aria-label="Adjuntar archivos"
-                  title="Adjuntar archivos o imágenes"
+                  aria-expanded={isPlusMenuOpen}
+                  title="Acciones y adjuntos (+)"
                   data-testid="composer-attach-button"
-                  className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg border border-hairline/80 bg-raised/60 hover:bg-raised text-faint hover:text-ink text-sm font-semibold transition-colors cursor-pointer"
+                  className={`min-h-[34px] min-w-[34px] flex items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                    isPlusMenuOpen
+                      ? "bg-white/15 text-white border-white/20"
+                      : "border-white/10 bg-white/5 hover:bg-white/10 text-faint hover:text-ink"
+                  }`}
                 >
-                  ＋
+                  <span className="text-base font-semibold leading-none">＋</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => {
                     const ta = composerWrapRef.current?.querySelector("textarea");
                     if (ta) {
-                      ta.value = ta.value + "@";
+                      ta.value = ta.value ? `${ta.value} @` : "@";
                       ta.dispatchEvent(new Event("input", { bubbles: true }));
                       ta.focus();
                     }
                   }}
                   title="Mencionar archivo del proyecto (@)"
                   aria-label="Mencionar archivo"
-                  className="min-h-[32px] min-w-[32px] flex items-center justify-center rounded-lg border border-hairline/80 bg-raised/60 hover:bg-raised text-faint hover:text-ink text-xs font-mono transition-colors cursor-pointer"
+                  className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-faint hover:text-ink text-xs font-mono transition-all cursor-pointer"
                 >
                   @
                 </button>
 
-                {/* Controles de voz integrados con inputs sr-only para tests */}
-                <div data-testid="voice-controls" className="flex items-center gap-1 ml-1 text-xs">
-                  <label
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-sans transition-all cursor-pointer border ${
-                      voice.ttsOptIn
-                        ? "bg-brand/15 text-brand border-brand/30 font-medium"
-                        : "bg-raised/40 text-faint border-hairline/60 hover:text-ink hover:bg-raised"
-                    }`}
-                    title="Leer respuestas en voz alta (opt-in)"
+                {/* Selector de Sub-Ego */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsSubEgoMenuOpen((prev) => !prev)}
+                    className="min-h-[34px] px-2.5 flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11.5px] font-medium transition-all cursor-pointer"
                   >
-                    <input
-                      type="checkbox"
-                      checked={voice.ttsOptIn}
-                      onChange={(e) => voice.setTtsOptIn(e.target.checked)}
-                      aria-label="Leer respuestas en voz alta (opt-in)"
-                      className="sr-only"
-                    />
-                    <span>🔊</span>
-                    <span className="hidden sm:inline">Voz</span>
-                  </label>
+                    <span className="text-cyan-400">🤖</span>
+                    <span className="truncate max-w-[95px]">{subEgoId ?? "ego.nucleus"}</span>
+                    <CaretDown size={11} className="text-faint" />
+                  </button>
+                  {isSubEgoMenuOpen && (
+                    <div
+                      ref={subEgoMenuRef}
+                      className="absolute bottom-full mb-2 left-0 z-40 w-56 rounded-2xl bg-[#202024] border border-white/10 shadow-2xl p-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <div className="px-2.5 py-1 text-[10px] text-faint border-b border-white/5 mb-1 font-medium">
+                        Sub-Ego Activo
+                      </div>
+                      {availableSubEgos.map((se) => (
+                        <button
+                          key={se.id}
+                          type="button"
+                          onClick={() => {
+                            setIsSubEgoMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                            se.id === (subEgoId ?? "ego.nucleus")
+                              ? "bg-white/10 text-white font-medium"
+                              : "text-faint hover:text-ink hover:bg-white/5"
+                          }`}
+                        >
+                          <span className="truncate">{se.name}</span>
+                          {se.id === (subEgoId ?? "ego.nucleus") && (
+                            <Check size={12} className="text-brand shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
+              {/* Derecha: Selector de Modelo (SOLO disponibles), Intensidad, Modo, Voz y Envío */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* 1. Selector de Modelo (SOLO disponibles) */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsModelMenuOpen((prev) => !prev)}
+                    aria-expanded={isModelMenuOpen}
+                    title="Seleccionar modelo de lenguaje (solo disponibles)"
+                    className="min-h-[34px] px-2.5 flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11.5px] font-medium transition-all cursor-pointer"
+                  >
+                    <Sparkle size={13} className="text-violet-400 shrink-0" />
+                    <span className="truncate max-w-[110px]">{currentModelDisplayName}</span>
+                    <CaretDown size={11} className="text-faint shrink-0" />
+                  </button>
+                  {isModelMenuOpen && (
+                    <div
+                      ref={modelMenuRef}
+                      className="absolute bottom-full mb-2 right-0 z-40 w-64 rounded-2xl bg-[#202024] border border-white/10 shadow-2xl p-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <div className="px-3 py-1.5 text-[10.5px] font-medium text-faint border-b border-white/5 mb-1 flex items-center justify-between">
+                        <span>Modelos Disponibles</span>
+                        <span className="text-[9.5px] text-emerald-400 font-mono">Activos</span>
+                      </div>
+                      <div className="max-h-56 overflow-y-auto space-y-0.5">
+                        {availableModels.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => handleSelectModel(m.id)}
+                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer group ${
+                              m.id === selectedModel
+                                ? "bg-white/10 text-white font-medium"
+                                : "text-faint hover:text-ink hover:bg-white/5"
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1 pr-2">
+                              <div className="truncate text-[12px]">{m.name}</div>
+                              <div className="text-[10px] text-dim uppercase tracking-wider">{m.provider}</div>
+                            </div>
+                            {m.id === selectedModel && <Check size={13} className="text-brand shrink-0" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Selector de Intensidad / Razonamiento */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsEffortMenuOpen((prev) => !prev)}
+                    aria-expanded={isEffortMenuOpen}
+                    title="Intensidad de razonamiento cognitivo"
+                    className="min-h-[34px] px-2 flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11px] font-medium transition-all cursor-pointer"
+                  >
+                    <Lightning size={12} className="text-amber-400 shrink-0" />
+                    <span>{effortLabels[reasoningEffort]}</span>
+                    <CaretDown size={10} className="text-faint shrink-0" />
+                  </button>
+                  {isEffortMenuOpen && (
+                    <div
+                      ref={effortMenuRef}
+                      className="absolute bottom-full mb-2 right-0 z-40 w-44 rounded-2xl bg-[#202024] border border-white/10 shadow-2xl p-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <div className="px-2.5 py-1 text-[10px] text-faint border-b border-white/5 mb-1 font-medium">
+                        Intensidad
+                      </div>
+                      {(["auto", "low", "medium", "high"] as const).map((eff) => (
+                        <button
+                          key={eff}
+                          type="button"
+                          onClick={() => handleSelectEffort(eff)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                            reasoningEffort === eff
+                              ? "bg-white/10 text-white font-medium"
+                              : "text-faint hover:text-ink hover:bg-white/5"
+                          }`}
+                        >
+                          <span>{effortLabels[eff]}</span>
+                          {reasoningEffort === eff && <Check size={12} className="text-brand shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Selector de Modo (Manual / Auto) */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsModeMenuOpen((prev) => !prev)}
+                    aria-expanded={isModeMenuOpen}
+                    title="Modo de ejecución: Manual (HITL) o Auto"
+                    className="min-h-[34px] px-2 flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11px] font-medium transition-all cursor-pointer"
+                  >
+                    <ShieldCheck size={12} className={executionMode === "manual" ? "text-cyan-400" : "text-emerald-400"} />
+                    <span>{executionMode === "manual" ? "Manual" : "Auto"}</span>
+                    <CaretDown size={10} className="text-faint shrink-0" />
+                  </button>
+                  {isModeMenuOpen && (
+                    <div
+                      ref={modeMenuRef}
+                      className="absolute bottom-full mb-2 right-0 z-40 w-48 rounded-2xl bg-[#202024] border border-white/10 shadow-2xl p-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <div className="px-2.5 py-1 text-[10px] text-faint border-b border-white/5 mb-1 font-medium">
+                        Modo de Ejecución
+                      </div>
+                      {[
+                        { id: "manual", label: "Manual (HITL)", desc: "Pide confirmación" },
+                        { id: "auto", label: "Auto (Fluido)", desc: "Ejecución continua" },
+                      ].map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setExecutionMode(m.id as "manual" | "auto");
+                            setIsModeMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                            executionMode === m.id
+                              ? "bg-white/10 text-white font-medium"
+                              : "text-faint hover:text-ink hover:bg-white/5"
+                          }`}
+                        >
+                          <div>
+                            <div className="text-[11.5px] font-medium">{m.label}</div>
+                            <div className="text-[9.5px] text-dim">{m.desc}</div>
+                          </div>
+                          {executionMode === m.id && <Check size={12} className="text-brand shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Controles de voz con VoiceButton y checkboxes sr-only para tests */}
+                <div data-testid="voice-controls" className="flex items-center gap-1 text-xs">
+                  <VoiceButton
+                    captureState={voice.captureState}
+                    disabled={!voice.sttEnabled}
+                    onToggleDictation={voice.toggleDictation}
+                  />
+                  <input
+                    type="checkbox"
+                    checked={voice.ttsOptIn}
+                    onChange={(e) => voice.setTtsOptIn(e.target.checked)}
+                    aria-label="Leer respuestas en voz alta (opt-in)"
+                    className="sr-only"
+                  />
+                  <input
+                    type="checkbox"
+                    checked={voice.disableVoice}
+                    onChange={(e) => handleVoiceKillSwitch(e.target.checked)}
+                    aria-label="Desactivar toda la voz (kill switch)"
+                    data-testid="voice-killswitch"
+                    className="sr-only"
+                  />
                   {voice.ttsOptIn && (
                     <button
                       type="button"
@@ -1667,42 +2047,14 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                       aria-label="Leer última respuesta en voz alta"
                       title="Lee la última respuesta"
                       data-testid="voice-read-button"
-                      className="min-h-[44px] inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-sans border border-hairline bg-raised/50 hover:bg-raised text-faint hover:text-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      className="sr-only"
                     >
-                      <span>▶️</span>
-                      <span className="hidden sm:inline">Leer última</span>
+                      Leer última
                     </button>
                   )}
-
-                  <label
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-sans transition-all cursor-pointer border ${
-                      voice.disableVoice
-                        ? "bg-rose-950/40 text-rose-300 border-rose-800/40 font-medium"
-                        : "bg-raised/40 text-faint border-hairline/60 hover:text-ink hover:bg-raised"
-                    }`}
-                    title="Desactivar toda la voz (kill switch)"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={voice.disableVoice}
-                      onChange={(e) => handleVoiceKillSwitch(e.target.checked)}
-                      aria-label="Desactivar toda la voz (kill switch)"
-                      data-testid="voice-killswitch"
-                      className="sr-only"
-                    />
-                    <span>⛔</span>
-                    <span className="hidden sm:inline">Silenciar</span>
-                  </label>
                 </div>
-              </div>
 
-              {/* Derecha: Dictado de voz + botón Enviar / Cancelar */}
-              <div className="flex items-center gap-2">
-                <VoiceButton
-                  captureState={voice.captureState}
-                  disabled={!voice.sttEnabled}
-                  onToggleDictation={voice.toggleDictation}
-                />
+                {/* Botón Circular de Envío / Cancelar (Estilo inicio claude.png y STAB-13) */}
                 <AnimatePresence mode="wait" initial={false}>
                   {isStreaming ? (
                     <motion.button
@@ -1716,10 +2068,10 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                       onClick={handleCancel}
                       aria-label="Cancelar turno en curso"
                       title="Cancelar turno (Esc)"
-                      className="min-h-[44px] min-w-[44px] flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-medium text-xs shadow-sm cursor-pointer transition-colors"
+                      className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-rose-600 hover:bg-rose-500 text-white rounded-full font-medium text-xs shadow-md cursor-pointer transition-colors"
                     >
-                      <span className="text-[10px]">■</span>
-                      <span>Cancelar</span>
+                      <span className="text-[12px] leading-none">■</span>
+                      <span className="sr-only">Cancelar</span>
                     </motion.button>
                   ) : (
                     <motion.span
@@ -1733,10 +2085,10 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
                     >
                       <ComposerPrimitive.Send
                         aria-label="Enviar mensaje"
-                        className="min-h-[44px] min-w-[44px] flex items-center gap-1.5 px-3.5 py-2 bg-ink text-paper hover:opacity-90 rounded-xl font-medium text-xs shadow-sm cursor-pointer transition-all"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-white text-black hover:bg-white/90 rounded-full font-bold text-sm shadow-md cursor-pointer transition-all"
                       >
-                        <span className="font-bold text-[13px] leading-none">↑</span>
-                        <span>Enviar</span>
+                        <span className="text-[15px] leading-none font-bold">↑</span>
+                        <span className="sr-only">Enviar</span>
                       </ComposerPrimitive.Send>
                     </motion.span>
                   )}
@@ -1746,7 +2098,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
           </ComposerPrimitive.Root>
         </div>
 
-        {/* Aviso de privacidad accesible para tests sin ensuciar la UI */}
+        {/* Aviso de privacidad accesible para tests */}
         <div className="sr-only">
           <VoicePrivacyNotice />
         </div>
