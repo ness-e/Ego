@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -135,6 +135,50 @@ describe("@ego/tools — Conectores Nivel A Nativos (ACT-04)", () => {
       await expect(
         readTool.execute({ path: "../../../sensitive.txt", encoding: "utf-8" }, ctx)
       ).rejects.toThrow(/Violación de Sandbox/i);
+    });
+
+    it("no bloquea el event loop con llamadas síncronas de fs durante read y write", async () => {
+      const writeTool = createFsWriteFileTool();
+      const readTool = createFsReadFileTool();
+      const ctx = {
+        callId: "test-c-async",
+        sessionId: "s1",
+        workspacePath: tempWorkspace,
+      };
+
+      // Preparar archivo
+      await writeTool.execute({ path: "sync_check.txt", content: "initial content", createBackup: false }, ctx);
+
+      // Espiar APIs síncronas del hot path de I/O y aislar NativeFsTool de FileLockManager
+      const withLockSpy = vi.spyOn(FileLockManager, "withLock").mockImplementation(async (_p, action) => action());
+      const statSyncSpy = vi.spyOn(fs, "statSync");
+      const readFileSyncSpy = vi.spyOn(fs, "readFileSync");
+      const writeFileSyncSpy = vi.spyOn(fs, "writeFileSync");
+      const copyFileSyncSpy = vi.spyOn(fs, "copyFileSync");
+      const renameSyncSpy = vi.spyOn(fs, "renameSync");
+
+      try {
+        // Ejecutar lectura y escritura con backup
+        const readRes = await readTool.execute({ path: "sync_check.txt", encoding: "utf-8" }, ctx);
+        expect(readRes.content).toBe("initial content");
+
+        const writeRes = await writeTool.execute({ path: "sync_check.txt", content: "updated content", createBackup: true }, ctx);
+        expect(writeRes.success).toBe(true);
+
+        // Verificar 0 llamadas a los hot paths sincrónicos de I/O dentro de NativeFsTool
+        expect(statSyncSpy).toHaveBeenCalledTimes(0);
+        expect(readFileSyncSpy).toHaveBeenCalledTimes(0);
+        expect(writeFileSyncSpy).toHaveBeenCalledTimes(0);
+        expect(copyFileSyncSpy).toHaveBeenCalledTimes(0);
+        expect(renameSyncSpy).toHaveBeenCalledTimes(0);
+      } finally {
+        withLockSpy.mockRestore();
+        statSyncSpy.mockRestore();
+        readFileSyncSpy.mockRestore();
+        writeFileSyncSpy.mockRestore();
+        copyFileSyncSpy.mockRestore();
+        renameSyncSpy.mockRestore();
+      }
     });
   });
 

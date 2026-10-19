@@ -42,16 +42,21 @@ export function createFsReadFileTool(options: NativeFsOptions = {}): ToolDefinit
 
       const resolved = PathValidator.validatePath(input.path, workspace);
 
-      if (!fs.existsSync(resolved)) {
-        throw new Error(`Archivo no encontrado: '${input.path}'`);
+      let stats: fs.Stats;
+      try {
+        stats = await fs.promises.stat(resolved);
+      } catch (err: any) {
+        if (err?.code === "ENOENT") {
+          throw new Error(`Archivo no encontrado: '${input.path}'`);
+        }
+        throw err;
       }
 
-      const stats = fs.statSync(resolved);
       if (stats.isDirectory()) {
         throw new Error(`La ruta '${input.path}' es un directorio, no un archivo regular`);
       }
 
-      const content = fs.readFileSync(resolved, { encoding: input.encoding as BufferEncoding });
+      const content = await fs.promises.readFile(resolved, { encoding: input.encoding as BufferEncoding });
 
       return {
         path: path.relative(workspace, resolved),
@@ -86,18 +91,23 @@ export function createFsWriteFileTool(options: NativeFsOptions = {}): ToolDefini
       const resolved = PathValidator.validatePath(input.path, workspace);
       const targetDir = path.dirname(resolved);
 
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
+      await fs.promises.mkdir(targetDir, { recursive: true });
 
       return await FileLockManager.withLock(resolved, async () => {
         let backupPath: string | undefined;
 
         // 1. Snapshot previo de reversión (COUC-11)
-        if (input.createBackup && fs.existsSync(resolved)) {
-          const timestamp = Date.now();
-          backupPath = `${resolved}.ego_bak.${timestamp}`;
-          fs.copyFileSync(resolved, backupPath);
+        if (input.createBackup) {
+          try {
+            await fs.promises.access(resolved);
+            const timestamp = Date.now();
+            backupPath = `${resolved}.ego_bak.${timestamp}`;
+            await fs.promises.copyFile(resolved, backupPath);
+          } catch (err: any) {
+            if (err?.code !== "ENOENT") {
+              throw err;
+            }
+          }
         }
 
         // 2. Escritura atómica a archivo temporal en el mismo volumen
@@ -105,16 +115,14 @@ export function createFsWriteFileTool(options: NativeFsOptions = {}): ToolDefini
         const buffer = Buffer.from(input.content, "utf-8");
 
         try {
-          fs.writeFileSync(tmpPath, buffer);
+          await fs.promises.writeFile(tmpPath, buffer);
           // 3. Rename atómico sobre el archivo definitivo
-          fs.renameSync(tmpPath, resolved);
+          await fs.promises.rename(tmpPath, resolved);
         } catch (err) {
           // Limpiar archivo temporal si falló
-          if (fs.existsSync(tmpPath)) {
-            try {
-              fs.unlinkSync(tmpPath);
-            } catch {}
-          }
+          try {
+            await fs.promises.unlink(tmpPath);
+          } catch {}
           throw err;
         }
 

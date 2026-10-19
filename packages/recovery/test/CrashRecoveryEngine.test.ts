@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -93,7 +93,7 @@ describe("CrashRecoveryEngine (REC-01)", () => {
     const lockPath = path.join(tmpDir, "ego.lock");
     const before = JSON.parse(fs.readFileSync(lockPath, "utf8")) as { lastHeartbeat: number };
     await new Promise((r) => setTimeout(r, 150));
-    engine.stopHeartbeat();
+    await engine.stopHeartbeatAsync();
 
     const after = JSON.parse(fs.readFileSync(lockPath, "utf8")) as {
       lastHeartbeat: number;
@@ -110,5 +110,40 @@ describe("CrashRecoveryEngine (REC-01)", () => {
     expect(leftovers).toEqual([]);
 
     engine.releaseLock();
+  });
+
+  it("el heartbeat periódico no bloquea el event loop con APIs síncronas de fs", async () => {
+    const engine = new CrashRecoveryEngine({
+      storageDir: tmpDir,
+      heartbeatIntervalMs: 25,
+      staleThresholdMs: 10000,
+    });
+    await engine.checkAndAcquireLock("test-heartbeat-async");
+
+    // Espiar llamadas síncronas durante los latidos del heartbeat
+    const writeFileSyncSpy = vi.spyOn(fs, "writeFileSync");
+    const fsyncSyncSpy = vi.spyOn(fs, "fsyncSync");
+    const openSyncSpy = vi.spyOn(fs, "openSync");
+    const readFileSyncSpy = vi.spyOn(fs, "readFileSync");
+    const renameSyncSpy = vi.spyOn(fs, "renameSync");
+
+    try {
+      // Esperar múltiples ciclos de heartbeat (~4 latidos)
+      await new Promise((r) => setTimeout(r, 120));
+
+      expect(writeFileSyncSpy).toHaveBeenCalledTimes(0);
+      expect(fsyncSyncSpy).toHaveBeenCalledTimes(0);
+      expect(openSyncSpy).toHaveBeenCalledTimes(0);
+      expect(readFileSyncSpy).toHaveBeenCalledTimes(0);
+      expect(renameSyncSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      engine.stopHeartbeat();
+      engine.releaseLock();
+      writeFileSyncSpy.mockRestore();
+      fsyncSyncSpy.mockRestore();
+      openSyncSpy.mockRestore();
+      readFileSyncSpy.mockRestore();
+      renameSyncSpy.mockRestore();
+    }
   });
 });

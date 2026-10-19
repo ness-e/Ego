@@ -23,6 +23,8 @@ export class CrashRecoveryEngine {
   private readonly eventBus?: EventBus;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private currentSessionId: string | null = null;
+  private isHeartbeatRunning = false;
+  private activeHeartbeatPromise: Promise<void> | null = null;
 
   constructor(options: CrashRecoveryEngineOptions) {
     this.storageDir = options.storageDir;
@@ -126,12 +128,16 @@ export class CrashRecoveryEngine {
     if (this.heartbeatTimer) return;
 
     this.heartbeatTimer = setInterval(() => {
-      if (this.currentSessionId) {
-        try {
-          this.updateHeartbeat(Date.now());
-        } catch {
-          // Ignorar fallo de I/O en heartbeat temporal
-        }
+      if (this.currentSessionId && !this.isHeartbeatRunning) {
+        this.isHeartbeatRunning = true;
+        this.activeHeartbeatPromise = this.updateHeartbeat(Date.now())
+          .catch(() => {
+            // Ignorar fallo de I/O en heartbeat temporal
+          })
+          .finally(() => {
+            this.isHeartbeatRunning = false;
+            this.activeHeartbeatPromise = null;
+          });
       }
     }, this.heartbeatIntervalMs);
 
@@ -147,6 +153,20 @@ export class CrashRecoveryEngine {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
+    }
+  }
+
+  /**
+   * Espera a que termine cualquier latido I/O en vuelo y detiene el heartbeat.
+   */
+  public async stopHeartbeatAsync(): Promise<void> {
+    this.stopHeartbeat();
+    if (this.activeHeartbeatPromise) {
+      try {
+        await this.activeHeartbeatPromise;
+      } catch {
+        // noop
+      }
     }
   }
 
@@ -202,10 +222,10 @@ export class CrashRecoveryEngine {
    * temporal con el PID en el nombre, hace `fsync` y publica con `rename`
    * (atómico en POSIX y NTFS), limpiando el temporal ante cualquier fallo.
    */
-  private updateHeartbeat(timestamp: number): void {
+  private async updateHeartbeat(timestamp: number): Promise<void> {
     let raw: string;
     try {
-      raw = fs.readFileSync(this.lockFilePath, "utf8");
+      raw = await fs.promises.readFile(this.lockFilePath, "utf8");
     } catch {
       return; // Lock liberado entre tanto; nada que latir
     }
@@ -220,18 +240,18 @@ export class CrashRecoveryEngine {
 
     const tmpPath = `${this.lockFilePath}.${process.pid}.tmp`;
     try {
-      fs.writeFileSync(tmpPath, JSON.stringify(record, null, 2), "utf8");
-      // "r+" y no "r": en Windows, fsync sobre un fd de solo-lectura falla con EPERM.
-      const fd = fs.openSync(tmpPath, "r+");
+      // "w+": en Windows, fsync sobre un fd de solo-lectura falla con EPERM.
+      const handle = await fs.promises.open(tmpPath, "w+");
       try {
-        fs.fsyncSync(fd);
+        await handle.writeFile(JSON.stringify(record, null, 2), "utf8");
+        await handle.sync();
       } finally {
-        fs.closeSync(fd);
+        await handle.close();
       }
-      fs.renameSync(tmpPath, this.lockFilePath);
+      await fs.promises.rename(tmpPath, this.lockFilePath);
     } catch {
       try {
-        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+        await fs.promises.unlink(tmpPath);
       } catch {
         // noop: mejor un temporal huérfano que un lock truncado
       }
