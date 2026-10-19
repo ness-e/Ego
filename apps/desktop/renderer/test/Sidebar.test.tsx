@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import userEvent from "@testing-library/user-event";
 import { Sidebar } from "../components/sidebar.js";
 
 const baseProps = {
@@ -64,6 +65,7 @@ describe("T08 UI-05: Sidebar viva (datos del bridge, no hardcodeados)", () => {
   });
 
   it("BYOK por proveedor: exige key no vacía antes de guardar", async () => {
+    const user = userEvent.setup();
     await setup();
     await act(async () => {
       const settingsBtn = Array.from(container.querySelectorAll("button")).find((b) =>
@@ -73,14 +75,14 @@ describe("T08 UI-05: Sidebar viva (datos del bridge, no hardcodeados)", () => {
       await Promise.resolve();
     });
     expect(document.body.textContent).toContain("Configuración de Ego");
-    const select = document.body.querySelector('select[aria-label="Proveedor activo"]') as HTMLSelectElement;
-    expect(select).toBeTruthy();
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set;
-      setter?.call(select, "anthropic");
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      await Promise.resolve();
-    });
+    const trigger = document.body.querySelector('button[aria-label="Proveedor activo"]') as HTMLButtonElement;
+    expect(trigger).toBeTruthy();
+    await user.click(trigger);
+    const option = Array.from(document.body.querySelectorAll('[role="option"]')).find((el) =>
+      el.textContent?.includes("Anthropic")
+    ) as HTMLElement;
+    expect(option).toBeTruthy();
+    await user.click(option);
     await act(async () => {
       const save = Array.from(document.body.querySelectorAll("button")).find((b) =>
         b.textContent?.includes("Guardar Configuración")

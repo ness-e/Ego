@@ -12,6 +12,7 @@ import {
   FileArrowDown,
 } from "@phosphor-icons/react";
 import { Modal } from "../ui-kit/Modal.js";
+import { Select } from "../ui-kit/Select.js";
 import { ego, type ModelConfigInfo, type StorageInfoResult, type GovPoliciesResult } from "../../lib/ego.js";
 
 export interface SettingsModalProps {
@@ -328,24 +329,25 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     <label className="text-xs font-semibold text-ink">Proveedor Activo</label>
                     <p className="text-[11px] text-dim">Selecciona el motor de inferencia principal</p>
                   </div>
-                  <select
-                    aria-label="Proveedor activo"
+                  <Select
+                    ariaLabel="Proveedor activo"
                     value={modelConfig.activeProvider}
-                    onChange={(e) =>
+                    onValueChange={(val) =>
                       setModelConfig((prev) => ({
                         ...prev,
-                        activeProvider: e.target.value as ModelConfigInfo["activeProvider"],
+                        activeProvider: val as ModelConfigInfo["activeProvider"],
                       }))
                     }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 text-xs text-ink focus:border-brand focus:outline-none transition-all shadow-2xs"
-                  >
-                    <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-                    <option value="anthropic">Anthropic (Claude)</option>
-                    <option value="google">Google (Gemini)</option>
-                    <option value="deepseek">DeepSeek (DeepSeek-Chat / Coder)</option>
-                    <option value="ollama">Ollama Local (Offline)</option>
-                    <option value="mock">Mock Determinista (Pruebas sin coste)</option>
-                  </select>
+                    options={[
+                      { value: "openai", label: "OpenAI (GPT-4o / GPT-4o-mini)" },
+                      { value: "anthropic", label: "Anthropic (Claude)" },
+                      { value: "google", label: "Google (Gemini)" },
+                      { value: "deepseek", label: "DeepSeek (DeepSeek-Chat / Coder)" },
+                      { value: "ollama", label: "Ollama Local (Offline)" },
+                      { value: "mock", label: "Mock Determinista (Pruebas sin coste)" },
+                    ]}
+                    className="w-full sm:w-64 min-h-11 min-w-11"
+                  />
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
@@ -519,15 +521,17 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     <h4 className="text-xs font-semibold text-ink">Tema y Apariencia</h4>
                     <p className="text-[11px] text-dim">Modo oscuro adaptativo local de alto contraste</p>
                   </div>
-                  <select
+                  <Select
+                    ariaLabel="Tema y Apariencia"
                     value={themeMode}
-                    onChange={(e) => setThemeMode(e.target.value)}
-                    className="rounded-xl border border-hairline bg-panel px-3 py-1.5 text-xs text-ink"
-                  >
-                    <option value="dark">Dark Sovereign (Predeterminado)</option>
-                    <option value="oled">Pure OLED 0x000000</option>
-                    <option value="graphite">Graphite CX Studio</option>
-                  </select>
+                    onValueChange={(val) => setThemeMode(val)}
+                    options={[
+                      { value: "dark", label: "Dark Sovereign (Predeterminado)" },
+                      { value: "oled", label: "Pure OLED 0x000000" },
+                      { value: "graphite", label: "Graphite CX Studio" },
+                    ]}
+                    className="w-full sm:w-64 min-h-11 min-w-11"
+                  />
                 </div>
 
                 <div className="flex items-center justify-between py-3">
@@ -609,11 +613,16 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     <h4 className="text-xs font-semibold text-ink">Motor de Text-to-Speech (TTS)</h4>
                     <p className="text-[11px] text-dim">Voz sintética para respuestas habladas</p>
                   </div>
-                  <select className="rounded-xl border border-hairline bg-panel px-3 py-1.5 text-xs text-ink">
-                    <option value="system">Voz Nativa del Sistema</option>
-                    <option value="piper">Piper Neural TTS (Local)</option>
-                    <option value="openai">OpenAI TTS-1 (Alloy/Echo)</option>
-                  </select>
+                  <Select
+                    ariaLabel="Motor de Text-to-Speech (TTS)"
+                    defaultValue="system"
+                    options={[
+                      { value: "system", label: "Voz Nativa del Sistema" },
+                      { value: "piper", label: "Piper Neural TTS (Local)" },
+                      { value: "openai", label: "OpenAI TTS-1 (Alloy/Echo)" },
+                    ]}
+                    className="w-full sm:w-64 min-h-11 min-w-11"
+                  />
                 </div>
               </div>
             </div>

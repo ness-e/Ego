@@ -27,7 +27,8 @@ import { CharacterBadge } from "../character/CharacterBadge.js";
 import { OPEN_SETTINGS_EVENT, requestOpenOmnibar } from "../omnibar.js";
 import { SettingsModal } from "./SettingsModal.js";
 import { ProjectsModal } from "./ProjectsModal.js";
-import { useDesignSystem } from "../canvas/DesignSystemProvider.js";
+import { useDesignSystem, resolvePresetKey } from "../canvas/DesignSystemProvider.js";
+import { Select } from "../ui-kit/Select.js";
 
 export interface SidebarProps {
   activeProject: string;
@@ -247,7 +248,7 @@ export function Sidebar({
           ========================================================================= */}
       <nav
         aria-label="Icon Rail"
-        className="w-12 shrink-0 bg-[#111113] border-r border-white/[0.06] flex flex-col items-center py-3 justify-between z-20"
+        className="w-14 shrink-0 bg-[#111113] border-r border-white/[0.06] flex flex-col items-center py-3 justify-between z-20"
       >
         {/* Parte Superior del Rail */}
         <div className="flex flex-col items-center gap-2">
@@ -258,7 +259,7 @@ export function Sidebar({
               onClick={() => notifyCollapsed(false)}
               title="Expandir barra lateral (Ctrl+B)"
               aria-label="Expandir barra lateral"
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer mb-1"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer mb-1"
             >
               <SidebarSimple size={18} />
             </button>
@@ -272,7 +273,7 @@ export function Sidebar({
             }}
             title="Inicio / Chat"
             aria-label="Inicio / Chat"
-            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
               !workspaceOpen
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -289,7 +290,7 @@ export function Sidebar({
             }}
             title="Sub-Egos Fábrica"
             aria-label="Sub-Egos Fábrica"
-            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
               workspaceOpen && activeWorkspaceTab === "subegos"
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -306,7 +307,7 @@ export function Sidebar({
             }}
             title="Tareas e Historial (Workbench)"
             aria-label="Tareas e Historial"
-            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
               workspaceOpen && activeWorkspaceTab === "workbench"
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -323,7 +324,7 @@ export function Sidebar({
             }}
             title="Conocimiento y Memoria"
             aria-label="Conocimiento y Memoria"
-            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
               workspaceOpen && activeWorkspaceTab === "domains"
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -340,7 +341,7 @@ export function Sidebar({
             }}
             title="Personalización (Skills y Complementos MCP)"
             aria-label="Personalización"
-            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
               workspaceOpen && activeWorkspaceTab === "personalization"
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -356,7 +357,7 @@ export function Sidebar({
               onClick={() => setDotsMenuOpen(!dotsMenuOpen)}
               title="Más vistas y herramientas"
               aria-label="Más vistas y herramientas"
-              className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
+              className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
                 dotsMenuOpen
                   ? "bg-white/15 text-white"
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -427,7 +428,7 @@ export function Sidebar({
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             title="Perfil de Eros · Soberano Local"
             aria-label="Perfil de usuario y configuración"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-700/80 hover:bg-zinc-600 text-xs font-semibold text-white transition-colors cursor-pointer shadow-xs border border-white/10"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-zinc-700/80 hover:bg-zinc-600 text-xs font-semibold text-white transition-colors cursor-pointer shadow-xs border border-white/10"
           >
             EN
           </button>
@@ -481,18 +482,22 @@ export function Sidebar({
                     <PaintBrush size={15} className="text-zinc-400" />
                     <span>Apariencia</span>
                   </div>
-                  <select
-                    value={designSystem?.tokens?.id ?? "theme-default-dark"}
-                    onChange={(e) => designSystem?.applyPreset?.(e.target.value)}
-                    className="bg-black/40 border border-white/10 rounded-lg text-[10px] px-1.5 py-0.5 text-zinc-300 focus:outline-none"
-                  >
-                    {designSystem?.availablePresets &&
-                      Object.keys(designSystem.availablePresets).map((k) => (
-                        <option key={k} value={k}>
-                          {designSystem.availablePresets[k]?.name ?? k}
-                        </option>
-                      ))}
-                  </select>
+                  <Select
+                    ariaLabel="Tema de apariencia"
+                    value={
+                      resolvePresetKey(designSystem?.tokens?.id ?? "") ?? "default-dark"
+                    }
+                    onValueChange={(val) => designSystem?.applyPreset?.(val)}
+                    options={
+                      designSystem?.availablePresets
+                        ? Object.keys(designSystem.availablePresets).map((k) => ({
+                            value: k,
+                            label: designSystem.availablePresets[k]?.name ?? k,
+                          }))
+                        : [{ value: "default-dark", label: "Default Dark" }]
+                    }
+                    className="min-h-11 min-w-11 max-w-[140px] text-[10px]"
+                  />
                 </div>
 
                 <button
@@ -540,7 +545,7 @@ export function Sidebar({
                 onClick={requestOpenOmnibar}
                 title="Buscar en memoria (Ctrl+K)"
                 aria-label="Buscar en memoria (Ctrl+K)"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <MagnifyingGlass size={15} />
               </button>
@@ -549,7 +554,7 @@ export function Sidebar({
                 onClick={() => notifyCollapsed(true)}
                 title="Colapsar panel (Ctrl+B)"
                 aria-label="Colapsar panel"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <SidebarSimple size={15} />
               </button>

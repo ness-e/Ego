@@ -8,6 +8,7 @@ import { SubEgoSelector } from "../components/SubEgoSelector";
 import { ModelPicker, CANONICAL_MODELS, type ModelOption } from "../components/ModelPicker";
 import { SplitPane } from "../components/PaneShell";
 import { useUiStore, mintSessionId, loadPersistedSessionId } from "../components/ui-kit/store.js";
+import { Select } from "../components/ui-kit/Select.js";
 import { ego } from "../lib/ego";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
 import { ActivityTray } from "../components/activity-tray/ActivityTray";
@@ -72,19 +73,17 @@ function ThemeControl() {
   return (
     <div className="flex items-center gap-1.5 text-xs">
       <div className="relative flex items-center">
-        <select
+        <Select
           value={selectedKey}
-          onChange={(e) => applyPreset(e.target.value)}
-          aria-label="Tema de diseño"
-          className="ego-pill-select font-mono text-[11px] max-w-[155px] truncate"
+          onValueChange={(val) => applyPreset(val)}
+          ariaLabel="Tema de diseño"
           title="Ego Generative Design System — Tokens"
-        >
-          {presetKeys.map((k) => (
-            <option key={k} value={k}>
-              {availablePresets[k]?.name ?? k}
-            </option>
-          ))}
-        </select>
+          className="ego-pill-select font-mono text-[11px] max-w-[155px] truncate min-h-11 min-w-11"
+          options={presetKeys.map((k) => ({
+            value: k,
+            label: availablePresets[k]?.name ?? k,
+          }))}
+        />
       </div>
     </div>
   );
@@ -296,7 +295,7 @@ export function App() {
               onClick={() => useUiStore.getState().openModelPicker()}
               title="Selector de modelo (Model Router)"
               aria-label="Selector de modelo activo"
-              className="flex max-w-[200px] items-center gap-2 rounded-full border border-hairline bg-raised/90 hover:bg-raised px-2.5 py-1 font-mono text-[10px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
+              className="flex max-w-[200px] min-h-11 min-w-11 items-center gap-2 rounded-full border border-hairline bg-raised/90 hover:bg-raised px-2.5 py-1 font-mono text-[10px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
             >
               <span className="relative flex h-2 w-2 items-center justify-center shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
@@ -311,7 +310,7 @@ export function App() {
               onClick={() => (window as any).ego?.floating?.toggleFloating?.()}
               title="Mostrar/Ocultar Isla Flotante Companion (Alt+Win+P)"
               aria-label="Mostrar u ocultar Isla Flotante"
-              className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised/80 hover:bg-raised px-2.5 py-1 font-sans text-[11px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
+              className="flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border border-hairline bg-raised/80 hover:bg-raised px-2.5 py-1 font-sans text-[11px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
             >
               <span>🏝️</span>
               <span className="font-medium hidden sm:inline">Isla</span>
@@ -324,7 +323,7 @@ export function App() {
               title="Alternar panel de Workspace (Ctrl+\)"
               aria-label="Alternar panel de Workspace"
               aria-expanded={workspaceOpen}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-sans text-[11px] transition-all shadow-xs cursor-pointer ${
+              className={`flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border px-2.5 py-1 font-sans text-[11px] transition-all shadow-xs cursor-pointer ${
                 workspaceOpen
                   ? "border-strong bg-raised text-ink font-semibold"
                   : "border-hairline bg-panel text-dim hover:text-ink hover:bg-raised/70"
@@ -391,29 +390,29 @@ export function App() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <select
-                  aria-label="Modelo del chat"
+                <Select
+                  ariaLabel="Modelo del chat"
                   title="Modelo del chat (Model Router)"
                   value={
                     CANONICAL_MODELS.some((m) => m.id === activeModelId)
                       ? activeModelId
                       : `custom:${activeModelId}`
                   }
-                  onChange={(e) => {
-                    const found = CANONICAL_MODELS.find((m) => m.id === e.target.value);
+                  onValueChange={(val) => {
+                    const found = CANONICAL_MODELS.find((m) => m.id === val);
                     if (found) void handleSelectModel(found);
                   }}
-                  className="ego-pill-select font-mono text-[10px] max-w-[140px] truncate text-dim hover:text-ink border border-hairline bg-raised/60 rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
-                >
-                  {CANONICAL_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                  {!CANONICAL_MODELS.some((m) => m.id === activeModelId) && (
-                    <option value={`custom:${activeModelId}`}>{activeModelId} (custom)</option>
-                  )}
-                </select>
+                  className="ego-pill-select font-mono text-[10px] max-w-[140px] truncate text-dim hover:text-ink min-h-11 min-w-11"
+                  options={[
+                    ...CANONICAL_MODELS.map((m) => ({
+                      value: m.id,
+                      label: m.name,
+                    })),
+                    ...(!CANONICAL_MODELS.some((m) => m.id === activeModelId)
+                      ? [{ value: `custom:${activeModelId}`, label: `${activeModelId} (custom)` }]
+                      : []),
+                  ]}
+                />
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
