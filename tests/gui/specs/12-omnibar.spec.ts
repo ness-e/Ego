@@ -12,7 +12,7 @@ test("omnibar: Ctrl+K abre búsqueda federada y enfoca el combobox", async ({
   const errors = await collectPageErrors(page);
   await page.goto("/");
   await page.keyboard.press("Control+k");
-  const modal = page.getByTitle("Búsqueda federada (Ctrl+K)");
+  const modal = page.getByRole("dialog", { name: "Búsqueda federada (Ctrl+K)" });
   await expect(modal).toBeVisible({ timeout: 5000 });
   const box = page.getByRole("combobox", { name: "Buscar en memoria federada" });
   await expect(box).toBeFocused();

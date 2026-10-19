@@ -9,6 +9,6 @@ test("arranque: título, #root y header sin consola roja", async ({ page }) => {
   await expect(page).toHaveTitle("Ego — Sistema Operativo Cognitivo");
   await expect(page.locator("#root")).toBeVisible();
   await expect(page.getByText("Ego", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Cognitive OS").first()).toBeVisible();
+  await expect(page.getByText(/SOC|Cognitive OS/).first()).toBeVisible();
   expect(errors, `consola roja al arrancar: ${errors.join("\n")}`).toEqual([]);
 });

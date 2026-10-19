@@ -18,6 +18,7 @@ import { SplitPane } from "../components/PaneShell.js";
 import { ActivityTray } from "../components/activity-tray/ActivityTray.js";
 import { App } from "../src/App.js";
 import { ego } from "../lib/ego.js";
+import { PRESET_THEMES } from "../components/canvas/DesignSystemProvider.js";
 
 // STAB-08: migrado de createRoot+act+dispatchEvent a RTL por comportamiento
 // (render + user-event). La lógica axe y los asserts WCAG quedan intactos.
@@ -262,22 +263,143 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
     expect(html).toMatch(/<title>[^<]+<\/title>/);
   });
 
+  const lum = (hex: string): number => {
+    const c = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * (c[0] ?? 0) + 0.7152 * (c[1] ?? 0) + 0.0722 * (c[2] ?? 0);
+  };
+
+  const wcagRatio = (a: string, b: string): number => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+  };
+
   it("contraste WCAG AA por cálculo: dim #8a8a92 sobre paper #0a0a0b ≥ 4.5:1", async () => {
     const css = fs.readFileSync(HERE + "../src/index.css", "utf8");
     expect(css).toContain("--color-dim: #8a8a92");
-    const lum = (hex: string): number => {
-      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) =>
-        v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
-      );
-      return 0.2126 * (c[0] ?? 0) + 0.7152 * (c[1] ?? 0) + 0.0722 * (c[2] ?? 0);
-    };
-    const ratio = (a: string, b: string): number => {
-      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
-      return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
-    };
-    expect(ratio("#8a8a92", "#0a0a0b")).toBeGreaterThanOrEqual(4.5);
+    expect(wcagRatio("#8a8a92", "#0a0a0b")).toBeGreaterThanOrEqual(4.5);
     // Anillo de foco brand sobre paper: componente UI ≥ 3:1.
-    expect(ratio("#f59e0b", "#0a0a0b")).toBeGreaterThanOrEqual(3);
+    expect(wcagRatio("#f59e0b", "#0a0a0b")).toBeGreaterThanOrEqual(3);
+  });
+
+  describe("WCAG 2.2 AA: ratio determinista sobre paletas de theme-tokens.css", () => {
+    const PALETTES = {
+      "dark-graphite": {
+        bg: "#09090b",
+        panel: "#141416",
+        raised: "#1c1c20",
+        text: "#f4f4f5",
+        muted: "#a1a1aa",
+        borderStrong: "#71717a",
+      },
+      "midnight-cyan": {
+        bg: "#030712",
+        panel: "#0f172a",
+        raised: "#1e293b",
+        text: "#f8fafc",
+        muted: "#94a3b8",
+        borderStrong: "#64748b",
+      },
+      "warm-sepia": {
+        bg: "#1c1917",
+        panel: "#292524",
+        raised: "#44403c",
+        text: "#fef3c7",
+        muted: "#d6d3d1",
+        borderStrong: "#78716c",
+      },
+      "high-contrast": {
+        bg: "#000000",
+        panel: "#0a0a0a",
+        raised: "#141414",
+        text: "#ffffff",
+        muted: "#cccccc",
+        borderStrong: "#a3a3a3",
+      },
+    };
+
+    it("texto normal (text y muted) cumple >= 4.5:1 en todas las superficies", () => {
+      for (const [name, p] of Object.entries(PALETTES)) {
+        for (const surface of [p.bg, p.panel, p.raised]) {
+          expect(
+            wcagRatio(p.text, surface),
+            `Paleta ${name}: text sobre superficie debe ser >= 4.5:1`
+          ).toBeGreaterThanOrEqual(4.5);
+          expect(
+            wcagRatio(p.muted, surface),
+            `Paleta ${name}: muted sobre superficie debe ser >= 4.5:1`
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+
+    it("bordes interactivos (borderStrong) cumplen >= 3:1 en superficies conformes", () => {
+      for (const name of ["dark-graphite", "midnight-cyan", "high-contrast"] as const) {
+        const p = PALETTES[name];
+        for (const surface of [p.bg, p.panel, p.raised]) {
+          expect(
+            wcagRatio(p.borderStrong, surface),
+            `Paleta ${name}: borderStrong sobre superficie debe ser >= 3:1`
+          ).toBeGreaterThanOrEqual(3.0);
+        }
+      }
+      expect(wcagRatio(PALETTES["warm-sepia"].borderStrong, PALETTES["warm-sepia"].bg)).toBeGreaterThanOrEqual(3.0);
+      expect(wcagRatio(PALETTES["warm-sepia"].borderStrong, PALETTES["warm-sepia"].panel)).toBeGreaterThanOrEqual(3.0);
+    });
+
+    // Hallazgo FIND-A11Y-01 documentado en docs/dev/e2e-skip-inventory.md:
+    // En warm-sepia, borderStrong (#78716c) sobre raised (#44403c) rinde 2.14:1 (< 3:1).
+    it.fails("warm-sepia: borderStrong #78716c sobre raised #44403c falla >= 3:1 (Hallazgo FIND-A11Y-01)", () => {
+      expect(wcagRatio("#78716c", "#44403c")).toBeGreaterThanOrEqual(3.0);
+    });
+  });
+
+  describe("WCAG 2.2 AA: ratio determinista sobre presets de DesignSystemProvider.tsx", () => {
+    it("texto normal (text y muted) de los 4 presets cumple >= 4.5:1 sobre todas las superficies", () => {
+      for (const [key, preset] of Object.entries(PRESET_THEMES)) {
+        const c = preset.colors;
+        for (const surface of [c.background, c.panel, c.raised]) {
+          expect(
+            wcagRatio(c.text, surface),
+            `Preset ${key}: text sobre superficie debe ser >= 4.5:1`
+          ).toBeGreaterThanOrEqual(4.5);
+          expect(
+            wcagRatio(c.muted, surface),
+            `Preset ${key}: muted sobre superficie debe ser >= 4.5:1`
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+
+    it("default-dark cumple >= 3:1 para FIXED_BORDER_STRONG (#71717a) y >= 4.5:1 para FIXED_DIM (#8a8a92)", () => {
+      const p = PRESET_THEMES["default-dark"]!.colors;
+      for (const surface of [p.background, p.panel, p.raised]) {
+        expect(wcagRatio("#71717a", surface)).toBeGreaterThanOrEqual(3.0);
+        expect(wcagRatio("#8a8a92", surface)).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    // Hallazgos documentados en docs/dev/e2e-skip-inventory.md para presets con fondos oscuros/intermedios:
+    it.fails("midnight-cyan: fixed dim #8a8a92 sobre raised #1e293b rinde 4.27:1 (falla >= 4.5:1, FIND-A11Y-04)", () => {
+      expect(wcagRatio("#8a8a92", "#1e293b")).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.fails("emerald-terminal: fixed dim #8a8a92 sobre panel #064e3b rinde 2.84:1 (falla >= 4.5:1, FIND-A11Y-05)", () => {
+      expect(wcagRatio("#8a8a92", "#064e3b")).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.fails("emerald-terminal: fixed borderStrong #71717a sobre panel #064e3b rinde 2.01:1 (falla >= 3:1, FIND-A11Y-02)", () => {
+      expect(wcagRatio("#71717a", "#064e3b")).toBeGreaterThanOrEqual(3.0);
+    });
+
+    it.fails("amber-warm: fixed dim #8a8a92 sobre panel #292524 rinde 4.43:1 (falla >= 4.5:1, FIND-A11Y-06)", () => {
+      expect(wcagRatio("#8a8a92", "#292524")).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.fails("amber-warm: fixed borderStrong #71717a sobre raised #44403c rinde 2.13:1 (falla >= 3:1, FIND-A11Y-03)", () => {
+      expect(wcagRatio("#71717a", "#44403c")).toBeGreaterThanOrEqual(3.0);
+    });
   });
 
   it("App shell WCAG 2.2 AA: landmarks + separator + 0 violaciones axe (color-contrast off)", async () => {
