@@ -28,6 +28,7 @@ import {
   ShieldCheck,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { Virtualizer } from "virtua";
 import { MOTION } from "./canvas/DesignSystemProvider.js";
 import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
 import { turnsToMessages, type SessionTurnRecord } from "../lib/session-resume.js";
@@ -184,13 +185,45 @@ const AssistantMessage = memo(
 );
 AssistantMessage.displayName = "AssistantMessage";
 
-type Msg = {
+export type Msg = {
   id: string;
   role: "user" | "assistant";
   content: [{ type: "text"; text: string }];
   recall?: RecallBadgeInfo;
   isError?: boolean;
 };
+
+/**
+ * T21 (PERF-VIRTUA) / UI-05: Virtualización con virtua por encima de umbral.
+ *
+ * Decisión arquitectónica (@assistant-ui 0.15 + virtua):
+ * 1. ThreadPrimitive.Messages de @assistant-ui no admite contenedor externo ni virtualización
+ *    nativa directa sin romper la jerarquía del ThreadViewport.
+ * 2. VList crea un div contenedor con scroll propio (overflowY: auto), lo que generaría doble scrollbar
+ *    anidado dentro de ThreadPrimitive.Viewport, rompiendo el scroll-lock inteligente, el ancla y
+ *    las mediciones de tamaño.
+ * 3. En hilos cortos (<= 60 mensajes), React y los navegadores modernos gestionan el árbol sin jank,
+ *    aprovechando content-visibility: auto + contain-intrinsic-size ya presentes por turno.
+ * 4. Happy-DOM (entorno de pruebas vitest) no calcula layout (alturas y scrollHeight son 0),
+ *    por lo que un Virtualizer incondicional en hilos cortos rompería todas las suites de tests.
+ * 5. Por tanto, aplicamos virtualización con Virtualizer (asociado a scrollRef={viewportRef})
+ *    SOLO cuando messageCount > threshold (por defecto 60), manteniendo el render nativo
+ *    para hilos cortos.
+ * 6. Con keepMounted={[messages.length - 1]}, el último mensaje (turno activo / streaming)
+ *    permanece SIEMPRE montado en el DOM, garantizando que el streaming no se interrumpa.
+ */
+export const CHAT_VIRTUALIZATION_THRESHOLD = 60;
+
+export function shouldVirtualizeChat(
+  messageCount: number,
+  threshold: number = CHAT_VIRTUALIZATION_THRESHOLD
+): boolean {
+  return messageCount > threshold;
+}
+
+export function getChatKeepMountedIndices(messagesLength: number): readonly number[] {
+  return messagesLength > 0 ? [messagesLength - 1] : [];
+}
 
 interface ActiveChatError {
   message: string;
@@ -464,10 +497,18 @@ export interface EgoChatProps {
   projectId?: string;
   subEgoId?: string;
   sessionId?: string | null;
+  initialMessages?: Msg[];
+  virtualizationThreshold?: number;
 }
 
-export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
-  const [messages, setMessages] = useState<Msg[]>([]);
+export function EgoChat({
+  projectId,
+  subEgoId,
+  sessionId,
+  initialMessages,
+  virtualizationThreshold,
+}: EgoChatProps = {}) {
+  const [messages, setMessages] = useState<Msg[]>(() => initialMessages ?? []);
   const [latestRecall, setLatestRecall] = useState<RecallBadgeInfo | null>(null);
   const [activeError, setActiveError] = useState<ActiveChatError | null>(null);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
@@ -762,7 +803,11 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
 
   useEffect(() => {
     if (!sessionId) {
-      setMessages([]);
+      if (initialMessages) {
+        setMessages(initialMessages);
+      } else {
+        setMessages([]);
+      }
       return;
     }
     let cancelled = false;
@@ -779,7 +824,7 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, initialMessages]);
 
   useEffect(() => {
     const unsub = ego().onApprovalRequest?.((req) => {
@@ -1330,6 +1375,26 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
     return found ? found.name : formatModelName(selectedModel);
   }, [availableModels, selectedModel]);
 
+  const assistantMessageComponent = useCallback(
+    () => <AssistantMessage subEgoId={subEgoId ?? "ego.nucleus"} onRetry={handleRetry} />,
+    [subEgoId, handleRetry]
+  );
+
+  const messageComponents = useMemo(
+    () => ({
+      UserMessage,
+      AssistantMessage: assistantMessageComponent,
+    }),
+    [assistantMessageComponent]
+  );
+
+  const threshold = virtualizationThreshold ?? CHAT_VIRTUALIZATION_THRESHOLD;
+  const isVirtualized = shouldVirtualizeChat(messages.length, threshold);
+  const keepMountedIndices = useMemo(
+    () => getChatKeepMountedIndices(messages.length),
+    [messages.length]
+  );
+
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="h-full flex flex-col">
@@ -1474,14 +1539,36 @@ export function EgoChat({ projectId, subEgoId, sessionId }: EgoChatProps = {}) {
               lastMessageId: messages[messages.length - 1]?.id,
             }}
           >
-            <ThreadPrimitive.Messages
-              components={{
-                UserMessage,
-                AssistantMessage: () => (
-                  <AssistantMessage subEgoId={subEgoId ?? "ego.nucleus"} onRetry={handleRetry} />
-                ),
-              }}
-            />
+            {isVirtualized ? (
+              <Virtualizer
+                scrollRef={viewportRef}
+                data={messages}
+                keepMounted={keepMountedIndices}
+                itemSize={120}
+              >
+                {(msg, index) => (
+                  <div
+                    key={msg.id}
+                    data-testid="chat-message-turn"
+                    data-message-id={msg.id}
+                    data-role={msg.role}
+                    style={{
+                      contentVisibility: "auto",
+                      containIntrinsicSize: msg.role === "user" ? "auto 96px" : "auto 140px",
+                    }}
+                  >
+                    <ThreadPrimitive.MessageByIndex
+                      index={index}
+                      components={messageComponents}
+                    />
+                  </div>
+                )}
+              </Virtualizer>
+            ) : (
+              <ThreadPrimitive.Messages
+                components={messageComponents}
+              />
+            )}
           </ChatActionsContext.Provider>
         </ThreadPrimitive.Viewport>
 
