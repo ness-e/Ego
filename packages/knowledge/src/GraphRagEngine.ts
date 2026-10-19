@@ -129,14 +129,60 @@ export class GraphRagEngine {
           if (!visitedIds.has(rel.targetId)) {
             visitedIds.add(rel.targetId);
 
-            // Intentar recuperar el nodo vecino desde VantaDB si está presente
-            const neighborNode: GraphNode = {
-              id: rel.targetId,
-              label: rel.targetId.split(":").pop() || rel.targetId,
-              type: rel.targetId.includes("fact") ? "fact" : "entity",
-              content: rel.summary || `Entidad relacionada: ${rel.targetId}`,
-              weight: Math.max(0.1, node.weight * 0.8), // Decaimiento por salto de distancia
-            };
+            // Intentar recuperar el nodo vecino real desde el adaptador (EgoMemoryAdapter)
+            let neighborNode: GraphNode;
+            let record: { key: string; payload: unknown; metadata?: Record<string, unknown> } | null = null;
+
+            const colonIdx = rel.targetId.indexOf(":");
+            if (colonIdx > 0 && typeof this.adapter?.get === "function") {
+              const ns = rel.targetId.slice(0, colonIdx);
+              const key = rel.targetId.slice(colonIdx + 1);
+              try {
+                record = await this.adapter.get(ns, key);
+              } catch {
+                record = null;
+              }
+            }
+
+            if (record) {
+              const ns = rel.targetId.slice(0, colonIdx);
+              const payloadStr =
+                typeof record.payload === "string"
+                  ? record.payload
+                  : record.payload !== undefined && record.payload !== null
+                    ? JSON.stringify(record.payload)
+                    : "";
+
+              neighborNode = {
+                id: rel.targetId,
+                label: record.key || rel.targetId.split(":").pop() || rel.targetId,
+                type: ns.startsWith("kb/facts")
+                  ? "fact"
+                  : ns.startsWith("gov/audit")
+                    ? "decision"
+                    : ns.startsWith("kb/docs")
+                      ? "document"
+                      : rel.targetId.includes("fact")
+                        ? "fact"
+                        : "entity",
+                content: payloadStr,
+                weight: Math.max(0.1, node.weight * 0.8), // Decaimiento por salto de distancia
+                metadata: {
+                  ...(record.metadata as Record<string, unknown> | undefined),
+                  resolved: true,
+                },
+              };
+            } else {
+              // Fallback si no se puede resolver el nodo en el adaptador
+              neighborNode = {
+                id: rel.targetId,
+                label: rel.targetId.split(":").pop() || rel.targetId,
+                type: rel.targetId.includes("fact") ? "fact" : "entity",
+                content: rel.summary || `Entidad relacionada: ${rel.targetId}`,
+                weight: Math.max(0.1, node.weight * 0.8), // Decaimiento por salto de distancia
+                metadata: { resolved: false },
+              };
+            }
 
             expandedNodes.push(neighborNode);
             nextLayer.push(neighborNode);

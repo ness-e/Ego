@@ -46,4 +46,93 @@ describe("GraphRagEngine (KB-06)", () => {
     expect(result.expandedNodes).toHaveLength(0);
     expect(result.contextSummary).toContain("No se encontró conocimiento previo");
   });
+
+  it("expande múltiples saltos A->B->C resolviendo el nodo B real desde el adaptador", async () => {
+    mockAdapter.searchMulti.mockResolvedValueOnce([
+      {
+        record: {
+          namespace: "kb/docs",
+          key: "doc_aaaa1111",
+          payload: "Documento A que conecta con doc_bbbb2222.",
+          metadata: {},
+        },
+        score: 0.95,
+      },
+    ]);
+
+    mockAdapter.get = vi.fn().mockImplementation(async (ns: string, key: string) => {
+      if (ns === "kb/docs" && key === "doc_bbbb2222") {
+        return {
+          key: "doc_bbbb2222",
+          payload: "Contenido real de B que menciona doc_cccc3333.",
+          metadata: { author: "alice" },
+        };
+      }
+      if (ns === "kb/docs" && key === "doc_cccc3333") {
+        return {
+          key: "doc_cccc3333",
+          payload: "Contenido terminal de C.",
+          metadata: {},
+        };
+      }
+      return null;
+    });
+
+    const result = await engine.search("consulta multi-salto", {
+      maxDepth: 2,
+      maxDegreePerNode: 5,
+      maxTotalNodes: 10,
+    });
+
+    const nodeIds = result.expandedNodes.map((n) => n.id);
+    expect(nodeIds).toContain("kb/docs:doc_aaaa1111");
+    expect(nodeIds).toContain("kb/docs:doc_bbbb2222");
+    expect(nodeIds).toContain("kb/docs:doc_cccc3333");
+
+    expect(result.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ from: "kb/docs:doc_aaaa1111", to: "kb/docs:doc_bbbb2222" }),
+        expect.objectContaining({ from: "kb/docs:doc_bbbb2222", to: "kb/docs:doc_cccc3333" }),
+      ])
+    );
+
+    const nodeB = result.expandedNodes.find((n) => n.id === "kb/docs:doc_bbbb2222");
+    expect(nodeB?.metadata).toEqual(expect.objectContaining({ author: "alice", resolved: true }));
+  });
+
+  it("aplica fallback con resolved: false si el get falla o lanza una excepción", async () => {
+    mockAdapter.searchMulti.mockResolvedValueOnce([
+      {
+        record: {
+          namespace: "kb/docs",
+          key: "doc_seed_01",
+          payload: "Semilla que referencia doc_fa009999 y doc_00008888.",
+          metadata: {},
+        },
+        score: 0.9,
+      },
+    ]);
+
+    mockAdapter.get = vi.fn().mockImplementation(async (_ns: string, key: string) => {
+      if (key === "doc_fa009999") {
+        throw new Error("VantaDB connection timeout");
+      }
+      return null;
+    });
+
+    const result = await engine.search("consulta con fallos de get", {
+      maxDepth: 2,
+    });
+
+    const nodeFail = result.expandedNodes.find((n) => n.id === "kb/docs:doc_fa009999");
+    const nodeNull = result.expandedNodes.find((n) => n.id === "kb/docs:doc_00008888");
+
+    expect(nodeFail).toBeDefined();
+    expect(nodeFail?.metadata).toEqual({ resolved: false });
+    expect(nodeFail?.content).toContain("kb/docs:doc_fa009999");
+
+    expect(nodeNull).toBeDefined();
+    expect(nodeNull?.metadata).toEqual({ resolved: false });
+    expect(nodeNull?.content).toContain("kb/docs:doc_00008888");
+  });
 });
