@@ -630,15 +630,27 @@ export class DelegationRouter {
       return this.executor(instance, request, context);
     }
 
-    // Ejecutor determinista por defecto: actualiza métricas de la instancia y devuelve resultado estructurado
+    // Ejecutor determinista por defecto: actualiza métricas de la instancia y
+    // devuelve un resultado ESTRUCTURADO válido.
+    //
+    // EGO-FIND-22 (T1): antes devolvía `{handledBy, task, input, timestamp}`,
+    // que NO satisface el contrato `StructuredChildOutput` ({summary, findings,
+    // files, issues}). Consecuencia: sin `executor` explícito, la tool
+    // `delegate_task` fallaba SIEMPRE en la normalización de la salida. Ahora
+    // el ejecutor por defecto cumple el contrato y la delegación degrada de
+    // forma útil en vez de romperse.
     instance.totalTurnsExecuted += 1;
     instance.lastActiveMs = Date.now();
 
+    const task = typeof request.task === "string" ? request.task : "";
+
     return {
-      handledBy: instance.manifest.id,
-      task: request.task,
-      input: request.input,
-      timestamp: Date.now()
+      summary: `Delegación ejecutada por '${instance.manifest.id}'${
+        task.length > 0 ? `: ${task}` : ""
+      }`,
+      findings: [],
+      files: [],
+      issues: [],
     };
   }
 

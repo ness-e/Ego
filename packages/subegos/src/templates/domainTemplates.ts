@@ -61,7 +61,7 @@ Reglas innegociables:
       "source_synthesis",
       "evidence_verification"
     ],
-    recommendedTools: ["memory_recall", "web_search", "document_reader"],
+    recommendedTools: [] as string[],
     recommendedNamespaces: {
       read: ["kb/docs", "kb/research", "kb/general"],
       write: ["research/findings", "quarantine/pending"]
@@ -102,7 +102,7 @@ Reglas innegociables:
       "blast_radius_inspection",
       "code_review"
     ],
-    recommendedTools: ["memory_recall", "ast_linter", "git_diff_viewer"],
+    recommendedTools: ["git_status", "git_diff"] as string[],
     recommendedNamespaces: {
       read: ["kb/codebase", "kb/standards", "kb/architecture"],
       write: ["reviews/reports", "quarantine/pending"]
@@ -143,7 +143,7 @@ Reglas innegociables:
       "documentation_structuring",
       "copy_editing"
     ],
-    recommendedTools: ["memory_recall", "markdown_formatter"],
+    recommendedTools: ["fs_read_file", "fs_write_file"] as string[],
     recommendedNamespaces: {
       read: ["kb/docs", "kb/product", "kb/brand"],
       write: ["drafts/docs", "quarantine/pending"]
@@ -184,7 +184,7 @@ Reglas innegociables:
       "metric_evaluation",
       "budget_modeling"
     ],
-    recommendedTools: ["memory_recall", "metric_calculator", "table_generator"],
+    recommendedTools: ["fs_read_file"] as string[],
     recommendedNamespaces: {
       read: ["kb/analytics", "kb/metrics", "kb/costs"],
       write: ["analytics/reports", "quarantine/pending"]
@@ -225,7 +225,7 @@ Reglas innegociables:
       "dependency_mapping",
       "shape_up_estimation"
     ],
-    recommendedTools: ["memory_recall", "task_decomposer", "timeline_planner"],
+    recommendedTools: [] as string[],
     recommendedNamespaces: {
       read: ["kb/roadmap", "kb/backlog", "kb/specs"],
       write: ["plans/active", "quarantine/pending"]

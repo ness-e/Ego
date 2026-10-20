@@ -440,6 +440,25 @@ export class SubEgoRuntime {
     return { branches, totalTokens: tokens, totalCostUsd: Number(cost.toFixed(6)) };
   }
 
+  /**
+   * Libera todos los recursos del runtime: timers de inactividad, instancias
+   * en RAM, colas de steer y peticiones de parada.
+   *
+   * Idempotente. Lo invoca `DelegationRuntime.dispose()` para que el proceso
+   * main pueda apagar la delegación sin dejar timers colgados (Node no
+   * termina con timers `setTimeout` activos).
+   */
+  dispose(): void {
+    for (const timer of this.idleTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.idleTimers.clear();
+    this.instances.clear();
+    this.steerQueues.clear();
+    this.stopRequests.clear();
+    this.branchModels.clear();
+  }
+
   // --- MÉTODOS INTERNOS DE GESTIÓN Y FSM ---
 
   private transitionState(instance: SubEgoInstance, toState: SubEgoLifecycleState): void {

@@ -218,7 +218,10 @@ export function createSubEgoManifest(input: SubEgoCreateInput): SubEgoManifest {
     systemPrompt: input.instructions.trim(),
     responsibilities: input.responsibilities || [],
     capabilities: input.capabilities || [],
-    tools: input.tools || ["memory_recall"],
+    // EGO-FIND-45 (T5): sin tools por defecto. Antes era `["memory_recall"]`,
+    // un nombre que ninguna tool registraba. Un Sub-Ego nace SIN tools y las
+    // recibe explícitamente (y validadas contra el catálogo real).
+    tools: input.tools || [],
     permissions: input.permissions || ["memory:read", "memory:write"],
     namespaces: defaultNamespaces,
     behavior: defaultBehavior,

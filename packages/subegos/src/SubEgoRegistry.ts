@@ -9,6 +9,7 @@ import {
   validateSubEgoManifest,
   parseSubEgoManifest
 } from "./SubEgoManifest.js";
+import { assertToolsExist, type ToolCatalogLike } from "@ego/tools";
 
 /**
  * Error base para anomalías del registro y catálogo de Sub-Egos.
@@ -94,6 +95,12 @@ export interface SubEgoFilterOptions {
 export interface SubEgoRegistryOptions {
   /** Lista adicional de identificadores protegidos contra mutación o borrado */
   systemProtectedIds?: string[];
+  /**
+   * Catálogo contra el que se valida que las tools declaradas por un manifiesto
+   * EXISTAN (EGO-FIND-45, T5). Si se omite, la validación se salta
+   * (compatibilidad); el test de contrato la ejerce siempre.
+   */
+  toolCatalog?: ToolCatalogLike;
 }
 
 /**
@@ -155,6 +162,13 @@ export type SubEgoProfile = z.infer<typeof SubEgoProfileSchema>;
  * Los 4 perfiles canónicos least-privilege (CFG-03).
  * Solo `builder` escribe (workspace + approval on-write); el resto es
  * read-only con toolsets mínimos de lectura.
+ *
+ * EGO-FIND-45 (T5): `toolsets` declara **toolsets MCP canónicos**
+ * (`web`, `search`, `browser`, `terminal`, `file`, `memory`, `delegation`,
+ * `cronjob` — ver `MCP_TOOLSET_NAMES` de `@ego/tools`), no nombres de tool.
+ * Antes se listaban nombres de tool inexistentes (`memory_recall`,
+ * `knowledge_search`, `filesystem_read`, `filesystem_write`), que no
+ * correspondían a ningún toolset y por tanto no restringían nada.
  */
 export const DEFAULT_SUBEGO_PROFILES: readonly SubEgoProfile[] = Object.freeze([
   {
@@ -162,7 +176,7 @@ export const DEFAULT_SUBEGO_PROFILES: readonly SubEgoProfile[] = Object.freeze([
     model: "frontier",
     sandbox: "read-only",
     approval: "on-write",
-    toolsets: ["memory_recall", "knowledge_search"],
+    toolsets: ["memory", "delegation"],
     description: "Planifica y descompone; modelo frontier, sin escritura.",
   },
   {
@@ -170,7 +184,7 @@ export const DEFAULT_SUBEGO_PROFILES: readonly SubEgoProfile[] = Object.freeze([
     model: "cheap",
     sandbox: "read-only",
     approval: "never",
-    toolsets: ["memory_recall", "git_status"],
+    toolsets: ["memory", "file", "terminal"],
     description: "Revisa código y planes; solo lectura.",
   },
   {
@@ -178,7 +192,7 @@ export const DEFAULT_SUBEGO_PROFILES: readonly SubEgoProfile[] = Object.freeze([
     model: "cheap",
     sandbox: "read-only",
     approval: "never",
-    toolsets: ["memory_recall", "knowledge_search"],
+    toolsets: ["memory", "file", "web", "search"],
     description: "Investiga docs y memoria; solo lectura.",
   },
   {
@@ -186,7 +200,7 @@ export const DEFAULT_SUBEGO_PROFILES: readonly SubEgoProfile[] = Object.freeze([
     model: "cheap",
     sandbox: "workspace",
     approval: "on-write",
-    toolsets: ["memory_recall", "filesystem_read", "filesystem_write"],
+    toolsets: ["memory", "file", "terminal"],
     description: "Implementa cambios acotados al workspace con aprobación en escritura.",
   },
 ] as SubEgoProfile[]);
@@ -209,6 +223,7 @@ export class SubEgoRegistry {
   private readonly protectedIds: Set<string>;
   private readonly knownIds: Set<string> = new Set();
   private readonly knownProfileNames: Set<string> = new Set();
+  private readonly toolCatalog?: ToolCatalogLike;
 
   public static readonly NAMESPACE = "gov/sub_egos";
 
@@ -221,6 +236,7 @@ export class SubEgoRegistry {
       ...DEFAULT_SYSTEM_PROTECTED_IDS,
       ...(options.systemProtectedIds || [])
     ]);
+    this.toolCatalog = options.toolCatalog;
   }
 
   /**
@@ -262,6 +278,12 @@ export class SubEgoRegistry {
       throw new SubEgoRegistryValidationError(candidateId, validation.error.issues);
     }
     const validated = validation.data;
+
+    // 1b. Contrato de catálogo: las tools declaradas deben EXISTIR
+    // (EGO-FIND-45). Sin catálogo inyectado la validación se salta.
+    if (this.toolCatalog) {
+      assertToolsExist(validated.tools, this.toolCatalog, `manifiesto '${validated.id}'`);
+    }
 
     // 2. Comprobación de inmutabilidad y protección de sistema
     const existing = await this.get(validated.id);

@@ -66,7 +66,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export class SubEgoWorktreeManager {
   private execGit: ExecGitFn;
-  private fileExists: (filePath: string) => boolean;
+  private fileExists: (filePath: string) => Promise<boolean> | boolean;
 
   constructor(
     customExecGit?: ExecGitFn,
@@ -82,7 +82,17 @@ export class SubEgoWorktreeManager {
         });
         return stdout.trim();
       });
-    this.fileExists = customExists || ((p) => fs.existsSync(p));
+    // EGO-FIND-66 (T11): sin I/O síncrono. customExists puede ser sync (tests).
+    this.fileExists =
+      customExists ||
+      (async (p: string) => {
+        try {
+          await fs.promises.access(p);
+          return true;
+        } catch {
+          return false;
+        }
+      });
   }
 
   /**
@@ -100,16 +110,22 @@ export class SubEgoWorktreeManager {
   /**
    * Asegura que `.ego-worktrees/` esté registrado en `.gitignore` para no ensuciar el status.
    */
-  private ensureGitignoreEntry(repoRoot: string): void {
+  private async ensureGitignoreEntry(repoRoot: string): Promise<void> {
     const gitignorePath = path.join(repoRoot, ".gitignore");
     try {
       let content = "";
-      if (fs.existsSync(gitignorePath)) {
-        content = fs.readFileSync(gitignorePath, "utf8");
+      try {
+        content = await fs.promises.readFile(gitignorePath, "utf8");
+      } catch {
+        // El .gitignore no existe todavía: se creará.
       }
       if (!content.split(/\r?\n/).includes(`${SUBEGO_WORKTREES_DIR}/`)) {
         const separator = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
-        fs.appendFileSync(gitignorePath, `${separator}${SUBEGO_WORKTREES_DIR}/\n`, "utf8");
+        await fs.promises.appendFile(
+          gitignorePath,
+          `${separator}${SUBEGO_WORKTREES_DIR}/\n`,
+          "utf8"
+        );
       }
     } catch {
       // Ignorar fallo permisivo de lectura/escritura de gitignore
@@ -132,7 +148,7 @@ export class SubEgoWorktreeManager {
     const wtPath = path.join(root, SUBEGO_WORKTREES_DIR, wtName);
 
     try {
-      this.ensureGitignoreEntry(root);
+      await this.ensureGitignoreEntry(root);
 
       let baseCommit = "";
       try {
@@ -142,7 +158,7 @@ export class SubEgoWorktreeManager {
       }
 
       // Si el directorio ya existe, intentar removerlo
-      if (this.fileExists(wtPath)) {
+      if (await this.fileExists(wtPath)) {
         try {
           await this.execGit(["worktree", "remove", "--force", wtPath], root);
         } catch {
@@ -174,7 +190,7 @@ export class SubEgoWorktreeManager {
   ): Promise<FinalizeWorktreeResult> {
     const { path: wtPath, branch, repoRoot, baseCommit } = info;
 
-    if (!this.fileExists(wtPath)) {
+    if (!(await this.fileExists(wtPath))) {
       return {
         path: wtPath,
         branch,

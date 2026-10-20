@@ -198,7 +198,10 @@ export class ConversationalSubEgoSession {
             .split(/[,;\n]/)
             .map((s) => s.trim())
             .filter((s) => s.length > 0);
-          this.collected.tools = Array.from(new Set(["memory_recall", ...customTools]));
+          // EGO-FIND-45 (T5): sin tool implícita. Antes se inyectaba
+          // `memory_recall`, que ninguna tool registraba. El Sub-Ego usa solo
+          // las tools que el usuario declara (validadas contra el catálogo).
+          this.collected.tools = Array.from(new Set(customTools));
         }
         this.step = "autonomy";
         break;
@@ -268,7 +271,7 @@ export class ConversationalSubEgoSession {
         `Actúa como especialista en ${this.collected.role}. Responde con rigor y precisión técnica.`,
       responsibilities: this.collected.responsibilities || [],
       capabilities: this.collected.capabilities || [],
-      tools: this.collected.tools || ["memory_recall"],
+      tools: this.collected.tools || [],
       permissions: this.collected.permissions || ["memory:read", "memory:write"],
       autonomy: this.collected.autonomy || "supervised",
       budget: this.collected.budget,

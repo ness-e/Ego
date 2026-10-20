@@ -83,8 +83,11 @@ describe("SubEgoFactory — Fábrica Inteligente de Sub-Egos (SUB-02)", () => {
       expect(manifest.id).toBe("ego.investigador-cognitivo");
       expect(manifest.name).toBe("Investigador Cognitivo");
       expect(manifest.role).toBe("Investigador y Analista de Fuentes");
-      expect(manifest.tools).toContain("web_search");
-      expect(manifest.tools).toContain("memory_recall");
+      // EGO-FIND-45 (T5): la plantilla 'researcher' ya no declara tools
+      // fantasma (`web_search`, `memory_recall`); el contrato de existencia
+      // vive en `packages/domains/test/tool-contract.test.ts`.
+      expect(manifest.tools).not.toContain("memory_recall");
+      expect(manifest.tools).not.toContain("web_search");
       expect(manifest.creator).toBe("template");
       expect(manifest.budget.maxDailyCostUsd).toBe(3.0);
     });
