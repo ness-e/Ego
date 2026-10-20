@@ -37,7 +37,7 @@ describe("DiagnosticsLogger", () => {
     expect(details.password).toBe("[REDACTED]");
   });
 
-  it("rota archivos de log automáticamente al superar maxFileSizeBytes", () => {
+  it("rota archivos de log automáticamente al superar maxFileSizeBytes", async () => {
     // Configurar un límite pequeño de 200 bytes para probar rotación rápida
     const logger = new DiagnosticsLogger({
       logsDir: tmpDir,
@@ -48,6 +48,7 @@ describe("DiagnosticsLogger", () => {
     for (let i = 0; i < 20; i++) {
       logger.info("test", `Mensaje repetitivo para llenar el buffer de log número ${i}`);
     }
+    await logger.flush();
 
     const currentLog = path.join(tmpDir, "ego.diagnostics.log");
     const rotated1 = path.join(tmpDir, "ego.diagnostics.1.log");
@@ -56,7 +57,7 @@ describe("DiagnosticsLogger", () => {
     expect(fs.existsSync(rotated1)).toBe(true);
   });
 
-  it("genera un paquete de diagnóstico anónimo exportDiagnosticsBundle", () => {
+  it("genera un paquete de diagnóstico anónimo exportDiagnosticsBundle", async () => {
     const logger = new DiagnosticsLogger({ logsDir: tmpDir });
     logger.info("init", "Arranque del sistema");
     logger.recordDirtyShutdown({
@@ -65,7 +66,7 @@ describe("DiagnosticsLogger", () => {
       timestamp: Date.now(),
     });
 
-    const bundle = logger.exportDiagnosticsBundle({
+    const bundle = await logger.exportDiagnosticsBundle({
       pid: 1234,
       sessionId: "sess-abc",
       startedAt: Date.now(),

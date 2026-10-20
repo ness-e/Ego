@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { EventBus } from "@ego/events";
+import { StorageHealthLatch } from "./StorageHealthLatch.js";
 import {
   LockFileRecord,
   LockFileRecordSchema,
@@ -32,10 +33,83 @@ export class CrashRecoveryEngine {
     this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? 2000;
     this.staleThresholdMs = options.staleThresholdMs ?? 10000;
     this.eventBus = options.eventBus;
+  }
 
-    if (!fs.existsSync(this.storageDir)) {
-      fs.mkdirSync(this.storageDir, { recursive: true });
+  /**
+   * Publica un contenido de forma ATÓMICA: escribe en un temporal con el PID
+   * en el nombre, hace `fsync` y publica con `rename` (atómico en POSIX y
+   * NTFS). Si algo falla, limpia el temporal y deja el destino intacto.
+   *
+   * EGO-FIND-66 (T11): el heartbeat ya usaba esta secuencia, pero la escritura
+   * INICIAL del lock seguía con `writeFileSync` (no atómico) → un kill en ese
+   * instante dejaba `ego.lock` truncado y provocaba el flake "Unexpected end
+   * of JSON input" del test de caos.
+   */
+  private async writeAtomic(targetPath: string, content: string): Promise<void> {
+    const tmpPath = `${targetPath}.${process.pid}.tmp`;
+    try {
+      // "w+": en Windows, fsync sobre un fd de solo-lectura falla con EPERM.
+      const handle = await fs.promises.open(tmpPath, "w+");
+      try {
+        await handle.writeFile(content, "utf8");
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      await fs.promises.rename(tmpPath, targetPath);
+    } catch (err: unknown) {
+      try {
+        await fs.promises.unlink(tmpPath);
+      } catch {
+        // noop: mejor un temporal huérfano que un lock truncado
+      }
+      throw err;
     }
+  }
+
+  /**
+   * Audita el directorio de almacenamiento y degrada con **aviso visible**
+   * en vez de fallar en silencio (HERM-15, A5-S8).
+   *
+   * `StorageHealthLatch` implementaba el diagnóstico de salud del
+   * almacenamiento (bloqueo de descriptores de Fjall, corrupción estructural)
+   * pero no tenía caller: era código asimilado sin cablear. Aquí se conecta
+   * al punto de arranque del motor de recuperación, que es donde un
+   * almacenamiento inservible debe hacerse visible ANTES de que los Sub-Egos
+   * intenten escribir a ciegas.
+   */
+  public async auditStorage(): Promise<{ ok: boolean; reason?: string }> {
+    const verdict = await StorageHealthLatch.auditStorageDirectory(this.storageDir);
+    if (verdict.ok) {
+      return verdict;
+    }
+
+    StorageHealthLatch.markStorageState(
+      this.storageDir,
+      "corrupt",
+      verdict.reason ?? "Almacenamiento inservible"
+    );
+
+    this.eventBus?.emit(
+      "system.alert",
+      {
+        code: "RECOVERY_STORAGE_UNHEALTHY",
+        message:
+          `El almacenamiento '${this.storageDir}' no está en condiciones: ${
+            verdict.reason ?? "motivo desconocido"
+          }. Ego degradará a modo de solo lectura hasta que se resuelva.`,
+        details: {
+          storageDir: this.storageDir,
+          reason: verdict.reason,
+        },
+      },
+      {
+        source: "CrashRecoveryEngine",
+        severity: "error",
+      }
+    );
+
+    return verdict;
   }
 
   /**
@@ -45,13 +119,29 @@ export class CrashRecoveryEngine {
     this.currentSessionId = sessionId;
     const now = Date.now();
 
-    if (fs.existsSync(this.lockFilePath)) {
+    // Auditoría de salud del almacenamiento (HERM-15): visible desde el arranque.
+    await this.auditStorage();
+
+    if (await this.lockFileExists()) {
       let previousRecord: LockFileRecord | null = null;
+      let corruptReason: string | undefined;
+
       try {
-        const rawContent = fs.readFileSync(this.lockFilePath, "utf8");
+        const rawContent = await fs.promises.readFile(this.lockFilePath, "utf8");
         previousRecord = LockFileRecordSchema.parse(JSON.parse(rawContent));
-      } catch {
-        // Archivo corrupto o ilegible
+      } catch (err: unknown) {
+        // El lock existe pero NO es parseable (JSON truncado o esquema
+        // inválido).
+        //
+        // EGO-FIND-66 / Ola 1b T4: esto es EL indicio de un hard kill (una
+        // escritura no atómica interrumpida deja el lock a medias). Antes se
+        // caía al "arranque limpio": el dirty shutdown se perdía en silencio
+        // y el lock huérfano se quedaba en disco.
+        //
+        // Fail-closed: si hay lock en disco, hubo una instancia previa. Se
+        // informa como dirty shutdown y se purga.
+        corruptReason =
+          err instanceof Error ? err.message : "contenido ilegible o esquema inválido";
       }
 
       if (previousRecord) {
@@ -74,7 +164,7 @@ export class CrashRecoveryEngine {
         };
 
         // Purgar lockfiles huérfanos
-        this.writeLockFile(sessionId, now);
+        await this.writeLockFile(sessionId, now);
         this.startHeartbeat();
 
         this.eventBus?.emit("system.alert", {
@@ -92,10 +182,39 @@ export class CrashRecoveryEngine {
 
         return report;
       }
+
+      // Lock corrupto/tornado: hubo una instancia previa que murió a mitad de
+      // escritura. Es un dirty shutdown (no un arranque limpio).
+      const corruptReport: DirtyShutdownReport = {
+        wasDirty: true,
+        recoveryAction: "corrupt_lock_purged",
+        timestamp: now,
+        details:
+          `Lockfile corrupto o truncado (indicio de cierre abrupto): ${corruptReason}. ` +
+          `Se purga y se continúa con un lock nuevo.`,
+      };
+
+      await this.writeLockFile(sessionId, now);
+      this.startHeartbeat();
+
+      this.eventBus?.emit("system.alert", {
+        code: "RECOVERY_CORRUPT_LOCK",
+        message: `Lockfile corrupto detectado (posible cierre abrupto previo): ${corruptReason}`,
+        details: {
+          lockFilePath: this.lockFilePath,
+          reason: corruptReason,
+        },
+      }, {
+        source: "CrashRecoveryEngine",
+        severity: "warn",
+        sessionId,
+      });
+
+      return corruptReport;
     }
 
     // Arranque limpio estándar
-    this.writeLockFile(sessionId, now);
+    await this.writeLockFile(sessionId, now);
     this.startHeartbeat();
 
     const cleanReport: DirtyShutdownReport = {
@@ -172,6 +291,10 @@ export class CrashRecoveryEngine {
 
   /**
    * Libera limpiamente el lockfile de Ego al cerrar la aplicación de forma ordenada.
+   *
+   * Variante síncrona conservada por compatibilidad (se invoca UNA vez al
+   * cerrar la app; no es un path caliente de IPC). La variante async
+   * `releaseLockAsync()` es la recomendada en el proceso main.
    */
   public releaseLock(): void {
     this.stopHeartbeat();
@@ -179,8 +302,42 @@ export class CrashRecoveryEngine {
       if (fs.existsSync(this.lockFilePath)) {
         fs.unlinkSync(this.lockFilePath);
       }
+    } catch (err: unknown) {
+      console.warn(
+        `[CrashRecoveryEngine] No se pudo liberar el lockfile: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
+  }
+
+  /**
+   * Variante asíncrona de `releaseLock` (sin I/O síncrono).
+   */
+  public async releaseLockAsync(): Promise<void> {
+    this.stopHeartbeat();
+    try {
+      if (await this.lockFileExists()) {
+        await fs.promises.unlink(this.lockFilePath);
+      }
+    } catch (err: unknown) {
+      console.warn(
+        `[CrashRecoveryEngine] No se pudo liberar el lockfile: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
+  }
+
+  /**
+   * `true` si el lockfile existe (async, sin I/O síncrono).
+   */
+  private async lockFileExists(): Promise<boolean> {
+    try {
+      await fs.promises.access(this.lockFilePath);
+      return true;
     } catch {
-      // Ignorar error de eliminación
+      return false;
     }
   }
 
@@ -202,7 +359,7 @@ export class CrashRecoveryEngine {
     }
   }
 
-  private writeLockFile(sessionId: string, timestamp: number): void {
+  private async writeLockFile(sessionId: string, timestamp: number): Promise<void> {
     const record: LockFileRecord = {
       pid: process.pid,
       sessionId,
@@ -212,7 +369,10 @@ export class CrashRecoveryEngine {
       hostname: os.hostname(),
     };
 
-    fs.writeFileSync(this.lockFilePath, JSON.stringify(record, null, 2), "utf8");
+    // EGO-FIND-66 (T11): escritura ATÓMICA (tmp + fsync + rename), la misma
+    // secuencia que usa el heartbeat. Antes era `writeFileSync` (no atómico).
+    await fs.promises.mkdir(this.storageDir, { recursive: true });
+    await this.writeAtomic(this.lockFilePath, JSON.stringify(record, null, 2));
   }
 
   /**
@@ -238,23 +398,7 @@ export class CrashRecoveryEngine {
     }
     record.lastHeartbeat = timestamp;
 
-    const tmpPath = `${this.lockFilePath}.${process.pid}.tmp`;
-    try {
-      // "w+": en Windows, fsync sobre un fd de solo-lectura falla con EPERM.
-      const handle = await fs.promises.open(tmpPath, "w+");
-      try {
-        await handle.writeFile(JSON.stringify(record, null, 2), "utf8");
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
-      await fs.promises.rename(tmpPath, this.lockFilePath);
-    } catch {
-      try {
-        await fs.promises.unlink(tmpPath);
-      } catch {
-        // noop: mejor un temporal huérfano que un lock truncado
-      }
-    }
+    // Misma secuencia atómica que `writeLockFile` (EGO-FIND-66, T11).
+    await this.writeAtomic(this.lockFilePath, JSON.stringify(record, null, 2));
   }
 }

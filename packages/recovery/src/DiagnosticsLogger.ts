@@ -7,6 +7,7 @@ import {
   LockFileRecord,
   DirtyShutdownReport,
 } from "./types.js";
+import { ensureDir, pathExists, readTextFile, removeIfExists } from "./fsAsync.js";
 
 export interface DiagnosticsLoggerOptions {
   logsDir: string;
@@ -14,26 +15,38 @@ export interface DiagnosticsLoggerOptions {
   maxFiles?: number; // default: 3
 }
 
+/**
+ * DiagnosticsLogger — log estructurado con saneamiento de secretos.
+ *
+ * EGO-FIND-66 (T11): el I/O pasó de síncrono a asíncrono. `log()` conserva su
+ * firma síncrona (devuelve la entrada saneada) pero encola la escritura en
+ * una cadena de promesas: el path caliente de logging NO bloquea el event loop
+ * del main. `readRecentLogs` y `exportDiagnosticsBundle` son async.
+ */
 export class DiagnosticsLogger {
   private readonly logsDir: string;
   private readonly currentLogPath: string;
   private readonly maxFileSizeBytes: number;
   private readonly maxFiles: number;
   private readonly dirtyShutdownHistory: DirtyShutdownReport[] = [];
+  /**
+   * Cola de escrituras: serializa los appends para no perder líneas y
+   * garantiza el orden.
+   */
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(options: DiagnosticsLoggerOptions) {
     this.logsDir = options.logsDir;
     this.maxFileSizeBytes = options.maxFileSizeBytes ?? 5 * 1024 * 1024; // 5MB
     this.maxFiles = options.maxFiles ?? 3;
     this.currentLogPath = path.join(this.logsDir, "ego.diagnostics.log");
-
-    if (!fs.existsSync(this.logsDir)) {
-      fs.mkdirSync(this.logsDir, { recursive: true });
-    }
   }
 
   /**
    * Registra una entrada de log estructurado aplicando saneamiento estricto de secretos.
+   *
+   * La escritura al disco es asíncrona y encolada: el llamante no bloquea.
+   * Usa `flush()` si necesita garantizar que la entrada llegó al disco.
    */
   public log(
     level: "debug" | "info" | "warn" | "error" | "critical",
@@ -50,7 +63,7 @@ export class DiagnosticsLogger {
     };
 
     const sanitizedEntry = this.sanitizeEntry(rawEntry);
-    this.appendToFile(sanitizedEntry);
+    this.enqueueWrite(() => this.appendToFile(sanitizedEntry));
     return sanitizedEntry;
   }
 
@@ -78,8 +91,11 @@ export class DiagnosticsLogger {
   /**
    * Exporta un paquete consolidado de diagnóstico anónimo para depuración y soporte.
    */
-  public exportDiagnosticsBundle(lockRecord?: LockFileRecord | null): DiagnosticsBundle {
-    const recentLogs = this.readRecentLogs(200);
+  public async exportDiagnosticsBundle(
+    lockRecord?: LockFileRecord | null
+  ): Promise<DiagnosticsBundle> {
+    await this.flush();
+    const recentLogs = await this.readRecentLogs(200);
 
     return {
       exportedAt: Date.now(),
@@ -96,15 +112,24 @@ export class DiagnosticsLogger {
   }
 
   /**
+   * Espera a que se vacíe la cola de escrituras (para tests y para el
+   * apagado ordenado de la app).
+   */
+  public async flush(): Promise<void> {
+    await this.writeQueue;
+  }
+
+  /**
    * Lee las últimas N entradas de log.
    */
-  public readRecentLogs(limit: number = 100): DiagnosticsLogEntry[] {
-    if (!fs.existsSync(this.currentLogPath)) {
+  public async readRecentLogs(limit: number = 100): Promise<DiagnosticsLogEntry[]> {
+    if (!(await pathExists(this.currentLogPath))) {
       return [];
     }
 
     try {
-      const content = fs.readFileSync(this.currentLogPath, "utf8");
+      const content = await readTextFile(this.currentLogPath);
+      if (content === null) return [];
       const lines = content.trim().split("\n").filter(Boolean);
       const entries: DiagnosticsLogEntry[] = [];
 
@@ -155,22 +180,42 @@ export class DiagnosticsLogger {
     };
   }
 
-  private appendToFile(entry: DiagnosticsLogEntry): void {
+  /**
+   * Encola una escritura sin bloquear al llamante.
+   */
+  private enqueueWrite(task: () => Promise<void>): void {
+    this.writeQueue = this.writeQueue
+      .then(task)
+      .catch((err: unknown) => {
+        console.warn(
+          `[DiagnosticsLogger] Error escribiendo en log: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      });
+  }
+
+  private async appendToFile(entry: DiagnosticsLogEntry): Promise<void> {
     try {
-      this.checkAndRotate();
+      await ensureDir(this.logsDir);
+      await this.checkAndRotate();
       const line = JSON.stringify(entry) + "\n";
-      fs.appendFileSync(this.currentLogPath, line, "utf8");
-    } catch (err) {
-      console.warn("[DiagnosticsLogger] Error escribiendo en log:", err);
+      await fs.promises.appendFile(this.currentLogPath, line, "utf8");
+    } catch (err: unknown) {
+      console.warn(
+        `[DiagnosticsLogger] Error escribiendo en log: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
     }
   }
 
-  private checkAndRotate(): void {
-    if (!fs.existsSync(this.currentLogPath)) {
+  private async checkAndRotate(): Promise<void> {
+    if (!(await pathExists(this.currentLogPath))) {
       return;
     }
 
-    const stat = fs.statSync(this.currentLogPath);
+    const stat = await fs.promises.stat(this.currentLogPath);
     if (stat.size < this.maxFileSizeBytes) {
       return;
     }
@@ -179,18 +224,18 @@ export class DiagnosticsLogger {
     for (let i = this.maxFiles - 1; i >= 1; i--) {
       const oldPath = path.join(this.logsDir, `ego.diagnostics.${i}.log`);
       const nextPath = path.join(this.logsDir, `ego.diagnostics.${i + 1}.log`);
-      if (fs.existsSync(oldPath)) {
-        if (i === this.maxFiles - 1 && fs.existsSync(nextPath)) {
-          fs.unlinkSync(nextPath);
+      if (await pathExists(oldPath)) {
+        if (i === this.maxFiles - 1 && (await pathExists(nextPath))) {
+          await removeIfExists(nextPath);
         }
-        fs.renameSync(oldPath, nextPath);
+        await fs.promises.rename(oldPath, nextPath);
       }
     }
 
     const firstRotated = path.join(this.logsDir, "ego.diagnostics.1.log");
-    if (fs.existsSync(firstRotated)) {
-      fs.unlinkSync(firstRotated);
+    if (await pathExists(firstRotated)) {
+      await removeIfExists(firstRotated);
     }
-    fs.renameSync(this.currentLogPath, firstRotated);
+    await fs.promises.rename(this.currentLogPath, firstRotated);
   }
 }

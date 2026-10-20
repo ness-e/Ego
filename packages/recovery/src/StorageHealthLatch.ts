@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { pathExists } from "./fsAsync.js";
 
 export type StorageHealthState = "ok" | "corrupt" | "locked";
 
@@ -149,15 +150,15 @@ export class StorageHealthLatch {
   /**
    * Auditoría previa de salud de archivos y directorios de VantaDB en el arranque.
    */
-  public static auditStorageDirectory(dbPath: string): { ok: boolean; reason?: string } {
+  public static async auditStorageDirectory(dbPath: string): Promise<{ ok: boolean; reason?: string }> {
     const resolved = this.normalizePath(dbPath);
     try {
-      if (!fs.existsSync(resolved)) {
+      if (!(await pathExists(resolved))) {
         // Si no existe, se creará al inicializar
         return { ok: true };
       }
 
-      const stat = fs.statSync(resolved);
+      const stat = await fs.promises.stat(resolved);
       if (!stat.isDirectory()) {
         const reason = `La ruta de almacenamiento '${resolved}' no es un directorio.`;
         this.markStorageState(resolved, "corrupt", reason);

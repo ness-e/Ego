@@ -1,4 +1,4 @@
-import * as fs from "node:fs";
+import { ensureDir, readTextFile, writeTextFileAtomic } from "./fsAsync.js";
 import * as path from "node:path";
 
 export const WINDOWS_SANDBOX_MARKER_FILENAME = "windows-sandbox-fallback.json";
@@ -101,10 +101,11 @@ export function evaluateSandboxFallback(
 /**
  * Lee el marcador desde disco de forma síncrona y segura.
  */
-export function readSandboxMarker(userDataDir: string): SandboxMarker | null {
+export async function readSandboxMarker(userDataDir: string): Promise<SandboxMarker | null> {
   try {
     const p = sandboxMarkerPath(userDataDir);
-    const raw = fs.readFileSync(p, "utf8");
+    const raw = await readTextFile(p);
+    if (raw === null) return null;
     return JSON.parse(raw) as SandboxMarker;
   } catch {
     return null;
@@ -114,18 +115,24 @@ export function readSandboxMarker(userDataDir: string): SandboxMarker | null {
 /**
  * Escribe el marcador a disco de forma síncrona.
  */
-export function writeSandboxMarker(userDataDir: string, marker: SandboxMarker): void {
+export async function writeSandboxMarker(userDataDir: string, marker: SandboxMarker): Promise<void> {
   try {
     const p = sandboxMarkerPath(userDataDir);
-    fs.writeFileSync(p, JSON.stringify(marker, null, 2), "utf8");
-  } catch {
+    await ensureDir(path.dirname(p));
+    await writeTextFileAtomic(p, JSON.stringify(marker, null, 2));
+  } catch (err: unknown) {
     // Si no se puede escribir, no se interrumpe el arranque
+    console.warn(
+      `[WindowsSandboxFallback] No se pudo escribir el marcador: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
   }
 }
 
 /**
  * Marca el arranque como exitoso y sano, reseteando el contador de aborts.
  */
-export function markSandboxBootSuccessful(userDataDir: string, version?: string): void {
-  writeSandboxMarker(userDataDir, { state: "ok", bootAborts: 0, version });
+export async function markSandboxBootSuccessful(userDataDir: string, version?: string): Promise<void> {
+  await writeSandboxMarker(userDataDir, { state: "ok", bootAborts: 0, version });
 }

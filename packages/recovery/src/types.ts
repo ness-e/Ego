@@ -28,6 +28,9 @@ export const DirtyShutdownReportSchema = z.object({
     "wal_snapshot_created",
     "stale_lock_purged",
     "concurrent_instance_detected",
+    // Ola 1b T4: el lock existe pero es ilegible/truncado ⇒ hubo una
+    // instancia previa que murió a mitad de escritura (hard kill).
+    "corrupt_lock_purged",
   ]),
   timestamp: z.number(),
   details: z.string().optional(),
@@ -122,6 +125,15 @@ export interface ProjectImportResult {
   importedRecords: number;
   namespacesRestored: string[];
   durationMs: number;
+  /**
+   * DSEK-04: resultado de la migración de esquema de la configuración de
+   * namespaces tras la restauración. `null` si no se inyectó un migrador.
+   */
+  schemaMigration?: {
+    previousVersion: number;
+    newVersion: number;
+    appliedSteps: number;
+  } | null;
 }
 
 /**

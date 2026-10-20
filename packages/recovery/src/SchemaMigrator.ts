@@ -1,7 +1,7 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { SchemaMigrationStep, RecoveryMemoryAdapter } from "./types.js";
 import { SnapshotManager } from "./SnapshotManager.js";
+import { ensureDir, pathExists, readTextFile, writeTextFileAtomic } from "./fsAsync.js";
 
 export interface NamespacesConfig {
   schema_version: number;
@@ -14,6 +14,13 @@ export interface NamespacesConfig {
   }>;
 }
 
+/**
+ * SchemaMigrator — migraciones de esquema versionadas y aditivas.
+ *
+ * EGO-FIND-66 (T11): todo el I/O pasó a `fs/promises`. La versión del
+ * esquema se publica de forma **atómica** (tmp + fsync + rename): antes, un
+ * kill entre `writeFileSync` y `renameSync` dejaba el config a medias.
+ */
 export class SchemaMigrator {
   private readonly steps: SchemaMigrationStep[] = [];
 
@@ -35,16 +42,22 @@ export class SchemaMigrator {
   /**
    * Obtiene la versión actual de esquema registrada en ego.namespaces.json.
    */
-  public getCurrentVersion(): number {
-    if (!fs.existsSync(this.configPath)) {
+  public async getCurrentVersion(): Promise<number> {
+    if (!(await pathExists(this.configPath))) {
       return 1;
     }
 
     try {
-      const raw = fs.readFileSync(this.configPath, "utf8");
+      const raw = await readTextFile(this.configPath);
+      if (raw === null) return 1;
       const config = JSON.parse(raw) as Partial<NamespacesConfig>;
       return config.schema_version ?? 1;
-    } catch {
+    } catch (err: unknown) {
+      console.warn(
+        `[SchemaMigrator] No se pudo leer la versión del esquema: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
       return 1;
     }
   }
@@ -58,8 +71,8 @@ export class SchemaMigrator {
     newVersion: number;
     appliedSteps: number;
   }> {
-    const currentVersion = this.getCurrentVersion();
-    const config = this.loadOrCreateConfig();
+    const currentVersion = await this.getCurrentVersion();
+    const config = await this.loadOrCreateConfig();
 
     const maxRegisteredVersion = this.steps.reduce(
       (max, step) => Math.max(max, step.toVersion),
@@ -97,8 +110,11 @@ export class SchemaMigrator {
           "pre_migration"
         );
         preMigrationSnapshotId = snap.snapshotId;
-      } catch (snapErr) {
-        console.warn("[SchemaMigrator] Advertencia: No se pudo generar snapshot pre-migración:", snapErr);
+      } catch (snapErr: unknown) {
+        console.warn(
+          "[SchemaMigrator] Advertencia: No se pudo generar snapshot pre-migración:",
+          snapErr
+        );
       }
     }
 
@@ -135,7 +151,7 @@ export class SchemaMigrator {
 
       // Persistir versión actualizada
       config.schema_version = current;
-      this.saveConfig(config);
+      await this.saveConfig(config);
 
       return {
         previousVersion: currentVersion,
@@ -147,8 +163,11 @@ export class SchemaMigrator {
       if (preMigrationSnapshotId && this.snapshotManager) {
         try {
           await this.snapshotManager.restoreSnapshot(preMigrationSnapshotId);
-        } catch (rollbackErr) {
-          console.error("[SchemaMigrator] Error crítico al ejecutar rollback de snapshot:", rollbackErr);
+        } catch (rollbackErr: unknown) {
+          console.error(
+            "[SchemaMigrator] Error crítico al ejecutar rollback de snapshot:",
+            rollbackErr
+          );
         }
       }
 
@@ -160,13 +179,19 @@ export class SchemaMigrator {
     }
   }
 
-  private loadOrCreateConfig(): NamespacesConfig {
-    if (fs.existsSync(this.configPath)) {
+  private async loadOrCreateConfig(): Promise<NamespacesConfig> {
+    if (await pathExists(this.configPath)) {
       try {
-        const raw = fs.readFileSync(this.configPath, "utf8");
-        return JSON.parse(raw);
-      } catch {
-        // fallback
+        const raw = await readTextFile(this.configPath);
+        if (raw !== null) {
+          return JSON.parse(raw) as NamespacesConfig;
+        }
+      } catch (err: unknown) {
+        console.warn(
+          `[SchemaMigrator] Config de esquemas ilegible; se usa la config por defecto: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
       }
     }
 
@@ -183,17 +208,12 @@ export class SchemaMigrator {
     };
   }
 
-  private saveConfig(config: NamespacesConfig): void {
+  private async saveConfig(config: NamespacesConfig): Promise<void> {
     const dir = path.dirname(this.configPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    await ensureDir(dir);
 
-    const tempPath = `${this.configPath}.tmp`;
-    fs.writeFileSync(tempPath, JSON.stringify(config, null, 2), "utf8");
-    if (fs.existsSync(this.configPath)) {
-      fs.unlinkSync(this.configPath);
-    }
-    fs.renameSync(tempPath, this.configPath);
+    // Publicación atómica (tmp + fsync + rename): la versión anterior del
+    // esquema queda intacta si el proceso muere a mitad de la escritura.
+    await writeTextFileAtomic(this.configPath, JSON.stringify(config, null, 2));
   }
 }

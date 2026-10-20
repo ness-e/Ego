@@ -67,13 +67,13 @@ describe("HERM-07: WindowsSandboxFallback (Crash-loop & Sandbox Recovery)", () =
     expect(evaluated.nextMarker.version).toBe("1.1.0");
   });
 
-  it("persiste y lee marcadores a disco correctamente", () => {
-    writeSandboxMarker(tmpDir, { state: "booting", bootAborts: 1, version: "0.1.0" });
-    const read = readSandboxMarker(tmpDir);
+  it("persiste y lee marcadores a disco correctamente", async () => {
+    await writeSandboxMarker(tmpDir, { state: "booting", bootAborts: 1, version: "0.1.0" });
+    const read = await readSandboxMarker(tmpDir);
     expect(read).toEqual({ state: "booting", bootAborts: 1, version: "0.1.0" });
 
-    markSandboxBootSuccessful(tmpDir, "0.1.0");
-    const okMarker = readSandboxMarker(tmpDir);
+    await markSandboxBootSuccessful(tmpDir, "0.1.0");
+    const okMarker = await readSandboxMarker(tmpDir);
     expect(okMarker?.state).toBe("ok");
     expect(okMarker?.bootAborts).toBe(0);
   });

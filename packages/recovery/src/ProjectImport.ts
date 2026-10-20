@@ -12,9 +12,24 @@ import {
   DumpRecordSchema,
   RecoveryMemoryAdapter,
 } from "./types.js";
+import { pathExists, removeIfExists, writeTextFileAtomic } from "./fsAsync.js";
+import type { SchemaMigrator } from "./SchemaMigrator.js";
 
 export class ProjectImport {
-  constructor(private readonly adapter: RecoveryMemoryAdapter) {}
+  /**
+   * @param adapter  Almacén de destino de la restauración.
+   * @param schemaMigrator Migrador de esquema de la configuración de
+   *   namespaces (DSEK-04, A5-S7). **Opcional**: si se inyecta, tras una
+   *   importación correcta la configuración de namespaces se lleva a la
+   *   versión de esquema vigente (migraciones aditivas, con snapshot
+   *   pre-migración y rollback automático).
+   *
+   *   Antes `SchemaMigrator` era código asimilado sin caller.
+   */
+  constructor(
+    private readonly adapter: RecoveryMemoryAdapter,
+    private readonly schemaMigrator?: SchemaMigrator
+  ) {}
 
   /**
    * Importa y restaura un archivo .vdbdump hacia el almacenamiento de VantaDB.
@@ -26,24 +41,31 @@ export class ProjectImport {
     const batchSize = options.batchSize ?? 100;
     const verifyChecksums = options.verifyChecksums ?? true;
 
-    if (!fs.existsSync(inputPath)) {
+    if (!(await pathExists(inputPath))) {
       throw new Error(`[ProjectImport] El archivo a importar no existe: ${inputPath}`);
     }
 
     // Adquisición de lockfile de importación exclusivo (CARP-02)
     const lockFilePath = path.join(path.dirname(inputPath), "ego.import.lock");
-    if (fs.existsSync(lockFilePath)) {
+    if (await pathExists(lockFilePath)) {
       throw new Error("[ProjectImport] Operación de importación en curso por otro proceso (ego.import.lock activo).");
     }
 
-    fs.writeFileSync(lockFilePath, JSON.stringify({ pid: process.pid, startedAt: startTime }), "utf8");
+    // Escritura atómica del lock de importación (EJO-FIND-66, T11).
+    await writeTextFileAtomic(
+      lockFilePath,
+      JSON.stringify({ pid: process.pid, startedAt: startTime })
+    );
 
     try {
       // Determinar si el archivo está comprimido en gzip revisando los primeros 2 bytes (Magic numbers: 0x1f, 0x8b)
       const fileBuffer = Buffer.alloc(2);
-      const fd = fs.openSync(inputPath, "r");
-      fs.readSync(fd, fileBuffer, 0, 2, 0);
-      fs.closeSync(fd);
+      const handle = await fs.promises.open(inputPath, "r");
+      try {
+        await handle.read(fileBuffer, 0, 2, 0);
+      } finally {
+        await handle.close();
+      }
       const isGzip = fileBuffer[0] === 0x1f && fileBuffer[1] === 0x8b;
 
       // Crear stream de lectura decodificado
@@ -151,21 +173,40 @@ export class ProjectImport {
 
       const durationMs = Date.now() - startTime;
 
+      // DSEK-04: tras restaurar los datos, la configuración de namespaces se
+      // lleva a la versión de esquema vigente (migraciones aditivas). El
+      // migrador se inyecta; sin él, la importación no toca la configuración.
+      let schemaMigration: { previousVersion: number; newVersion: number; appliedSteps: number } | null =
+        null;
+      if (this.schemaMigrator) {
+        try {
+          schemaMigration = await this.schemaMigrator.migrate();
+        } catch (migrateErr: unknown) {
+          // La migración falló: los datos ya están restaurados y son válidos.
+          // Se propaga el error para que el llamante lo trate (el migrador
+          // ya ha hecho su rollback por su cuenta).
+          throw new Error(
+            `[ProjectImport] Los datos se importaron, pero la migración de esquema falló: ${
+              migrateErr instanceof Error ? migrateErr.message : String(migrateErr)
+            }`
+          );
+        }
+      }
+
       return {
         success: true,
         manifest,
         importedRecords,
         namespacesRestored: Array.from(restoredNamespaces),
         durationMs,
+        schemaMigration,
       };
     } finally {
       // Liberar lock de importación
-      if (fs.existsSync(lockFilePath)) {
-        try {
-          fs.unlinkSync(lockFilePath);
-        } catch {
-          // ignore
-        }
+      try {
+        await removeIfExists(lockFilePath);
+      } catch {
+        // ignore
       }
     }
   }

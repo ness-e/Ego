@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import {
   SnapshotManagerOptions,
@@ -9,7 +8,15 @@ import {
 } from "./types.js";
 import { ProjectExport } from "./ProjectExport.js";
 import { ProjectImport } from "./ProjectImport.js";
+import { ensureDir, pathExists, readTextFile, removeIfExists, writeTextFileAtomic } from "./fsAsync.js";
 
+/**
+ * SnapshotManager — gestión de snapshots locales del proyecto.
+ *
+ * EGO-FIND-66 (T11): todo el I/O pasó a `fs/promises` (antes usaba
+ * `existsSync`/`mkdirSync`/`readFileSync`/`writeFileSync`/`unlinkSync`, que
+ * bloqueaban el event loop del main). El índice se publica de forma atómica.
+ */
 export class SnapshotManager {
   private readonly snapshotsDir: string;
   private readonly maxSnapshots: number;
@@ -22,10 +29,6 @@ export class SnapshotManager {
     this.snapshotsDir = options.snapshotsDir;
     this.maxSnapshots = options.maxSnapshots ?? 7;
     this.indexPath = path.join(this.snapshotsDir, "snapshots.json");
-
-    if (!fs.existsSync(this.snapshotsDir)) {
-      fs.mkdirSync(this.snapshotsDir, { recursive: true });
-    }
   }
 
   /**
@@ -36,6 +39,8 @@ export class SnapshotManager {
     projectId: string,
     reason: "scheduled" | "pre_risk" | "manual" | "pre_migration" = "scheduled"
   ): Promise<SnapshotRecord> {
+    await ensureDir(this.snapshotsDir);
+
     const timestamp = Date.now();
     const snapshotId = `snap_${timestamp}_${reason}`;
     const filePath = path.join(this.snapshotsDir, `${snapshotId}.vdbdump`);
@@ -58,9 +63,9 @@ export class SnapshotManager {
     };
 
     // Actualizar índice de snapshots
-    const index = this.readIndex();
+    const index = await this.readIndex();
     index.push(record);
-    this.writeIndex(index);
+    await this.writeIndex(index);
 
     // Rotar snapshots antiguos
     await this.pruneOldSnapshots();
@@ -72,7 +77,7 @@ export class SnapshotManager {
    * Lista todos los snapshots locales disponibles, ordenados por fecha descendente.
    */
   public async listSnapshots(projectId?: string): Promise<SnapshotRecord[]> {
-    const index = this.readIndex();
+    const index = await this.readIndex();
     const filtered = projectId ? index.filter((s) => s.projectId === projectId) : index;
     return filtered.sort((a, b) => b.timestamp - a.timestamp);
   }
@@ -81,14 +86,14 @@ export class SnapshotManager {
    * Restaura el estado de la base de datos a partir de un snapshot local específico.
    */
   public async restoreSnapshot(snapshotId: string): Promise<ProjectImportResult> {
-    const index = this.readIndex();
+    const index = await this.readIndex();
     const snapshot = index.find((s) => s.snapshotId === snapshotId);
 
     if (!snapshot) {
       throw new Error(`[SnapshotManager] No se encontró el snapshot con ID: ${snapshotId}`);
     }
 
-    if (!fs.existsSync(snapshot.filePath)) {
+    if (!(await pathExists(snapshot.filePath))) {
       throw new Error(`[SnapshotManager] El archivo físico del snapshot no existe: ${snapshot.filePath}`);
     }
 
@@ -103,7 +108,7 @@ export class SnapshotManager {
    * Poda y elimina snapshots antiguos excedentes que superen maxSnapshots.
    */
   public async pruneOldSnapshots(): Promise<number> {
-    let index = this.readIndex();
+    const index = await this.readIndex();
     if (index.length <= this.maxSnapshots) {
       return 0;
     }
@@ -116,25 +121,28 @@ export class SnapshotManager {
 
     for (const snap of toDelete) {
       try {
-        if (fs.existsSync(snap.filePath)) {
-          fs.unlinkSync(snap.filePath);
-        }
-      } catch (err) {
-        console.warn(`[SnapshotManager] No se pudo eliminar snapshot obsoleto ${snap.filePath}:`, err);
+        await removeIfExists(snap.filePath);
+      } catch (err: unknown) {
+        console.warn(
+          `[SnapshotManager] No se pudo eliminar snapshot obsoleto ${snap.filePath}: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
       }
     }
 
-    this.writeIndex(toKeep);
+    await this.writeIndex(toKeep);
     return toDelete.length;
   }
 
-  private readIndex(): SnapshotRecord[] {
-    if (!fs.existsSync(this.indexPath)) {
+  private async readIndex(): Promise<SnapshotRecord[]> {
+    if (!(await pathExists(this.indexPath))) {
       return [];
     }
 
     try {
-      const raw = fs.readFileSync(this.indexPath, "utf8");
+      const raw = await readTextFile(this.indexPath);
+      if (raw === null) return [];
       const data = JSON.parse(raw);
       if (Array.isArray(data)) {
         return data.filter((item) => {
@@ -142,18 +150,27 @@ export class SnapshotManager {
           return parsed.success;
         });
       }
-    } catch {
-      // noop
+    } catch (err: unknown) {
+      console.warn(
+        `[SnapshotManager] Índice de snapshots ilegible: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
     }
 
     return [];
   }
 
-  private writeIndex(records: SnapshotRecord[]): void {
+  private async writeIndex(records: SnapshotRecord[]): Promise<void> {
     try {
-      fs.writeFileSync(this.indexPath, JSON.stringify(records, null, 2), "utf8");
-    } catch (err) {
-      console.warn("[SnapshotManager] Error al escribir snapshots.json:", err);
+      await ensureDir(this.snapshotsDir);
+      await writeTextFileAtomic(this.indexPath, JSON.stringify(records, null, 2));
+    } catch (err: unknown) {
+      console.warn(
+        `[SnapshotManager] Error al escribir snapshots.json: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
     }
   }
 }

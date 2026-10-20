@@ -50,7 +50,7 @@ describe("SchemaMigrator", () => {
     expect(result.appliedSteps).toBe(2);
     expect(executedSteps).toEqual(["v1_to_v2", "v2_to_v3"]);
 
-    expect(migrator.getCurrentVersion()).toBe(3);
+    expect(await migrator.getCurrentVersion()).toBe(3);
     const savedConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
     expect(savedConfig.schema_version).toBe(3);
     expect(savedConfig.migration_history.length).toBe(2);
@@ -87,6 +87,6 @@ describe("SchemaMigrator", () => {
 
     await expect(migrator.migrate(2)).rejects.toThrow(/Simulated migration failure/);
     expect(rollbackExecuted).toBe(true);
-    expect(migrator.getCurrentVersion()).toBe(1);
+    expect(await migrator.getCurrentVersion()).toBe(1);
   });
 });

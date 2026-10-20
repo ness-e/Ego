@@ -11,6 +11,7 @@ import {
   DumpRecord,
   RecoveryMemoryAdapter,
 } from "./types.js";
+import { ensureDir, removeIfExists } from "./fsAsync.js";
 
 /**
  * Tamaño de página para barridos de exportación (H20).
@@ -49,9 +50,7 @@ export class ProjectExport {
 
     // Asegurar directorio destino
     const outDir = path.dirname(outputPath);
-    if (!fs.existsSync(outDir)) {
-      fs.mkdirSync(outDir, { recursive: true });
-    }
+    await ensureDir(outDir);
 
     // Resolver namespaces a exportar
     let namespaces = options.namespaces;
@@ -126,32 +125,26 @@ export class ProjectExport {
       }
 
       // Renombrado atómico para garantizar que nunca quede un archivo corrupto incompleto
-      if (fs.existsSync(outputPath)) {
-        fs.unlinkSync(outputPath);
-      }
-      fs.renameSync(tempPath, outputPath);
+      await removeIfExists(outputPath);
+      await fs.promises.rename(tempPath, outputPath);
     } catch (exportErr) {
       for (const p of [tempPath, bodyPath]) {
-        if (fs.existsSync(p)) {
-          try {
-            fs.unlinkSync(p);
-          } catch {
-            // ignore
-          }
-        }
-      }
-      throw exportErr;
-    } finally {
-      if (fs.existsSync(bodyPath)) {
         try {
-          fs.unlinkSync(bodyPath);
+          await removeIfExists(p);
         } catch {
           // ignore
         }
       }
+      throw exportErr;
+    } finally {
+      try {
+        await removeIfExists(bodyPath);
+      } catch {
+        // ignore
+      }
     }
 
-    const stat = fs.statSync(outputPath);
+    const stat = await fs.promises.stat(outputPath);
     const durationMs = Date.now() - startTime;
 
     return {
