@@ -344,7 +344,7 @@ describe("@ego/execution — ApprovalEngine Suite (ACT-06)", () => {
       const resolved = engine.resolveApproval(
         app.approvalId,
         { approved: true, reason: "Identidad verificada" },
-        expectedIdentity as any
+        expectedIdentity as unknown
       );
 
       expect(resolved).toBe(true);
@@ -375,7 +375,7 @@ describe("@ego/execution — ApprovalEngine Suite (ACT-06)", () => {
         engine.resolveApproval(
           app.approvalId,
           { approved: true },
-          mismatchedIdentity as any
+          mismatchedIdentity as unknown
         );
       }).toThrow();
 

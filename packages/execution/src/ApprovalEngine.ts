@@ -11,6 +11,46 @@ import type {
 } from "./types.js";
 
 /**
+ * Forma laxa de una identidad de aprobación: admite los alias históricos
+ * (`id`, `toolName`, `argsDigest`) junto a los campos canónicos.
+ * Permite normalizar sin `as any` (A2-21).
+ */
+interface ApprovalIdentityLike {
+  id?: string;
+  runId?: string;
+  taskId?: string;
+  subEgoId?: string;
+  toolId?: string;
+  toolName?: string;
+  inputDigest?: string;
+  argsDigest?: string;
+}
+
+/** Lee una propiedad string opcional de un objeto de forma segura. */
+function readOptionalString(source: Record<string, unknown>, key: string): string | undefined {
+  const value = source[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Normaliza una identidad de aprobación a la forma canónica
+ * (`runId`, `taskId`, `subEgoId`, `toolId`, `inputDigest`), resolviendo los
+ * alias heredados. No muta la entrada (A2-21).
+ */
+export function normalizeApprovalIdentity(source: ApprovalIdentityLike): ApprovalIdentity {
+  const inputDigest = source.inputDigest ?? source.argsDigest ?? "";
+  const toolId = source.toolId ?? source.toolName ?? "";
+  const runId = source.runId ?? source.id ?? "";
+  return {
+    runId,
+    taskId: source.taskId ?? runId,
+    subEgoId: source.subEgoId ?? "ego.nucleus",
+    toolId,
+    inputDigest,
+  };
+}
+
+/**
  * Función auxiliar para serialización canónica determinista de objetos.
  * Ordena alfabéticamente las claves de cualquier objeto o array anidado.
  */
@@ -389,11 +429,18 @@ export class ApprovalEngine {
     }
 
     if (expectedIdentity) {
+      // A2-21: la normalización de alias (`toolId`/`toolName`, `inputDigest`/
+      // `argsDigest`, `runId`/`id`) se hace sobre una forma ESTRUCTURADA y
+      // tipada, sin `as any` y sin mutar el objeto de entrada.
+      const requestArgsDigest = readOptionalString(
+        request as unknown as Record<string, unknown>,
+        "argsDigest"
+      );
       const argsDigest =
-        (request as any).argsDigest ??
+        requestArgsDigest ??
         ApprovalEngine.computeArgsDigest(request.toolName, request.arguments);
 
-      const actualIdentity = {
+      const actualLike = normalizeApprovalIdentity({
         id: request.approvalId,
         toolName: request.toolName,
         argsDigest,
@@ -402,27 +449,28 @@ export class ApprovalEngine {
         subEgoId: request.action?.subEgoId ?? "ego.nucleus",
         toolId: request.toolName,
         inputDigest: argsDigest,
-      } as unknown as ApprovalIdentity;
+      });
 
-      const expAny = expectedIdentity as any;
-      if (expAny.toolId === undefined && expAny.toolName !== undefined) {
-        expAny.toolId = expAny.toolName;
-      }
-      if (expAny.inputDigest === undefined && expAny.argsDigest !== undefined) {
-        expAny.inputDigest = expAny.argsDigest;
-      }
-      if (expAny.runId === undefined && expAny.id !== undefined) {
-        expAny.runId = expAny.id;
-        (actualIdentity as any).runId = (actualIdentity as any).id;
-      }
-      if (expAny.taskId === undefined) {
-        expAny.taskId = (actualIdentity as any).taskId;
-      }
-      if (expAny.subEgoId === undefined) {
-        expAny.subEgoId = (actualIdentity as any).subEgoId;
-      }
+      const expectedLike = expectedIdentity as unknown as ApprovalIdentityLike;
+      const expectedBase = normalizeApprovalIdentity(expectedLike);
 
-      assertSameApproval(expectedIdentity, actualIdentity);
+      // Compatibilidad de alias (heredada, sin `as any`): los campos que el
+      // esperado NO fija se toman del real; y si el esperado tampoco fijó
+      // `runId`, el run efectivo es el id de la propia aprobación.
+      const actual: ApprovalIdentity = {
+        ...actualLike,
+        runId: expectedLike.runId !== undefined ? actualLike.runId : request.approvalId,
+      };
+      const effectiveExpected: ApprovalIdentity = {
+        runId: expectedLike.runId !== undefined ? expectedBase.runId : request.approvalId,
+        taskId: expectedLike.taskId !== undefined ? expectedBase.taskId : actualLike.taskId,
+        subEgoId:
+          expectedLike.subEgoId !== undefined ? expectedBase.subEgoId : actualLike.subEgoId,
+        toolId: expectedBase.toolId,
+        inputDigest: expectedBase.inputDigest,
+      };
+
+      assertSameApproval(effectiveExpected, actual);
     }
 
     clearTimeout(entry.timer);

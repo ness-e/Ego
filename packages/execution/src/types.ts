@@ -28,12 +28,26 @@ export interface ExecutionManagerConfig {
   maxOutputSizeBytes?: number;
 
   /**
+   * Circuit breaker por herramienta (R5). Si se omite, el circuit breaker
+   * queda **activo** con los valores por defecto (5 fallos consecutivos,
+   * ventana de reintento de 30 s): un tool colgado no debe agotar los slots.
+   */
+  circuitBreaker?: Partial<CircuitBreakerConfig>;
+
+  /**
+   * Cuota de llamadas por Sub-Ego (R5). Si se omite, la cuota queda **activa**
+   * con el valor por defecto (1000 llamadas por Sub-Ego).
+   */
+  subEgoQuota?: Partial<SubEgoQuotaConfig>;
+
+  /**
    * Listener opcional de telemetría y ciclo de vida de ejecuciones.
    */
   onEvent?: (event: ExecutionEvent) => void;
 }
 
 import type { AdmittedRunContext } from "./AdmittedRunContext.js";
+import type { CircuitBreakerConfig, SubEgoQuotaConfig } from "./CircuitBreaker.js";
 
 /**
  * Opciones específicas para una llamada individual de ejecución.
