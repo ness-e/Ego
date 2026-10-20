@@ -25,7 +25,7 @@ describe("DomainRegistry (DOM-09 / COUC-10)", () => {
     const defaultView = registry.getDefaultView("engineering");
     expect(defaultView).toBeDefined();
     expect(defaultView?.id).toBe("code_tree");
-    expect(defaultView?.componentKind).toBe("CodeTreeView");
+    expect(defaultView?.componentKind).toBe("table");
   });
 
   it("debe registrar un dominio de extensión válido", () => {
@@ -41,7 +41,7 @@ describe("DomainRegistry (DOM-09 / COUC-10)", () => {
         {
           id: "contracts_view",
           name: "Contratos Activos",
-          componentKind: "ContractsTable",
+          componentKind: "table",
           default: true,
         },
       ],
@@ -77,7 +77,7 @@ describe("DomainRegistry (DOM-09 / COUC-10)", () => {
       namespaces: ["fake/*"],
       defaultSubEgoId: "fake",
       subEgoTemplates: ["fake"],
-      views: [{ id: "v1", name: "v1", componentKind: "v1", default: true }],
+      views: [{ id: "v1", name: "v1", componentKind: "table", default: true }],
       isBuiltin: false,
     };
 
@@ -98,7 +98,7 @@ describe("DomainRegistry (DOM-09 / COUC-10)", () => {
       namespaces: ["mkt/*"],
       defaultSubEgoId: "ego.mkt",
       subEgoTemplates: ["ego.mkt"],
-      views: [{ id: "mkt1", name: "mkt1", componentKind: "mkt1", default: true }],
+      views: [{ id: "mkt1", name: "mkt1", componentKind: "table", default: true }],
       isBuiltin: false,
     };
 

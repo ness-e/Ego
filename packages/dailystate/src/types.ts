@@ -24,7 +24,15 @@ export const DailyStateSummarySchema = z.object({
   timestamp: z.number(),
   completedTasksCount: z.number().int().nonnegative(),
   pendingTasksCount: z.number().int().nonnegative(),
-  pendingApprovalsCount: z.number().int().nonnegative(),
+  /**
+   * Aprobaciones pendientes de aprobación humana.
+   *
+   * EGO-FIND-52 (T9): `-1` significa **DESCONOCIDO** (la fuente
+   * `gov/approvals` no se pudo leer). Antes un fallo de lectura producía `0`,
+   * que sepresentsaba falsamente como "no hay aprobaciones pendientes".
+   * Un valor `>= 0` es un conteo real.
+   */
+  pendingApprovalsCount: z.number().int().min(-1),
   decisionsCount: z.number().int().nonnegative(),
   quarantineAlertsCount: z.number().int().nonnegative(),
   totalTokensToday: z.number().int().nonnegative(),
@@ -32,6 +40,17 @@ export const DailyStateSummarySchema = z.object({
   p99LatencyMs: z.number().nonnegative().default(0),
   recentDecisions: z.array(RecentDecisionSchema),
   suggestedGoals: z.array(SuggestedGoalSchema),
+  /**
+   * EGO-FIND-52 (T9): `true` si alguna fuente no pudo leerse o se leyó de
+   * forma parcial. Cuando es `true`, los contadores NO deben interpretarse
+   * como "no hay nada": son cotas inferiores, no el estado real.
+   */
+  partial: z.boolean().default(false),
+  /**
+   * Namespaces que no se pudieron leer (o cuya lectura fue parcial).
+   * Vacío ⇔ el resumen es completo.
+   */
+  sourcesUnavailable: z.array(z.string()).default([]),
 });
 
 export type DailyStateSummary = z.infer<typeof DailyStateSummarySchema>;

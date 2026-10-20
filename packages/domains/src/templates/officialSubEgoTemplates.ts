@@ -30,12 +30,11 @@ Reglas innegociables:
       "test_driven_development"
     ],
     recommendedTools: [
-      "filesystem_read",
-      "filesystem_write",
+      "fs_read_file",
+      "fs_write_file",
       "terminal_exec",
       "git_status",
-      "git_diff",
-      "worktree_manage"
+      "git_diff"
     ],
     recommendedNamespaces: {
       read: ["engineering/*", "kb/*", "gov/audit", "tasks/*"],
@@ -84,12 +83,7 @@ Reglas innegociables:
       "acceptance_criteria",
       "roadmap_planning"
     ],
-    recommendedTools: [
-      "product_backlog_manage",
-      "product_prd_generate",
-      "memory_recall",
-      "memory_store"
-    ],
+    recommendedTools: [] as string[],
     recommendedNamespaces: {
       read: ["product/*", "kb/*", "analytics/*", "crm/*"],
       write: ["product/backlog", "product/epics", "product/prds"]
@@ -136,12 +130,7 @@ Reglas innegociables:
       "hybrid_search",
       "epistemic_classification"
     ],
-    recommendedTools: [
-      "knowledge_search",
-      "graph_rag_query",
-      "document_parse",
-      "memory_recall"
-    ],
+    recommendedTools: [] as string[],
     recommendedNamespaces: {
       read: ["kb/*", "research/*", "system/snapshots"],
       write: ["kb/facts", "kb/entities", "research/summaries"]
@@ -188,12 +177,7 @@ Reglas innegociables:
       "chart_dataset_formatting",
       "statistical_summary"
     ],
-    recommendedTools: [
-      "analytics_aggregate",
-      "analytics_export",
-      "memory_recall",
-      "metrics_query"
-    ],
+    recommendedTools: [] as string[],
     recommendedNamespaces: {
       read: ["metrics/*", "gov/audit", "system/*", "analytics/*"],
       write: ["analytics/reports", "analytics/datasets"]
@@ -239,12 +223,7 @@ Reglas innegociables:
       "deal_tracking",
       "interaction_timeline"
     ],
-    recommendedTools: [
-      "crm_contact_manage",
-      "crm_deal_manage",
-      "crm_timeline_record",
-      "memory_recall"
-    ],
+    recommendedTools: [] as string[],
     recommendedNamespaces: {
       read: ["crm/*", "kb/contacts", "product/backlog"],
       write: ["crm/contacts", "crm/deals", "crm/interactions"]

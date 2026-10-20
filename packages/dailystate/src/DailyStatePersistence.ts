@@ -4,6 +4,7 @@ import { getQuarantineAware, listQuarantineAware } from "@ego/memory";
 import type { EventBus } from "@ego/events";
 import {
   DailyStateSummary,
+  DailyStateSummarySchema,
   DailySnapshotRecord,
   DailySnapshotRecordSchema,
 } from "./types.js";
@@ -34,14 +35,20 @@ export class DailyStatePersistence {
     summary: DailyStateSummary,
     journalEntryId?: string
   ): Promise<DailySnapshotRecord> {
-    const checksum = DailyStatePersistence.computeChecksum(summary);
+    // EGO-FIND-52 (T9): el checksum se calcula sobre el summary **normalizado**
+    // (tras aplicar los defaults del esquema, p. ej. `partial`/`sourcesUnavailable`).
+    // Antes se calculaba sobre el objeto de entrada: al releer, Zod aplicaba los
+    // defaults y el checksum ya no coincidía → el snapshot se descartaba como
+    // "corrupto" (fall-closed) y el briefing perdía su historial.
+    const normalizedSummary = DailyStateSummarySchema.parse(summary);
+    const checksum = DailyStatePersistence.computeChecksum(normalizedSummary);
     const now = Date.now();
 
     const record: DailySnapshotRecord = {
-      date: summary.date,
+      date: normalizedSummary.date,
       timestamp: now,
       checksum,
-      summary,
+      summary: normalizedSummary,
       journalEntryId,
     };
 

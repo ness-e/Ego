@@ -4,6 +4,19 @@ import {
   DomainView,
   CanonicalDomainId,
 } from "./types.js";
+import { assertToolsExist, type ToolCatalogLike } from "@ego/subegos";
+
+/**
+ * Opciones del registro de dominios (EGO-FIND-45, T5).
+ */
+export interface DomainRegistryOptions {
+  /**
+   * Catálogo contra el que se valida que las tools declaradas por un dominio
+   * EXISTAN. Si se omite, la validación se salta (compatibilidad); el test de
+   * contrato de `@ego/domains` la ejerce siempre.
+   */
+  toolCatalog?: ToolCatalogLike;
+}
 
 /**
  * Dominios canónicos integrados de fábrica en Ego (P0-Beta / ADR-050).
@@ -21,30 +34,29 @@ export const BUILTIN_DOMAINS: Record<CanonicalDomainId, DomainDefinition> = {
       {
         id: "code_tree",
         name: "Explorador de Código",
-        componentKind: "CodeTreeView",
+        componentKind: "table",
         description: "Visualizador estructurado del árbol del workspace y dependencias",
         default: true,
       },
       {
         id: "diff_viewer",
         name: "Visor de Diffs",
-        componentKind: "DiffViewer",
+        componentKind: "diff",
         description: "Inspección de cambios de Git sin mutar el working directory",
       },
       {
         id: "worktrees",
         name: "Worktrees Aislados",
-        componentKind: "WorktreeList",
+        componentKind: "table",
         description: "Entornos de trabajo temporales para refactorización sin fricción (HERM-17)",
       },
     ],
     tools: [
-      "filesystem_read",
-      "filesystem_write",
+      "fs_read_file",
+      "fs_write_file",
       "terminal_exec",
       "git_status",
       "git_diff",
-      "worktree_manage",
     ],
     isBuiltin: true,
   },
@@ -61,24 +73,24 @@ export const BUILTIN_DOMAINS: Record<CanonicalDomainId, DomainDefinition> = {
       {
         id: "kanban",
         name: "Tablero Kanban",
-        componentKind: "KanbanBoard",
+        componentKind: "board",
         description: "Gestión visual de tareas y estado del backlog de producto",
         default: true,
       },
       {
         id: "epics_roadmap",
         name: "Roadmap de Épicas",
-        componentKind: "EpicsRoadmap",
+        componentKind: "table",
         description: "Línea de tiempo de hitos y dependencias entre épicas",
       },
       {
         id: "prd_editor",
         name: "Editor de PRDs",
-        componentKind: "PrdEditor",
+        componentKind: "editor",
         description: "Especificaciones estructuradas con criterios de aceptación",
       },
     ],
-    tools: ["product_backlog_manage", "product_prd_generate"],
+    tools: [],
     isBuiltin: true,
   },
 
@@ -94,24 +106,24 @@ export const BUILTIN_DOMAINS: Record<CanonicalDomainId, DomainDefinition> = {
       {
         id: "graph_view",
         name: "Grafo GraphRAG",
-        componentKind: "GraphRagCanvas",
+        componentKind: "table",
         description: "Exploración interactiva de entidades y aristas de conocimiento",
         default: true,
       },
       {
         id: "doc_explorer",
         name: "Explorador Documental",
-        componentKind: "DocExplorer",
+        componentKind: "table",
         description: "Búsqueda híbrida y lectura de documentos importados",
       },
       {
         id: "facts_table",
         name: "Matriz de Facts",
-        componentKind: "FactsTable",
+        componentKind: "table",
         description: "Hechos estructurados con niveles de confianza epistémica",
       },
     ],
-    tools: ["knowledge_search", "graph_rag_query", "document_parse"],
+    tools: [],
     isBuiltin: true,
   },
 
@@ -127,24 +139,24 @@ export const BUILTIN_DOMAINS: Record<CanonicalDomainId, DomainDefinition> = {
       {
         id: "metrics_overview",
         name: "Consola de Métricas",
-        componentKind: "AnalyticsCharts",
+        componentKind: "chart",
         description: "Resumen de rendimiento, telemetría y estado operativo",
         default: true,
       },
       {
         id: "tokens_costs",
         name: "Tokens & USD",
-        componentKind: "TokensCostChart",
+        componentKind: "chart",
         description: "Distribución de consumo de tokens y presupuesto de inferencia",
       },
       {
         id: "db_aggregations",
         name: "Agregaciones de Memoria",
-        componentKind: "MemoryAggregationsView",
+        componentKind: "table",
         description: "Estadísticas por namespace y volumen de persistencia",
       },
     ],
-    tools: ["analytics_aggregate", "analytics_export", "metrics_query"],
+    tools: [],
     isBuiltin: true,
   },
 
@@ -160,24 +172,24 @@ export const BUILTIN_DOMAINS: Record<CanonicalDomainId, DomainDefinition> = {
       {
         id: "deals_pipeline",
         name: "Pipeline de Deals",
-        componentKind: "DealsPipeline",
+        componentKind: "board",
         description: "Etapas del embudo de ventas y valor monetario estimado",
         default: true,
       },
       {
         id: "contacts_list",
         name: "Directorio de Contactos",
-        componentKind: "ContactsList",
+        componentKind: "table",
         description: "Fichas de contactos, empresas e historial de relación",
       },
       {
         id: "timeline",
         name: "Timeline de Interacciones",
-        componentKind: "InteractionTimeline",
+        componentKind: "table",
         description: "Registro cronológico de reuniones, notas y comunicaciones",
       },
     ],
-    tools: ["crm_contact_manage", "crm_deal_manage", "crm_timeline_record"],
+    tools: [],
     isBuiltin: true,
   },
 };
@@ -188,8 +200,11 @@ export const BUILTIN_DOMAINS: Record<CanonicalDomainId, DomainDefinition> = {
  */
 export class DomainRegistry {
   private domains = new Map<string, DomainDefinition>();
+  private readonly toolCatalog?: ToolCatalogLike;
 
-  constructor(customDomains?: DomainDefinition[]) {
+  constructor(customDomains?: DomainDefinition[], options: DomainRegistryOptions = {}) {
+    this.toolCatalog = options.toolCatalog;
+
     // Inicializar con dominios canónicos de Ego
     for (const [id, domain] of Object.entries(BUILTIN_DOMAINS)) {
       this.domains.set(id, { ...domain });
@@ -204,10 +219,15 @@ export class DomainRegistry {
 
   /**
    * Registra un nuevo dominio o actualiza uno no-builtin.
-   * Valida estrictamente el esquema con Zod (COUC-10).
+   * Valida estrictamente el esquema con Zod (COUC-10) y, si hay catálogo de
+   * tools, que las tools declaradas EXISTAN (EGO-FIND-45).
    */
   public registerDomain(domain: unknown): DomainDefinition {
     const validated = DomainDefinitionSchema.parse(domain);
+
+    if (this.toolCatalog) {
+      assertToolsExist(validated.tools, this.toolCatalog, `dominio '${validated.id}'`);
+    }
 
     const existing = this.domains.get(validated.id);
     if (existing && existing.isBuiltin && !validated.isBuiltin) {
