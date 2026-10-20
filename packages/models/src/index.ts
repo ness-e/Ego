@@ -8,3 +8,4 @@ export * from "./providers/AiSdkAnthropicProvider.js";
 export * from "./providers/AiSdkGoogleProvider.js";
 export * from "./providers/AiSdkOpenAICompatibleProvider.js";
 export * from "./createProductionRouter.js";
+export * from "./routerSummarizer.js";

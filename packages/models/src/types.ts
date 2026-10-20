@@ -62,6 +62,36 @@ export interface ModelMessage {
   name?: string;
   toolCallId?: string;
   toolCalls?: ToolCall[];
+  /**
+   * Procedencia del mensaje (EGO-FIND-60 / taint tracking).
+   * `untrusted` marca contenido externo ya saneado: el prompt assembly debe
+   * tratarlo como *data channel*, nunca como *control channel*.
+   */
+  trust?: MessageTrust;
+}
+
+/**
+ * Nivel de confianza en la procedencia de un mensaje.
+ * - `trusted`: generado por Ego (sistema, assistant, tool propia).
+ * - `untrusted`: proviene de una fuente externa (documento, web, RAG de
+ *   terceros). Puede haber pasado por `UntrustedContentSanitizer`, pero su
+ *   contenido sigue sin ser capaz de alterar instrucciones.
+ */
+export type MessageTrust = "trusted" | "untrusted";
+
+/**
+ * Perfil de complejidad de una petición. Lo rellena el caller que conoce el
+ * contexto real (tokens estimados, nº de ficheros, contenido multimodal) y
+ * lo usa el router para elegir alias `fast`/`smart` y para inferir la
+ * capability `vision` (EGO-FIND-39).
+ */
+export interface ModelRequestProfile {
+  /** Tokens estimados de entrada. */
+  estimatedInputTokens?: number;
+  /** Número de ficheros/artefactos implica refactor amplio. */
+  fileCount?: number;
+  /** El request incluye contenido no textual (imagen/audio). */
+  multimodal?: boolean;
 }
 
 export interface ModelGenerateOptions {
@@ -73,6 +103,14 @@ export interface ModelGenerateOptions {
   systemPrompt?: string;
   responseFormat?: "text" | "json";
   abortSignal?: AbortSignal;
+  /** Perfil de complejidad para routing por coste/complejidad (EGO-FIND-39). */
+  profile?: ModelRequestProfile;
+  /**
+   * Opciones específicas de proveedor, con la misma forma que el AI SDK:
+   * `{ anthropic: { cacheControl: { type: "ephemeral" } } }` habilita el
+   * prompt caching en Anthropic (EGO-FIND-40).
+   */
+  providerOptions?: Record<string, Record<string, unknown>>;
   tools?: Array<{
     name: string;
     description: string;

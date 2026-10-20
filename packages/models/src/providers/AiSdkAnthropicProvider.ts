@@ -239,12 +239,36 @@ function mapFinishReason(reason: string, toolCallCount: number): string {
 
 // ai@7 rechaza mensajes `system` en `messages`: el prompt de sistema viaja
 // en la opción `instructions`. Se combina systemPrompt + mensajes system legacy.
-function toInstructions(options: ModelGenerateOptions): { instructions?: string } {
+//
+// EGO-FIND-40 (prompt caching): `instructions` admite `string | SystemModelMessage
+// | SystemModelMessage[]` (ai@7 `Prompt.instructions`) y el provider Anthropic lee
+// el cache control del `providerOptions` a nivel de mensaje
+// (`providerOptions.anthropic.cacheControl = { type: "ephemeral" }`), con
+// `canCache: true` para los mensajes de sistema. Verificado contra el source
+// instalado: @ai-sdk/anthropic 4.0.78 (`src/get-cache-control.ts`,
+// `src/convert-to-anthropic-prompt.ts`) y ai@7.0.137 (`standardizePrompt`).
+type SystemInstruction = Extract<Ai.Prompt["instructions"], readonly unknown[]>[number];
+
+function toInstructions(options: ModelGenerateOptions): { instructions?: Ai.Prompt["instructions"] } {
   const parts = [
     options.systemPrompt,
     ...options.messages.filter((m) => m.role === "system").map((m) => m.content),
   ].filter((s): s is string => typeof s === "string" && s.length > 0);
-  return parts.length > 0 ? { instructions: parts.join("\n") } : {};
+  if (parts.length === 0) return {};
+
+  const content = parts.join("\n");
+  const cacheControl = options.providerOptions?.["anthropic"]?.["cacheControl"];
+  if (cacheControl !== undefined && cacheControl !== null) {
+    // El SDK exige `JSONObject` en `providerOptions`; el valor viaja sin
+    // validación propia (la valida la API de Anthropic).
+    const systemMessage: SystemInstruction = {
+      role: "system",
+      content,
+      providerOptions: { anthropic: { cacheControl } } as unknown as SystemInstruction["providerOptions"],
+    };
+    return { instructions: [systemMessage] };
+  }
+  return { instructions: content };
 }
 
 function toRecord(input: unknown): Record<string, unknown> {

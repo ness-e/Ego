@@ -5,6 +5,7 @@ import type {
   ModelGenerateOptions,
   ModelGenerateResult,
   ModelProviderId,
+  ModelRequestProfile,
   ModelRole,
   ModelStreamChunk,
   PreferredModel,
@@ -15,6 +16,125 @@ import { MockProvider } from "./providers/MockProvider.js";
 export interface ModelRouterConfig {
   preferLocal?: boolean;
   maxCostPerCallUsd?: number;
+  /** Base del backoff exponencial ante 429 (ms). */
+  backoffBaseDelayMs?: number;
+  /** Tope del backoff exponencial ante 429 (ms). */
+  backoffMaxDelayMs?: number;
+  /** Proporción de jitter aplicado al delay (0 = determinista, 1 = hasta -100 %). */
+  backoffJitterRatio?: number;
+}
+
+/**
+ * Error tipado: la llamada superaría el presupuesto de coste configurado y
+ * no existe un modelo más barato que cumpla las capacidades exigidas.
+ */
+export class ModelCostBudgetExceededError extends Error {
+  public readonly modelId: string;
+  public readonly estimatedCostUsd: number;
+  public readonly budgetUsd: number;
+
+  constructor(modelId: string, estimatedCostUsd: number, budgetUsd: number) {
+    super(
+      `Model cost budget exceeded: '${modelId}' estimated $${estimatedCostUsd.toFixed(6)} ` +
+        `> budget $${budgetUsd.toFixed(6)}`
+    );
+    this.name = "ModelCostBudgetExceededError";
+    this.modelId = modelId;
+    this.estimatedCostUsd = estimatedCostUsd;
+    this.budgetUsd = budgetUsd;
+  }
+}
+
+/** Opciones del cálculo de backoff exponencial con jitter. */
+export interface BackoffOptions {
+  baseDelayMs: number;
+  maxDelayMs: number;
+  jitterRatio: number;
+  /** Fuente de aleatoriedad (inyectable para tests deterministas). */
+  random?: () => number;
+}
+
+/**
+ * Calcula el delay del backoff exponencial con jitter (EGO-FIND-37).
+ *
+ * `delay = min(base * 2^(attempt-1), max) * (1 - jitterRatio * random())`
+ * ⇒ el resultado vive en `[delay*(1-jitterRatio), delay]`.
+ */
+export function computeBackoffDelayMs(attempt: number, options: BackoffOptions): number {
+  const base = Math.max(0, options.baseDelayMs);
+  const max = Math.max(base, options.maxDelayMs);
+  const jitterRatio = Math.min(1, Math.max(0, options.jitterRatio));
+  const exp = Math.max(1, Math.floor(attempt));
+  const raw = base * Math.pow(2, exp - 1);
+  const capped = Math.min(raw, max);
+  const random = options.random ?? Math.random;
+  const jitter = 1 - jitterRatio * random();
+  return Math.max(0, Math.round(capped * jitter));
+}
+
+function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/** Complejidad estimada de una petición (EGO-FIND-39). */
+export interface RequestComplexity {
+  /** Puntuación 0..1. */
+  score: number;
+  tier: "simple" | "moderate" | "complex";
+  multimodal: boolean;
+}
+
+const COMPLEXITY_TOKEN_SATURATION = 120_000;
+const COMPLEXITY_FILE_SATURATION = 20;
+
+/**
+ * Puntúa la complejidad de una petición a partir del perfil declarado por el
+ * caller. Determinista y sin red: sólo depende del perfil.
+ */
+export function scoreRequestComplexity(profile?: ModelRequestProfile): RequestComplexity {
+  const tokens = Math.max(0, profile?.estimatedInputTokens ?? 0);
+  const files = Math.max(0, profile?.fileCount ?? 0);
+  const multimodal = profile?.multimodal === true;
+
+  const tokenScore = Math.min(1, tokens / COMPLEXITY_TOKEN_SATURATION);
+  const fileScore = Math.min(1, files / COMPLEXITY_FILE_SATURATION);
+  const multiScore = multimodal ? 1 : 0;
+  const score = Math.min(1, tokenScore * 0.5 + fileScore * 0.3 + multiScore * 0.2);
+  const tier: RequestComplexity["tier"] =
+    score >= 0.6 ? "complex" : score >= 0.25 ? "moderate" : "simple";
+
+  return { score, tier, multimodal };
+}
+
+/** Tokens de salida estimados cuando el caller no fija `maxTokens`. */
+const DEFAULT_ESTIMATED_OUTPUT_TOKENS = 1024;
+
+/** Estimación grosera de tokens de entrada (4 caracteres ≈ 1 token). */
+function estimateInputTokens(options: ModelGenerateOptions): number {
+  const declared = options.profile?.estimatedInputTokens;
+  if (typeof declared === "number" && Number.isFinite(declared)) return Math.max(0, declared);
+  let chars = 0;
+  for (const m of options.messages) chars += m.content?.length ?? 0;
+  return Math.ceil(chars / 4);
+}
+
+/**
+ * Coste estimado (USD) de una llamada con el descriptor dado.
+ * `maxCostPerCallUsd` se compara contra este valor.
+ */
+export function estimateCallCostUsd(
+  descriptor: ModelDescriptor,
+  options: ModelGenerateOptions
+): number {
+  const inputTokens = estimateInputTokens(options);
+  const outputTokens = Math.max(0, options.maxTokens ?? DEFAULT_ESTIMATED_OUTPUT_TOKENS);
+  return (
+    inputTokens * descriptor.costPerInputTokenUsd +
+    outputTokens * descriptor.costPerOutputTokenUsd
+  );
 }
 
 /**
@@ -148,6 +268,9 @@ export class ModelRouter {
     this.config = {
       preferLocal: false,
       maxCostPerCallUsd: 1.0,
+      backoffBaseDelayMs: 200,
+      backoffMaxDelayMs: 5000,
+      backoffJitterRatio: 0.25,
       ...config,
     };
 
@@ -317,12 +440,26 @@ export class ModelRouter {
 
   /**
    * Resuelve el mejor modelo disponible según el rol solicitado o capacidades.
+   *
+   * @param profile Perfil de complejidad (opcional). Cuando se aporta, el
+   *   router (a) infiere la capability `vision` si el request es multimodal y
+   *   (b) prefiere el alias `fast` (perfil simple) o `smart` (perfil complejo).
+   *   Sin perfil, la conducta es la del binding por rol puro.
    */
   public async resolveModel(
     role: ModelRole,
     requiredCapabilities: ModelCapability[] = ["text"],
-    preferred?: PreferredModel
+    preferred?: PreferredModel,
+    profile?: ModelRequestProfile
   ): Promise<ModelDescriptor> {
+    const complexity = scoreRequestComplexity(profile);
+    const effectiveCaps: ModelCapability[] = [...requiredCapabilities];
+    if (complexity.multimodal && !effectiveCaps.includes("vision")) {
+      effectiveCaps.push("vision");
+    }
+    // Sin perfil no se infiere `vision` (el caller legacy no lo declara).
+    const caps = profile === undefined ? [...requiredCapabilities] : effectiveCaps;
+
     // Preferencia explícita del usuario (2026-10-14: el picker/Ajustes elige
     // modelo real, no decorativo). Gana al binding por rol si resuelve.
     if (preferred?.modelId) {
@@ -334,7 +471,7 @@ export class ModelRouter {
           if (
             provider &&
             (await provider.isAvailable()) &&
-            requiredCapabilities.every((cap) => registered.capabilities.has(cap))
+            caps.every((cap) => registered.capabilities.has(cap))
           ) {
             return registered;
           }
@@ -356,7 +493,7 @@ export class ModelRouter {
         }
       }
     }
-    const candidates = this.roleBindings.get(role) || [];
+    const candidates = this.buildCandidateIds(role, profile, complexity);
 
     for (const rawId of candidates) {
       // CFG-04: los bindings pueden contener aliases (`fast`/`smart`).
@@ -379,7 +516,7 @@ export class ModelRouter {
       if (!available) continue;
 
       // Verificar que cumple con todas las capacidades requeridas
-      const hasCaps = requiredCapabilities.every((cap) => desc.capabilities.has(cap));
+      const hasCaps = caps.every((cap) => desc.capabilities.has(cap));
       if (!hasCaps) continue;
 
       return desc;
@@ -387,14 +524,18 @@ export class ModelRouter {
 
     // Fallback a cualquier modelo real disponible; mock solo como último recurso.
     // (Antes el mock ganaba por orden de registro aunque hubiera BYOK real.)
+    // EGO-FIND-38: el fallback TAMBIÉN respeta `requiredCapabilities`: un modelo
+    // sin `tool_calling` no puede atender una petición que lo exige.
     for (const desc of this.models.values()) {
       if (desc.provider === "mock") continue;
+      if (!caps.every((cap) => desc.capabilities.has(cap))) continue;
       const provider = this.providers.get(desc.provider);
       if (provider && (await provider.isAvailable())) {
         return desc;
       }
     }
     for (const desc of this.models.values()) {
+      if (!caps.every((cap) => desc.capabilities.has(cap))) continue;
       const provider = this.providers.get(desc.provider);
       if (provider && (await provider.isAvailable())) {
         return desc;
@@ -403,6 +544,74 @@ export class ModelRouter {
 
     // Fallback absoluto a mock
     return this.models.get("mock-core")!;
+  }
+
+  /**
+   * Construye la lista ordenada de candidatos para un rol.
+   * Con perfil de complejidad, el alias `fast`/`smart` encabeza la lista
+   * según el tier calculado; sin perfil, es el binding por rol puro.
+   */
+  private buildCandidateIds(
+    role: ModelRole,
+    profile: ModelRequestProfile | undefined,
+    complexity: RequestComplexity
+  ): string[] {
+    const bound = this.roleBindings.get(role) ?? [];
+    if (profile === undefined) return [...bound];
+    if (complexity.tier === "simple") {
+      return [this.resolveAlias("fast"), ...bound];
+    }
+    if (complexity.tier === "complex") {
+      return [this.resolveAlias("smart"), ...bound];
+    }
+    return [...bound];
+  }
+
+  /**
+   * EGO-FIND-39: hace cumplir `maxCostPerCallUsd`.
+   * Si el modelo resuelto excede el presupuesto, degrada al modelo real más
+   * barato que cumpla las capacidades exigidas. El mock NO es destino de
+   * degradación por coste (devolvería una respuesta ficticia al usuario).
+   */
+  private async enforceCostBudget(
+    descriptor: ModelDescriptor,
+    options: ModelGenerateOptions,
+    requiredCapabilities: ModelCapability[]
+  ): Promise<ModelDescriptor> {
+    const budget = this.config.maxCostPerCallUsd;
+    if (typeof budget !== "number" || !Number.isFinite(budget) || budget <= 0) {
+      return descriptor;
+    }
+
+    const estimated = estimateCallCostUsd(descriptor, options);
+    if (estimated <= budget) return descriptor;
+
+    let best: ModelDescriptor | null = null;
+    let bestCost = Number.POSITIVE_INFINITY;
+
+    for (const candidate of this.models.values()) {
+      if (candidate.id === descriptor.id) continue;
+      if (candidate.provider === "mock") continue;
+      if (!requiredCapabilities.every((cap) => candidate.capabilities.has(cap))) continue;
+      const provider = this.providers.get(candidate.provider);
+      if (!provider) continue;
+      if (!(await provider.isAvailable())) continue;
+      const cost = estimateCallCostUsd(candidate, options);
+      if (cost <= budget && cost < bestCost) {
+        best = candidate;
+        bestCost = cost;
+      }
+    }
+
+    if (best) {
+      console.warn(
+        `[ModelRouter] Coste estimado de '${descriptor.id}' ($${estimated.toFixed(6)}) excede el ` +
+          `presupuesto ($${budget.toFixed(6)}); se degrada a '${best.id}' ($${bestCost.toFixed(6)}).`
+      );
+      return best;
+    }
+
+    throw new ModelCostBudgetExceededError(descriptor.id, estimated, budget);
   }
 
   private applyCost(res: ModelGenerateResult, descriptor: ModelDescriptor): ModelGenerateResult {
@@ -426,39 +635,75 @@ export class ModelRouter {
   /**
    * Ejecuta el intento contra el provider con rotación del pool (T21):
    * ante 429/rate-limit castiga la key activa y reintenta con la siguiente
-   * del MISMO proveedor (acotado a `getPoolSize` intentos). Agotado el pool
-   * (`null`) o ante error no-429, propaga al fallback mock del llamador.
+   * del MISMO proveedor (acotado a `getPoolSize` intentos).
+   *
+   * EGO-FIND-37: entre rotaciones se aplica un backoff exponencial con
+   * jitter, y NUNCA se reintenta una credencial ya intentada (el pool puede
+   * devolver la misma key si está atascado: repetirla sólo reproduce el 429).
+   * Agotado el pool (`null`), sin credencial nueva o ante error no-429,
+   * propaga al fallback mock del llamador.
    */
   private async attemptWithRotation(
     descriptor: ModelDescriptor,
     provider: EgoModelInterface,
     attempt: (active: EgoModelInterface) => Promise<ModelGenerateResult>
   ): Promise<ModelGenerateResult> {
-    try {
-      return this.applyCost(await attempt(provider), descriptor);
-    } catch (err) {
-      if (!this.isRotatable(descriptor.provider) || !isRateLimitError(err)) throw err;
-      const pool = this.credentialPool as CredentialPoolReader;
-      const factory = this.providerFactory as ModelProviderFactory;
-      await pool.reportRateLimited(descriptor.provider);
-      const maxAttempts = Math.max(pool.getPoolSize(descriptor.provider), 1);
-      for (let i = 0; i < maxAttempts; i++) {
+    const rotatable = this.isRotatable(descriptor.provider);
+    const pool = this.credentialPool;
+    const factory = this.providerFactory;
+
+    // Credenciales ya intentadas (por fingerprint opaco; nunca la key).
+    const triedFingerprints = new Set<string>();
+    if (rotatable && pool) {
+      const initial = pool.getActiveFingerprint(descriptor.provider);
+      if (initial) triedFingerprints.add(initial);
+    }
+
+    let active = provider;
+    let attemptIndex = 0;
+
+    for (;;) {
+      try {
+        return this.applyCost(await attempt(active), descriptor);
+      } catch (err) {
+        if (!rotatable || !isRateLimitError(err)) throw err;
+        if (!pool || !factory) throw err;
+
+        const maxAttempts = Math.max(pool.getPoolSize(descriptor.provider), 1);
+        if (attemptIndex >= maxAttempts) throw err;
+
+        // El pool penaliza la credencial activa y expone la siguiente.
+        await pool.reportRateLimited(descriptor.provider);
+
         const nextKey = await pool.getActiveKey(descriptor.provider);
-        if (!nextKey) break; // pool agotado: fail-closed hacia el mock
-        const fingerprint = pool.getActiveFingerprint(descriptor.provider) ?? "?";
-        console.warn(
-          `[ModelRouter] 429 en ${descriptor.provider} (key ${fingerprint}): rotando a siguiente key (${i + 1}/${maxAttempts}).`
-        );
-        const rotated = factory(descriptor.provider, nextKey);
-        this.registerProvider(rotated);
-        try {
-          return this.applyCost(await attempt(rotated), descriptor);
-        } catch (retryErr) {
-          if (!isRateLimitError(retryErr)) throw retryErr;
-          await pool.reportRateLimited(descriptor.provider);
+        if (!nextKey) throw err; // pool agotado: fail-closed hacia el mock
+
+        const nextFingerprint = pool.getActiveFingerprint(descriptor.provider) ?? "";
+        if (nextFingerprint && triedFingerprints.has(nextFingerprint)) {
+          // La rotación no aportó una credencial nueva: repetir la misma
+          // key sólo reproduce el 429.
+          console.warn(
+            `[ModelRouter] 429 en ${descriptor.provider}: el pool no entregó una credencial nueva; no se reintenta.`
+          );
+          throw err;
         }
+        if (nextFingerprint) triedFingerprints.add(nextFingerprint);
+
+        const delayMs = computeBackoffDelayMs(attemptIndex + 1, {
+          baseDelayMs: this.config.backoffBaseDelayMs ?? 200,
+          maxDelayMs: this.config.backoffMaxDelayMs ?? 5000,
+          jitterRatio: this.config.backoffJitterRatio ?? 0.25,
+        });
+        if (delayMs > 0) await sleep(delayMs);
+
+        console.warn(
+          `[ModelRouter] 429 en ${descriptor.provider} (key ${nextFingerprint || "?"}): ` +
+            `rotando a siguiente key (${attemptIndex + 1}/${maxAttempts}) tras ${delayMs}ms de backoff.`
+        );
+        active = factory(descriptor.provider, nextKey);
+        this.registerProvider(active);
+        attemptIndex++;
       }
-      throw err;
     }
   }
 
@@ -559,7 +804,9 @@ export class ModelRouter {
   ): Promise<ModelGenerateResult> {
     const caps = requiredCapabilities ?? ["text"];
     const effective = this.applyEffort(this.applyPreferredTuning(options, preferredModel));
-    const descriptor = await this.resolveModel(role, caps, preferredModel);
+    const resolved = await this.resolveModel(role, caps, preferredModel, options.profile);
+    // EGO-FIND-39: el presupuesto de coste se hace cumplir ANTES de llamar.
+    const descriptor = await this.enforceCostBudget(resolved, effective, caps);
     const provider = this.providers.get(descriptor.provider)!;
 
     try {
@@ -569,6 +816,9 @@ export class ModelRouter {
     } catch (err) {
       // CFG-10: abort mid-token → re-throw inmediato, sin cadena fallback→mock.
       if (effective.abortSignal?.aborted || isAbortError(err)) throw err;
+      // El presupuesto de coste es una decisión explícita del owner: no se
+      // degrada silenciosamente al mock saltándose la política.
+      if (err instanceof ModelCostBudgetExceededError) throw err;
       // Fallback a la cadena CFG-04 (availableModels → fallbackModel → mock).
       console.warn(`[ModelRouter] Fallo en ${descriptor.id}, intentando cadena de fallback:`, err);
       return this.runFallbackChain(descriptor.id, effective, caps, false);
@@ -587,7 +837,8 @@ export class ModelRouter {
   ): Promise<ModelGenerateResult> {
     const caps = requiredCapabilities ?? ["text"];
     const effective = this.applyEffort(this.applyPreferredTuning(options, preferredModel));
-    const descriptor = await this.resolveModel(role, caps, preferredModel);
+    const resolved = await this.resolveModel(role, caps, preferredModel, options.profile);
+    const descriptor = await this.enforceCostBudget(resolved, effective, caps);
     const provider = this.providers.get(descriptor.provider)!;
 
     try {
@@ -597,6 +848,7 @@ export class ModelRouter {
     } catch (err) {
       // CFG-10: abort mid-token → re-throw inmediato, sin cadena fallback→mock.
       if (effective.abortSignal?.aborted || isAbortError(err)) throw err;
+      if (err instanceof ModelCostBudgetExceededError) throw err;
       console.warn(`[ModelRouter] Fallo en streaming de ${descriptor.id}, activando cadena de fallback:`, err);
       return this.runFallbackChain(descriptor.id, effective, caps, true, onChunk);
     }
