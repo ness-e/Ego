@@ -48,4 +48,4 @@ de vectores con el canónico:
 
 - `packages/security/src/netPolicy.ts`, `packages/security/test/netPolicy.test.ts`.
 - `packages/tools/src/native/security/NetPolicy.ts:15-67` (canónico OCLW-09).
-- `docs/agent-ops/tasks/STAB-14.md` (Spec SDD, Gate D-4).
+- `docs/agent-ops/tasks/archive/STAB-14.md` (Spec SDD, Gate D-4).

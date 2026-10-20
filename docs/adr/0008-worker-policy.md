@@ -40,4 +40,4 @@ Compuerta Opción B STAB-14: ADAPTAR como capa de política, no como threads.
 
 - `packages/tasks/src/WorkerPolicy.ts`, `packages/tasks/test/WorkerPolicy.test.ts`.
 - `packages/tasks/src/WorkerTaskPool.ts:43-60` (alcance cooperativo F4T8 H11).
-- `docs/agent-ops/tasks/STAB-14.md` (Spec SDD, Gate D-3).
+- `docs/agent-ops/tasks/archive/STAB-14.md` (Spec SDD, Gate D-3).

@@ -39,4 +39,4 @@ Compuerta Opción B: ADAPTAR-delta (no rewrite).
 
 - `packages/tools/src/native/git/ChangeSetService.ts` (delta STAB-14).
 - `packages/tools/test/ChangeSetPayloadRef.test.ts`.
-- `docs/agent-ops/tasks/STAB-14.md` (Spec SDD).
+- `docs/agent-ops/tasks/archive/STAB-14.md` (Spec SDD).

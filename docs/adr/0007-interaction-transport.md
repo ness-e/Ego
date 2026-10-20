@@ -40,4 +40,4 @@ Compuerta Opción B STAB-14: ADAPTAR solo la semántica submit/resolve/cancel +
 ## Referencias ##
 
 - `packages/events/src/InteractionTransport.ts`, `packages/events/test/InteractionTransport.test.ts`.
-- `docs/agent-ops/tasks/STAB-14.md` (Spec SDD).
+- `docs/agent-ops/tasks/archive/STAB-14.md` (Spec SDD).

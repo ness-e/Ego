@@ -11,7 +11,7 @@
 | Campo | Valor |
 | --- | --- |
 | Fecha | 2026-10-15 |
-| Estado | Aceptado |
+| Estado | Superseded por T11 (`fa58b8c`) — `electron-vite` 5.x es canónico |
 | Nivel jerárquico | 10.Implementation (`docs/jerarquia-canonica.md`) |
 
 ## Contexto ##

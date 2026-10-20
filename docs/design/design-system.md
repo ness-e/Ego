@@ -2,11 +2,11 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Canónico — fuente vigente de tokens, temas, kit y catálogo |
+| Estado | Canónico — fuente vigente de tokens, temas, kit, catálogo y **tabla de primitives** |
 | Owner | ness-e |
-| Fecha | 2026-10-14 |
-| Implementación | `apps/desktop/renderer/src/index.css` (tokens) · `components/canvas/DesignSystemProvider.tsx` (temas) · `components/ui-kit/` (kit Radix) · `components/canvas/registry.ts` (catálogo) |
-| Decisiones | Owner 2026-10-14 (D12, UI-01..UI-06): dark-only, 4 presets, accent ámbar, Geist, 9 estados |
+| Fecha | 2026-10-19 |
+| Implementación | `apps/desktop/renderer/src/index.css` (tokens) · `components/canvas/DesignSystemProvider.tsx` (temas) · `components/ui-kit/` (kit Radix) · `components/canvas/registry.ts` (catálogo) · `packages/avatar/` (motor de personaje `<ego-avatar>`) |
+| Decisiones | Owner 2026-10-14 (D12, UI-01..UI-06): dark-only, 4 presets, accent ámbar, Geist, 9 estados · Owner 2026-10-19 (**D3**): tabla de primitives (§8) |
 
 > **Regla de finalización (ux-ui.md P22):** `Feature DONE = Implementado + Funcional + Usable + Consistente + Estados completos + Accesibilidad básica + Design System`. Nada que use estilos ad-hoc se considera terminado.
 
@@ -23,7 +23,7 @@ Fuente única: `:root` en `index.css` (líneas 12–22) consumido vía `DesignSy
 | `rounded-card` | `--ego-radius` | `8px` (radio real, ver EGO-FIND-11) |
 | `font-sans` / `font-mono` | `--font-geist-sans` / `--font-geist-mono` | Geist por import, fallback system-ui (ver EGO-FIND-02) |
 
-Prohibido: `style={{}}` ad-hoc en componentes de producto, hex literales fuera de `index.css`, clases `bg-accent`/`text-accent` fuera del sistema (ver EGO-FIND-10). Excepción: acentos semánticos de estado (emerald/amber/rose/cyan/purple) y hex de Recharts anclados a tokens vía `var(--color-*, fallback)`.
+Prohibido: <span v-pre>`style={{}}`</span> ad-hoc en componentes de producto, hex literales fuera de `index.css`, clases `bg-accent`/`text-accent` fuera del sistema (ver EGO-FIND-10). Excepción: acentos semánticos de estado (emerald/amber/rose/cyan/purple) y hex de Recharts anclados a tokens vía `var(--color-*, fallback)`.
 
 Frameless: `.app-region-drag` en el chrome de ventana; controles interactivos llevan `.app-region-no-drag` (ver EGO-FIND-11, gui-desktop.md regla 4).
 
@@ -44,7 +44,15 @@ Decisión owner: **dark-only**. `UserPrefs.theme` (tema claro) queda documentado
 
 ## 3. Kit UI sobre Radix + Zustand (`components/ui-kit/`)
 
-Base: `@radix-ui/react-dialog` + `@radix-ui/react-tabs` (trap de foco, roles y Escape nativos) + `zustand` (store ligero) + `clsx` + `tailwind-merge` + `cva`. Componentes: `Button`, `Input`, `Modal`, `Tabs`, `Badge` (+ `store.ts`, `cva.ts`).
+Base: `@radix-ui/react-dialog` + `@radix-ui/react-tabs` (trap de foco, roles y
+Escape nativos) + `zustand` (store ligero) + `clsx` + `tailwind-merge` + `cva`.
+Componentes: `Button`, `Input`, `Modal`, `Tabs`, `Badge`, `Select`
+(+ `store.ts`, `cva.ts`).
+
+> **La decisión de cada primitive (usada de librería vs propia, con su motivo)
+> está en [§8 — Tabla de primitives](#8-tabla-de-primitives-librería-vs-propia-d3--decisión-del-owner-2026-10-19).**
+> Principio D3 del owner (2026-10-19): *las primitives de librería se usan
+> siempre; no se recrean desde cero*. Ver `AGENTS.md` §4.
 
 Los 6 modales duplicados migran al `Modal` base; `ModelPicker` (header, proveedor real vía ModelRouter) y `SessionPicker` (sidebar, sesiones VantaDB) se montan, no se borran; `SplitPane` dimensiona el layout en `App.tsx:61`.
 
@@ -109,3 +117,68 @@ Combinaciones prohibidas (7):
 | 7 | Texto sobre brand sin `text-on-brand` (blanco `#fff` sobre ámbar ≈2.1:1) | bajo AA | `--ego-color-text-on-brand #0a0a0b` (`--color-on-brand`, ≈9.2:1) |
 
 Nota honesta de medición: `border-strong #52525b` **no** alcanza 3:1 sobre los paneles oscuros (≈2.4:1); se conserva el valor especificado como borde decorativo/interactivo **pareado** (grosor + foco + icono), nunca como único medio de identificación. Donde WCAG 1.4.11 exija 3:1 con color único, usar `dim` o subir a `#71717a`.
+
+## 8. Tabla de primitives: librería vs propia (D3 — decisión del owner 2026-10-19)
+
+> **Principio (vinculante a todo el repo, `AGENTS.md` §4):**
+> *Los componentes de librerías y framework se utilizan siempre; no se recrean
+> desde cero si ya existe una primitive de librería o del framework.*
+>
+> Un componente **propio** solo existe si hay un **motivo concreto** — no
+> "comodidad" ni "ya estaba hecho" — y ese motivo está escrito aquí. Si Radix,
+> React Aria o la plataforma ofrece el equivalente y el propio no aporta nada,
+> **se migra**.
+>
+> **Alcance de este registro**: la capa de primitives del renderer. El resto de
+> superficies (IPC, runtime, tooling) sigue la misma regla; las decisiones
+> concretas de cada componente se registran aquí o en un ADR.
+
+### 8.1 Kit `ui-kit/` (`apps/desktop/renderer/components/ui-kit/`)
+
+| Primitive | Implementación actual | Decisión | Motivo / fundamento |
+|---|---|---|---|
+| `Modal` | `Modal.tsx` sobre `@radix-ui/react-dialog` ^1.3.1 | **Usada de librería** | El trap de foco, los roles ARIA y el Escape son comportamiento no trivial; Radix lo resuelve. Reimplementarlo sería recrear una primitive de librería (prohibido por D3). |
+| `Tabs` | `Tabs.tsx` sobre `@radix-ui/react-tabs` ^1.2.1 | **Usada de librería** | Ídem: navegación por teclado y roles `tablist`/`tab`/`tabpanel` con la librería. |
+| `Select` | `Select.tsx` sobre `@radix-ui/react-select` ^2.1.6 (migrado por A4 en la Ola 1) | **Usada de librería** | El motivo original (evitar el `<select>` nativo del SO, cuyo menú ignora el tema dark-only) **lo cubre Radix**: Radix no renderiza `<select>` nativo. La implementación propia anterior reimplementaba teclado, typeahead y roles → viola D3. Migrado; el renderer **no contiene ningún `<select>` nativo** (verificado 2026-10-19). Decisión y alternativas en [ADR-0015](../adr/0015-radix-select-accesible.md). |
+| `Button` | `Button.tsx` propio sobre `<button>` nativo | **Propia — con motivo** | Radix **no ofrece** un Button (ofrece primitivas de comportamiento sin estilo). El wrapper existe para unificar variantes (`cva`), los 9 estados obligatorios (§3) y el target táctil ≥44 px. No es una recreación de una primitive de librería. |
+| `Input` | `Input.tsx` propio sobre `<input>` nativo | **Propia — con motivo** | Ídem: Radix no ofrece Input. El wrapper añade tokens, estados de error y 9 estados; el control es la primitiva nativa de la plataforma. |
+| `Badge` | `Badge.tsx` propio sobre `<span>` | **Propia — con motivo** | Radix no ofrece Badge. Es un `<span>` con tonos semánticos; no existe primitive de librería equivalente que reutilizar. |
+| Estado global de UI | `store.ts` sobre `zustand` ^5.0.15 | **Usada de librería** | Zustand ya estaba en el grafo de dependencias (T06 `40fb103`); store propio sobre la librería, no reimplementación. |
+| Variantes de estilo | `cva.ts` sobre `cva` + `clsx` + `tailwind-merge` | **Usada de librería** | `cva` + `clsx` + `tailwind-merge` resuelven variantes y merge de clases; no se reimplementa el merge de `tailwind-merge`. |
+
+### 8.2 Primitives implementadas ad-hoc fuera del kit (pendiente de revisión A4)
+
+Comportamiento tipo popover/tooltip/dropdown/combobox implementado **inline**
+en componentes, con estado local y sin primitive de librería detrás. No son
+parte del `ui-kit` todavía, pero caen bajo el mismo principio.
+
+| Primitive | Dónde | Estado | Nota |
+|---|---|---|---|
+| Combobox + listbox | `components/omnibar.tsx` (aria-activedescendant, `activeIndex`, debounce) | **Propia — con motivo** | Es un combobox de búsqueda con fuzzy match sobre proyectos/sesiones/Sub-Egos (`@ego/ui-runtime` `FuzzySearch`). Radix no ofrece combobox; React Aria sí, y no está en el grafo de dependencias. Migrar a React Aria es una decisión de Nivel 10 pendiente de valorarse. |
+| Dropdown / outside-click | `components/SubEgoSelector.tsx` (cierre por `mousedown` fuera) | **Propia — con motivo provisional** | Sin `FocusScope` ni navegación por teclado. `@radix-ui/react-dropdown-menu` no está instalado. **Deuda**: no cumple el conjunto de 9 estados ni navegación por teclado → candidata a migración (A4). |
+| Popover | `components/ego-chat.tsx`, `components/sidebar/Sidebar.tsx` | **Revisión pendiente A4** | Sin primitive de librería instalada (`@radix-ui/react-popover` no está en el grafo). |
+| Tooltip | `components/FileMentionBadge.tsx`, `components/domains/DomainCharts.tsx` | **Revisión pendiente A4** | Sin primitive de librería instalada (`@radix-ui/react-tooltip` no está en el grafo). |
+
+### 8.3 Reglas de aplicación
+
+1. **Antes de añadir un componente al kit**, comprobar en esta tabla si ya
+   existe una primitive de librería equivalente. Si existe → se usa la de
+   librería.
+2. **Toda fila "propia"** debe poder responder "¿qué aporta esto que la
+   librería no?" en una frase. Si no puede, es una recreación → migrar.
+3. **Toda migración** se registra como ADR o como fila de esta tabla con el
+   ADR asociado.
+4. **Verificación**: al añadir o cambiar una primitive, actualizar esta tabla
+   en el mismo commit (es el registro canónico de la decisión).
+
+## 9. Estado de implementación por superficie
+
+| Superficie | Estado | Nota |
+|---|---|---|
+| Tokens semánticos | ✅ Implementado | §1 |
+| Temas dark-only (4 presets) | ✅ Implementado | §2 |
+| Kit `ui-kit/` (6 componentes) | ✅ Completo | `Select` migrado a Radix (§8.1) |
+| 9 estados por componente | 🟡 Parcial | Kit base con suite; primitives ad-hoc (§8.2) sin cobertura |
+| Catálogo de componentes de Canvas | ✅ 11 / 13 aspiracionales | §4 |
+| Contraste | ✅ Medido + 7 combinaciones prohibidas | §7 |
+| Tokens OKLCH | 🆕 Pendiente | `EGO-FIND-72` |

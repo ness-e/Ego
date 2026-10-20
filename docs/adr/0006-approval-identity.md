@@ -42,4 +42,4 @@ copia de referencia).
 
 - `packages/events/src/ApprovalIdentity.ts`, `packages/events/test/ApprovalIdentity.test.ts`.
 - `packages/events/src/types.ts:121-122` (approval.required/resolved).
-- `docs/agent-ops/tasks/STAB-14.md` (Spec SDD, Gate D-1).
+- `docs/agent-ops/tasks/archive/STAB-14.md` (Spec SDD, Gate D-1).
