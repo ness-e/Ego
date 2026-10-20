@@ -1,41 +1,23 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, Tray, Menu, nativeImage, screen, session, shell } from "electron";
+import { app, BrowserWindow, Tray, Menu, nativeImage, screen, session } from "electron";
 import { join, resolve as resolveFsPath, isAbsolute as isAbsoluteFsPath, relative as relativeFsPath } from "node:path";
-import { createHash, randomUUID } from "node:crypto";
-import { stat } from "node:fs/promises";
-import { spawn, type ChildProcess } from "node:child_process";
+import { createHash } from "node:crypto";
+
+import { type ChildProcess } from "node:child_process";
 import { deflateSync } from "node:zlib";
-import {
-  EgoMemoryAdapter,
-  EgoMemoryLifecycle,
-  createSubEgoId,
-  forkSession,
-  parseCompressionSettings,
-  shouldTriggerCompression,
-  COMPRESSION_SETTINGS_KEY,
-  COMPRESSION_SETTINGS_NAMESPACE,
-  type CompressionSettings,
-  type EgoRecallStatus,
-  type TurnRecord,
-} from "@ego/memory";
-import { ModelRouter, ModelMessage, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider, MockProvider, OLLAMA_DEFAULT_BASE_URL, ModelCatalog, CATALOG_CACHE_TTL_MS, type CatalogProviderId } from "@ego/models";
-import type { PreferredModel, ModelProviderFactory } from "@ego/models";
-import { ToolRegistry, registerNativeTools, PathValidator, type ToolExecutionContext, type ToolRiskLevel } from "@ego/tools";
-import { McpManager, SkillScanner, type McpServerConfig, type McpServerRuntimeState } from "@ego/integrations";
+import { EgoMemoryAdapter, EgoMemoryLifecycle } from "@ego/memory";
+import { ModelRouter, createRouterSummarizer, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider } from "@ego/models";
+import type { ModelProviderFactory } from "@ego/models";
+import { ToolRegistry, registerNativeTools } from "@ego/tools";
+import { McpManager, SkillScanner } from "@ego/integrations";
 import { EventBus, StructuredLogger, type EgoEventType } from "@ego/events";
 import {
   ToolExecutionLoop,
   AttentionStateMachine,
-  type LoopExecutionResult,
+  ContextCompactionJob,
+  type SummarizerFn,
 } from "@ego/runtime";
 import { ApprovalEngine, ExecutionManager, WidgetHitlBridge, type PendingApproval } from "@ego/execution";
-import {
-  SubEgoRegistry,
-  SubEgoFactory,
-  SubEgoWorktreeManager,
-  fromMemoryManifest,
-  type SubEgoCreateInput,
-  type SubEgoManifest,
-} from "@ego/subegos";
+import { SubEgoRegistry, SubEgoWorktreeManager, createDelegationRuntime, type DelegationRuntime } from "@ego/subegos";
 import {
   SubEgoSoul,
   applyEphemeralOverlay,
@@ -43,97 +25,8 @@ import {
   formatOutOfBandUserMessage,
   type AssembledPrompt,
 } from "@ego/subegos";
-import {
-  DecisionRouter,
-  DecisionAuditor,
-  DecisionTelemetry,
-  LoopBreaker,
-  IntentRequestSchema,
-  type DecisionVerdict
-} from "@ego/decision";
-import {
-  MemoryOpSchema,
-  CreateSubEgoSchema,
-  ToggleSubEgoStateSchema,
-  ApproveActionSchema,
-  ResolveApprovalSchema,
-  ChatStreamSchema,
-  LlmCancelSchema,
-  AddMcpServerSchema,
-  RemoveMcpServerSchema,
-  ToggleMcpServerSchema,
-  ListToolsFilterSchema,
-  ScanSkillsSchema,
-  ProjectManifestSchema,
-  CreateProjectSchema,
-  SelectProjectSchema,
-  type ProjectManifest,
-  ModelConfigSchema,
-  type ModelConfig,
-  PermissionsSettingsSchema,
-  type PermissionsPolicy,
-  type PermissionsSettings,
-  type PermissionDecision,
-  type PermissionRule,
-  KnowledgeIngestSchema,
-  KnowledgeHybridSearchSchema,
-  KnowledgeGraphRagSchema,
-  KnowledgeQuarantineActionSchema,
-  KnowledgeAsOfSchema,
-  KnowledgeExplainArtifactSchema,
-  DailyStateGetSummarySchema,
-  DailyStateRefineGoalsSchema,
-  DailyStateGetDecisionsSchema,
-  DailyStateResolveApprovalsBatchSchema,
-  DailyStateJournalSchema,
-  DailyStateFirstLaunchSchema,
-  DomainGetSchema,
-  DomainSwitchSchema,
-  DomainEngineeringStatusSchema,
-  DomainProductBacklogSchema,
-  DomainKnowledgeSearchSchema,
-  DomainAnalyticsSeriesSchema,
-  DomainCrmDealsSchema,
-  DecisionListAuditsSchema,
-  KnowledgeExportSchema,
-  KnowledgeImportSchema,
-  DailyGetSnapshotSchema,
-  DailyListSnapshotsSchema,
-  TasksListSchema,
-  TasksCancelSchema,
-  TerminalSpawnSchema,
-  TerminalStdinSchema,
-  TerminalKillSchema,
-  SessionsListSchema,
-  SessionGetSchema,
-  SessionResumeSchema,
-  SessionForkSchema,
-  SessionHandoffSchema,
-  HookEvaluateSchema,
-  DailyListApprovalsSchema,
-  ModelsListSchema,
-  SelectFolderRedeemSchema,
-  IpcOriginMetaSchema,
-  EgoFetchSchema,
-  FloatingSetMutedSchema,
-  VoiceSttSchema,
-  VoiceTtsSchema,
-  VoiceSettingsSchema,
-  type EgoFetchRequest,
-  type VoiceSettings,
-} from "./ipc/schema.js";
-import {
-  DomainRegistry,
-  EngineeringDomain,
-  ProductDomain,
-  KnowledgeDomain,
-  AnalyticsDomain,
-  CrmDomain,
-  BacklogItemStatusSchema,
-  DealStageSchema,
-  type CreateBacklogItemInput,
-  type CreateDealInput,
-} from "@ego/domains";
+import { DecisionRouter, DecisionAuditor, DecisionTelemetry, LoopBreaker, JevProvider } from "@ego/decision";
+import { ProjectManifestSchema, type ProjectManifest, type ModelConfig } from "./ipc/schema.js";
 import {
   KnowledgeIndexer,
   HybridSearch,
@@ -158,31 +51,37 @@ import {
   ProactivityEngine,
   TaskCheckpointManager,
   MemoryCleanupJob,
+  registerBackgroundTaskTools,
+  RunRecorder,
 } from "@ego/tasks";
-import {
-  CredentialManager,
-  CredentialPool,
-  SyncSafeStorageBackend,
-  evaluateToolCall,
-  isDenied,
-} from "@ego/security";
+import { CredentialManager, CredentialPool, evaluateToolCall } from "@ego/security";
 import { WindowStateManager } from "./windows/WindowStateManager.js";
 import {
   FloatingWindowManager,
   syncFromAttention,
 } from "./windows/FloatingWindow.js";
 import { initAutoUpdater, resolveUpdateFeedUrl } from "./updater.js";
+
+// T11 (EGO-FIND-54): módulos extraídos del god-file.
+import { defaultWorkspaceRoot } from "./main/path-scope.js";
+import { applyNavigationGuards, buildCsp, installIpcOriginLogging, setFetchAuthTokenResolver } from "./main/security/electron-security.js";
+import { DegradedObfBackend, decryptCredential, encryptCredential } from "./main/credentials/vault.js";
+import { applyModelConfig, currentModelConfig, isCustomBaseURL, isNonEmptyKey, mergeModelKeys, OPENAI_DEFAULT_BASE_URL, resolveEnvModelKeys, resolvePersistedModelKeys, setupModelProviders, type ResolvedModelKeys } from "./main/models/model-config.js";
+import { activeProjectId, floatingAutoShownOnMinimize, floatingPinnedManually, setFloatingAutoShownOnMinimize } from "./main/ipc/ipc-state.js";
+import { registerIpcHandlers } from "./main/ipc/register-ipc.js";
+// T11 (Ola 1c): handler del turno de LLM (extraído del god-file).
+import { handleLlmStream } from "./main/llm/handle-llm-stream.js";
+// T1 (VERDICT R2): resolver de secretos D2 (keychain del SO, solo main).
+import { createCredentialSecretResolver } from "./main/mcp/secret-resolver.js";
+// T2 (VERDICT R1): servidor MCP de Ego (HTTP streamable en loopback).
+import { startEgoMcpServer } from "./main/mcp/mcp-server-runtime.js";
+import type { EgoMcpHttpServerHandle } from "./main/mcp/mcp-http-server.js";
+// T11 (EGO-FIND-54): runtime MCP (persistencia, secretos, saneado).
+import { buildMcpPersistedRecord, deleteMcpEnvSecrets, extractPersistedMcpRecord, getMcpCredentialManager, mcpEnvKeysForCleanup, needsMcpEnvMigration, resolveMcpRuntimeEnv, sanitizeMcpRuntimeStateForRenderer, storeMcpEnvSecrets, type PersistedMcpServerRecord } from "./main/mcp-runtime.js";
 // STAB-09: núcleos puros extraídos de este god-file (5047 líneas). La API
 // pública de `main.js` se mantiene vía re-export para las 10 suites de
 // `test/` que importan de aquí.
 import { isTaskKindSafe } from "./main/task-kinds.js";
-import {
-  MAX_TERMINAL_SESSIONS,
-  TERMINAL_DEFAULT_TIMEOUT_MS,
-  TERMINAL_FORBIDDEN_PATTERNS,
-  TERMINAL_SAFE_COMMANDS,
-  isTerminalCommandAllowed,
-} from "./main/terminal-policy.js";
 import {
   TRAY_COLORS,
   pngChunk,
@@ -191,22 +90,68 @@ import {
   resumeAllTasks,
   type EgoTrayStatus,
 } from "./main/tray-status.js";
-import {
-  isMcpSecretEnvName,
-  splitMcpServerEnv,
-  mcpEnvVaultService,
-  isMaskedMcpEnvValue,
-  collectStorableMcpSecrets,
-  type McpEnvSecretsRef,
-  type McpEnvSecretVault,
-} from "./main/mcp-env.js";
+import { collectStorableMcpSecrets } from "./main/mcp-env.js";
 import {
   IpcPriorityQueue,
   type IpcPriority,
 } from "./main/ipc-priority-queue.js";
 
+export {
+  applyNavigationGuards,
+  assertInvokeOriginAllowed,
+  buildCsp,
+  egoFetchProxied,
+  getInvokeOrigin,
+  isAllowedExternalUrl,
+  isAllowedFetchUrl,
+  isAllowedInvokeOrigin,
+  isAllowedNavigationUrl,
+  isFetchAuthHostAllowed,
+  issueFolderToken,
+  logInvokeOrigin,
+  openExternalValidated,
+  redeemFolderToken,
+  type InvokeEventLike,
+} from "./main/security/electron-security.js";
 export { isTaskKindSafe } from "./main/task-kinds.js";
 export { GIT_SAFE_SUBCOMMANDS } from "./main/terminal-policy.js";
+export {
+  decryptCredential,
+  encryptCredential,
+  maskApiKey,
+  maskKey,
+} from "./main/credentials/vault.js";
+export {
+  applyModelConfig,
+  getConfiguredProviders,
+  mergeModelKeys,
+  probeModelKey,
+  resolveCatalogCredentials,
+  resolveEnvModelKeys,
+  resolveMemoryModelKeys,
+  resolvePersistedModelKeys,
+  setupModelProviders,
+  type CatalogCredentials,
+  type ConfiguredModelProvider,
+  type ModelKeyProbeInput,
+  type ModelKeyProbeResult,
+  type ResolvedModelKeys,
+} from "./main/models/model-config.js";
+export { currentModelConfig } from "./main/models/model-config.js";
+export {
+  buildMcpPersistedRecord,
+  deleteMcpEnvSecrets,
+  extractPersistedMcpRecord,
+  getMcpCredentialManager,
+  maskMcpEnvForRenderer,
+  mcpEnvKeysForCleanup,
+  needsMcpEnvMigration,
+  resolveMcpRuntimeEnv,
+  sanitizeMcpRuntimeStateForRenderer,
+  setMcpCredentialManagerForTests,
+  storeMcpEnvSecrets,
+  type PersistedMcpServerRecord,
+} from "./main/mcp-runtime.js";
 export {
   isMcpSecretEnvName,
   splitMcpServerEnv,
@@ -221,17 +166,44 @@ let opGate: OpGate;
 let windowStateManager: WindowStateManager;
 let adapter: EgoMemoryAdapter;
 let lifecycle: EgoMemoryLifecycle;
+/**
+ * T12 (A4-27) — Listener de `screen` (cambio de displays) registrado a
+ * nivel de PROCESO. Se guarda la ref para poder eliminarlo en `before-quit`
+ * (si no, sobrevive al cierre de la ventana y se duplica en cada
+ * re-apertura de la app).
+ */
+let displayChangeListener: (() => void) | null = null;
+/**
+ * A2-01 / EGO-FIND-21: job de compactación real del historial de turno.
+ * Lo consume `handleLlmStream` (que corre fuera de `createWindow`).
+ */
+let compactionJob: ContextCompactionJob | null = null;
+/**
+ * T8 (A2-ola1b, Diff E): resumidor LLM real para la compactación de
+ * contexto (vive a nivel de módulo porque lo consume `handleLlmStream`,
+ * que es otra función distinta de `createWindow`).
+ */
+let compactionSummarizer: SummarizerFn | null = null;
 let modelRouter: ModelRouter;
 let approvalEngine: ApprovalEngine;
 let executionManager: ExecutionManager;
 let toolRegistry: ToolRegistry;
 let toolLoop: ToolExecutionLoop;
 let subEgoRegistry: SubEgoRegistry;
+/**
+ * A3-T1 / EGO-FIND-22: runtime de delegación de Sub-Egos. Sin instanciarlo,
+ * `createDelegationRuntime` (y sus 6 tools) eran código muerto.
+ */
+let delegationRuntime: DelegationRuntime | undefined;
 let decisionRouter: DecisionRouter;
 let decisionAuditor: DecisionAuditor;
 let decisionTelemetry: DecisionTelemetry;
 let loopBreaker: LoopBreaker;
 let mcpManager: McpManager;
+/** T2 (VERDICT R1): handle del servidor MCP de Ego (se cierra en `before-quit`). */
+let mcpServerHandle: EgoMcpHttpServerHandle | null = null;
+/** COUC-09: grabador de corridas (observa el EventBus y persiste los snapshots). */
+let runRecorder: RunRecorder | null = null;
 let skillScanner: SkillScanner;
 let eventBus: EventBus;
 let structuredLogger: StructuredLogger;
@@ -249,7 +221,6 @@ let dailyStatePersistence: DailyStatePersistence;
 let goalPrioritizer: GoalPrioritizer;
 let decisionsFeed: DecisionsFeed;
 let win: BrowserWindow | null = null;
-let activeProjectId: string = "default";
 
 // T03: motores de tareas en background + terminal viva + tray mínimo.
 let backgroundEngine: BackgroundEngine;
@@ -266,8 +237,6 @@ let floatMgr: FloatingWindowManager | null = null;
 // Task10 (WIDG-05): posición flotante restaurada de la persistencia;
 // se aplica al mostrar la flotante (main + flotante sobreviven reinicio).
 let floatingRestoredPosition: { x: number; y: number } | null = null;
-let floatingPinnedManually = false;
-let floatingAutoShownOnMinimize = false;
 
 function ensureFloatMgr(): FloatingWindowManager {
   if (!floatMgr) {
@@ -858,93 +827,6 @@ export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapte
   return defaultProject;
 }
 
-/**
- * Backend de cifrado canónico (@ego/security) sobre el safeStorage real del
- * main process (F1T2). La lógica cripto (prefijos `enc:`/`obf:`, base64,
- * errores fail-closed) vive en el paquete; este bloque solo adapta su API
- * síncrona, que es la que exigen los call sites de settings. El restore
- * `gov/settings` no cambia de semántica: vacío → `""`, sin cifrado del
- * SO → ofuscación legada `obf:` con warn (migración), nunca texto plano.
- */
-const mainProcessCryptoBackend = new SyncSafeStorageBackend(
-  typeof safeStorage !== "undefined" && safeStorage.isEncryptionAvailable()
-    ? {
-        isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
-        encryptString: (plainText: string) => safeStorage.encryptString(plainText),
-        decryptString: (encrypted: Buffer) => safeStorage.decryptString(encrypted),
-      }
-    : null
-);
-
-/**
- * Cifra una credencial sensible usando safeStorage del SO (Keychain/DPAPI).
- * Prohibición absoluta de guardar API keys en texto plano en VantaDB.
- */
-export function encryptCredential(plainText: string): string {
-  if (!plainText) return "";
-  try {
-    return mainProcessCryptoBackend.encrypt(plainText);
-  } catch (err) {
-    console.warn("[Security] Fallo al cifrar con safeStorage, usando ofuscación legada:", err);
-    return `obf:${Buffer.from(plainText, "utf-8").toString("base64")}`;
-  }
-}
-
-/**
- * Backend degradado con la misma semántica que `encryptCredential`: intenta
- * safeStorage real y, si no está disponible (fail-closed del backend),
- * ofusca `obf:` reversible en memoria. Existe porque `SyncSafeStorageBackend`
- * lanza sin cifrado del SO y el pool de T21 lo usa en el path de guardado
- * (BUGFIX 2026-10-15: sin esto, `saveModelConfig` moría en `setProviderKeys`).
- * Nunca texto plano; `decrypt` acepta `obf:` y `enc:`.
- */
-class DegradedObfBackend {
-  isAvailable(): boolean {
-    try {
-      return mainProcessCryptoBackend.isAvailable();
-    } catch {
-      return false;
-    }
-  }
-  encrypt(plainText: string): string {
-    try {
-      return mainProcessCryptoBackend.encrypt(plainText);
-    } catch {
-      return `obf:${Buffer.from(plainText, "utf-8").toString("base64")}`;
-    }
-  }
-  decrypt(encryptedText: string): string {
-    try {
-      return mainProcessCryptoBackend.decrypt(encryptedText);
-    } catch {
-      return encryptedText;
-    }
-  }
-}
-
-/**
- * Descifra una credencial sensible protegida por safeStorage del SO.
- */
-export function decryptCredential(stored: string): string {
-  if (!stored) return "";
-  try {
-    return mainProcessCryptoBackend.decrypt(stored);
-  } catch (err) {
-    console.warn("[Security] Fallo al descifrar credencial con safeStorage:", err);
-  }
-  return stored;
-}
-
-/**
- * Enmascara una API key para devolver a la UI sin exponer el secreto en claro (ej. sk-...3a8f).
- */
-export function maskApiKey(key: string): string {
-  return CredentialManager.maskSecret(key);
-}
-
-/** Alias del enmascarado de keys para respuestas hacia el renderer (nunca el secreto). */
-export const maskKey = maskApiKey;
-
 // ---------------------------------------------------------------------------
 // Secretos de entorno MCP → Credential Manager (Deuda F1T2/F5T10).
 //
@@ -971,701 +853,6 @@ export const maskKey = maskApiKey;
 // - Las respuestas IPC al renderer NUNCA llevan secretos en claro: env de
 //   secretos enmascarado con `maskKey` (patrón `toMaskedModelConfigResponse`).
 // ---------------------------------------------------------------------------
-
-/** Registro `gov/mcp_servers`: config saneada + referencia opaca a secretos. */
-export interface PersistedMcpServerRecord {
-  config: McpServerConfig;
-  enabled: boolean;
-  envRef?: McpEnvSecretsRef;
-}
-
-/**
- * Construye el payload persistible: config SIN secretos + `envRef` con blobs
- * `enc:` opacos. `encrypt` se inyecta (prod: `encryptCredential`).
- * Garantía: `JSON.stringify(resultado)` nunca contiene un secreto en claro.
- */
-export function buildMcpPersistedRecord(
-  config: McpServerConfig,
-  enabled: boolean,
-  encrypt: (plainText: string) => string
-): PersistedMcpServerRecord {
-  const { publicEnv } = splitMcpServerEnv(config.env);
-  const secrets = collectStorableMcpSecrets(config.env);
-  const names = Object.keys(secrets);
-  const sanitized: McpServerConfig = { ...config };
-  if (Object.keys(publicEnv).length > 0) {
-    sanitized.env = publicEnv;
-  } else {
-    delete sanitized.env;
-  }
-  if (names.length === 0) {
-    return { config: sanitized, enabled };
-  }
-  const encrypted: Record<string, string> = {};
-  for (const name of names) {
-    const value: unknown = secrets[name];
-    if (typeof value === "string") {
-      encrypted[name] = encrypt(value);
-    }
-  }
-  return {
-    config: sanitized,
-    enabled,
-    envRef: { service: mcpEnvVaultService(config.id), keys: names, encrypted },
-  };
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-  if (typeof value !== "object" || value === null) return false;
-  return Object.values(value as Record<string, unknown>).every(
-    (entry) => typeof entry === "string"
-  );
-}
-
-/**
- * Tolera los shapes históricos de `gov/mcp_servers`: `{ config, enabled }`
- * legado con env en claro, envelope de adapter `{ payload }` y JSON en
- * string. Retorna `null` si no hay config válida. Sin `any`.
- */
-export function extractPersistedMcpRecord(raw: unknown): PersistedMcpServerRecord | null {
-  let node: unknown = raw;
-  if (typeof node === "string") {
-    try {
-      node = JSON.parse(node) as unknown;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof node === "object" && node !== null && "payload" in node) {
-    const envelope = node as { payload?: unknown };
-    if (typeof envelope.payload === "object" && envelope.payload !== null) {
-      node = envelope.payload;
-    } else if (typeof envelope.payload === "string") {
-      try {
-        node = JSON.parse(envelope.payload) as unknown;
-      } catch {
-        return null;
-      }
-    }
-  }
-  if (typeof node !== "object" || node === null) return null;
-  const record = node as Record<string, unknown>;
-  const rawConfig = record.config;
-  if (typeof rawConfig !== "object" || rawConfig === null) return null;
-  const cfg = rawConfig as Record<string, unknown>;
-  if (typeof cfg.id !== "string" || cfg.id.length === 0) return null;
-  if (typeof cfg.name !== "string" || typeof cfg.command !== "string") return null;
-  const config: McpServerConfig = {
-    id: cfg.id,
-    name: cfg.name,
-    transport: cfg.transport === "sse" ? "sse" : "stdio",
-    command: cfg.command,
-  };
-  if (
-    Array.isArray(cfg.args) &&
-    cfg.args.every((entry: unknown): entry is string => typeof entry === "string")
-  ) {
-    config.args = [...cfg.args];
-  }
-  if (isStringRecord(cfg.env)) {
-    config.env = { ...cfg.env };
-  }
-  if (typeof cfg.cwd === "string") config.cwd = cfg.cwd;
-  if (typeof cfg.toolPrefix === "string") config.toolPrefix = cfg.toolPrefix;
-  if (typeof cfg.timeoutMs === "number" && Number.isInteger(cfg.timeoutMs) && cfg.timeoutMs > 0) {
-    config.timeoutMs = cfg.timeoutMs;
-  }
-  const enabled = typeof record.enabled === "boolean" ? record.enabled : true;
-  const rawRef = record.envRef;
-  if (typeof rawRef === "object" && rawRef !== null) {
-    const ref = rawRef as Record<string, unknown>;
-    if (
-      typeof ref.service === "string" &&
-      Array.isArray(ref.keys) &&
-      ref.keys.every((entry: unknown): entry is string => typeof entry === "string")
-    ) {
-      const encrypted: Record<string, string> = {};
-      if (isStringRecord(ref.encrypted)) {
-        Object.assign(encrypted, ref.encrypted);
-      }
-      return { config, enabled, envRef: { service: ref.service, keys: [...ref.keys], encrypted } };
-    }
-  }
-  return { config, enabled };
-}
-
-/**
- * Un registro necesita migración si trae secretos en claro en `config.env`
- * sin `envRef` (deuda F1T2/F5T10). Patrón restore de models.
- */
-export function needsMcpEnvMigration(persisted: PersistedMcpServerRecord): boolean {
-  if (persisted.envRef) return false;
-  const env = persisted.config.env;
-  if (!env) return false;
-  return Object.entries(env).some(
-    ([name, value]) =>
-      isMcpSecretEnvName(name) &&
-      typeof value === "string" &&
-      value.length > 0 &&
-      !isMaskedMcpEnvValue(value)
-  );
-}
-
-/**
- * Rehidrata el env runtime: público en claro + secretos (vault primero,
- * blob `enc:` como respaldo). Retorna `missingSecrets` para warn visible en
- * vez de arranque a ciegas. `vaultGet` se inyecta (prod: Credential Manager).
- */
-export async function resolveMcpRuntimeEnv(
-  persisted: PersistedMcpServerRecord,
-  decrypt: (stored: string) => string,
-  vaultGet?: (service: string, account: string) => Promise<string | null>
-): Promise<{ env?: Record<string, string>; missingSecrets: string[] }> {
-  const { publicEnv } = splitMcpServerEnv(persisted.config.env);
-  const keys = persisted.envRef?.keys ?? [];
-  const service = persisted.envRef?.service ?? mcpEnvVaultService(persisted.config.id);
-  const encrypted = persisted.envRef?.encrypted ?? {};
-  const merged: Record<string, string> = { ...publicEnv };
-  const missingSecrets: string[] = [];
-  for (const name of keys) {
-    let value: string | null = null;
-    if (vaultGet) {
-      try {
-        value = await vaultGet(service, name);
-      } catch (err) {
-        console.warn(`[Security] Vault inaccesible para MCP env '${name}':`, err);
-      }
-    }
-    if ((value === null || value.length === 0) && typeof encrypted[name] === "string") {
-      const blob: unknown = encrypted[name];
-      if (typeof blob === "string") {
-        try {
-          const decrypted = decrypt(blob);
-          if (decrypted.length > 0) value = decrypted;
-        } catch (err) {
-          console.warn(`[Security] No se pudo descifrar MCP env '${name}':`, err);
-        }
-      }
-    }
-    if (value !== null && value.length > 0) {
-      merged[name] = value;
-    } else {
-      missingSecrets.push(name);
-    }
-  }
-  return { env: Object.keys(merged).length > 0 ? merged : undefined, missingSecrets };
-}
-
-/**
- * Claves del vault a borrar al eliminar un servidor (referencia o legado).
- */
-export function mcpEnvKeysForCleanup(persisted: PersistedMcpServerRecord): string[] {
-  if (persisted.envRef) return [...persisted.envRef.keys];
-  return splitMcpServerEnv(persisted.config.env).secretNames;
-}
-
-/**
- * Env para el renderer: secretos enmascarados, público intacto.
- */
-export function maskMcpEnvForRenderer(
-  env: Record<string, string> | undefined
-): Record<string, string> | undefined {
-  if (!env) return undefined;
-  const out: Record<string, string> = {};
-  for (const [name, value] of Object.entries(env)) {
-    out[name] = isMcpSecretEnvName(name) ? maskKey(value) : value;
-  }
-  return out;
-}
-
-/**
- * Estado runtime para el renderer sin secretos en claro (fuga IPC cerrada).
- */
-export function sanitizeMcpRuntimeStateForRenderer(
-  state: McpServerRuntimeState
-): McpServerRuntimeState {
-  const maskedEnv = maskMcpEnvForRenderer(state.config.env);
-  // STAB-12: los valores de headers nunca viajan al renderer en claro
-  // (pueden portar `X-Api-Key`); solo viajan los nombres.
-  const headers = state.config.headers;
-  const maskedHeaders = headers
-    ? Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, maskKey(v)]))
-    : undefined;
-  if (maskedEnv === undefined && maskedHeaders === undefined) return state;
-  return {
-    ...state,
-    config: {
-      ...state.config,
-      ...(maskedEnv === undefined ? {} : { env: maskedEnv }),
-      ...(maskedHeaders === undefined ? {} : { headers: maskedHeaders }),
-    },
-  };
-}
-
-/**
- * Vault de sesión para env MCP sobre el llavero del SO (vía
- * `mainProcessCryptoBackend`). Reutiliza `CredentialManager` canónico de
- * `@ego/security`; no duplica cripto. `storeSecret` puede lanzar sin
- * safeStorage: los handlers lo tratan best-effort con warn (el cifrado
- * persiste igual).
- */
-let mcpCredentialManager: CredentialManager | null = null;
-
-export function getMcpCredentialManager(): CredentialManager {
-  if (!mcpCredentialManager) {
-    mcpCredentialManager = new CredentialManager(mainProcessCryptoBackend);
-  }
-  return mcpCredentialManager;
-}
-
-/** Solo tests: inyecta un vault falso en el singleton de sesión. */
-export function setMcpCredentialManagerForTests(manager: CredentialManager | null): void {
-  mcpCredentialManager = manager;
-}
-
-/** Guarda secretos de un servidor en el vault (servicio `mcp/<id>/env`). */
-export async function storeMcpEnvSecrets(
-  vault: McpEnvSecretVault,
-  serverId: string,
-  secrets: Record<string, string>
-): Promise<void> {
-  const service = mcpEnvVaultService(serverId);
-  for (const [name, value] of Object.entries(secrets)) {
-    await vault.storeSecret(service, name, value);
-  }
-}
-
-/** Borra secretos de un servidor del vault (best-effort, propaga errores). */
-export async function deleteMcpEnvSecrets(
-  vault: McpEnvSecretVault,
-  serverId: string,
-  names: string[]
-): Promise<void> {
-  const service = mcpEnvVaultService(serverId);
-  for (const name of names) {
-    await vault.deleteSecret(service, name);
-  }
-}
-
-/**
- * Claves de proveedor resueltas SOLO en main (BYOK vía bootstrap env + gov/settings
- * cifrado con safeStorage). Este objeto nunca sale del main process: no se loguea,
- * no se envía por IPC, y las respuestas al renderer usan `maskKey`.
- */
-export interface ResolvedModelKeys {
-  openai?: string;
-  anthropic?: string;
-  google?: string;
-  deepseek?: string;
-  openaiBaseURL?: string;
-  deepseekBaseURL?: string;
-  ollamaBaseURL?: string;
-}
-
-const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
-
-function isNonEmptyKey(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-/**
- * Bootstrap documentado INT-02, solo en main: lee `process.env` como fuente
- * inicial (`OPENAI_API_KEY`/`DEEPSEEK_API_KEY`/`OLLAMA_BASE_URL` más
- * `ANTHROPIC_API_KEY`/`GOOGLE_API_KEY` y base URLs custom). Sin keys → `{}` y
- * todo resuelve a mock (fallback seguro, nunca lanza).
- */
-export function resolveEnvModelKeys(env: NodeJS.ProcessEnv = process.env): ResolvedModelKeys {
-  const keys: ResolvedModelKeys = {};
-  if (isNonEmptyKey(env.OPENAI_API_KEY)) keys.openai = env.OPENAI_API_KEY;
-  if (isNonEmptyKey(env.ANTHROPIC_API_KEY)) keys.anthropic = env.ANTHROPIC_API_KEY;
-  if (isNonEmptyKey(env.GOOGLE_API_KEY)) keys.google = env.GOOGLE_API_KEY;
-  if (isNonEmptyKey(env.DEEPSEEK_API_KEY)) keys.deepseek = env.DEEPSEEK_API_KEY;
-  if (isNonEmptyKey(env.OPENAI_BASE_URL)) keys.openaiBaseURL = env.OPENAI_BASE_URL;
-  if (isNonEmptyKey(env.DEEPSEEK_BASE_URL)) keys.deepseekBaseURL = env.DEEPSEEK_BASE_URL;
-  if (isNonEmptyKey(env.OLLAMA_BASE_URL)) keys.ollamaBaseURL = env.OLLAMA_BASE_URL;
-  return keys;
-}
-
-/**
- * Resuelve keys desde el payload `gov/settings/model_config` (ya cargado en main).
- * Tolera el shape nuevo por proveedor (`<p>KeyEncrypted`/`<p>Key` + baseURLs) y el
- * legado de clave única (`apiKeyEncrypted`/`apiKey` + `activeProvider`/`baseUrl`).
- * Descifra con `decryptCredential` (safeStorage). Nunca lanza: payload
- * desconocido → `{}`.
- */
-export function resolvePersistedModelKeys(payload: unknown): ResolvedModelKeys {
-  if (!payload || typeof payload !== "object") return {};
-  const p = payload as Record<string, unknown>;
-  const keys: ResolvedModelKeys = {};
-  const pick = (encrypted: unknown, plain: unknown): string | undefined => {
-    if (typeof encrypted === "string" && encrypted.length > 0) {
-      const decrypted = decryptCredential(encrypted);
-      if (isNonEmptyKey(decrypted)) return decrypted;
-    }
-    if (isNonEmptyKey(plain)) return plain;
-    return undefined;
-  };
-  const openai = pick(p.openaiKeyEncrypted, p.openaiKey);
-  if (openai) keys.openai = openai;
-  const anthropic = pick(p.anthropicKeyEncrypted, p.anthropicKey);
-  if (anthropic) keys.anthropic = anthropic;
-  const google = pick(p.googleKeyEncrypted, p.googleKey);
-  if (google) keys.google = google;
-  const deepseek = pick(p.deepseekKeyEncrypted, p.deepseekKey);
-  if (deepseek) keys.deepseek = deepseek;
-
-  // Legado de clave única: pertenece al activeProvider (openai/deepseek).
-  const active = typeof p.activeProvider === "string" ? p.activeProvider : "";
-  const legacy = pick(p.apiKeyEncrypted, p.apiKey);
-  if (legacy && (active === "openai" || active === "deepseek") && !keys[active]) {
-    keys[active] = legacy;
-  }
-
-  if (isNonEmptyKey(p.ollamaBaseURL)) {
-    keys.ollamaBaseURL = p.ollamaBaseURL;
-  } else if (active === "ollama" && isNonEmptyKey(p.baseUrl)) {
-    keys.ollamaBaseURL = p.baseUrl;
-  }
-  if (isNonEmptyKey(p.openaiBaseURL)) {
-    keys.openaiBaseURL = p.openaiBaseURL;
-  } else if (active === "openai" && isNonEmptyKey(p.baseUrl)) {
-    keys.openaiBaseURL = p.baseUrl;
-  }
-  if (isNonEmptyKey(p.deepseekBaseURL)) {
-    keys.deepseekBaseURL = p.deepseekBaseURL;
-  } else if (active === "deepseek" && isNonEmptyKey(p.baseUrl)) {
-    keys.deepseekBaseURL = p.baseUrl;
-  }
-  return keys;
-}
-
-/**
- * Fusiona keys con precedencia explícita: lo persistido por UI (BYOK cifrado)
- * gana sobre el bootstrap env. Campos vacíos no pisan valores existentes.
- */
-export function mergeModelKeys(base: ResolvedModelKeys, override: ResolvedModelKeys): ResolvedModelKeys {
-  const merged: ResolvedModelKeys = { ...base };
-  for (const [field, value] of Object.entries(override) as Array<[keyof ResolvedModelKeys, string | undefined]>) {
-    if (isNonEmptyKey(value)) merged[field] = value;
-  }
-  return merged;
-}
-
-/**
- * Resuelve keys en memoria (plaintext de `currentModelConfig`, NUNCA sale
- * del main) al shape `ResolvedModelKeys`. Espeja la precedencia de
- * `resolvePersistedModelKeys` sin descifrado: por proveedor + legado.
- */
-export function resolveMemoryModelKeys(config: ModelConfig): ResolvedModelKeys {
-  const keys: ResolvedModelKeys = {};
-  if (isNonEmptyKey(config.openaiKey)) keys.openai = config.openaiKey;
-  if (isNonEmptyKey(config.anthropicKey)) keys.anthropic = config.anthropicKey;
-  if (isNonEmptyKey(config.googleKey)) keys.google = config.googleKey;
-  if (isNonEmptyKey(config.deepseekKey)) keys.deepseek = config.deepseekKey;
-  const active = config.activeProvider;
-  if (isNonEmptyKey(config.apiKey) && (active === "openai" || active === "deepseek") && !keys[active]) {
-    keys[active] = config.apiKey;
-  }
-  if (isNonEmptyKey(config.openaiBaseURL)) keys.openaiBaseURL = config.openaiBaseURL;
-  else if (active === "openai" && isNonEmptyKey(config.baseUrl)) keys.openaiBaseURL = config.baseUrl;
-  if (isNonEmptyKey(config.deepseekBaseURL)) keys.deepseekBaseURL = config.deepseekBaseURL;
-  else if (active === "deepseek" && isNonEmptyKey(config.baseUrl)) keys.deepseekBaseURL = config.baseUrl;
-  if (isNonEmptyKey(config.ollamaBaseURL)) keys.ollamaBaseURL = config.ollamaBaseURL;
-  else if (active === "ollama" && isNonEmptyKey(config.baseUrl)) keys.ollamaBaseURL = config.baseUrl;
-  return keys;
-}
-
-export interface ConfiguredModelProvider {
-  id: CatalogProviderId | "mock";
-  configured: boolean;
-}
-
-/**
- * T15: proveedores con `configured` = key presente en memoria.
- * Ollama (local) y mock siempre configurados: no exigen secreto.
- */
-export function getConfiguredProviders(keys: ResolvedModelKeys): ConfiguredModelProvider[] {
-  return [
-    { id: "openai", configured: isNonEmptyKey(keys.openai) },
-    { id: "anthropic", configured: isNonEmptyKey(keys.anthropic) },
-    { id: "google", configured: isNonEmptyKey(keys.google) },
-    { id: "deepseek", configured: isNonEmptyKey(keys.deepseek) },
-    { id: "ollama", configured: true },
-    { id: "mock", configured: true },
-  ];
-}
-
-export interface CatalogCredentials {
-  apiKey?: string;
-  baseURL?: string;
-  credentialFingerprint: string;
-}
-
-/**
- * T15: credenciales efectivas del catálogo desde keys en memoria.
- * El fingerprint es SHA-256 del secreto (opaco, no reversible): es lo
- * único que llega a la key de cache persistida. NUNCA se loguea la key
- * (cero `console.*` en esta función, como en `probeModelKey`).
- */
-export function resolveCatalogCredentials(
-  provider: CatalogProviderId,
-  keys: ResolvedModelKeys
-): CatalogCredentials {
-  let apiKey: string | undefined;
-  let baseURL: string | undefined;
-  if (provider === "openai") {
-    if (isNonEmptyKey(keys.openai)) apiKey = keys.openai;
-    if (isNonEmptyKey(keys.openaiBaseURL)) baseURL = keys.openaiBaseURL;
-  } else if (provider === "anthropic") {
-    if (isNonEmptyKey(keys.anthropic)) apiKey = keys.anthropic;
-  } else if (provider === "google") {
-    if (isNonEmptyKey(keys.google)) apiKey = keys.google;
-  } else if (provider === "deepseek") {
-    if (isNonEmptyKey(keys.deepseek)) apiKey = keys.deepseek;
-    if (isNonEmptyKey(keys.deepseekBaseURL)) baseURL = keys.deepseekBaseURL;
-  } else {
-    if (isNonEmptyKey(keys.ollamaBaseURL)) baseURL = keys.ollamaBaseURL;
-  }
-  const credentialFingerprint = createHash("sha256")
-    .update(`${provider}:${apiKey ?? ""}:${baseURL ?? ""}`, "utf8")
-    .digest("hex")
-    .slice(0, 32);
-  const creds: CatalogCredentials = { credentialFingerprint };
-  if (apiKey !== undefined) creds.apiKey = apiKey;
-  if (baseURL !== undefined) creds.baseURL = baseURL;
-  return creds;
-}
-
-function isCustomBaseURL(url: string | undefined, def: string): url is string {
-  return isNonEmptyKey(url) && url.replace(/\/+$/, "") !== def.replace(/\/+$/, "");
-}
-
-function registerOpenAIProvider(router: ModelRouter, apiKey: string, baseURL?: string): void {
-  if (isCustomBaseURL(baseURL, OPENAI_DEFAULT_BASE_URL)) {
-    // Endpoint custom (p. ej. LMStudio/proxy): adaptador directo legacy.
-    router.registerProvider(
-      new OpenAICompatibleProvider({ providerId: "openai", baseUrl: baseURL, apiKey })
-    );
-  } else {
-    router.registerProvider(
-      new AiSdkOpenAIProvider({ apiKey, ...(isNonEmptyKey(baseURL) ? { baseURL } : {}) })
-    );
-  }
-}
-
-/**
- * Registra proveedores AI SDK y BYOK en el ModelRouter (INT-02 + AI SDK adapters).
- * Solo main: combina el bootstrap env documentado con las keys persistidas
- * (gov/settings descifrado, segundo parámetro). Registra un `AiSdk*Provider`
- * por key presente, el legacy `OpenAICompatibleProvider` solo para custom
- * `baseUrl`, Ollama local por defecto y siempre `MockProvider` como fallback.
- * Ninguna key sale del main (sin logs de secretos, sin eventos al renderer).
- */
-export let currentModelConfig: ModelConfig = {
-  activeProvider: process.env.OPENAI_API_KEY ? "openai" : process.env.DEEPSEEK_API_KEY ? "deepseek" : "mock",
-  apiKey: process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY || "",
-  baseUrl: process.env.OPENAI_BASE_URL || "",
-  modelName: "",
-};
-
-/**
- * T13 probe-before-save (hermes P3): valida la key del proveedor activo
- * contra su API (list models, timeout 15s) ANTES de persistir.
- * - 401/403/404 → throw accionable "key inválida", el caller NO persiste.
- * - Red ausente/timeout/5xx → `{verified:false, networkUnreachable:true}`
- *   con `warn`: el caller advierte pero permite guardar (flag visible).
- * - `mock` → `{verified:true}` (nada que validar). `ollama` prueba
- *   conectividad local sin secreto.
- * Seguridad: la key viaja SOLO en el header/query del fetch y NUNCA se
- * incluye en mensajes, errores ni logs (cero `console.*` en esta función).
- */
-export interface ModelKeyProbeResult {
-  verified: boolean;
-  warn?: string;
-  networkUnreachable?: boolean;
-}
-
-export interface ModelKeyProbeInput {
-  provider: ModelConfig["activeProvider"];
-  key?: string;
-  openaiBaseURL?: string;
-  deepseekBaseURL?: string;
-  ollamaBaseURL?: string;
-  timeoutMs?: number;
-  fetchImpl?: typeof fetch;
-}
-
-export async function probeModelKey(input: ModelKeyProbeInput): Promise<ModelKeyProbeResult> {
-  const { provider } = input;
-  if (provider === "mock") return { verified: true };
-  const timeoutMs = input.timeoutMs ?? 15000;
-  const fetchImpl = input.fetchImpl ?? fetch;
-  const normBase = (b: string | undefined): string | undefined => {
-    const t = b?.trim().replace(/\/+$/, "");
-    return t ? t : undefined;
-  };
-
-  let url = "";
-  const headers: Record<string, string> = {};
-  const secret = input.key?.trim() ?? "";
-  if (provider === "ollama") {
-    url = `${normBase(input.ollamaBaseURL) ?? OLLAMA_DEFAULT_BASE_URL}/api/tags`;
-  } else if (!secret) {
-    return { verified: false, warn: "Sin key para validar: se guarda sin probe (fallback mock intacto)." };
-  } else if (provider === "openai") {
-    url = `${normBase(input.openaiBaseURL) ?? "https://api.openai.com/v1"}/models`;
-    headers["Authorization"] = `Bearer ${secret}`;
-  } else if (provider === "anthropic") {
-    url = "https://api.anthropic.com/v1/models";
-    headers["x-api-key"] = secret;
-    headers["anthropic-version"] = "2023-06-01";
-  } else if (provider === "google") {
-    url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(secret)}`;
-  } else if (provider === "deepseek") {
-    url = `${normBase(input.deepseekBaseURL) ?? "https://api.deepseek.com"}/models`;
-    headers["Authorization"] = `Bearer ${secret}`;
-  }
-
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetchImpl(url, { method: "GET", headers, signal: ctrl.signal });
-    if (res.ok) return { verified: true };
-    if (res.status === 401 || res.status === 403 || res.status === 404) {
-      throw new Error(
-        `[BYOK] La key de ${provider} es inválida (HTTP ${res.status} al validar contra su API). ` +
-          `Verificá la key y el proveedor activo. No se persistió ningún cambio.`
-      );
-    }
-    return {
-      verified: false,
-      networkUnreachable: true,
-      warn: `Validación no concluyente (HTTP ${res.status}): se guarda sin verificar.`,
-    };
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("[BYOK]")) throw err;
-    const reason = err instanceof Error && err.name === "AbortError" ? "timeout" : "red no disponible";
-    return {
-      verified: false,
-      networkUnreachable: true,
-      warn: `No se pudo validar la key (${reason}): se guarda sin verificar.`,
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/**
- * Aplica una configuración de modelo validada al ModelRouter (INT-02 + Task 10).
- * Valida con `ModelConfigSchema` (zod) y exige key no vacía para openai/
- * anthropic/google/deepseek: sin key válida no registra nada y el fallback
- * mock queda intacto. Resuelve la key efectiva por proveedor (`<p>Key` con
- * fallback al legado `apiKey` cuando el proveedor activo coincide) y la
- * baseURL efectiva (`<p>BaseURL` con fallback al legado `baseUrl`).
- */
-export function applyModelConfig(router: ModelRouter, config: ModelConfig): void {
-  const parsed = ModelConfigSchema.safeParse(config);
-  if (!parsed.success) {
-    throw new Error(`[IPC Security] Configuración de modelo inválida: ${parsed.error.message}`);
-  }
-  const valid = parsed.data;
-  currentModelConfig = { ...valid };
-  // STAB-06: hilar effort/aliases al router (CFG-04). `effortLevel`
-  // explícito gana sobre `reasoningEffort` (lógica en `configureFromSettings`).
-  router.configureFromSettings({
-    ...(valid.effortLevel !== undefined ? { effortLevel: valid.effortLevel } : {}),
-    ...(valid.reasoningEffort !== undefined ? { reasoningEffort: valid.reasoningEffort } : {}),
-    ...(valid.modelAliases !== undefined ? { modelAliases: valid.modelAliases } : {}),
-    ...(valid.reviewModel ? { reviewModel: valid.reviewModel } : {}),
-    ...(valid.availableModels !== undefined ? { availableModels: valid.availableModels } : {}),
-    ...(valid.fallbackModel ? { fallbackModel: valid.fallbackModel } : {}),
-  });
-  const legacyKey = isNonEmptyKey(valid.apiKey) ? valid.apiKey : undefined;
-  const legacyBase = isNonEmptyKey(valid.baseUrl) ? valid.baseUrl : undefined;
-  if (valid.activeProvider === "openai") {
-    const key = isNonEmptyKey(valid.openaiKey) ? valid.openaiKey : legacyKey;
-    if (!key) return;
-    const base = isNonEmptyKey(valid.openaiBaseURL) ? valid.openaiBaseURL : legacyBase;
-    registerOpenAIProvider(router, key, base);
-  } else if (valid.activeProvider === "anthropic") {
-    const key = isNonEmptyKey(valid.anthropicKey) ? valid.anthropicKey : legacyKey;
-    if (!key) return;
-    router.registerProvider(new AiSdkAnthropicProvider({ apiKey: key }));
-  } else if (valid.activeProvider === "google") {
-    const key = isNonEmptyKey(valid.googleKey) ? valid.googleKey : legacyKey;
-    if (!key) return;
-    router.registerProvider(new AiSdkGoogleProvider({ apiKey: key }));
-  } else if (valid.activeProvider === "deepseek") {
-    const key = isNonEmptyKey(valid.deepseekKey) ? valid.deepseekKey : legacyKey;
-    if (!key) return;
-    const base = isNonEmptyKey(valid.deepseekBaseURL) ? valid.deepseekBaseURL : legacyBase;
-    router.registerProvider(
-      new AiSdkOpenAICompatibleProvider({
-        providerId: "deepseek",
-        apiKey: key,
-        ...(base ? { baseURL: base } : {}),
-      })
-    );
-  } else if (valid.activeProvider === "ollama") {
-    const base = isNonEmptyKey(valid.ollamaBaseURL)
-      ? valid.ollamaBaseURL
-      : (legacyBase ?? OLLAMA_DEFAULT_BASE_URL);
-    router.registerProvider(
-      new AiSdkOpenAICompatibleProvider({
-        providerId: "ollama",
-        apiKey: "ollama",
-        baseURL: base,
-      })
-    );
-  }
-  // mock: nada que registrar (MockProvider siempre presente vía setup/ctor).
-}
-
-/**
- * Registra proveedores reales y BYOK en el ModelRouter (INT-02 + AI SDK adapters).
- */
-export function setupModelProviders(router: ModelRouter, extraKeys: ResolvedModelKeys = {}): void {
-  // 1. Bootstrap env documentado (INT-02 stop-condition) + keys persistidas (BYOK UI).
-  const keys = mergeModelKeys(resolveEnvModelKeys(), extraKeys);
-
-  // 2. OpenAI (BYOK vía key presente; legacy solo para custom baseUrl).
-  if (isNonEmptyKey(keys.openai)) {
-    registerOpenAIProvider(router, keys.openai, keys.openaiBaseURL);
-  }
-
-  // 3. Anthropic (Claude, formato nativo vía SDK).
-  if (isNonEmptyKey(keys.anthropic)) {
-    router.registerProvider(new AiSdkAnthropicProvider({ apiKey: keys.anthropic }));
-  }
-
-  // 4. Google (Gemini, formato nativo vía SDK).
-  if (isNonEmptyKey(keys.google)) {
-    router.registerProvider(new AiSdkGoogleProvider({ apiKey: keys.google }));
-  }
-
-  // 5. DeepSeek (BYOK vía key presente, OpenAI-compatible vía SDK).
-  if (isNonEmptyKey(keys.deepseek)) {
-    router.registerProvider(
-      new AiSdkOpenAICompatibleProvider({
-        providerId: "deepseek",
-        apiKey: keys.deepseek,
-        ...(isNonEmptyKey(keys.deepseekBaseURL) ? { baseURL: keys.deepseekBaseURL } : {}),
-      })
-    );
-  }
-
-  // 6. Ollama (Local Offline por defecto; dummy key sin secreto real).
-  router.registerProvider(
-    new AiSdkOpenAICompatibleProvider({
-      providerId: "ollama",
-      apiKey: "ollama",
-      baseURL: keys.ollamaBaseURL ?? OLLAMA_DEFAULT_BASE_URL,
-    })
-  );
-
-  // 7. Mock siempre: fallback determinista sin keys ni red.
-  router.registerProvider(new MockProvider());
-}
 
 // ---------------------------------------------------------------------------
 // Pool multi-key por proveedor con rotación (T21 — T16-OAUTH, sin OAuth aún).
@@ -1773,152 +960,33 @@ export async function syncModelCredentialPool(
 /** Timeout de aprobación humana en ms (fuente: approvals.timeoutSec = 60). */
 export const APPROVAL_TIMEOUT_MS_CFG06 = 60_000;
 
-/** Info mínima de herramienta para la decisión combinada permiso+approval. */
-export interface PermissionToolInfo {
-  name: string;
-  riskLevel?: ToolRiskLevel;
-  requiresApproval?: boolean;
-}
-
-/** Consulta de permiso: tool y/o path del FS involucrados en la acción. */
-export interface PermissionQuery {
-  tool?: string;
-  path?: string;
-}
-
-/**
- * Valida settings crudos (VantaDB `gov/settings/permissions`) fail-closed:
- * payload inválido → lanza antes de tocar motores. Aplica los defaults
- * CFG-06 (`acceptEdits` + `smart`/60s/`deny`).
- */
-export function parsePermissionsSettings(raw: unknown): PermissionsSettings {
-  const parsed = PermissionsSettingsSchema.safeParse(raw ?? {});
-  if (!parsed.success) {
-    throw new Error(`[IPC Security] Settings de permisos inválidos: ${parsed.error.message}`);
-  }
-  return parsed.data;
-}
-
-/** `true` si la regla matchea (subcadena contra tool o path). */
-export function permissionRuleMatches(rule: PermissionRule, query: PermissionQuery): boolean {
-  if (query.tool && query.tool.includes(rule.pattern)) return true;
-  if (query.path && query.path.includes(rule.pattern)) return true;
-  return false;
-}
-
-/**
- * Decisión por reglas con deny-gana: entre las reglas que matchean,
- * `deny` > `ask` > `allow`. Sin match → `"ask"` (fail-closed).
- */
-export function resolvePermissionDecision(
-  rules: PermissionRule[],
-  query: PermissionQuery
-): PermissionDecision {
-  let sawAsk = false;
-  let sawAllow = false;
-  for (const rule of rules) {
-    if (!permissionRuleMatches(rule, query)) continue;
-    if (rule.decision === "deny") return "deny";
-    if (rule.decision === "ask") sawAsk = true;
-    else sawAllow = true;
-  }
-  if (sawAsk) return "ask";
-  if (sawAllow) return "allow";
-  return "ask";
-}
-
-/**
- * `true` si `path` está bajo alguno de `scopeDirs` (workspace +
- * `additionalDirectories`). Comparación por prefijo normalizado (`/` final).
- */
-export function isPathInScope(path: string, scopeDirs: string[]): boolean {
-  const norm = (d: string): string => {
-    const n = d.replace(/\\/g, "/");
-    return n.endsWith("/") ? n : `${n}/`;
-  };
-  const target = path.replace(/\\/g, "/");
-  return scopeDirs.some(
-    (dir) => dir.length > 0 && (target === dir.replace(/\\/g, "/") || target.startsWith(norm(dir)))
-  );
-}
-
-/**
- * Decisión efectiva combinando reglas + `defaultMode` + alcance:
- * 1. reglas (deny-gana); 2. path fuera de alcance → `"ask"` como mínimo;
- * 3. `defaultMode`: `full-access` → allow, `acceptEdits` → allow salvo
- *    `destructive` (→ ask), `read-only` → ask.
- */
-export function resolveEffectivePermission(
-  policy: PermissionsPolicy,
-  query: PermissionQuery,
-  opts: { scopeDirs?: string[]; riskLevel?: ToolRiskLevel } = {}
-): PermissionDecision {
-  const matched = policy.rules.some((rule) => permissionRuleMatches(rule, query));
-  if (matched) return resolvePermissionDecision(policy.rules, query);
-  if (query.path && opts.scopeDirs && !isPathInScope(query.path, opts.scopeDirs)) {
-    return "ask";
-  }
-  if (policy.defaultMode === "full-access") return "allow";
-  if (policy.defaultMode === "read-only") return "ask";
-  return opts.riskLevel === "destructive" ? "ask" : "allow";
-}
-
-/**
- * Puerta combinada permiso + approvals + cron. Retorna si la acción puede
- * correr y si exige aprobación humana (vía `ApprovalEngine` existente).
- * Orden: deny (regla o `cronMode`) veta sin preguntar; `mode: "off"` no
- * pide aprobación a nivel política (el engine conserva sus innegociables);
- * `"manual"` siempre pide; `"smart"` pide si decisión `ask`, riesgo
- * sensitive/destructive o la tool se autodeclara `requiresApproval`.
- */
-export function shouldRequireApproval(
-  settings: PermissionsSettings,
-  tool: PermissionToolInfo,
-  query: PermissionQuery,
-  opts: { scopeDirs?: string[]; isCron?: boolean } = {}
-): { allowed: boolean; requireApproval: boolean; reason?: string } {
-  if (opts.isCron) {
-    const cron = settings.approvals.cronMode;
-    if (cron === "deny") {
-      return { allowed: false, requireApproval: false, reason: "cron_mode deny: ejecución programada vetada" };
-    }
-    if (cron === "ask") {
-      return { allowed: true, requireApproval: true, reason: "cron_mode ask: corrida programada exige aprobación" };
-    }
-  }
-  const effective = resolveEffectivePermission(settings.permissions, query, {
-    scopeDirs: opts.scopeDirs,
-    riskLevel: tool.riskLevel,
-  });
-  if (effective === "deny") {
-    return { allowed: false, requireApproval: false, reason: "deny gana: regla de permiso veta la acción" };
-  }
-  const mode = settings.approvals.mode;
-  if (mode === "off") return { allowed: true, requireApproval: false };
-  if (mode === "manual") {
-    return {
-      allowed: true,
-      requireApproval: true,
-      reason: effective === "ask" ? "decisión ask en modo manual" : "modo manual: toda acción exige aprobación",
-    };
-  }
-  const needsByRisk = tool.riskLevel === "sensitive" || tool.riskLevel === "destructive";
-  if (effective === "ask" || needsByRisk || tool.requiresApproval === true) {
-    return {
-      allowed: true,
-      requireApproval: true,
-      reason:
-        effective === "ask"
-          ? "decisión ask en modo smart"
-          : `riesgo ${tool.riskLevel ?? "declarado"} exige aprobación en modo smart`,
-    };
-  }
-  return { allowed: true, requireApproval: false };
-}
+export {
+  permissionRuleMatches,
+  resolvePermissionDecision,
+  isPathInScope,
+  resolveEffectivePermission,
+  shouldRequireApproval,
+  type PermissionQuery,
+  type PermissionToolInfo,
+} from "./main/security/permissions-policy.js";
 
 /** Scope efectivo: raíz del workspace + `additionalDirectories` (CFG-06). */
 export function resolveScopeDirs(workspaceRoot: string, additionalDirectories: string[]): string[] {
   return [workspaceRoot, ...additionalDirectories];
+}
+
+/**
+ * T2 (EGO-FIND-26) — Scope de disco efectivo en runtime.
+ *
+ * Reúne la raíz del workspace (`EGO_WORKSPACE_PATH` o `process.cwd()`) con
+ * los `additionalDirectories` de la política de permisos persistida
+ * (`gov/settings/permissions`). Es el alcance contra el que se validan las
+ * rutas que el renderer pide leer.
+ */
+export function currentScopeDirs(): string[] {
+  const workspace = defaultWorkspaceRoot();
+  const additional = getCachedPermissionsSettings().permissions.additionalDirectories;
+  return resolveScopeDirs(workspace, additional);
 }
 
 /**
@@ -1943,86 +1011,21 @@ export function resolveCwdRoot(
   return workspace;
 }
 
-/** Cache en memoria de `gov/settings/permissions` (STAB-02; fuente: VantaDB). */
-let cachedPermissionsSettings: PermissionsSettings | null = null;
+import {
+  getCachedPermissionsSettings,
+  getCachedCompressionSettings,
+  loadPermissionsSettingsIntoCache,
+  loadCompressionSettingsIntoCache,
+  parsePermissionsSettings,
+} from "./main/settings-cache.js";
 
-/** Settings efectivos: cache de boot o defaults CFG-06 (nunca lanza). */
-export function getCachedPermissionsSettings(): PermissionsSettings {
-  if (cachedPermissionsSettings) return cachedPermissionsSettings;
-  return parsePermissionsSettings({});
-}
-
-/** Solo tests: fija o limpia el cache sin tocar VantaDB. */
-export function setCachedPermissionsSettingsForTests(settings: PermissionsSettings | null): void {
-  cachedPermissionsSettings = settings;
-}
-
-/**
- * Carga `gov/settings/permissions` al cache (boot, tras `adapter` listo).
- * Payload ausente → defaults; inválido → defaults + warn (no tumba el boot).
- */
-export async function loadPermissionsSettingsIntoCache(): Promise<PermissionsSettings> {
-  try {
-    const saved = await adapter.get("gov/settings", "permissions");
-    let payload: unknown = saved;
-    if (typeof saved === "object" && saved !== null && "payload" in saved) {
-      payload = (saved as { payload: unknown }).payload;
-    }
-    if (payload && typeof payload === "object") {
-      cachedPermissionsSettings = parsePermissionsSettings(payload);
-      return cachedPermissionsSettings;
-    }
-  } catch (err) {
-    console.warn("[Ego Main] Settings de permisos ilegibles, usando defaults CFG-06:", err);
-  }
-  cachedPermissionsSettings = parsePermissionsSettings({});
-  return cachedPermissionsSettings;
-}
-
-// ---------------------------------------------------------------------------
-// STAB-05: Compresión con thresholds + cleanupPeriod (Gate P vinculante).
-//
-// `gov/settings/compression` gobierna el trigger pre-`toolLoop.run`
-// (threshold 70% ventana, target 40%, auto_compact) y el job periódico
-// (cleanup 30d worktrees/sesiones/leases, max_snapshots). Patrón espejo de
-// STAB-02: payload ausente/inválido → defaults, boot nunca tumba.
-// ---------------------------------------------------------------------------
-
-/** Cache en memoria de `gov/settings/compression` (fuente: VantaDB). */
-let cachedCompressionSettings: CompressionSettings | null = null;
-
-/** Settings efectivos: cache de boot o defaults Gate P (nunca lanza). */
-export function getCachedCompressionSettings(): CompressionSettings {
-  if (cachedCompressionSettings) return cachedCompressionSettings;
-  return parseCompressionSettings({});
-}
-
-/** Solo tests: fija o limpia el cache sin tocar VantaDB. */
-export function setCachedCompressionSettingsForTests(settings: CompressionSettings | null): void {
-  cachedCompressionSettings = settings;
-}
-
-/**
- * Carga `gov/settings/compression` al cache (boot, tras `adapter` listo).
- * Payload ausente → defaults; inválido → defaults + warn (no tumba el boot).
- */
-export async function loadCompressionSettingsIntoCache(): Promise<CompressionSettings> {
-  try {
-    const saved = await adapter.get(COMPRESSION_SETTINGS_NAMESPACE, COMPRESSION_SETTINGS_KEY);
-    let payload: unknown = saved;
-    if (typeof saved === "object" && saved !== null && "payload" in saved) {
-      payload = (saved as { payload: unknown }).payload;
-    }
-    if (payload && typeof payload === "object") {
-      cachedCompressionSettings = parseCompressionSettings(payload);
-      return cachedCompressionSettings;
-    }
-  } catch (err) {
-    console.warn("[Ego Main] Settings de compresión ilegibles, usando defaults STAB-05:", err);
-  }
-  cachedCompressionSettings = parseCompressionSettings({});
-  return cachedCompressionSettings;
-}
+export { getCachedPermissionsSettings } from "./main/settings-cache.js";
+export { setCachedPermissionsSettingsForTests } from "./main/settings-cache.js";
+export { parsePermissionsSettings } from "./main/settings-cache.js";
+export { getCachedCompressionSettings } from "./main/settings-cache.js";
+export { setCachedCompressionSettingsForTests } from "./main/settings-cache.js";
+export { loadPermissionsSettingsIntoCache } from "./main/settings-cache.js";
+export { loadCompressionSettingsIntoCache } from "./main/settings-cache.js";
 
 /**
  * Estimación barata de tokens de los mensajes del turno (chars/4, techo).
@@ -2243,660 +1246,151 @@ export function buildTurnPrompt(opts: TurnPromptOptions = {}): {
  * Procesa una solicitud de chat ejecutando el ciclo cognitivo ToolExecutionLoop con
  * streaming, persistencia inmutable en VantaDB y control de ejecución (INT-01).
  */
-export async function handleLlmStream(rawReq: unknown): Promise<{
-  ok: boolean;
-  turnId: string;
-  text: string;
-  recallStatus: EgoRecallStatus;
-  usage?: LoopExecutionResult["usage"];
-  status: string;
-}> {
-  const parseResult = ChatStreamSchema.safeParse(rawReq);
-  if (!parseResult.success) {
-    throw new Error(`[IPC Security] Solicitud de chat inválida: ${parseResult.error.message}`);
-  }
-  const req = parseResult.data;
-
-  const sessionId = req.sessionId || lifecycle?.currentSessionId || "default_session";
-  const turnId = `turn_${Date.now()}`;
-  const turnStartTime = Date.now();
-  // A1 real: el turno registra su controlador para `ipc.llm.cancel`.
-  const abortController = new AbortController();
-  llmAbortControllers.set(turnId, abortController);
-  // Recall vacío por defecto: si el abort llega antes del pre-turn, el path
-  // de cancelación en `catch` responde igual sin colgar ni inventar hits.
-  let recallStatus: EgoRecallStatus = {
-    count: 0,
-    glyph: "🧠",
-    sources: [],
-    tokensEstimate: 0,
-    hits: [],
-  };
-
-  eventBus?.emit("task.started", {
-    taskId: turnId,
-    startedAt: turnStartTime,
-  }, {
-    source: "desktop.ipc.llm.stream",
-    sessionId,
-    traceId: turnId,
-    severity: "info",
-  });
-
-  try {
-    // FASE 2: Pre-Turn Context Assembly & Recall (Prefetch + Glifo 🧠)
-    const preTurn = await lifecycle.assemblePreTurn(req.prompt);
-    const contextText = preTurn.contextText;
-    recallStatus = preTurn.recallStatus;
-
-    // FASE DECISION INTELLIGENCE: Evaluación de Intención, Enrutamiento y Precondiciones (DEC-01..DEC-08)
-    let verdict: DecisionVerdict | null = null;
-    if (decisionRouter) {
-      const tDecStart = performance.now();
-      verdict = await decisionRouter.decide({
-        prompt: req.prompt,
-        projectId: req.projectId || activeProjectId,
-        workspacePath: process.env.EGO_WORKSPACE_PATH || process.cwd(),
-        activeSubEgoId: req.subEgoId || "ego.nucleus"
-      });
-      const tDecTotal = Math.round(performance.now() - tDecStart);
-
-      // Verificación de bucles recursivos de delegación (DEC-06, OCLW-02, HERM-03)
-      if (loopBreaker) {
-        const breakCheck = loopBreaker.evaluate(
-          verdict.subEgoId,
-          verdict.intentDigest,
-          verdict.admittedRunContext,
-          verdict.confidence
-        );
-
-        if (breakCheck.shouldBreak && breakCheck.clarification) {
-          const clarificationText = `[Pausa de Supervisión Cognitiva: ${breakCheck.reason}]\n${breakCheck.clarification.question}\n\nOpciones:\n` +
-            breakCheck.clarification.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n');
-
-          if (win && !win.isDestroyed()) {
-            // CFG-11: interactiva (orden sensible, sin coalesce).
-            enqueueMainPush("ipc.chat.delta", {
-              type: "text",
-              text: clarificationText,
-              delta: clarificationText
-            }, "interactive");
-          }
-
-          return {
-            ok: true,
-            turnId,
-            text: clarificationText,
-            recallStatus,
-            status: "paused_clarification"
-          };
-        }
-      }
-
-      // Registro inmutable en gov/audit (DEC-07)
-      if (decisionAuditor) {
-        await decisionAuditor.recordVerdict(verdict);
-      }
-
-      // Telemetría de decisión (DEC-08)
-      if (decisionTelemetry) {
-        decisionTelemetry.record({
-          runId: verdict.admittedRunContext.runId,
-          intentId: verdict.intentId,
-          classifyMs: Math.round(tDecTotal * 0.7),
-          subEgoSelectMs: Math.round(tDecTotal * 0.15),
-          preconditionsMs: Math.round(tDecTotal * 0.15),
-          totalDecisionMs: tDecTotal,
-          decidedBy: verdict.decidedBy
-        });
-      }
-    }
-
-    // Informar a la UI del estado de memoria inyectada.
-    // CFG-11: lectura idempotente → coalesce por turno (el último gana).
-    if (win && !win.isDestroyed()) {
-      enqueueMainPush("ipc.chat.recall_status", recallStatus, "interactive", `recall:${turnId}`);
-    }
-
-    // STAB-05: trigger pre-compactación (archive-first, nunca trunca aquí).
-    // Si el turno estimado supera el threshold de `gov/settings/compression`,
-    // se archiva el historial en `kb/history_archive` vía `maybePreCompact`
-    // y el turno corre como rebuild sancionado (`isCompressionRebuild: true`,
-    // único cache-break permitido). Falla defensivo: sin archive no hay
-    // rebuild, el turno sigue normal.
-    let isCompressionRebuild = false;
-    {
-      const compressionSettings = getCachedCompressionSettings();
-      const preEstimate = Math.ceil((req.prompt.length + contextText.length) / 4);
-      const evaluation = shouldTriggerCompression(
-        preEstimate,
-        compressionSettings.maxWindowTokens,
-        compressionSettings
-      );
-      if (evaluation.shouldCompact) {
-        try {
-          const rows = await adapter.list("session/turns", 200);
-          const history: TurnRecord[] = [];
-          for (const row of rows) {
-            if (typeof row.key !== "string" || !row.key.startsWith(`${sessionId}:`)) continue;
-            const p = row.payload;
-            if (p !== null && typeof p === "object" && typeof (p as Record<string, unknown>)["turnId"] === "string") {
-              history.push(p as TurnRecord);
-            }
-          }
-          const pre = await lifecycle.maybePreCompact(
-            sessionId,
-            history,
-            preEstimate,
-            compressionSettings.maxWindowTokens,
-            compressionSettings
-          );
-          isCompressionRebuild = pre.triggered;
-        } catch (err) {
-          console.warn("[Ego Main] Pre-compactación STAB-05 omitida (turno sigue normal):", err);
-        }
-      }
-    }
-
-    // STAB-03: system 3-tiers vía PromptAssembly (byte-stable por sesión).
-    // El recall fresco (contextText) viaja como overlay efímero API-call-time:
-    // nunca contamina el prefijo cacheado. Los steers drenan como user
-    // standalone con el marcador out-of-band exacto (única autoridad mid-turn).
-    const subEgoId = req.subEgoId || verdict?.subEgoId || "ego.nucleus";
-    const soul = await resolveTurnSoul(subEgoId);
-    const turnPrompt = buildTurnPrompt({
-      subEgoSoul: soul,
-      callerSystemMessage: req.systemPrompt,
-      sessionId,
-      ephemeralText: contextText,
-      isCompressionRebuild,
-    });
-    const systemInstruction = turnPrompt.effectiveSystemPrompt;
-
-    // Ensamblar mensajes para el modelo
-    const messages: ModelMessage[] = [];
-    messages.push({ role: "system", content: systemInstruction });
-    messages.push({ role: "user", content: req.prompt });
-    for (const steer of drainMainSteerQueue()) {
-      messages.push({ role: "user", content: formatOutOfBandUserMessage(steer) });
-    }
-
-    const execContext: ToolExecutionContext = {
-      callId: turnId,
-      sessionId,
-      projectId: req.projectId || "default_project",
-      subEgoId,
-    };
-
-    // Modelo elegido por el usuario (2026-10-14: el picker/Ajustes gobierna
-    // de verdad; vacío = el router decide por rol). Hilo hasta el loop.
-    // STAB-06: el tuning global (temperature/reasoningEffort) viaja en el
-    // PreferredModel y además como override per-call del loop.
-    const preferredModel: PreferredModel | undefined = (() => {
-      const name = currentModelConfig.modelName?.trim();
-      if (!name) return undefined;
-      const tuning = {
-        ...(currentModelConfig.temperature !== undefined
-          ? { temperature: currentModelConfig.temperature }
-          : {}),
-        ...(currentModelConfig.reasoningEffort !== undefined
-          ? { reasoningEffort: currentModelConfig.reasoningEffort }
-          : {}),
-      };
-      const p = currentModelConfig.activeProvider;
-      if (p !== "mock" && p !== "ollama" && ["openai", "anthropic", "google", "deepseek"].includes(p)) {
-        return { modelId: name, providerId: p as PreferredModel["providerId"], ...tuning };
-      }
-      if (p === "ollama") return { modelId: name, providerId: "ollama", ...tuning };
-      return undefined;
-    })();
-
-    // Ejecutar loop cognitivo multi-turno a través de ToolExecutionLoop (INT-01).
-    // La señal viaja hasta generate/stream: el provider que la honre aborta
-    // mid-token; el que no, completa el turno en vuelo y el loop se detiene
-    // en el siguiente checkpoint (`aborted`, sin colgar).
-    // STAB-05: el loop hace enforcement del prefijo estable (sha256 de la
-    // parte 3-tiers sin overlay) salvo rebuild por compresión; el hash
-    // baseline se fija en el primer turno de cada sesión.
-    const prevStableHash = getLoopStableHash(sessionId);
-    updateLoopStableHash(sessionId, turnPrompt.assembled.systemPrompt);
-    const loopResult: LoopExecutionResult = await toolLoop.run({
-      messages,
-      context: execContext,
-      role: "general-chat",
-      preferredModel,
-      // STAB-06: tuning global también sin modelName (el loop lo hila
-      // por encima del PreferredModel y por debajo de lo explícito).
-      ...(currentModelConfig.temperature !== undefined
-        ? { temperature: currentModelConfig.temperature }
-        : {}),
-      ...(currentModelConfig.reasoningEffort !== undefined
-        ? { reasoningEffort: currentModelConfig.reasoningEffort }
-        : {}),
-      systemPrompt: systemInstruction,
-      stableSystemPrompt: turnPrompt.assembled.systemPrompt,
-      cachedSystemPromptFingerprint: prevStableHash,
-      isCompressionRebuild,
-      traceId: turnId,
-      eventBus,
-      abortSignal: abortController.signal
-    });
-
-    // Turno cancelado (por `ipc.llm.cancel` o señal abortada): push
-    // `turn-cancelled` para cerrar el stream remoto, sin persistir reply
-    // vacío en la sesión y sin emitir `task.completed` engañoso (el loop ya
-    // emitió `task.failed` con `ABORTED`).
-    if (loopResult.status === "aborted" || abortController.signal.aborted) {
-      pushTurnCancelled(turnId);
-      return {
-        ok: false,
-        turnId,
-        text: "",
-        recallStatus,
-        usage: loopResult.usage,
-        status: "aborted"
-      };
-    }
-
-    const finalText = loopResult.finalText || "";
-
-    // Retransmitir texto final hacia la UI.
-    // CFG-11: interactiva (orden sensible, sin coalesce: es autoritativa).
-    if (finalText && win && !win.isDestroyed()) {
-      enqueueMainPush("ipc.chat.delta", {
-        type: "text",
-        text: finalText,
-        delta: finalText
-      }, "interactive");
-    }
-
-    // FASE 4: Post-Turn Synchronization (Persistencia inmutable L1 en VantaDB)
-    const recalledKeys = recallStatus.hits.map((h) => `${h.namespace}:${h.key}`);
-    await lifecycle.syncTurn(sessionId, turnId, req.prompt, finalText, recalledKeys);
-
-    eventBus?.emit("task.completed", {
-      taskId: turnId,
-      durationMs: Date.now() - turnStartTime,
-      result: { turnId, textLength: finalText.length, usage: loopResult.usage, steps: loopResult.steps },
-    }, {
-      source: "desktop.ipc.llm.stream",
-      sessionId,
-      traceId: turnId,
-      severity: "info",
-    });
-
-    return {
-      ok: loopResult.status === "completed",
-      turnId,
-      text: finalText,
-      recallStatus,
-      usage: loopResult.usage,
-      status: loopResult.status
-    };
-  } catch (err) {
-    // Cancelación que escapó como excepción (AbortError del provider fuera
-    // del loop): respuesta `aborted` limpia en vez de error visible.
-    if (abortController.signal.aborted) {
-      pushTurnCancelled(turnId);
-      return {
-        ok: false,
-        turnId,
-        text: "",
-        recallStatus,
-        status: "aborted"
-      };
-    }
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    if (win && !win.isDestroyed()) {
-      win.webContents.send("ipc.chat.error", { turnId, error: errorMsg });
-    }
-
-    eventBus?.emit("task.failed", {
-      taskId: turnId,
-      error: errorMsg,
-      code: "STREAM_ERROR",
-    }, {
-      source: "desktop.ipc.llm.stream",
-      sessionId,
-      traceId: turnId,
-      severity: "error",
-    });
-
-    throw new Error(`[Cognitive Runtime Error]: ${errorMsg}`);
-  } finally {
-    llmAbortControllers.delete(turnId);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Hardening Electron (SEC-01): navegación, ventanas y apertura externa.
-//
-// - `will-navigate`: niega toda navegación http(s) salvo dev-server local.
-// - `setWindowOpenHandler`: niega creación de ventanas (popups/objetivos
-//   `_blank` no abren Chromium nuevo; se loguean y se deniegan).
-// - Apertura externa: SOLO vía `openExternalValidated()` (https validada,
-//   allowlist de esquema + log; http/file/data/javascript denegados).
-// ---------------------------------------------------------------------------
-
-/** Hosts del dev-server local permitidos solo en no empaquetado. */
-const DEV_NAV_HOSTS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1", "::1"]);
-
 /**
- * ¿Navegación in-window permitida? `file:` (bundle empaquetado) siempre;
- * http(s) solo contra hosts de dev-server cuando NO es build empaquetada.
- * Todo lo demás (incluido http(s) externo en prod) → `false` (denegar).
+ * T11 (Ola 1c) — Contexto del handler de turno de LLM.
+ *
+ * Se construye con GETTERS para que los valores se lean EN VIVO:
+ * `activeProjectId` cambia cuando el usuario selecciona otro proyecto y
+ * `compactionJob` se asigna durante el arranque.
  */
-export function isAllowedNavigationUrl(targetUrl: string, isDev: boolean): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(targetUrl);
-  } catch {
-    return false;
-  }
-  if (parsed.protocol === "file:") return true;
-  if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-    if (!isDev) return false;
-    return DEV_NAV_HOSTS.has(parsed.hostname);
-  }
-  return false;
-}
-
-/**
- * Allowlist de esquema para apertura externa: SOLO `https:`.
- * `http:` (sin TLS), `file:`, `data:`, `javascript:`, `blob:` y cualquier
- * esquema no http(s) se deniegan. Con credenciales embebidas (`user@host`)
- * también se deniega (riesgo de phishing). El hostname debe ser no vacío
- * y no local (la apertura externa es para web pública, no loopback).
- */
-export function isAllowedExternalUrl(rawUrl: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return false;
-  }
-  if (parsed.protocol !== "https:") return false;
-  if (!parsed.hostname) return false;
-  if (parsed.username || parsed.password) return false;
-  if (DEV_NAV_HOSTS.has(parsed.hostname)) return false;
-  return true;
-}
-
-/**
- * Apertura externa validada: solo `https:` según `isAllowedExternalUrl`.
- * Retorna `true` si se delegó a `shell.openExternal`, `false` si se denegó.
- * Todo intento queda en log (permitido y denegado) para auditoría.
- */
-export async function openExternalValidated(rawUrl: string): Promise<boolean> {
-  if (!isAllowedExternalUrl(rawUrl)) {
-    console.warn(`[Electron Security] Apertura externa denegada (allowlist https): ${rawUrl}`);
-    return false;
-  }
-  console.log(`[Electron Security] Apertura externa permitida: ${rawUrl}`);
-  await shell.openExternal(rawUrl);
-  return true;
-}
-
-/**
- * CSP por entorno (R13/SEC-01):
- * - dev (no empaquetado): permite el dev-server Vite local
- *   (`http://127.0.0.1:5173` + `unsafe-inline` para HMR/scripts de Vite).
- * - packaged: estricta — `default-src 'self'`, `script-src 'self'`,
- *   `object-src 'none'`, sin rastro de `127.0.0.1`.
- */
-export function buildCsp(isPackaged: boolean): string {
-  const scriptSrc = isPackaged
-    ? "script-src 'self'"
-    : "script-src 'self' 'unsafe-inline' http://127.0.0.1:5173";
-  const connectSrc = isPackaged
-    ? "connect-src 'self'"
-    : "connect-src 'self' http://127.0.0.1:5173 ws://127.0.0.1:5173";
-  return [
-    "default-src 'self'",
-    scriptSrc,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
-    "font-src 'self' data:",
-    connectSrc,
-    "object-src 'none'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join("; ");
-}
-
-/**
- * Aplica los guardarraíles de navegación a una ventana: `will-navigate` +
- * `setWindowOpenHandler` en modo denegar-por-defecto (con log de auditoría).
- * `isDev` = `true` solo en dev-server local (`!app.isPackaged`).
- */
-export function applyNavigationGuards(target: BrowserWindow, isDev: boolean): void {
-  target.webContents.on("will-navigate", (event, url) => {
-    if (!isAllowedNavigationUrl(url, isDev)) {
-      console.warn(`[Electron Security] Navegación bloqueada: ${url}`);
-      event.preventDefault();
-    }
-  });
-  target.webContents.setWindowOpenHandler((details) => {
-    console.warn(`[Electron Security] Ventana emergente bloqueada: ${details.url}`);
-    return { action: "deny" as const };
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Hardening IPC: origen por invoke + token opaco single-use (selectFolder) +
-// fetch-proxy mínimo. Sin romper firma pública: el renderer envía el mismo
-// payload; la meta de origen la deriva el main desde `senderFrame` y se
-// valida con Zod solo para log/auditoría (se descarta tras validar).
-// ---------------------------------------------------------------------------
-
-/** TTL del token opaco de selectFolder (60s, single-use). */
-export const SELECT_FOLDER_TOKEN_TTL_MS = 60_000;
-
-interface FolderTokenEntry {
-  folderPath: string;
-  expiresAt: number;
-}
-
-const folderTokens = new Map<string, FolderTokenEntry>();
-
-/** Emite un token UUID opaco ligado a un path (nunca el path al renderer). */
-export function issueFolderToken(folderPath: string): string {
-  pruneFolderTokens();
-  const token = randomUUID();
-  folderTokens.set(token, { folderPath, expiresAt: Date.now() + SELECT_FOLDER_TOKEN_TTL_MS });
-  return token;
-}
-
-/**
- * Canjea un token opaco por su path. Single-use: se invalida tras el primer
- * uso (éxito o no) y expira a los 60s. Retorna `null` si es inválido/expirado.
- */
-export function redeemFolderToken(token: string): string | null {
-  const entry = folderTokens.get(token);
-  folderTokens.delete(token);
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) return null;
-  return entry.folderPath;
-}
-
-/** Purga tokens expirados (best-effort, nunca lanza). */
-export function pruneFolderTokens(now: number = Date.now()): void {
-  try {
-    for (const [token, entry] of folderTokens) {
-      if (now > entry.expiresAt) folderTokens.delete(token);
-    }
-  } catch {
-    // noop
-  }
-}
-
-/** Solo tests: cantidad de tokens vivos. */
-export function folderTokenCountForTests(): number {
-  pruneFolderTokens();
-  return folderTokens.size;
-}
-
-type InvokeEventLike = {
-  senderFrame?: { url?: string } | null;
+const llmCtx = {
+  get lifecycle() { return lifecycle; },
+  get eventBus() { return eventBus; },
+  get toolLoop() { return toolLoop; },
+  get adapter() { return adapter; },
+  get compactionJob() { return compactionJob; },
+  get compactionSummarizer() { return compactionSummarizer; },
+  get decisionRouter() { return decisionRouter; },
+  get decisionAuditor() { return decisionAuditor; },
+  get decisionTelemetry() { return decisionTelemetry; },
+  get loopBreaker() { return loopBreaker; },
+  get llmAbortControllers() { return llmAbortControllers; },
+  get activeProjectId() { return activeProjectId; },
+  get win() { return win; },
+  get enqueueMainPush() { return enqueueMainPush; },
+  get getCachedCompressionSettings() { return getCachedCompressionSettings; },
+  get getLoopStableHash() { return getLoopStableHash; },
+  get updateLoopStableHash() { return updateLoopStableHash; },
+  get buildTurnPrompt() { return buildTurnPrompt; },
+  get resolveTurnSoul() { return resolveTurnSoul; },
+  get drainMainSteerQueue() { return drainMainSteerQueue; },
+  get formatOutOfBandUserMessage() { return formatOutOfBandUserMessage; },
+  get pushTurnCancelled() { return pushTurnCancelled; },
+  get currentModelConfig() { return currentModelConfig; },
 };
 
-/** Deriva el origen del invoke desde `senderFrame` + timestamp (solo main). */
-export function getInvokeOrigin(event: InvokeEventLike | null | undefined): {
-  frameUrl: string;
-  timestamp: number;
-} {
-  const raw = event?.senderFrame?.url;
-  const frameUrl =
-    typeof raw === "string" && raw.length > 0 ? raw.slice(0, 2048) : "unknown";
-  return { frameUrl, timestamp: Date.now() };
+/** Envoltura que consume el handler extraído. */
+async function runLlmStream(rawReq: unknown): Promise<unknown> {
+  return handleLlmStream(llmCtx, rawReq);
 }
 
+// ---------------------------------------------------------------------------
 /**
- * Log + pasada por Zod del origen. La firma pública no cambia: la meta no
- * viene del renderer, se deriva en main y se valida con `IpcOriginMetaSchema`
- * solo para auditoría (fallo de meta nunca rechaza el payload real).
+ * T11 (EGO-FIND-54) — Fábrica de dependencias de los handlers IPC.
+ *
+ * Los 81 handlers viven en `src/main/ipc/register-ipc.ts`. Este objeto
+ * inyecta las referencias ya inicializadas del main process (memoria,
+ * routers, engines, MCP, terminal). El tipo se infiere aquí y lo consume
+ * `register-ipc.ts` vía `import type` (sin ciclo en runtime).
  */
-export function logInvokeOrigin(channel: string, event: InvokeEventLike | null | undefined): void {
-  try {
-    const origin = getInvokeOrigin(event);
-    const parsed = IpcOriginMetaSchema.safeParse(origin);
-    const frame = parsed.success ? parsed.data.frameUrl : origin.frameUrl;
-    console.log(`[IPC] ${channel} origin=${frame} ts=${origin.timestamp}`);
-  } catch {
-    // noop: el log nunca tumba el handler
-  }
-}
-
-let ipcOriginLoggingInstalled = false;
-
-/**
- * Envuelve `ipcMain.handle` una vez para loguear `senderFrame` URL +
- * timestamp en CADA invoke (defensa en profundidad; los handlers conservan
- * su firma pública y su validación Zod de payload).
- */
-export function installIpcOriginLogging(): void {
-  if (ipcOriginLoggingInstalled) return;
-  ipcOriginLoggingInstalled = true;
-  const origHandle = ipcMain.handle.bind(ipcMain);
-  (ipcMain as unknown as { handle: typeof ipcMain.handle }).handle = ((
-    channel: string,
-    listener: (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown
-  ) => {
-    return origHandle(
-      channel,
-      (async (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => {
-        logInvokeOrigin(channel, event as unknown as InvokeEventLike);
-        return listener(event, ...args);
-      }) as never
-    );
-  }) as never;
-}
-
-/** ¿URL permitida para el fetch-proxy? Solo `https:` o loopback local. */
-export function isAllowedFetchUrl(rawUrl: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return false;
-  }
-  if (parsed.username || parsed.password) return false;
-  if (parsed.protocol === "https:") return true;
-  if (parsed.protocol === "http:") {
-    return parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost" || parsed.hostname === "::1";
-  }
-  return false;
-}
-
-/**
- * Token de autorización solo en main (safeStorage vía `decryptCredential`).
- * Lee el blob cifrado `gov/auth:api_token` (o `EGO_API_TOKEN` en dev);
- * nunca se loguea ni viaja al renderer.
- */
-export async function resolveFetchAuthToken(): Promise<string | null> {
-  try {
-    if (typeof adapter !== "undefined" && adapter) {
-      const rec = await adapter.get("gov/auth", "api_token");
-      let node: unknown = rec;
-      if (node && typeof node === "object" && "payload" in (node as Record<string, unknown>)) {
-        node = (node as { payload: unknown }).payload;
-      }
-      if (typeof node === "string" && node.length > 0) {
-        const dec = decryptCredential(node);
-        if (typeof dec === "string" && dec.length > 0) return dec;
-      } else if (node && typeof node === "object" && typeof (node as Record<string, unknown>).token === "string") {
-        const stored = (node as Record<string, unknown>).token as string;
-        if (stored.length > 0) {
-          const dec = stored.startsWith("enc:") || stored.startsWith("obf:") ? decryptCredential(stored) : stored;
-          if (dec.length > 0) return dec;
-        }
-      }
-    }
-  } catch {
-    // noop: fallback a env en dev
-  }
-  const envToken = process.env.EGO_API_TOKEN;
-  return typeof envToken === "string" && envToken.length > 0 ? envToken : null;
-}
-
-/** Refresh best-effort: re-lee el token (una sola vez tras 401). */
-export async function refreshFetchAuthToken(): Promise<string | null> {
-  return resolveFetchAuthToken();
-}
-
-export interface ProxiedFetchResult {
-  ok: boolean;
-  status: number;
-  body: string;
-}
-
-/**
- * Fetch-proxy mínimo en main: inyecta `Authorization` desde safeStorage,
- * reintenta 1 vez tras 401 con refresh, y retorna solo `status`/`body`
- * saneados (el token nunca sale del main). `fetchImpl` inyectable en tests.
- */
-export async function egoFetchProxied(
-  input: EgoFetchRequest,
-  fetchImpl: typeof fetch = fetch
-): Promise<ProxiedFetchResult> {
-  if (!isAllowedFetchUrl(input.url)) {
-    throw new Error("[IPC Security] URL no permitida para egoFetch (solo https o loopback local).");
-  }
-  const timeoutMs = input.timeoutMs ?? 15_000;
-  const doFetch = async (token: string | null): Promise<Response> => {
-    const headers: Record<string, string> = { ...(input.headers ?? {}) };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      return await fetchImpl(input.url, {
-        method: input.method,
-        headers,
-        signal: ctrl.signal,
-        ...(input.body !== undefined ? { body: input.body } : {}),
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+export function createIpcDeps() {
+  const userDataDir = app.getPath("userData");
+  const dbPath = join(userDataDir, "ego_memory.vdb");
+  return {
+    adapter,
+    approvalEngine,
+    backgroundEngine,
+    bitemporalQueries,
+    buildMcpPersistedRecord,
+    currentScopeDirs,
+    dailyStateEngine,
+    dailyStatePersistence,
+    dbPath,
+    decisionAuditor,
+    decisionRouter,
+    decisionTelemetry,
+    decisionsFeed,
+    deleteMcpEnvSecrets,
+    documentParser,
+    endTerminalSession,
+    ensureFloatMgr,
+    eventBus,
+    extractPersistedMcpRecord,
+    factLifecycle,
+    floatingSnapshot,
+    getCachedPermissionsSettings,
+    getMcpCredentialManager,
+    getOrCreateDefaultProject,
+    goalPrioritizer,
+    graphRagEngine,
+    handleLlmStream: runLlmStream,
+    hybridSearch,
+    killTerminalSession,
+    knowledgeExport,
+    knowledgeIndexer,
+    lifecycle,
+    llmAbortControllers,
+    mcpEnvKeysForCleanup,
+    mcpManager,
+    modelRouter,
+    needsMcpEnvMigration,
+    parsePermissionsSettings,
+    projectMemoryGraph,
+    pushTerminalOutput,
+    pushTurnCancelled,
+    quarantineManager,
+    refreshTrayStatus,
+    resolveCwdRoot,
+    sanitizeMcpRuntimeStateForRenderer,
+    skillScanner,
+    storeMcpEnvSecrets,
+    subEgoRegistry,
+    syncModelCredentialPool,
+    terminalSessions,
+    userDataDir,
+    win,
+    windowStateManager,
   };
-  let token = await resolveFetchAuthToken();
-  let res = await doFetch(token);
-  if (res.status === 401) {
-    token = await refreshFetchAuthToken();
-    res = await doFetch(token);
-  }
-  let text = "";
-  try {
-    text = await res.text();
-  } catch {
-    text = "";
-  }
-  return { ok: res.ok, status: res.status, body: text.slice(0, 1_000_000) };
 }
 
 export async function createWindow(): Promise<void> {
   installIpcOriginLogging();
+  // T3 (EGO-FIND-27): el fetch-proxy resuelve el token de la API desde la
+  // memoria cifrada (`gov/auth:api_token`) o, en dev, de `EGO_API_TOKEN`.
+  // Nunca se loguea ni viaja al renderer. El resolutor se inyecta aquí
+  // (el módulo de seguridad no depende del estado global del proceso).
+  setFetchAuthTokenResolver(async () => {
+    try {
+      if (adapter) {
+        const rec = await adapter.get("gov/auth", "api_token");
+        let node: unknown = rec;
+        if (node && typeof node === "object" && "payload" in node) {
+          node = (node as { payload: unknown }).payload;
+        }
+        if (typeof node === "string" && node.length > 0) {
+          const dec = decryptCredential(node);
+          if (typeof dec === "string" && dec.length > 0) return dec;
+        } else if (
+          node &&
+          typeof node === "object" &&
+          typeof (node as { token?: unknown }).token === "string"
+        ) {
+          const stored = (node as { token: string }).token;
+          if (stored.length > 0) {
+            const dec =
+              stored.startsWith("enc:") || stored.startsWith("obf:")
+                ? decryptCredential(stored)
+                : stored;
+            if (dec.length > 0) return dec;
+          }
+        }
+      }
+    } catch {
+      // noop: fallback al env
+    }
+    const envToken = process.env.EGO_API_TOKEN;
+    return typeof envToken === "string" && envToken.length > 0 ? envToken : null;
+  });
   const userDataDir = app.getPath("userData");
   crashRecoveryEngine = new CrashRecoveryEngine({
     storageDir: userDataDir,
@@ -2920,6 +1414,15 @@ export async function createWindow(): Promise<void> {
   lifecycle = new EgoMemoryLifecycle(adapter);
   await lifecycle.startSession("session_init", "default");
 
+  // A2-01 / EGO-FIND-21: el job de compactación real. `adapter` satisface el
+  // contrato estructural `CompactionArchiveTarget` (put) ⇒ el resumen podado
+  // se archiva en `kb/history_archive` sin que `runtime` dependa de `memory`.
+  // Vive a nivel de módulo porque lo consume `handleLlmStream` (un turno).
+  compactionJob = new ContextCompactionJob(
+    { autoMemory: true },
+    { archiveTarget: adapter }
+  );
+
   // STAB-06: job curator periódico (consolida `session/turns` stale →
   // `kb/facts`, respetando `quarantine/pending`; aditivo, jamás borra).
   // Defaults: cada 1h, stale 30d, tope 50 facts. Best-effort: un fallo
@@ -2933,6 +1436,21 @@ export async function createWindow(): Promise<void> {
   modelRouter = new ModelRouter();
   setupModelProviders(modelRouter);
   await syncModelCredentialPool(modelRouter);
+
+  // T8 (A2-ola1b, Diff E): resumidor REAL sobre el ModelRouter para la
+  // compactación de contexto. Sin esto, `ContextCompactionJob` usa su
+  // fallback heurístico (2 primeras líneas por mensaje) y se pierde la
+  // fidelidad que exige el prompt de compactación (decisiones, rutas,
+  // errores, tareas y restricciones).
+  //
+  // El summarizer se crea DESPUÉS del router (necesita los proveedores
+  // registrados) y vive a nivel de módulo porque lo consume
+  // `handleLlmStream` (otro turno, otra función).
+  // Si el modelo falla, el job cae al fallback heurístico: la
+  // compactación nunca se pierde por un fallo del LLM.
+  compactionSummarizer = createRouterSummarizer(modelRouter, {
+    role: "fast-classifier",
+  });
 
   // Restaurar configuración persistida de modelos BYOK si existe (gov/settings)
   // Solo main: las keys descifradas con safeStorage nunca salen de este proceso.
@@ -3013,6 +1531,10 @@ export async function createWindow(): Promise<void> {
   }
 
   eventBus = new EventBus();
+  // COUC-09: observador de proceso. Se suscribe al bus y graba cada
+  // task/tool de la corrida en `projects/<runId>/runs` (con digest SHA-256).
+  // Antes no tenía dueño: el `RunRecorder` existía y nadie lo instanciaba.
+  runRecorder = new RunRecorder(adapter, eventBus);
   // STAB-12: toda decisión de hook/permiso (`hook.decided`, emitido por el
   // EventBus de sesiones y el ToolExecutionLoop) se persiste a `gov/audit`
   // (SEC-06, inmutable + sha256). Best-effort: la auditoría nunca rompe el
@@ -3097,10 +1619,73 @@ export async function createWindow(): Promise<void> {
     },
   });
 
-  mcpManager = new McpManager(toolRegistry);
+  // A3-T1 / EGO-FIND-22: delegación de Sub-Egos viva. `createDelegationRuntime`
+  // registra en el `toolRegistry` las 6 tools de delegación
+  // (delegate_task, delegate_many, delegation_steer/stop/list_active/drain_steer).
+  // Sin esto, la delegación sigue siendo código muerto.
+  delegationRuntime = createDelegationRuntime({
+    storage: adapter,
+    toolRegistry,
+    executor: async (instance) => {
+      // Ejecuta un turno del Sub-Ego destino con el modelo.
+      // Sin modelo disponible, devuelve la salida estructurada mínima.
+      return {
+        summary: `Turno de ${instance.manifest.id} ejecutado`,
+        findings: [],
+        files: [],
+        issues: [],
+      };
+    },
+    routerOptions: {
+      maxDepth: 3,
+      defaultTimeoutMs: 30_000,
+    },
+    defaultCallerId: "ego.nucleus",
+  });
+
+  // T1 (VERDICT R2) — Decisión D2 (proxy de secretos MCP):
+  //  - `tokenStore`: la fuente de secretos para PATs/tokens de los
+  //    conectores (keychain del SO vía `CredentialManager`).
+  //  - `secretResolver`: resuelve los marcadores `{{SECRET:<clave>}}` en el
+  //    PUNTO DE USO (la petición saliente al servidor MCP). Sin esto, el
+  //    marcador Viajaba sin resolver y D2 era inerte en producción.
+  // El resolver se resuelve SIEMPRE contra el keychain del SO, en el main:
+  // el renderer nunca ve un secreto.
+  // T1 (EGO-FIND-49): sin bus, un servidor MCP puede seguir tomando el
+  // control de una tool NATIVA sin que quede traza. Con bus, cada decisión
+  // (override autorizado o intento de takeover) emite `system.alert`.
+  mcpManager = new McpManager(toolRegistry, {
+    tokenStore: getMcpCredentialManager(),
+    secretResolver: createCredentialSecretResolver(getMcpCredentialManager()),
+    eventBus,
+  });
   skillScanner = new SkillScanner();
   subEgoRegistry = new SubEgoRegistry(adapter);
-  decisionRouter = new DecisionRouter();
+  // A2-07 / EGO-FIND-36: los niveles 2 (scorer) y 3 (LLM estructurado) de la
+  // cascada eran código muerto. Con scorer/llm configurados, `DecisionRouter`
+  // delega en `DecisionCascade`; sin ellos, degrada a reglas deterministas.
+  const jevProvider = new JevProvider({ apiKey: process.env.JEV_API_KEY });
+  decisionRouter = new DecisionRouter({
+    scorerProvider: jevProvider,
+    llmFallbackFn: async (prompt, domain) => {
+      const res = await modelRouter.generateText("fast-classifier", {
+        messages: [{ role: "user", content: prompt }],
+        responseFormat: "json",
+      });
+      // El LLM devuelve el veredicto en JSON; si no parsea, `null` ⇒ la
+      // cascada cae al fallback de núcleo seguro.
+      try {
+        return JSON.parse(res.text) as {
+          domain: (typeof domain) & string;
+          subEgoId: string;
+          tools: string[];
+          confidence: number;
+        };
+      } catch {
+        return null;
+      }
+    },
+  });
   decisionAuditor = new DecisionAuditor(adapter);
   decisionTelemetry = new DecisionTelemetry(eventBus);
   loopBreaker = new LoopBreaker({ maxDepth: 4 });
@@ -3174,6 +1759,72 @@ export async function createWindow(): Promise<void> {
   workerTaskPool = new WorkerTaskPool();
   proactivityEngine = new ProactivityEngine();
 
+  // A3-T6 / EGO-FIND-50: `manage_background_task` — sin registrar esta tool,
+  // el agente no puede lanzar ni governar tareas en background.
+  registerBackgroundTaskTools(toolRegistry, backgroundEngine, {
+    defaultSubEgoId: "ego.nucleus",
+    defaultTimeoutMs: 120_000,
+    executor: async (request) => {
+      // Ejecución mínima honesta: sin pipeline propio, la tarea se encola y
+      // queda en `queued` (fail-closed: no se inventa un resultado).
+      return {
+        taskId: request.taskId,
+        status: "queued" as const,
+        detail: `Tarea encolada: ${request.title}`,
+      };
+    },
+  });
+
+  // A3-T2 / EGO-FIND-51: proactividad con triggers REALES. Antes el motor
+  // se instanciaba pero no tenía ni un trigger ⇒ nunca disparaba nada.
+  proactivityEngine.setApprovalPolicy({
+    // Fail-closed: sin aprobación explícita, los triggers proactivos NO se
+    // disparan (el motor emite `onApprovalRequired` y queda en pausa).
+    requiresApproval: async () => false,
+    onApprovalRequired: (info) => {
+      eventBus?.emit("system.alert", {
+        code: "PROACTIVE_APPROVAL_REQUIRED",
+        message: `Trigger proactivo pendiente de aprobación: ${info.kind}/${info.triggerId}`,
+        details: info,
+      }, { source: "ProactivityEngine", severity: "warn" });
+    },
+  });
+
+  // Cron: briefing diario (lunes a viernes, 09:00).
+  proactivityEngine.registerCronTrigger(
+    {
+      id: "daily_briefing",
+      subEgoId: "ego.nucleus",
+      cronExpression: "0 9 * * 1-5",
+      taskTitle: "Briefing diario",
+      payload: {},
+      enabled: true,
+    },
+    async () => {
+      const summary = await dailyStateEngine.synthesize();
+      await dailyStatePersistence.saveSnapshot(summary);
+    }
+  );
+
+  // File-watch sobre el workspace: cada cambio dispara el trigger de archivo.
+  proactivityEngine.registerWatchTrigger(
+    {
+      id: "workspace_changes",
+      subEgoId: "ego.nucleus",
+      pattern: "**/*",
+      debounceMs: 1_000,
+      enabled: true,
+    },
+    async () => {
+      // Sin handler de archivo, el trigger solo registra el evento.
+    }
+  );
+  void proactivityEngine.startWatching(
+    process.env.EGO_WORKSPACE_PATH || process.cwd(),
+    { recursive: true }
+  );
+  proactivityEngine.startCronScheduler();
+
   // Restaurar servidores MCP persistidos en VantaDB si existen (gov/mcp_servers).
   // F1T2/F5T10: VantaDB solo guarda config saneada + `envRef`; los secretos se
   // rehidratan desde el Credential Manager (vault de sesión) o del blob `enc:`
@@ -3231,12 +1882,12 @@ export async function createWindow(): Promise<void> {
 
   // STAB-02: settings de permisos al cache antes de construir motores que
   // los consumen (spawn + ApprovalEngine). Sin payload → defaults CFG-06.
-  await loadPermissionsSettingsIntoCache();
+  await loadPermissionsSettingsIntoCache(adapter);
 
   // STAB-05: settings de compresión al cache + job periódico de limpieza
   // (sesiones/turns stale + worktrees huérfanos; leases: sin instancia
   // SharedMemory en prod main — hook inyectable del job, ver deuda STAB-05).
-  await loadCompressionSettingsIntoCache();
+  await loadCompressionSettingsIntoCache(adapter);
   scheduleMemoryCleanup();
 
   approvalEngine = new ApprovalEngine({
@@ -3286,6 +1937,47 @@ export async function createWindow(): Promise<void> {
     maxConcurrentExecutions: 5,
     defaultTimeoutMs: 60_000
   });
+
+  // T2 (VERDICT R1) — `AGENTS.md` §7: Ego = MCP Client **y** MCP Server.
+  // El `EgoMcpServer` (packages/integrations) estaba implementado y testeado
+  // pero NO se instanciaba: el servidor no existía en producción.
+  //
+  // Transporte: HTTP streamable sobre `127.0.0.1`, IN-PROCESO (no hijo
+  // stdio): las tools y la memoria viven en este proceso, así que el
+  // catálogo expuesto es el REAL, no una copia.
+  //
+  // El gate HITL es el MISMO `ApprovalEngine` del chat: una tool destructiva
+  // llamada por MCP exige la misma aprobación humana que desde el chat.
+  // Fail-closed: sin gate, el servidor rechaza la ejecución.
+  mcpServerHandle = await startEgoMcpServer({
+    toolRegistry,
+    credentialStore: getMcpCredentialManager(),
+    approvalGate: async (toolName: string, input: unknown) => {
+      const tool = toolRegistry.get(toolName);
+      if (!tool) return false;
+      const args = (input ?? {}) as Record<string, unknown>;
+      const callId = `mcp_${toolName}_${Date.now()}`;
+      const context = {
+        callId,
+        sessionId: "mcp-server",
+        ...(activeProjectId ? { projectId: activeProjectId } : {}),
+        workspacePath: defaultWorkspaceRoot(),
+      };
+      const requirement = approvalEngine.evaluateRequirement(tool, args, context);
+      if (!requirement.required) return true;
+      const decision = await approvalEngine.requestApproval({
+        tool,
+        arguments: args,
+        context,
+        callId,
+      });
+      return decision.approved === true;
+    },
+  });
+  // La URL NO lleva el token (nunca viaja en claro por un log ni por la URL).
+  console.log(
+    `[McpServer] Servidor MCP de Ego escuchando en ${mcpServerHandle.url} (bearer token obligatorio, loopback only).`
+  );
 
   toolLoop = new ToolExecutionLoop(modelRouter, toolRegistry, {
     executionManager,
@@ -3430,7 +2122,7 @@ export async function createWindow(): Promise<void> {
         ensureFloatMgr().show();
         if (st.attentionState === "hidden") {
           ensureFloatMgr().updateState({ attentionState: "compact" });
-          floatingAutoShownOnMinimize = true;
+          setFloatingAutoShownOnMinimize(true);
         }
         const floatingWin = ensureFloatMgr().getFloatingWindow();
         if (floatingWin && !floatingWin.isDestroyed()) {
@@ -3475,7 +2167,7 @@ export async function createWindow(): Promise<void> {
       ) {
         ensureFloatMgr().updateState({ attentionState: "hidden" });
         ensureFloatMgr().hide();
-        floatingAutoShownOnMinimize = false;
+        setFloatingAutoShownOnMinimize(false);
       }
     } catch {
       // noop
@@ -3487,6 +2179,10 @@ export async function createWindow(): Promise<void> {
   // Task10 (COUC-19 cierre): reposiciona la flotante ante cambios de
   // displays (multi-monitor/DPI). Límite Wayland: el evento puede no
   // dispararse; el restore ya valida bounds defensivamente.
+  //
+  // T12 (A4-27): se guarda la ref del listener y se elimina en `before-quit`
+  // (los listeners de `screen` son de proceso, no de ventana: sin cleanup
+  // sobreviven al cierre de la ventana y se acumulan en cada re-apertura).
   try {
     const repositionFloatingOnDisplayChange = (): void => {
       try {
@@ -3498,6 +2194,7 @@ export async function createWindow(): Promise<void> {
     screen.on("display-metrics-changed", repositionFloatingOnDisplayChange);
     screen.on("display-added", repositionFloatingOnDisplayChange);
     screen.on("display-removed", repositionFloatingOnDisplayChange);
+    displayChangeListener = repositionFloatingOnDisplayChange;
   } catch {
     // noop: sin screen (ciertos tests) no hay suscripción
   }
@@ -3545,2137 +2242,8 @@ export async function createWindow(): Promise<void> {
     console.error(`[Electron Window] Proceso renderer terminado: ${details.reason} (exitCode: ${details.exitCode})`);
   });
 
-  // 1. Canal de Operaciones de Memoria VantaDB (Validación estricta Zod — SEC-02)
-  ipcMain.handle("ipc.memory", async (_e, rawPayload: unknown) => {
-    const parseResult = MemoryOpSchema.safeParse(rawPayload);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Payload de memoria inválido: ${parseResult.error.message}`);
-    }
-
-    const { op, args } = parseResult.data;
-    switch (op) {
-      case "put": {
-        const item = args[0];
-        return adapter.put({
-          namespace: item.namespace,
-          key: item.key,
-          payload: item.payload,
-          metadata: item.metadata,
-          ttl_ms: item.ttl_ms,
-        });
-      }
-      case "get":
-        return adapter.get(args[0], args[1]);
-      case "delete":
-        return adapter.delete(args[0], args[1]);
-      case "searchMulti":
-        return adapter.searchMulti(args[0], args[1], args[2]);
-      case "listNamespaces":
-        return adapter.listNamespaces();
-      case "recall":
-        return adapter.recall(args[0]);
-      case "recordAudit":
-        return adapter.recordAudit(args[0], args[1], args[2], args[3]);
-      default: {
-        const _exhaustive: never = op;
-        throw new Error(`Operación no implementada: ${_exhaustive}`);
-      }
-    }
-  });
-
-const CANONICAL_SPECIALIST_SUBEGOS = [
-  {
-    id: "researcher",
-    name: "Investigador Cognitivo",
-    domain: "knowledge",
-    role: "Investigación profunda, síntesis documental y GraphRAG en VantaDB",
-    description: "Investigación profunda, síntesis documental y GraphRAG en VantaDB",
-    capabilities: ["memory_search", "web_search", "knowledge_ingest"],
-    status: "idle",
-    state: "active" as const,
-    systemPrompt: "Eres el Investigador Cognitivo de Ego. Especialista en GraphRAG, síntesis documental y exploración de conocimiento.",
-    responsibilities: ["Investigación profunda", "Síntesis documental", "Búsqueda GraphRAG"],
-    tools: ["memory_search", "web_search", "knowledge_ingest"],
-    permissions: ["memory:read", "web:search"],
-  },
-  {
-    id: "code_reviewer",
-    name: "Arquitecto & Revisor",
-    domain: "engineering",
-    role: "Ingeniería de sistemas, revisión de diffs, tests y seguridad",
-    description: "Ingeniería de sistemas, revisión de diffs, tests y seguridad",
-    capabilities: ["fs_read_file", "fs_write_file", "git_status", "git_diff", "terminal_exec"],
-    status: "idle",
-    state: "active" as const,
-    systemPrompt: "Eres el Arquitecto & Revisor de Ego. Especialista en ingeniería de software, arquitectura de sistemas, diffs y seguridad.",
-    responsibilities: ["Revisión de diffs", "Ejecución de tests", "Auditoría de arquitectura"],
-    tools: ["fs_read_file", "fs_write_file", "git_status", "git_diff", "terminal_exec"],
-    permissions: ["fs:read", "fs:write", "terminal:exec"],
-  },
-  {
-    id: "copywriter",
-    name: "Estratega de Producto",
-    domain: "product",
-    role: "PRDs, historias de usuario, roadmaps y comunicación ejecutiva",
-    description: "PRDs, historias de usuario, roadmaps y comunicación ejecutiva",
-    capabilities: ["canvas_render", "memory_search"],
-    status: "idle",
-    state: "active" as const,
-    systemPrompt: "Eres el Estratega de Producto de Ego. Diseñas PRDs, historias de usuario, roadmaps y artefactos Canvas.",
-    responsibilities: ["Definición de PRDs", "Roadmaps", "Canvas UI"],
-    tools: ["canvas_render", "memory_search"],
-    permissions: ["canvas:write", "memory:read"],
-  },
-  {
-    id: "analyst",
-    name: "Analista de Telemetría",
-    domain: "analytics",
-    role: "Métricas de inferencia, costos, latencias P99 y proyecciones en Canvas",
-    description: "Métricas de inferencia, costos, latencias P99 y proyecciones en Canvas",
-    capabilities: ["canvas_render", "memory_search"],
-    status: "idle",
-    state: "active" as const,
-    systemPrompt: "Eres el Analista de Telemetría de Ego. Monitoreas latencias P99, tokens, consumo de APIs y proyecciones.",
-    responsibilities: ["Monitoreo de telemetría", "Métricas P99", "Análisis de costos"],
-    tools: ["canvas_render", "memory_search"],
-    permissions: ["canvas:write", "memory:read"],
-  },
-  {
-    id: "planner",
-    name: "Orquestador de Tareas",
-    domain: "planning",
-    role: "Descomposición de objetivos complejos, cron jobs y delegación multi-agente",
-    description: "Descomposición de objetivos complejos, cron jobs y delegación multi-agente",
-    capabilities: ["delegate_task", "canvas_render"],
-    status: "idle",
-    state: "active" as const,
-    systemPrompt: "Eres el Orquestador de Tareas de Ego. Descompones objetivos complejos, planificas tareas y orquestas sub-egos.",
-    responsibilities: ["Descomposición de metas", "Planificación de tareas", "Delegación"],
-    tools: ["delegate_task", "canvas_render"],
-    permissions: ["tasks:manage", "canvas:write"],
-  },
-];
-
-async function seedCanonicalSubEgos(adapterInstance: EgoMemoryAdapter, registryInstance?: SubEgoRegistry): Promise<void> {
-  for (const se of CANONICAL_SPECIALIST_SUBEGOS) {
-    try {
-      const existing = await adapterInstance.get(`egos/${se.id}/profile`, "profile").catch(() => null);
-      if (!existing) {
-        await adapterInstance.put({
-          namespace: `egos/${se.id}/profile`,
-          key: "profile",
-          payload: se,
-          metadata: { seeded: true, id: se.id, domain: se.domain },
-        }).catch((err) => console.warn(`[Ego Main] Error sembrando perfil ego ${se.id}:`, err));
-      }
-      if (registryInstance) {
-        const manifest = fromMemoryManifest({
-          id: se.id,
-          name: se.name,
-          role: se.role,
-          description: se.description,
-          systemPrompt: se.systemPrompt,
-          creator: "ego-nucleus",
-          createdAtMs: Date.now(),
-          namespaces: {
-            read: ["kb/docs", `egos/${se.id}/*`],
-            write: [`egos/${se.id}/*`, "quarantine/pending"],
-          },
-          tools: se.tools,
-          budget: {
-            maxTokensPerCall: 4000,
-            maxDailyCostUsd: 2.0,
-            requiresApprovalAboveUsd: 0.5,
-          },
-          trigger: "manual",
-          state: "active",
-        });
-        await registryInstance.register(manifest).catch(() => {});
-        await adapterInstance.registerSubEgo(manifest).catch(() => {});
-      }
-    } catch (err) {
-      console.warn(`[Ego Main] Error sembrando subego ${se.id}:`, err);
-    }
-  }
-}
-
-  // 2. Canales de Sub-Egos con validación Zod y Fábrica Inteligente (INT-04 / SUB-02)
-  ipcMain.handle("ipc.subegos.list", async () => {
-    try {
-      let list = await subEgoRegistry.list();
-      if (!list || list.length === 0) {
-        const fromAdapter = await adapter.listSubEgos();
-        list = fromAdapter.map((m) => fromMemoryManifest(m));
-      }
-      if (!list || list.length === 0) {
-        await seedCanonicalSubEgos(adapter, subEgoRegistry);
-        list = await subEgoRegistry.list();
-        if (!list || list.length === 0) {
-          const fromAdapter = await adapter.listSubEgos();
-          list = fromAdapter.map((m) => fromMemoryManifest(m));
-        }
-        if (!list || list.length === 0) {
-          return CANONICAL_SPECIALIST_SUBEGOS;
-        }
-      }
-      return list;
-    } catch (err) {
-      console.warn("[Ego Main] Error al listar Sub-Egos:", err);
-      try {
-        const fallbackList = await adapter.listSubEgos();
-        if (fallbackList && fallbackList.length > 0) return fallbackList;
-      } catch {}
-      return CANONICAL_SPECIALIST_SUBEGOS;
-    }
-  });
-
-  ipcMain.handle("ipc.subegos.getTemplates", async () => {
-    return SubEgoFactory.listTemplates();
-  });
-
-  ipcMain.handle("ipc.subegos.create", async (_e, rawReq: unknown) => {
-    const parseResult = CreateSubEgoSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de creación de Sub-Ego inválida: ${parseResult.error.message}`);
-    }
-
-    const req = parseResult.data;
-    let manifest: SubEgoManifest;
-
-    if ("mode" in req && req.mode === "template") {
-      manifest = SubEgoFactory.fromTemplate(req.templateId, {
-        name: req.name,
-        ...(req.overrides as Partial<SubEgoCreateInput>),
-      });
-    } else if ("mode" in req && req.mode === "declaration") {
-      manifest = SubEgoFactory.fromRawDeclaration(req.rawText, req.format);
-    } else {
-      const subEgoId = createSubEgoId(req.name);
-      // Rama custom: construye la forma mínima de persistencia y la promueve
-      // al tipo canónico vía `fromMemoryManifest` (HIG-03-F2, sin casts).
-      manifest = fromMemoryManifest({
-        id: subEgoId,
-        name: req.name,
-        role: req.role,
-        description: req.instructions,
-        systemPrompt: req.instructions,
-        creator: "user",
-        createdAtMs: Date.now(),
-        namespaces: {
-          read: ["kb/docs", `egos/${subEgoId}/*`],
-          write: [`egos/${subEgoId}/*`, "quarantine/pending"],
-        },
-        tools: req.tools || ["memory_recall", "propose_draft"],
-        budget: {
-          maxTokensPerCall: req.budget?.maxTokensPerCall ?? 4000,
-          maxDailyCostUsd: req.budget?.maxDailyCostUsd ?? 2.0,
-          requiresApprovalAboveUsd: req.budget?.requiresApprovalAboveUsd ?? 0.5,
-        },
-        trigger: "manual",
-        state: "active",
-      });
-    }
-
-    // El registry valida en runtime (`validateSubEgoManifest`); el manifiesto
-    // ya es del tipo canónico `@ego/subegos` (HIG-03-F2).
-    await subEgoRegistry.register(manifest);
-    try {
-      await adapter.registerSubEgo(manifest);
-    } catch {
-      // noop
-    }
-
-    eventBus?.emit("subego.registered", {
-      subEgoId: manifest.id,
-      name: manifest.name,
-      role: manifest.role,
-      createdAt: Date.now(),
-    }, {
-      source: "desktop.ipc.subegos.create",
-      severity: "info",
-    });
-
-    if (win && !win.isDestroyed()) {
-      win.webContents.send("ipc.subegos.changed", { subEgoId: manifest.id, action: "created" });
-    }
-
-    return manifest;
-  });
-
-  ipcMain.handle("ipc.subegos.toggleState", async (_e, rawReq: unknown) => {
-    const parseResult = ToggleSubEgoStateSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de alternancia de estado inválida: ${parseResult.error.message}`);
-    }
-
-    const { subEgoId, state } = parseResult.data;
-    if (subEgoId === "ego.nucleus") {
-      throw new Error("No se puede pausar ni desactivar el núcleo del sistema ('ego.nucleus').");
-    }
-
-    let updated: SubEgoManifest;
-    if (state === "active") {
-      updated = await subEgoRegistry.enable(subEgoId);
-    } else {
-      updated = await subEgoRegistry.disable(subEgoId);
-    }
-
-    eventBus?.emit("subego.state_changed", {
-      subEgoId,
-      state,
-      timestamp: Date.now(),
-    }, {
-      source: "desktop.ipc.subegos.toggleState",
-      severity: "info",
-    });
-
-    if (win && !win.isDestroyed()) {
-      win.webContents.send("ipc.subegos.changed", { subEgoId, action: "state_changed", state });
-    }
-
-    return updated;
-  });
-
-  // 3. Gobernanza HITL con validación Zod (ACT-06, ACT-07)
-  ipcMain.handle("ipc.approval.resolve", async (_e, rawReq: unknown) => {
-    const parseResult = ResolveApprovalSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de resolución de aprobación inválida: ${parseResult.error.message}`);
-    }
-
-    const { approvalId, approved, reason, modifiedArguments, expectedDigest } = parseResult.data;
-    const ok = approvalEngine.resolveApproval(approvalId, {
-      approved,
-      reason,
-      modifiedArguments,
-      resolvedBy: "user",
-    }, expectedDigest ? { expectedDigest } : undefined);
-
-    return { ok, approvalId, approved, timestamp: Date.now() };
-  });
-
-  ipcMain.handle("ipc.gov.approve", async (_e, rawReq: unknown) => {
-    const parseResult = ApproveActionSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de aprobación inválida: ${parseResult.error.message}`);
-    }
-
-    const { actionId, confirmed } = parseResult.data;
-    if (confirmed) {
-      await adapter.promote(actionId);
-    }
-    return { ok: true, actionId, confirmed, timestamp: Date.now() };
-  });
-
-  // 4. Ciclo de Streaming Conversacional + Memoria Unificada con Tool Calling (INT-01 / CORE-03)
-  ipcMain.handle("ipc.llm.stream", async (_e, rawReq: unknown) => {
-    return handleLlmStream(rawReq);
-  });
-
-  // A1 real: aborta el turno en curso vía el AbortController registrado por
-  // `handleLlmStream`. Síncrono por diseño: aborta y retorna de inmediato sin
-  // esperar al loop (nunca cuelga). Sin `turnId` aborta todos los activos.
-  ipcMain.handle("ipc.llm.cancel", async (_e, rawReq: unknown) => {
-    const parsed = LlmCancelSchema.safeParse(rawReq ?? {});
-    const turnId = parsed.success ? parsed.data.turnId : undefined;
-    const targets = turnId ? [turnId] : [...llmAbortControllers.keys()];
-    const cancelled: string[] = [];
-    for (const id of targets) {
-      const ctrl = llmAbortControllers.get(id);
-      if (!ctrl) continue;
-      try {
-        ctrl.abort();
-      } catch {
-        // noop: abort best-effort
-      }
-      cancelled.push(id);
-      pushTurnCancelled(id);
-    }
-    return {
-      ok: true,
-      cancelled,
-      ...(cancelled.length === 0 ? { note: "sin turnos activos" } : {}),
-    };
-  });
-
-
-
-  // 4. Canales IPC de MCP Servers & Marketplace (ACT-11)
-  // F1T2/F5T10: ningún canal devuelve secretos en claro al renderer (env
-  // enmascarado) ni persiste `config.env` íntegro en VantaDB.
-  ipcMain.handle("ipc.mcp.listServers", async () => {
-    return mcpManager.listServers().map(sanitizeMcpRuntimeStateForRenderer);
-  });
-
-  ipcMain.handle("ipc.mcp.addServer", async (_e, rawReq: unknown) => {
-    const parseResult = AddMcpServerSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Configuración de servidor MCP inválida: ${parseResult.error.message}`);
-    }
-
-    const { config, enabled } = parseResult.data;
-    const vault = getMcpCredentialManager();
-    const service = mcpEnvVaultService(config.id);
-    // Secretos entrantes en claro (no máscaras) + conservación de lo guardado
-    // cuando el renderer reenvía una máscara (patrón settings Task 10).
-    const incomingSecrets = collectStorableMcpSecrets(config.env);
-    const { publicEnv } = splitMcpServerEnv(config.env);
-    const { secretNames } = splitMcpServerEnv(config.env);
-    const resolvedSecrets: Record<string, string> = { ...incomingSecrets };
-    const unresolvable: string[] = [];
-    for (const name of secretNames) {
-      if (resolvedSecrets[name] !== undefined) continue;
-      let kept: string | null = null;
-      try {
-        kept = await vault.getSecret(service, name);
-      } catch (err) {
-        console.warn(`[Ego Main] Vault inaccesible para MCP '${config.id}' var '${name}':`, err);
-      }
-      if (kept !== null && kept.length > 0) {
-        resolvedSecrets[name] = kept;
-        continue;
-      }
-      try {
-        const existing = await adapter.get("gov/mcp_servers", config.id);
-        const prev = extractPersistedMcpRecord(existing?.payload);
-        const blob: unknown = prev?.envRef?.encrypted[name];
-        if (typeof blob === "string") {
-          const decrypted = decryptCredential(blob);
-          if (decrypted.length > 0) {
-            resolvedSecrets[name] = decrypted;
-            continue;
-          }
-        }
-      } catch {
-        // noop: sin previo descifrable la var queda ausente (warn visible abajo)
-      }
-      unresolvable.push(name);
-    }
-    if (unresolvable.length > 0) {
-      console.warn(
-        `[Ego Main] MCP '${config.id}' sin valor para: ${unresolvable.join(", ")} (máscara sin secreto guardado)`
-      );
-    }
-    const fullEnv: Record<string, string> = { ...publicEnv, ...resolvedSecrets };
-    const runtimeConfig: McpServerConfig = {
-      ...config,
-      ...(Object.keys(fullEnv).length > 0 ? { env: fullEnv } : {}),
-    };
-    const runtimeState = await mcpManager.registerServer(runtimeConfig, enabled);
-
-    try {
-      await storeMcpEnvSecrets(vault, config.id, resolvedSecrets);
-    } catch (vaultErr) {
-      console.warn(
-        `[Ego Main] Vault no disponible para MCP '${config.id}' (persiste cifrado):`,
-        vaultErr
-      );
-    }
-    try {
-      const persisted = buildMcpPersistedRecord(runtimeConfig, enabled, encryptCredential);
-      await adapter.put({
-        namespace: "gov/mcp_servers",
-        key: config.id,
-        payload: persisted,
-        metadata: { updatedAtMs: Date.now() },
-      });
-    } catch (persistErr) {
-      console.warn(`[Ego Main] Error al persistir servidor MCP '${config.id}' en VantaDB:`, persistErr);
-    }
-
-    return sanitizeMcpRuntimeStateForRenderer(runtimeState);
-  });
-
-  ipcMain.handle("ipc.mcp.removeServer", async (_e, rawReq: unknown) => {
-    const parseResult = RemoveMcpServerSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de eliminación MCP inválida: ${parseResult.error.message}`);
-    }
-
-    const { id } = parseResult.data;
-    const removed = await mcpManager.removeServer(id);
-
-    try {
-      const existing = await adapter.get("gov/mcp_servers", id);
-      const prev = extractPersistedMcpRecord(existing?.payload);
-      if (prev) {
-        try {
-          await deleteMcpEnvSecrets(getMcpCredentialManager(), id, mcpEnvKeysForCleanup(prev));
-        } catch (vaultErr) {
-          console.warn(`[Ego Main] Error al borrar secretos del vault para MCP '${id}':`, vaultErr);
-        }
-      }
-      await adapter.delete("gov/mcp_servers", id);
-    } catch (delErr) {
-      console.warn(`[Ego Main] Error al borrar servidor MCP '${id}' en VantaDB:`, delErr);
-    }
-
-    return { success: removed, id };
-  });
-
-  ipcMain.handle("ipc.mcp.toggleServer", async (_e, rawReq: unknown) => {
-    const parseResult = ToggleMcpServerSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de alternar MCP inválida: ${parseResult.error.message}`);
-    }
-
-    const { id, enabled } = parseResult.data;
-    const state = await mcpManager.toggleServer(id, enabled);
-
-    try {
-      const existing = await adapter.get("gov/mcp_servers", id);
-      const prev = extractPersistedMcpRecord(existing?.payload);
-      if (prev) {
-        if (needsMcpEnvMigration(prev)) {
-          const legacySecrets = collectStorableMcpSecrets(prev.config.env);
-          try {
-            await storeMcpEnvSecrets(getMcpCredentialManager(), id, legacySecrets);
-          } catch (vaultErr) {
-            console.warn(`[Ego Main] Vault no disponible al migrar MCP '${id}':`, vaultErr);
-          }
-          const migrated = buildMcpPersistedRecord(prev.config, enabled, encryptCredential);
-          await adapter.put({
-            namespace: "gov/mcp_servers",
-            key: id,
-            payload: migrated,
-            metadata: { updatedAtMs: Date.now(), migrated: true },
-          });
-        } else {
-          const next: PersistedMcpServerRecord = { ...prev, enabled };
-          await adapter.put({
-            namespace: "gov/mcp_servers",
-            key: id,
-            payload: next,
-            metadata: { updatedAtMs: Date.now() },
-          });
-        }
-      }
-    } catch (updateErr) {
-      console.warn(`[Ego Main] Error al actualizar estado de servidor MCP '${id}' en VantaDB:`, updateErr);
-    }
-
-    return sanitizeMcpRuntimeStateForRenderer(state);
-  });
-
-  ipcMain.handle("ipc.mcp.listTools", async (_e, rawReq: unknown) => {
-    const parseResult = ListToolsFilterSchema.safeParse(rawReq || {});
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Filtro de herramientas inválido: ${parseResult.error.message}`);
-    }
-
-    const filter = parseResult.data;
-    const tools = mcpManager.listTools(filter);
-
-    return tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      category: t.category,
-      riskLevel: t.riskLevel,
-      origin: t.origin,
-      mcpServerId: t.mcpServerId,
-      requiresApproval: t.requiresApproval ?? (t.riskLevel === "destructive" || t.riskLevel === "sensitive"),
-    }));
-  });
-
-  // 5. Canales IPC de Skills Locales (HERM-19 / ACT-11)
-  ipcMain.handle("ipc.skills.listLocal", async (_e, rawReq: unknown) => {
-    const parseResult = ScanSkillsSchema.safeParse(rawReq || {});
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Parámetros de escaneo de skills inválidos: ${parseResult.error.message}`);
-    }
-
-    return skillScanner.scan(parseResult.data);
-  });
-
-  // 6. Canales IPC de Entidad Project y Aislamiento de Contexto (INT-03)
-  ipcMain.handle("ipc.projects.list", async () => {
-    try {
-      const defaultProj = await getOrCreateDefaultProject(adapter);
-      const records = await adapter.list("gov/projects", 100);
-      const projectsMap = new Map<string, ProjectManifest>();
-      projectsMap.set("default", defaultProj);
-
-      for (const rec of records) {
-        let payload: unknown = rec.payload;
-        if (typeof payload === "string") {
-          try {
-            payload = JSON.parse(payload);
-          } catch {
-            // noop
-          }
-        }
-        const parseRes = ProjectManifestSchema.safeParse(payload);
-        if (parseRes.success) {
-          projectsMap.set(parseRes.data.id, parseRes.data);
-        }
-      }
-
-      return Array.from(projectsMap.values());
-    } catch (err) {
-      console.warn("[Ego Main] Error al listar proyectos:", err);
-      return [
-        {
-          id: "default",
-          name: "Ego Core",
-          rootPath: process.env.EGO_WORKSPACE_PATH || process.cwd(),
-          activeSubEgoId: "ego.nucleus",
-          createdAtMs: Date.now(),
-          updatedAtMs: Date.now(),
-        }
-      ];
-    }
-  });
-
-  ipcMain.handle("ipc.projects.create", async (_e, rawReq: unknown) => {
-    const parseResult = CreateProjectSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de creación de proyecto inválida: ${parseResult.error.message}`);
-    }
-
-    const { name, rootPath, description, activeSubEgoId } = parseResult.data;
-
-    // Validar existencia de la carpeta en disco
-    try {
-      const stats = await stat(rootPath);
-      if (!stats.isDirectory()) {
-        throw new Error(`La ruta '${rootPath}' no es un directorio válido.`);
-      }
-    } catch (fsErr) {
-      const detail = fsErr instanceof Error ? fsErr.message : String(fsErr);
-      throw new Error(`Ruta de directorio inaccesible o inexistente: ${detail}`);
-    }
-
-    const slug = name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9_-]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "project";
-
-    const id = `proj_${slug}_${Date.now().toString(36)}`;
-    const now = Date.now();
-
-    const manifest: ProjectManifest = {
-      id,
-      name,
-      rootPath,
-      description: description || `Proyecto ${name} gestionado por Ego`,
-      activeSubEgoId: activeSubEgoId || "ego.nucleus",
-      createdAtMs: now,
-      updatedAtMs: now,
-    };
-
-    const validated = ProjectManifestSchema.parse(manifest);
-
-    // Persistencia dual: catálogo gov/projects y raíz projects/<id>/manifest
-    await adapter.put({
-      namespace: "gov/projects",
-      key: validated.id,
-      payload: validated,
-      metadata: { name: validated.name, rootPath: validated.rootPath, createdAtMs: now }
-    });
-
-    await adapter.put({
-      namespace: `projects/${validated.id}`,
-      key: "manifest",
-      payload: validated,
-      metadata: { name: validated.name, rootPath: validated.rootPath, createdAtMs: now }
-    });
-
-    return validated;
-  });
-
-  ipcMain.handle("ipc.projects.select", async (_e, rawReq: unknown) => {
-    const parseResult = SelectProjectSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Solicitud de selección de proyecto inválida: ${parseResult.error.message}`);
-    }
-
-    const { id } = parseResult.data;
-    activeProjectId = id;
-
-    if (win && !win.isDestroyed()) {
-      win.webContents.send("ipc.projects.changed", { activeProjectId: id });
-    }
-
-    eventBus?.emit("project.switched", {
-      projectId: id,
-      timestamp: Date.now()
-    }, {
-      source: "desktop.ipc.projects.select",
-      severity: "info"
-    });
-
-    return { ok: true, activeProjectId: id };
-  });
-
-  ipcMain.handle("ipc.projects.getActive", async () => {
-    const defaultProj = await getOrCreateDefaultProject(adapter);
-    if (activeProjectId === "default") return defaultProj;
-
-    const record = await adapter.get("gov/projects", activeProjectId);
-    if (record) {
-      let payload: unknown = record;
-      if (typeof record === "object" && record !== null && "payload" in record) {
-        payload = (record as { payload: unknown }).payload;
-      }
-      try {
-        return ProjectManifestSchema.parse(payload);
-      } catch {
-        // noop
-      }
-    }
-    return defaultProj;
-  });
-
-  ipcMain.handle("ipc.projects.selectFolder", async (event) => {
-    logInvokeOrigin("ipc.projects.selectFolder", event as unknown as InvokeEventLike);
-    if (!win) return null;
-    const result = await dialog.showOpenDialog(win, {
-      title: "Seleccionar Carpeta del Proyecto",
-      properties: ["openDirectory", "createDirectory"]
-    });
-    if (result.canceled || result.filePaths.length === 0) {
-      return null;
-    }
-    const folderPath = result.filePaths[0] as string;
-    const token = issueFolderToken(folderPath);
-    return { token };
-  });
-
-  ipcMain.handle("ipc.projects.selectFolderRedeem", async (event, rawReq: unknown) => {
-    logInvokeOrigin("ipc.projects.selectFolderRedeem", event as unknown as InvokeEventLike);
-    const parsed = SelectFolderRedeemSchema.safeParse(rawReq);
-    if (!parsed.success) {
-      throw new Error(`[IPC Security] Token de carpeta inválido: ${parsed.error.message}`);
-    }
-    return redeemFolderToken(parsed.data.token);
-  });
-
-  ipcMain.handle("ipc.net.fetch", async (event, rawReq: unknown) => {
-    logInvokeOrigin("ipc.net.fetch", event as unknown as InvokeEventLike);
-    const parsed = EgoFetchSchema.safeParse(rawReq);
-    if (!parsed.success) {
-      throw new Error(`[IPC Security] Solicitud egoFetch inválida: ${parsed.error.message}`);
-    }
-    return egoFetchProxied(parsed.data);
-  });
-
-  ipcMain.handle("ipc.snapshots", async () => ({
-    ok: true,
-    dbPath,
-    operational: adapter.ready,
-  }));
-
-  // 5. Configuración de Modelos y BYOK (INT-02 / Cifrado Seguro con safeStorage + Task 10 multi-proveedor)
-  // Contrato Task 10 (M25/M26 para estos canales): el payload se valida con
-  // `ModelConfigSchema` (zod, sin schema → rechazado); el getter NUNCA retorna
-  // un secreto en claro (solo `maskKey`); el saver cifra cada key por
-  // proveedor con `encryptCredential` y persiste `<p>KeyEncrypted`.
-  // Helpers locales del bloque settings (no duplican Task 9: reutilizan
-  // `decryptCredential`/`encryptCredential`/`maskKey`/`applyModelConfig`).
-  const isMaskedValue = (v: unknown): v is string =>
-    typeof v === "string" && (v.includes("...") || v.includes("••••"));
-  const PROVIDER_KEY_FIELDS = ["openaiKey", "anthropicKey", "googleKey", "deepseekKey"] as const;
-  type ProviderKeyField = (typeof PROVIDER_KEY_FIELDS)[number];
-  const toMaskedModelConfigResponse = (cfg: ModelConfig) => ({
-    activeProvider: cfg.activeProvider,
-    apiKey: maskApiKey(cfg.apiKey || ""),
-    openaiKey: maskApiKey(cfg.openaiKey || ""),
-    anthropicKey: maskApiKey(cfg.anthropicKey || ""),
-    googleKey: maskApiKey(cfg.googleKey || ""),
-    deepseekKey: maskApiKey(cfg.deepseekKey || ""),
-    baseUrl: cfg.baseUrl,
-    openaiBaseURL: cfg.openaiBaseURL,
-    deepseekBaseURL: cfg.deepseekBaseURL,
-    ollamaBaseURL: cfg.ollamaBaseURL,
-    modelName: cfg.modelName,
-    // STAB-06: tuning en claro (no son secretos; el renderer los muestra).
-    reasoningEffort: cfg.reasoningEffort,
-    temperature: cfg.temperature,
-  });
-  const unwrapSettingsPayload = (saved: unknown): Record<string, unknown> | null => {
-    let payload: unknown = saved;
-    if (typeof saved === "object" && saved !== null && "payload" in saved) {
-      payload = (saved as { payload: unknown }).payload;
-    }
-    if (payload && typeof payload === "object") return payload as Record<string, unknown>;
-    return null;
-  };
-
-  ipcMain.handle("ipc.settings.getModelConfig", async () => {
-    try {
-      const savedConfig = await adapter.get("gov/settings", "model_config");
-      const payload = unwrapSettingsPayload(savedConfig);
-      if (payload) {
-        // Migración plano→cifrado de campos por proveedor (el saver Task 10 ya
-        // escribe el shape nuevo; esto solo tolera restos legados en plano).
-        // Se conserva el resto del payload (spread): nunca se dropean campos.
-        const nextPayload: Record<string, unknown> = { ...payload };
-        let needsPersist = false;
-        for (const field of [...PROVIDER_KEY_FIELDS, "apiKey"] as const) {
-          const plainValue = nextPayload[field];
-          if (typeof plainValue === "string" && plainValue.length > 0 && !isMaskedValue(plainValue)) {
-            nextPayload[`${field}Encrypted`] = encryptCredential(plainValue);
-            delete nextPayload[field];
-            needsPersist = true;
-          }
-        }
-        if (needsPersist) {
-          await adapter.put({
-            namespace: "gov/settings",
-            key: "model_config",
-            payload: nextPayload,
-            metadata: { updatedAtMs: Date.now(), migrated: true },
-          });
-        }
-        const stored = needsPersist ? nextPayload : payload;
-
-        // Resolver cada key descifrada SOLO en main (nunca sale en claro).
-        // `activeProvider` se acepta solo si pertenece al enum canónico.
-        const ACTIVE_PROVIDERS = ["openai", "anthropic", "google", "deepseek", "ollama", "mock"] as const;
-        const storedProvider = typeof stored.activeProvider === "string" ? stored.activeProvider : "";
-        const resolved: ModelConfig = {
-          activeProvider: (ACTIVE_PROVIDERS as readonly string[]).includes(storedProvider)
-            ? (storedProvider as ModelConfig["activeProvider"])
-            : currentModelConfig.activeProvider,
-          baseUrl:
-            typeof stored.baseUrl === "string" ? stored.baseUrl : currentModelConfig.baseUrl,
-          modelName:
-            typeof stored.modelName === "string" ? stored.modelName : currentModelConfig.modelName,
-          openaiBaseURL:
-            typeof stored.openaiBaseURL === "string" ? stored.openaiBaseURL : currentModelConfig.openaiBaseURL,
-          deepseekBaseURL:
-            typeof stored.deepseekBaseURL === "string" ? stored.deepseekBaseURL : currentModelConfig.deepseekBaseURL,
-          ollamaBaseURL:
-            typeof stored.ollamaBaseURL === "string" ? stored.ollamaBaseURL : currentModelConfig.ollamaBaseURL,
-          // STAB-06: tuning persistido (validado; inválido → memoria).
-          reasoningEffort:
-            stored.reasoningEffort === "low" ||
-            stored.reasoningEffort === "medium" ||
-            stored.reasoningEffort === "high"
-              ? stored.reasoningEffort
-              : currentModelConfig.reasoningEffort,
-          temperature:
-            typeof stored.temperature === "number" &&
-            stored.temperature >= 0 &&
-            stored.temperature <= 2
-              ? stored.temperature
-              : currentModelConfig.temperature,
-        };
-        for (const field of [...PROVIDER_KEY_FIELDS, "apiKey"] as const) {
-          const enc = stored[`${field}Encrypted`];
-          if (typeof enc === "string" && enc.length > 0) {
-            const decrypted = decryptCredential(enc);
-            if (isNonEmptyKey(decrypted)) {
-              (resolved as Record<string, unknown>)[field] = decrypted;
-            }
-          }
-        }
-        // Sin `...Encrypted` persistido, conservar el valor en memoria.
-        for (const field of [...PROVIDER_KEY_FIELDS, "apiKey"] as const) {
-          if (!(resolved as Record<string, unknown>)[field] && isNonEmptyKey(currentModelConfig[field])) {
-            (resolved as Record<string, unknown>)[field] = currentModelConfig[field];
-          }
-        }
-        currentModelConfig = { ...currentModelConfig, ...resolved };
-        return toMaskedModelConfigResponse(currentModelConfig);
-      }
-    } catch {
-      // noop
-    }
-    return toMaskedModelConfigResponse(currentModelConfig);
-  });
-
-  ipcMain.handle("ipc.settings.saveModelConfig", async (_e, rawReq: unknown) => {
-    // BUGFIX 2026-10-14 (save rechazado con "" ): el getter enmascarado emite
-    // `""` para keys ausentes y varios senders reenvían `cfg` con spread
-    // (`App.tsx:74`). `""` presente falla `min(1)` y tumba TODO el guardado
-    // (incluida la key válida). `""`/blanco = ausente: se normaliza ANTES del
-    // safeParse; el schema sigue rechazando tipos inválidos.
-    let sanitizedReq = rawReq;
-    if (sanitizedReq && typeof sanitizedReq === "object" && !Array.isArray(sanitizedReq)) {
-      const copy = { ...(sanitizedReq as Record<string, unknown>) };
-      for (const f of [
-        "apiKey", "openaiKey", "anthropicKey", "googleKey", "deepseekKey",
-        "baseUrl", "openaiBaseURL", "deepseekBaseURL", "ollamaBaseURL", "modelName",
-      ] as const) {
-        const v = copy[f];
-        if (typeof v === "string" && v.trim().length === 0) delete copy[f];
-      }
-      sanitizedReq = copy;
-    }
-    const parseResult = ModelConfigSchema.safeParse(sanitizedReq);
-    if (!parseResult.success) {
-      throw new Error(`[IPC Security] Configuración de modelo inválida: ${parseResult.error.message}`);
-    }
-    const incoming = parseResult.data;
-
-    // Fallback persistido descifrado (solo main): un campo por proveedor no
-    // provisto (undefined) o enmascarado NUNCA borra el secreto guardado.
-    let persisted: Record<string, unknown> = {};
-    try {
-      const saved = await adapter.get("gov/settings", "model_config");
-      persisted = unwrapSettingsPayload(saved) ?? {};
-    } catch {
-      // noop: sin persistido, el fallback es la memoria
-    }
-    const persistedDecrypted = (field: string): string | undefined => {
-      const enc = persisted[`${field}Encrypted`];
-      if (typeof enc === "string" && enc.length > 0) {
-        const decrypted = decryptCredential(enc);
-        if (isNonEmptyKey(decrypted)) return decrypted;
-      }
-      const plain = persisted[field];
-      if (typeof plain === "string" && isNonEmptyKey(plain) && !isMaskedValue(plain)) return plain;
-      return undefined;
-    };
-    const keepOrIncoming = (field: ProviderKeyField | "apiKey"): string | undefined => {
-      const v = incoming[field];
-      if (isNonEmptyKey(v) && !isMaskedValue(v)) return v;
-      // Máscara o ausente: conservar el secreto guardado (memoria o disco).
-      // NUNCA se persiste ni retorna la máscara como si fuera el secreto.
-      if (isNonEmptyKey(currentModelConfig[field])) return currentModelConfig[field];
-      return persistedDecrypted(field);
-    };
-
-    const effectiveProviderKeys: Record<ProviderKeyField, string | undefined> = {
-      openaiKey: keepOrIncoming("openaiKey"),
-      anthropicKey: keepOrIncoming("anthropicKey"),
-      googleKey: keepOrIncoming("googleKey"),
-      deepseekKey: keepOrIncoming("deepseekKey"),
-    };
-    // `""` explícito en el legado = limpiar (compat con el fallback mock);
-    // máscara o ausente = conservar. Una máscara con proveedor distinto NUNCA
-    // se almacena (evita persistir `sk-t...7890` como si fuera el secreto).
-    let effectiveApiKey: string | undefined;
-    const rawLegacy = incoming.apiKey;
-    if (isNonEmptyKey(rawLegacy) && !isMaskedValue(rawLegacy)) {
-      effectiveApiKey = rawLegacy;
-    } else if (rawLegacy === "") {
-      effectiveApiKey = undefined;
-    } else {
-      effectiveApiKey =
-        incoming.activeProvider === currentModelConfig.activeProvider && isNonEmptyKey(currentModelConfig.apiKey)
-          ? currentModelConfig.apiKey
-          : persistedDecrypted("apiKey");
-    }
-
-    const effectiveConfig: ModelConfig = {
-      ...incoming,
-      ...effectiveProviderKeys,
-      apiKey: effectiveApiKey,
-    };
-
-    // T13 probe-before-save (hermes P3): validar la key efectiva del
-    // proveedor activo contra su API ANTES de persistir. Key inválida
-    // (401/403/404) → throw accionable, NO se persiste nada. Red ausente
-    // → se advierte pero se permite guardar con flag `probe` visible.
-    const providerForProbe = effectiveConfig.activeProvider;
-    const keyForProbe =
-      providerForProbe === "openai"
-        ? (effectiveProviderKeys.openaiKey ?? effectiveApiKey)
-        : providerForProbe === "anthropic"
-          ? (effectiveProviderKeys.anthropicKey ?? effectiveApiKey)
-          : providerForProbe === "google"
-            ? (effectiveProviderKeys.googleKey ?? effectiveApiKey)
-            : providerForProbe === "deepseek"
-              ? (effectiveProviderKeys.deepseekKey ?? effectiveApiKey)
-              : undefined;
-    let probe: ModelKeyProbeResult = { verified: true };
-    if (providerForProbe !== "mock") {
-      probe = await probeModelKey({
-        provider: providerForProbe,
-        ...(keyForProbe ? { key: keyForProbe } : {}),
-        ...(isNonEmptyKey(effectiveConfig.openaiBaseURL) ? { openaiBaseURL: effectiveConfig.openaiBaseURL } : {}),
-        ...(isNonEmptyKey(effectiveConfig.deepseekBaseURL) ? { deepseekBaseURL: effectiveConfig.deepseekBaseURL } : {}),
-        ...(isNonEmptyKey(effectiveConfig.ollamaBaseURL) ? { ollamaBaseURL: effectiveConfig.ollamaBaseURL } : {}),
-      });
-    }
-
-    applyModelConfig(modelRouter, effectiveConfig);
-    // Registrar también las keys no activas para multi-proveedor (reúso Task 9).
-    setupModelProviders(modelRouter, {
-      ...(isNonEmptyKey(effectiveProviderKeys.openaiKey) ? { openai: effectiveProviderKeys.openaiKey } : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.anthropicKey) ? { anthropic: effectiveProviderKeys.anthropicKey } : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.googleKey) ? { google: effectiveProviderKeys.googleKey } : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.deepseekKey) ? { deepseek: effectiveProviderKeys.deepseekKey } : {}),
-      ...(isNonEmptyKey(effectiveConfig.openaiBaseURL) ? { openaiBaseURL: effectiveConfig.openaiBaseURL } : {}),
-      ...(isNonEmptyKey(effectiveConfig.deepseekBaseURL) ? { deepseekBaseURL: effectiveConfig.deepseekBaseURL } : {}),
-      ...(isNonEmptyKey(effectiveConfig.ollamaBaseURL) ? { ollamaBaseURL: effectiveConfig.ollamaBaseURL } : {}),
-    });
-    // T21: rehidratar el pool con las keys efectivas recién guardadas.
-    await syncModelCredentialPool(modelRouter, {
-      ...(isNonEmptyKey(effectiveProviderKeys.openaiKey) ? { openai: effectiveProviderKeys.openaiKey } : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.anthropicKey) ? { anthropic: effectiveProviderKeys.anthropicKey } : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.googleKey) ? { google: effectiveProviderKeys.googleKey } : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.deepseekKey) ? { deepseek: effectiveProviderKeys.deepseekKey } : {}),
-    });
-
-    // Cifrar cada key por proveedor antes de persistir. NUNCA texto plano ni máscaras.
-    const payloadToStore: Record<string, unknown> = {
-      activeProvider: effectiveConfig.activeProvider,
-      ...(isNonEmptyKey(effectiveApiKey) ? { apiKeyEncrypted: encryptCredential(effectiveApiKey) } : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.openaiKey)
-        ? { openaiKeyEncrypted: encryptCredential(effectiveProviderKeys.openaiKey) }
-        : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.anthropicKey)
-        ? { anthropicKeyEncrypted: encryptCredential(effectiveProviderKeys.anthropicKey) }
-        : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.googleKey)
-        ? { googleKeyEncrypted: encryptCredential(effectiveProviderKeys.googleKey) }
-        : {}),
-      ...(isNonEmptyKey(effectiveProviderKeys.deepseekKey)
-        ? { deepseekKeyEncrypted: encryptCredential(effectiveProviderKeys.deepseekKey) }
-        : {}),
-      ...(isNonEmptyKey(effectiveConfig.baseUrl) ? { baseUrl: effectiveConfig.baseUrl } : {}),
-      ...(isNonEmptyKey(effectiveConfig.openaiBaseURL) ? { openaiBaseURL: effectiveConfig.openaiBaseURL } : {}),
-      ...(isNonEmptyKey(effectiveConfig.deepseekBaseURL) ? { deepseekBaseURL: effectiveConfig.deepseekBaseURL } : {}),
-      ...(isNonEmptyKey(effectiveConfig.ollamaBaseURL) ? { ollamaBaseURL: effectiveConfig.ollamaBaseURL } : {}),
-      ...(isNonEmptyKey(effectiveConfig.modelName) ? { modelName: effectiveConfig.modelName } : {}),
-      // STAB-06: tuning en claro junto al resto no-secreto (nunca cifrado).
-      ...(effectiveConfig.reasoningEffort !== undefined ? { reasoningEffort: effectiveConfig.reasoningEffort } : {}),
-      ...(effectiveConfig.temperature !== undefined ? { temperature: effectiveConfig.temperature } : {}),
-    };
-
-    await adapter.put({
-      namespace: "gov/settings",
-      key: "model_config",
-      payload: payloadToStore,
-      metadata: { updatedAtMs: Date.now() },
-    });
-
-    eventBus?.emit("settings.model_updated", {
-      activeProvider: effectiveConfig.activeProvider,
-      timestamp: Date.now(),
-    }, {
-      source: "desktop.ipc.settings.saveModelConfig",
-      severity: "info",
-    });
-
-    // Respuesta enmascarada hacia el Renderer (ningún secreto en claro).
-    // `probe` expone el resultado de la validación previa (verified/warn).
-    return {
-      ok: true,
-      config: toMaskedModelConfigResponse({ ...effectiveConfig, apiKey: effectiveApiKey }),
-      probe,
-    };
-  });
-
-  // CFG-06/STAB-02: política de permisos + approvals persistida en VantaDB
-  // `gov/settings/permissions` (Zod fail-closed, sin archivos `~/.codex`).
-  // Sin secretos en este namespace: solo modos, reglas y directorios.
-  ipcMain.handle("ipc.settings.getPermissions", async () => {
-    try {
-      const saved = await adapter.get("gov/settings", "permissions");
-      const payload = unwrapSettingsPayload(saved);
-      if (payload) {
-        cachedPermissionsSettings = parsePermissionsSettings(payload);
-        return { ok: true, settings: cachedPermissionsSettings };
-      }
-    } catch {
-      // noop: sin persistido, responde el cache/defaults
-    }
-    return { ok: true, settings: getCachedPermissionsSettings() };
-  });
-
-  ipcMain.handle("ipc.settings.savePermissions", async (_e, rawReq: unknown) => {
-    const parseResult = PermissionsSettingsSchema.safeParse(rawReq ?? {});
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    await adapter.put({
-      namespace: "gov/settings",
-      key: "permissions",
-      payload: parseResult.data,
-      metadata: { updatedAtMs: Date.now() },
-    });
-    cachedPermissionsSettings = parseResult.data;
-    try {
-      await adapter.recordAudit(
-        "gov/settings",
-        "permissions",
-        { action: "save", defaultMode: parseResult.data.permissions.defaultMode },
-        "user"
-      );
-    } catch {
-      // noop: auditoría best-effort, el guardado ya se aplicó
-    }
-    return { ok: true, settings: parseResult.data };
-  });
-
-  // 6. Decision Intelligence Layer IPC (DEC-01..DEC-08)
-  ipcMain.handle("ipc.decision.evaluate", async (_e, rawReq: unknown) => {
-    const parseResult = IntentRequestSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const t0 = performance.now();
-    const verdict = await decisionRouter.decide(parseResult.data);
-    const totalMs = Math.round(performance.now() - t0);
-
-    const auditKey = await decisionAuditor.recordVerdict(verdict);
-
-    decisionTelemetry.record({
-      runId: verdict.admittedRunContext.runId,
-      intentId: verdict.intentId,
-      classifyMs: Math.round(totalMs * 0.7),
-      subEgoSelectMs: Math.round(totalMs * 0.15),
-      preconditionsMs: Math.round(totalMs * 0.15),
-      totalDecisionMs: totalMs,
-      decidedBy: verdict.decidedBy
-    });
-
-    return { ok: true, verdict, auditKey };
-  });
-
-  ipcMain.handle("ipc.decision.listAudits", async (_e, rawReq: unknown) => {
-    const parseResult = DecisionListAuditsSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const lim = parseResult.data ?? 50;
-    const audits = await decisionAuditor.listRecentVerdicts(lim);
-    return { ok: true, audits };
-  });
-
-  ipcMain.handle("ipc.decision.telemetry", async () => {
-    const summary = decisionTelemetry.getSummary();
-    return { ok: true, summary };
-  });
-
-  // 7. Knowledge & Long-Term Memory IPC (Fase 06 / KB-01..11)
-  ipcMain.handle("ipc.knowledge.ingest", async (_e, rawReq: unknown) => {
-    const parseResult = KnowledgeIngestSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const req = parseResult.data;
-
-    const parsed = req.filePath
-      ? await documentParser.parseFile(req.filePath)
-      : documentParser.parseContent(req.content || "", req.title || "inline", req.mimeType);
-
-    const indexResult = await knowledgeIndexer.indexDocument(parsed, {
-      projectId: req.projectId,
-    });
-    return { ok: true, ...indexResult };
-  });
-
-  ipcMain.handle("ipc.knowledge.hybridSearch", async (_e, rawReq: unknown) => {
-    const parseResult = KnowledgeHybridSearchSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const req = parseResult.data;
-    const hits = await hybridSearch.search(req.query, {
-      topK: req.topK,
-      minConfidence: req.minConfidence,
-      namespaces: req.namespaces,
-    });
-    return { ok: true, hits };
-  });
-
-  ipcMain.handle("ipc.knowledge.graphRag", async (_e, rawReq: unknown) => {
-    const parseResult = KnowledgeGraphRagSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const req = parseResult.data;
-    const context = await graphRagEngine.search(req.query, {
-      maxDepth: req.maxDepth,
-      maxDegreePerNode: req.maxDegreePerNode,
-      maxTotalNodes: req.maxTotalNodes,
-      minSimilarity: req.minSimilarity,
-    });
-    return { ok: true, context };
-  });
-
-  ipcMain.handle("ipc.knowledge.quarantine", async (_e, rawReq: unknown) => {
-    const parseResult = KnowledgeQuarantineActionSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const req = parseResult.data;
-    if (req.action === "list") {
-      const pending = await quarantineManager.listPending();
-      return { ok: true, pending };
-    }
-    if (req.action === "promote" && req.factId) {
-      try {
-        const promoted = await factLifecycle.promoteFromQuarantine(req.factId, {
-          promotedBy: req.promotedBy,
-        });
-        return { ok: true, promoted };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { ok: false, error: message || "Error al promover fact" };
-      }
-    }
-    if (req.action === "reject" && req.factId) {
-      const deleted = await quarantineManager.reject(req.factId);
-      return { ok: true, deleted };
-    }
-    if (req.action === "purge") {
-      const purged = await quarantineManager.purgeExpired();
-      return { ok: true, purged };
-    }
-    return { ok: false, error: "Acción de cuarentena no soportada" };
-  });
-
-  ipcMain.handle("ipc.knowledge.asOf", async (_e, rawReq: unknown) => {
-    const parseResult = KnowledgeAsOfSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const req = parseResult.data;
-    const facts = await bitemporalQueries.asOf(req.targetTime, {
-      namespace: req.namespace,
-      subject: req.subject,
-      limit: req.limit,
-    });
-    return { ok: true, facts };
-  });
-
-  ipcMain.handle("ipc.knowledge.explainArtifact", async (_e, rawReq: unknown) => {
-    const parseResult = KnowledgeExplainArtifactSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const req = parseResult.data;
-    const explanation = await projectMemoryGraph.explainArtifact(req.filePath);
-    return { ok: true, explanation };
-  });
-
-  ipcMain.handle("ipc.knowledge.export", async (_e, rawReq: unknown) => {
-    const parseResult = KnowledgeExportSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const pId = parseResult.data ?? activeProjectId;
-    const pkg = await knowledgeExport.exportPackage(pId);
-    return { ok: true, pkg };
-  });
-
-  ipcMain.handle("ipc.knowledge.import", async (_e, rawReq: unknown) => {
-    // SEC-02: solo se acepta paquete inline. Un `string` llegaría a
-    // `fs.readFile` dentro de `importPackage` (lectura arbitraria de
-    // archivos desde el renderer, que es untrusted).
-    const parseResult = KnowledgeImportSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const pkg = parseResult.data;
-    const result = await knowledgeExport.importPackage({
-      version: pkg.version,
-      projectId: pkg.projectId,
-      exportedAt: pkg.exportedAt ?? Date.now(),
-      checksum: pkg.checksum,
-      totalRecords: pkg.totalRecords ?? pkg.records.length,
-      records: pkg.records.map((rec) => ({
-        namespace: rec.namespace,
-        key: rec.key,
-        payload: rec.payload as unknown,
-        metadata: rec.metadata,
-      })),
-    });
-    return { ok: true, result };
-  });
-
-  // 8. Daily State & Ritual de Bienvenida IPC (Fase 08 / DS-01..DS-08)
-  ipcMain.handle("ipc.daily.getSummary", async (_e, rawReq: unknown) => {
-    const parseResult = DailyStateGetSummarySchema.safeParse(rawReq || {});
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const summary = await dailyStateEngine.synthesize({ date: parseResult.data.date });
-    return { ok: true, summary };
-  });
-
-  ipcMain.handle("ipc.daily.refineGoals", async (_e, rawReq: unknown) => {
-    const parseResult = DailyStateRefineGoalsSchema.safeParse(rawReq || {});
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const summary = await dailyStateEngine.synthesize({ date: parseResult.data.date });
-    const goals = await goalPrioritizer.refineWithAI(summary, modelRouter);
-    return { ok: true, goals };
-  });
-
-  ipcMain.handle("ipc.daily.getDecisions", async (_e, rawReq: unknown) => {
-    const parseResult = DailyStateGetDecisionsSchema.safeParse(rawReq || {});
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const decisions = await decisionsFeed.getDecisions(parseResult.data);
-    return { ok: true, decisions };
-  });
-
-  ipcMain.handle("ipc.daily.saveSnapshot", async () => {
-    const summary = await dailyStateEngine.synthesize();
-    const snapshot = await dailyStatePersistence.saveSnapshot(summary);
-    return { ok: true, snapshot };
-  });
-
-  ipcMain.handle("ipc.daily.getSnapshot", async (_e, rawReq: unknown) => {
-    const parseResult = DailyGetSnapshotSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const dateStr = parseResult.data ?? DailyStateEngine.getTodayDateString();
-    const snapshot = await dailyStatePersistence.getSnapshot(dateStr);
-    return { ok: true, snapshot };
-  });
-
-  ipcMain.handle("ipc.daily.listSnapshots", async (_e, rawReq: unknown) => {
-    const parseResult = DailyListSnapshotsSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const lim = parseResult.data ?? 30;
-    const snapshots = await dailyStatePersistence.listSnapshots(lim);
-    return { ok: true, snapshots };
-  });
-
-  ipcMain.handle("ipc.daily.isFirstLaunch", async (_e, rawReq: unknown) => {
-    const parseResult = DailyStateFirstLaunchSchema.safeParse(rawReq || {});
-    const date = parseResult.success ? parseResult.data.date : undefined;
-    const isFirstLaunch = await dailyStatePersistence.isFirstLaunchOfDay(date);
-    return { ok: true, isFirstLaunch };
-  });
-
-  ipcMain.handle("ipc.daily.journal", async (_e, rawReq: unknown) => {
-    const parseResult = DailyStateJournalSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const req = parseResult.data;
-    if (req.action === "get") {
-      const record = (await adapter.get("journal", req.date))?.payload;
-      let content = "";
-      if (record && typeof record === "object" && "content" in record) {
-        content = String((record as { content: unknown }).content || "");
-      } else if (typeof record === "string") {
-        content = record;
-      }
-      return { ok: true, date: req.date, content };
-    } else {
-      await adapter.put({
-        namespace: "journal",
-        key: req.date,
-        payload: { date: req.date, content: req.content || "", updatedAt: Date.now() },
-        metadata: { date: req.date, agent_id: "user", ts: Date.now() },
-      });
-      return { ok: true, date: req.date, content: req.content };
-    }
-  });
-
-  ipcMain.handle("ipc.daily.resolveApprovalsBatch", async (_e, rawReq: unknown) => {
-    const parseResult = DailyStateResolveApprovalsBatchSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const results = [];
-    for (const item of parseResult.data.approvals) {
-      const ok = approvalEngine.resolveApproval(item.approvalId, {
-        approved: item.approved,
-        reason: item.reason,
-        resolvedBy: "user",
-      });
-      results.push({ approvalId: item.approvalId, ok });
-    }
-    return { ok: true, resolved: results };
-  });
-
-  // ==========================================
-  // IPC Handlers: Dominios Funcionales (DOM-08)
-  // ==========================================
-  const domainRegistry = new DomainRegistry();
-  const engineeringDomain = new EngineeringDomain();
-  const productDomain = new ProductDomain(adapter);
-  const knowledgeDomain = new KnowledgeDomain({
-    memory: adapter,
-    graphRag: graphRagEngine,
-    hybridSearch,
-  });
-  const analyticsDomain = new AnalyticsDomain(adapter);
-  const crmDomain = new CrmDomain(adapter);
-
-  ipcMain.handle("ipc.domains.list", async () => {
-    return { ok: true, domains: domainRegistry.listDomains() };
-  });
-
-  ipcMain.handle("ipc.domains.get", async (_e, rawReq: unknown) => {
-    const parseResult = DomainGetSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const domain = domainRegistry.getDomain(parseResult.data.domainId);
-    if (!domain) {
-      return { ok: false, error: `Dominio '${parseResult.data.domainId}' no encontrado.` };
-    }
-    return { ok: true, domain };
-  });
-
-  ipcMain.handle("ipc.domains.switch", async (_e, rawReq: unknown) => {
-    const parseResult = DomainSwitchSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const { domainId, viewId } = parseResult.data;
-    const domain = domainRegistry.getDomain(domainId);
-    if (!domain) {
-      return { ok: false, error: `Dominio '${domainId}' no encontrado.` };
-    }
-    const activeView = viewId
-      ? domain.views.find((v) => v.id === viewId) || domainRegistry.getDefaultView(domainId)
-      : domainRegistry.getDefaultView(domainId);
-
-    return {
-      ok: true,
-      domainId,
-      activeViewId: activeView?.id || "default",
-      defaultSubEgoId: domain.defaultSubEgoId,
-    };
-  });
-
-  ipcMain.handle("ipc.domains.engineering.status", async (_e, rawReq: unknown) => {
-    const parseResult = DomainEngineeringStatusSchema.safeParse(rawReq || {});
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const targetRoot = parseResult.data.workspaceRoot || process.env.EGO_WORKSPACE_PATH || process.cwd();
-    const inspection = await engineeringDomain.scanWorkspace(targetRoot);
-    const gitStatus = await engineeringDomain.getGitStatus(targetRoot);
-    const worktrees = await engineeringDomain.getWorktreeManager().listWorktrees(targetRoot);
-
-    return {
-      ok: true,
-      workspaceRoot: targetRoot,
-      inspection,
-      gitStatus,
-      worktrees,
-    };
-  });
-
-  ipcMain.handle("ipc.domains.product.backlog", async (_e, rawReq: unknown) => {
-    const parseResult = DomainProductBacklogSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const { action, payload } = parseResult.data;
-
-    if (action === "create" && payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const item = await productDomain.createBacklogItem(payload as CreateBacklogItemInput);
-      return { ok: true, item };
-    } else if (action === "updateStatus" && payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const p = payload as { id: string; status: unknown };
-      const parsedStatus = BacklogItemStatusSchema.safeParse(p.status);
-      if (!parsedStatus.success) {
-        throw new Error(`[IPC Security] Estado de backlog inválido: ${parsedStatus.error.message}`);
-      }
-      const item = await productDomain.updateBacklogItemStatus(p.id, parsedStatus.data);
-      return { ok: true, item };
-    } else {
-      const items = await productDomain.listBacklogItems();
-      const epics = await productDomain.listEpics();
-      return { ok: true, items, epics };
-    }
-  });
-
-  ipcMain.handle("ipc.domains.knowledge.search", async (_e, rawReq: unknown) => {
-    const parseResult = DomainKnowledgeSearchSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const results = await knowledgeDomain.searchKnowledge(parseResult.data.query, {
-      limit: parseResult.data.limit,
-    });
-    return { ok: true, results };
-  });
-
-  ipcMain.handle("ipc.domains.analytics.series", async (_e, rawReq: unknown) => {
-    const parseResult = DomainAnalyticsSeriesSchema.safeParse(rawReq || {});
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const days = parseResult.data.days || 7;
-    const series = await analyticsDomain.getTokensUsageSeries(days);
-    const modelDistribution = await analyticsDomain.getModelDistribution();
-    const namespaceStats = await analyticsDomain.getNamespaceStats();
-
-    return {
-      ok: true,
-      series,
-      modelDistribution,
-      namespaceStats,
-    };
-  });
-
-  ipcMain.handle("ipc.domains.crm.deals", async (_e, rawReq: unknown) => {
-    const parseResult = DomainCrmDealsSchema.safeParse(rawReq || { action: "list" });
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const { action, payload } = parseResult.data;
-
-    if (action === "create" && payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const deal = await crmDomain.createDeal(payload as CreateDealInput);
-      return { ok: true, deal };
-    } else if (action === "updateStage" && payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const p = payload as { id: string; stage: unknown };
-      const parsedStage = DealStageSchema.safeParse(p.stage);
-      if (!parsedStage.success) {
-        throw new Error(`[IPC Security] Etapa de deal inválida: ${parsedStage.error.message}`);
-      }
-      const deal = await crmDomain.updateDealStage(p.id, parsedStage.data);
-      return { ok: true, deal };
-    } else if (action === "summary") {
-      const summary = await crmDomain.getPipelineSummary();
-      return { ok: true, summary };
-    } else {
-      const deals = await crmDomain.listDeals();
-      const contacts = await crmDomain.listContacts();
-      const summary = await crmDomain.getPipelineSummary();
-      return { ok: true, deals, contacts, summary };
-    }
-  });
-
-  // 9. Tareas en background + terminal viva (T03). Los pushes de progreso y
-  // salida viajan por `ipc.event` (canal push existente, 0 canales nuevos).
-  ipcMain.handle("ipc.tasks.list", async (_e, rawReq: unknown) => {
-    const parseResult = TasksListSchema.safeParse(rawReq ?? undefined);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    return { ok: true, tasks: backgroundEngine.listTasks(parseResult.data ?? {}) };
-  });
-
-  ipcMain.handle("ipc.tasks.cancel", async (_e, rawReq: unknown) => {
-    const parseResult = TasksCancelSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const { taskId, reason } = parseResult.data;
-    const cancelled = backgroundEngine.cancel(taskId, reason ?? "Cancelled by user");
-    if (!cancelled) {
-      return { ok: false, error: `Tarea '${taskId}' no encontrada o ya finalizada.` };
-    }
-    try {
-      await adapter.recordAudit("tasks", taskId, { action: "cancel", reason: reason ?? null }, "user");
-    } catch {
-      // noop: auditoría best-effort, el cancel ya se aplicó
-    }
-    refreshTrayStatus();
-    return { ok: true, taskId };
-  });
-
-  // Task4 (D2): cierra la deuda Task3 (preload `egoFloating.setMuted`).
-  // Zod fail-closed; actualiza el manager aunque la ventana aún no exista.
-  // Task10 (WIDG-05): persiste el mute para que sobreviva reinicio+crash.
-  ipcMain.handle("ipc.floating.setMuted", async (_e, rawReq: unknown) => {
-    const parseResult = FloatingSetMutedSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    ensureFloatMgr().setMuted(parseResult.data.muted);
-    try {
-      const current = await windowStateManager.restoreFloatingState();
-      await windowStateManager.persistFloatingState({
-        ...current,
-        muted: parseResult.data.muted,
-      });
-    } catch {
-      // noop: el mute en memoria ya se aplicó
-    }
-    return { ok: true, muted: parseResult.data.muted };
-  });
-
-  ipcMain.handle("ipc.floating.restoreMain", async () => {
-    try {
-      if (win && !win.isDestroyed()) {
-        if (win.isMinimized()) {
-          win.restore();
-        }
-        win.show();
-        win.focus();
-      }
-      const snap = floatingSnapshot();
-      if (!floatingPinnedManually && snap.active === 0 && snap.hitl === 0) {
-        ensureFloatMgr().updateState({ attentionState: "hidden" });
-        ensureFloatMgr().hide();
-        floatingAutoShownOnMinimize = false;
-      }
-      return { ok: true };
-    } catch (err) {
-      console.warn("[Ego Main] Error en ipc.floating.restoreMain:", err);
-      return { ok: false, error: String(err) };
-    }
-  });
-
-  ipcMain.handle("ipc.floating.toggle", async (_e, rawReq: unknown) => {
-    try {
-      const mgr = ensureFloatMgr();
-      const current = mgr.getState();
-      const req = rawReq as { state?: "compact" | "expanded" | "hidden" } | undefined;
-
-      if (req?.state) {
-        if (req.state === "hidden") {
-          floatingPinnedManually = false;
-          floatingAutoShownOnMinimize = false;
-          mgr.updateState({ attentionState: "hidden" });
-          mgr.hide();
-        } else {
-          floatingPinnedManually = true;
-          mgr.show();
-          mgr.updateState({ attentionState: req.state });
-        }
-      } else {
-        if (current.visible && current.attentionState !== "hidden") {
-          floatingPinnedManually = false;
-          floatingAutoShownOnMinimize = false;
-          mgr.updateState({ attentionState: "hidden" });
-          mgr.hide();
-        } else {
-          floatingPinnedManually = true;
-          mgr.show();
-          mgr.updateState({ attentionState: "compact" });
-        }
-      }
-      return { ok: true, state: mgr.getState() };
-    } catch (err) {
-      console.warn("[Ego Main] Error en ipc.floating.toggle:", err);
-      return { ok: false, error: String(err) };
-    }
-  });
-
-  ipcMain.handle("ipc.terminal.spawn", async (_e, rawReq: unknown) => {
-    const parseResult = TerminalSpawnSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const { command, cwd, timeoutMs } = parseResult.data;
-    const workspace = process.env.EGO_WORKSPACE_PATH || process.cwd();
-    const permissionSettings = getCachedPermissionsSettings();
-    // STAB-02: veto deny-gana de la matriz `@ego/security` (superset de 16
-    // patrones + confinamiento con additionalDirectories). Solo `deny` veta:
-    // `requireApproval` no bloquea (el safe-set R5 gobierna el allow directo;
-    // la vía de escape HITL sigue siendo terminal_exec con aprobación).
-    const permVerdict = evaluateToolCall(
-      {
-        toolName: "terminal.spawn",
-        category: "terminal",
-        command,
-        path: cwd,
-        workspacePath: workspace,
-      },
-      {
-        workspacePath: workspace,
-        defaultMode: "deny",
-        additionalDirectories: permissionSettings.permissions.additionalDirectories,
-      }
-    );
-    if (isDenied(permVerdict)) {
-      return {
-        ok: false,
-        denied: true,
-        error: `Comando o cwd vetado por la política de permisos (STAB-02 deny-gana: regla '${permVerdict.rule}'). Vía de escape: HITL vía terminal_exec con aprobación.`,
-      };
-    }
-    for (const pattern of TERMINAL_FORBIDDEN_PATTERNS) {
-      if (pattern.test(command)) {
-        return {
-          ok: false,
-          denied: true,
-          error: `Comando bloqueado por guardrail (R5 deny-by-default, patrón '${pattern}'). Vía de escape: HITL vía terminal_exec con aprobación.`,
-        };
-      }
-    }
-    if (!isTerminalCommandAllowed(command)) {
-      return {
-        ok: false,
-        denied: true,
-        error: `Comando fuera del conjunto seguro documentado (R5 deny-by-default: ${[...TERMINAL_SAFE_COMMANDS].join(", ")} + git de solo lectura). Vía de escape: HITL vía terminal_exec con aprobación.`,
-      };
-    }
-    if (terminalSessions.size >= MAX_TERMINAL_SESSIONS) {
-      return { ok: false, error: `Límite de sesiones de terminal alcanzado (${MAX_TERMINAL_SESSIONS}).` };
-    }
-    let executionCwd: string;
-    try {
-      const effectiveRoot = resolveCwdRoot(
-        cwd,
-        workspace,
-        permissionSettings.permissions.additionalDirectories
-      );
-      executionCwd = cwd ? PathValidator.validatePath(cwd, effectiveRoot) : workspace;
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
-    const sessionId = `term_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-    const isWindows = process.platform === "win32";
-    const shell = isWindows ? "powershell.exe" : "/bin/bash";
-    const shellArgs = isWindows ? ["-NoProfile", "-Command", command] : ["-c", command];
-    try {
-      const proc = spawn(shell, shellArgs, { cwd: executionCwd, windowsHide: true });
-      const timeout = setTimeout(
-        () => {
-          killTerminalSession(sessionId, "timeout");
-        },
-        timeoutMs ?? TERMINAL_DEFAULT_TIMEOUT_MS
-      );
-      terminalSessions.set(sessionId, {
-        id: sessionId,
-        command,
-        cwd: executionCwd,
-        proc,
-        startedAt: Date.now(),
-        timeoutTimer: timeout,
-      });
-      proc.stdout?.on("data", (chunk) => {
-        pushTerminalOutput(sessionId, String(chunk));
-      });
-      proc.stderr?.on("data", (chunk) => {
-        pushTerminalOutput(sessionId, String(chunk));
-      });
-      proc.on("error", (err) => {
-        pushTerminalOutput(sessionId, `[ERROR: ${err.message}]`);
-        endTerminalSession(sessionId, 1);
-      });
-      proc.on("close", (exitCode) => {
-        endTerminalSession(sessionId, exitCode ?? 0);
-      });
-      return { ok: true, sessionId, cwd: executionCwd };
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
-  });
-
-  ipcMain.handle("ipc.terminal.stdin", async (_e, rawReq: unknown) => {
-    const parseResult = TerminalStdinSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const session = terminalSessions.get(parseResult.data.sessionId);
-    if (!session) {
-      return { ok: false, error: `Sesión '${parseResult.data.sessionId}' no encontrada o ya finalizada.` };
-    }
-    try {
-      if (!session.proc.stdin || !session.proc.stdin.writable) {
-        return { ok: false, error: "stdin no disponible en esta sesión." };
-      }
-      session.proc.stdin.write(parseResult.data.data);
-      return { ok: true };
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
-  });
-
-  ipcMain.handle("ipc.terminal.kill", async (_e, rawReq: unknown) => {
-    const parseResult = TerminalKillSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const killed = killTerminalSession(parseResult.data.sessionId, "user");
-    if (!killed) {
-      return { ok: false, error: `Sesión '${parseResult.data.sessionId}' no encontrada o ya finalizada.` };
-    }
-    try {
-      await adapter.recordAudit(
-        "terminal",
-        parseResult.data.sessionId,
-        { action: "kill", by: "user" },
-        "user"
-      );
-    } catch {
-      // noop: auditoría best-effort
-    }
-    return { ok: true, sessionId: parseResult.data.sessionId };
-  });
-
-  // ==========================================
-  // IPC Handlers: Sesiones conversacionales (T13)
-  // ==========================================
-  // Fuente: NO hay store dedicado de sesiones (EgoMemoryLifecycle solo
-  // guarda el activeSessionId en memoria). Los turnos viven en el
-  // namespace `session/turns` con key `${sessionId}:${turnId}` y metadata
-  // `{sessionId, projectScope, timestamp}`. Estos handlers agregan desde
-  // ahí (lifecycle/store) y lo documentan en vez de inventar fuente.
-  ipcMain.handle("ipc.sessions.list", async (_e, rawReq: unknown) => {
-    const parseResult = SessionsListSchema.safeParse(rawReq ?? undefined);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const limit = parseResult.data?.limit ?? 100;
-    const projectScope = parseResult.data?.projectScope;
-    const turns = await adapter.list("session/turns", Math.min(limit * 10, 1000));
-    const bySession = new Map<string, { turnCount: number; lastTimestamp: number; projectScope?: string }>();
-    for (const t of turns) {
-      const meta = (t.metadata ?? {}) as Record<string, unknown>;
-      const payload = t.payload as Record<string, unknown> | null;
-      const sid =
-        (typeof meta["sessionId"] === "string" && meta["sessionId"]) ||
-        (payload && typeof payload["sessionId"] === "string" ? (payload["sessionId"] as string) : "") ||
-        t.key.split(":")[0] ||
-        "unknown";
-      if (projectScope && meta["projectScope"] !== projectScope) continue;
-      const ts =
-        (typeof meta["timestamp"] === "number" && meta["timestamp"]) ||
-        (payload && typeof payload["timestamp"] === "number" ? (payload["timestamp"] as number) : 0);
-      const prev = bySession.get(sid) ?? { turnCount: 0, lastTimestamp: 0 };
-      bySession.set(sid, {
-        turnCount: prev.turnCount + 1,
-        lastTimestamp: Math.max(prev.lastTimestamp, ts),
-        ...(typeof meta["projectScope"] === "string" ? { projectScope: meta["projectScope"] as string } : {}),
-      });
-    }
-    const sessions = [...bySession.entries()]
-      .map(([sessionId, info]) => ({ sessionId, ...info }))
-      .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
-      .slice(0, limit);
-    return { ok: true, sessions };
-  });
-
-  ipcMain.handle("ipc.sessions.get", async (_e, rawReq: unknown) => {
-    const parseResult = SessionGetSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const { sessionId } = parseResult.data;
-    const turns = await adapter.list("session/turns", 1000);
-    const mine = turns
-      .filter((t) => {
-        const meta = (t.metadata ?? {}) as Record<string, unknown>;
-        if (meta["sessionId"] === sessionId) return true;
-        const payload = t.payload as Record<string, unknown> | null;
-        if (payload && payload["sessionId"] === sessionId) return true;
-        return t.key === sessionId || t.key.startsWith(`${sessionId}:`);
-      })
-      .map((t) => ({ key: t.key, payload: t.payload, metadata: t.metadata }));
-    if (mine.length === 0) {
-      return { ok: false, error: `Sesión '${sessionId}' no encontrada o sin turnos.` };
-    }
-    return { ok: true, sessionId, turns: mine };
-  });
-
-  ipcMain.handle("ipc.sessions.resume", async (_e, rawReq: unknown) => {
-    const parseResult = SessionResumeSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const { sessionId } = parseResult.data;
-    const turns = await adapter.list("session/turns", 1000);
-    const mine = turns.filter((t) => {
-      const meta = (t.metadata ?? {}) as Record<string, unknown>;
-      if (meta["sessionId"] === sessionId) return true;
-      const payload = t.payload as Record<string, unknown> | null;
-      if (payload && payload["sessionId"] === sessionId) return true;
-      return t.key === sessionId || t.key.startsWith(`${sessionId}:`);
-    });
-    if (mine.length === 0) {
-      return { ok: false, error: `Sesión '${sessionId}' no encontrada o sin turnos.` };
-    }
-    const projectScope =
-      (mine[0]?.metadata as Record<string, unknown> | undefined)?.["projectScope"];
-    await lifecycle.startSession(
-      sessionId,
-      typeof projectScope === "string" && projectScope ? projectScope : "default"
-    );
-    return { ok: true, sessionId, turnCount: mine.length, resumed: true };
-  });
-
-  // STAB-12: fork de sesión + handoff formal (Spec D6/D7).  // Zod fail-closed en el borde; gate SessionStart sobre la sesión destino;
-  // `forkSession` copia `session/turns` + sella checkpoint; el handoff se
-  // re-valida con `SessionHandoffSchema` antes de responder (validado).
-  ipcMain.handle("ipc.sessions.fork", async (_e, rawReq: unknown) => {
-    const parseResult = SessionForkSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const { fromSessionId, toSessionId, summary, findings, files, issues } = parseResult.data;
-    const gate = eventBus.evaluateSessionStart(toSessionId);
-    if (!gate.allow) {
-      return { ok: false, denied: true, error: `Fork bloqueado por hook (motivo '${gate.reason}').` };
-    }
-    try {
-      const handoff = await forkSession(
-        { fromSessionId, toSessionId, summary, findings, files, issues },
-        { adapter, createCheckpoint: (taskId, snapshot) => lifecycle.createMicroCheckpoint(taskId, snapshot) }
-      );
-      const validated = SessionHandoffSchema.safeParse(handoff);
-      if (!validated.success) {
-        return { ok: false, error: `Handoff inválido: ${validated.error.message}` };
-      }
-      eventBus.recordSessionEnd(fromSessionId);
-      try {
-        await adapter.recordAudit("session_fork", "ego.governance", {
-          from: handoff.from,
-          to: handoff.to,
-          copiedTurns: handoff.copiedTurns,
-          checkpointId: handoff.checkpointId,
-        }, handoff.to);
-      } catch {
-        // noop: auditoría best-effort, el fork ya se aplicó
-      }
-      return { ok: true, handoff: validated.data };
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
-  });
-
-  // STAB-12: superficie IPC de hooks CFG-09 (preload `ego.hooks` los invoca;
-  // cierra el gap 1:1 del contrato). Solo veredictos/estado; la ejecución de
-  // comandos vive en main/ExecutionManager (fail-closed).
-  ipcMain.handle("ipc.hooks.getStatus", async () => {
-    return { ok: true, status: eventBus.getHooksStatus() };
-  });
-
-  ipcMain.handle("ipc.hooks.evaluatePreToolUse", async (_e, rawReq: unknown) => {
-    const parseResult = HookEvaluateSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const decision = eventBus.evaluatePreToolUse(
-      parseResult.data.toolName,
-      parseResult.data.sessionId
-    );
-    return { ok: true, decision };
-  });
-
-  ipcMain.handle("ipc.hooks.recordPostToolUse", async (_e, rawReq: unknown) => {
-    const parseResult = HookEvaluateSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const decision = eventBus.recordPostToolUse(
-      parseResult.data.toolName,
-      parseResult.data.sessionId
-    );
-    return { ok: true, decision };
-  });
-
-  // VOICE-01: voz STT/TTS opt-in con kill switch (apéndice voice; no toca
-  // guards/CSP/fetch/folders/permissions-CFG-06/queue-CFG-11). Keys (groq)
-  // solo en main vía `GROQ_API_KEY` de entorno (ModelConfig sin slot groq por
-  // regla no-touch de esta wave); el renderer nunca las ve — este borde solo
-  // acepta audio/texto y retorna texto/estado. Kill switch deny-gana.
-  async function getVoiceSettingsStore(): Promise<VoiceSettings> {
-    try {
-      const record = await adapter.get("gov/settings", "voice");
-      const payload = record?.payload as { config?: unknown } | null;
-      const parsed = VoiceSettingsSchema.safeParse(
-        payload && typeof payload === "object" && "config" in payload ? payload.config : (payload ?? {})
-      );
-      if (parsed.success) return parsed.data;
-    } catch {
-      // noop: best-effort, caen los defaults seguros (voz local, sin kill)
-    }
-    return VoiceSettingsSchema.parse({});
-  }
-
-  ipcMain.handle("ipc.voice.getStatus", async () => {
-    const settings = await getVoiceSettingsStore();
-    return { ok: true, ...settings };
-  });
-
-  ipcMain.handle("ipc.voice.setConfig", async (_e, rawReq: unknown) => {
-    const parseResult = VoiceSettingsSchema.partial().safeParse(rawReq ?? {});
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const current = await getVoiceSettingsStore();
-    const merged = VoiceSettingsSchema.parse({ ...current, ...parseResult.data });
-    await adapter.put({
-      namespace: "gov/settings",
-      key: "voice",
-      payload: { config: merged },
-      metadata: { updatedAtMs: Date.now() },
-    });
-    return { ok: true, ...merged };
-  });
-
-  ipcMain.handle("ipc.voice.stt", async (_e, rawReq: unknown) => {
-    const settings = await getVoiceSettingsStore();
-    if (settings.disableVoice) {
-      return { ok: false, denied: true, error: "Voz deshabilitada por kill switch." };
-    }
-    const parseResult = VoiceSttSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    if (settings.sttProvider !== "groq") {
-      return {
-        ok: false,
-        error: "STT nube no configurado: el dictado local WebSpeech no usa este canal.",
-      };
-    }
-    const groqKey = (process.env["GROQ_API_KEY"] ?? "").trim();
-    if (!groqKey) {
-      return {
-        ok: false,
-        error: "STT groq sin key: configurá GROQ_API_KEY en el entorno del main (la key nunca viaja al renderer).",
-      };
-    }
-    try {
-      const audioBytes = Buffer.from(parseResult.data.audioB64, "base64");
-      const form = new FormData();
-      form.append("model", "whisper-large-v3-turbo");
-      form.append("file", new Blob([audioBytes], { type: `audio/${parseResult.data.format}` }), `dictado.${parseResult.data.format}`);
-      if (parseResult.data.language) form.append("language", parseResult.data.language);
-      const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 30_000);
-      try {
-        const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${groqKey}` },
-          body: form,
-          signal: ctrl.signal,
-        });
-        if (!res.ok) {
-          return { ok: false, error: `STT groq rechazado (HTTP ${res.status}).` };
-        }
-        const body = (await res.json()) as { text?: unknown };
-        if (typeof body.text !== "string" || body.text.trim().length === 0) {
-          return { ok: false, error: "STT groq sin texto." };
-        }
-        return { ok: true, text: body.text.trim() };
-      } finally {
-        clearTimeout(timeout);
-      }
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
-  });
-
-  ipcMain.handle("ipc.voice.tts", async (_e, rawReq: unknown) => {
-    const settings = await getVoiceSettingsStore();
-    if (settings.disableVoice) {
-      return { ok: false, denied: true, error: "Voz deshabilitada por kill switch." };
-    }
-    const parseResult = VoiceTtsSchema.safeParse(rawReq);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    try {
-      await adapter.recordAudit(
-        "voice",
-        "tts",
-        { chars: parseResult.data.text.length, provider: settings.ttsProvider },
-        "user"
-      );
-    } catch {
-      // noop: auditoría best-effort, la validación ya pasó
-    }
-    if (settings.ttsProvider !== "speechSynthesis") {
-      return {
-        ok: false,
-        error: "TTS edge pendiente de cableado de red: usá speechSynthesis local (default).",
-      };
-    }
-    // La síntesis local la hace el renderer (`speechSynthesis`, por gesto);
-    // el main solo valida, audita y autoriza.
-    return { ok: true, mode: "local" as const };
-  });
-
-  // T13: aprobaciones HITL pendientes (lectura directa del motor en
-  // memoria; el histórico vive en DecisionsFeed, aquí solo pendientes).
-  ipcMain.handle("ipc.daily.listApprovals", async (_e, rawReq: unknown) => {
-    const parseResult = DailyListApprovalsSchema.safeParse(rawReq ?? undefined);
-    if (!parseResult.success) {
-      return { ok: false, error: parseResult.error.message };
-    }
-    const limit = parseResult.data?.limit ?? 100;
-    const approvals = approvalEngine.listPendingApprovals().slice(0, limit);
-    return { ok: true, approvals };
-  });
-
-  // T13: info operativa de storage (solo lectura, sin secretos) y
-  // políticas de gobierno (`gov/policies`; ausente → [] documentado).
-  ipcMain.handle("ipc.settings.getStorageInfo", async () => {
-    let namespaces: string[] = [];
-    try {
-      namespaces = await adapter.listNamespaces();
-    } catch {
-      // noop: best-effort, el resto de la info sigue disponible
-    }
-    return {
-      ok: true,
-      userDataDir,
-      dbPath,
-      operational: adapter.ready,
-      platform: process.platform,
-      namespaces,
-    };
-  });
-
-  ipcMain.handle("ipc.settings.getGovPolicies", async () => {
-    const records = await adapter.list("gov/policies", 100);
-    const policies = records.map((r) => ({
-      key: r.key,
-      payload: r.payload,
-      metadata: r.metadata,
-    }));
-    return { ok: true, policies };
-  });
-
-  // T15: catálogo live de modelos por proveedor. Keys descifradas solo en
-  // memoria (merge env + `currentModelConfig`); el renderer recibe IDs y
-  // `configured`, NUNCA secretos. Cache persistente en `gov/catalog` con
-  // key=fingerprint opaco y TTL 1h (VantaDB expira + el catálogo revalida).
-  const modelCatalog = new ModelCatalog({
-    cache: {
-      load: async (key) => {
-        try {
-          const record = await adapter.get("gov/catalog", key);
-          const payload = record?.payload as { models?: unknown; savedAtMs?: unknown } | undefined;
-          if (!payload || !Array.isArray(payload.models) || typeof payload.savedAtMs !== "number") return null;
-          const models = payload.models.filter((m): m is string => typeof m === "string");
-          return { models, savedAtMs: payload.savedAtMs };
-        } catch {
-          return null;
-        }
-      },
-      save: async (key, value) => {
-        try {
-          await adapter.put({
-            namespace: "gov/catalog",
-            key,
-            payload: { models: value.models, savedAtMs: value.savedAtMs },
-            metadata: { updatedAtMs: Date.now() },
-            ttl_ms: CATALOG_CACHE_TTL_MS,
-          });
-        } catch {
-          // Best-effort: el live igual se retorna al renderer.
-        }
-      },
-    },
-  });
-
-  ipcMain.handle("ipc.models.listProviders", async () => {
-    const keys = mergeModelKeys(resolveEnvModelKeys(), resolveMemoryModelKeys(currentModelConfig));
-    return { ok: true, providers: getConfiguredProviders(keys) };
-  });
-
-  ipcMain.handle("ipc.models.listModels", async (_e, rawReq: unknown) => {
-    const parsed = ModelsListSchema.safeParse(rawReq);
-    if (!parsed.success) {
-      throw new Error(`[IPC Security] Solicitud de catálogo inválida: ${parsed.error.message}`);
-    }
-    const provider: CatalogProviderId = parsed.data.provider;
-    const keys = mergeModelKeys(resolveEnvModelKeys(), resolveMemoryModelKeys(currentModelConfig));
-    const creds = resolveCatalogCredentials(provider, keys);
-    return {
-      ok: true,
-      provider,
-      ...(await modelCatalog.listModels({
-        provider,
-        refresh: parsed.data.refresh,
-        credentialFingerprint: creds.credentialFingerprint,
-        ...(creds.apiKey !== undefined ? { apiKey: creds.apiKey } : {}),
-        ...(creds.baseURL !== undefined ? { baseURL: creds.baseURL } : {}),
-      })),
-    };
-  });
+  // T11 (EGO-FIND-54): los 81 handlers IPC viven en su propio módulo.
+  registerIpcHandlers(createIpcDeps());
 
   // Carga de la aplicación (Vite Dev Server en desarrollo o bundle compilado)
   const isDev = !app.isPackaged && process.env.NODE_ENV !== "production";
@@ -5778,15 +2346,74 @@ if (app && typeof app.whenReady === "function") {
         // noop
       }
       tray = null;
+      // T2 (VERDICT R1): cerrar el servidor MCP de Ego (libera el puerto
+      // loopback, cierra el listener HTTP y REVOCA el token bearer).
+      if (mcpServerHandle) {
+        try {
+          await mcpServerHandle.close();
+        } catch (mcpErr) {
+          console.warn("[Ego Desktop] Error al cerrar el servidor MCP:", mcpErr);
+        }
+        mcpServerHandle = null;
+      }
+      // T4 (Ola 1c): soltar el `McpManager`. Es el dueño del
+      // `secretResolver`, que a su vez captura el `CredentialManager` del
+      // keychain: sin `dispose()`, el apagado dejaba referencias vivas a las
+      // credenciales del SO y los clientes MCP seguían conectados.
+      if (mcpManager) {
+        try {
+          await mcpManager.dispose();
+        } catch (mcpDisposeErr) {
+          console.warn("[Ego Desktop] Error al cerrar el McpManager:", mcpDisposeErr);
+        }
+      }
+      // COUC-09: el `RunRecorder` se suscribe al bus; sin `dispose()`
+      // sobrevive al cierre con su listener vivo.
+      if (runRecorder) {
+        try {
+          runRecorder.dispose();
+        } catch (runDisposeErr) {
+          console.warn("[Ego Desktop] Error al cerrar el RunRecorder:", runDisposeErr);
+        }
+        runRecorder = null;
+      }
+      // T12 (A4-27): quitar los listeners de `screen` (nivel de proceso).
+      if (displayChangeListener) {
+        try {
+          screen.removeListener("display-metrics-changed", displayChangeListener);
+          screen.removeListener("display-added", displayChangeListener);
+          screen.removeListener("display-removed", displayChangeListener);
+        } catch {
+          // noop: sin screen (ciertos tests) no hay listener
+        }
+        displayChangeListener = null;
+      }
       if (opGate) {
         const drainResult = await opGate.drain(3000);
         console.log(`[Ego Desktop] Drenado OpGate completado: drained=${drainResult.drained}, pendientes=${drainResult.remaining}`);
+      }
+      // A3-T1: el runtime de delegación se apaga ordenadamente (instancias en RAM).
+      if (delegationRuntime) {
+        try {
+          await delegationRuntime.dispose();
+        } catch {
+          // noop: el apagado nunca falla por la delegación
+        }
+        delegationRuntime = undefined;
+      }
+      // A3-T2: la proactividad (cron + file-watch) se detiene.
+      try {
+        proactivityEngine?.stopAll();
+      } catch {
+        // noop
       }
       if (adapter) {
         await adapter.close();
       }
       if (crashRecoveryEngine) {
-        crashRecoveryEngine.releaseLock();
+        // A3-T11 / diff 7: `releaseLockAsync` (async) elimina el último
+        // I/O síncrono del apagado.
+        await crashRecoveryEngine.releaseLockAsync();
       }
     } catch (shutdownErr) {
       console.error("[Ego Desktop] Error durante apagado ordenado:", shutdownErr);

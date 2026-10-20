@@ -4,7 +4,7 @@
   "private": true,
   "main": "out/main/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json --noEmit && electron-vite build && node scripts/verify-dist.cjs",
+    "build": "tsc -p tsconfig.json --noEmit && electron-vite build && node scripts/copy-avatar-attribution.cjs && node scripts/verify-dist.cjs",
     "build:verify": "node scripts/verify-dist.cjs",
     "dist": "electron-builder --config electron-builder.config.cjs",
     "pack": "electron-builder --dir --config electron-builder.config.cjs",
@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ego/avatar": "workspace:*",
     "@ego/dailystate": "workspace:*",
     "@ego/decision": "workspace:*",
     "@ego/domains": "workspace:*",
@@ -40,12 +41,12 @@
     "@types/node": "^22.8.0",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^10.0.6",
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^41.10.7",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "msw": "^2",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.2",
+    "vitest": "^3.2.7",
     "wait-on": "^9.5.1"
   }
 }

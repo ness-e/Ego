@@ -131,6 +131,13 @@ export interface EgoPreloadBridge {
     getTemplates: () => Promise<unknown>;
     create: (req: unknown) => Promise<unknown>;
     toggleState: (req: ToggleSubEgoBridgeRequest) => Promise<unknown>;
+    /**
+     * A3 / EGO-FIND-53: el renderer NO escribe directo en memoria para
+     * editar/borrar Sub-Egos; usa estas rutas (main valida el manifiesto
+     * con `SubEgoRegistry`, que aplica Zod).
+     */
+    update: (req: { subEgoId: string; manifest: unknown }) => Promise<unknown>;
+    remove: (req: { subEgoId: string }) => Promise<unknown>;
   };
   mcp: {
     listServers: () => Promise<unknown>;
@@ -277,7 +284,9 @@ export interface EgoPreloadBridge {
     stt: (req: { audioB64: string; format?: "webm" | "wav" | "mp3"; language?: string }) => Promise<unknown>;
     tts: (req: { text: string; voice?: string; rate?: number }) => Promise<unknown>;
   };
-  // WIDG-02 (Task3): superficie flotante (`window.egoFloating`).
+  // WIDG-02 (Task3): superficie flotante. Se expone como `window.ego.floating`
+  // (T10): el preload expone UN SOLO objeto global (`window.ego`), para no
+  // duplicar la superficie IPC en el renderer.
   floating: EgoFloatingBridge;
 }
 
@@ -300,6 +309,8 @@ const egoBridge: EgoPreloadBridge = {
     getTemplates: () => ipcRenderer.invoke("ipc.subegos.getTemplates"),
     create: (req) => ipcRenderer.invoke("ipc.subegos.create", req),
     toggleState: (req) => ipcRenderer.invoke("ipc.subegos.toggleState", req),
+    update: (req) => ipcRenderer.invoke("ipc.subegos.update", req),
+    remove: (req) => ipcRenderer.invoke("ipc.subegos.remove", req),
   },
   mcp: {
     listServers: () => ipcRenderer.invoke("ipc.mcp.listServers"),
@@ -487,7 +498,8 @@ const egoBridge: EgoPreloadBridge = {
     ipcRenderer.invoke("ipc.floating.toggle", { state }),
 };
 
-const egoFloatingBridge: EgoFloatingBridge = egoBridge.floating;
-
+// T10 (A4-32): un ÚNICO objeto global. Antes se exponían dos
+// (`window.ego` y `window.egoFloating`), duplicando la superficie IPC y
+// obligando al renderer de la isla flotante a conocer un segundo global.
+// Ahora la isla usa `window.ego.floating`.
 contextBridge.exposeInMainWorld("ego", egoBridge);
-contextBridge.exposeInMainWorld("egoFloating", egoFloatingBridge);

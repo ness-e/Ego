@@ -141,6 +141,51 @@ if (config) {
       }
     }
   }
+
+  // 6. T7 (Ola 1b): el corpus legal de atribución MIT debe VIAJAR en el
+  // artefacto distribuido. `renderer/floating/vendor/avatar/vendor/**` es
+  // material legal de solo lectura (código de terceros atribuido): nadie lo
+  // importa, así que sin un paso de copia no llegaba al ASAR y la
+  // atribución no era resoluble en la app instalada.
+  //
+  // Vive en `out/attribution/avatar/`, FUERA del árbol de runtime del
+  // renderer (`out/renderer/`): no se compila ni se typecheckea.
+  const ATTRIB_DIR = path.join(ROOT, 'out', 'attribution', 'avatar');
+  const ATTRIB_CORPUS = path.join(ATTRIB_DIR, 'vendor');
+  if (!fs.existsSync(ATTRIB_CORPUS)) {
+    fail('ausente: out/attribution/avatar/vendor/ (corpus legal de atribución)');
+  } else {
+    const corpusFiles = [];
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.isFile()) corpusFiles.push(p);
+      }
+    };
+    walk(ATTRIB_CORPUS);
+    if (corpusFiles.length === 0) {
+      fail('el corpus legal de atribución está vacío');
+    } else {
+      ok(`corpus legal de atribución: ${corpusFiles.length} ficheros`);
+    }
+    for (const legal of ['LICENSE', 'LICENSE.md', 'NOTICE']) {
+      const p = path.join(ATTRIB_DIR, legal);
+      if (!fs.existsSync(p) || fs.statSync(p).size === 0) {
+        fail(`atribución legal ausente o vacía: attribution/avatar/${legal}`);
+      } else {
+        ok(`attribution/avatar/${legal} (${fs.statSync(p).size} bytes)`);
+      }
+    }
+  }
+
+  // 6.bis. El corpus NO debe colarse en el bundle del renderer.
+  const leaked = fs.existsSync(path.join(ROOT, 'out', 'renderer', 'vendor'));
+  if (leaked) {
+    fail('el corpus legal se coló en out/renderer/vendor (debe vivir en out/attribution/)');
+  } else {
+    ok('el corpus legal NO está en el árbol de runtime del renderer');
+  }
 }
 
 if (failures > 0) {

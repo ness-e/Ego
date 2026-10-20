@@ -23,6 +23,8 @@ export const EgoIpcInvokeChannels = [
   "ipc.subegos.getTemplates",
   "ipc.subegos.create",
   "ipc.subegos.toggleState",
+  "ipc.subegos.update",
+  "ipc.subegos.remove",
   // MCP servers & marketplace (ACT-11)
   "ipc.mcp.listServers",
   "ipc.mcp.addServer",
@@ -135,22 +137,204 @@ export type EgoIpcInvokeChannel = (typeof EgoIpcInvokeChannels)[number];
 export type EgoIpcPushChannel = (typeof EgoIpcPushChannels)[number];
 
 import { z } from "zod";
+import { IntentRequestSchema } from "@ego/decision";
+import {
+  MemoryOpSchema,
+  CreateSubEgoSchema,
+  ToggleSubEgoStateSchema,
+  UpdateSubEgoSchema,
+  RemoveSubEgoSchema,
+  ApproveActionSchema,
+  ResolveApprovalSchema,
+  ChatStreamSchema,
+  LlmCancelSchema,
+  AddMcpServerSchema,
+  RemoveMcpServerSchema,
+  ToggleMcpServerSchema,
+  ListToolsFilterSchema,
+  ScanSkillsSchema,
+  CreateProjectSchema,
+  SelectProjectSchema,
+  ModelConfigSchema,
+  PermissionsSettingsSchema,
+  DecisionListAuditsSchema,
+  KnowledgeIngestSchema,
+  KnowledgeHybridSearchSchema,
+  KnowledgeGraphRagSchema,
+  KnowledgeQuarantineActionSchema,
+  KnowledgeAsOfSchema,
+  KnowledgeExplainArtifactSchema,
+  KnowledgeExportSchema,
+  KnowledgeImportSchema,
+  DailyStateGetSummarySchema,
+  DailyStateRefineGoalsSchema,
+  DailyStateGetDecisionsSchema,
+  DailyStateResolveApprovalsBatchSchema,
+  DailyStateJournalSchema,
+  DailyStateFirstLaunchSchema,
+  DailyGetSnapshotSchema,
+  DailyListSnapshotsSchema,
+  DailyListApprovalsSchema,
+  DomainGetSchema,
+  DomainSwitchSchema,
+  DomainEngineeringStatusSchema,
+  DomainProductBacklogSchema,
+  DomainKnowledgeSearchSchema,
+  DomainAnalyticsSeriesSchema,
+  DomainCrmDealsSchema,
+  TasksListSchema,
+  TasksCancelSchema,
+  TerminalSpawnSchema,
+  TerminalStdinSchema,
+  TerminalKillSchema,
+  SessionsListSchema,
+  SessionGetSchema,
+  SessionResumeSchema,
+  SessionForkSchema,
+  HookEvaluateSchema,
+  ModelsListSchema,
+  SelectFolderRedeemSchema,
+  EgoFetchSchema,
+  FloatingSetMutedSchema,
+  VoiceSttSchema,
+  VoiceTtsSchema,
+  VoiceSettingsSchema,
+} from "./ipc/schema.js";
 
 export const FloatingRestoreMainSchema = z.object({}).optional();
-export const FloatingToggleSchema = z.object({
-  state: z.enum(["compact", "expanded", "hidden"]).optional(),
-}).optional();
+export const FloatingToggleSchema = z
+  .object({
+    state: z.enum(["compact", "expanded", "hidden"]).optional(),
+  })
+  .optional();
 
-export const EgoIpcSchemas = {
+/**
+ * Schema de un canal que **no** acepta payload del renderer.
+ * `z.undefined().optional()` acepta `undefined` y `{}` (el preload invoca
+ * sin argumentos en ambos casos) y rechaza cualquier otro valor.
+ */
+export const NoPayloadSchema = z.undefined().optional();
+
+/**
+ * T9 (EGO-FIND-59) — Mapa canónico canal → schema.
+ *
+ * Antes solo declaraban 2 entradas (`floating.restoreMain`, `floating.toggle`)
+ * y los otros 77 schemas vivían sueltos en `src/ipc/schema.ts`, sin ningún
+ * vínculo tipado con el canal que los usa. Ahora **cada** canal invoke tiene
+ * su schema declarado aquí, y `EgoIpcSchemas` está tipado como
+ * `Record<EgoIpcInvokeChannel, ...>`: añadir un canal nuevo a
+ * `EgoIpcInvokeChannels` sin añadir su schema **rompe la compilación**.
+ */
+export const EgoIpcSchemas: Record<EgoIpcInvokeChannel, z.ZodTypeAny> = {
+  // --- Memoria -----------------------------------------------------------
+  "ipc.memory": MemoryOpSchema,
+  // --- Turno conversacional ---------------------------------------------
+  "ipc.llm.stream": ChatStreamSchema,
+  "ipc.llm.cancel": LlmCancelSchema,
+  // --- Gobernanza HITL ----------------------------------------------------
+  "ipc.gov.approve": ApproveActionSchema,
+  "ipc.approval.resolve": ResolveApprovalSchema,
+  "ipc.snapshots": NoPayloadSchema,
+  // --- Sub-Egos ----------------------------------------------------------
+  "ipc.subegos.list": NoPayloadSchema,
+  "ipc.subegos.getTemplates": NoPayloadSchema,
+  "ipc.subegos.create": CreateSubEgoSchema,
+  "ipc.subegos.toggleState": ToggleSubEgoStateSchema,
+  "ipc.subegos.update": UpdateSubEgoSchema,
+  "ipc.subegos.remove": RemoveSubEgoSchema,
+  // --- MCP ---------------------------------------------------------------
+  "ipc.mcp.listServers": NoPayloadSchema,
+  "ipc.mcp.addServer": AddMcpServerSchema,
+  "ipc.mcp.removeServer": RemoveMcpServerSchema,
+  "ipc.mcp.toggleServer": ToggleMcpServerSchema,
+  "ipc.mcp.listTools": ListToolsFilterSchema,
+  // --- Skills ------------------------------------------------------------
+  "ipc.skills.listLocal": ScanSkillsSchema,
+  // --- Proyectos ---------------------------------------------------------
+  "ipc.projects.list": NoPayloadSchema,
+  "ipc.projects.create": CreateProjectSchema,
+  "ipc.projects.select": SelectProjectSchema,
+  "ipc.projects.getActive": NoPayloadSchema,
+  "ipc.projects.selectFolder": NoPayloadSchema,
+  "ipc.projects.selectFolderRedeem": SelectFolderRedeemSchema,
+  // --- Ajustes -----------------------------------------------------------
+  "ipc.settings.getModelConfig": NoPayloadSchema,
+  "ipc.settings.saveModelConfig": ModelConfigSchema,
+  "ipc.settings.getPermissions": NoPayloadSchema,
+  "ipc.settings.savePermissions": PermissionsSettingsSchema,
+  "ipc.settings.getStorageInfo": NoPayloadSchema,
+  "ipc.settings.getGovPolicies": NoPayloadSchema,
+  // --- Decisión ----------------------------------------------------------
+  "ipc.decision.evaluate": IntentRequestSchema,
+  "ipc.decision.listAudits": DecisionListAuditsSchema,
+  "ipc.decision.telemetry": NoPayloadSchema,
+  // --- Knowledge ---------------------------------------------------------
+  "ipc.knowledge.ingest": KnowledgeIngestSchema,
+  "ipc.knowledge.hybridSearch": KnowledgeHybridSearchSchema,
+  "ipc.knowledge.graphRag": KnowledgeGraphRagSchema,
+  "ipc.knowledge.quarantine": KnowledgeQuarantineActionSchema,
+  "ipc.knowledge.asOf": KnowledgeAsOfSchema,
+  "ipc.knowledge.explainArtifact": KnowledgeExplainArtifactSchema,
+  "ipc.knowledge.export": KnowledgeExportSchema,
+  "ipc.knowledge.import": KnowledgeImportSchema,
+  // --- Daily State -------------------------------------------------------
+  "ipc.daily.getSummary": DailyStateGetSummarySchema,
+  "ipc.daily.refineGoals": DailyStateRefineGoalsSchema,
+  "ipc.daily.getDecisions": DailyStateGetDecisionsSchema,
+  "ipc.daily.saveSnapshot": NoPayloadSchema,
+  "ipc.daily.getSnapshot": DailyGetSnapshotSchema,
+  "ipc.daily.listSnapshots": DailyListSnapshotsSchema,
+  "ipc.daily.isFirstLaunch": DailyStateFirstLaunchSchema,
+  "ipc.daily.journal": DailyStateJournalSchema,
+  "ipc.daily.resolveApprovalsBatch": DailyStateResolveApprovalsBatchSchema,
+  "ipc.daily.listApprovals": DailyListApprovalsSchema,
+  // --- Dominios ----------------------------------------------------------
+  "ipc.domains.list": NoPayloadSchema,
+  "ipc.domains.get": DomainGetSchema,
+  "ipc.domains.switch": DomainSwitchSchema,
+  "ipc.domains.engineering.status": DomainEngineeringStatusSchema,
+  "ipc.domains.product.backlog": DomainProductBacklogSchema,
+  "ipc.domains.knowledge.search": DomainKnowledgeSearchSchema,
+  "ipc.domains.analytics.series": DomainAnalyticsSeriesSchema,
+  "ipc.domains.crm.deals": DomainCrmDealsSchema,
+  // --- Tareas en background + terminal ------------------------------------
+  "ipc.tasks.list": TasksListSchema,
+  "ipc.tasks.cancel": TasksCancelSchema,
+  "ipc.terminal.spawn": TerminalSpawnSchema,
+  "ipc.terminal.stdin": TerminalStdinSchema,
+  "ipc.terminal.kill": TerminalKillSchema,
+  // --- Sesiones ----------------------------------------------------------
+  "ipc.sessions.list": SessionsListSchema,
+  "ipc.sessions.get": SessionGetSchema,
+  "ipc.sessions.resume": SessionResumeSchema,
+  "ipc.sessions.fork": SessionForkSchema,
+  // --- Hooks CFG-09 ------------------------------------------------------
+  "ipc.hooks.getStatus": NoPayloadSchema,
+  "ipc.hooks.evaluatePreToolUse": HookEvaluateSchema,
+  "ipc.hooks.recordPostToolUse": HookEvaluateSchema,
+  // --- Catálogo de modelos ------------------------------------------------
+  "ipc.models.listProviders": NoPayloadSchema,
+  "ipc.models.listModels": ModelsListSchema,
+  // --- Red ---------------------------------------------------------------
+  "ipc.net.fetch": EgoFetchSchema,
+  // --- Isla flotante -----------------------------------------------------
+  "ipc.floating.setMuted": FloatingSetMutedSchema,
   "ipc.floating.restoreMain": FloatingRestoreMainSchema,
   "ipc.floating.toggle": FloatingToggleSchema,
+  // --- Voz ---------------------------------------------------------------
+  "ipc.voice.getStatus": NoPayloadSchema,
+  "ipc.voice.setConfig": VoiceSettingsSchema.partial(),
+  "ipc.voice.stt": VoiceSttSchema,
+  "ipc.voice.tts": VoiceTtsSchema,
 };
 
 export {
   VoiceSttSchema,
   VoiceTtsSchema,
   VoiceSettingsSchema,
+  LlmCancelSchema,
   type VoiceSttRequest,
   type VoiceTtsRequest,
   type VoiceSettings,
+  type LlmCancelRequest,
 } from "./ipc/schema.js";

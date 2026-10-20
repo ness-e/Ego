@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { BrowserWindow, screen, Display } from "electron";
 import { z } from "zod";
+import { WindowStateHelper, type DisplayInfo } from "@ego/ui-runtime";
 
 export const WindowStateSchema = z.object({
   x: z.number().optional(),
@@ -51,6 +52,19 @@ export interface WindowStateManagerOptions {
   adapter?: any;
   defaultWidth?: number;
   defaultHeight?: number;
+}
+
+/**
+ * Adapta los `Display` de Electron al `DisplayInfo` del helper canónico.
+ * Electron siempre expone `workArea`; el fallback a `bounds` existe para
+ * los dobles de test que solo finely `bounds`.
+ */
+function toDisplayInfos(displays: Display[]): DisplayInfo[] {
+  return displays.map((d) => ({
+    id: d.id,
+    bounds: d.bounds,
+    workArea: d.workArea ?? d.bounds,
+  }));
 }
 
 export class WindowStateManager {
@@ -282,22 +296,30 @@ export class WindowStateManager {
         return state;
       }
 
-      const isVisible = WindowStateManager.isVisibleOnAnyDisplay(
-        { x: state.x, y: state.y, width: state.width, height: state.height },
-        displays
+      // HERM-08: la geometría la decide el helper CANÓNICO de
+      // `@ego/ui-runtime` (`WindowStateHelper`), no una implementación
+      // paralela. Antes esta clase reimplementaba la visibilidad y el
+      // recentrado con otros parámetros (margen de 50 px frente al
+      // `MIN_VISIBLE_MARGIN` canónico, y `bounds` de la pantalla primaria
+      // frente a su `workArea`, que excluye la barra de tareas).
+      const safe = WindowStateHelper.resolveSafeBounds(
+        {
+          x: state.x,
+          y: state.y,
+          width: state.width,
+          height: state.height,
+          isMaximized: state.isMaximized,
+        },
+        toDisplayInfos(displays)
       );
 
-      if (!isVisible) {
-        const primary = screen.getPrimaryDisplay() || displays[0];
-        const primaryBounds = primary.bounds;
-
-        // Centrar en pantalla primaria
-        return {
-          ...state,
-          x: Math.round(primaryBounds.x + (primaryBounds.width - state.width) / 2),
-          y: Math.round(primaryBounds.y + (primaryBounds.height - state.height) / 2),
-        };
-      }
+      return {
+        ...state,
+        x: safe.x,
+        y: safe.y,
+        width: safe.width,
+        height: safe.height,
+      };
     } catch {
       // Si la API screen no está disponible (ej. en ciertos entornos de test), conservar state
     }
@@ -309,14 +331,10 @@ export class WindowStateManager {
     bounds: { x: number; y: number; width: number; height: number },
     displays: Display[]
   ): boolean {
-    return displays.some((d) => {
-      const db = d.bounds;
-      const horizontalOverlap =
-        bounds.x + bounds.width > db.x + 50 && bounds.x < db.x + db.width - 50;
-      const verticalOverlap =
-        bounds.y + bounds.height > db.y + 50 && bounds.y < db.y + db.height - 50;
-      return horizontalOverlap && verticalOverlap;
-    });
+    // HERM-08: la visibilidad la decide el helper canónico
+    // (`matchingWorkArea`), que exige un solapamiento visible mínimo
+    // (`MIN_VISIBLE_MARGIN`).
+    return WindowStateHelper.matchingWorkArea(bounds, toDisplayInfos(displays)) !== null;
   }
 
   /**

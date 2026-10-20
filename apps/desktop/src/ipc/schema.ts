@@ -97,6 +97,31 @@ export const ToggleSubEgoStateSchema = z.object({
 export type ToggleSubEgoStateRequest = z.infer<typeof ToggleSubEgoStateSchema>;
 
 /**
+ * A3 / EGO-FIND-53 — Actualización de un Sub-Ego existente.
+ *
+ * Antes el renderer escribía directo en memoria (`ego().memory("put", …)`),
+ * saltándose la validación de manifiesto de `SubEgoRegistry`. Ahora el
+ * renderer llama a `ipc.subegos.update` y el main valida el manifiesto
+ * completo con `SubEgoRegistry.register` (Zod) como única vía de escritura.
+ */
+export const UpdateSubEgoSchema = z.object({
+  subEgoId: z.string().min(1, "El ID de Sub-Ego no puede estar vacío"),
+  manifest: z.record(z.unknown()),
+});
+
+export type UpdateSubEgoRequest = z.infer<typeof UpdateSubEgoSchema>;
+
+/**
+ * A3 / EGO-FIND-53 — Baja de un Sub-Ego (vía `SubEgoRegistry.unregister`,
+ * que respeta los Sub-Egos protegidos).
+ */
+export const RemoveSubEgoSchema = z.object({
+  subEgoId: z.string().min(1, "El ID de Sub-Ego no puede estar vacío"),
+});
+
+export type RemoveSubEgoRequest = z.infer<typeof RemoveSubEgoSchema>;
+
+/**
  * Esquema de validación para resolución de aprobaciones HITL (ACT-06, ACT-07).
  */
 export const ResolveApprovalSchema = z.object({
@@ -137,11 +162,20 @@ export type ChatStreamRequest = z.infer<typeof ChatStreamSchema>;
 
 /**
  * Esquema de validación para cancelación del turno LLM en curso
- * (`ipc.llm.cancel`). Sin `turnId` aborta todos los turnos activos.
+ * (`ipc.llm.cancel`).
+ *
+ * T4 (EGO-FIND-31) — fail-CLOSED: el payload debe ser `{}`/`undefined`
+ * (cancelación global explícita) o `{ turnId }` con un id válido. Cualquier
+ * otra forma (string, número, `turnId` de tipo incorrecto o demasiado largo,
+ * claves desconocidas) se RECHAZA en main. Antes, un Zod fallido degradaba a
+ * "abortar todos los turnos", que es un comportamiento fail-OPEN peligroso.
  */
-export const LlmCancelSchema = z.object({
-  turnId: z.string().min(1).max(128).optional(),
-});
+export const LlmCancelSchema = z
+  .object({
+    turnId: z.string().min(1).max(128).optional(),
+  })
+  .strict()
+  .optional();
 
 export type LlmCancelRequest = z.infer<typeof LlmCancelSchema>;
 
