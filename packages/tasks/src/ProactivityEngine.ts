@@ -1,4 +1,18 @@
 import { z } from 'zod';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+/**
+ * `true` si la ruta existe (async, sin I/O síncrono).
+ */
+async function pathExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export const CronTriggerConfigSchema = z.object({
   id: z.string(),
@@ -58,9 +72,141 @@ export class ProactivityEngine {
   private watchTriggers = new Map<string, { config: FileWatchTriggerConfig; handler: (filePath: string) => Promise<void> | void }>();
   private watchDebounceTimers = new Map<string, NodeJS.Timeout>();
   private approvalPolicy?: ProactiveApprovalPolicy;
+  /**
+   * Watcher de filesystem activo (EGO-FIND-51). Antes la proactividad de
+   * archivo era una API manual (`triggerFileChange`) que nadie llamaba: no
+   * había ninguna observación real del disco.
+   */
+  private fsWatcher?: fs.FSWatcher;
+  private watchedRoot?: string;
+  /** Timer del scheduler de cron. */
+  private cronTimer?: NodeJS.Timeout;
+  /** Último minuto disparado, para no repetir dentro del mismo minuto. */
+  private lastCronMinuteKey?: string;
 
   constructor(options: ProactivityEngineOptions = {}) {
     this.approvalPolicy = options.approvalPolicy;
+  }
+
+  /**
+   * Empieza a observar `rootPath` con `fs.watch` y enruta los cambios a los
+   * triggers de archivo que casan con su patrón.
+   *
+   * EGO-FIND-51. `stopAll()` cierra el watcher (los listeners no se acumulan).
+   * Si la ruta no existe, degrada sin lanzar (fail-soft: la proactividad no
+   * debe tumbar el arranque de la app).
+   */
+  public async startWatching(rootPath: string, options: { recursive?: boolean } = {}): Promise<boolean> {
+    if (this.fsWatcher) {
+      this.stopWatching();
+    }
+
+    const resolved = path.resolve(rootPath);
+    if (!(await pathExists(resolved))) {
+      console.warn(
+        `[ProactivityEngine] startWatching: la ruta '${resolved}' no existe; no se activa el watcher.`
+      );
+      return false;
+    }
+
+    try {
+      this.fsWatcher = fs.watch(
+        resolved,
+        { recursive: options.recursive ?? false, persistent: false },
+        (_eventType, filename) => {
+          if (!filename) return;
+          const changed = path.isAbsolute(filename)
+            ? filename
+            : path.join(resolved, filename.toString());
+          this.triggerFileChange(changed);
+        }
+      );
+      this.fsWatcher.on("error", (err: unknown) => {
+        console.warn(
+          `[ProactivityEngine] El watcher de '${resolved}' falló: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      });
+      this.watchedRoot = resolved;
+      return true;
+    } catch (err: unknown) {
+      console.warn(
+        `[ProactivityEngine] No se pudo observar '${resolved}': ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+      this.fsWatcher = undefined;
+      this.watchedRoot = undefined;
+      return false;
+    }
+  }
+
+  /** Cierra el watcher de filesystem (idempotente). */
+  public stopWatching(): void {
+    if (this.fsWatcher) {
+      try {
+        this.fsWatcher.close();
+      } catch (err: unknown) {
+        console.warn(
+          `[ProactivityEngine] Error cerrando el watcher: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      }
+      this.fsWatcher = undefined;
+    }
+    this.watchedRoot = undefined;
+  }
+
+  /** `true` si hay un watcher de filesystem activo. */
+  public isWatching(): boolean {
+    return this.fsWatcher !== undefined;
+  }
+
+  /** Raíz observada actualmente (o `undefined`). */
+  public getWatchedRoot(): string | undefined {
+    return this.watchedRoot;
+  }
+
+  /**
+   * Arranca el scheduler de cron: llama a `evaluateCronTick` cada
+   * `intervalMs` (por defecto 30 s). El tick solo dispara una vez por minuto
+   * cron real (evita disparos repetidos dentro del mismo minuto).
+   */
+  public startCronScheduler(options: { intervalMs?: number } = {}): void {
+    if (this.cronTimer) return;
+    const intervalMs = options.intervalMs ?? 30_000;
+    this.cronTimer = setInterval(() => {
+      const now = new Date();
+      const minuteKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
+      if (this.lastCronMinuteKey === minuteKey) return;
+      this.lastCronMinuteKey = minuteKey;
+      try {
+        this.evaluateCronTick(now);
+      } catch (err: unknown) {
+        console.warn(
+          `[ProactivityEngine] Error en el tick de cron: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      }
+    }, intervalMs);
+    if (this.cronTimer.unref) this.cronTimer.unref();
+  }
+
+  /** Detiene el scheduler de cron (idempotente). */
+  public stopCronScheduler(): void {
+    if (this.cronTimer) {
+      clearInterval(this.cronTimer);
+      this.cronTimer = undefined;
+    }
+    this.lastCronMinuteKey = undefined;
+  }
+
+  /** `true` si el scheduler de cron está activo. */
+  public isCronSchedulerRunning(): boolean {
+    return this.cronTimer !== undefined;
   }
 
   public setApprovalPolicy(policy: ProactiveApprovalPolicy | undefined): void {
@@ -345,11 +491,20 @@ export class ProactivityEngine {
     return new RegExp(`^${starred}$`);
   }
 
+  /**
+   * Detiene TODOS los triggers: timers de debounce, watchers de filesystem,
+   * scheduler de cron y los registros de triggers.
+   *
+   * EGO-FIND-51: antes solo limpiaba timers; los watchers (nuevos) y el
+   * scheduler de cron también deben cerrarse o el proceso no termina.
+   */
   public stopAll(): void {
     for (const timer of this.watchDebounceTimers.values()) {
       clearTimeout(timer);
     }
     this.watchDebounceTimers.clear();
+    this.stopWatching();
+    this.stopCronScheduler();
     this.cronTriggers.clear();
     this.watchTriggers.clear();
   }

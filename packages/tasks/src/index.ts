@@ -1,5 +1,6 @@
 export * from './types.js';
 export * from './BackgroundEngine.js';
+export * from './BackgroundTaskTools.js';
 export * from './TaskMemory.js';
 export * from './TaskCheckpoint.js';
 export * from './ResourceScheduler.js';

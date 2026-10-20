@@ -93,6 +93,79 @@ describe('DreamConsolidator (TASK-08 / KHOJ-05)', () => {
     );
   });
 
+  it('un payload corrupto NO aborta el lote: se cuenta como parseError (T10)', async () => {
+    storage.set('kb/facts', [
+      {
+        key: 'fact-good',
+        payload: { subject: 'Node.js', predicate: 'version', object: '22' },
+        metadata: { state: 'active' },
+      },
+      {
+        key: 'fact-corrupt',
+        payload: '{esto no es json',
+        metadata: { state: 'active' },
+      },
+      {
+        key: 'fact-dup',
+        payload: { subject: 'Node.js', predicate: 'version', object: '22' },
+        metadata: { state: 'active' },
+      },
+    ]);
+
+    const stats = await consolidator.runCycle(Date.now());
+
+    // El corrupto se contabiliza, pero el resto del lote se consolida igual.
+    expect(stats.parseErrors).toBe(1);
+    expect(stats.deduplicatedCount).toBe(1);
+    expect(stats.scannedCount).toBe(3);
+  });
+
+  it('el dedup es PERSISTENTE entre ciclos: el canónico conserva is_latest (T10)', async () => {
+    storage.set('kb/facts', [
+      {
+        key: 'fact-1',
+        payload: { subject: 'Node.js', predicate: 'version', object: '22' },
+        metadata: { state: 'active' },
+      },
+      {
+        key: 'fact-2',
+        payload: { subject: 'node.js ', predicate: 'VERSION', object: '22.' },
+        metadata: { state: 'active' },
+      },
+    ]);
+
+    // Ciclo 1: fact-2 queda superseded.
+    await consolidator.runCycle(Date.now());
+    const afterFirst = (storage.get('kb/facts') ?? []).find((f) => f.key === 'fact-2');
+    expect((afterFirst?.payload as Record<string, unknown>)?.['is_latest']).toBe(false);
+    expect((afterFirst?.payload as Record<string, unknown>)?.['superseded_by']).toBe('fact-1');
+
+    // Ciclo 2: el estado persistido debe ser estable (idempotente) y el
+    // canónico debe seguir vigente.
+    const stats2 = await consolidator.runCycle(Date.now());
+    expect(stats2.deduplicatedCount).toBe(1);
+
+    const canonical = (storage.get('kb/facts') ?? []).find((f) => f.key === 'fact-1');
+    expect((canonical?.metadata as Record<string, unknown>)?.['state']).not.toBe('superseded');
+    expect((canonical?.metadata as Record<string, unknown>)?.['is_latest']).toBe(true);
+  });
+
+  it('un fact marcado superseded en un ciclo previo se restaura si queda único (T10)', async () => {
+    storage.set('kb/facts', [
+      {
+        key: 'fact-1',
+        payload: { subject: 'Solo', predicate: 'uno', object: 'x' },
+        metadata: { state: 'superseded', is_latest: false },
+      },
+    ]);
+
+    await consolidator.runCycle(Date.now());
+
+    const restored = (storage.get('kb/facts') ?? []).find((f) => f.key === 'fact-1');
+    expect((restored?.metadata as Record<string, unknown>)?.['state']).toBe('active');
+    expect((restored?.metadata as Record<string, unknown>)?.['is_latest']).toBe(true);
+  });
+
   it('pagina a través de listPaged procesando 130 hechos con 20 duplicados normalizados', async () => {
     // 110 hechos únicos base
     const facts: Array<{ key: string; payload: unknown; metadata?: Record<string, unknown> }> = [];
