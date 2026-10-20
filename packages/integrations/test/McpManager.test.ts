@@ -125,34 +125,99 @@ describe("McpManager (Orquestación multicliente MCP y SafeConfigMutation - COUC
     expect(failState.lastError).toBeDefined();
   });
 
-  it("debe auditar overrideExisting:true en vez de sobrescribir en silencio (F1T2)", async () => {
-    const warnings: unknown[] = [];
-    const warnSpy = (...args: unknown[]) => {
-      warnings.push(args);
-    };
-    const originalWarn = console.warn;
-    console.warn = warnSpy;
-    try {
-      // Pre-registrar una herramienta que colisiona con la importación MCP.
-      const { z } = await import("zod");
-      registry.register({
-        name: "mock_get_issue",
-        description: "preexistente",
-        category: "system",
-        riskLevel: "safe",
-        origin: "native",
-        inputSchema: z.object({}),
-        execute: async () => "preexistente",
-      });
+  it("debe auditar el override de una tool de SERVIDOR en el EventBus, no en un console.warn (F1T2 / EGO-FIND-49)", async () => {
+    const { z } = await import("zod");
+    const { EventBus } = await import("@ego/events");
+    const alerts: Array<{ code: string }> = [];
+    const bus = new EventBus();
+    bus.on("system.alert", (event) => {
+      alerts.push(event.payload as { code: string });
+    });
 
-      await manager.registerServer(validConfig, true);
+    const audited = new McpManager(registry, { eventBus: bus });
 
-      const auditHits = warnings.filter((args) =>
-        Array.isArray(args) && args.some((a) => typeof a === "string" && a.includes("overrideExisting"))
-      );
-      expect(auditHits.length).toBeGreaterThan(0);
-    } finally {
-      console.warn = originalWarn;
-    }
+    // Pre-registrar una tool de SERVIDOR (origin "mcp") que colisiona con la
+    // importación del servidor con prefijo "mock".
+    registry.register({
+      name: "mock_get_issue",
+      description: "preexistente",
+      category: "system",
+      riskLevel: "safe",
+      origin: "mcp",
+      mcpServerId: "otro-servidor",
+      inputSchema: z.object({}),
+      execute: async () => "preexistente",
+    });
+
+    await audited.registerServer({ ...validConfig, allowOverride: true }, true);
+
+    const overrideAlerts = alerts.filter((a) => a.code === "MCP_TOOL_OVERRIDE");
+    expect(overrideAlerts.length).toBeGreaterThan(0);
+    await audited.dispose();
+  });
+
+  it("sin `allowOverride`, el override de una tool de servidor se BLOQUEA y se audita como bloqueo", async () => {
+    const { z } = await import("zod");
+    const { EventBus } = await import("@ego/events");
+    const alerts: Array<{ code: string }> = [];
+    const bus = new EventBus();
+    bus.on("system.alert", (event) => {
+      alerts.push(event.payload as { code: string });
+    });
+
+    const audited = new McpManager(registry, { eventBus: bus });
+
+    registry.register({
+      name: "mock_get_issue",
+      description: "preexistente",
+      category: "system",
+      riskLevel: "safe",
+      origin: "mcp",
+      mcpServerId: "otro-servidor",
+      inputSchema: z.object({}),
+      execute: async () => "preexistente",
+    });
+
+    await audited.registerServer(validConfig, true);
+
+    expect(registry.get("mock_get_issue")!.description).toBe("preexistente");
+    expect(alerts.filter((a) => a.code === "MCP_TOOL_OVERRIDE")).toHaveLength(0);
+    expect(alerts.filter((a) => a.code === "MCP_TOOL_IMPORT_BLOCKED").length).toBeGreaterThan(0);
+
+    await audited.dispose();
+  });
+
+  it("una tool NATIVA preexistente NO se sobrescribe ni se audita como override (EGO-FIND-49)", async () => {
+    const { z } = await import("zod");
+    const { EventBus } = await import("@ego/events");
+    const alerts: Array<{ code: string }> = [];
+    const bus = new EventBus();
+    bus.on("system.alert", (event) => {
+      alerts.push(event.payload as { code: string });
+    });
+
+    const audited = new McpManager(registry, { eventBus: bus });
+
+    registry.register({
+      name: "mock_get_issue",
+      description: "preexistente",
+      category: "system",
+      riskLevel: "safe",
+      origin: "native",
+      inputSchema: z.object({}),
+      execute: async () => "preexistente",
+    });
+
+    await audited.registerServer(validConfig, true);
+
+    // La nativa sobrevive.
+    expect(registry.get("mock_get_issue")!.origin).toBe("native");
+    expect(registry.get("mock_get_issue")!.description).toBe("preexistente");
+    // Y el intento queda auditado como protección, no como override.
+    const protectedAlerts = alerts.filter((a) => a.code === "MCP_NATIVE_TOOL_PROTECTED");
+    expect(protectedAlerts.length).toBeGreaterThan(0);
+    expect(alerts.filter((a) => a.code === "MCP_TOOL_OVERRIDE")).toHaveLength(0);
+
+    await audited.dispose();
   });
 });

@@ -177,6 +177,44 @@ export interface McpServerConfig {
    * (fail-closed: servidor no firmado).
    */
   publicKey?: string;
+  /**
+   * Mapa `variable de entorno → clave de secreto` en el almacén de
+   * credenciales (Decisión D2, EGO-FIND-33).
+   *
+   * El subproceso MCP recibe `EGO_SECRET_<NOMBRE>={{SECRET:<clave>}}` en vez
+   * del valor real; el cliente MCP (en main, con acceso al keychain) resuelve
+   * el marcador. El servidor MCP nunca ve el token.
+   *
+   * Solo aplica a `transport: "stdio"`.
+   */
+  secrets?: Record<string, string>;
+  /**
+   * Cómo se entrega el secreto al subproceso MCP:
+   * - `"marker"` (por defecto): el subproceso recibe el marcador
+   *   `{{SECRET:<clave>}}` y el cliente lo resuelve. El token nunca sale de main.
+   * - `"env"`: **excepción registrada** — el subproceso recibe el valor real.
+   *   Reservado a servidores que exigen el token en la env AL ARRANCAR
+   *   (health-check contra su propia API), donde el marcador no sería un
+   *   token válido. Cada servidor en esta categoría debe listarse
+   *   explícitamente en el handoff.
+   */
+  secretDelivery?: "marker" | "env";
+  /**
+   * Permite a este servidor **sobrescribir tools de OTROS servidores MCP**
+   * que ya estén registradas con el mismo nombre prefijado.
+   *
+   * EGO-FIND-49 (Ola 1b T1): antes `McpManager.connectServer` pasaba
+   * SIEMPRE `overrideExisting: true` a `importIntoRegistry`, de modo que
+   * cualquier servidor MCP podía pisar la implementación de otro (y, antes
+   * del veto de tools nativas, la de una tool **nativa** de Ego).
+   *
+   * Reglas (fail-closed):
+   * - Una tool con `origin === "native"` **NUNCA** es sobrescribible, ni
+   *   siquiera con este flag.
+   * - El override de una tool de servidor exige este flag **explícito por
+   *   servidor** y queda **auditado** en el EventBus (`system.alert`).
+   */
+  allowOverride?: boolean;
 }
 
 /**
@@ -193,8 +231,52 @@ export type McpClientStatus =
  */
 export interface McpImportOptions {
   prefix?: string;
+  /**
+   * Permite sobrescribir una tool **de servidor** ya registrada con el mismo
+   * nombre. Una tool **nativa** (`origin === "native"`) nunca es
+   * sobrescribible (EGO-FIND-49).
+   */
   overrideExisting?: boolean;
   defaultRiskLevel?: ToolRiskLevel;
+}
+
+/**
+ * Decisión tomada sobre una tool importada de un servidor MCP.
+ */
+export type McpToolImportAction =
+  | "registered"
+  | "skipped_native_protected"
+  | "skipped_override_not_allowed"
+  | "overridden";
+
+/**
+ * Traza auditable de una importación de tools MCP.
+ */
+export interface McpToolImportDecision {
+  /** Nombre final en el ToolRegistry (con prefijo). */
+  readonly toolName: string;
+  /** Tool tal y como la expone el servidor (sin prefijo). */
+  readonly serverToolName: string;
+  /** Decisión adoptada. */
+  readonly action: McpToolImportAction;
+  /** Motivo legible. */
+  readonly reason: string;
+  /** `origin` de la tool preexistente, si la había. */
+  readonly existingOrigin?: string;
+  /** Identificador del servidor que poseía la tool preexistente, si la había. */
+  readonly existingServerId?: string;
+  /** Identificador del servidor que impone la tool. */
+  readonly serverId: string;
+}
+
+/**
+ * Resultado detallado de una importación de tools MCP.
+ */
+export interface McpToolImportResult {
+  /** Número de tools efectivamente registradas. */
+  readonly registered: number;
+  /** Una entrada por tool del servidor (registrada, omitida o sobrescrita). */
+  readonly decisions: McpToolImportDecision[];
 }
 
 /** Cabeceras que NUNCA viajan en config en claro (secretos → env/vault). */
@@ -249,6 +331,29 @@ export function assertSafeMcpHttpUrl(config: McpServerConfig): URL {
         );
       }
     }
+  }
+  return parsed;
+}
+
+/**
+ * Variante **async** de `assertSafeMcpHttpUrl` que ADEMÁS resuelve DNS.
+ *
+ * T13 (A5-09): la comprobación léxica no detecta DNS rebinding (un host
+ * público que resuelve a `127.0.0.1`). Esta variante resuelve el host y
+ * bloquea si alguna de sus direcciones cae en un rango privado/especial.
+ *
+ * Es la que deben usar los paths de red reales (`McpClient.connect` con
+ * `streamable-http`, `McpManager.registerServer`).
+ */
+export async function assertSafeMcpHttpUrlAsync(config: McpServerConfig): Promise<URL> {
+  const parsed = assertSafeMcpHttpUrl(config);
+  const verdict = await NetPolicy.validateUrlWithDns(parsed.toString());
+  if (!verdict.safe) {
+    throw new Error(
+      `[McpHttp] servidor "${config.id}": URL bloqueada por SSRF policy con resolución DNS (${
+        verdict.reason ?? "host no permitido"
+      }).`
+    );
   }
   return parsed;
 }

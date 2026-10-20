@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import type { ToolRegistry, ToolDefinition, ToolRiskLevel } from "@ego/tools";
 import { jsonSchemaToZod } from "./schema-bridge.js";
 import { verifyServerSignature } from "./signature.js";
+import { buildMcpChildEnv, resolveSecretMarkers, type SecretResolver } from "./SecretProxy.js";
 import type {
   JsonRpcNotification,
   JsonRpcRequest,
@@ -13,9 +14,11 @@ import type {
   McpInitializeResult,
   McpListToolsResult,
   McpServerConfig,
-  McpToolDefinition
+  McpToolDefinition,
+  McpToolImportDecision,
+  McpToolImportResult,
 } from "./types.js";
-import { assertSafeMcpHttpUrl } from "./types.js";
+import { assertSafeMcpHttpUrl, assertSafeMcpHttpUrlAsync } from "./types.js";
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -68,6 +71,24 @@ function assertSafeSpawnConfig(config: McpServerConfig): void {
 }
 
 /**
+ * Opciones de construcción del cliente MCP.
+ */
+export interface McpClientOptions {
+  /**
+   * Resolver de secretos (Decisión D2). En producción lo implementa
+   * `CredentialManager` de `@ego/security` (keychain del SO). Sin resolver,
+   * los marcadores `{{SECRET:<clave>}}` viajan sin resolver (fail-closed:
+   * el servidor recibe un marcador, nunca el token).
+   */
+  secretResolver?: SecretResolver;
+  /**
+   * Variables de entorno extra permitidas en el subproceso (además de la
+   * allowlist estándar de `sanitizeProcessEnv`).
+   */
+  extraAllowedEnv?: ReadonlySet<string>;
+}
+
+/**
  * McpClient — Cliente universal MCP de nivel de producción sobre transporte stdio (ACT-09).
  *
  * Implementa:
@@ -75,6 +96,8 @@ function assertSafeSpawnConfig(config: McpServerConfig): void {
  * - Compuerta HERM-18: Despacho directo de herramientas del sistema sin turnos de modelo.
  * - Compuerta COUC-10: SafeConfigMutation y recarga atómica con rollback transaccional.
  * - Mapeo dinámico y registro seguro en ToolRegistry de Ego.
+ * - Decisión D2 (EGO-FIND-33): proxy de secretos — el subproceso recibe
+ *   marcadores `{{SECRET:<clave>}}` y el cliente resuelve el valor real.
  */
 export class McpClient extends EventEmitter {
   private config: McpServerConfig;
@@ -88,10 +111,14 @@ export class McpClient extends EventEmitter {
   private cachedTools: McpToolDefinition[] = [];
   /** Sesión streamable-http (`Mcp-Session-Id` del servidor, si la emite). */
   private httpSessionId?: string;
+  private readonly secretResolver?: SecretResolver;
+  private readonly extraAllowedEnv?: ReadonlySet<string>;
 
-  constructor(config: McpServerConfig) {
+  constructor(config: McpServerConfig, options: McpClientOptions = {}) {
     super();
     this.config = { ...config };
+    this.secretResolver = options.secretResolver;
+    this.extraAllowedEnv = options.extraAllowedEnv;
   }
 
   public getStatus(): McpClientStatus {
@@ -136,7 +163,8 @@ export class McpClient extends EventEmitter {
       if (this.isHttpTransport()) {
         // Fail-closed antes de cualquier red (D2): https-only + sin
         // loopback/RFC1918/link-local/metadata + sin credenciales en URL.
-        assertSafeMcpHttpUrl(this.config);
+        // T13: la comprobación incluye RESOLUCIÓN DNS (anti DNS-rebinding).
+        await assertSafeMcpHttpUrlAsync(this.config);
       } else {
         this.spawnProcess();
       }
@@ -268,26 +296,90 @@ export class McpClient extends EventEmitter {
    * (HITL obligatorio aunque la herramienta sea "safe"). `overrideExisting`
    * se audita con warn explícito por herramienta sobrescrita, nunca en
    * silencio.
+   *
+   * EGO-FIND-49 (Ola 1b T1) — **toma de control de tools**:
+   * - Una tool con `origin === "native"` **NUNCA** puede ser sobrescrita por
+   *   un servidor MCP, ni siquiera con `overrideExisting: true`. Un servidor
+   *   de terceros que se approprie de `fs_read_file` o `terminal_exec` haría
+   *   que el agente ejecutase código del servidor creyendo que es la tool de
+   *   Ego.
+   * - El override de una tool **de servidor** exige `overrideExisting: true`
+   *   (que el `McpManager` traduce al `allowOverride` explícito por servidor).
+   *
+   * Devuelve el número de tools registradas (firma estable). Para la traza
+   * auditable usa `importIntoRegistryDetailed`.
    */
   public importIntoRegistry(
     registry: ToolRegistry,
     options: McpImportOptions = {}
   ): number {
+    return this.importIntoRegistryDetailed(registry, options).registered;
+  }
+
+  /**
+   * Igual que `importIntoRegistry`, pero devuelve la **traza auditable** de
+   * cada tool del servidor: registrada, omitida (tool nativa protegida u
+   * override no permitido) o sobrescrita.
+   */
+  public importIntoRegistryDetailed(
+    registry: ToolRegistry,
+    options: McpImportOptions = {}
+  ): McpToolImportResult {
     const prefix = options.prefix ?? this.config.toolPrefix;
     const allowOverride = options.overrideExisting === true;
     const unsigned = !this.isSignedServer();
     let registeredCount = 0;
+    const decisions: McpToolImportDecision[] = [];
 
     for (const mcpTool of this.cachedTools) {
       const toolName = prefix ? `${prefix}_${mcpTool.name}` : mcpTool.name;
 
-      if (!allowOverride && registry.has(toolName)) {
-        continue;
-      }
+      const existing = registry.get(toolName);
+      if (existing) {
+        // VETO ABSOLUTO: una tool nativa de Ego no es redefinible desde un
+        // servidor MCP (takeover de tool).
+        if (existing.origin === "native") {
+          decisions.push({
+            toolName,
+            serverToolName: mcpTool.name,
+            action: "skipped_native_protected",
+            reason:
+              `La tool nativa '${toolName}' está protegida: un servidor MCP no puede sustituir su implementación.`,
+            existingOrigin: existing.origin,
+            existingServerId: existing.mcpServerId,
+            serverId: this.config.id,
+          });
+          continue;
+        }
 
-      if (allowOverride && registry.has(toolName)) {
+        if (!allowOverride) {
+          decisions.push({
+            toolName,
+            serverToolName: mcpTool.name,
+            action: "skipped_override_not_allowed",
+            reason:
+              `La tool '${toolName}' ya está registrada por '${existing.mcpServerId ?? "otro servidor"}' ` +
+              `y este servidor no tiene 'allowOverride'.`,
+            existingOrigin: existing.origin,
+            existingServerId: existing.mcpServerId,
+            serverId: this.config.id,
+          });
+          continue;
+        }
+
+        // Override EXPLÍCITO de una tool de servidor → queda auditado.
+        decisions.push({
+          toolName,
+          serverToolName: mcpTool.name,
+          action: "overridden",
+          reason:
+            `El servidor '${this.config.id}' sobrescribe la tool '${toolName}' ` +
+            `registrada por '${existing.mcpServerId ?? "otro servidor"}' (allowOverride explícito).`,
+          existingOrigin: existing.origin,
+          serverId: this.config.id,
+        });
         console.warn(
-          `[McpClient] overrideExisting:true — sobrescribiendo herramienta "${toolName}" del servidor MCP "${this.config.id}". Revisar auditoría: el reemplazo puede cambiar comportamiento aprobado.`
+          `[McpClient] overrideExisting:true — sobrescribiendo herramienta "${toolName}" del servidor MCP "${this.config.id}".`
         );
       }
 
@@ -329,22 +421,39 @@ export class McpClient extends EventEmitter {
         }
       };
 
-      registry.register(toolDef, { allowOverride });
+      registry.register(toolDef, { allowOverride: true });
       registeredCount++;
+
+      if (!existing) {
+        decisions.push({
+          toolName,
+          serverToolName: mcpTool.name,
+          action: "registered",
+          reason: `Tool '${toolName}' registrada desde el servidor MCP '${this.config.id}'.`,
+          serverId: this.config.id,
+        });
+      }
     }
 
-    return registeredCount;
+    return { registered: registeredCount, decisions };
   }
 
   // --- MÉTODOS PRIVADOS DE INFRAESTRUCTURA Y PROTOCOLO ---
 
   private spawnProcess(): void {
     assertSafeSpawnConfig(this.config);
-    const { command, args = [], cwd, env } = this.config;
+    const { command, args = [], cwd } = this.config;
+
+    // EGO-FIND-33 / D2: env allowlist + marcadores de secreto (el subproceso
+    // nunca ve el token real salvo excepción registrada `secretDelivery:"env"`).
+    const childEnv = buildMcpChildEnv(this.config, {
+      baseEnv: process.env,
+      extraAllowedEnv: this.extraAllowedEnv,
+    });
 
     this.process = spawn(command, args, {
       cwd,
-      env: { ...process.env, ...env },
+      env: childEnv,
       stdio: ["pipe", "pipe", "pipe"]
     });
 
@@ -402,10 +511,22 @@ export class McpClient extends EventEmitter {
 
   private handleJsonRpcMessage(msg: unknown): void {
     if (!msg || typeof msg !== "object") return;
+    const record = msg as Record<string, unknown>;
+
+    // Petición servidor → cliente (tiene `id` Y `method`). Antes se descartaba
+    // en silencio; ahora se enruta, se resuelven sus marcadores de secreto y
+    // se responde (D2). Es el canal por el que un servidor MCP pide un valor
+    // al cliente sin que el token salga de main.
+    const hasId = "id" in record && record["id"] !== undefined && record["id"] !== null;
+    const hasMethod = typeof record["method"] === "string";
+    if (hasId && hasMethod) {
+      void this.handleServerRequest(msg as JsonRpcRequest);
+      return;
+    }
 
     const response = msg as JsonRpcResponse;
 
-    if ("id" in response && response.id !== undefined && response.id !== null) {
+    if (hasId) {
       const pending = this.pendingRequests.get(response.id);
       if (pending) {
         clearTimeout(pending.timer);
@@ -422,6 +543,84 @@ export class McpClient extends EventEmitter {
     } else if ("method" in (msg as JsonRpcNotification)) {
       const notif = msg as JsonRpcNotification;
       this.emit("notification", notif);
+    }
+  }
+
+  /**
+   * Gestiona una petición JSON-RPC del servidor al cliente.
+   *
+   * - Resuelve los marcadores `{{SECRET:<clave>}}` de los params (D2): el
+   *   servidor puede pedir un valor usando el marcador que recibió en su env
+   *   sin que la credencial viaje dentro de su proceso.
+   * - Delega en listeners `serverRequest` registrados por la app.
+   * - Si no hay listener, responde con error JSON-RPC (fail-closed: el
+   *   servidor no se queda colgado esperando).
+   */
+  private async handleServerRequest(request: JsonRpcRequest): Promise<void> {
+    const method = request.method;
+    const resolvedParams = this.secretResolver
+      ? await resolveSecretMarkers(request.params, this.secretResolver)
+      : request.params;
+
+    if (this.listenerCount("serverRequest") > 0) {
+      try {
+        const result = await this.emitAsync("serverRequest", {
+          method,
+          params: resolvedParams,
+        });
+        this.respondToServerRequest(request.id, result ?? {});
+        return;
+      } catch (err: unknown) {
+        console.warn(
+          `[McpClient] Listener de 'serverRequest' falló para '${method}': ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      }
+    }
+
+    this.respondToServerRequest(request.id, undefined, {
+      code: -32601,
+      message: `Método '${method}' no soportado por el cliente MCP de Ego.`,
+    });
+  }
+
+  /**
+   * Emite un evento y devuelve la primera respuesta (soporta listeners async).
+   * `EventEmitter.emit` es síncrono; esta envoltura es awaitable.
+   */
+  private async emitAsync(event: string, payload: unknown): Promise<unknown> {
+    const listeners = this.listeners(event);
+    for (const listener of listeners) {
+      const outcome = (listener as (arg: unknown) => unknown)(payload);
+      if (outcome instanceof Promise) {
+        return await outcome;
+      }
+      return outcome;
+    }
+    return undefined;
+  }
+
+  /**
+   * Escribe una respuesta JSON-RPC al servidor.
+   */
+  private respondToServerRequest(
+    id: string | number,
+    result?: unknown,
+    error?: { code: number; message: string }
+  ): void {
+    if (!this.process || !this.process.stdin) return;
+    const payload: JsonRpcResponse = error
+      ? { jsonrpc: "2.0", id, error }
+      : { jsonrpc: "2.0", id, result: result ?? {} };
+    try {
+      this.process.stdin.write(JSON.stringify(payload) + "\n");
+    } catch (err: unknown) {
+      console.warn(
+        `[McpClient] No se pudo enviar la respuesta a la petición del servidor (id=${id}): ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
     }
   }
 
@@ -533,11 +732,17 @@ export class McpClient extends EventEmitter {
     }
 
     const id = ++this.requestId;
+    // D2: los marcadores `{{SECRET:<clave>}}` se resuelven ANTES de salir
+    // hacia el servidor. Sin resolver, el marcador viaja intacto (fail-closed:
+    // el servidor recibe un marcador, nunca una credencial inventada).
+    const resolvedParams = this.secretResolver
+      ? await resolveSecretMarkers(params, this.secretResolver)
+      : params;
     const requestPayload: JsonRpcRequest = {
       jsonrpc: "2.0",
       id,
       method,
-      params
+      params: resolvedParams
     };
 
     const timeoutMs = this.config.timeoutMs ?? 30000;
