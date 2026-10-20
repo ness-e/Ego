@@ -54,8 +54,8 @@ describe("COUC-02: EventIngress No Bloqueante por Defecto", () => {
 
     expect(result.status).toBe("resolved");
     expect(result.isInteractive).toBe(true);
-    expect((result.decision as any)?.approved).toBe(true);
-    expect((result.decision as any)?.decision).toBe("allow");
+    expect((result.decision as unknown)?.approved).toBe(true);
+    expect((result.decision as unknown)?.decision).toBe("allow");
     expect(ingress.getPendingInteractiveCount()).toBe(0);
   });
 
@@ -68,8 +68,8 @@ describe("COUC-02: EventIngress No Bloqueante por Defecto", () => {
 
     expect(result.status).toBe("timed_out");
     expect(result.isInteractive).toBe(true);
-    expect((result.decision as any)?.approved).toBe(false);
-    expect((result.decision as any)?.decision).toBe("ask");
+    expect((result.decision as unknown)?.approved).toBe(false);
+    expect((result.decision as unknown)?.decision).toBe("ask");
     expect(ingress.getPendingInteractiveCount()).toBe(0);
   });
 

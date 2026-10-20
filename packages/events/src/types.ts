@@ -156,6 +156,10 @@ export interface CanonicalEventPayloadMap {
  * default a `unknown` rompería la contravarianza de todos los suscriptores existentes.
  */
 export type EventHandler<T = any> = (event: EgoEvent<T>) => void | Promise<void>;
+// AGENTS.md §4 (justificación de `any`): el default `any` es deliberado y
+// está documentado arriba — cambiarlo a `unknown` rompería la contravarianza
+// de los suscriptores existentes. La vía tipada es `on<K>()` con
+// `CanonicalEventPayloadMap`.
 
 /**
  * Suscripción descartable retornada al escuchar un evento.
