@@ -4,7 +4,7 @@
 // Sin main no hay request que aprobar → skip honesto, cero test falso.
 import { test } from "../fixtures/base.js";
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("HITL: acción sensible muestra ApprovalCard y bloquea hasta resolver", async () => {
     // Exige backend Electron real: pipeline de aprobaciones del main
     // (`daily.listApprovals` + HITL con ACK). Sin main no se puede

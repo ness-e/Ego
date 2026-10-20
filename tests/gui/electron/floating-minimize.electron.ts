@@ -1,18 +1,21 @@
 // E2E Electron — minimize nativo → flotante (D2) + restore + HITL.
 //
 // Cierre E4 de T-isla-11-e2e (INCOMPLETO reanudable): la cadena completa a
-// nivel integración vive en vitest (`tests/e2e/floating-minimize.test.ts`,
-// 10/10 PASS con BackgroundEngine real + electron mockeado). Este spec ejerce
-// lo que el Electron REAL permite desde fuera, sin hooks de producto:
+// nivel integración vive en vitest (`tests/e2e/floating-minimize.test.ts`)
+// con BackgroundEngine real + electron mockeado. Este spec ejerce lo que el
+// Electron REAL permite desde fuera, sin hooks de producto:
 //
-// - Leg negativo (EJECUTABLE headed): minimize nativo SIN trabajo → minimize
-//   normal, NO aparece flotante (`main.ts:3355-3388`: `shouldAutoShow` false).
-// - Leg positivo (SKIP con precondición): minimize CON trabajo/HITL → flotante
-//   visible → click restaura → HITL resuelve. Requiere semilla de trabajo real
-//   (hook inexistente: preload `tasks` expone solo list/cancel, sin submit;
-//   `terminal.spawn` no alimenta `backgroundEngine`; restore real = click de
-//   tray OS-level no sintetizable por Playwright). Si el owner expone siembra
-//   (p.ej. `EGO_E2E_SEED_TASK`), el cuerpo ya está escrito: quitar el skip.
+// - Contrato ACTUAL (commit `d50a050`, "auto-show interactive companion
+//   island on minimize"): al minimizar la ventana principal, la isla flotante
+//   APARECE siempre que no esté muted/disabled y `presenceMode !== "never"`.
+//   Al restaurar (o enfocar) la principal con 0 tareas y 0 HITL pendientes,
+//   la isla se AUTO-OCULTA. El contrato anterior (`shouldAutoShow` gate:
+//   "sin trabajo no aparece") quedó derogado por ese commit.
+// - Leg positivo con HITL (SKIP con precondición): minimize CON HITL
+//   pendiente → tarjeta de aprobación visible en la isla → click resuelve.
+//   Requiere semilla real (hook inexistente: preload `tasks` expone solo
+//   list/cancel). Si el owner expone siembra (p.ej. `EGO_E2E_SEED_TASK`), el
+//   cuerpo ya está escrito: quitar el skip.
 //
 // Sufijo `*.electron.ts` (NO `*.spec.ts`): ver `shell.electron.ts:11-14`.
 // Sin flags inseguros (`--no-sandbox` y similares PROHIBIDOS).
@@ -54,6 +57,7 @@ interface ElectronMinimizeApi {
       focus: () => void;
       getSize: () => [number, number];
       isFrameless?: () => boolean;
+      webContents: { getURL: () => string };
     }>;
   };
   dialog: {
@@ -61,6 +65,38 @@ interface ElectronMinimizeApi {
     showSaveDialog: (...args: never[]) => Promise<unknown>;
     showMessageBox: (...args: never[]) => Promise<unknown>;
   };
+}
+
+/** Instantánea de ventanas: distingue la principal de la isla por su URL. */
+interface WindowSnapshot {
+  total: number;
+  mainMinimized: boolean;
+  mainVisible: boolean;
+  islandVisible: boolean;
+}
+
+async function snapshotWindows(electronApp: {
+  evaluate: (fn: (api: unknown) => unknown) => Promise<unknown>;
+}): Promise<WindowSnapshot> {
+  return (await electronApp.evaluate(async (api: unknown) => {
+    const { BrowserWindow } = api as ElectronMinimizeApi;
+    const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
+    const isIsland = (w: { webContents: { getURL: () => string } }): boolean => {
+      try {
+        return w.webContents.getURL().includes("floating");
+      } catch {
+        return false;
+      }
+    };
+    const main = wins.find((w) => !isIsland(w)) ?? wins[0];
+    const islands = wins.filter((w) => isIsland(w));
+    return {
+      total: wins.length,
+      mainMinimized: main?.isMinimized() ?? false,
+      mainVisible: main?.isVisible() ?? false,
+      islandVisible: islands.some((w) => w.isVisible()),
+    };
+  })) as WindowSnapshot;
 }
 
 // Fixture: guards idénticos a `shell.electron.ts:53-62` + launch aislado
@@ -114,15 +150,14 @@ async function launchIsolated() {
   };
 }
 
-test("electron minimize sin trabajo: minimize normal, sin flotante (D2 negativo)", async () => {
+test("electron minimize sin trabajo: aparece la isla y se auto-oculta al restaurar (d50a050)", async () => {
   await using ctx = await launchIsolated();
   const { electronApp, mainPage } = ctx;
 
   // Sanidad: shell pinta antes de minimizar.
   await expect(mainPage.getByText("Ego", { exact: true }).first()).toBeVisible();
 
-  // 1. Minimize NATIVO desde el proceso main (sin trabajo semilla:
-  // `floatingSnapshot()` = {active:0, hitl:0} → `shouldAutoShow` false).
+  // 1. Minimize NATIVO desde el proceso main.
   await electronApp.evaluate(async (api: unknown) => {
     const { BrowserWindow } = api as ElectronMinimizeApi;
     const main = BrowserWindow.getAllWindows()[0];
@@ -130,35 +165,33 @@ test("electron minimize sin trabajo: minimize normal, sin flotante (D2 negativo)
     main.minimize();
   });
 
-  // 2. La principal queda minimizada…
+  // 2. La principal queda minimizada Y la isla aparece (contrato d50a050:
+  //    autoshow al minimizar salvo muted/disabled/presenceMode="never").
   await expect
-    .poll(
-      () =>
-        electronApp.evaluate(async (api: unknown) => {
-          const { BrowserWindow } = api as ElectronMinimizeApi;
-          const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
-          return { count: wins.length, minimized: wins[0]?.isMinimized() ?? null };
-        }),
-      { timeout: 10_000 },
-    )
-    .toMatchObject({ count: 1, minimized: true });
+    .poll(() => snapshotWindows(electronApp), { timeout: 20_000 })
+    .toMatchObject({ mainMinimized: true, islandVisible: true });
 
-  // 3. …y NO aparece ventana flotante (minimize normal, D2 `main.ts:3355-3388`).
-  const windowCount = await electronApp.evaluate(async (api: unknown) => {
-    const { BrowserWindow } = api as ElectronMinimizeApi;
-    return BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).length;
-  });
-  expect(windowCount).toBe(1);
+  // 3. La isla monta su raíz real (`#floating-root` → React `FloatingApp`).
+  const floatingPages = electronApp.windows().slice(1);
+  expect(floatingPages.length).toBeGreaterThanOrEqual(1);
+  await expect(floatingPages[0].locator("#floating-root").first()).toBeVisible({ timeout: 15_000 });
 
-  // 4. Restore para dejar la app en estado sano antes del `close()` del fixture.
+  // 4. Restore de la principal → auto-ocultado de la isla (snap.active===0
+  //    && snap.hitl===0 → `onMainRestoreOrFocus` → hide + attentionState hidden).
   await electronApp.evaluate(async (api: unknown) => {
     const { BrowserWindow } = api as ElectronMinimizeApi;
     const main = BrowserWindow.getAllWindows()[0];
-    if (main && !main.isDestroyed() && main.isMinimized()) {
+    if (main && !main.isDestroyed()) {
       main.restore();
       main.show();
+      main.focus();
     }
   });
+
+  await expect
+    .poll(() => snapshotWindows(electronApp), { timeout: 20_000 })
+    .toMatchObject({ mainVisible: true, islandVisible: false });
+
   await expect(mainPage.getByText("Ego", { exact: true }).first()).toBeVisible();
 });
 
@@ -170,9 +203,11 @@ test("electron minimize con trabajo: flotante visible → click restaura → HIT
 
   // Precondición: trabajo real semilla (task activa o HITL pendiente).
   // Sin hook de siembra en producto (preload `tasks` = list/cancel; restore =
-  // tray-click OS-level) no hay forma honesta de forzar `shouldAutoShow` true
-  // desde fuera → skip documentado, NO fail. Cadena cubierta por vitest
-  // `tests/e2e/floating-minimize.test.ts` (10/10 PASS). Para habilitar:
+  // tray-click OS-level) no hay forma honesta de sembrar HITL desde fuera →
+  // skip documentado, NO fail. La aparición de la isla al minimizar ya NO
+  // depende de trabajo (contrato d50a050) y la cubre el test anterior; lo que
+  // falta aquí es la LEG DE APROBACIÓN (tarjeta + resolución). Cadena
+  // cubierta por vitest `tests/e2e/floating-minimize.test.ts`. Para habilitar:
   // exponer siembra (p.ej. `EGO_E2E_SEED_TASK`) y quitar este skip.
   const seed = await mainPage.evaluate(async () => {
     const ego = (window as unknown as { ego?: { tasks?: { list: (r?: unknown) => Promise<{ active?: unknown[]; paused?: unknown[] }> } } }).ego;
@@ -189,8 +224,8 @@ test("electron minimize con trabajo: flotante visible → click restaura → HIT
   test.skip(
     seed.active === 0 && seed.hitl === 0,
     `sin trabajo semilla (active=${seed.active} hitl=${seed.hitl}): ` +
-      `el autoshow D2 exige task activa o HITL pendiente y no hay hook de siembra ` +
-      `(ver cabecera del spec; cadena cubierta en vitest floating-minimize 10/10)`,
+      `la leg de aprobación HITL necesita una HITL pendiente real y no hay hook ` +
+      `de siembra (ver cabecera del spec; cadena cubierta en vitest floating-minimize)`,
   );
 
   // --- Cuerpo con semilla (hoy inalcanzable sin hook; se ejecuta si el owner siembra) ---
@@ -200,16 +235,8 @@ test("electron minimize con trabajo: flotante visible → click restaura → HIT
     BrowserWindow.getAllWindows()[0]?.minimize();
   });
   await expect
-    .poll(
-      () =>
-        electronApp.evaluate(async (api: unknown) => {
-          const { BrowserWindow } = api as ElectronMinimizeApi;
-          const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
-          return { count: wins.length, anyVisible: wins.some((w) => w.isVisible()) };
-        }),
-      { timeout: 15_000 },
-    )
-    .toMatchObject({ count: 2, anyVisible: true });
+    .poll(() => snapshotWindows(electronApp), { timeout: 20_000 })
+    .toMatchObject({ islandVisible: true });
 
   // 2. Flotante visible: segunda ventana (frameless 180x180) con contenido
   // (`floating.html` mount points `#floating-root/#approval-card`).

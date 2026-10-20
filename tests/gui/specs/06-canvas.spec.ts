@@ -18,7 +18,7 @@ test("canvas-shell: workspace monta y cambia a canvas sin consola roja", async (
   expect(errors, `consola roja en canvas: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("canvas: JSON→editar→reinicio rehidrata intacto", async () => {
     // Exige backend Electron real: persistencia del canvas en VantaDB vía
     // main + relaunch de la app. Sin main no hay reinicio que asertar.

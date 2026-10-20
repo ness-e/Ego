@@ -27,7 +27,7 @@ test("tray-extras: navegar workspace no rompe lazy chunks (mermaid/virtua)", asy
   expect(errors, `consola roja en extras: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo o shell nativo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("tray: icono refleja estado (colores) y menú responde", async () => {
     // Exige backend Electron real: el tray es shell NATIVO (fuera del
     // DOM, sin ventana). Playwright contra el renderer no puede verlo.

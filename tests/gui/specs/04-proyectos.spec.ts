@@ -11,7 +11,7 @@ test("proyectos-shell: sidebar monta sin consola roja", async ({ page }) => {
   expect(errors, `consola roja en proyectos: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("proyectos: selectFolder abre diálogo nativo y persiste tras reinicio", async () => {
     // Exige backend Electron real: `selectFolder` es diálogo nativo del
     // shell (no DOM) y la persistencia vive en main+VantaDB (`T14`:

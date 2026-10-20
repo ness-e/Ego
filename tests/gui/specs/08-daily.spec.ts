@@ -20,7 +20,7 @@ test("daily-shell: pestaña daily abre panel sin consola roja", async ({
   expect(errors, `consola roja en daily: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("daily: primer inicio del día abre en Daily State", async () => {
     // Exige backend Electron real: `daily.isFirstLaunch()` del main
     // (COUC-06). Sin bridge el fallback a canvas es el comportamiento

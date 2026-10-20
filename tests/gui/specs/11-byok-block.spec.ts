@@ -5,7 +5,7 @@
 // bloqueo BYOK que asertar → skip honesto, cero test falso.
 import { test } from "../fixtures/base.js";
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("BYOK: sin keys el modelo remoto se bloquea con mensaje honesto", async () => {
     // Exige backend Electron real: Credential Manager + pool por
     // proveedor (T21) + ModelRouter del main. En browser pelado no hay

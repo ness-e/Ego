@@ -15,7 +15,7 @@ test("subegos-shell: selector visible sin consola roja", async ({ page }) => {
   expect(errors, `consola roja en sub-egos: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("sub-egos: delegación real ejecuta y comparte memoria", async () => {
     // Exige backend Electron real: Sub-Ego runtime + memoria compartida
     // del main. Sin main solo hay defaults locales, no delegación.

@@ -22,7 +22,7 @@ test("omnibar: Ctrl+K abre búsqueda federada y enfoca el combobox", async ({
   expect(errors, `consola roja en omnibar: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("omnibar: buscar devuelve hits VantaDB y @/ menciona entidades", async () => {
     // Exige backend Electron real: `memory.searchMulti` del main vía
     // `window.ego`. Sin bridge el omnibar devuelve `[]` por diseño.

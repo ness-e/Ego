@@ -67,6 +67,12 @@ function dailySummary(
     p99LatencyMs: 0,
     recentDecisions: [],
     suggestedGoals: [],
+    // Defaults del esquema (EGO-FIND-52, A3): `partial`/`sourcesUnavailable`
+    // son obligatorios en el tipo de SALIDA de `DailyStateSummary` (Zod
+    // `.default()`); sin fijarlos aquí el spread de `overrides` los deja en
+    // `boolean | undefined` y el objeto no satisface el tipo.
+    partial: false,
+    sourcesUnavailable: [],
     ...overrides,
   };
 }

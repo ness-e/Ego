@@ -50,6 +50,12 @@ vi.mock("../../apps/desktop/node_modules/electron", () => {
     setIgnoreMouseEvents: vi.fn(),
     getSize: vi.fn(() => [180, 180]),
     setPosition: vi.fn(),
+    // T2 (EGO-FIND-19): `setBounds`/`setSize` permiten verificar el resize
+    // por `attentionState` COMO COMPORTAMIENTO (no leyendo texto de fuente):
+    // `FloatingWindowView.resizeForState` elige 240x240 (compact) vs
+    // 720x300 (expanded/hitl_approval/alert).
+    setBounds: vi.fn(),
+    setSize: vi.fn(),
     webContents,
   };
   return {
@@ -73,7 +79,6 @@ vi.mock("../../apps/desktop/node_modules/electron", () => {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
-const desktopSrc = join(repoRoot, "apps", "desktop", "src");
 const floatingDir = join(repoRoot, "apps", "desktop", "renderer", "floating");
 const read = (p: string): string => readFileSync(p, "utf-8");
 
@@ -274,62 +279,135 @@ describe("E2E isla flotante — minimize → flotante → restore → HITL (Task
   });
 });
 
-describe("E2E isla flotante — checklist estático Task11 (wiring/a11y/perf/packaging)", () => {
-  it("wiring main.ts: minimize→autoshow→track + screen-changed→reposition (límite Wayland doc)", () => {
-    const mainSrc = read(join(desktopSrc, "main.ts"));
-    expect(mainSrc).toContain('win.on("minimize"');
-    expect(mainSrc).toContain("shouldAutoShow(floatingSnapshot())");
-    expect(mainSrc).toContain("ensureFloatMgr().show()");
-    expect(mainSrc).toContain("trackFloatingWindow");
-    expect(mainSrc).toContain("display-metrics-changed");
-    expect(mainSrc).toContain("repositionToDisplay");
-    expect(mainSrc).toContain("Wayland");
+// T2 (EGO-FIND-19): este bloque dejó de ser "checklist estático" (asserts
+// `expect(fuente).toContain(...)` sobre `main.ts` y `floating.html`).
+// Esos asserts eran tautológicos: fallaban con refactors que NO cambiaban
+// comportamiento y pasaban con código roto. La cobertura real vive ahora en:
+//
+//   1. `describe("comportamiento de la ventana flotante")` → ejecuta el
+//      `FloatingWindowManager` REAL (con `electron` mockeado) y verifica
+//      transiciones de estado, click-through, resize y broadcast al renderer.
+//   2. `describe("contrato de packaging")` → verifica el ARTEFACTO real
+//      (`floating.html` + la entrada MPA de electron-vite).
+//   3. `tests/e2e/contract/floating-wiring.contract.test.ts` → lint-test
+//      AISLADO y etiquetado que comprueba el wiring de `main.ts` (no puede
+//      ejercitarse sin arrancar Electron: `main.ts` es un entry con efectos).
+//   4. `tests/gui/specs/floating-island.spec.ts` → DOM REAL en navegador
+//      (`#ticker`, `#approval-card`, `#countdown`).
+describe("E2E isla flotante — comportamiento de la ventana flotante", () => {
+  it("estado: hidden→compact→hidden con show()/hide()/updateState() reales", () => {
+    const mgr = new FloatingWindowManager();
+    expect(mgr.getState()).toMatchObject({
+      visible: false,
+      attentionState: "hidden",
+      muted: false,
+      disabled: false,
+    });
+
+    mgr.show();
+    expect(mgr.getState().visible).toBe(true);
+    // `show()` usa `showInactive()`: la isla NO roba el foco de la principal.
+    const win = mgr.getFloatingWindow();
+    expect(win).not.toBeNull();
+    expect((win as unknown as { showInactive: ReturnType<typeof vi.fn> }).showInactive).toHaveBeenCalled();
+
+    mgr.updateState({ attentionState: "compact" });
+    expect(mgr.getState().attentionState).toBe("compact");
+
+    mgr.hide();
+    expect(mgr.getState().visible).toBe(false);
+    mgr.destroy();
   });
 
-  it("packaging: electron-vite emite floating.html (MPA) y el bundle existe en fuente", () => {
+  it("seguridad: click-through en hidden/muted y captura del ratón en hitl_approval", () => {
+    const mgr = new FloatingWindowManager();
+    mgr.show();
+    const setIgnore = (mgr.getFloatingWindow() as unknown as {
+      setIgnoreMouseEvents: ReturnType<typeof vi.fn>;
+    }).setIgnoreMouseEvents;
+
+    // hidden → la isla deja pasar el ratón al escritorio (forward: true).
+    setIgnore.mockClear();
+    mgr.updateState({ attentionState: "hidden" });
+    expect(setIgnore).toHaveBeenCalledWith(true, { forward: true });
+
+    // hitl_approval → la isla DEBE ser interactiva (el usuario aprueba/deniega).
+    setIgnore.mockClear();
+    mgr.updateState({ attentionState: "hitl_approval" });
+    expect(setIgnore).toHaveBeenCalledWith(false);
+
+    // muted → vuelve a click-through aunque el estado sea compacto.
+    setIgnore.mockClear();
+    mgr.updateState({ attentionState: "compact" });
+    mgr.setMuted(true);
+    expect(setIgnore).toHaveBeenCalledWith(true, { forward: true });
+    mgr.destroy();
+  });
+
+  it("perf: la isla se redimensiona por attentionState (240x240 compacto vs 720x300HITL)", () => {
+    const mgr = new FloatingWindowManager();
+    mgr.show();
+    const setBounds = (mgr.getFloatingWindow() as unknown as {
+      setBounds: ReturnType<typeof vi.fn>;
+    }).setBounds;
+
+    setBounds.mockClear();
+    mgr.updateState({ attentionState: "compact" });
+    expect(setBounds).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 240, height: 240 }),
+      true,
+    );
+
+    setBounds.mockClear();
+    mgr.updateState({ attentionState: "hitl_approval" });
+    expect(setBounds).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 720, height: 300 }),
+      true,
+    );
+    mgr.destroy();
+  });
+
+  it("el estado de la isla viaja al renderer por ipc.floating.state_changed", () => {
+    const mgr = new FloatingWindowManager();
+    mgr.show();
+    const send = (mgr.getFloatingWindow() as unknown as {
+      webContents: { send: ReturnType<typeof vi.fn> };
+    }).webContents.send;
+
+    send.mockClear();
+    mgr.updateState({ attentionState: "compact" });
+    expect(send).toHaveBeenCalledWith(
+      "ipc.floating.state_changed",
+      expect.objectContaining({ attentionState: "compact" }),
+    );
+    mgr.destroy();
+  });
+});
+
+describe("E2E isla flotante — contrato de packaging (artefacto real)", () => {
+  it("electron-vite declara floating.html como entrada MPA del renderer", () => {
+    // Contrato de build: sin esta entrada, `out/renderer/floating/floating.html`
+    // no se emite y la isla flotante no abre (el E2E Electron falla al cargar).
     const cfg = read(join(repoRoot, "apps", "desktop", "electron.vite.config.ts"));
-    expect(cfg).toContain("floating/floating.html");
+    expect(cfg).toMatch(/floating:\s*resolve\([\s\S]*?floating\/floating\.html/);
+    expect(cfg).toMatch(/outDir:\s*resolve\(process\.cwd\(\),\s*"out\/renderer"\)/);
+  });
+
+  it("floating.html monta #floating-root con CSP restrictivo y lang=es", () => {
     const htmlPath = join(floatingDir, "floating.html");
     expect(existsSync(htmlPath)).toBe(true);
     const html = read(htmlPath);
-    for (const id of ["floating-root", "ticker", "approval-card", "countdown"]) {
-      expect(html).toContain(`id="${id}"`);
-    }
-    expect(html).toContain("Content-Security-Policy");
-    expect(html).toContain('lang="es"');
-  });
 
-  it("a11y: reduced-motion desactiva animación + foco visible en approval + Enter idempotente", () => {
-    const avatar = read(join(floatingDir, "floating-avatar.tsx"));
-    expect(avatar).toContain("prefers-reduced-motion");
-    const bridge = read(join(floatingDir, "avatar-bridge.ts"));
-    expect(bridge).toContain("reduced-motion");
-    const views = read(join(floatingDir, "views.tsx"));
-    expect(views).toContain(".focus()");
-    expect(views).toContain("aria-pressed");
-    expect(views).toContain("Enter");
-    const floatingTsx = read(join(floatingDir, "floating.tsx"));
-    expect(floatingTsx).toContain("aria-pressed");
-  });
+    // Punto de montaje real de la isla (el que `mountFloating` busca).
+    expect(html).toContain('id="floating-root"');
+    expect(html).toMatch(/<html[^>]*lang="es"/);
 
-  it("perf: RAF detenido en hidden (0% CPU idle), sin polling 60Hz", () => {
-    const anim = read(join(floatingDir, "floating-anim.ts"));
-    expect(anim).toContain("hidden");
-    expect(anim).toContain("cancelRaf");
-    expect(anim).toMatch(/0% CPU idle|RAF stop/);
-    expect(anim).toMatch(/PROHIBIDO polling|Sin setInterval/);
-  });
-
-  it("seguridad/interacción: click-through por defecto, interactivo solo en HITL; bridge tipado", () => {
-    const mgr = read(join(repoRoot, "apps", "desktop", "src", "windows", "FloatingWindow.ts"));
-    expect(mgr).toContain("setClickThrough(true)");
-    expect(mgr).toContain("hitl_approval");
-    expect(mgr).toContain("setClickThrough(false)");
-    const preload = read(join(desktopSrc, "preload.ts"));
-    expect(preload).toContain("EgoFloatingBridge");
-    expect(preload).toContain("onState");
-    expect(preload).toContain("approve");
-    expect(preload).toContain("deny");
-    expect(preload).toContain("setMuted");
+    // CSP: sin `unsafe-eval` ni origen remoto.
+    const csp = html.match(/http-equiv="Content-Security-Policy"\s+content="([^"]+)"/);
+    expect(csp).not.toBeNull();
+    expect(csp?.[1] ?? "").toContain("default-src 'self'");
+    expect(csp?.[1] ?? "").toContain("object-src 'none'");
+    expect(csp?.[1] ?? "").not.toContain("unsafe-eval");
+    expect(csp?.[1] ?? "").not.toContain("http:");
   });
 });

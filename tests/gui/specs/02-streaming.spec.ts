@@ -14,7 +14,7 @@ test("streaming-shell: superficie de chat monta sin consola roja", async ({
   expect(errors, `consola roja en chat: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("streaming: un turno hace stream y el badge 🧠 muestra usage", async () => {
     // Exige backend Electron real: turno vía `llmStream` del main +
     // `usage.{promptTokens,completionTokens,estimatedCostUsd}` cableado a

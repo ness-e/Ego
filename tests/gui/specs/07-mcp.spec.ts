@@ -12,7 +12,7 @@ test("mcp-shell: app monta sin consola roja con la superficie MCP", async ({
   expect(errors, `consola roja en MCP: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("MCP: catálogo de skills lista servidores y respeta firma", async () => {
     // Exige backend Electron real: McpClient del main + verificación de
     // firma (T20, fail-closed). Sin main no hay catálogo real.

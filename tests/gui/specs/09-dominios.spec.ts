@@ -10,7 +10,7 @@ test("dominios-shell: selector monta sin consola roja", async ({ page }) => {
   expect(errors, `consola roja en dominios: ${errors.join("\n")}`).toEqual([]);
 });
 
-test.describe.skip("requiere backend Electron vivo", () => {
+test.describe.skip("requiere backend Electron vivo — Clase B (taxonomía docs/dev/e2e-skip-inventory.md)", () => {
   test("dominios: cada dominio muestra contenido real, nunca vacío silencioso", async () => {
     // Exige backend Electron real: el contenido por dominio lo sirve el
     // main (`domains.switch`). Sin main solo hay defaults locales.
