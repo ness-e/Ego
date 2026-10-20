@@ -3,7 +3,7 @@
 | Estado | Revisable — fuente vigente de arquitectura de Sub-Egos |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/11-10-modelo-multi-agente-departamental.md`, `../prd/24-23-departamentos-completos-de-9-a-23-agentes.md` y Decisiones P1-P10, P17, P19 2026-10-06 |
+| Fuente histórica | PRD v0 (no versionado en este repo; 2 documentos: modelo multi-agente departamental + departamentos completos) y Decisiones P1-P10, P17, P19 2026-10-06 |
 
 # Arquitectura de Sub-Egos (Agent Runtime)
 

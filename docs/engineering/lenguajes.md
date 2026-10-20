@@ -5,9 +5,9 @@
 | Estado | Revisable — fuente vigente de política de lenguajes desktop |
 | Owner | ness-e |
 | Fecha | 2026-10-05 |
-| Fuente histórica | `../prd/07-6-arquitectura-general-y-pol-tica-de-lenguajes.md` §6.2 + `investigacion-de-diseño/` (v1 §6.2/§16, v2.0 §6.2 MANTENER, v2.1 §6.2) + `../architecture/vision-general.md` + `../engineering/stack-tecnico.md` desktop |
+| Fuente histórica | PRD v0 (no versionado en este repo; arquitectura general y política de lenguajes) + `docs/research/` + `../architecture/vision-general.md` + `../engineering/stack-tecnico.md` desktop |
 | VantaDB verificado | 0.8.0 base dev; Adapter TS (`NativeVantaDB` de `"vantadb/native"` en main); subprocess `vantadb-mcp` stdio (88 tools — cifra del proyecto hermano VantaDB, no verificable desde Ego; R2 T09); ingesta Python sidecar opcional (`vantadb-py`); motor Rust in-process |
-| Regla | Este archivo se edita; `../prd/07*` queda congelado como referencia histórica |
+| Regla | Este archivo se edita; PRD v0 (no versionado en este repo) queda congelado como referencia histórica |
 | Decisión canónica | Desktop Electron + TypeScript único principal; Python sidecar opcional; TS main+preload+renderer IPC tipado |
 
 ## Propuesta P0 desktop

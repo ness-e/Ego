@@ -5,13 +5,13 @@
 | Estado | Revisable — fuente vigente curada desktop (foto Oct-2026) |
 | Owner | ness-e |
 | Fecha | 2026-10-05 |
-| Fuente histórica | `../prd/28-26-fuentes-citadas.md` (36 entradas) + `investigacion-de-diseño/` |
-| Regla | Este archivo se edita; `../prd/28*` queda congelado |
+| Fuente histórica | PRD v0 (no versionado en este repo; 36 entradas) + `docs/research/` |
+| Regla | Este archivo se edita; PRD v0 (no versionado en este repo) queda congelado |
 | Decisión 2026-10-05 | Curada foto Oct-2026 sin revalidar hoy (red bloqueada: 403/timeout/challenge/JS); reintentar en P0 |
 
 ## Primarias (contrato)
 
-VantaDB repo/PyPI/SPEC/llms (`prd/28:1-4`): https://github.com/ness-e/Vantadb · https://pypi.org/project/vantadb-py/ · https://raw.githubusercontent.com/ness-e/Vantadb/main/SPEC.md · https://raw.githubusercontent.com/ness-e/Vantadb/main/llms.txt ; Census (`:29`): https://www.census.gov ; MIT Sloan (`:32`): https://mitsloan.mit.edu . Resto de URLs en `../prd/28*` (congelado).
+VantaDB repo/PyPI/SPEC/llms (fuentes primarias del PRD v0, no versionado en este repo): https://github.com/ness-e/Vantadb · https://pypi.org/project/vantadb-py/ · https://raw.githubusercontent.com/ness-e/Vantadb/main/SPEC.md · https://raw.githubusercontent.com/ness-e/Vantadb/main/llms.txt ; Census: https://www.census.gov ; MIT Sloan: https://mitsloan.mit.edu . El resto de URLs del PRD v0 no están versionadas en este repo.
 
 ## Secundarias (contexto, no prueba)
 

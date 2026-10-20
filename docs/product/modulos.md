@@ -3,7 +3,7 @@
 | Estado | Revisable — fuente vigente de definición de módulos |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/12-11-m-dulos-funcionales.md` (congelado) + Decisiones P3-P11 2026-10-06 |
+| Fuente histórica | PRD v0 (no versionado en este repo) (congelado) + Decisiones P3-P11 2026-10-06 |
 
 ## Principio
 Los módulos **NO son secciones fijas de la aplicación ni departamentos rígidos**. Representan capacidades funcionales que Ego puede proveer. Cada capacidad es responsable de construir su propio workspace dinámicamente cuando es requerido para resolver una tarea. (Ver [Dominios funcionales](../architecture/dominios-funcionales.md)).
@@ -49,7 +49,7 @@ Los dominios restantes se irán activando bajo demanda, escalando orgánicamente
 
 | Capacidad | Dominio (Funcional) | Primitiva VantaDB Destacada |
 | --- | --- | --- |
-| Memoria / Conocimiento | Base de conocimiento | `hybrid search` (RRF), `quarantine`, `supersede`, `deduplication` |
+| Memoria / Conocimiento | Base de conocimiento | `searchMulti` BM25 léxico + re-rank MMR (sin RRF; RRF = Cognitive Path, Ola 2), `quarantine`, `supersede`, `deduplication` |
 | Contexto adaptativo | Cognición | `context_assemble` (compresión multinivel), `memory_recall` (auto-recall con scopes) |
 | Consolidación cognitiva | Cognición | `dream_consolidate` (fusión/dedup/normalización durante inactividad) |
 | Tareas resilientes | Ejecución | `task_checkpoint` (reanudación tras crash, MEMG-20) |

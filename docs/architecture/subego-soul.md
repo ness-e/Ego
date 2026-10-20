@@ -5,7 +5,7 @@
 | --- | --- |
 | Estado | Canónico — Decisión de Arquitectura P0 |
 | Owner | ness-e |
-| Módulos Clave | `packages/subegos/SubEgoSoul.ts`, `packages/subegos/SelfImprovementLoop.ts` |
+| Módulos Clave | `packages/subegos/src/SubEgoSoul.ts`, `packages/subegos/src/SelfImprovementLoop.ts` |
 | Fuentes de Referencia | `repos-referencia/hermes-agent/SOUL.md` · Closed Learning Loop (`agentskills.io`) |
 | Fecha | 2026-10-07 |
 
@@ -120,5 +120,5 @@ Inspirado en el **Closed Learning Loop** de Hermes Agent y adaptado a la arquite
 
 ## 5. Tareas Canónicas en Backlog Maestro
 
-* **`SUB-11`:** *Sub-Ego Soul / Alma: Definición de Personalidad y Tono* (`packages/subegos/SubEgoSoul.ts`).
-* **`SUB-12`:** *Superación Personal & Closed Learning Loop* (`packages/subegos/SelfImprovementLoop.ts`).
+* **`SUB-11`:** *Sub-Ego Soul / Alma: Definición de Personalidad y Tono* (`packages/subegos/src/SubEgoSoul.ts`).
+* **`SUB-12`:** *Superación Personal & Closed Learning Loop* (`packages/subegos/src/SelfImprovementLoop.ts`).

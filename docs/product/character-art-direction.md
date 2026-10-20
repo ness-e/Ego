@@ -5,7 +5,8 @@
 | ID Documento | `DIR-ART-CHAR-CANONICAL` |
 | Estado | **CANÓNICO Y VIGENTE** (Sincronización con Motor Procedural Canvas 2D Oct 2026) |
 | Herencia Técnica | Motor Canvas 2D procedural adaptado de `BotEngine` (sin imágenes IA en runtime, MIT) |
-| Componentes en Código | `apps/desktop/renderer/components/character/` (`CharacterEngine`, `CharacterCanvas`, `CharacterMiniBadge`, `CharacterTraits`) |
+| Componentes en Código | **`@ego/avatar`** — `packages/avatar/` (Web Component `<ego-avatar>`, motores SVG y canvas *Robot Studio*) · superficial: `apps/desktop/renderer/components/character/CharacterBadge.tsx` |
+| Motor anterior (legacy) | `apps/desktop/renderer/components/character/core/CharacterEngine.ts` — **no dibuja en la interfaz**; sólo aporta tipos (`RGB`, `EyeShape`) y `hexToRGB` |
 
 ---
 
@@ -18,12 +19,15 @@ Ego y todos sus Sub-Egos son entidades cognitivas vivas, carismáticas y dinámi
    - Silueta base por defecto **`quantum-monolith` (Monolito)**: forma base neutra de la familia, sobria y sin rasgos adicionales.
    - Silueta **`delta-core` (Triángulo Delta Core)** como variante geométrica: Silueta equilátera de esquinas redondeadas con simetría armónica $C_3$:
      $$\theta_{rot} = a + \frac{\pi}{2}, \quad k = \cos(3\theta_{rot}), \quad r(a) = 0.92 + 0.38k - 0.07(k^2 - 0.5)$$
-   - Silueta **`squircle-core` / `coucou-mochi` (temporal hasta `COUC-23`)**: Superelipse de Lamé ($EXP = 2.7$):
+   - Silueta `squircle-core`: Superelipse de Lamé ($EXP = 2.7):
      $$r(y) = (1 - |y|^{2.7})^{1/2.7}$$
+     > **LEGACY (2026-10-19):** estas siluetas pertenecen a `CharacterEngine`, que ya no dibuja.
+     > El motor vigente (`@ego/avatar`) no usa `baseForm`: su forma procede del
+      > **genoma** (`shape.roundness` 0-100 + `shape.ratio`). Ver la sección 5.
    - Cabeceo en pseudo-3D (`yaw` y `pitch`) con proyección polar esférica de superficie y centrado compensatorio en Y para geometrías triangulares.
    - Dinámica física de resortes elásticos (Euler steps, oscilación armónica, rebote, *squash & stretch*).
 2. **Rostro Hiper-Expresivo:**
-   - 13 estados de ojos procedimentales: `pill`, `wide`, `dot`, `line`, `flat`, `happy`, `closed`, `spiral`, `heart`, `star`, `tired`, `wink`, `cup`.
+   - Expresión ocular procedimental. **Motor vigente:** 8 familias de ojo en canvas (`cx-led`, `cyber-visor`, `pixel`, `anime`, `cyclops`, `heart`, `zen-arc`, `terminal`) y un rig SVG de párpados por pose numérica. **LEGACY:** las 13 morfologías `pill`/`wide`/`dot`/`line`/`flat`/`happy`/`closed`/`spiral`/`heart`/`star`/`tired`/`wink`/`cup` pertenecen a `CharacterEngine`.
    - Boca reactiva a eventos cognitivos y apertura de voz/audio.
    - Rubor expresivo en mejillas ante éxitos y gratitud.
 3. **Manos Gesticulantes y Cinemática:**
@@ -74,14 +78,14 @@ Tanto el avatar grande de Dynamic Canvas como los mini-avatares HiDPI de chat (`
 
 ## 3. Presets Fundacionales de Sub-Egos
 
-| Sub-Ego | Silueta Base | Color Primario | Color Sombra | Rasgo / Trait Sugerido | Ojos Habituales | Comportamiento |
+| Sub-Ego | Preset de identidad (motor) | Color Primario | Color Sombra | Rasgo / Trait Sugerido | Ojos Habituales | Comportamiento |
 |---|---|---|---|---|---|---|
-| **Ego Nucleus** | `quantum-monolith` (defecto D2; `delta-core` / `coucou-mochi` como variantes) | `#EDEDEF` | `#C4C5CA` | `aura-field` | `pill` | Sereno, respiración balanceada |
-| **Engineering (Dev)** | `delta-core` | `#3B82F6` | `#1D4ED8` | `energy-cores` o `antennae` | `wide` / `line` | Rápido, inclinado hacia adelante |
-| **Finance / Legal** | `delta-core` | `#10B981` | `#047857` | `geometric-crest` | `dot` / `flat` | Sólido, mirada atenta y fija |
-| **Design / Creative** | `delta-core` | `#F59E0B` | `#D97706` | `floating-shards` | `happy` / `star` | Elástico, rebotes juguetones |
-| **Product / Strategy**| `delta-core` | `#8B5CF6` | `#6D28D9` | `quantum-crown` o `orbital-rings` | `pill` / `wink` | Erguido, gestos deliberados |
-| **Support / Care** | `delta-core` | `#EC4899` | `#BE185D` | `halo` | `happy` / `heart` | Caluroso, parpadeo frecuente |
+| **Ego Nucleus** | `ego-nucleus` | `#EDEDEF` | `#C4C5CA` | `aura-field` | `pill` | Sereno, respiración balanceada |
+| **Engineering (Dev)** | `ego-cyber` | `#3B82F6` | `#1D4ED8` | `energy-cores` o `antennae` | `wide` / `line` | Rápido, inclinado hacia adelante |
+| **Finance / Legal** | `ego-sentinel` | `#10B981` | `#047857` | `geometric-crest` | `dot` / `flat` | Sólido, mirada atenta y fija |
+| **Design / Creative** | `ego-architect` | `#F59E0B` | `#D97706` | `floating-shards` | `happy` / `star` | Elástico, rebotes juguetones |
+| **Product / Strategy**| `ego-architect` | `#8B5CF6` | `#6D28D9` | `quantum-crown` o `orbital-rings` | `pill` / `wink` | Erguido, gestos deliberados |
+| **Support / Care** | `ego-nucleus` | `#EC4899` | `#BE185D` | `halo` | `happy` / `heart` | Caluroso, parpadeo frecuente |
 
 ---
 

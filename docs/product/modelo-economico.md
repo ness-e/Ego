@@ -3,7 +3,7 @@
 | Estado | Revisable — fuente vigente de modelo económico |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/19-18-modelo-econ-mico.md` + Decisiones P14-P15 2026-10-06 |
+| Fuente histórica | PRD v0 (no versionado en este repo) + Decisiones P14-P15 2026-10-06 |
 
 # Modelo económico de Ego
 

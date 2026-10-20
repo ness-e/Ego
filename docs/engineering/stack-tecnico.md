@@ -3,7 +3,7 @@
 | Estado | Revisable — fuente vigente de stack tecnológico |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/19-tech-stack.md` + Decisiones P18-P19 2026-10-06 |
+| Fuente histórica | PRD v0 (no versionado en este repo) + Decisiones P18-P19 2026-10-06 |
 
 # Stack Técnico de Ego
 
@@ -32,7 +32,16 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 - **Binding**: `NativeVantaDB` desde `"vantadb/native"` — wrapper TypeScript asíncrono sobre `vantadb-node` (napi-rs, N-API v8).
 - **NO usar**: `Client` de `"vantadb"` (WASM en memoria, sin persistencia en disco).
 - **Auto-Embed**: VantaDB genera embeddings internamente via ONNX Runtime (`multilingual-e5-small`, 384d). No calcular embeddings en TypeScript.
-- **Búsqueda**: Híbrida RRF (BM25 + HNSW + filtros bitemporales + MMR). `searchMulti` es nativo.
+- **Búsqueda**: en el **Fast Path** es **BM25 léxico puro** multi-namespace
+  (`searchMulti` con `query_vector: []` — workaround upstream `VDB-REQ-02`, no un
+  bug). El re-rank es **mono-lista** con MMR de coseno **léxica**
+  (`packages/knowledge/src/HybridSearch.ts`): **no hay fusión RRF** en Ego hoy. La
+  **fusión RRF + HNSW denso + embeddings ONNX** es una capacidad del motor de
+  VantaDB disponible por el **Cognitive Path** (`graphragSearch`, `memoryRecall`,
+  `contextAssemble`, `memoryConsolidate`, `memoryReinforce` — `vantadb-node@0.8.0`
+  `index.d.ts:603-636`), hoy con **0 callsites** salvo `graphragSearch` → Ola 2
+  (E2). Ver `docs/architecture/memoria-vantadb.md` §3 y
+  `docs/architecture/namespaces.md`.
 - **Empaquetado Electron**: `asarUnpack: ["**/*.node"]` obligatorio en `electron-builder.yml`.
 
 ### Capa Cognitiva (subprocess MCP)
@@ -55,11 +64,32 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 
 ## Interfaz de Usuario (UI)
 - **Navegación**: workspace dinámico componible por estado local (tabs + `SplitPane` en `App.tsx`); sin React Router por decisión EGO-FIND-04 ✅ (grep 0 usos en `renderer/`, sin la dep en `package.json`; la arquitectura workspace rechaza pantallas fijas — ver `ux-ui.md`).
-- **Primitivas UI**: Radix (`@radix-ui/react-dialog`, `@radix-ui/react-tabs`) + kit propio `ui-kit/` (Button/Input/Modal/Tabs/Badge, cva+clsx+tailwind-merge) — instalados T06 `40fb103`.
-- **Editor de código**: Monaco Editor.
+- **Primitivas UI**: Radix (`@radix-ui/react-dialog`, `@radix-ui/react-tabs`,
+  `@radix-ui/react-select`) + kit propio `ui-kit/`
+  (Button/Input/Modal/Tabs/Badge/Select, cva+clsx+tailwind-merge) — instalados
+  T06 `40fb103`. **Principio D3 (owner 2026-10-19): las primitives de librería
+  se usan siempre; un componente propio solo existe si hay un motivo concreto,
+  escrito en [`docs/design/design-system.md`](../design/design-system.md) §8.**
+- **Editor de código**: **CodeMirror 6** (`codemirror ^6.0.2` + `@codemirror/*` +
+  `lang-javascript|python|markdown`) en
+  `apps/desktop/renderer/components/canvas/EditorView.tsx` — sustituye a
+  ProseMirror (ADR-0013). *Monaco ya no está en el stack: 0 ocurrencias en
+  cualquier `package.json`.*
+- **Resaltado de sintaxis**: **Shiki** (`shiki ^4.5.0`) en un **Web Worker del
+  renderer** (`apps/desktop/renderer/workers/shiki.worker.ts`) con fallback en
+  hilo principal (ADR-0016).
+- **Virtualización de listas**: `virtua` (`virtua ^0.53.5`) — lista de mensajes
+  del chat virtualizada a partir de 60 mensajes (ADR-0014).
 - **Terminal**: xterm.js.
 - **Capa de Chat**: `@assistant-ui/react` (utilizado específicamente como capa de chat, no como framework de toda la app).
 - **Workspace/Canvas**: Workspace dinámico y Canvas propios de Ego.
+- **Motor de personaje**: `@ego/avatar` (`packages/avatar/`) — Web Component
+  `<ego-avatar>` + Robot Studio. Copia vendorizada en
+  `apps/desktop/renderer/floating/vendor/avatar/`. Decisión owner D5 (2026-10-19):
+  **las tres copias se mantienen** en la Ola 1 (upstream
+  `repos-referencia/avatar`, paquete, vendorizada) con script de sincronización
+  verificable por SHA-256; la elección del motor canónico la cierra A6
+  (ADR pendiente).
 
 ## Estado
 - **Datos del proyecto**: VantaDB (persistido).

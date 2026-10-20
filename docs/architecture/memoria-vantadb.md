@@ -39,6 +39,13 @@ Ego y VantaDB son proyectos independientes pero coordinados del mismo creador:
 - **Ego** se enfoca en la intención del usuario, orquestación, Sub-Egos, herramientas, selección de modelos (Model Router), Decision Intelligence, Workspace y gobernanza.
 - **VantaDB** se enfoca en persistencia soberana, recuperación híbrida (RRF/MMR), grafos de relaciones, compresión de contexto, consolidación de memoria (dreams), puntos de control de tareas y embeddings locales.
 
+> **Matiz 2026-10-19 (OLA 1b, `R9`):** la frase anterior describe **las
+> capacidades del motor de VantaDB (Rust)**, no lo que Ego **consume hoy**. En el
+> **Fast Path** Ego usa **BM25 léxico puro** (`searchMulti` con
+> `query_vector: []`), y el re-rank es **mono-lista** con MMR de similitud
+> **coseno léxica** — **no hay fusión RRF en Ego**. Ver §3 (aviso "búsqueda
+> híbrida") y `docs/architecture/namespaces.md`.
+
 ---
 
 ## 2. Memory Abstraction (Abstracción de Memoria y Memory Orchestrator)
@@ -103,6 +110,20 @@ El **Fast Path** atiende las operaciones de alta frecuencia y baja latencia dire
   // ❌ PROHIBIDO — WASM volátil en memoria (sin persistencia en disco)
   import { Client } from "vantadb";
   ```
+
+### Aviso: búsqueda híbrida — ¿qué es realmente *true*? (2026-10-19, `R9`) ###
+
+Hay que distinguir **lo que el motor de VantaDB puede hacer** de **lo que Ego
+consume hoy**. No es lo mismo:
+
+| Vía | Qué ejecuta | Estado real en Ego (2026-10-19) |
+|---|---|---|
+| **Fast Path** (in-process, `EgoMemoryAdapter.searchMulti`) | Búsqueda federada concurrente multi-namespace | **BM25 léxico puro.** `query_vector: []` porque el binding exige `query_vector` incluso para búsqueda textual → workaround upstream **`VDB-REQ-02`** (no es un bug de Ego, está registrado en `docs/VANTADB-FEEDBACK-Y-MEJORAS.md`). El re-rank posterior (`packages/knowledge/src/HybridSearch.ts`) es **mono-lista**: **no hay fusión RRF**, y la similitud del MMR es **coseno léxica** (no densa). `TODO(EGO-FIND-41 / VDB-REQ-08)`. |
+| **Cognitive Path** (binding `vantadb-node@0.8.0` / `vantadb-mcp`) | HNSW + BM25 + RRF + MMR + grafo + embeddings ONNX | El binding **expone** `graphragSearch`, `memoryRecall`, `contextAssemble`, `memoryConsolidate` y `memoryReinforce` (`vantadb-node/index.d.ts:603-636`). **Solo `graphragSearch` tiene callsite** (`packages/knowledge/src/GraphRagEngine.ts`); los otros cuatro tienen **0 instanciaciones** → es el trabajo del **Cognitive Path** de la **Ola 2 (E2)**. |
+
+**Consecuencia documental:** cualquier frase de este documento que diga
+"búsqueda híbrida RRF" debe leerse como *"capacidad de VantaDB"*, no como
+*"comportamiento actual de Ego"*.
 
 ---
 
@@ -189,10 +210,40 @@ temporal_resolve (español→ms)      vantadb-mcp        Cognitive Path (stdio)
 
 ## 10. Context Engine (Compresión y Ensamblado de Contexto)
 
-Ego no construye su propio algoritmo heurístico de poda de tokens en TypeScript; consume el **Context Engine** de VantaDB:
-- **Ensamblado determinista:** Herramienta `context_assemble` que comprime el historial y la memoria bajo un presupuesto estricto de tokens.
-- **Poda multinivel:** Nivel 1 (resumen ejecutivo), Nivel 2 (hechos clave y decisiones), Nivel 3 (mensajes crudos recientes).
-- **Mecanismo Spill-to-Disk:** Si la carga contextual excede la memoria disponible, pagina segmentos históricos a disco sin perder coherencia.
+> **Corrección 2026-10-19 (OLA 1b, `R8`):** este apartado decía *"Ego no construye su
+> propio algoritmo heurístico de poda de tokens en TypeScript"*. Es **falso**:
+> Ego **sí** tiene un motor de compactación propio en TypeScript
+> (`packages/runtime/src/ContextCompaction.ts`), **y** el binding nativo
+> `vantadb-node@0.8.0` expone además un `contextAssemble()` propio. La
+> afirmación anterior describía un estado que nunca existió.
+
+Ego tiene **dos** motores de compresión de contexto, y hoy sólo uno está
+cableado:
+
+| Motor | Dónde | Estado | Nota |
+|---|---|---|---|
+| **Motor TS de Ego** | `packages/runtime/src/ContextCompaction.ts` | ✅ **IMPLEMENTADO Y CABLEADO** | Motor único (`compact()` y `compactSync()` comparten `planCompaction()`), resumen inyectable (`SummarizerFn`), fallback heurístico determinista, archivado del resumen podado en `kb/history_archive` (`autoMemory`). Lo instancia el runtime (`EGO-FIND-21` cerrado). |
+| **`contextAssemble()` nativo** | binding `vantadb-node@0.8.0` (`index.d.ts:615-621`) | ⏸️ **DISPONIBLE, SIN CALLSITE** | Comprime un historial bajo un presupuesto de tokens con la heurística *chars/3* (`TokenEstimator::default`; `precise-tokens` opt-in). **0 instanciaciones en `src/`** → es el camino del **Cognitive Path** (Ola 2 · E2). |
+
+Mientras tanto, la capacidad que el documento maestro describe como *Context
+Engine* de VantaDB se descompone así:
+
+- **Ensamblado determinista:** `context_assemble` (Cognitive Path) comprime el
+  historial y la memoria bajo un presupuesto estricto de tokens; en el Fast Path
+  lo hace `ContextCompactionJob` con un presupuesto equivalente.
+- **Poda multinivel:** Nivel 1 (resumen ejecutivo), Nivel 2 (hechos clave y
+  decisiones), Nivel 3 (mensajes crudos recientes) — en el motor TS el plan es
+  `head` / `dropped` / `tail`.
+- **Mecanismo Spill-to-Disk:** el motor TS **archiva** el tramo podado en
+  `kb/history_archive` (fail-soft: un fallo de archivado no invalida la
+  compactación); el `Spill-to-Disk` propiamente dicho es del Context Engine
+  nativo (Cognitive Path).
+
+> **Deuda para la Ola 2 (E2):** decidir cuál de los dos motores gobierna. La
+> recomendación de A2 es **migrar a `contextAssemble()` nativo** y conservar el
+> motor TS sólo como *fallback* offline (y para los resúmenes con LLM, que el
+> nativo no hace). Esa decisión requiere un ADR — ver
+> [`docs/roadmap/Backlog.md`](../roadmap/Backlog.md) y la reasignación `R8`.
 
 ---
 
@@ -302,7 +353,7 @@ La arquitectura de integración sigue una hoja de ruta evolutiva planificada:
 | Gobernanza, permisos y aprobaciones (HITL) | **Sí** | Infraestructura parcial |
 | Definición del contrato de memoria (`EgoMemory`) | **Sí** | No |
 | Almacenamiento persistente local-first | Consume | **Implementa** |
-| Búsqueda híbrida (BM25 + HNSW + RRF) | Consume | **Implementa** |
+| Búsqueda híbrida (BM25 + HNSW + RRF) | Consume (⚠️ **parcial**: hoy BM25 léxico puro, sin RRF) | **Implementa** |
 | Grafo de conocimiento y topología | Consume | **Implementa** |
 | GraphRAG (recuperación relacional) | Consume | **Implementa** |
 | Compresión y ensamblado de contexto | Consume | **Implementa** |

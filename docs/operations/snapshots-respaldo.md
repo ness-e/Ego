@@ -5,9 +5,9 @@
 | Estado | Revisable — fuente vigente de snapshots desktop y respaldos soberanos |
 | Owner | ness-e |
 | Fecha | 2026-10-05 |
-| Fuente histórica | `../prd/09-8-esquema-de-datos-namespaces-grafo-y-ttl.md` §8.4 + `../architecture/namespaces.md` |
+| Fuente histórica | PRD v0 (no versionado en este repo) §8.4 + `../architecture/namespaces.md` |
 | VantaDB verificado | 0.8.0 base dev; `export_all`/`bulk_import` `.vdbdump`; adapter implementado |
-| Regla | Este archivo se edita; `../prd/09*` queda congelado como referencia histórica |
+| Regla | Este archivo se edita; PRD v0 (no versionado en este repo) queda congelado como referencia histórica |
 
 ## Rutina local soberana (Electron)
 

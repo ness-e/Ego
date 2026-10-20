@@ -86,3 +86,132 @@ Decisión del owner (2026-10-08): todo activo visual será propio, por lo que `L
 2. Separar tres superficies: `AttentionStateMachine` (lógica pura, `@ego/runtime`), `CharacterRenderer` (Canvas 2D) y ventana flotante (`apps/desktop/main`).
 3. El renderer es 100 % puro (estado→frame) y verificable con golden frames, porque Coucou no aporta tests de motor.
 4. Las aprobaciones desde widget pasan siempre por `@ego/execution`/Approval System; el personaje no autoriza nada.
+
+---
+
+## 6. Estado real tras la ola de remediación (2026-10-19)
+
+Esta sección actualiza el inventario de puertos con lo que la ola A6 dejó
+verificado. Las secciones 1–5 conservan el análisis original.
+
+### 6.1 Las tres copias del motor
+
+| Copia | Ruta | Estado |
+|---|---|---|
+| Upstream | `repos-referencia/avatar/` | referencia. Working tree **sucio** (19 ficheros) y `HEAD` (`c942a54`, 2026-10-14) desfasado respecto a él. **No se modifica ni se commitea.** |
+| Paquete (canónico) | `packages/avatar/` | 49 ficheros en `src/`, 266 tests, typecheck real, licencia MIT + `NOTICE` |
+| Vendorizada | `apps/desktop/renderer/floating/vendor/avatar/` | copia byte-idéntica del paquete; es la que carga el renderer |
+
+Puerta de verificación: `pnpm --filter @ego/avatar sync:check` (SHA-256, exit 1
+ante drift, incluidos los ficheros legales).
+
+### 6.2 Inventario de puertos (estado real)
+
+Contra el **working tree** de `repos-referencia/avatar/src` (44 ficheros), el
+paquete de Ego queda así tras la ola:
+
+| | Nº | Ficheros |
+|---|---:|---|
+| Byte-idénticos al upstream | **28** | el grueso del núcleo: `core/{genome,morph,palette,prng,config}`, `render/{ara-head,body,eyes,parts,shell,static,projection}`, `runtime/{states,poses,policy,presence,fx-eyes,extension-host,pointer,sound}`, `studio/{index,sound}` y `studio/render/{visor,overlays,particles}` y `studio/rig/{eyes,hands}` |
+| **Bifurcados** | **16** | `core/timeline.js`, `render/builder.js`, `runtime/avatar-element.js`, `runtime/fx-eyes.js`, `runtime/micro.js`, `studio/adapter.js`, `studio/avatar.js`, `studio/config.js`, `studio/element-host.js`, `studio/sound.js`, `studio/render/{accessories,body,ears,eyes,helpers,mouth}.js` |
+| **Nuevos** (no existen en upstream) | **5** | `runtime/studio-bridge.js`, `runtime/svg-export.js`, `runtime/avatar-element.d.ts`, `runtime/sound.d.ts`, `studio/render/geometry.js` |
+| Ausentes | **0** | — |
+
+Las seis primeras divergencias (antes de esta ola) ya las había introducido
+Ego: fix `hsl`→hex, `preset` como atributo observado, `toSVGString()`,
+`setPointerFollow()`, preset `ego-nucleus` y DPR. Las de esta ola son la
+sustitución de la geometría (D4), la extracción del puente con el studio y el
+export SVG, y el tipado real (`checkJs`).
+
+Detalle fichero a fichero de la derivación de cada módulo:
+
+| Fichero | Estado de la derivación |
+|---|---|
+| `src/core/anim.js` | **ADAPTADO** de `coucou/windows/src/core/anim.ts` (MIT, © Louis Raillart) — easings y springs a JS ESM |
+| `src/core/timeline.js` | **ADAPTADO** de `coucou/mochi/engine.ts` (MIT, © Louis Raillart) — tweens por campo con *locks* |
+| `src/core/config.js` | **ADAPTADO** de `agent-robot-avatar` (MIT, © CX ART Lab) — `Defaults`/`Bounds`/`clamp` |
+| `src/render/ara-head.js` | **COPIA LITERAL** de `agent-robot-avatar/core.js:261` (MIT, © CX ART Lab) — la plantilla de 160 puntos |
+| `src/render/projection.js` | **PORTADO** de `coucou/mochi/engine.ts` `drawEyes()` (MIT, © Louis Raillart) |
+| `src/render/static.js` | **PORTADO** de `coucou/mochi/MochiStill.swift` (MIT, © Louis Raillart) — pose por hash djb2 |
+| `src/runtime/extension-host.js` | **PATRÓN** de `agent-robot-avatar/extension-host.js` (MIT, © CX ART Lab) |
+| `src/runtime/micro.js` | **ADAPTADO** de `coucou/mochi/engine.ts` (MIT, © Louis Raillart) |
+| `src/runtime/pointer.js` | **ADAPTADO** de `agent-robot-avatar` (MIT, © CX ART Lab) |
+| `src/runtime/presence.js` | **PORTADO** de `coucou/windows/src/island/fsm.ts` (MIT, © Louis Raillart) |
+| `src/runtime/sound.js` | **ADAPTADO** de `coucou/core/sound.ts` + `mochi/engine.ts` (MIT, © Louis Raillart) — 28 recetas sintetizadas, cero WAV |
+| `src/runtime/states.js` | **PATRÓN** de `coucou` `BOT_STATES` (MIT, © Louis Raillart) |
+| `src/studio/*` | **GEOMETRÍA PROPIA DE EGO** desde 2026-10-19 (decisión D4). Antes: transcripción del single-file HTML. Ver §6.3. |
+| `src/studio/render/geometry.js` | **NUEVO** (D4) — proporciones canónicas del robot de Ego |
+
+### 6.3 La decisión D4: geometría propia
+
+La regla de producto es: *"ningún nombre, dibujo, sonido ni icono de Mochi
+entra al producto"*. Antes de la ola, el motor de canvas conservaba:
+
+* el preset `'coucou-mochi'` (con su cuerpo "blob", su LED rosa y su ojo de
+  esfera oscura),
+* el estilo de ojo `'mochi-sphere'`,
+* el estilo de boca `'mochi-cute'`,
+* cabeceras que declaraban un "puerto verbatim" del single-file HTML.
+
+**Qué se hizo** (decisión D4, owner 2026-10-19):
+
+1. `src/studio/render/geometry.js` (nuevo) — proporciones canónicas del robot
+   de Ego en un solo módulo.
+2. `src/studio/render/{body,ears,eyes,mouth,accessories}.js` — reescritos;
+   **eliminadas** todas las ramas de Mochi.
+3. `src/studio/config.js` — **eliminado** el preset `'coucou-mochi'`.
+4. Cabeceras normalizadas al formato `Adapted from <upstream> (MIT), <ruta>`.
+
+**Prueba de no-regresión**: `packages/avatar/scripts/compare-geometry.mjs`
+registra todas las llamadas al contexto de canvas y compara las trazas. La
+golden `packages/avatar/tests/golden/geometry.json` se generó con el código
+**anterior** a la sustitución; el código actual coincide en **168/168
+combinaciones** (28 estados × 6 módulos). No se usó un diff de píxeles porque,
+comparando el mismo código en dos sesiones de navegador, se midió hasta un
+12 % de píxeles distintos (ruido de rasterizado).
+
+### 6.4 Licencias y cadena de atribución
+
+`packages/avatar/` y la copia vendorizada incluyen `LICENSE` (MIT),
+`LICENSE.md` (tabla de atribuciones por fichero) y `NOTICE` (aviso de terceros).
+
+**Cadena resoluble (2026-10-20).** `repos-referencia/` está en `.gitignore`
+(línea 49) y **no forma parte del repositorio**: las rutas que citan
+`LICENSE.md` y las cabeceras de `src/` apuntaban a ficheros que un auditor que
+clone el repo no tenía. Por eso el **corpus de atribución se portó al
+repositorio**:
+
+| Ubicación | Contenido |
+|---|---|
+| `packages/avatar/vendor/` | **canónico**: 31 ficheros (`agent-robot-avatar/` 16, `coucou/core/` 5, `coucou/island/` 2, `coucou/mochi/` 3, `coucou-swift/` 5) + `README.md` |
+| `apps/desktop/renderer/floating/vendor/avatar/vendor/` | réplica byte-idéntica, verificada por SHA-256 |
+
+Dos correcciones sobre el upstream:
+
+* El corpus del upstream **omitía `coucou/core/sound.ts`** pese a que
+  `src/runtime/sound.js` deriva de él (`STATE_SOUND`, volumen 0.12, idle
+  1500 ms). Portado desde `coucou/windows/src/core/sound.ts` y añadido a la
+  fila del corpus de `LICENSE.md`.
+* La cabecera de `src/core/anim.js` citaba `vendor/coucou/anim.ts`; la ruta
+  real es `vendor/coucou/core/anim.ts`. Corregida, y normalizadas las 25
+  cabeceras de 9 ficheros que citaban rutas sin el prefijo `vendor/`.
+
+**Verificación**: `node packages/avatar/scripts/check-attribution.mjs` →
+exit 0. Comprueba que (a) existen `LICENSE`, `LICENSE.md` y `NOTICE`; (b) las
+**5 familias** de `LICENSE.md` —que son globs y expansiones de llaves, no
+ficheros sueltos— expanden a **31 ficheros reales**; (c) las **9 rutas**
+citadas en las cabeceras de `src/` existen; (d) **`src/` no importa nada de
+`vendor/`** (el corpus no puede colarse en el bundle); y (e) la copia
+vendorizada lleva su corpus y coincide por SHA-256.
+
+El corpus es **material de solo lectura**: no se edita, no se ejecuta y no se
+importa. `packages/avatar/vendor/README.md` lo declara y además mapea cada
+fichero del corpus con su parte derivada en `src/`.
+
+### 6.5 Defecto latente encontrado
+
+`HybridRobotAvatar.impulse(sx, sy, vy, rot, vx)` acepta cinco parámetros,
+pero seis llamadas le pasaban un sexto argumento que nunca se leía. Es un
+defecto **preexistente del upstream** (los cuatro primeros casos ya estaban en
+el single-file HTML original). Se eliminó el argumento muerto. Lo detectó el
+`typecheck` real: con `checkJs` activo, el compilador lo señala.

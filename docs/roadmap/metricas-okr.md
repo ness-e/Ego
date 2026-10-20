@@ -3,7 +3,7 @@
 | Estado | Revisable — fuente vigente de métricas y objetivos. Actualizado con decisión P22 (Presupuesto y métricas de UX/UI) 2026-10-06 |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/13-12-experiencia-de-usuario-e-interfaz.md` (congelado) + Decisiones P1-P8, P11, P22 2026-10-06 |
+| Fuente histórica | PRD v0 (no versionado en este repo) (congelado) + Decisiones P1-P8, P11, P22 2026-10-06 |
 
 # Métricas y OKRs
 

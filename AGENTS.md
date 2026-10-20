@@ -76,19 +76,38 @@ Regla: Capability = QUÉ. Architecture = CÓMO funciona. Design = CÓMO se exper
 Ego/
 ├── AGENTS.md                 ← este archivo
 ├── apps/                     ← aplicaciones (desktop main + renderer)
-├── packages/                 ← código fuente modular (monorepo pnpm)
+├── packages/                 ← código fuente modular (monorepo pnpm) — 18 paquetes
 │   ├── memory/               ← EgoMemoryAdapter (gateway único a VantaDB)
-│   ├── models/               ← ModelRouter y adaptadores de inferencia
-│   ├── runtime/              ← ToolExecutionLoop y Cognitive Runtime
-│   ├── execution/            ← ExecutionManager (timeouts, cuotas, abort)
-│   ├── tools/                ← ToolRegistry y conectores Nivel A nativos
-│   └── events/               ← EventBus, EventNormalizer y StructuredLogger
-├── docs/                     ← documentación canónica estructurada (128 archivos .md — verificado 2026-10-12)
+│   ├── knowledge/            ← ingesta, búsqueda BM25 léxica + re-rank MMR (sin RRF: es del Cognitive Path), GraphRAG, consultas bitemporales
+│   ├── runtime/              ← ToolExecutionLoop, PromptAssembly, ContextCompaction, AttentionStateMachine
+│   ├── models/               ← ModelRouter y adaptadores de inferencia (AI SDK v7 como adaptador)
+│   ├── decision/             ← Decision Intelligence Layer (clasificación, routing, selector de Sub-Ego, cascada)
+│   ├── execution/            ← ExecutionManager, ApprovalEngine, SafeConfigMutation (timeouts, cuotas, abort)
+│   ├── events/               ← EventBus, EventNormalizer, StructuredLogger, ApprovalIdentity, InteractionTransport
+│   ├── security/             ← CredentialManager, ToolPermissions, SecretsFilter, netPolicy (frontera SSRF)
+│   ├── tool-call-repair/     ← reparación sintáctica de tool calls malformadas
+│   ├── tools/                ← ToolRegistry y conectores Nivel A nativos (fs, git, terminal, MCP)
+│   ├── subegos/              ← runtime, fábrica, manifiesto, shared memory, soul, catálogo de Sub-Egos
+│   ├── tasks/                ← BackgroundEngine, TaskMemory, checkpoints, ProactivityEngine, DreamConsolidator
+│   ├── domains/              ← catálogo de dominios funcionales (Engineering, Product, CRM, Analytics)
+│   ├── dailystate/           ← motor de estado diario, feed de decisiones, priorizador de objetivos
+│   ├── recovery/             ← crash recovery, snapshots, migraciones de esquema, export/import de proyecto
+│   ├── ui-runtime/           ← schemas de componentes declarativos, CanvasBridge, A2UI, mermaid
+│   ├── integrations/         ← cliente/gestor MCP, conector GitHub, HTTP/webhooks
+│   └── avatar/               ← motor de personaje `@ego/avatar` (Web Component `<ego-avatar>`, Robot Studio)
+├── docs/                     ← documentación canónica estructurada (286 archivos .md — verificado 2026-10-19)
 │   ├── product/              ← visión, concepto, UX, modelo económico, principios
 │   ├── architecture/         ← vision-general, agentes, namespaces, dominios, workspace
 │   ├── engineering/          ← stack-tecnico, lenguajes, integraciones
-│   ├── roadmap/              ← 12 fases, métricas-okr
+│   ├── roadmap/              ← 12 fases, Backlog canónico (estado de tareas), métricas-okr
 │   ├── references/           ← glosario, repos-intel
+│   ├── adr/                  ← decisiones de arquitectura numeradas (0001..0017, sin colisiones)
+│   ├── design/               ← design-system canónico (tokens, tabla de primitives, 9 estados)
+│   ├── user/                 ← guía de usuario (taxonomía Diátaxis)
+│   ├── deployment/           ← distribución unsigned vigente + release notes
+│   ├── operations/           ← runbooks (snapshots/respaldo; despliegue legacy deprecado)
+│   ├── testing/              ← estrategia de testing + verificador de enlaces y rutas de `docs/`
+│   ├── agent-ops/            ← worklogs internos de agentes (plans/tasks/reports) — NO es doc de producto
 │   ├── jerarquia-canonica.md ← autoridad de decisiones
 │   └── PLAN-EGO.md           ← plan maestro
 ├── images/                   ← recursos gráficos
@@ -147,6 +166,51 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 * **NO Dots como concepto arquitectónico** — es "Background Activity & Proactivity"
 * **NO contaminación de dominios ajenos:** Los repositorios de referencia contienen modelos de negocio ajenos al alcance de Ego (ej. pipelines ATS/empleos de `career-ops`, scrapers web o modelos de voz externos de `khoj`). Está terminantemente prohibido importar schemas, entidades de negocio o dependencias de dominios que no pertenezcan al alcance de Ego (Sistema Operativo Cognitivo). Solo se extraen patrones de ingeniería de sistemas, arquitectura de runtime, interfaces UI y herramientas de sistema.
 
+### Principio de primitives de librería (D3 — decisión del owner 2026-10-19)
+
+> **Los componentes de librerías y framework se utilizan siempre; no se recrean desde cero si ya existe una primitive de librería o del framework.**
+
+- **Alcance**: todo el repo — UI (`ui-kit/`), IPC, runtime, tooling y scripts.
+- Un componente **propio** solo puede existir cuando haya un **motivo concreto** (nunca "comodidad" ni "ya estaba hecho"), y ese motivo **debe estar escrito** en la [tabla de primitives](docs/design/design-system.md), que es el registro canónico de la decisión de cada primitive.
+- Si Radix, React Aria o la librería estándar ofrece el equivalente y el propio no aporta nada, **se migra**.
+- Migración aplicada: `Select` → `@radix-ui/react-select` (ADR-0015, A4, Ola 1). El renderer **no contiene ningún `<select>` nativo** (verificado 2026-10-19).
+- Primitives aún **ad-hoc** fuera del kit (combobox del omnibar, dropdown, popover, tooltip): revisión de Radix/React Aria pendiente — inventariadas en `docs/design/design-system.md` §8.2.
+- Verificación: `docs/design/design-system.md` §"Tabla de primitives".
+
+### Excepción de tipado: el motor de personaje (`packages/avatar`) es JavaScript plano
+
+> **Excepción formal y acotada al paquete `packages/avatar`** (motor de personaje
+> `@ego/avatar`). Aprobada por el owner el 2026-10-19 como parte del ADR-0018.
+
+- **Qué es**: `packages/avatar/` son **47 ficheros `.js` (11 203 líneas)** con
+  tipos públicos declarados a mano en `index.d.ts` (380 líneas). Su
+  `tsconfig.json` usa `allowJs: true` + `checkJs: true` y
+  **`strict: false` / `noImplicitAny: false`**.
+- **Por qué**: el motor es un *port* de un repositorio externo
+  (`repos-referencia/avatar`, código derivado de `coucou` bajo MIT). Migrarlo a
+  TypeScript estricto es un **proyecto propio**, no un refactor: exige portar
+  266 tests y reescribir el puente con el Robot Studio.
+- **Qué NO se relaja**: el resto del monorepo sigue con **TypeScript estricto**
+  (`strict: true`) sin excepción. Esta excepción **no se extiende** a ningún
+  otro paquete, y **no habilita `any` en el código de Ego**: el `any` del
+  puente con el studio es la única excepción y está justificado en
+  `packages/avatar/index.d.ts`.
+- **Puertas que la sostienen** (verificadas 2026-10-19):
+  - `pnpm --filter @ego/avatar typecheck` → `tsc -p tsconfig.json`, **exit 0**
+    (antes era un no-op `node -e "process.exit(0)"`).
+  - `pnpm --filter @ego/avatar build` → **50 ficheros** en `dist/` + manifiesto
+    SHA-256, exit 0.
+  - `pnpm --filter @ego/avatar test` → **266 pass / 0 fail**.
+  - `pnpm --filter @ego/avatar sync:check` → **SIN DRIFT** entre el paquete y
+    la copia vendorizada (SHA-256, incluidos los ficheros legales).
+  - `pnpm --filter @ego/avatar geometry:check` → **168/168** combinaciones con
+    traza idéntica a la golden.
+- **Condición de cierre**: cuando el motor deje de derivar del upstream y pase
+  a ser código de Ego propio, la migración a TypeScript estricto es
+  **obligatoria** y esta excepción se elimina de `AGENTS.md`. Mientras tanto,
+  `packages/avatar` **no** puede crecer con dependencias nuevas sin pasar por
+  el owner.
+
 ### Estado formal de descarte técnico
 
 * **Estado canónico `🚫 Descartada (con justificación)`:** Si durante la inspección de una compuerta o tarea se concluye que un patrón, herramienta o feature es redundante, incompatible con los 10 principios de Ego o introduce sobreingeniería, la tarea debe marcarse explícitamente como `🚫 Descartada (con justificación)`. Se debe asentar en la ficha técnica y en el backlog correspondiente la evidencia técnica del descarte (trade-offs, FMEA o incompatibilidad arquitectónica). Prohibido dejar tareas en el limbo o borrarlas silenciosamente.
@@ -203,7 +267,7 @@ Vertical slice progresivo. Fases 01–05 = P0-Alpha. Fases 06–12 = P0-Beta.
 03 Sub-Egos     → crear + ejecutar + memoria compartida + delegación
 04 Canvas       → workspace dinámico + component registry
 05 Intelligence → decision router + classification + fallback
-06 Knowledge    → importar + búsqueda híbrida + data views
+06 Knowledge    → importar + búsqueda BM25 léxica + data views
 07 Tasks        → background execution + proactividad
 08 Daily State  → briefing dinámico al abrir
 09 Dominios     → Knowledge, Product, Engineering, Analytics, CRM

@@ -3,7 +3,7 @@
 | Estado | Revisable |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/04-3-visi-n-filosof-a-y-marca.md` + Decisiones P1 2026-10-06 |
+| Fuente histórica | PRD v0 (no versionado en este repo) + Decisiones P1 2026-10-06 |
 
 # Visión y Filosofía de Ego
 

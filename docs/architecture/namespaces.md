@@ -15,7 +15,7 @@ Los namespaces en VantaDB están organizados por **dominio funcional**, no por S
 
 | Dominio | Prefijos | Propósito |
 | --- | --- | --- |
-| **CRM/Sales** | `crm/contacts`, `crm/deals`, `crm/timeline` | Gestión de relaciones y ciclo de ventas. |
+| **CRM/Sales** | `crm/contacts`, `crm/deals`, `crm/interactions` | Gestión de relaciones y ciclo de ventas. |
 | **Support** | `support/tickets`, `support/kb` | Incidencias y base de conocimientos de soporte. |
 | **Knowledge** | `kb/facts`, `kb/docs` | Base de conocimiento estructurada y factual de Ego. |
 | **Engineering** | `dev/repos`, `dev/issues`, `dev/qa`, `dev/files`, `dev/errors`, `dev/adrs` | Artefactos técnicos, incidencias, y decisiones de arquitectura. |
@@ -45,6 +45,19 @@ Este aislamiento de estado privado no restringe el acceso al conocimiento genera
 - `system/*`: Solo accesible por la capa de coordinación (Meta-Ego).
 - La lectura transversal no prevista en el manifiesto requiere escalación formal a través de la **Decision Intelligence Layer** (vía Decision Router) o aprobación directa de un humano.
 - Consultas federadas a través de múltiples namespaces emplean `searchMulti` de forma concurrente sobre el backend nativo.
+
+### Nota sobre el motor de búsqueda (2026-10-19, `R9`) ###
+
+Los namespaces definen **dónde** vive el dato, no **cómo** se recupera. Para
+evitar confusiones entre lo que el motor soporta y lo que Ego ejecuta hoy:
+
+| Vía | Motor | Estado |
+|---|---|---|
+| **Fast Path** (in-process) | BM25 **léxico puro** multi-namespace (`searchMulti` con `query_vector: []`, workaround upstream `VDB-REQ-02`) + re-rank **mono-lista** con MMR de coseno léxica (`packages/knowledge/src/HybridSearch.ts`) | ✅ Activo. **Sin fusión RRF.** |
+| **Cognitive Path** | El binding `vantadb-node@0.8.0` expone `graphragSearch`, `memoryRecall`, `contextAssemble`, `memoryConsolidate` y `memoryReinforce` (`index.d.ts:603-636`) | ⏸️ Solo `graphragSearch` tiene callsite; los otros cuatro son el **Cognitive Path** de la **Ola 2 (E2)**. |
+
+Detalle y evidencia: [`memoria-vantadb.md`](memoria-vantadb.md) §3 (aviso) y
+§10.
 
 ## Metadata obligatoria
 Todo registro ingresado en cualquier namespace debe contener al menos:

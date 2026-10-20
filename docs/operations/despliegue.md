@@ -13,9 +13,9 @@
 | Estado | ⚠️ Deprecated desde 2026-10-16 — ver `../deployment/distribution.md` |
 | Owner | ness-e |
 | Fecha | 2026-10-05 |
-| Fuente histórica | `../prd/07-6-arquitectura-general-y-pol-tica-de-lenguajes.md` §6.3 + `../prd/22*` + `../engineering/stack-tecnico.md` + `../engineering/lenguajes.md` desktop |
+| Fuente histórica | PRD v0 (no versionado en este repo; arquitectura general y política de lenguajes) + `../engineering/stack-tecnico.md` + `../engineering/lenguajes.md` desktop |
 | VantaDB verificado | 0.8.0 base dev; embebida napi en main; WAL + snapshots fichero (ver `../architecture/memoria-vantadb.md`) |
-| Regla | Este archivo se edita; `../prd/07*` queda congelado como referencia histórica |
+| Regla | Este archivo se edita; PRD v0 (no versionado en este repo) queda congelado como referencia histórica |
 | Decisión 2026-10-05 | Electron solo desktop: builder + firma + auto-update; datos local; prereqs bloqueantes; sin VPS |
 
 ## Instalador P0

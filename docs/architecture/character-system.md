@@ -1,18 +1,134 @@
 # Arquitectura Canónica: Sistema de Personajes y Runtime Procedural (`CharacterSystem`)
-### Motor de Canvas 2D, Proyección 3D, Transición Morph, Activity Widget y Renderizado Multi-Superficie
+### Motor procedimental `<ego-avatar>` (SVG + canvas), Transición Morph, Activity Widget y Renderizado Multi-Superficie
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Canónico — Arquitectura del Sistema |
+| Estado | Canónico — Arquitectura del Sistema · **actualizado 2026-10-19** (motor real: `@ego/avatar`) |
 | Nivel Jerárquico | Nivel 4 (System Architecture) / Nivel 5 (Experience Design) |
 | Owner | ness-e / Principal Systems Engineer |
-| Fecha | 2026-10-07 |
-| Referencia Fuente | Procedural Engine de Coucou (`BotEngine.swift`, `IslandStateMachine.swift`, `windows/src/mochi/`) + Doctrina Unificada de Ego |
-| Implementación | TypeScript estricto + Canvas 2D / Path2D en React 19 (`apps/desktop/renderer/components/character/`) |
+| Fecha | 2026-10-07 · **actualizado 2026-10-19** |
+| Referencia Fuente | Procedural Engine de Coucou (`BotEngine.swift`, `IslandStateMachine.swift`, `windows/src/mochi/`) + Doctrina Unificada de Ego. Adaptado con atribución MIT; ver `packages/avatar/LICENSE.md` |
+| Motor vigente | **`@ego/avatar`** — `packages/avatar/` · Web Component `<ego-avatar>` · motores SVG y canvas (*Robot Studio*) |
+| Implementación | JS ESM sin tipos con tipos públicos en `index.d.ts` (motor) + TypeScript estricto (superficies React 19) en `apps/desktop/renderer/components/character/` |
+| Motor anterior (legacy) | `apps/desktop/renderer/components/character/core/CharacterEngine.ts` — **no dibuja en la interfaz**; ver §0.3 |
 
 ---
 
-> **Estado y correcciones (2026-10-08, actualizado 2026-10-14 — D3 parcial honesto):** el motor existe en código (`apps/desktop/renderer/components/character/`, `packages/subegos/src/CharacterProfile.ts`): CHAR-06 REAL (FSM + 7 tests), CHAR-07 REAL (TraitRegistry + 5 tests), CHAR-09 REAL (Morph + 5 tests). Parciales honestos: CHAR-05 motor real (~2000 líneas) pero 0 tests dedicados; CHAR-10 UI y contrato existen pero desconectados (lo guardado no sobrevive reinicio); CHAR-11 MotionGuard real pero faltan benchmarks CPU/memoria y golden frames. Fuente: `docs/agent-ops/reports/2026-10-14-brechas-decisiones-diseno.md` §3. La identidad visual es una **criatura/bot original, carismática y limpia, con cabeza, ojos grandes expresivos, boca y manitas/brazos procedimentales**. No es un humano con ropa de tela ni un logotipo geométrico abstracto. Tareas: `CHAR-01..11` y `WIDG-01..05` en `docs/roadmap/Backlog.md`. El widget in-app es `CANV-11`; la ventana flotante de escritorio es `WIDG-02`; ambos comparten `AttentionStateMachine` (`WIDG-03`). El motor/renderer lo implementa `CHAR-05`/`CHAR-06` (absorbe el alcance técnico de `CANV-08`).
+## 0. Qué motor ejecuta el personaje (lectura previa obligatoria)
+
+> Actualizado 2026-10-19. Esta sección sustituye a las afirmaciones que
+> describían `CharacterEngine` como el motor del producto.
+
+### 0.1 El motor vigente: `@ego/avatar`
+
+Un único **Web Component** `<ego-avatar>` con dos motores de render y un
+vocabulario propio:
+
+```text
+seed ──xmur3──► mulberry32 ──► ① GENOMA (inmutable)
+                                  shape{roundness,ratio} · eyes{scale,spacing,yBias}
+                                  palette{hue…} · marking · appendage · aura · temperament
+                                         │
+                                         ▼
+                              ② FENOTIPO
+                    ┌────────────────────┴────────────────────┐
+                    ▼                                         ▼
+            MOTOR SVG (defecto)                    MOTOR CANVAS / ROBOT STUDIO
+            render/*.js                           studio/*.js (mode="studio")
+            <svg> en el shadow root                <canvas> en el shadow root
+            exportable a string                   22 estados, 9 ojos, 5 bocas, 16 accesorios
+                    │                                         │
+                    └────────────────────┬────────────────────┘
+                                         ▼
+                              ③ ESTADO (14) + EMOTES (11)
+                              runtime/states.js
+                                         │
+                    ┌────────────────────┴────────────────────┐
+                    ▼                                         ▼
+        ④ PRESENCIA (FSM)                        ⑤ PUENTES AL STUDIO
+        hidden/compact/home/greet                 EGO_TO_STUDIO_STATE (14 → 22)
+        runtime/presence.js                       STUDIO_TO_EGO_STATE (22 → 14)
+```
+
+* **Identidad**: el genoma es inmutable; `setSeed()` regenera.
+* **Estado**: 14 estados runtime + 11 emotes; el estado se traduce al
+  vocabulario del studio (22) mediante el puente de `src/studio/adapter.js`.
+* **Puentes de hooks**: `HOOK_STATE_MAP` (`UserPromptSubmit→thinking`,
+  `Stop→finished` con auto-retorno, `PermissionRequest→approval`…).
+* **Determinismo**: `xmur3` + `mulberry32`, orden de extracción fijo; ningún
+  módulo de identidad usa `Math.random()`.
+
+**Presets de identidad** (canvas): `cx-faithful`, `ego-nucleus`, `ego-cyber`,
+`ego-sentinel`, `ego-architect`. No existe ningún preset de Mochi (eliminado
+por la decisión D4 del 2026-10-19).
+
+### 0.2 Cómo se conecta al chat
+
+```
+ego-chat.tsx
+  └─ avatarLiveState = useMemo(...)          ← estado real del chat
+       pendingApprovals → "approval_required"
+       activeError      → "error"
+       isStreaming      → "searching" | "using_tool" | "thinking" | "generating"
+       composerText     → "listening"
+       (por defecto)    → "idle"
+                    │
+                    ▼
+       CharacterBadge.tsx
+         mapCharacterStateToAvatarState()     ← 14 estados del chat → 14 del avatar
+                    │
+                    ▼
+              <ego-avatar>                     ← @ego/avatar (Web Component)
+```
+
+`CharacterStateMachine.ts` (la FSM de 14 estados) **no se instancia**: sólo se
+importa su *tipo*. El estado efectivo lo computa el `useMemo` anterior.
+
+### 0.3 El motor anterior: `CharacterEngine` (legacy)
+
+`apps/desktop/renderer/components/character/core/CharacterEngine.ts` (998
+líneas) permanece en el repo pero **no dibuja nada**:
+
+| Elemento | Estado real |
+|---|---|
+| `CharacterCanvas.tsx` | definido, **0 usos JSX** |
+| `CharacterMiniBadge.tsx` | definido, **0 usos JSX** |
+| `CharacterEngine` (clase) | sólo se usan sus **tipos** (`RGB`, `EyeShape`) y `hexToRGB`, desde `CharacterStateMachine.ts`, `TraitRegistry.ts` y `CharacterMorph.ts` |
+| `CharacterStateMachine` (FSM) | sólo se importa su **tipo**; nunca se instancia |
+| `CharacterMorph` | usa `hexToRGB`; su morph no está conectado al elemento |
+
+Su vocabulario (`delta-core`, `squircle-core`, `coucou-mochi`, 13 morfologías de
+ojos, silueta triangular $C_3$) describe **un motor que ya no se ejecuta**. Las
+secciones 10–13 de este documento describen ese motor histórico; se conservan
+como referencia de la dirección artística y del trabajo pendiente, y **no** como
+descripción del producto actual.
+
+> **Decisión pendiente del owner:** si `@ego/avatar` absorbe a `CharacterEngine`
+> y qué módulos legacy se archivan (A4). Registrado en el handoff A6 de la ola
+> de remediación del 2026-10-19.
+
+### 0.4 Estado de la implementación (corregido)
+
+| Ítem | Estado real (2026-10-19) |
+|---|---|
+| Motor | **REAL** — `@ego/avatar`, 266 tests, typecheck real (`tsc --checkJs`), puerta geométrica de 168 combinaciones |
+| Estados | **REAL** — 14 runtime + 11 emotes, conectados al chat real (`ego-chat.tsx`) |
+| Identidad | **REAL** — genoma determinista por semilla; presets de identidad de Ego |
+| UI | **REAL** — `CharacterBadge` en chat, Activity Widget, selector de Sub-Egos, sidebar y Presence; ventana flotante aparte |
+| Modo canvas (studio) | **REAL** — 22 estados, puente bidireccional de estados, presets, genome→studio |
+| `CharacterCanvas` / `CharacterMiniBadge` | **SIN CONSUMIDORES** (legacy) |
+| FSM `CharacterStateMachine` | **NO INSTANCIADA** (sólo el tipo se usa) |
+| Persistencia de la identidad | **PARCIAL** — el perfil vive en `packages/subegos`; el genoma es regenerable desde la semilla |
+| MotionGuard | **REAL** (`CharacterMotionGuard.ts`) |
+
+---
+
+> **Estado y correcciones (2026-10-08, actualizado 2026-10-14 — D3 parcial honesto; **SUSTITUIDO por §0 el 2026-10-19**):** el motor existe en código (`apps/desktop/renderer/components/character/`, `packages/subegos/src/CharacterProfile.ts`): CHAR-06 REAL (FSM + 7 tests), CHAR-07 REAL (TraitRegistry + 5 tests), CHAR-09 REAL (Morph + 5 tests). Parciales honestos: CHAR-05 motor real (~2000 líneas) pero 0 tests dedicados; CHAR-10 UI y contrato existen pero desconectados (lo guardado no sobrevive reinicio); CHAR-11 MotionGuard real pero faltan benchmarks CPU/memoria y golden frames. Fuente: `docs/agent-ops/reports/2026-10-14-brechas-decisiones-diseno.md` §3. La identidad visual es una **criatura/bot original, carismática y limpia, con cabeza, ojos grandes expresivos, boca y manitas/brazos procedimentales**. No es un humano con ropa de tela ni un logotipo geométrico abstracto. Tareas: `CHAR-01..11` y `WIDG-01..05` en `docs/roadmap/Backlog.md`. El widget in-app es `CANV-11`; la ventana flotante de escritorio es `WIDG-02`; ambos comparten `AttentionStateMachine` (`WIDG-03`). El motor/renderer lo implementa `CHAR-05`/`CHAR-06` (absorbe el alcance técnico de `CANV-08`).
+>
+> **Corrección 2026-10-19:** el párrafo anterior describe el estado del motor
+> **legacy**. El motor vigente es `@ego/avatar` (266 tests, typecheck real), y
+> `CharacterEngine` **no dibuja en la interfaz**. La tabla de estado real está
+> en §0.4; la decisión sobre qué se archiva sigue pendiente del owner.
 
 ## 1. Visión y Doctrina: Un Personaje, Múltiples Superficies, Una Sola Fuente de Estado
 
@@ -108,6 +224,13 @@ export type CharacterState =
   | "sleeping"           // Ventana sin foco o inactividad prolongada; reducción a 15 fps / reposo
   | "attention";         // Proactividad espontánea o alerta de background no solicitada
 ```
+
+> **Este es el vocabulario de la CAPA DE CHAT**, no el del motor. `CharacterBadge`
+> lo traduce al vocabulario del avatar con `mapCharacterStateToAvatarState()`
+> (14 → 14): `generating` → `working`, `using_tool` → `working`,
+> `approval_required` → `approval`, y el resto pasa 1:1. A su vez, el motor
+> canvas traduce ese vocabulario de 14 al suyo de 22 con `EGO_TO_STUDIO_STATE`
+> (`src/studio/adapter.js`). El motor SVG usa los 14 directamente.
 
 ---
 
@@ -280,6 +403,13 @@ Para flujos de trabajo complejos donde intervienen varios especialistas en casca
 
 ## 10. Anatomía y Geometría Procedural del Cuerpo
 
+> **LEGACY (2026-10-19).** Esta sección describe la geometría de
+> `CharacterEngine`, que **no se ejecuta**. La geometría vigente del motor
+> está en `packages/avatar/src/studio/render/geometry.js` (proporciones
+> canónicas del robot de Ego) y en `packages/avatar/src/render/` (motor SVG:
+> plantilla paramétrica de 160 puntos + genoma). Se conserva como registro de
+> la dirección artística y del trabajo pendiente.
+
 El cuerpo se dibuja analíticamente mediante matemáticas polares y curvas continuas (cero sprites rasterizados ni imágenes estáticas). El runtime soporta una familia parametrizable de geometrías declaradas en `BaseFormSchema` (`packages/subegos/src/CharacterProfile.ts`):
 
 ### A. Geometría Canónica Primaria: Triángulo Delta Core (`delta-core`)
@@ -293,7 +423,7 @@ $$px_{tri} = \cos(a) \cdot r(a) \cdot 1.18, \quad py_{tri} = \sin(a) \cdot r(a) 
   $$ey = -\sin(\text{eyePitch}) \cdot r_y + (\text{triangleMorph} \cdot r_y \cdot 0.14)$$
 
 ### B. Geometría de Superelipse Paramétrica (`coucou-mochi` / `squircle-core`)
-Curva continua de Lamé con exponente $EXP = 2.7$ (retenida temporalmente bajo `coucou-mochi` hasta la culminación de `COUC-23`):
+Curva continua de Lamé con exponente $EXP = 2.7$ (el nombre `coucou-mochi` se **eliminó** del motor el 2026-10-19, con la decisión D4; queda sólo como histórico):
 $$| \frac{x}{a} |^n + | \frac{y}{b} |^n = 1 \quad (n = 2.7)$$
 
 ### C. Morphing Procedural Continuo entre Siluetas
@@ -316,6 +446,11 @@ export interface BodyGeometry {
 ---
 
 ## 11. Proyección 3D Simulada de Mirada y Rostro
+
+> **LEGACY (2026-10-19).** Describe `CharacterEngine`. La proyección de mirada
+> vigente vive en `packages/avatar/src/render/projection.js` (motor SVG) y en
+> `packages/avatar/src/studio/rig/eyes.js` (motor canvas): `eyeYaw`,
+> foreshortening y umbral de 0,04, con el mismo modelo de origen.
 
 Los ojos **no se dibujan en coordenadas fijas del lienzo 2D**, sino que se proyectan sobre una **superficie esférica tridimensional simulada**:
 
@@ -341,6 +476,15 @@ Los ojos **no se dibujan en coordenadas fijas del lienzo 2D**, sino que se proye
 ---
 
 ## 12. Pipeline de Renderizado Multi-Capa en Canvas 2D / Path2D
+
+> **LEGACY (2026-10-19).** Describe las 6 capas del motor `CharacterEngine`.
+> El pipeline vigente del **motor canvas** (`@ego/avatar`, modo studio) tiene 7
+> capas en `packages/avatar/src/studio/avatar.js` → `draw()`: sombra · chasis
+> · reactor trasero · vainas auditivas · visor · ojos · boca · manos ·
+> accesorios · partículas. El **motor SVG** tiene su propia estructura de
+> grupos en `packages/avatar/src/render/shell.js` (`.aura`, `.appendage`,
+> `.motion-group`, `.head-follow`, `.body-group`, `.eyes-clip`, `.badge`,
+> `.particles`).
 
 Cada fotograma se compone en el orden estricto de capas para garantizar la integridad visual sin colisiones de oclusión:
 
@@ -374,6 +518,11 @@ Cada fotograma se compone en el orden estricto de capas para garantizar la integ
 ---
 
 ## 13. Física de Inercia y Resortes para Rasgos (`TraitPhysics`)
+
+> **LEGACY (2026-10-19).** Describe `CharacterEngine`. La física vigente está
+> en `packages/avatar/src/core/anim.js` (springs sub-stepped a 240 Hz) y
+> `packages/avatar/src/core/timeline.js` (tweens por campo con *locks*),
+> con el muelle *jelly* de impacto y el seguimiento de cabeza por *deadband*.
 
 Los rasgos anatómicos con holgura (apéndices, crestas, antenas) no son calcomanías estáticas; reaccionan a las aceleraciones del personaje. Se mantiene el integrador de resorte amortiguado, reimplementado con constantes propias (adaptado del patrón de Coucou, MIT):
 

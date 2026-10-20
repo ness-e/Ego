@@ -3,7 +3,7 @@
 | Estado | Revisable — fuente vigente de experiencia de usuario. Actualizado con decisión P22 (Estrategia de desarrollo iterativo de UX con presupuesto explícito) 2026-10-06 |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/13-12-experiencia-de-usuario-e-interfaz.md` (congelado) + Decisiones P4, P11 (Explicabilidad contextual), P22 (Estrategia UX con presupuesto) 2026-10-06 |
+| Fuente histórica | PRD v0 (no versionado en este repo) (congelado) + Decisiones P4, P11 (Explicabilidad contextual), P22 (Estrategia UX con presupuesto) 2026-10-06 |
 
 ## Modelo de interacción: Chat + Canvas
 La interfaz de Ego NO está estructurada como una colección de secciones o pantallas fijas. Utiliza un modelo de [Workspace Cognitivo Dinámico](../architecture/workspace-dinamico.md) compuesto por dos superficies coordinadas: Chat y Canvas.

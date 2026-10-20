@@ -13,7 +13,7 @@ Un Sistema Operativo Cognitivo (SOC) es una capa de software que organiza y coor
 
 | Capacidad | Descripción |
 | --- | --- |
-| **Memoria** | Persistencia y recuperación del estado y contexto del proyecto (Project Memory sobre substrate VantaDB: híbrida RRF, grafos, context engine, dream consolidation). |
+| **Memoria** | Persistencia y recuperación del estado y contexto del proyecto (Project Memory sobre substrate VantaDB: BM25 lexico + grafos + context engine + dream consolidation; la fusion hibrida RRF es del Cognitive Path). |
 | **Cognición** | Razonamiento, comprensión y análisis profundo. |
 | **Especialización** | Asignación de tareas a Sub-Egos o modelos específicos según sus capacidades. |
 | **Coordinación** | Orquestación eficiente entre múltiples Sub-Egos, herramientas y procesos. |

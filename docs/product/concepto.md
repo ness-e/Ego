@@ -3,7 +3,7 @@
 | Estado | Revisable |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/06-5-concepto-de-producto.md` + Decisiones P1-P2 2026-10-06 |
+| Fuente histórica | PRD v0 (no versionado en este repo) + Decisiones P1-P2 2026-10-06 |
 | Regla | Este archivo se edita |
 
 # Concepto de Producto: Ego

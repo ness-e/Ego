@@ -5,8 +5,8 @@
 | Estado | Revisable — fuente vigente de arquitectura e integraciones |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/14-13-integraciones.md` + `../prd/19-tech-stack.md` + Decisión P23 |
-| Regla | Este archivo se edita; `../prd/14*` y `../prd/19*` quedan congelados como referencia histórica |
+| Fuente histórica | PRD v0 (no versionado en este repo; 2 documentos: integraciones + tech-stack) + Decisión P23 |
+| Regla | Este archivo se edita; el PRD v0 (no versionado en este repo) queda congelado como referencia histórica |
 | Decisión P23 | Variante D+: MCP como capa estándar de integración + First-party para servicios críticos + Import/Webhook/API genérico para el resto |
 
 ## Principios de integración

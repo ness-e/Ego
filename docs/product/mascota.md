@@ -5,12 +5,16 @@
 | --- | --- |
 | Estado | Canónico — Fuente vigente de diseño de producto y experiencia |
 | Owner | ness-e / Principal Systems Engineer |
-| Fecha | 2026-10-07 |
-| Inspiración Técnica | Procedural Canvas Engine de `coucou` (`BotEngine`, `MochiOutfitDrawing`, `IslandStateMachine`) |
+| Fecha | 2026-10-07 · **actualizado 2026-10-19** (motor real: `@ego/avatar`) |
+| Motor en Código | **`@ego/avatar`** — paquete `packages/avatar/`, Web Component `<ego-avatar>` (motor SVG + motor canvas *Robot Studio*) |
+| Superficies | `apps/desktop/renderer/components/character/CharacterBadge.tsx` (chat, widget, selector de Sub-Egos, sidebar) · `apps/desktop/renderer/floating/` (ventana flotante) |
+| Motor anterior (legacy) | `apps/desktop/renderer/components/character/core/CharacterEngine.ts` — **no es el motor vigente**; ver §10 |
+| Inspiración Técnica | Procedural Canvas Engine de `coucou` (`BotEngine`, `MochiOutfitDrawing`, `IslandStateMachine`) — adaptado, con atribución MIT; ver `packages/avatar/LICENSE.md` |
 | Regla Fundamental | **El personaje es una capa visual del Cognitive Runtime procedural en código, NO imágenes generadas por IA** |
-| Ubicación en Código | `apps/desktop/renderer/components/character/` y `apps/desktop/renderer/components/activity-widget/` |
 
-> **Dirección artística canónica (Actualizada Oct 2026):** Ego y sus Sub-Egos se basan en el **Motor Gráfico Procedural Canvas 2D** inspirado en la arquitectura matemática de `BotEngine`: una entidad bio-digital/geométrica viva con cabeza 3D cabeceante, rostro hiper-expresivo (13 morfologías de ojos, boca reactiva), manos gesticulantes y un sistema integral de personalización basado en **siluetas matemáticas** (`delta-core` triángulo $C_3$, `squircle-core` superelipse $EXP=2.7$, y temporalmente `coucou-mochi` hasta `COUC-23`) combinadas con **rasgos anatómicos y energéticos no humanoides** (`traits`: halos, núcleos de energía, anillos orbitales, crestas y antenas). Cero vestimenta humana (`BANNED_HUMAN_CLOTHING`), cero assets gráficos privativos de terceros y síntesis de audio pura en tiempo real (Web Audio API). Ver [`character-art-direction.md`](character-art-direction.md).
+> **Dirección artística canónica (Actualizada Oct 2026):** Ego y sus Sub-Egos se basan en un **motor gráfico procedural** construido sobre el Web Component `<ego-avatar>`: una entidad bio-digital/geométrica viva con cabeza paramétrica, rostro hiper-expresivo, manos gesticulantes y un sistema integral de personalización basado en **siluetas matemáticas** combinadas con **rasgos anatómicos y energéticos no humanoides** (`traits`: halos, núcleos de energía, anillos orbitales, crestas y antenas). Cero vestimenta humana (`BANNED_HUMAN_CLOTHING`), cero assets gráficos privativos de terceros y síntesis de audio pura en tiempo real (Web Audio API). Ver [`character-art-direction.md`](character-art-direction.md) y [`../architecture/character-system.md`](../architecture/character-system.md).
+
+> **Vocabulario de siluetas.** El motor vigente (`@ego/avatar`) trabaja con **genoma procedimental** (semilla → genoma → organismo: forma, ojos, paleta, marca, apéndice, aura, temperamento) y con **presets de identidad** de Ego (`cx-faithful`, `ego-nucleus`, `ego-cyber`, `ego-sentinel`, `ego-architect`). Los nombres `delta-core` / `squircle-core` / `coucou-mochi` pertenecen al **vocabulario legacy** de `CharacterEngine` y se conservan aquí solo como histórico: el motor que se ejecuta hoy no los produce.
 
 ---
 
@@ -38,20 +42,20 @@ Ego Base + Todos los Sub-Egos (Un Solo Motor, Múltiples Superficies)
 
 ## 2. Doctrina: Un Personaje, Múltiples Superficies, Una Sola Fuente de Estado
 
-El personaje **NO es un avatar que aparece cada vez que un LLM genera texto**, ni tampoco existen "tres mascotas distintas" en la aplicación.
+El personaje **no es una imagen que se regenera cada vez que un LLM escribe texto**, ni tampoco existen "tres mascotas distintas" en la aplicación. Es un **organismo procedimental vivo** con identidad estable (semilla → genoma) que se proyecta en varias superficies.
 
 El sistema se rige por una regla cardinal:
 > **"Un personaje, múltiples superficies, una sola fuente de estado."**
 
-La máquina de estado reside en el `CharacterRuntime`. Las distintas superficies de la aplicación simplemente proyectan esa misma entidad en diferentes tamaños y niveles de expresividad:
+La fuente de estado es el **`<ego-avatar>`** (`@ego/avatar`): un Web Component con 14 estados runtime y 11 emotes. Las distintas superficies de la aplicación simplemente proyectan ese mismo elemento en diferentes tamaños y niveles de expresividad:
 
 ```text
-                      CHARACTER RUNTIME (Fuente Única)
-                                     │
-      ┌──────────────────────┬───────┴──────────────┬──────────────────────┐
-      ▼                      ▼                      ▼                      ▼
-  App Header            Active Chat            Ego Activity          Dynamic Canvas
- (Icono Estado)       (Orador Formal)        Widget (Acción)        (Área de Trabajo)
+                    <ego-avatar>  (Web Component, @ego/avatar)
+                                 │
+       ┌──────────────────────┬─┴────────────────┬──────────────────────┐
+       ▼                      ▼                  ▼                      ▼
+   App Header            Active Chat        Ego Activity          Dynamic Canvas
+  (Icono Estado)       (Orador Formal)     Widget (Acción)       (Área de Trabajo)
 ```
 
 ---
@@ -67,16 +71,16 @@ Sub-Ego (Especialista Cognitivo)
   └── 3. CharacterBehavior ───────► Cinética: ¿CÓMO REACCIONA? (Física, mirada y gestos)
          │
          ▼
-  4. CharacterRuntime ────────────► Proyección unificada sobre Chat, Canvas y Activity Widget
+  4. <ego-avatar> (motor) ────────► Proyección unificada sobre Chat, Canvas y Activity Widget
 ```
 
 ### Regla: La Identidad NO Cambia cuando Cambia el Estado
 
 * **Identidad:** ¿Quién es?
-  * **Ego Base:** Forma base neutra de la familia (silueta `delta-core` o superelipse sobria), sin rasgos adicionales, paleta plata/cian limpia, mirada serena y balanceada.
-  * **Sub-Ego Dev (ejemplo):** misma base paramétrica o `delta-core`, paleta azul eléctrico `#3B82F6`, postura inclinada hacia adelante, rasgo de enfoque `energy-cores` o `antennae`.
+  * **Ego Base:** Forma base neutra de la familia derivada del **genoma** (seed → genoma → organismo), sin rasgos adicionales, paleta limpia, mirada serena y balanceada. Preset de identidad: `ego-nucleus`.
+  * **Sub-Ego Dev (ejemplo):** misma base paramétrica, paleta azul eléctrico `#3B82F6`, postura inclinada hacia adelante, rasgo de enfoque `energy-cores` o `antennae`. Preset: `ego-cyber`.
   * **Sub-Ego Finanzas (ejemplo):** proporción compacta, paleta esmeralda `#10B981`, postura erguida, movimiento contenido, rasgo de solidez `geometric-crest`.
-  * Regla de diferenciación: la identidad utiliza la silueta geométrica (`baseForm`: `delta-core`, `coucou-mochi` temporal), paleta cromática de dominio, morfología de ojos (`eyeShape`) y **rasgos anatómicos abstractos no humanos (`traits`: halos, núcleos de energía, anillos orbitales, antenas)** según [`character-art-direction.md`](character-art-direction.md) y el contrato `CharacterProfile`. Prohibida la ropa humana.
+  * Regla de diferenciación: la identidad utiliza la **forma procedimental derivada del genoma**, la **paleta cromática de dominio**, la **morfología de ojos** y el **preset de identidad** del Sub-Ego (`ego-nucleus` / `ego-cyber` / `ego-sentinel` / `ego-architect`), además de los **rasgos anatómicos abstractos no humanos (`traits`: halos, núcleos de energía, anillos orbitales, antenas)** según [`character-art-direction.md`](character-art-direction.md) y el contrato `CharacterProfile`. Prohibida la ropa humana.
 * **Estado Operativo:** ¿Qué está haciendo?
   * `idle`, `listening`, `thinking`, `working`, `searching`, `using_tool`, `waiting`, `approval_required`, `question`, `success`, `warning`, `error`, `sleeping`, `attention`.
 
@@ -160,9 +164,9 @@ export interface CharacterProfile {
   /**
    * Silueta base matemática del personaje:
    * 'delta-core' (triángulo C3), 'quantum-monolith', 'energy-core',
-   * 'fractal-polyhedron' o 'coucou-mochi' (temporal hasta COUC-23).
+   * 'fractal-polyhedron'. LEGACY: `coucou-mochi` se elimino con el motor `@ego/avatar`.
    */
-  baseForm: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi";
+  baseForm: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron"; // + "coucou-mochi" en el motor legacy
 
   /** Paleta cromática coordinada */
   palette: {
@@ -199,14 +203,14 @@ export interface CharacterProfile {
 
 Cada Sub-Ego se distingue inmediatamente por su silueta geométrica, paleta cromática, rasgos anatómicos no humanos y cinemática:
 
-| Preset | Dominios típicos | Silueta Base | Paleta Primaria | Rasgo / Trait Sugerido | Tono / Movimiento |
+| Preset | Dominios típicos | Preset de identidad (motor) |
 |---|---|---|---|---|---|
-| `Preset-Core` | Ego Nucleus | `delta-core` o `coucou-mochi` | `#EDEDEF` / `#C4C5CA` (Plata limpio) | `aura-field` sobrio | Calmo, reflexivo, pulso suave |
-| `Preset-Technical` | Ingeniería, DevOps | `delta-core` | `#3B82F6` / `#1D4ED8` (Azul eléctrico) | `energy-cores` o `antennae` | Enfocado, cabeceo rápido |
-| `Preset-Rigorous` | Finanzas, Legal | `delta-core` | `#10B981` / `#047857` (Esmeralda oscuro) | `geometric-crest` | Firme, mirada directa |
-| `Preset-Creative` | Diseño, Copywriting | `delta-core` | `#F59E0B` / `#D97706` (Ámbar vibrante) | `floating-shards` | Elástico, ojos `happy` / `star` |
-| `Preset-Strategic` | Estrategia, Producto | `delta-core` | `#8B5CF6` / `#6D28D9` (Púrpura real) | `quantum-crown` o `orbital-rings` | Pausado, postura erguida |
-| `Preset-Warm` | Soporte, CRM | `delta-core` | `#EC4899` / `#BE185D` (Rosa cálido) | `halo` | Acogedor, parpadeo frecuente |
+| `Preset-Core` | Ego Nucleus | `ego-nucleus` | `#EDEDEF` / `#C4C5CA` (Plata limpio) | `aura-field` sobrio | Calmo, reflexivo, pulso suave |
+| `Preset-Technical` | Ingeniería, DevOps | `ego-cyber` | `#3B82F6` / `#1D4ED8` (Azul eléctrico) | `energy-cores` o `antennae` | Enfocado, cabeceo rápido |
+| `Preset-Rigorous` | Finanzas, Legal | `ego-sentinel` | `#10B981` / `#047857` (Esmeralda oscuro) | `geometric-crest` | Firme, mirada directa |
+| `Preset-Creative` | Diseño, Copywriting | `ego-architect` | `#F59E0B` / `#D97706` (Ámbar vibrante) | `floating-shards` | Elástico, ojos `happy` / `star` |
+| `Preset-Strategic` | Estrategia, Producto | `ego-architect` | `#8B5CF6` / `#6D28D9` (Púrpura real) | `quantum-crown` o `orbital-rings` | Pausado, postura erguida |
+| `Preset-Warm` | Soporte, CRM | `ego-nucleus` | `#EC4899` / `#BE185D` (Rosa cálido) | `halo` | Acogedor, parpadeo frecuente |
 
 ---
 
@@ -218,3 +222,53 @@ Cada Sub-Ego se distingue inmediatamente por su silueta geométrica, paleta crom
 Opera exclusivamente como un **consumidor reactivo de eventos**:
 * Si el lienzo de Canvas se desactiva o sufre un error, **el Cognitive Runtime continúa ejecutando sin alteración**.
 * La observabilidad jamás penaliza ni bloquea el trabajo productivo.
+
+---
+
+## 10. Qué motor ejecuta realmente el personaje
+
+> Actualizado 2026-10-19. Esta sección sustituye a las referencias que apuntaban
+> a `apps/desktop/renderer/components/character/core/CharacterEngine.ts` como si
+> fuese el motor vigente.
+
+### 10.1 El motor vigente: `@ego/avatar`
+
+| | |
+|---|---|
+| Paquete | `packages/avatar/` (npm `@ego/avatar`), 0 dependencias |
+| Elemento | `<ego-avatar>` — Custom Element v1 + Shadow DOM, ESM puro |
+| Motores de render | **SVG** (defecto, exportable a string) y **canvas / Robot Studio** (`mode="studio"`) |
+| Identidad | **genoma procedimental**: `seed` → `xmur3` → `mulberry32` → genoma inmutable (forma, ojos, paleta, marca, apéndice, aura, temperamento) |
+| Vocabulario | **14 estados runtime** + **11 emotes** (`src/runtime/states.js`); el studio amplía a **22 estados** (`src/studio/config.js`) y traduce con `EGO_TO_STUDIO_STATE` / `STUDIO_TO_EGO_STATE` |
+| Presets de identidad | `cx-faithful`, `ego-nucleus`, `ego-cyber`, `ego-sentinel`, `ego-architect` |
+| Consumidores | `CharacterBadge.tsx` (chat, Activity Widget, selector de Sub-Egos, sidebar, Presence) y la ventana flotante (`apps/desktop/renderer/floating/`) |
+| Estado en el chat | `ego-chat.tsx` computa `avatarLiveState` desde `pendingApprovals` / `activeError` / `isStreaming` / `toolEvents` / `composerText` y lo mapea al vocabulario del avatar |
+
+**El personaje SÍ es un avatar**, en el sentido de que es una entidad
+procedimental viva con identidad propia que se proyecta en varias superficies.
+Lo que **no** es, y esta es la doctrina intacta: una imagen que se regenera al
+escribir texto, ni un resultado de un modelo de difusión, ni un asset de
+terceros. Todo se dibuja con código.
+
+### 10.2 El motor anterior: `CharacterEngine` (legacy)
+
+`apps/desktop/renderer/components/character/core/CharacterEngine.ts`
+(998 líneas) sigue en el repo, pero **no dibuja nada en la interfaz**:
+
+* `CharacterCanvas.tsx` y `CharacterMiniBadge.tsx` están **definidos y nunca
+  renderizados** (0 usos JSX).
+* La clase sólo se usa hoy por tres módulos que importan de ella **tipos**
+  (`RGB`, `EyeShape`) y un utilería (`hexToRGB`): `CharacterStateMachine.ts`,
+  `TraitRegistry.ts` y `CharacterMorph.ts`.
+* La FSM de 14 estados (`CharacterStateMachine`) **nunca se instancia**: sólo
+  se importa su *tipo*. El estado real lo computa el `useMemo` de
+  `ego-chat.tsx`.
+
+Su vocabulario (`delta-core`, `squircle-core`, `coucou-mochi`, 13 morfologías de
+ojos) es **histórico** y no describe lo que se ve en pantalla.
+
+### 10.3 Decisión pendiente
+
+Si `@ego/avatar` absorbe a `CharacterEngine` (y qué se archiva) es una decisión
+**del owner**, todavía abierta. Ver el handoff A6 de la ola de remediación del
+2026-10-19.

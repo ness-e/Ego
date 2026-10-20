@@ -25,7 +25,8 @@ Este documento establece el **contrato de evolución coordinada** entre Ego (el 
 │  Estado VantaDB: ✅ DISPONIBLE HOY (Arquitectura Híbrida)              │
 │  • Fast Path: NativeVantaDB (in-process vía napi-rs, Fjall LSM)       │
 │  • Cognitive Path: vantadb-mcp (subprocess stdio, 88 tools — cifra del proyecto hermano VantaDB, no verificable desde Ego; R2 T09)            │
-│  • Búsqueda híbrida: BM25 + HNSW + RRF federado                        │
+│  • Búsqueda: BM25 lexico en fast path (sin RRF: es peticion        │
+│    upstream, VDB-REQ-10); RRF + HNSW denso via el Cognitive Path  │
 │  • Embeddings: BM25 puro en fast path (VDB-INC-01; denso vía mcp)      │
 │  • Gobernanza: Cuarentena (ADR-046) y Supersesión (ADR-028)           │
 ├────────────────────────────────────────────────────────────────────────┤
@@ -71,7 +72,7 @@ Este documento establece el **contrato de evolución coordinada** entre Ego (el 
 
 ## 4. Tareas Nuevas a Registrar en el Backlog de VantaDB
 
-Para cerrar la brecha entre los proyectos, el backlog técnico de VantaDB (`docs/dev/Backlog.md`) debe incorporar formalmente los siguientes ítems que no se encontraban catalogados:
+Para cerrar la brecha entre los proyectos, el backlog técnico de VantaDB (`docs/roadmap/Backlog.md`) debe incorporar formalmente los siguientes ítems que no se encontraban catalogados:
 
 ### Tarea 1: `COGN-01` — Fachada Modular `VantaCognitiveAPI` en `vantadb-node`
 * **Ámbito:** `vantadb-node/`, `vanta-memory/`

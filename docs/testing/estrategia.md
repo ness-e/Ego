@@ -5,9 +5,9 @@
 | Estado | Revisable — fuente vigente de estrategia de pruebas y contratos |
 | Owner | ness-e |
 | Fecha | 2026-10-06 |
-| Fuente histórica | `../prd/18-17-roadmap-con-hitos-y-criterios-de-salida.md` gates + `investigacion-de-diseño/` + Decisiones P1-P24 |
+| Fuente histórica | PRD v0 (no versionado en este repo; roadmap con hitos y criterios de salida) + `docs/research/` + Decisiones P1-P24 |
 | VantaDB verificado | 0.8.0 base dev; `EgoMemoryAdapter.ts` implementado; contratos tipados en Vitest |
-| Regla | Este archivo se edita; `../prd/18*` queda congelado como referencia histórica |
+| Regla | Este archivo se edita; PRD v0 (no versionado en este repo) queda congelado como referencia histórica |
 
 ## Pirámide de Calidad Desktop P0
 

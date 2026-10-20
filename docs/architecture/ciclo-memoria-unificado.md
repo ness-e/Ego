@@ -52,7 +52,7 @@ sequenceDiagram
     rect rgb(240, 248, 255)
     note right of Lifecycle: FASE 2: Pre-Turn Assembly
     Lifecycle->>Adapter: assembleContext(query, projectScope)
-    Adapter->>Vanta: searchMulti([kb/*, session/*, egos/*], RRF)
+    Adapter->>Vanta: searchMulti([kb/*, session/*, egos/*])  %% BM25 lexico (sin RRF)
     Vanta-->>Adapter: Documentos relevantes + grafo
     Adapter-->>Lifecycle: InjectedContext + RecallStatus (count, glyph 🧠)
     Lifecycle-->>UI: Emite evento RecallIndicator (ej. "🧠 4 recuerdos")
@@ -88,7 +88,7 @@ sequenceDiagram
 ### Fase 2: Pre-Turn Assembly & Prefetch (Inspirado en Hermes + VantaDB L2)
 * **Disparador:** El usuario presiona Enter en el Composer.
 * **Acción:**
-  - `EgoMemoryAdapter.assembleContext()` ejecuta una búsqueda federada sobre VantaDB usando RRF (Reciprocal Rank Fusion) combinando HNSW (384d ONNX) y BM25 textual sobre los namespaces autorizados (`kb/*`, `project/*`, `egos/<id>/*`).
+  - `EgoMemoryAdapter.assembleContext()` ejecuta una búsqueda federada sobre VantaDB en modo **BM25 léxico** (`searchMulti` con `query_vector: []`, workaround upstream `VDB-REQ-02`) sobre los namespaces autorizados (`kb/*`, `project/*`, `egos/<id>/*`). **No hay fusión RRF en el Fast Path**: la fusión RRF + HNSW denso pertenece al Cognitive Path (Ola 2, E2). Ver `memoria-vantadb.md` §3.
   - **Indicador Determinista (Hermes RecallStatus):** La UI recibe inmediatamente un metadato liviano:
     ```ts
     interface EgoRecallStatus {
