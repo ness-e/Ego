@@ -77,3 +77,5 @@ export {
   validateSSRFUrl,
 } from "./netPolicy.js";
 export type { SSRFCheck } from "./netPolicy.js";
+export { NetPolicy } from "./ssrfPolicy.js";
+export type { NetPolicyOptions, NetPolicyDnsOptions } from "./ssrfPolicy.js";

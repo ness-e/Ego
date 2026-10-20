@@ -6,19 +6,21 @@
  *   workspace + rutas reservadas + symlinks. Aquí vive la réplica LÉXICA
  *   (sin fs) para el veredicto previo; el enforcement canónico sigue en
  *   el nativo en tiempo de ejecución.
- * - `NetPolicy` (`@ego/tools`, OCLW-09): anti-SSRF con DNS. Aquí vive la
- *   réplica LÉXICA (sin DNS) para el veredicto previo; la resolución DNS
- *   y el pinning TOCTOU pertenecen a SEC-08.
+ * - `NetPolicy` (**canónico en `@ego/security`**, `./NetPolicy.js`): anti-SSRF
+ *   con DNS. Este módulo **delega** en él (R4 / EGO-FIND-66): la "réplica
+ *   LÉXICA" que vivía aquí se ha eliminado porque era atravesable por DNS
+ *   rebinding; la resolución DNS y el pinning TOCTOU pertenecen a SEC-08.
  * - Allowlist MCP (F1T2): este módulo la consume vía
  *   `ToolPermissionsOptions.allowedMcpServers`, no la define.
  * - Aprobación HITL (runtime `ToolRegistry.resolveApprovalRequirement`,
  *   COUC-10): este módulo devuelve el veredicto (`allow | deny |
  *   requireApproval`); el runtime decide el flujo de aprobación.
  *
- * Diseño: cero dependencias (ni `@ego/tools`: evita arista nueva entre
- * paquetes; tipado estructural). Fail-closed: desconocido → deny.
+ * Diseño: cero dependencias `@ego/*` (ni `@ego/tools`: evita arista nueva
+ * entre paquetes; tipado estructural). Fail-closed: desconocido → deny.
  * Cero eco: `reason` nombra REGLAS, nunca comandos/URLs completos.
  */
+import { NetPolicy } from "./ssrfPolicy.js";
 
 export type ToolDecision = "allow" | "deny" | "requireApproval";
 
@@ -144,19 +146,6 @@ const BLOCKED_COMMAND_PATTERNS: readonly RegExp[] = [
   /chmod\s+-R\s+777\s+\//,
 ];
 
-/** Hosts siempre bloqueados (réplica léxica de `NetPolicy`). */
-const BLOCKED_HOSTNAMES = new Set([
-  "localhost",
-  "127.0.0.1",
-  "::1",
-  "0.0.0.0",
-  "metadata.google.internal",
-  "instance-data",
-  "169.254.169.254",
-  "100.100.100.200",
-  "fd00:ec2::254",
-]);
-
 /** Servidores MCP conocidos de Ego (defecto; el deploy los restringe). */
 export const DEFAULT_ALLOWED_MCP_SERVERS: readonly string[] = ["github", "filesystem"] as const;
 
@@ -245,48 +234,20 @@ function isSensitivePath(requestedPath: string): boolean {
   return SENSITIVE_SEGMENTS.some((s) => norm.includes(s.toLowerCase()));
 }
 
-function isBlockedIpv4(ip: string): boolean {
-  const parts = ip.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return false;
-  const [a, b] = parts;
-  if (a === undefined || b === undefined) return false;
-  if (a === 127 || a === 0 || a === 10) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a >= 224) return true;
-  return false;
-}
-
+/**
+ * Veredicto de red para una URL.
+ *
+ * R4 (EGO-FIND-66): **delegación pura** en la política de red canónica
+ * (`./ssrfPolicy.js`). La "réplica léxica" que vivía aquí se ha eliminado:
+ * comparaba sólo la cadena del host, sin resolver DNS, y por tanto era
+ * atravesable por DNS rebinding (`http://attacker.example` → `127.0.0.1`).
+ * La comprobación con DNS ocurre en el punto de la petición real
+ * (`NetPolicy.validateUrlWithDns`); aquí se aplica el veto léxico síncrono.
+ */
 function checkUrl(rawUrl: string): ToolDecisionResult | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl.trim());
-  } catch {
-    return deny("unsafe_url", "URL malformada.");
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return deny("unsafe_url", "Solo se permiten esquemas http/https (COUC-13).");
-  }
-  const host = parsed.hostname.toLowerCase();
-  if (
-    BLOCKED_HOSTNAMES.has(host) ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal")
-  ) {
-    return deny("unsafe_url", "Host interno o protegido bloqueado (anti-SSRF).");
-  }
-  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) && isBlockedIpv4(host)) {
-    return deny("unsafe_url", "IP privada o especial bloqueada (anti-SSRF).");
-  }
-  const lower = host.toLowerCase();
-  if (lower === "::1" || lower === "::" || lower.startsWith("fe8") || lower.startsWith("fe9") ||
-    lower.startsWith("fea") || lower.startsWith("feb") || lower.startsWith("fc") || lower.startsWith("fd")) {
-    return deny("unsafe_url", "IPv6 privada o especial bloqueada (anti-SSRF).");
-  }
-  return null;
+  const verdict = NetPolicy.validateUrl(rawUrl);
+  if (verdict.safe) return null;
+  return deny("unsafe_url", verdict.reason ?? "URL bloqueada por la política de red (anti-SSRF).");
 }
 
 /**
@@ -343,7 +304,8 @@ export function evaluateToolCall(
     }
   }
 
-  // 3. Red (réplica léxica de NetPolicy; sin DNS aquí).
+  // 3. Red (política canónica `ssrfPolicy.ts`; el veto DNS ocurre en la
+  //    petición real vía `NetPolicy.validateUrlWithDns`).
   if (typeof request.url === "string" && request.url.length > 0) {
     const verdict = checkUrl(request.url);
     if (verdict) return verdict;
