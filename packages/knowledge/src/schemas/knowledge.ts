@@ -57,7 +57,17 @@ export const FactSchema = z.object({
 export type Fact = z.infer<typeof FactSchema>;
 
 /**
- * Opciones para búsqueda híbrida multi-canal (BM25 + Vector + RRF).
+ * Opciones de búsqueda federada multi-namespace (BM25) con reordenamiento MMR.
+ *
+ * EGO-FIND-41: el fast path de VantaDB 0.8.0 es BM25 puro (`query_vector: []`
+ * — workaround upstream `VDB-REQ-02`), así que **no hay canal vectorial ni
+ * RRF** todavía; el re-rank es mono-lista (score del motor + MMR).
+ *
+ * Workaround upstream: `VDB-REQ-10` — el binding `vantadb-node@0.8.0` no
+ * expone embeddings en el fast path, por lo que la fusión RRF real no puede
+ * calcularse y el MMR usa coseno léxico como aproximación.
+ * TODO(EGO-FIND-41): habilitar canal denso + RRF real cuando VantaDB
+ * exponga scores vectoriales por hit.
  */
 export const KnowledgeSearchOptionsSchema = z.object({
   topK: z.number().int().positive().default(10),
@@ -65,7 +75,7 @@ export const KnowledgeSearchOptionsSchema = z.object({
   scoreMode: z.enum(["normalized", "absolute"]).default("normalized").describe("H10: normalized calibra contra la distribución BM25 del lote; absolute conserva semántica coseno [0,1]"),
   namespaces: z.array(z.string()).default(["kb/docs", "kb/facts"]),
   excludeSuperseded: z.boolean().default(true),
-  useMmr: z.boolean().default(true).describe("Diversificación Maximal Marginal Relevance"),
+  useMmr: z.boolean().default(true).describe("Diversificación Maximal Marginal Relevance (EGO-FIND-41: relevancia normalizada min-max + coseno léxico)"),
   mmrLambda: z.number().min(0).max(1).default(0.7),
   allowUnfilteredFallback: z.boolean().default(false).describe("H09: si el umbral descarta todo, retornar topK sin filtrar con warn (bypass explícito de la guarda KHOJ-03)"),
 });

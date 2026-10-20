@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { asEgoAdapter, type KnowledgeAdapterMock } from "./mockAdapter.js";
 import { QuarantineManager } from "../src/QuarantineManager.js";
 import { FactLifecycle } from "../src/FactLifecycle.js";
 import { Fact } from "../src/schemas/knowledge.js";
 
 describe("QuarantineManager & FactLifecycle (KB-07, KB-08 / CARP-04, DSEK-01)", () => {
-  let mockAdapter: any;
+  let mockAdapter: KnowledgeAdapterMock;
   let quarantine: QuarantineManager;
   let lifecycle: FactLifecycle;
 
@@ -14,9 +15,9 @@ describe("QuarantineManager & FactLifecycle (KB-07, KB-08 / CARP-04, DSEK-01)", 
       get: vi.fn().mockResolvedValue(null),
       delete: vi.fn().mockResolvedValue(true),
       list: vi.fn().mockResolvedValue([]),
-    };
-    quarantine = new QuarantineManager(mockAdapter);
-    lifecycle = new FactLifecycle(mockAdapter);
+    } as unknown as KnowledgeAdapterMock;
+    quarantine = new QuarantineManager(asEgoAdapter(mockAdapter));
+    lifecycle = new FactLifecycle(asEgoAdapter(mockAdapter));
   });
 
   const testFact: Fact = {

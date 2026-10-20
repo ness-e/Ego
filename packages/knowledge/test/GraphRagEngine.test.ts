@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { asEgoAdapter, type KnowledgeAdapterMock } from "./mockAdapter.js";
 import { GraphRagEngine } from "../src/GraphRagEngine.js";
 
 describe("GraphRagEngine (KB-06)", () => {
-  let mockAdapter: any;
+  let mockAdapter: KnowledgeAdapterMock;
   let engine: GraphRagEngine;
 
   beforeEach(() => {
     mockAdapter = {
       searchMulti: vi.fn(),
-    };
-    engine = new GraphRagEngine(mockAdapter);
+    } as unknown as KnowledgeAdapterMock;
+    engine = new GraphRagEngine(asEgoAdapter(mockAdapter));
   });
 
   it("ensambla un subgrafo de contexto a partir de semillas híbridas con poda (VDB-REQ-07)", async () => {

@@ -1,4 +1,5 @@
 import { EgoMemoryAdapter } from "@ego/memory";
+import type { NativeGraphRagNode, NativeGraphRagResult } from "@ego/memory";
 import { HybridSearch } from "./HybridSearch.js";
 
 export interface GraphNode {
@@ -15,6 +16,12 @@ export interface GraphEdge {
   to: string;
   relation: "mentions" | "depends_on" | "derived_from" | "supersedes" | "authored_by";
   weight: number;
+  /**
+   * Procedencia del descubrimiento de la arista (EGO-FIND-42):
+   * - `vanta-graph`: arista real del sustrato de grafo de VantaDB.
+   * - `heuristic`: inferida de metadatos/menciones del contenido.
+   */
+  source?: "vanta-graph" | "heuristic";
 }
 
 export interface GraphRagContext {
@@ -34,9 +41,39 @@ export interface GraphRagOptions {
 
 /**
  * Motor de razonamiento GraphRAG nativo acoplado a VantaDB (KB-06).
- * Ejecuta búsqueda híbrida semilla, expansión relacional en grafo con poda por grado (VDB-REQ-07),
- * ponderación causal y síntesis estructurada para el System Prompt de los Sub-Egos.
+ *
+ * Fases:
+ * 1. Búsqueda semilla híbrida (BM25 federada multi-namespace).
+ * 2. **Expansión por aristas reales** del sustrato de grafo de VantaDB
+ *    (`graphragSearch`, DIST-15) cuando el binding lo expone y el grafo tiene
+ *    aristas pobladas.
+ * 3. Expansión heurística de respaldo (metadatos `supersedes`/`doc_id` +
+ *    menciones canónicas en el contenido) cuando no hay grafo nativo.
+ * 4. Síntesis estructurada para el System Prompt de los Sub-Egos.
+ *
+ * Workaround upstream: `VDB-REQ-11` — el binding napi-rs 0.8.0 no expone el
+ * motor IQL (`query`), de modo que el descubrimiento por arista no puede
+ * consultarse con `graphQuery`; se usa `graphragSearch` (DIST-15) y, si el
+ * grafo no aporta aristas, se degrada a la fase 3 (heurística metadata+regex).
+ * Registrado en `docs/VANTADB-FEEDBACK-Y-MEJORAS.md` (handoff A2 → A1).
  */
+/** Mapea la etiqueta de arista nativa a la taxonomía de relaciones de Ego. */
+function mapNativeRelation(label: string): GraphEdge["relation"] {
+  switch (label.toLowerCase()) {
+    case "depends_on":
+      return "depends_on";
+    case "derived_from":
+      return "derived_from";
+    case "supersedes":
+    case "superseded_by":
+      return "supersedes";
+    case "authored_by":
+      return "authored_by";
+    default:
+      return "mentions";
+  }
+}
+
 export class GraphRagEngine {
   private adapter: EgoMemoryAdapter;
   private readonly hybridSearch: HybridSearch;
@@ -103,6 +140,19 @@ export class GraphRagEngine {
     const expandedNodes: GraphNode[] = [...seedNodes];
     const edges: GraphEdge[] = [];
 
+    // Fase 2 (EGO-FIND-42): expansión por aristas REALES del sustrato de
+    // grafo de VantaDB. Si el binding no lo expone o el grafo está vacío,
+    // no aporta nada y la fase 3 (heurística) cubre el caso.
+    await this.expandViaNativeGraph(
+      query,
+      seedHits,
+      seedNodes,
+      visitedIds,
+      expandedNodes,
+      edges,
+      maxTotalNodes
+    );
+
     let currentLayer = [...seedNodes];
     let depth = 0;
 
@@ -124,6 +174,7 @@ export class GraphRagEngine {
             to: rel.targetId,
             relation: rel.relation,
             weight: rel.weight,
+            source: "heuristic",
           });
 
           if (!visitedIds.has(rel.targetId)) {
@@ -203,6 +254,92 @@ export class GraphRagEngine {
       edges,
       contextSummary,
     };
+  }
+
+  /**
+   * Expansión por aristas reales del grafo nativo de VantaDB (EGO-FIND-42).
+   *
+   * El binding napi-rs 0.8.0 expone `graphragSearch(namespace, query)` con
+   * aristas reales (`insertNode`/`addEdge`). Los ids de nodo del grafo son
+   * `u128` decimales y coinciden con el `node_id` de los registros KV, de
+   * modo que las semillas se mapean al grafo por ese identificador.
+   *
+   * Workaround upstream: `VDB-REQ-11` — el binding 0.8.0 no expone IQL
+   * (`query`), así que el descubrimiento se hace vía `graphragSearch`.
+   * Workaround: `VDB-REQ-12` — el sustrato de grafo no se sembraba, de modo
+   * que esta fase devolvía `edges: []` y la heurística de la fase 3 era la
+   * activa; hoy Ego siembra aristas reales (`EgoMemoryAdapter.linkGraphNodes`
+   * + `ProjectMemoryGraph.seedGraphEdges`), por lo que la fase nativa aporta
+   * relaciones cuando existen.
+   */
+  private async expandViaNativeGraph(
+    query: string,
+    seedHits: Array<{ record?: { node_id?: string | number } | null }>,
+    seedNodes: GraphNode[],
+    visited: Set<string>,
+    expanded: GraphNode[],
+    edges: GraphEdge[],
+    maxTotalNodes: number
+  ): Promise<void> {
+    const adapter = this.adapter as unknown as {
+      graphRagSearch?: (ns: string, q: string) => Promise<NativeGraphRagResult | null>;
+    };
+    if (typeof adapter.graphRagSearch !== "function") return;
+
+    let native: NativeGraphRagResult | null = null;
+    try {
+      native = await adapter.graphRagSearch("kb/docs", query);
+    } catch {
+      return;
+    }
+    if (!native || native.edges.length === 0) return;
+
+    // node_id (u128 decimal) → id de nodo Ego (`namespace:key`)
+    const seedByNodeId = new Map<string, string>();
+    seedHits.forEach((hit, idx) => {
+      const rawNodeId = hit.record?.node_id;
+      const nodeId = rawNodeId === undefined ? undefined : String(rawNodeId);
+      const egoId = seedNodes[idx]?.id;
+      if (nodeId && egoId) seedByNodeId.set(nodeId, egoId);
+    });
+
+    const nativeById = new Map<string, NativeGraphRagNode>(
+      native.nodes.map((n) => [n.id, n])
+    );
+
+    for (const edge of native.edges) {
+      if (expanded.length >= maxTotalNodes) break;
+      const fromId = seedByNodeId.get(edge.source);
+      if (!fromId) continue; // la arista no parte de una semilla resoluble
+
+      const knownTarget = seedByNodeId.get(edge.target);
+      const toId = knownTarget ?? `graph:${edge.target}`;
+
+      edges.push({
+        from: fromId,
+        to: toId,
+        relation: mapNativeRelation(edge.label),
+        weight: 1,
+        source: "vanta-graph",
+      });
+
+      if (visited.has(toId)) continue;
+      visited.add(toId);
+
+      const nativeNode = nativeById.get(edge.target);
+      expanded.push({
+        id: toId,
+        label: knownTarget ?? (nativeNode?.content?.slice(0, 80) || edge.target),
+        type: "entity",
+        content: nativeNode?.content ?? "",
+        weight: Math.max(0.1, nativeNode?.score ?? 0.3),
+        metadata: {
+          resolved: knownTarget !== undefined,
+          graphSource: "vanta-graph",
+          hopDistance: nativeNode?.hop_distance ?? 1,
+        },
+      });
+    }
   }
 
   /**

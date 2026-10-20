@@ -1,24 +1,60 @@
 import { EgoMemoryAdapter, SearchHit } from "@ego/memory";
 import { ScoreThresholdFilter } from "./filters/ScoreThresholdFilter.js";
 import { KnowledgeSearchOptions, KnowledgeSearchOptionsSchema } from "./schemas/knowledge.js";
+import {
+  lexicalCosineSimilarity,
+  normalizeScores,
+  type SimilarityProvider,
+} from "./similarity.js";
+
+export interface HybridSearchOptions {
+  /**
+   * Estrategia de similitud para el reordenamiento MMR.
+   * Por defecto: coseno léxico (TF). El fast path de VantaDB 0.8.0 es BM25
+   * puro (`query_vector: []` — workaround upstream `VDB-REQ-02`), por lo que
+   * aún no existe una lista vectorial densa sobre la que calcular MMR
+   * canónico.
+   *
+   * Workaround upstream: `VDB-REQ-10` — el binding `vantadb-node@0.8.0` no
+   * expone embeddings en el fast path, así que Ego no puede calcular un
+   * coseno denso real; el MMR usa coseno léxico (TF) como aproximación.
+   */
+  similarity?: SimilarityProvider;
+}
 
 /**
- * Motor de búsqueda híbrida con reordenamiento MMR (KB-04).
- * Combina recuperación léxica BM25 y búsqueda de memoria federada en VantaDB.
- * Aplica corte de umbral calibrado (KHOJ-03) para eliminar ruido antes de inyectar al contexto.
+ * Motor de búsqueda federada multi-namespace con reordenamiento MMR (KB-04).
  *
- * Nota de honestidad (H09): con retrieval federado mono-llamada (`searchMulti`)
- * no hay múltiples listas que fusionar, así que no se reclama RRF canónico:
- * el paso de ordenamiento es un re-rank mono-lista que preserva el score
- * original del motor. Si el umbral descarta todo, se retorna vacío por defecto
- * (guarda anti-alucinación KHOJ-03); el fallback sin filtrar exige el flag
- * explícito `allowUnfilteredFallback` y queda registrado con `console.warn`.
+ * Combina la recuperación léxica BM25 de varios namespaces de VantaDB con un
+ * re-rank de diversidad (Maximal Marginal Relevance) y un corte de umbral
+ * calibrado (KHOJ-03) que elimina ruido antes de inyectarlo al contexto.
+ *
+ * **Lo que NO hace (honestidad de contrato, EGO-FIND-41):**
+ * - **No hay RRF.** El backend expone una única lista fusionada por
+ *   `searchMulti`, no varias listas que fusionar. El re-rank es mono-lista:
+ *   preserva el score original del motor y sólo reordena por diversidad.
+ * - **No hay lista vectorial.** `searchMulti` opera en BM25 puro
+ *   (`query_vector: []` — workaround upstream `VDB-REQ-02`), por lo que la
+ *   similitud del MMR es coseno léxico, no coseno denso.
+ *
+ * Workaround upstream: `VDB-REQ-10` — mientras el fast path no exponga
+ * embeddings por hit, la fusión RRF real (BM25 + denso) no puede calcularse:
+ * `searchMulti` devuelve una única lista léxica, así que el re-rank es
+ * mono-lista (score del motor + MMR con coseno léxico).
+ * TODO(EGO-FIND-41): migrar a RRF real + coseno denso cuando VantaDB
+ * exponga scores vectoriales por hit en `searchMulti`.
+ *
+ * Si el umbral descarta todo, se retorna vacío por defecto (guarda
+ * anti-alucinación KHOJ-03); el fallback sin filtrar exige el flag explícito
+ * `allowUnfilteredFallback` y queda registrado con `console.warn`.
  */
 export class HybridSearch {
   private adapter: EgoMemoryAdapter;
+  private readonly similarity: SimilarityProvider;
 
-  constructor(adapter: EgoMemoryAdapter) {
+  constructor(adapter: EgoMemoryAdapter, options: HybridSearchOptions = {}) {
     this.adapter = adapter;
+    this.similarity = options.similarity ?? lexicalCosineSimilarity;
   }
 
   /**
@@ -29,7 +65,7 @@ export class HybridSearch {
   }
 
   /**
-   * Ejecuta búsqueda híbrida federada multi-namespace con re-rank y filtro de corte.
+   * Ejecuta la búsqueda federada multi-namespace con re-rank y filtro de corte.
    */
   public async search(
     query: string,
@@ -86,11 +122,29 @@ export class HybridSearch {
   }
 
   /**
-   * Reordenamiento MMR (Maximal Marginal Relevance) heurístico para evitar fragmentos casi idénticos.
+   * Reordenamiento MMR (Maximal Marginal Relevance) para evitar fragmentos
+   * casi idénticos.
+   *
+   * EGO-FIND-41: la relevancia se **normaliza a [0,1]** con min-max del lote
+   * antes de combinarla con la penalización de redundancia. Sin esa
+   * normalización, el score BM25 (rango 0..>10) dominaba siempre a la
+   * similitud (rango [0,1]) y el MMR **nunca cambiaba el orden**.
    */
   private applyMmrDiversity(hits: SearchHit[], topK: number, lambda: number): SearchHit[] {
     const selected: SearchHit[] = [];
     const remaining = [...hits];
+
+    // Relevancia normalizada del lote (min-max). Lote degenerado ⇒ todo 1.
+    const normalized = normalizeScores(hits.map((h) => h.score ?? 0));
+    const relevanceOf = new Map<string, number>();
+    hits.forEach((h, i) => {
+      const key = h.record ? `${h.record.namespace}:${h.record.key}` : `idx_${i}`;
+      relevanceOf.set(key, normalized[i] ?? 0);
+    });
+    const relevanceFor = (hit: SearchHit, index: number): number => {
+      const key = hit.record ? `${hit.record.namespace}:${hit.record.key}` : `idx_${index}`;
+      return relevanceOf.get(key) ?? 0;
+    };
 
     // El primer resultado con el score más alto siempre se selecciona
     if (remaining.length > 0) {
@@ -104,12 +158,16 @@ export class HybridSearch {
       for (let i = 0; i < remaining.length; i++) {
         const candidate = remaining[i];
         if (!candidate) continue;
-        const relevance = candidate.score ?? 0;
+        const relevance = relevanceFor(candidate, i);
 
-        // Calcular redundancia máxima respecto a los ya seleccionados (solapamiento de texto jaccard simple)
+        // Redundancia máxima respecto a los ya seleccionados, medida con la
+        // estrategia de similitud inyectada (coseno léxico por defecto).
         let maxSimilarity = 0;
         for (const sel of selected) {
-          const sim = this.jaccardSimilarity(candidate.record?.payload || "", sel.record?.payload || "");
+          const sim = this.similarity.similarity(
+            candidate.record?.payload || "",
+            sel.record?.payload || ""
+          );
           if (sim > maxSimilarity) maxSimilarity = sim;
         }
 
@@ -127,22 +185,5 @@ export class HybridSearch {
     }
 
     return selected;
-  }
-
-  /**
-   * Similitud de Jaccard basada en n-gramas o palabras para penalizar duplicación en MMR.
-   */
-  private jaccardSimilarity(a: string, b: string): number {
-    if (!a || !b) return 0;
-    const wordsA = new Set(a.toLowerCase().split(/\s+/));
-    const wordsB = new Set(b.toLowerCase().split(/\s+/));
-
-    let intersection = 0;
-    for (const w of wordsA) {
-      if (wordsB.has(w)) intersection++;
-    }
-
-    const union = wordsA.size + wordsB.size - intersection;
-    return union > 0 ? intersection / union : 0;
   }
 }

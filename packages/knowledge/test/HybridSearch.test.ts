@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { asEgoAdapter, type KnowledgeAdapterMock } from "./mockAdapter.js";
 import { HybridSearch } from "../src/HybridSearch.js";
 import { ScoreThresholdFilter } from "../src/filters/ScoreThresholdFilter.js";
 import { FactExtractor } from "../src/extractors/FactExtractor.js";
@@ -20,14 +21,14 @@ const hit = (key: string, score: number): SearchHit =>
   }) as SearchHit;
 
 describe("HybridSearch & Retrieval Components (KB-04)", () => {
-  let mockAdapter: any;
+  let mockAdapter: KnowledgeAdapterMock;
   let hybridSearch: HybridSearch;
 
   beforeEach(() => {
     mockAdapter = {
       searchMulti: vi.fn(),
-    };
-    hybridSearch = new HybridSearch(mockAdapter);
+    } as unknown as KnowledgeAdapterMock;
+    hybridSearch = new HybridSearch(asEgoAdapter(mockAdapter));
   });
 
   describe("ScoreThresholdFilter (KHOJ-03, H10)", () => {

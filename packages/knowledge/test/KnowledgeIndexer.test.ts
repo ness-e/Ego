@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { asEgoAdapter, type KnowledgeAdapterMock } from "./mockAdapter.js";
 import { KnowledgeIndexer } from "../src/KnowledgeIndexer.js";
 import { ParsedDocument } from "../src/schemas/knowledge.js";
 
 describe("KnowledgeIndexer (KB-03)", () => {
-  let mockAdapter: any;
+  let mockAdapter: KnowledgeAdapterMock;
   let indexer: KnowledgeIndexer;
 
   beforeEach(() => {
@@ -12,8 +13,8 @@ describe("KnowledgeIndexer (KB-03)", () => {
       putMulti: vi.fn().mockResolvedValue(undefined),
       flush: vi.fn().mockResolvedValue(undefined),
       get: vi.fn().mockResolvedValue(null),
-    };
-    indexer = new KnowledgeIndexer(mockAdapter);
+    } as unknown as KnowledgeAdapterMock;
+    indexer = new KnowledgeIndexer(asEgoAdapter(mockAdapter));
   });
 
   it("indexa chunks en kb/docs con serialización segura de metadatos (VDB-BUG-04)", async () => {

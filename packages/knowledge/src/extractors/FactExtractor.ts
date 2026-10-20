@@ -2,6 +2,60 @@ import { createHash } from "node:crypto";
 import { Fact, FactSchema } from "../schemas/knowledge.js";
 
 /**
+ * Verbo → predicado. Se reconocen presente, pasado y futuro en español, y
+ * presente en inglés (A2-19). El orden importa: las alternativas más largas
+ * van primero para que `usará` no se matchee como `usa`.
+ */
+const VERB_PATTERN =
+  /^(.+?)\s+(usar|usó|usará|utiliza|utilizó|utilizará|requiere|requirió|requerirá|implementa|implementó|implementará|extiende|extió|contiene|contuvo|uses|used|requires|implements|extends|contains)\s+(.+)$/i;
+
+/**
+ * Clave de un par clave-valor: etiqueta legible (empieza por letra, ≤40
+ * caracteres). Evita que un timestamp (`2024-01-15 10`) o un esquema de URI
+ * (`https`) se interpreten como sujeto (A2-19).
+ */
+const KEY_LABEL_REGEX = /^[\p{L}][\p{L}\p{N} _.-]{0,40}$/u;
+
+/** Línea que es una URL completa (`https://…`), no un par clave-valor. */
+const URI_LINE_REGEX = /^[a-z][a-z0-9+.-]*:\/\//i;
+
+/** Valor que es un URI. */
+const URI_VALUE_REGEX = /^[a-z][a-z0-9+.-]*:\/\//i;
+
+/** Línea que empieza por una fecha. */
+const DATE_LINE_REGEX = /^\d{4}-\d{2}-\d{2}\b/;
+
+/**
+ * Claves genéricas de prosa: `Nota: revisar más tarde` no es un hecho
+ * estruturado sino una anotación. Se excluyen del esquema clave-valor.
+ */
+const GENERIC_KEYS: ReadonlySet<string> = new Set([
+  "nota",
+  "notas",
+  "aviso",
+  "aviso importante",
+  "tip",
+  "tips",
+  "ejemplo",
+  "example",
+  "info",
+  "information",
+  "dato",
+  "datos",
+  "fuente",
+  "fuentes",
+  "referencia",
+  "referencias",
+  "enlace",
+  "enlaces",
+  "link",
+  "links",
+  "url",
+  "urls",
+  "nota importante",
+]);
+
+/**
  * Extractor heurístico y estructurado de hechos atómicos (KHOJ-04).
  * Convierte enunciados declarativos en triples tipados (sujeto, predicado, objeto).
  */
@@ -29,31 +83,44 @@ export class FactExtractor {
       if (kvMatch && kvMatch[1] && kvMatch[2]) {
         const subject = kvMatch[1].trim();
         const object = kvMatch[2].trim();
-        const factId = `fact_${createHash("sha256").update(`${subject}:${object}:${source}`).digest("hex").substring(0, 12)}`;
 
-        const fact: Fact = {
-          id: factId,
-          subject,
-          predicate: "is_configured_as",
-          object,
-          confidence: defaultConfidence,
-          temporalScope: "persistent",
-          source,
-          sourceChunkId: options.sourceChunkId,
-          validAt: now,
-          invalidAt: null,
-          supersededBy: null,
-          state: "active",
-        };
+        // Filtros de precisión (A2-19): la línea no es un par clave-valor
+        // si es una URL, una fecha, si la clave no es una etiqueta legible,
+        // si la clave es genérica o si el valor es un URI.
+        const isUriLine = URI_LINE_REGEX.test(line);
+        const isDateLine = DATE_LINE_REGEX.test(line);
+        const isLabelLike = KEY_LABEL_REGEX.test(subject);
+        const isGenericKey = GENERIC_KEYS.has(subject.toLowerCase());
+        const isUriValue = URI_VALUE_REGEX.test(object);
 
-        if (FactSchema.safeParse(fact).success) {
-          facts.push(fact);
+        if (!isUriLine && !isDateLine && isLabelLike && !isGenericKey && !isUriValue) {
+          const factId = `fact_${createHash("sha256").update(`${subject}:${object}:${source}`).digest("hex").substring(0, 12)}`;
+
+          const fact: Fact = {
+            id: factId,
+            subject,
+            predicate: "is_configured_as",
+            object,
+            confidence: defaultConfidence,
+            temporalScope: "persistent",
+            source,
+            sourceChunkId: options.sourceChunkId,
+            validAt: now,
+            invalidAt: null,
+            supersededBy: null,
+            state: "active",
+          };
+
+          if (FactSchema.safeParse(fact).success) {
+            facts.push(fact);
+          }
+          continue;
         }
-        continue;
+        // La clave no es utilizable: se intenta el patrón verbal.
       }
 
       // Patrón verbal común: "X usa Y", "X requiere Y", "X implementa Y"
-      const verbMatch = line.match(/^([A-Za-z0-9_.\s]+)\s+(usa|utiliza|requiere|implementa|extiende|contiene)\s+(.+)$/i);
+      const verbMatch = line.match(VERB_PATTERN);
       if (verbMatch && verbMatch[1] && verbMatch[2] && verbMatch[3]) {
         const subject = verbMatch[1].trim();
         const predicate = verbMatch[2].toLowerCase().trim();

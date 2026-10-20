@@ -98,6 +98,52 @@ export class ProjectMemoryGraph {
       }
     }
     await flushBestEffort(this.adapter, "recordEngineeringTrace");
+
+    // Workaround: VDB-REQ-12 — siembra el sustrato de grafo con la cadena
+    // causal REAL. Sin este siembra, `graphragSearch` (DIST-15) no encontraba
+    // aristas y el GraphRAG nativo caía a la heurística metadata+regex.
+    // La traza y sus referencias por fichero pasan a ser nodos unidos por
+    // aristas `derived_from`, de modo que el pipeline GraphRAG nativo
+    // (`graphragSearch`) puede expandirse por relaciones y no por heurística
+    // de metadatos. Best-effort: si el binding no expone el grafo, la
+    // persistencia KV sigue siendo válida.
+    await this.seedGraphEdges(trace, batch);
+  }
+
+  /**
+   * Crea las aristas de grafo de la traza.
+   *
+   * Workaround: VDB-REQ-12 — ver `EgoMemoryAdapter.linkGraphNodes`.
+   */
+  private async seedGraphEdges(
+    trace: EngineeringTrace,
+    batch: EgoPut[]
+  ): Promise<void> {
+    const linker = this.adapter as unknown as {
+      linkGraphNodes?: (
+        sourceNamespace: string,
+        sourceKey: string,
+        targetNamespace: string,
+        targetKey: string,
+        label: string
+      ) => Promise<boolean>;
+    };
+    if (typeof linker.linkGraphNodes !== "function") return;
+
+    for (const item of batch) {
+      if (item.namespace !== "proj/file_traces") continue;
+      try {
+        await linker.linkGraphNodes(
+          "proj/traces",
+          trace.id,
+          "proj/file_traces",
+          item.key,
+          "derived_from"
+        );
+      } catch {
+        // Best-effort: el grafo es un índice derivado del KV.
+      }
+    }
   }
 
   /**

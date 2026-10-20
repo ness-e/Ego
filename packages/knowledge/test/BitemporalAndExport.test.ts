@@ -1,22 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { asEgoAdapter, type KnowledgeAdapterMock } from "./mockAdapter.js";
 import { BitemporalQueries } from "../src/BitemporalQueries.js";
 import { KnowledgeExport } from "../src/KnowledgeExport.js";
 import { ProjectMemoryGraph } from "../src/ProjectMemoryGraph.js";
 
 describe("Bitemporal, Export & Project Graph (KB-09, KB-10, KB-11)", () => {
-  let mockAdapter: any;
+  let mockAdapter: KnowledgeAdapterMock;
 
   beforeEach(() => {
     mockAdapter = {
       put: vi.fn().mockResolvedValue(undefined),
       get: vi.fn().mockResolvedValue(null),
       list: vi.fn().mockResolvedValue([]),
-    };
+    } as unknown as KnowledgeAdapterMock;
   });
 
   describe("BitemporalQueries (KB-09 / DSEK-02)", () => {
     it("reconstruye el estado histórico AS OF según los intervalos [valid_at, invalid_at)", async () => {
-      const bitemporal = new BitemporalQueries(mockAdapter);
+      const bitemporal = new BitemporalQueries(asEgoAdapter(mockAdapter));
 
       mockAdapter.list.mockResolvedValueOnce([
         {
@@ -105,7 +106,7 @@ describe("Bitemporal, Export & Project Graph (KB-09, KB-10, KB-11)", () => {
 
   describe("KnowledgeExport (KB-10)", () => {
     it("exporta un paquete con checksum SHA-256 e importa validando integridad", async () => {
-      const exporter = new KnowledgeExport(mockAdapter);
+      const exporter = new KnowledgeExport(asEgoAdapter(mockAdapter));
 
       mockAdapter.list.mockResolvedValueOnce([
         { namespace: "kb/facts", key: "fact_1", payload: "Dato", metadata: { ts: 100 } },
@@ -127,7 +128,7 @@ describe("Bitemporal, Export & Project Graph (KB-09, KB-10, KB-11)", () => {
     });
 
     it("falla la importación si el checksum ha sido corrompido", async () => {
-      const exporter = new KnowledgeExport(mockAdapter);
+      const exporter = new KnowledgeExport(asEgoAdapter(mockAdapter));
       const pkg = await exporter.exportPackage("test_project");
       pkg.checksum = "corrupted_checksum_" + "0".repeat(45);
 
@@ -137,7 +138,7 @@ describe("Bitemporal, Export & Project Graph (KB-09, KB-10, KB-11)", () => {
 
   describe("ProjectMemoryGraph (KB-11)", () => {
     it("registra y explica la cadena causal de ingeniería por archivo", async () => {
-      const graph = new ProjectMemoryGraph(mockAdapter);
+      const graph = new ProjectMemoryGraph(asEgoAdapter(mockAdapter));
 
       await graph.recordEngineeringTrace({
         id: "trace_01",
