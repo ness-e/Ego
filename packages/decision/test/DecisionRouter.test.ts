@@ -16,7 +16,13 @@ describe('DecisionRouter (DEC-01, OCLW-01)', () => {
     expect(parsed.success).toBe(true);
     expect(verdict.domain).toBe('engineering');
     expect(verdict.subEgoId).toBe('ego.dev');
-    expect(verdict.namespaceTargets).toContain('proj/project-123');
+    // A2-12 / EGO-FIND-34: esquema canónico de namespaces
+    // (`dominio/subespacio`): antes `proj/<id>` y `agent/<id>`, que no
+    // existen en `ego.namespaces.json`.
+    expect(verdict.namespaceTargets).toContain('projects/project-123');
+    expect(verdict.namespaceTargets).toContain('egos/ego.dev/state');
+    expect(verdict.namespaceTargets).not.toContain('proj/project-123');
+    expect(verdict.namespaceTargets).not.toContain('agent/ego.dev');
     expect(verdict.admittedRunContext.runId).toBeDefined();
     expect(verdict.admittedRunContext.depth).toBe(0);
   });

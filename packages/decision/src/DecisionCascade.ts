@@ -58,9 +58,11 @@ export class DecisionCascade {
       origin: 'user_prompt'
     };
 
+    // A2-12 / EGO-FIND-34: esquema canónico de namespaces
+    // (`projects/<id>` + `egos/<id>/state`).
     const namespaceTargets = [
-      `proj/${request.projectId}`,
-      `agent/${request.activeSubEgoId}`
+      `projects/${request.projectId}`,
+      `egos/${request.activeSubEgoId}/state`
     ];
 
     // ==========================================
@@ -73,7 +75,7 @@ export class DecisionCascade {
         intentDigest: classified.intentDigest,
         domain: ruleMatch.domain,
         subEgoId: ruleMatch.subEgoId,
-        namespaceTargets: [`proj/${request.projectId}`, `agent/${ruleMatch.subEgoId}`],
+        namespaceTargets: [`projects/${request.projectId}`, `egos/${ruleMatch.subEgoId}/state`],
         requiresApproval: classified.requiresApproval,
         llmTier: 'fast',
         toolsEnabled: ruleMatch.tools,
@@ -108,7 +110,7 @@ export class DecisionCascade {
             intentDigest: classified.intentDigest,
             domain,
             subEgoId,
-            namespaceTargets: [`proj/${request.projectId}`, `agent/${subEgoId}`],
+            namespaceTargets: [`projects/${request.projectId}`, `egos/${subEgoId}/state`],
             requiresApproval: classified.requiresApproval,
             llmTier: 'fast',
             toolsEnabled: classified.suggestedTools,
@@ -140,7 +142,7 @@ export class DecisionCascade {
             intentDigest: classified.intentDigest,
             domain: llmResult.domain,
             subEgoId: llmResult.subEgoId,
-            namespaceTargets: [`proj/${request.projectId}`, `agent/${llmResult.subEgoId}`],
+            namespaceTargets: [`projects/${request.projectId}`, `egos/${llmResult.subEgoId}/state`],
             requiresApproval: classified.requiresApproval,
             llmTier: 'advanced',
             toolsEnabled: llmResult.tools,
