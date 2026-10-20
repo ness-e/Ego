@@ -1,0 +1,68 @@
+# T6 (EGO-FIND-65): actualizaciones automáticas de seguridad.
+#
+# Prioridad alta para el toolchain de runtime y de build (Electron, Vite,
+# Vitest, tar): son los paquetes con CVEs activos (ver `pnpm audit`).
+# `electron` y `electron-builder` están pinneados por `pnpm.overrides` en el
+# `package.json` raíz: Dependabot abre el PR, pero el override tiene que
+# subirse en el mismo PR para que el fix entre (ver handoff A7 §2.2).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - security
+    groups:
+      electron:
+        patterns:
+          - "electron"
+          - "electron-builder"
+          - "electron-builder-squirrel-windows"
+          - "app-builder-lib"
+          - "builder-util-runtime"
+      build-tooling:
+        patterns:
+          - "vite"
+          - "vitest"
+          - "@vitest/*"
+          - "tinypool"
+          - "electron-vite"
+          - "electron-updater"
+          - "extract-zip"
+      packaging:
+        patterns:
+          - "tar"
+          - "node-gyp"
+          - "@electron/rebuild"
+
+  - package-ecosystem: npm
+    directory: "/tests/gui"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    groups:
+      playwright:
+        patterns:
+          - "@playwright/test"
+          - "playwright"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    groups:
+      actions:
+        patterns:
+          - "*"

@@ -2,9 +2,18 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main]
+    # T1 (EGO-FIND-18): la rama por defecto del repo es `master`
+    # (`git branch -r` → solo `origin/master`). Con `branches: [main]` este
+    # workflow NUNCA se disparaba. Se aceptan ambas: `master` es la real,
+    # `main` queda por si el owner renombra la rama en el futuro.
+    branches: ['main', 'master']
   pull_request:
-    branches: [main]
+    branches: ['main', 'master']
+
+# T6: least privilege por defecto. Sólo `release-please.yml` necesita
+# `contents: write` + `pull-requests: write` (y lo declara explícitamente).
+permissions:
+  contents: read
 
 jobs:
   verify:
@@ -13,18 +22,25 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
+
+      - name: Actionlint (workflow syntax + shellcheck)
+        # T6: valida la sintaxis de los workflows (expresiones, `uses`, etc.).
+        # Imagen oficial fijada por digest: sin pin de tag mutable.
+        uses: docker://ghcr.io/rhysd/actionlint:1.7.7
+        with:
+          args: -color
 
       - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
         run: |
@@ -67,8 +83,33 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verificar triggers alcanzables (T1)
+        # Si un workflow vuelve a filtrar por una rama inexistente, este gate
+        # lo detecta ANTES de que el pipeline quede inerte en silencio.
+        run: node scripts/verify-ci-triggers.mjs
+
+      - name: Verificar rack de agentes del harness (T11)
+        # `.opencode/` desincronizado con `.agents/` → fallo (drift de harness).
+        run: node scripts/verify-harness.mjs
+
+      - name: "Avatar: sync-check + geometry-check (R13)"
+        # R13 (A6): hay TRES copias del motor de avatar (upstream de referencia,
+        # `packages/avatar` = canónica, y la VENDORIZADA en el renderer, que es
+        # la que se carga de verdad). Sin esta puerta, una corrección aplicada
+        # a la canónica se pierde en silencio en la vendorizada.
+        #   · sync:check     → SHA-256 canónica vs vendorizada (FALLA si divergen)
+        #   · geometry:check → traza golden de la geometría del motor
+        #
+        # VERIFICADO (A7, Ola 1b): el gate falla con exit 1 ante drift
+        # (demostrado con un drift de demostración, revertido después) y hoy
+        # está en verde: "SIN DRIFT: la copia vendorizada es identica al
+        # paquete (SHA-256)". Bloqueante.
+        run: |
+          pnpm --filter @ego/avatar sync:check
+          pnpm --filter @ego/avatar geometry:check
+
       - name: Run Linter (oxlint pinned via devDependencies)
-        run: pnpm exec oxlint --ignore-path .gitignore apps packages tests
+        run: pnpm exec oxlint --ignore-path .gitignore apps packages tests scripts eval
 
       - name: Run Typecheck
         run: pnpm typecheck
@@ -81,6 +122,101 @@ jobs:
 
       - name: Run E2E and Resilience Suites
         run: pnpm test:e2e
+
+      - name: Trazabilidad de IDs de VantaDB (AGENTS.md §4)
+        # A7 (Ola 1c): gate MECÁNICO del guardrail de AGENTS.md §4
+        # ("Prohibición de Workarounds Silenciosos"): toda referencia a un ID
+        # del registro canónico (`docs/VANTADB-FEEDBACK-Y-MEJORAS.md`) debe
+        # existir, y el registro debe ser coherente índice↔detalle.
+        #
+        # BLOQUEANTE desde la Ola 1d: A1 registró los IDs que faltaban
+        # (VDB-REQ-10..13 + las 2 filas de índice) y A2 renumeró sus 16
+        # referencias → el gate sale en VERDE (0 errores). Antes era
+        # `continue-on-error: true`; se endurece ahora que el estado está
+        # limpio, para que no vuelva a colarse una referencia silenciosa.
+        id: vdb-ids
+        run: node scripts/verify-vantadb-ids.mjs
+
+      - name: Verify repository paths
+        # T0 (2026-10-20): un `>` de shell mal citado dejó en la raíz un
+        # fichero de 0 bytes llamado `{if(x.includes(p))console.log((i+1)+'`
+        # — un fragmento de JavaScript. No estaba en `.gitignore`, así que
+        # habría entrado en el commit. `verify-paths.mjs` falla si cualquier
+        # ruta tiene un carácter que Windows no admite, si empieza por `{`
+        # (patrón del artefacto de redireccionamiento) o si es un fichero de
+        # 0 bytes.
+        id: verify-paths
+        run: node scripts/verify-paths.mjs
+
+  security:
+    # T3 (EGO-FIND-23): gate BLOQUEANTE de seguridad de dependencias.
+    # Falla si hay algún advisory CRITICAL o HIGH sin justificación escrita
+    # en `scripts/audit-security.mjs` (ALLOWLIST).
+    name: Security audit (advisories)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Audit de seguridad (bloqueante)
+        run: node scripts/audit-security.mjs --report security-audit.json
+
+      - name: Upload informe de auditoría
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-audit
+          path: security-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  debt:
+    # T9 (EGO-FIND-66): job INFORMATIVO. Publica la línea base de deuda
+    # técnica (any, catch{}, I/O síncrono, disable huérfanos, hex, god
+    # files, skips) como artefacto + comentario de PR. NO bloquea: el
+    # baseline se fija con `--fail-on-regression` cuando el equipo lo
+    # acuerde (ver handoff A7).
+    name: Deuda técnica (informativo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Informe de deuda
+        run: node scripts/audit-debt.mjs --out debt-report.json
+
+      - name: Upload informe de deuda
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: debt-report
+          path: debt-report.json
+          if-no-files-found: warn
+          retention-days: 30
 
   integration-real-db:
     # STAB-07: integración con DB REAL (Fjall vía napi-rs). Causa 44
@@ -104,34 +240,36 @@ jobs:
 
     steps:
       - name: Checkout Ego
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: Ego
 
       - name: Checkout VantaDB (binding napi-rs real)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: ness-e/Vantadb
-          # Alineado con smoke-native.yml (develop verificado 2026-10-13).
-          # TODO(STAB-11-hard): pin a SHA cuando el owner resuelva uno
-          # verificado (sin red no se pinnea un SHA a ciegas).
-          ref: develop
+          # T7 (EGO-FIND-64): pin a un TAG de RELEASE del binding
+          # (`vantadb-node@0.8.0` → tag `v0.8.0`), no a la rama mutable
+          # `develop` (cambia bajo los pies → build no reproducible).
+          # TODO(DIST-09): publicar el tarball vendorizado con hash y
+          # sustituir este checkout por la dependencia `file:` vendorizada.
+          ref: d533948071391acc6b513eb673b1a1f937b93dfc # v0.8.0
           path: VantaDB
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
           cache-dependency-path: Ego/pnpm-lock.yaml
 
       - name: Setup Rust stable (napi build)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
       - name: Build vantadb-node napi prebuilt (linux x64, ABI runner)
         working-directory: VantaDB/vantadb-node
@@ -174,15 +312,15 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
@@ -255,9 +393,86 @@ jobs:
       - name: Upload Playwright report + test-results
         # STAB-11: forense por-OS (el nombre del artefacto lleva el SO).
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-electron-${{ matrix.os }}
+          path: |
+            tests/gui/playwright-report/
+            tests/gui/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  gui:
+    # T4 (EGO-FIND-62): suite GUI Playwright (`tests/gui/specs`) con
+    # dev-server propio. Antes `tests/gui` NO era miembro del workspace pnpm
+    # → `pnpm -r test` nunca la ejecutaba. Aquí corre contra un dev-server
+    # del renderer levantado por el propio job (vite), con `xvfb-run` en
+    # Linux.
+    name: Suite GUI Playwright (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true # fail-soft: la suite depende del dev-server
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
+        run: |
+          mkdir -p ../VantaDB/vantadb-node
+          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
+          {
+            "name": "vantadb-node",
+            "version": "0.8.0",
+            "main": "index.js",
+            "types": "index.d.ts"
+          }
+          EOF
+          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
+          module.exports = {};
+          EOF
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Runner + chromium (standalone)
+        working-directory: tests/gui
+        run: |
+          pnpm install
+          npx playwright install --with-deps chromium
+
+      - name: Run suite GUI (dev-server propio + xvfb)
+        working-directory: tests/gui
+        run: |
+          pnpm --dir ../.. --filter @ego/renderer dev &
+          DEV_PID=$!
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:5173/ > /dev/null; then break; fi
+            sleep 2
+          done
+          xvfb-run -a npx playwright test --config=playwright.config.ts || GUICODE=$?
+          kill $DEV_PID || true
+          exit ${GUICODE:-0}
+
+      - name: Upload GUI report + test-results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-gui-ubuntu
           path: |
             tests/gui/playwright-report/
             tests/gui/test-results/
@@ -280,15 +495,15 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
@@ -325,7 +540,7 @@ jobs:
 
       - name: Upload visual report + snapshots diff
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-visual-ubuntu
           path: |
@@ -343,17 +558,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository (full history for range)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"

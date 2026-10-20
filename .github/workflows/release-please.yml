@@ -4,8 +4,11 @@ name: Release Please
 # un humano revisa y mergea el PR, y solo entonces se taggea la release.
 on:
   push:
-    branches: [main]
+    # T1 (EGO-FIND-18): la rama real es `master`; `main` queda por si se renombra.
+    branches: ['main', 'master']
 
+# T6: least privilege. Sólo este workflow necesita escribir (abre el PR de
+# release). El resto de workflows usan `contents: read`.
 permissions:
   contents: write
   pull-requests: write
@@ -14,7 +17,7 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
         with:
           config-file: release-please-config.json
           # Sin token personal: usa el GITHUB_TOKEN del workflow.

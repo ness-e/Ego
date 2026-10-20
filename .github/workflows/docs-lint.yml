@@ -2,33 +2,53 @@ name: Docs Lint
 
 on:
   pull_request:
+    # T1 (EGO-FIND-18): sin filtro de rama (dispara en PRs a cualquier rama,
+    # incluidos PRs a `master`). No se restringe a propósito: el lint de docs
+    # debe correr en la rama de trabajo del autor, no sólo en `main`/`master`.
     paths:
       - "docs/**/*.md"
       - ".markdownlint.json"
 
+# T6: least privilege por defecto.
+permissions:
+  contents: read
+
 jobs:
   markdownlint:
-    name: Markdownlint
+    name: Markdownlint (gate con línea base)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Lint markdown files
-        uses: DavidAnson/markdownlint-cli2-action@v18
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          globs: "docs/**/*.md"
-          config: ".markdownlint.json"
+          node-version: 22
+
+      # B4: gate de REGRESIÓN con línea base (`scripts/docs-lint-baseline.json`).
+      # El corpus de `docs/` arrastra 11 445 violaciones preexistentes (MD013
+      # line-length 4 565 · MD003 heading-style 3 293 · MD060 3 931 · …): el
+      # gate se añadió después y NUNCA estuvo en verde, así que estaba rojo
+      # por diseño y nadie lo miraba. En vez de reescribir 277 ficheros de 4
+      # agentes (o desactivar 25 reglas), la línea base congela el estado
+      # actual y el gate falla SÓLO ante violaciones NUEVAS.
+      #
+      # El linter se invoca con `npx` a propósito (no como devDependency):
+      # instalarlo mete `micromatch → braces@3.0.3`, que tiene un advisory
+      # HIGH **sin fix upstream** → el gate de seguridad debe seguir en 0/0.
+      - name: Markdownlint (sin violaciones nuevas)
+        run: pnpm docs:lint
 
   lychee:
     name: Lychee (broken links in docs)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Check links in docs
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
         with:
           args: "--no-progress --relative docs/**/*.md"
         env:
@@ -43,15 +63,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.12.0
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"

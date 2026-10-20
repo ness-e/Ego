@@ -1,0 +1,27 @@
+# T6 (EGO-FIND-65): CODEOWNERS.
+#
+# Rutas cuyo cambio requiere revisión del owner del dominio. El handle
+# `@ness-e` es el owner del repo (ver `git remote -v` → ness-e/Ego).
+# Si el owner prefiere otro handle, se ajusta aquí (una línea).
+
+# ── Harness y CI: el pipeline es la garantía de todo lo demás ─────────────
+/.github/                     @ness-e
+/.husky/                      @ness-e
+/scripts/                     @ness-e
+/package.json                 @ness-e
+/pnpm-workspace.yaml          @ness-e
+/pnpm-lock.yaml               @ness-e
+/.oxlintrc.json               @ness-e
+/.markdownlint.json           @ness-e
+
+# ── Superficie de seguridad: credenciales, permisos, red ──────────────────
+/packages/security/           @ness-e
+/packages/memory/             @ness-e
+/packages/execution/          @ness-e
+
+# ── Distribución: firma, checksums, empaquetado ─────────────────────────
+/apps/desktop/electron-builder.config.cjs  @ness-e
+/apps/desktop/scripts/        @ness-e
+
+# ── Tests end-to-end y resiliencia ────────────────────────────────────────
+/tests/                       @ness-e
