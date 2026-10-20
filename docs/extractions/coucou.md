@@ -1554,31 +1554,40 @@ La UI nunca debería construir sus propios resúmenes a partir de raw tool input
 
 ---
 
-# 39. Qué NO extraer
+# 39. Veredicto de Descarte Justificado — qué NO se extrae de Coucou
 
-## No extraer como arquitectura
+> **Taxonomía canónica (AGENTS.md §4):** `🚫 Descartada (con justificación)`.
+> Esta sección se normalizó el **2026-10-19** (Ola 1 de remediación, agente A5). Hasta esa
+> fecha la ficha no contenía **ninguna** mención de descarte: el rechazo estaba redactado
+> como una lista libre de "No extraer", que no satisface el guardrail de compuertas de
+> `AGENTS.md` §4 (todo hallazgo debe terminar en `✅ Completada` o `🚫 Descartada`).
 
-- notch
-- NSPanel
-- AppKit
-- SwiftUI
-- CloudKit
-- Tauri
-- Rust backend de Coucou
-- singleton AppState
-- Pill como entidad de dominio
-- layout constants como dominio
-- Mochi
-- 60 Hz mouse polling como mecanismo general
-- integración específica con Claude Code como dependencia central
+## 39.1 Descartada como arquitectura
 
-## No extraer como identidad de producto
+| Pieza de Coucou | Veredicto | Fundamento técnico |
+|---|:---:|---|
+| Notch / NSPanel / AppKit / SwiftUI | 🚫 **Descartada (con justificación)** | Son primitivas del shell de macOS. Ego usa Electron + React 19 (`apps/desktop/`); el shell y su ciclo de vida son una decisión de stack de `AGENTS.md` §1, no un patrón extraíble. |
+| CloudKit | 🚫 **Descartada (con justificación)** | Dependencia de nube de Apple. Viola el principio 1 (memoria local persistente) y el 8 (local-first + propiedad/exportación de datos). El sustrato es VantaDB in-process. |
+| Tauri 2 + backend Rust de Coucou | 🚫 **Descartada (con justificación)** | Los bindings nativos de Ego se confinan a `NativeVantaDB` (napi-rs). Un segundo runtime nativo duplicaría el modelo de datos y rompería el guardrail de "un único sustrato de memoria". |
+| Singleton `AppState` | 🚫 **Descartada (con justificación)** | Ver §7: el estado se fragmenta en stores ortogonales. En Ego la fragmentación equivalente ya la dan los módulos canónicos por dominio (`AttentionStateMachine`, `ApprovalEngine`, estado de runtime en `main.ts`). |
+| Pill como entidad de dominio | 🚫 **Descartada (con justificación)** | Un "Pill" es un actor visual, no un concepto de dominio. En Ego los actores son Sub-Egos (`packages/subegos/src/SubEgoManifest.ts`). |
+| Layout constants como dominio | 🚫 **Descartada (con justificación)** | Las constantes de layout son un artefacto de la UI de Coucou, no un contrato. |
+| Mochi (personaje, marca, arte, sonido) | 🚫 **Descartada (con justificación)** | Marca y activo de terceros bajo licencia **distinta de MIT**. La decisión canónica es que "ningún nombre, dibujo, sonido ni icono de Mochi/Coucou entra al producto". Ver §52 y la decisión D4 del owner (2026-10-19): los puertos verbatim se sustituyen por geometría propia. |
+| Polling de ratón a 60 Hz como mecanismo general | 🚫 **Descartada (con justificación)** | Coste de CPU permanente sin valor. Ego usa eventos (`setIgnoreMouseEvents` + `forward`, sin polling) en la ventana flotante (`apps/desktop/renderer/floating/`). |
+| Integración específica con Claude Code como dependencia central | 🚫 **Descartada (con justificación)** | Acopla el runtime a un agente concreto. En Ego el contrato es el `CanonicalEgoEvent` y los adaptadores son sustituibles. |
+
+## 39.2 Descartada como identidad de producto
 
 Coucou es una experiencia de presencia.
 
 Ego es un Cognitive Operating System.
 
 La interfaz de Coucou puede informar Ego, pero no definirlo.
+
+| Elemento | Veredicto | Fundamento técnico |
+|---|:---:|---|
+| La UI de notch, pills, Mochi y CloudKit como **arquitectura** de Ego | 🚫 **Descartada (con justificación)** | `AGENTS.md` §2 fija la jerarquía de decisiones: *Identity → Principles → ProductModel → Capabilities → Architecture*. La identidad de Coucou no puede preceder al modelo de producto de Ego. |
+| La **presencia** como producto de Ego | 🚫 **Descartada (con justificación)** | Ego no es un "notch companion". La capacidad equivalente en Ego es *Background Activity & Proactivity* (`packages/tasks/src/ProactivityEngine.ts`), que es una capacidad del SOC, no una identidad de producto. |
 
 ---
 
@@ -1940,10 +1949,10 @@ La regla es que esos documentos describan el repositorio observado, no lo refact
 | Synthetic demo runtime | Alto | Engineering | P1 |
 | Poller/resource policy | Alto | Architecture | P1 |
 | Mobile relay | Medio | Infrastructure pattern | P2 |
-| CloudKit | Bajo | Implementation-specific | No |
-| Pill UI | Bajo como core | Design-specific | No |
-| Mochi | Cero para Ego core | Brand/asset | No |
-| Notch | Cero como arquitectura | Product-specific | No |
+| CloudKit | Bajo | Implementation-specific | 🚫 **Descartada (con justificación)** — ver §39.1 |
+| Pill UI | Bajo como core | Design-specific | 🚫 **Descartada (con justificación)** — ver §39.1 |
+| Mochi | Cero para Ego core | Brand/asset | 🚫 **Descartada (con justificación)** — ver §39.1 y §52 |
+| Notch | Cero como arquitectura | Product-specific | 🚫 **Descartada (con justificación)** — ver §39.1 |
 
 ---
 
@@ -2009,3 +2018,219 @@ La frontera debe quedar clara:
 **Ego mantiene la definición, el modelo de capacidades y la arquitectura. Coucou suministra patrones de implementación y experiencia que ya han demostrado ser útiles en un sistema real de agentes.**
 
 La integración correcta no es copiar Coucou. Es **reconstruir sus mecanismos dentro de los contratos de Ego**.
+
+---
+
+# 52. Estado real verificado (2026-10-20) — Ola 2 de revisión de fondo #
+
+> Esta sección es la **fuente canónica del estado** de la extracción de `coucou`. El detalle
+> por tarea (con ruta exacta y evidencia de caller) vive en
+> [`docs/review/backlog-coucou.md`](../review/backlog-coucou.md).
+>
+> **Ola 2 (2026-10-20):** revisión de fondo contra el clon real de `repos-referencia/coucou`.
+> Se re-verificaron los 23 hallazgos de la Ola 1 y se añadieron 6 hallazgos nuevos
+> (`COUC-24..29`). Tres filas bajaron de `✅ Completada` a `🆕 Pendiente` por evidencia falsa
+> y una subió de `🆕 Pendiente` a `✅ Completada`. Ver §52.6 (afirmaciones inexactas) y
+> §52.7 (hallazgos nuevos).
+
+## 52.1 Criterio de cierre de compuerta ##
+
+Un patrón solo se cierra como `✅ Completada` cuando:
+
+1. existe el fichero adaptado en el repo, **y**
+2. hay un **caller en producción** verificado por grep sobre `packages/` + `apps/desktop/`
+   (excluyendo `test/`, `dist/`, `node_modules/`).
+
+Si el código existe pero no tiene caller → `🆕 Pendiente` con el cableado exacto y su responsable.
+Si el patrón no aplica, está sustituido o viola un guardrail → `🚫 Descartada (con justificación)`.
+**Nunca** `✅ Completada` sin fichero: ese era el falso verde queotivó la auditoría.
+
+**Regla añadida en la Ola 2:** un caller **transitivo** no cuenta si la cadena de imports pasa
+por un módulo sin caller. Una cadena que termina en un módulo muerto prueba que alguien
+escribió el import, no que la capacidad esté integrada en producción.
+
+## 52.2 Recuento ##
+
+| `✅ Completada` | `🚫 Descartada` | `🆕 Pendiente` | `⏳ Futura` | Total |
+|:---:|:---:|:---:|:---:|:---:|
+| 10 | 6 | 12 | 1 | **29** |
+
+## 52.3 Veredicto por patrón (resumen)
+
+| ID | Patrón | Estado | Evidencia / Fundamento |
+|---|---|:---:|---|
+| `COUC-01` | Normalización de eventos en el borde | 🆕 Pendiente | `packages/events/src/EventNormalizer.ts:35` — sin caller: sólo `packages/events/src/index.ts:3` y `packages/events/test/`. No hay adaptadores de agentes externos aún (depende de `COUC-22`). |
+| `COUC-02` | Ingress no bloqueante | 🆕 Pendiente | `packages/events/src/EventIngress.ts:45` — sin caller: sólo `packages/events/src/index.ts:6` y `packages/events/test/`. |
+| `COUC-03` | `ActionIdentity` | ✅ Completada | `packages/execution/src/ApprovalEngine.ts:75` (`computeActionIdentity`) + `packages/execution/src/types.ts:95` → `apps/desktop/src/main.ts:20, 2429`. Duplicado sin caller: `packages/events/src/ApprovalIdentity.ts:53` (ver `COUC-29`). |
+| `COUC-04` | Admisión interactiva con ACK | ✅ Completada | `packages/execution/src/WidgetHitlBridge.ts:54, 77-91` → `apps/desktop/src/main.ts:20, 2441-2465` (`presentApproval` + `acknowledgePresentation`). |
+| `COUC-05` | Anti-singleton de estado (7 stores) | 🚫 Descartada | Sustituido por los módulos canónicos por dominio; `packages/ui-runtime/src/stores/EgoStateStores.ts` sería una tercera fuente de verdad. Sin caller (sólo `packages/ui-runtime/src/stores/index.ts:2` y test). |
+| `COUC-06` | FSM de atención | ✅ Completada | `packages/runtime/src/AttentionStateMachine.ts:50` → `apps/desktop/src/main.ts:15, 500-554` (`getAttentionFsm` + `recomputeFloatingAttention` → tray y ventana flotante). |
+| `COUC-07` | `ChangeSetService` | 🆕 Pendiente | `packages/tools/src/native/git/ChangeSetService.ts:56` — **sin caller de producción**: su único import real es `packages/execution/src/SafeConfigMutation.ts:4`, y ese módulo tampoco tiene caller (ver `COUC-10`). La cadena `→ McpManager.ts → main.ts:23` de la Ola 1 era un comentario, no un import. |
+| `COUC-08` | `PayloadRef` | 🆕 Pendiente | Canónico en `packages/tools/src/native/git/ChangeSetService.ts:49,184,194` — mismo hueco de caller que `COUC-07`. Duplicado browser-safe sin caller: `packages/ui-runtime/src/PayloadRef.ts:126` (`PayloadRegistry`). |
+| `COUC-09` | `RunRecorder` | 🆕 Pendiente | `packages/tasks/src/RunRecorder.ts:67` — sin caller: sólo `packages/tasks/src/index.ts:13` y test. Cablear al cierre de turno (A3/A2). |
+| `COUC-10` | `SafeConfigMutation` | 🆕 Pendiente | `packages/execution/src/SafeConfigMutation.ts:25` — **sin caller de producción**: `McpManager.ts:85` y `McpClient.ts:97,217` sólo lo mencionan en comentarios; el `reload()` de `McpClient.ts:220-248` hace rollback en memoria, sin preview, sin fingerprint y sin escritura atómica de fichero. La config MCP de Ego persiste en VantaDB (`gov/mcp_servers`), no en un JSON externo. |
+| `COUC-11` | Escritura atómica + lock | ✅ Completada | `packages/tools/src/native/fs/FileLockManager.ts:19` → `packages/tools/src/native/fs/NativeFsTool.ts:7,147` → `packages/tools/src/native/index.ts:27` → `apps/desktop/src/main.ts:2148` (`registerNativeTools`). **La mitad de "preservación de permisos" NO está implementada** → `COUC-24`. |
+| `COUC-12` | `IntervalSet` | 🚫 Descartada | Sin caller: sólo `packages/domains/src/index.ts:13` y test. La métrica la cubren los checkpoints y contadores del Daily State. |
+| `COUC-13` | `ResourcePolicy` | 🚫 Descartada | La política de URLs viva es `packages/security/src/ToolPermissions.ts` + `packages/security/src/netPolicy.ts:31` (`validateSSRFUrl`). `packages/tools/src/native/security/ResourcePolicy.ts` sigue sin caller. |
+| `COUC-14` | `SyntheticRuntime` | 🆕 Pendiente | `packages/runtime/src/SyntheticRuntime.ts:17` — sin caller: sólo `packages/runtime/src/index.ts:6` y test. Cablear en la suite E2E (A7). |
+| `COUC-15` | `MockIPCBridge` | 🆕 Pendiente | `packages/ui-runtime/src/MockIPCBridge.ts:89` — sin caller: `installIfMissing()` (`:266`) no se invoca desde ningún sitio; sólo `packages/ui-runtime/src/index.ts:11` y test. Cablear en el dev-server del renderer (A4/A7). |
+| `COUC-16` | `ContextProvider` | 🚫 Descartada | Duplicidad **no resuelta**: `packages/tasks/src/ContextProvider.ts:24` (sin caller) frente a `apps/desktop/renderer/floating/upload-canvas.ts:649-654` (`interface ContextProvider` + `NoopContextProvider`). Se unifica en un solo contrato (A2/A4). |
+| `COUC-17` | Ventana flotante | ✅ Completada | `apps/desktop/src/windows/FloatingWindow.ts` → `apps/desktop/src/main.ts:59-62` (import) y `main.ts:237-239` (`ensureFloatMgr`). |
+| `COUC-18` | Spring physics | ✅ Completada | `apps/desktop/renderer/floating/floating-anim.ts` → `countdown.tsx:12` y `ticker.ts:13`. La tercera cita `views.tsx:8` de la Ola 1 era **un comentario de cabecera**, no un import. |
+| `COUC-19` | System tray | ✅ Completada | `apps/desktop/src/main/tray-status.ts:14,75,95` (`TRAY_COLORS`, `pauseAllTasks`, `resumeAllTasks`) → `apps/desktop/src/main.ts:83-90`, `main.ts:613` (`ensureTray`), `main.ts:2763` (invocación). |
+| `COUC-20` | `SoundEngine` | ✅ Completada | `apps/desktop/renderer/floating/floating-sound.ts:384` importa `@ego/avatar/runtime/sound.js` (recetas procedurales; sin WAV binarios). |
+| `COUC-21` | Motor de avatar procedural | ✅ Completada | **Revisión de la Ola 2:** `@ego/avatar` **sí** tiene callers en producción — `apps/desktop/renderer/floating/floating-avatar.tsx:86`, `floating-sound.ts:384` y `apps/desktop/renderer/components/character/CharacterBadge.tsx:21`. La copia vendorizada se conserva en el repo (cadena MIT + `sync:check`) pero **no se importa**: D5 se mantiene en su parte de "tres copias en el repo", no en la de "la app ejecuta la vendorizada". |
+| `COUC-22` | Notificaciones móviles / HITL remoto | ⏳ Futura (P1) | Requiere relay stateless + canal externo, no implementados. **Ruta real del fuente:** `relay/src/index.ts` (Cloudflare Worker), no `windows/src/core/relay.ts` como citaba la Ola 1. |
+| `COUC-23` | Geometría propia de Sub-Egos | ✅ Completada | `packages/subegos/src/CharacterProfile.ts:126,129` → `packages/subegos/src/SubEgoManifest.ts:2,117` → `apps/desktop/src/main.ts:21`. |
+| `COUC-24` | Preservación de permisos POSIX | 🆕 Pendiente | **Hallazgo nuevo.** `packages/tools/src/native/fs/NativeFsTool.ts:164-171` y `packages/execution/src/SafeConfigMutation.ts:164-173` escriben en temporal y renombran **sin `chmod`**: un fichero `0600` queda `0644`. Coucou sí fija el modo (`HookServer.swift:243` → `0600`; `:1167,1171` → `0700` dir, `0755` wrapper). |
+| `COUC-25` | Evaluador de atención (`AttentionSignal`) | 🆕 Pendiente | **Hallazgo nuevo.** `packages/runtime/src/AttentionStateMachine.ts:84` **consume** un `state`/`priority` ya decidido; no existe ningún evaluador que traduzca importancia/urgencia/riesgo/foco a esa decisión, ni el tipo `AttentionSignal` de §15. |
+| `COUC-26` | Presupuesto y salud del worker | 🆕 Pendiente | **Hallazgo nuevo.** `packages/tasks/src/BackgroundEngine.ts:39` tiene prioridad y concurrencia, pero **no** schedule, backoff, presupuesto de recursos, health ni última ejecución exitosa (§37). |
+| `COUC-27` | Capacidad de presencia de secreto | 🚫 Descartada | **Hallazgo nuevo.** Sustituido por `packages/security/src/CredentialManager.ts:414` (`hasSecret`: sólo presencia, nunca el valor) + `apps/desktop/src/main/credentials/vault.ts` (keychain del SO). Más estricto que Coucou, que mantenía su propio almacén en Rust. |
+| `COUC-28` | `ActionSummarizer` en el core | 🆕 Pendiente | **Hallazgo nuevo.** `apps/desktop/renderer/floating/floating.tsx:210` construye la línea de display con `commandFor(toolName, args)` a partir del input crudo — justo lo que §38 prohíbe. `apps/desktop/src/main.ts:2547` ya lo resuelve en main: hoy hay dos rutas de resumen. |
+| `COUC-29` | Segunda identidad de acción (`@ego/events`) | 🚫 Descartada | **Hallazgo nuevo.** `packages/events/src/ApprovalIdentity.ts:53` duplica la identidad canónica sin caller (sólo `packages/events/src/index.ts:7`); el canónico en producción es `packages/execution/src/ApprovalEngine.ts:75`. Dos contratos de identidad = deriva garantizada. |
+
+## 52.4 Veredicto de descarte — puertos verbatim de Mochi (decisión D4, owner 2026-10-19)
+
+| Elemento | Veredicto | Fundamento |
+|---|:---:|---|
+| Puertos verbatim de `avatar_studio_cx_artlab_mochi_2_0.html` en `packages/avatar/src/studio/render/{body,ears,eyes,mouth,accessories}.js` | 🚫 **Descartada (con justificación)** — se sustituyen por geometría propia | Violan `AGENTS.md` §2 ("no copiar código directamente — extraer patterns y adaptar") y la decisión canónica de que ningún dibujo de Mochi entra al producto. **Decisión D4 del owner (2026-10-19):** reescritura con geometría propia que mantenga el comportamiento visual. **Ejecutor: A6** (owner de `packages/avatar/**` y de la copia vendorizada). A5 registra el veredicto y la cadena de atribución; A6 ejecuta la sustitución. |
+| Preset `'coucou-mochi'` en `packages/avatar/src/runtime/avatar-element.js:2052` | 🚫 **Descartada (con justificación)** — eliminar | El nombre de marca de Coucou no puede permanecer en el producto. Mismo ejecutor (A6). |
+| Cabeceras de atribución que no siguen el formato `Adapted from <upstream> (MIT), <ruta>` | 🚫 **Descartada (con justificación)** — normalizar | La convención canónica está en `docs/research/character-audit-and-coucou-inventory.md` §4 ("Cada archivo TS derivado de código MIT de Coucou lleva cabecera"). Verificado 2026-10-19: 0 coincidencias de `Louis-CFM` en `packages/` + `apps/`. A6 ejecuta; A5 registra. |
+| `packages/avatar/LICENSE.md` referenciado 5 veces (`README.md:130,146,193`, `DESIGN.md:243,329`) pero **inexistente** | 🚫 **Descartada (con justificación)** — crear | Sin el fichero de licencias, el aviso MIT de los código derivado no viaja con el producto. **Ejecutor: A6.** |
+| Motor de avatar de Coucou como **producto** (personaje, marca, música) | 🚫 **Descartada (con justificación)** | Ver §39.1 y §39.2. Lo que se conserva es la **técnica** (proyección ocular, resortes, timeline), reescrita con geometría propia. |
+
+**Estado real verificado (2026-10-20, Ola 2):** la decisión D4 fue **ejecutada** por A6 en la Ola 1,
+de modo que las cuatro primeras filas ya no son trabajo pendiente:
+
+- `packages/avatar/LICENSE.md` **existe** (junto a `LICENSE` y `NOTICE`); las 15 referencias resuelven.
+- El preset `'coucou-mochi'` fue **eliminado** de `packages/avatar/src/studio/config.js` y de `applyPreset`.
+- Las cabeceras de `packages/avatar/src/studio/render/` están normalizadas a `Adapted from <upstream> (MIT), <ruta>`.
+- Queda un residuo de etiquetado: `packages/avatar/src/studio/render/overlays.js:1`, `particles.js:1` y
+  `visor.js:1` siguen declarándose *"port verbatim"* del HTML de Mochi (no de Coucou). No es geometría
+  de Mochi sino overlay y partículas del studio, pero la etiqueta debe normalizarse. **Responsable: A6.**
+
+## 52.5 Contaminación de dominio (re-verificada 2026-10-19, post A2/A3)
+
+Barrido sobre `packages/` y `apps/` de los vectores de dominio de `career-ops` (ATS, vacantes,
+candidatura, CV, salario, portales) y de `khoj` (scrapers web, `gte-small`, Twilio, Stripe, SMTP):
+**0 coincidencias**. Los únicos hits de `khoj` en el código son comentarios de atribución
+(`packages/knowledge/src/ingest/AdaptiveChunker.ts:11`, `filters/ScoreThresholdFilter.ts:6`,
+`extractors/FactExtractor.ts:5`) y el sidecar propio `packages/knowledge/src/ingest/PythonSidecarBridge.ts`
+→ `scripts/ingest/bulk_import.py`.
+
+## 52.6 Afirmaciones de la ficha que la Ola 2 desmintió ##
+
+La re-verificación no se limitó a comprobar líneas: contrastó cada evidencia de caller contra el
+código real. Las siguientes afirmaciones de la Ola 1 resultaron **inexactas o falsas** y se corrigieron:
+
+1. **`COUC-07` y `COUC-10`**: se declaraba un caller transitivo
+   `SafeConfigMutation.ts → McpManager.ts → main.ts:23`. En el código real, `McpManager.ts:85` y
+   `McpClient.ts:97,217` **sólo mencionan** `SafeConfigMutation` en comentarios; el `reload()` de
+   `McpClient.ts:220-248` hace un rollback **en memoria** del objeto de configuración, sin preview,
+   sin fingerprint y sin escritura atómica de fichero. `SafeConfigMutationService` no tiene ningún
+   import en `packages/` ni en `apps/desktop/` fuera de su propio `index.ts` y su test. Ambas filas
+   bajan a `🆕 Pendiente`.
+2. **`COUC-08`**: `payloadRef` heredaba el caller de `COUC-07` y por tanto hereda su hueco; el
+   duplicado `packages/ui-runtime/src/PayloadRef.ts` sigue sin caller. Baja a `🆕 Pendiente`.
+3. **`COUC-21`**: se afirmaba que "`@ego/avatar` tiene **0 imports** en el workspace" y que "la app
+   ejecuta la copia vendorizada". Es falso desde la Ola 1b: `floating-avatar.tsx:86`,
+   `floating-sound.ts:384` y `CharacterBadge.tsx:21` importan el **paquete**. La decisión D5 sigue
+   vigentes en su parte de "se conservan las tres copias en el repo" (cadena MIT + `sync:check`), pero
+   **no** en la de "la app ejecuta la vendorizada". Sube a `✅ Completada`.
+4. **`COUC-11`**: se citaba `main.ts:3086`; la llamada real es `main.ts:2148`. Además, la fila se
+   titulaba "Escritura Atómica con Preservación de Permisos" y **la preservación de permisos no
+   está implementada**: `NativeFsTool.ts:164-171` y `SafeConfigMutation.ts:164-173` hacen tmp + rename
+   sin `chmod`. Se abre `COUC-24` para ese hueco.
+5. **`COUC-18`**: la evidencia citaba `views.tsx:8` como tercer consumidor de `floating-anim.ts`; esa
+   línea es un **comentario de cabecera**. Los consumidores reales son `countdown.tsx:12` y `ticker.ts:13`.
+6. **`COUC-22`**: la ruta del fuente era `windows/src/core/relay.ts`, que **no existe**. El relay real
+   es `relay/src/index.ts` (Cloudflare Worker).
+7. **Líneas de `apps/desktop/src/main.ts`**: casi todas las citas de la Ola 1 estaban desfasadas
+   (`main.ts:23/27/30/32/170-173/186-193/281/535-590/648-715/3086` → `main.ts:11/15/20/21/59-62/83-90/
+   237-239/500-554/613/2148/2441-2465/2763`). La tabla §52.3 cita ahora las líneas reales.
+8. **Duplicidad de `ContextProvider` (`COUC-16`)**: **no** está resuelta — sigue existiendo el contrato
+   del renderer en `upload-canvas.ts:649-654` junto al módulo de `@ego/tasks`.
+9. **Duplicidad de política de URLs (`COUC-13`)**: **sí** está resuelta — sólo `@ego/security` está cableado.
+
+## 52.7 Hallazgos nuevos de la Ola 2 ##
+
+Seis hallazgos que la ficha no recogía, con su estado de compuerta:
+
+| ID | Hallazgo | Fuente en Coucou | Estado |
+|---|---|---|:---:|
+| **COUC-24** | Preservación de permisos POSIX al escribir de forma atómica | `NotchBuddy/Sources/App/HookServer.swift:243,1167,1171` | 🆕 Pendiente |
+| **COUC-25** | Evaluador de atención (importancia, urgencia, riesgo, foco → decisión de superficie) | `NotchBuddy/Sources/App/IslandStateMachine.swift`, `windows/src/island/hooks.ts:306-314` | 🆕 Pendiente |
+| **COUC-26** | Presupuesto, salud y degradación por worker en background | `NotchBuddy/Sources/App/GitHubPulse.swift` y los 7 pollers de `Sources/App/` | 🆕 Pendiente |
+| **COUC-27** | Capacidad de "presencia de secreto" (el renderer sólo pregunta si existe) | `windows/src/core/bridge.ts:91-93` | 🚫 Descartada |
+| **COUC-28** | `ActionSummarizer` en el core (la UI no resume el input crudo) | `windows/src/island/hooks.ts:298` (`approvalTarget`) | 🆕 Pendiente |
+| **COUC-29** | Segunda implementación de la identidad de acción | `NotchBuddy/Sources/App/AppState.swift:240-290` | 🚫 Descartada |
+
+### 52.7.1 COUC-24 — Preservación de permisos POSIX ##
+
+Coucou no se limita a escribir atómicamente: fija el modo del fichero antes de usarlo
+(`HookServer.swift:243` → `0600`; `:1167` → directorio `0700`; `:1171,1175` → wrapper `0755`) y
+además escribe con `.atomic` sobre ficheros ajenos (`~/.claude/settings.json`, `:1249,1316,1479`).
+
+En Ego, `packages/tools/src/native/fs/NativeFsTool.ts:164-171` y
+`packages/execution/src/SafeConfigMutation.ts:164-173` escriben en un temporal con los permisos por
+defecto del proceso y lo renombran. Consecuencia: un `.env` o una clave en `0600` queda en `0644`
+tras una escritura. **Cableado pendiente:** leer `mode` con `fs.promises.stat()` antes de escribir y
+aplicar `fs.promises.chmod(tmpPath, mode)` sobre el temporal antes del `rename`, en ambos módulos.
+**Responsable: A3** (tools) con **A2** (execution). **Prueba:** escribir sobre un fichero `0600` y
+verificar que el modo se conserva.
+
+### 52.7.2 COUC-25 — Evaluador de atención ##
+
+La ficha §14 y §15 describen un `Attention Evaluator` que traduce atributos de evento
+(importancia, urgencia, riesgo, foco actual) a una decisión de superficie, y un tipo
+`AttentionSignal`. El código de Ego tiene **la mitad receptora**: `AttentionStateMachine.requestAttention()`
+(`packages/runtime/src/AttentionStateMachine.ts:84`) consume un `state` y un `priority` que **alguien
+ya decidió**. La decisión real está cableada a mano en `apps/desktop/src/main.ts:520-554`
+(`recomputeFloatingAttention`), que distingue sólo "hay HITL" de "hay trabajo activo". El tipo
+`AttentionSignal` **no existe** en el workspace.
+
+**Cableado pendiente:** `packages/runtime/src/AttentionEvaluator.ts` que traduzca un `EgoEvent`
+(severidad, `riskLevel`, foco de la ventana) a un `AttentionRequest` de la FSM, invocado desde
+`recomputeFloatingAttention` antes de `requestAttention`. **Responsable: A2** (runtime) con **A4**
+(renderer).
+
+### 52.7.3 COUC-26 — Presupuesto y salud del worker ##
+
+La ficha §37 pide que cada worker en background declare prioridad, schedule, condición de ejecución,
+presupuesto de recursos, cancelación, backoff, última ejecución exitosa y salud. El motor canónico
+`packages/tasks/src/BackgroundEngine.ts:39` implementa **prioridad** (`:113-115`), concurrencia
+(`maxConcurrent`), timeout, política de aprobación y checkpoints; **no** implementa schedule, backoff,
+presupuesto, health ni última ejecución exitosa. Coucou sí tiene esa noción por worker (7 pollers con
+estado degradado explícito en `NotchBuddy/Sources/App/GitHubPulse.swift` y hermanos).
+
+**Cableado pendiente:** extender `TaskDefinition` con `schedule`, `backoffMs`, `resourceBudget` y
+`lastSuccessfulRun`, y exponerlos por IPC. **Responsable: A3** (tasks).
+
+### 52.7.4 COUC-27 — Capacidad de presencia de secreto ##
+
+Coucou expone `secretPresent` / `secretSet` / `secretClear` (`windows/src/core/bridge.ts:91-93`) con la
+regla de que el renderer **nunca** ve el valor de una clave, sólo su presencia. Ego ya lo tiene y en
+forma más estricta: `packages/security/src/CredentialManager.ts:414` (`hasSecret`) más
+`apps/desktop/src/main/credentials/vault.ts` (keychain del SO, con `encrypt`/`decrypt` en main).
+**Se descarta por sustitución**, no por no aplicar.
+
+### 52.7.5 COUC-28 — `ActionSummarizer` en el core ##
+
+La ficha §38 establece que "la UI nunca debería construir sus propios resúmenes a partir de raw tool
+input". Hoy el flotante lo hace: `apps/desktop/renderer/floating/floating.tsx:210` calcula la línea de
+display con `commandFor(toolName, args)` a partir del input crudo, mientras el camino principal ya lo
+resuelve en main (`apps/desktop/src/main.ts:2547`, `pickString(args["command"])`). Dos rutas de resumen
+= dos verdades.
+
+**Cableado pendiente:** `packages/execution/src/ActionSummarizer.ts` que produzca la línea de display a
+partir de `toolName` + `arguments`, y que el campo `command` viaje ya calculado en
+`WidgetPresentationRequest` (`packages/execution/src/WidgetHitlBridge.ts:4-17`). **Responsable: A2.**
+
+### 52.7.6 COUC-29 — Segunda identidad de acción ##
+
+`packages/events/src/ApprovalIdentity.ts:53` implementa `buildApprovalIdentity` + `assertSameApproval`
+con los mismos campos (`runId`, `taskId`, `subEgoId`, `toolId`, `inputDigest`) que el canónico
+`packages/execution/src/ApprovalEngine.ts:75` (`computeActionIdentity`), pero **sin caller** (sólo el
+reexport de `packages/events/src/index.ts:7` y su test). Dos contratos de identidad de acción son la
+misma deriva que la Ola 2 detectó en `ContextProvider` (`COUC-16`) y en `PayloadRef` (`COUC-08`).
+**Se descarta por sustitución** por el canónico de `@ego/execution`.

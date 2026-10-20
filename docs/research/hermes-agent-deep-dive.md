@@ -28,7 +28,7 @@ El ecosistema de Hermes se compone de tres pilares interconectados:
 
 A través de la investigación cruzada (análisis estático de los 300+ archivos locales en `repos-referencia/hermes-agent/` y la documentación técnica oficial online), se identifican las siguientes capacidades clave:
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                    ARQUITECTURA DE CAPACIDADES HERMES AGENT                  │
 ├──────────────────────────────────────┬───────────────────────────────────────┤
@@ -183,7 +183,7 @@ Hermes expone un bus de hooks que intercepta cada fase del ciclo cognitivo:
 
 Para la ejecución de las tareas inmediatas del Backlog de Ego, los ingenieros deben consultar exclusivamente las siguientes rutas en `repos-referencia/hermes-agent/`:
 
-```
+```text
 repos-referencia/hermes-agent/
 ├── apps/
 │   ├── desktop/
@@ -217,3 +217,46 @@ repos-referencia/hermes-agent/
 1. **Gobernanza Confirmada:** Ninguna línea de código de Hermes será copiada directamente. Se extraerán únicamente las especificaciones de diseño y patrones, reescribiéndolos en TypeScript estricto.
 2. **Prioridad 1 en Marcha:** La Fase 01 de Ego (`CORE-01..11`) se nutre de forma inmediata de las mejoras UI y de Windows (`HERM-01`, `HERM-02`, `HERM-04`, `HERM-06`, `HERM-08`).
 3. **Persistencia Soberana:** VantaDB se mantiene como el único e innegociable sustrato de memoria y estado del sistema.
+
+---
+
+## 8. Verificación de la extracción contra el código (2026-10-19) — Ola 1, A5
+
+> Fuente canónica del estado por patrón:
+> [`docs/review/backlog-hermes.md`](../review/backlog-hermes.md).
+
+### 8.1 RFCs evaluados: veredicto
+
+| RFC | Decisión de este deep-dive | Estado real en Ego (2026-10-19) | Evidencia |
+|---|---|:---:|---|
+| **RFC-01** — Aislamiento de Sub-Egos con Git Worktrees | Incorporado a `SUB-07` | ✅ Completada | `packages/subegos/src/SubEgoWorktree.ts` → `apps/desktop/src/main.ts:34,2079`; cleanup en `packages/tasks/src/MemoryCleanupJob.ts`. |
+| **RFC-02** — Kernel de Ejecución Zero-Context RPC | Incorporado a `ACT-07` | 🚫 **Descartada (con justificación)** | `packages/execution/src/ZeroContextKernel.ts` existe pero **no tiene caller** y su semántica choca con el principio 6: encadenar tools **sin turnos de modelo** impide sellar la `ActionIdentity` de cada llamada, que es lo que permite aprobar una tool call concreta (`COUC-03`). La alternativa vigente que reduce turnos sin saltarse la aprobación es `OCLW-03` (auto-reparación). |
+| **RFC-03** — Auditoría AST y Linter de Skills | Incorporado a `SUB-05` | ✅ Completada | `packages/integrations/src/skills/SkillLinter.ts:82` → `SkillScanner.ts:32` → `apps/desktop/src/main.ts:23,3101`. **Ruta añadida** (la ficha no la citaba). |
+| **RFC-04** — Snapshots previos a escrituras destructivas | Incorporado a `ACT-06` / `REC-01` | ✅ Completada (parcial) | El fail-closed previo a side-effects vive en `packages/memory/SessionCheckpointPolicy.ts` (`failClosedOnToolFlushError`) → `packages/dailystate/src/DailyStatePersistence.ts:131` → `main.ts:150`. |
+| **RFC-05** — "Tool Gateway" para onboarding sin fatiga de API Keys | No incorporado a P0 | ⏳ Futura | Sin fila de backlog propia: se subsume en `COUC-10` (MCP con `SafeConfigMutation`, ya en producción) y en la gestión de credenciales de `@ego/security`. |
+
+### 8.2 Lo que se descartó de Hermes y por qué
+
+| Pieza de Hermes | Veredicto | Fundamento |
+|---|:---:|---|
+| Backend Python (FastAPI, `cli.py`, `gateway/`) | 🚫 **Descartada (con justificación)** | Ego ejecuta su Cognitive Runtime in-process en Node 22 (`apps/desktop/src/main.ts`). Python queda confinado a sidecar opcional de ingesta masiva. |
+| SQLite relacional con FTS (`hermes_state_*.py`) | 🚫 **Descartada (con justificación)** | VantaDB 0.8.0 nativo es el sustrato soberano; de Hermes solo se extraen los patrones lógicos de timeline/rewind (`HERM-14`). |
+| Gateway JSON-RPC sobre WebSockets/HTTP local | 🚫 **Descartada (con justificación)** | Sustituido por el bus IPC tipado de Electron con `contextIsolation=true` y validación de origen (`apps/desktop/src/ipc/schema.ts`). |
+| Python virtualenv / poetry / uv | 🚫 **Descartada (con justificación)** | Prohibido en P0. |
+
+### 8.3 Hardening de Windows: pendiente de cableado
+
+El bloque B de este deep-dive (hardening de Electron en Windows) es el punto con más deuda:
+
+| Patrón | Módulo | Estado | Cableado pendiente |
+|---|---|:---:|---|
+| `windows-user-env.ts` | `packages/recovery/src/WindowsUserEnv.ts` | 🆕 Pendiente | Arranque de Electron **antes** de `app.whenReady()` (owner A4): sin él, el PATH de usuario (`%USERPROFILE%\AppData\Local`) no llega a las tools. |
+| `windows-sandbox-fallback.ts` | `packages/recovery/src/WindowsSandboxFallback.ts` | 🆕 Pendiente | Arranque de Electron (owner A4): re-probe del sandbox tras `STATUS_BREAKPOINT` (0x80000003). |
+| `window-state.ts` | `packages/ui-runtime/src/WindowState.ts` (`WindowStateHelper`) | 🆕 Pendiente | `apps/desktop/src/windows/WindowStateManager.ts` reimplementa la lógica sin importar el módulo canónico. Owner A4/A3. |
+
+### 8.4 Selectores y comandos
+
+| Patrón | Módulo | Estado | Nota |
+|---|---|:---:|---|
+| `model-picker.tsx` + `fuzzy.ts` | `packages/ui-runtime/src/FuzzySearch.ts` (`fuzzyRank`) | ✅ Completada | `ModelPicker.tsx:3,162` y `SessionPicker.tsx:3` lo consumen. |
+| `slash.ts` | `packages/ui-runtime/src/SlashCommandParser.ts` | 🚫 **Descartada (con justificación)** | El Composer usa su propio parser (`renderer/components/composer-slash.ts`). Dos parsers de slash en el repo son deriva garantizada; el del renderer es el que se ejecuta. |

@@ -32,7 +32,7 @@ A diferencia de Hermes Agent (que dependía de un subproceso Python), **OpenClaw
 
 A través de la inspección de su monorepo pnpm (`packages/`, `src/`, `crates/`), se estructuran sus capacidades en 8 dominios fundamentales:
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                    ARQUITECTURA DE CAPACIDADES OPENCLAW                      │
 ├──────────────────────────────────────┬───────────────────────────────────────┤
@@ -144,7 +144,7 @@ Siguiendo el mandato de gobernanza técnica, **todas las capacidades investigada
 
 Para ejecutar la extracción en el monorepo de Ego, se deben consultar las siguientes rutas exactas en `repos-referencia/openclaw/`:
 
-```
+```text
 repos-referencia/openclaw/
 ├── packages/
 │   ├── tool-call-repair/             → [RFC-OCLW-01] Adaptar a packages/core/tools/
@@ -167,3 +167,53 @@ repos-referencia/openclaw/
 1. **Stack Unificado:** Toda la extracción de OpenClaw se realiza en TypeScript nativo, encajando sin adaptadores de lenguaje en el monorepo pnpm de Ego.
 2. **Cero Dependencia de SQLite:** Se descarta `node-sqlite.mjs` de OpenClaw; la persistencia se conecta de forma soberana a `NativeVantaDB`.
 3. **Prioridad Inmediata:** `tool-call-repair` y `admitted-run-context` se asignan como prioridades directas para robustecer la Fase 02 (`ACT-01..10`) de Ego.
+
+---
+
+## 8. Verificación de la extracción contra el código (2026-10-19) — Ola 1, A5
+
+> Fuente canónica del estado por patrón:
+> [`docs/review/backlog-openclaw.md`](../review/backlog-openclaw.md).
+
+### 8.1 RFCs evaluados: veredicto
+
+| RFC | Decisión de este deep-dive | Estado real en Ego (2026-10-19) | Evidencia |
+|---|---|:---:|---|
+| **RFC-OCLW-01** — Auto-reparación de tool calls | `ACT-09` | ✅ Completada | `packages/tool-call-repair/src/ToolCallRepairEngine.ts:23` → `packages/runtime/src/ToolExecutionLoop.ts:19,361,368,436` → `apps/desktop/src/main.ts:26`. Atribución de upstream en `packages/tool-call-repair/src/grammar.ts:3`. |
+| **RFC-OCLW-02** — Grafo de diffs acumulados por sesión | `ACT-10` / `CANV-06` | 🆕 Pendiente | `packages/tools/src/native/git/SessionDiffRevisions.ts` asimilado **sin caller**. Cableado pendiente: exponerlo desde `NativeGitTool.ts` (owner A3). |
+| **RFC-OCLW-03** — Runtime de workers en background | `TASK-05` | ✅ Completada | `packages/tasks/src/WorkerTaskPool.ts` → `apps/desktop/src/main.ts:156,809`. |
+
+### 8.2 Corrección de la nomenclatura del inventario local
+
+La §6 de este deep-dive numera los ficheros de `repos-referencia/openclaw/src/sessions/` con
+`[OCLW-02]`, `[OCLW-03]` y `[RFC-OCLW-02]`. Esa numeración **no coincide** con el catálogo canónico
+de IDs del backlog (que asigna `OCLW-05` a los locks, `OCLW-06` a la ventana de transcripción y
+`OCLW-07` al grafo de diffs). La tabla canónica es la de `docs/review/backlog-openclaw.md`; la
+numeración de este apartado es histórica y no debe usarse para referenciar filas de backlog.
+
+### 8.3 Falsos verdes cerrados (hallazgo `EGO-FIND-28`)
+
+Dos filas del catálogo estaban marcadas "Completada" con **ficheros inexistentes**:
+
+| ID | Fichero declarado | Verificación | Veredicto |
+|---|---|---|:---:|
+| `OCLW-16` | `packages/tools/src/HotReloadToolLoader.ts` | `Select-String "HotReload"` sobre `packages/` → **0** | 🚫 **Descartada (con justificación)** — el catálogo de tools es código embebido y versionado; el hot-reload exigiría invalidar contratos Zod cacheados y re-validar permisos en `@ego/security/ToolPermissions`. Alternativa vigente: re-escaneo de skills en arranque (`SkillScanner`). |
+| `OCLW-17` | `packages/tools/src/WorkspaceFileWatcher.ts` | `Select-String "FileWatcher"` sobre `packages/` → **0** | 🚫 **Descartada (con justificación)** — la reactividad de archivo ya la cubre `packages/tasks/src/ProactivityEngine.ts` con `fs.watch` (Ola 1, A3). Si `CANV-06` lo exige, se implementa dentro de `OCLW-07`, no como módulo aparte. |
+
+### 8.4 Divergencia de la política anti-SSRF (`OCLW-09`)
+
+| Elemento | Estado | Detalle |
+|---|:---:|---|
+| `packages/tools/src/native/security/NetPolicy.ts` (canónico según esta ficha) | 🆕 Pendiente | **Sin caller funcional.** El propio `packages/security/src/netPolicy.ts:4` declara que existe para *no* crear la dependencia `security → tools` (evita ciclo) y replica los mismos vectores con sus propios tests. |
+| `packages/security/src/netPolicy.ts` + `packages/security/src/ToolPermissions.ts` | ✅ En producción | Es la política viva. |
+
+**Deuda:** dos implementaciones de la misma frontera SSRF. Owner A3: consolidar en una sola
+(mover el canónico a `@ego/security` o invertir la dependencia).
+
+### 8.5 ID huérfano resuelto (`OCLW-15`)
+
+`OCLW-15` estaba referenciado en `docs/roadmap/Backlog.md:317` y en el plan de Fase 07
+("puntos de control de tarea con reanudación post-crash") **sin fila propia** en el catálogo de
+`openclaw`. La fila se creó el 2026-10-19 y se verificó **en producción**:
+`packages/tasks/src/TaskCheckpoint.ts` (`TaskCheckpointManager`, checksum SHA-256, namespace
+`tasks/<taskId>/checkpoints`) → `apps/desktop/src/main.ts:169,280,3415,3420-3431`.

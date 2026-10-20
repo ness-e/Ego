@@ -152,3 +152,46 @@ RecapStore                          ──>  ActivityAnalytics (Métricas en Van
    - `Synthetic Runtime` para pruebas de integración y demos deterministas.
 3. **P2 (Evolución):**
    - Relay externo opcional y control remoto desatendido.
+
+---
+
+## 8. Verificación de la extracción contra el código (2026-10-19) — Ola 1, A5
+
+> La fuente canónica del estado por patrón es
+> [`docs/review/backlog-coucou.md`](../review/backlog-coucou.md). Este apartado documenta
+> **qué de lo que este deep-dive propuso existe hoy en Ego, y con qué estado**.
+
+### 8.1 Los cuatro pilares, verificados contra el código
+
+| Pilar (este deep-dive) | Adaptación en Ego | Estado | Evidencia |
+|---|---|:---:|---|
+| **Pilar 1** — Normalización de eventos en el borde | `packages/events/src/EventNormalizer.ts:35` + `EventIngress.ts:45` | 🆕 Pendiente | Módulo y tests existen; **sin caller**: el `EventBus` emite `EgoEvent` ya tipado y no hay todavía adaptadores de agentes externos. El cableado depende del primer adapter externo (`COUC-22`). |
+| **Pilar 2** — Comunicación no bloqueante por defecto | `packages/events/src/EventIngress.ts:45` | 🆕 Pendiente | Mismo origen que el Pilar 1. |
+| **Pilar 3** — Identificación exacta de la acción autorizada (`ActionIdentity`) | `packages/execution/src/ApprovalEngine.ts:35` (`computeActionIdentity`) + `packages/execution/src/types.ts:81` + `packages/events/src/ApprovalIdentity.ts:59` | ✅ Completada | **Caller en producción:** `apps/desktop/src/main.ts:30`. El digest SHA-256 sobre los argumentos canónicos se usa también como credencial de aprobación en `packages/execution/src/WidgetHitlBridge.ts:93-122` (Pilar 4). |
+| **Pilar 4** — Desacoplamiento radical del estado (anti-singleton `AppState`) | `packages/ui-runtime/src/stores/EgoStateStores.ts` (7 slices) | 🚫 **Descartada (con justificación)** | El slice genérico no se cablea: en Ego la fragmentación equivalente ya la dan los módulos canónicos por dominio (`AttentionStateMachine`, `ApprovalEngine`, estado de runtime en `main.ts`, store Zustand de UI en `renderer/components/ui-kit/store.ts`). Un store adicional sería una tercera fuente de verdad. **El objetivo del Pilar 4 (no singleton) se cumple; la instrumentación propuesta no.** |
+
+### 8.2 Servicios clave del Construction Mode
+
+| Servicio | Adaptación | Estado | Evidencia |
+|---|---|:---:|---|
+| **A** — `ChangeSetService` (evolución de `DiffEngine`) | `packages/tools/src/native/git/ChangeSetService.ts` | ✅ Completada | Caller transitivo: `packages/execution/src/SafeConfigMutation.ts:81` → `packages/integrations/src/mcp/McpManager.ts` → `main.ts:23`. |
+| **B** — `RunSnapshot` / `RunRecorder` (evolución de `TurnSnapshot`) | `packages/tasks/src/RunRecorder.ts` | 🆕 Pendiente | Implementación completa (`RunSnapshot`, `RunAction`, digest canónico SEC-06 H6, consumo de `EventBus`) pero **sin caller**. Cableado pendiente: instanciarlo al cierre de turno en `BackgroundEngine` / `ToolExecutionLoop`. |
+| **C** — `SafeConfigMutationService` (servicio transversal) | `packages/execution/src/SafeConfigMutation.ts` | ✅ Completada | Caller: `packages/integrations/src/mcp/{McpManager,McpClient}.ts` → `main.ts:23`; UI en `renderer/components/mcp/McpManagerModal.tsx`. |
+
+### 8.3 Descarte categórico (sección 4 de este deep-dive)
+
+El catálogo de "qué NO extraer" de la §4 se normalizó el 2026-10-19 a la forma canónica
+`🚫 Descartada (con justificación)` en [`docs/extractions/coucou.md`](../extractions/coucou.md) §39.
+Resumen de los 11 descartes con fundamento técnico: notch/NSPanel/AppKit/SwiftUI, CloudKit,
+Tauri + backend Rust, singleton `AppState`, Pill como entidad de dominio, layout constants,
+Mochi (marca), polling 60 Hz, integración Claude Code como dependencia central, UI de notch como
+identidad de producto, presencia como producto de Ego.
+
+### 8.4 Nota sobre el motor de avatar (tarea `COUC-21`)
+
+`packages/avatar/src/render/projection.js:2` declara el puerto del `drawEyes()` de
+`coucou mochi/engine.ts` (MIT). El **patrón técnico** (proyección ocular yaw/pitch, resortes,
+timeline determinista) queda asimilado; la **marca y el arte** quedan descartados
+(`docs/extractions/coucou.md` §52.4, decisión D4 del owner). El paquete `@ego/avatar` no tiene
+dependents: la ventana flotante ejecuta la copia vendorizada
+`apps/desktop/renderer/floating/vendor/avatar/` (decisión D5: se mantienen las tres copias).
