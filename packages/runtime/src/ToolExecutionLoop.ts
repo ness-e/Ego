@@ -17,6 +17,7 @@ import type {
 } from "./types.js";
 import { ErrorHandler } from "./ErrorHandler.js";
 import { ToolCallRepairEngine } from "@ego/tool-call-repair";
+import { assembleTrustedPrompt, isTainted } from "./TrustBoundary.js";
 
 /** Error de cancelación cooperativa (DOM AbortError de fetch/AI SDK). */
 function isAbortError(err: unknown): boolean {
@@ -326,10 +327,16 @@ export class ToolExecutionLoop {
       // Llamada al ModelRouter con soporte de tools (+ modelo preferido del usuario).
       // El provider puede no soportar abort mid-token: si ignora la señal, el
       // checkpoint post-generate detiene el loop igual entre turnos.
+      //
+      // EGO-FIND-60 (T5): el prompt se ensambla por canales — el contenido no
+      // confiable (`trust: "untrusted"`) viaja en el canal de datos, nunca en
+      // el canal de control, de modo que un texto externo no puede alterar
+      // instrucciones aunque contenga tags de control.
+      const promptMessages = assembleTrustedPrompt(messages);
       let res;
       try {
         res = await this.router.generateText(role, {
-          messages,
+          messages: promptMessages,
           tools: toolSchemas.length > 0 ? toolSchemas : undefined,
           systemPrompt,
           abortSignal: options.abortSignal,
@@ -484,9 +491,37 @@ export class ToolExecutionLoop {
           }
 
           // Verificación de política HITL (aprobación humana)
-          const requiresApproval = gate.forceApproval || (approvalEngine
-            ? approvalEngine.evaluateRequirement(tool, finalArgs, options.context).required
-            : this.registry.resolveApprovalRequirement(tool));
+          //
+          // EGO-FIND-60 (T5): si el historial contiene contenido NO CONFIABLE
+          // (procedencia externa) y la herramienta es destructiva o de riesgo
+          // alto, la llamada se escala a aprobación humana aunque la política
+          // por defecto no la exigiría: el contenido externo pudo haber
+          // influenced los argumentos.
+          const taintedDestructiveGuard =
+            (tool.riskLevel === "destructive" || tool.riskLevel === "sensitive") &&
+            messages.some(isTainted);
+
+          const requiresApproval =
+            gate.forceApproval ||
+            taintedDestructiveGuard ||
+            (approvalEngine
+              ? approvalEngine.evaluateRequirement(tool, finalArgs, options.context).required
+              : this.registry.resolveApprovalRequirement(tool));
+
+          if (taintedDestructiveGuard) {
+            eventBus?.emit("hook.decided", {
+              hookId: "trust-boundary:untrusted-content",
+              phase: "PreToolUse",
+              toolName: tool.name,
+              allow: false,
+              reason: "untrusted_content_in_history",
+            }, {
+              source: "runtime.tool_loop",
+              sessionId,
+              traceId,
+              severity: "warn",
+            });
+          }
 
           if (requiresApproval) {
             let decision: ApprovalDecision;

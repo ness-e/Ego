@@ -363,7 +363,7 @@ describe("Golden Path Alpha — Ejecución de Herramientas, HITL y Persistencia 
 
     const recorded = (await activeAdapter.get("gov/audit/actions", `audit:${pendingReq!.approvalId}`))?.payload;
     expect(recorded).toBeDefined();
-    expect((recorded as any).decision).toBe("rejected");
+    expect((recorded as { decision?: unknown }).decision).toBe("rejected");
 
     await activeAdapter.close();
     activeAdapter = null;

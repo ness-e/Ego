@@ -8,8 +8,9 @@ import type { ModelMessage } from "@ego/models";
  * - `compressionTargetRatio` (0.20): ratio objetivo tras compactar.
  * - `autoCompactTokens` (200000): techo absoluto de tokens estimados que
  *   dispara la compactación aunque el ratio aún no llegue al umbral.
- * - `autoMemory` (true): la compactación archiva el resumen en memoria
- *   (`kb/history_archive`, patrón Hermes pre-compress) además de devolverlo.
+ * - `autoMemory` (true): la compactación archiva el resumen del tramo podado
+ *   en `kb/history_archive` (patrón Hermes pre-compress) **cuando hay un
+ *   `archiveTarget` inyectado** (ver {@link CompactionArchiveTarget}).
  * - `protectedTailCount` (opcional): cantidad mínima de mensajes recientes a
  *   preservar siempre intactos al final del historial.
  */
@@ -43,6 +44,33 @@ export interface CompactionInput {
   usageRatio?: number;
 }
 
+/**
+ * Registro que se persiste en memoria al compactar (namespace
+ * `kb/history_archive`). Estructuralmente compatible con `EgoPut` de
+ * `@ego/memory`, de modo que `EgoMemoryAdapter` satisface este contrato
+ * sin que `packages/runtime` dependa de `@ego/memory` (DIP).
+ */
+export interface CompactionArchiveRecord {
+  namespace: string;
+  key: string;
+  payload: {
+    sessionId: string | null;
+    summary: string;
+    droppedMessageCount: number;
+    droppedChars: number;
+    createdAt: number;
+  };
+  metadata: Record<string, unknown>;
+}
+
+/**
+ * Destino de archivado del resumen de compactación. Contrato estructural
+ * mínimo (`put`): cualquier `EgoMemoryAdapter` lo cumple.
+ */
+export interface CompactionArchiveTarget {
+  put(record: CompactionArchiveRecord): Promise<unknown>;
+}
+
 export interface CompactionResult {
   /** Historial compactado: head + resumen + tail. */
   messages: ModelMessage[];
@@ -58,6 +86,11 @@ export interface CompactionResult {
    */
   volatileSnapshot: string;
   trigger: Exclude<CompactionTriggerReason, "under_threshold">;
+  /**
+   * Clave del resumen archivado en `kb/history_archive`, o `null` si no se
+   * archivó (archivado desactivado, sin `archiveTarget`, o archivado fallido).
+   */
+  archiveKey: string | null;
 }
 
 /**
@@ -87,11 +120,27 @@ Formato de salida:
 /**
  * Resumidor inyectable (async o sync).
  * Recibe los mensajes podados y opcionalmente el prompt de sistema del resumidor.
+ *
+ * Contrato único compartido por `compact()` y `compactSync()`: ambos caminos
+ * invocan el mismo tipo y aplican la misma validación de salida.
  */
-export type ContextSummarizer = (
+export type SummarizerFn = (
   messages: ModelMessage[],
   systemPrompt?: string
 ) => Promise<string> | string;
+
+/** @deprecated Alias retrocompatible de {@link SummarizerFn}. */
+export type ContextSummarizer = SummarizerFn;
+
+/** Opciones de inyección del job de compactación. */
+export interface ContextCompactionJobOptions {
+  /**
+   * Destino de archivado del resumen (`kb/history_archive`). Estructuralmente
+   * compatible con `EgoMemoryAdapter`; si no se inyecta, `autoMemory` no tiene
+   * efecto y `CompactionResult.archiveKey` queda en `null`.
+   */
+  archiveTarget?: CompactionArchiveTarget;
+}
 
 /** Opciones del job de compactación. */
 export interface CompactionRunOptions {
@@ -102,7 +151,7 @@ export interface CompactionRunOptions {
    */
   isCompressionRebuild: boolean;
   /** Resumidor inyectable asíncrono o síncrono (LLM o fake). */
-  summarizer?: ContextSummarizer;
+  summarizer?: SummarizerFn;
   /** Resumidor síncrono de retrocompatibilidad. */
   summarize?: (dropped: ModelMessage[]) => string;
   /** Timeout en ms para la ejecución del summarizer (por defecto 15000). */
@@ -111,6 +160,8 @@ export interface CompactionRunOptions {
   summarizerSystemPrompt?: string;
   /** Cantidad mínima de mensajes recientes a proteger al final (tail). */
   protectedTailCount?: number;
+  /** Id de sesión para etiquetar el resumen archivado. */
+  sessionId?: string;
 }
 
 /**
@@ -287,20 +338,63 @@ function estimateChars(messages: ModelMessage[]): number {
   return messages.reduce((acc, m) => acc + (m.content ? m.content.length : 0), 0);
 }
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as PromiseLike<unknown>).then === "function"
+  );
+}
+
+/**
+ * Extrae un resumen válido de la salida cruda de un resumidor.
+ * Regla única compartida por el camino async y el sync del motor.
+ */
+function extractSummary(raw: unknown): string {
+  if (typeof raw === "string" && raw.trim().length > 0) return raw.trim();
+  return "";
+}
+
+/**
+ * Modo de ejecución del plan de compactación.
+ * - `empty`: no hay mensajes que podar.
+ * - `noop`: no se puede compactar (no compensa / invarianetes).
+ * - `compact`: hay tramo podado.
+ */
+type CompactionMode = "empty" | "noop" | "compact";
+
+interface CompactionPlan {
+  mode: CompactionMode;
+  trigger: Exclude<CompactionTriggerReason, "under_threshold">;
+  head: ModelMessage[];
+  dropped: ModelMessage[];
+  tail: ModelMessage[];
+  originalLength: number;
+}
+
 /**
  * Job de compactación de contexto (CFG-05).
  *
- * Sin dependencias obligatorias: soporta summarizer LLM inyectable con fallback
- * automático a heurística enriquecida. Preserva invariantes canónicas:
+ * Motor único: `compact()` y `compactSync()` comparten `planCompaction()`,
+ * la misma regla de validación del resumen (`extractSummary`) y el mismo
+ * `applySummary()`. Solo difieren en si el resumen puede esperar una
+ * promesa.
+ *
+ * Preserva invariantes canónicas:
  * 1. Nunca comprime el system prompt inicial.
  * 2. Respeta los últimos N mensajes protegidos (tail).
  * 3. Nunca parte un par assistant tool_call / tool result.
  */
 export class ContextCompactionJob {
   private readonly settings: ContextCompactionSettings;
+  private readonly archiveTarget?: CompactionArchiveTarget;
 
-  constructor(settings?: Partial<ContextCompactionSettings>) {
+  constructor(
+    settings?: Partial<ContextCompactionSettings>,
+    options: ContextCompactionJobOptions = {}
+  ) {
     this.settings = resolveContextCompactionSettings(settings);
+    this.archiveTarget = options.archiveTarget;
   }
 
   public get currentSettings(): ContextCompactionSettings {
@@ -410,6 +504,9 @@ export class ContextCompactionJob {
 
   /**
    * Variante síncrona para callers sin pipeline asíncrono o pruebas puras.
+   * Comparte motor con {@link compact}; un `summarizer` que devuelva una
+   * promesa no puede esperar aquí y por tanto cae al fallback heurístico
+   * (la promesa se neutraliza para no dejar rejections colgantes).
    */
   public compactSync(
     input: CompactionInput,
@@ -422,45 +519,103 @@ export class ContextCompactionJob {
           "compresión sanciona su rebuild mid-turn."
       );
     }
-    return this.compactInternalSync(input, opts);
+    const plan = this.planCompaction(input, opts);
+    const summary =
+      plan.mode === "compact" ? this.resolveSummarySync(plan.dropped, opts) : "";
+    return this.applySummary(plan, summary);
   }
 
-  private async compactInternal(
-    input: CompactionInput,
-    opts: CompactionRunOptions
-  ): Promise<CompactionResult> {
+  /**
+   * Motor único: segmenta el historial en head / dropped / tail.
+   */
+  private planCompaction(input: CompactionInput, opts: CompactionRunOptions): CompactionPlan {
     const messages = [...input.messages];
-    if (messages.length === 0) {
-      return {
-        messages: [],
-        summary: "Context compacted: 0 message(s) summarized.",
-        keptRatio: 1,
-        volatileSnapshot: `volatile-snapshot ${new Date().toISOString()} (empty)`,
-        trigger: "ratio_threshold",
-      };
-    }
     const evaluation = this.evaluate(input);
     const trigger: Exclude<CompactionTriggerReason, "under_threshold"> =
       evaluation.reason === "under_threshold" ? "ratio_threshold" : evaluation.reason;
+
+    if (messages.length === 0) {
+      return { mode: "empty", trigger, head: [], dropped: [], tail: [], originalLength: 0 };
+    }
 
     const { headIndex, tailStartIndex, canCompact } = this.calculateBoundaries(messages, opts);
 
     if (!canCompact) {
       return {
-        messages,
-        summary: "Context compacted: 0 message(s) summarized.",
-        keptRatio: 1,
-        volatileSnapshot: `volatile-snapshot ${new Date().toISOString()} (no-op)`,
+        mode: "noop",
         trigger,
+        head: messages,
+        dropped: [],
+        tail: [],
+        originalLength: messages.length,
       };
     }
 
-    const head = messages.slice(0, headIndex);
-    const dropped = messages.slice(headIndex, tailStartIndex);
-    const tail = messages.slice(tailStartIndex);
+    return {
+      mode: "compact",
+      trigger,
+      head: messages.slice(0, headIndex),
+      dropped: messages.slice(headIndex, tailStartIndex),
+      tail: messages.slice(tailStartIndex),
+      originalLength: messages.length,
+    };
+  }
 
-    let summary = "";
+  /**
+   * Motor único: ensambla el historial compactado a partir del plan y del resumen.
+   */
+  private applySummary(plan: CompactionPlan, summary: string): CompactionResult {
+    const stamp = new Date().toISOString();
 
+    if (plan.mode === "empty") {
+      return {
+        messages: [],
+        summary: "Context compacted: 0 message(s) summarized.",
+        keptRatio: 1,
+        volatileSnapshot: `volatile-snapshot ${stamp} (empty)`,
+        trigger: plan.trigger,
+        archiveKey: null,
+      };
+    }
+
+    if (plan.mode === "noop") {
+      return {
+        messages: [...plan.head],
+        summary: "Context compacted: 0 message(s) summarized.",
+        keptRatio: 1,
+        volatileSnapshot: `volatile-snapshot ${stamp} (no-op)`,
+        trigger: plan.trigger,
+        archiveKey: null,
+      };
+    }
+
+    // Regla única del motor: sin resumen válido (summarizer ausente, caído,
+    // timeout o vacío) se aplica el fallback heurístico enriquecido.
+    const effectiveSummary = summary.length > 0 ? summary : fallbackSummarize(plan.dropped);
+
+    const summaryMessage: ModelMessage = {
+      role: "system",
+      content: `[COMPRESSED CONTEXT — rebuild por compresión]\n${effectiveSummary}\n[chars podados: ${estimateChars(plan.dropped)}]`,
+    };
+    const compacted = [...plan.head, summaryMessage, ...plan.tail];
+    return {
+      messages: compacted,
+      summary: effectiveSummary,
+      keptRatio: compacted.length / plan.originalLength,
+      volatileSnapshot: `volatile-snapshot ${stamp} (compression rebuild, kept ${compacted.length}/${plan.originalLength})`,
+      trigger: plan.trigger,
+      archiveKey: null,
+    };
+  }
+
+  /**
+   * Camino async del motor de resumen: espera el `summarizer` con timeout y
+   * aplica la regla compartida de validación.
+   */
+  private async resolveSummaryAsync(
+    dropped: ModelMessage[],
+    opts: CompactionRunOptions
+  ): Promise<string> {
     if (opts.summarizer) {
       try {
         const timeoutMs = opts.summarizerTimeoutMs ?? 15000;
@@ -476,103 +631,112 @@ export class ContextCompactionJob {
           if (timer) clearTimeout(timer);
         });
 
-        if (typeof res === "string" && res.trim().length > 0) {
-          summary = res.trim();
-        }
+        return extractSummary(res);
       } catch {
         // Resumidor falló o agotó timeout -> fallback sin lanzar
-        summary = "";
-      }
-    } else if (opts.summarize) {
-      try {
-        const syncRes = opts.summarize(dropped);
-        if (typeof syncRes === "string" && syncRes.trim().length > 0) {
-          summary = syncRes.trim();
-        }
-      } catch {
-        summary = "";
+        return "";
       }
     }
 
-    if (!summary) {
-      summary = fallbackSummarize(dropped);
-    }
-
-    const summaryMessage: ModelMessage = {
-      role: "system",
-      content: `[COMPRESSED CONTEXT — rebuild por compresión]\n${summary}\n[chars podados: ${estimateChars(dropped)}]`,
-    };
-    const compacted = [...head, summaryMessage, ...tail];
-    return {
-      messages: compacted,
-      summary,
-      keptRatio: compacted.length / messages.length,
-      volatileSnapshot: `volatile-snapshot ${new Date().toISOString()} (compression rebuild, kept ${compacted.length}/${messages.length})`,
-      trigger,
-    };
-  }
-
-  private compactInternalSync(
-    input: CompactionInput,
-    opts: CompactionRunOptions
-  ): CompactionResult {
-    const messages = [...input.messages];
-    if (messages.length === 0) {
-      return {
-        messages: [],
-        summary: "Context compacted: 0 message(s) summarized.",
-        keptRatio: 1,
-        volatileSnapshot: `volatile-snapshot ${new Date().toISOString()} (empty)`,
-        trigger: "ratio_threshold",
-      };
-    }
-    const evaluation = this.evaluate(input);
-    const trigger: Exclude<CompactionTriggerReason, "under_threshold"> =
-      evaluation.reason === "under_threshold" ? "ratio_threshold" : evaluation.reason;
-
-    const { headIndex, tailStartIndex, canCompact } = this.calculateBoundaries(messages, opts);
-
-    if (!canCompact) {
-      return {
-        messages,
-        summary: "Context compacted: 0 message(s) summarized.",
-        keptRatio: 1,
-        volatileSnapshot: `volatile-snapshot ${new Date().toISOString()} (no-op)`,
-        trigger,
-      };
-    }
-
-    const head = messages.slice(0, headIndex);
-    const dropped = messages.slice(headIndex, tailStartIndex);
-    const tail = messages.slice(tailStartIndex);
-
-    let summary = "";
     if (opts.summarize) {
       try {
-        const syncRes = opts.summarize(dropped);
-        if (typeof syncRes === "string" && syncRes.trim().length > 0) {
-          summary = syncRes.trim();
-        }
+        return extractSummary(opts.summarize(dropped));
       } catch {
-        summary = "";
+        return "";
       }
     }
 
-    if (!summary) {
-      summary = fallbackSummarize(dropped);
+    return "";
+  }
+
+  /**
+   * Camino sync del motor de resumen: mismo contrato `SummarizerFn`, misma
+   * regla de validación. Un resumen que llega como promesa no puede esperar
+   * aquí: se neutraliza y se cae al fallback heurístico.
+   */
+  private resolveSummarySync(dropped: ModelMessage[], opts: CompactionRunOptions): string {
+    if (opts.summarizer) {
+      try {
+        const prompt = opts.summarizerSystemPrompt ?? DEFAULT_SUMMARIZER_SYSTEM_PROMPT;
+        const raw = opts.summarizer(dropped, prompt);
+        if (isPromiseLike(raw)) {
+          raw.then(undefined, () => undefined);
+          return "";
+        }
+        return extractSummary(raw);
+      } catch {
+        return "";
+      }
     }
 
-    const summaryMessage: ModelMessage = {
-      role: "system",
-      content: `[COMPRESSED CONTEXT — rebuild por compresión]\n${summary}\n[chars podados: ${estimateChars(dropped)}]`,
+    if (opts.summarize) {
+      try {
+        return extractSummary(opts.summarize(dropped));
+      } catch {
+        return "";
+      }
+    }
+
+    return "";
+  }
+
+  private async compactInternal(
+    input: CompactionInput,
+    opts: CompactionRunOptions
+  ): Promise<CompactionResult> {
+    const plan = this.planCompaction(input, opts);
+    const summary = plan.mode === "compact" ? await this.resolveSummaryAsync(plan.dropped, opts) : "";
+    const result = this.applySummary(plan, summary);
+    if (plan.mode !== "compact") return result;
+
+    // Se archiva el resumen EFECTIVO (el que realmente está en el prompt),
+    // no el resultado crudo del resumidor: si el summarizer falló, el
+    // prompt contiene el fallback heurístico y el archivo debe reflejarlo.
+    const archiveKey = await this.archiveSummary(plan, result.summary, opts);
+    return { ...result, archiveKey };
+  }
+
+  /**
+   * `autoMemory`: persiste el resumen del tramo podado en `kb/history_archive`.
+   * Fail-soft: un fallo de archivado no invalida la compactación.
+   */
+  private async archiveSummary(
+    plan: CompactionPlan,
+    summary: string,
+    opts: CompactionRunOptions
+  ): Promise<string | null> {
+    if (!this.settings.autoMemory) return null;
+    const target = this.archiveTarget;
+    if (!target) return null;
+
+    const sessionId = opts.sessionId ?? null;
+    const key = `compaction_${sessionId ?? "anon"}_${Date.now()}`;
+    const record: CompactionArchiveRecord = {
+      namespace: "kb/history_archive",
+      key,
+      payload: {
+        sessionId,
+        summary,
+        droppedMessageCount: plan.dropped.length,
+        droppedChars: estimateChars(plan.dropped),
+        createdAt: Date.now(),
+      },
+      metadata: {
+        type: "context_compaction_summary",
+        source: "context_compaction",
+        dropped_message_count: plan.dropped.length,
+      },
     };
-    const compacted = [...head, summaryMessage, ...tail];
-    return {
-      messages: compacted,
-      summary,
-      keptRatio: compacted.length / messages.length,
-      volatileSnapshot: `volatile-snapshot ${new Date().toISOString()} (compression rebuild, kept ${compacted.length}/${messages.length})`,
-      trigger,
-    };
+
+    try {
+      await target.put(record);
+      return key;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[ContextCompaction] archivado del resumen falló (fail-soft, compactación conservada): ${message}`
+      );
+      return null;
+    }
   }
 }

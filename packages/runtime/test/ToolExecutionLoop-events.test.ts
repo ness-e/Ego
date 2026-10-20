@@ -98,19 +98,19 @@ describe("@ego/runtime — ToolExecutionLoop EventBus Telemetry (ACT-12)", () =>
     const startedEvent = capturedEvents.find((e) => e.type === "tool.started")!;
     expect(startedEvent.source).toBe("runtime.tool_loop");
     expect(startedEvent.sessionId).toBe(mockContext.sessionId);
-    expect((startedEvent.payload as any).toolName).toBe("fs_read_file");
-    expect((startedEvent.payload as any).input).toEqual({ path: "config.json" });
+    expect((startedEvent.payload as { toolName?: unknown }).toolName).toBe("fs_read_file");
+    expect((startedEvent.payload as { input?: unknown }).input).toEqual({ path: "config.json" });
 
     const executedEvent = capturedEvents.find((e) => e.type === "tool.executed")!;
     expect(executedEvent.source).toBe("runtime.tool_loop");
-    expect((executedEvent.payload as any).toolName).toBe("fs_read_file");
-    expect((executedEvent.payload as any).result).toEqual({ content: "CONTENIDO_DE_config.json" });
-    expect((executedEvent.payload as any).durationMs).toBeGreaterThanOrEqual(0);
+    expect((executedEvent.payload as { toolName?: unknown }).toolName).toBe("fs_read_file");
+    expect((executedEvent.payload as { result?: unknown }).result).toEqual({ content: "CONTENIDO_DE_config.json" });
+    expect((executedEvent.payload as { durationMs?: unknown }).durationMs).toBeGreaterThanOrEqual(0);
 
     const completedEvent = capturedEvents.find((e) => e.type === "task.completed")!;
     expect(completedEvent.source).toBe("runtime.tool_loop");
-    expect((completedEvent.payload as any).taskId).toBe(mockContext.sessionId);
-    expect((completedEvent.payload as any).durationMs).toBeGreaterThanOrEqual(0);
+    expect((completedEvent.payload as { taskId?: unknown }).taskId).toBe(mockContext.sessionId);
+    expect((completedEvent.payload as { durationMs?: unknown }).durationMs).toBeGreaterThanOrEqual(0);
   });
 
   it("2. Emite approval.required y approval.resolved con ApprovalEngine en acción destructiva", async () => {
@@ -151,12 +151,12 @@ describe("@ego/runtime — ToolExecutionLoop EventBus Telemetry (ACT-12)", () =>
 
     const approvalReqEvent = capturedEvents.find((e) => e.type === "approval.required")!;
     expect(approvalReqEvent.severity).toBe("warn");
-    expect((approvalReqEvent.payload as any).action).toBe("terminal_exec");
-    expect((approvalReqEvent.payload as any).riskLevel).toBe("destructive");
+    expect((approvalReqEvent.payload as { action?: unknown }).action).toBe("terminal_exec");
+    expect((approvalReqEvent.payload as { riskLevel?: unknown }).riskLevel).toBe("destructive");
 
     const approvalResEvent = capturedEvents.find((e) => e.type === "approval.resolved")!;
-    expect((approvalResEvent.payload as any).approved).toBe(true);
-    expect((approvalResEvent.payload as any).resolvedBy).toBe("user");
+    expect((approvalResEvent.payload as { approved?: unknown }).approved).toBe(true);
+    expect((approvalResEvent.payload as { resolvedBy?: unknown }).resolvedBy).toBe("user");
   });
 
   it("3. Emite tool.failed cuando la herramienta lanza una excepción", async () => {
@@ -182,8 +182,8 @@ describe("@ego/runtime — ToolExecutionLoop EventBus Telemetry (ACT-12)", () =>
 
     const failedEvent = capturedEvents.find((e) => e.type === "tool.failed")!;
     expect(failedEvent.severity).toBe("error");
-    expect((failedEvent.payload as any).toolName).toBe("failing_tool");
-    expect((failedEvent.payload as any).error).toContain("Fallo forzado");
+    expect((failedEvent.payload as { toolName?: unknown }).toolName).toBe("failing_tool");
+    expect((failedEvent.payload as { error?: unknown }).error).toContain("Fallo forzado");
   });
 
   it("4. Emite tool.failed cuando la herramienta no existe en el registro", async () => {
@@ -205,8 +205,8 @@ describe("@ego/runtime — ToolExecutionLoop EventBus Telemetry (ACT-12)", () =>
 
     const failedEvent = capturedEvents.find((e) => e.type === "tool.failed")!;
     expect(failedEvent).toBeDefined();
-    expect((failedEvent.payload as any).toolName).toBe("non_existent_tool");
-    expect((failedEvent.payload as any).error).toContain("no encontrada");
+    expect((failedEvent.payload as { toolName?: unknown }).toolName).toBe("non_existent_tool");
+    expect((failedEvent.payload as { error?: unknown }).error).toContain("no encontrada");
   });
 
   it("5. Emite task.failed cuando la ejecución es cancelada con AbortSignal", async () => {
@@ -227,7 +227,7 @@ describe("@ego/runtime — ToolExecutionLoop EventBus Telemetry (ACT-12)", () =>
     const failedEvent = capturedEvents.find((e) => e.type === "task.failed")!;
     expect(failedEvent).toBeDefined();
     expect(failedEvent.severity).toBe("warn");
-    expect((failedEvent.payload as any).code).toBe("ABORTED");
+    expect((failedEvent.payload as { code?: unknown }).code).toBe("ABORTED");
   });
 
   it("6. Permite inyección de EventBus dinámico a nivel de LoopRunOptions", async () => {
