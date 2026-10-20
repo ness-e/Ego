@@ -1,0 +1,77 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": {
+    "paths": [".agents/skills"]
+  },
+  "permission": {
+    "task": {
+      "*": "allow",
+      "ego-*": "allow",
+      "explore": "allow",
+      "general": "allow",
+      "scout": "allow"
+    }
+  },
+  "agent": {
+    "ego-worker": {
+      "mode": "subagent",
+      "description": "Ego core implementation specialist (packages/*, bindings, models). TypeScript strict, TDD, returns a RESULTADO block. Use for feature implementation, bug fixes and refactors in packages/*.",
+      "hidden": true
+    },
+    "ego-audit": {
+      "mode": "subagent",
+      "description": "Ego security reviewer. Trust-boundary review, secret-leak checks, IPC isolation, approval/HITL gaps, dependency audits. Reports findings; never silently fixes security policy.",
+      "hidden": true
+    },
+    "ego-docs": {
+      "mode": "subagent",
+      "description": "Ego documentation specialist. Canonical docs, ADRs, roadmap/Backlog 10-column schema, docs/ index coherence, writing-guidelines compliance.",
+      "hidden": true
+    },
+    "ego-arch": {
+      "mode": "subagent",
+      "description": "Ego architecture reviewer. Structural analysis of packages/*, layering, boundaries, god files, dependency direction, architecture-decision records.",
+      "hidden": true
+    },
+    "ego-desktop": {
+      "mode": "subagent",
+      "description": "Ego desktop product owner. apps/desktop/src (main/preload/renderer), typed IPC, electron-builder packaging, CSP/contextIsolation, renderer threat model, desktop performance.",
+      "hidden": true
+    },
+    "ego-review": {
+      "mode": "subagent",
+      "description": "Ego cognitive code reviewer. Multi-axis review (correctness, security, performance, maintainability, test quality) with veto power.",
+      "hidden": true
+    },
+    "ego-tuner": {
+      "mode": "subagent",
+      "description": "Ego performance specialist. Profiling, bundle size, hot-path I/O, rendering throughput, memory pressure.",
+      "hidden": true
+    },
+    "ego-chaos": {
+      "mode": "subagent",
+      "description": "Ego resilience/chaos specialist. Crash injection, durability, concurrency races, fault injection, soak tests.",
+      "hidden": true
+    },
+    "ego-engine": {
+      "mode": "subagent",
+      "description": "Ego runtime specialist. Cognitive Runtime, ToolExecutionLoop, Model Router, Context Assembly, Sub-Ego runtime.",
+      "hidden": true
+    },
+    "ego-research": {
+      "mode": "subagent",
+      "description": "Ego research specialist. Read-only deep investigation of repos, papers, upstream sources; returns a digest, never writes code.",
+      "hidden": true
+    },
+    "ego-harness": {
+      "mode": "subagent",
+      "description": "Ego harness specialist. Maintains .agents/ (skills, rules, references, agents, dev-tools) and the OpenCode bridge in .opencode/.",
+      "hidden": true
+    },
+    "ego-lead": {
+      "mode": "all",
+      "description": "Ego lead. Orchestrates task files, scopes work, validates scope and impact before execution, coordinates ego-* specialists.",
+      "hidden": true
+    }
+  }
+}
