@@ -18,6 +18,16 @@ out/
 .next/
 *.tsbuildinfo
 
+# Artefactos de build de dependencias externas (B6 / DIST-09).
+# El binding napi-rs de VantaDB se empaqueta como tarball para poder
+# instalarlo sin un checkout hermano, pero el tarball es un ARTEFACTO DE
+# BUILD: no se versiona (lo produce `scripts/prepare-vantadb-tarball.mjs`
+# desde un checkout de ness-e/Vantadb). Flujo completo en scripts/README.md.
+*.tgz
+vendor/vantadb-node/
+# Restos de instalaciones interrumpidas del store de pnpm.
+node_modules/.pnpm/*_tmp_*/
+
 # OS
 Thumbs.db
 Desktop.ini

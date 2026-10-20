@@ -1,0 +1,1579 @@
+{
+  "generatedAt": "2026-10-20T10:30:48.548Z",
+  "markdownlintVersion": "0.15.0",
+  "globs": "docs/**/*.md",
+  "totalViolations": 11471,
+  "files": {
+    ".gitignore": {
+      "MD003/heading-style": 16,
+      "MD022/blanks-around-headings": 21,
+      "MD026/no-trailing-punctuation": 3,
+      "MD049/emphasis-style": 2,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/.vitepress/dist/quickstart/README.md": {
+      "MD003/heading-style": 1
+    },
+    "docs/adr/0019-canal-dual-taint-tracking.md": {
+      "MD003/heading-style": 3
+    },
+    "docs/adr/README.md": {
+      "MD003/heading-style": 4
+    },
+    "docs/agent-ops/plans/2026-10-09-fase-04-dynamic-workspace.md": {
+      "MD003/heading-style": 20,
+      "MD013/line-length": 38
+    },
+    "docs/agent-ops/plans/2026-10-09-plan-20-tareas-mvp.md": {
+      "MD003/heading-style": 24,
+      "MD013/line-length": 112,
+      "MD058/blanks-around-tables": 40
+    },
+    "docs/agent-ops/plans/2026-10-09-subegos-foundation.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 29,
+      "MD058/blanks-around-tables": 6,
+      "MD009/no-trailing-spaces": 15
+    },
+    "docs/agent-ops/plans/2026-10-10-fase-05-decision-intelligence.md": {
+      "MD003/heading-style": 16,
+      "MD013/line-length": 45,
+      "MD031/blanks-around-fences": 2
+    },
+    "docs/agent-ops/plans/2026-10-10-fase-06-knowledge-and-data.md": {
+      "MD003/heading-style": 18,
+      "MD013/line-length": 61,
+      "MD031/blanks-around-fences": 2
+    },
+    "docs/agent-ops/plans/2026-10-10-fase-07-tasks-and-background.md": {
+      "MD003/heading-style": 22,
+      "MD013/line-length": 86,
+      "MD031/blanks-around-fences": 28,
+      "MD009/no-trailing-spaces": 75,
+      "MD033/no-inline-html": 1
+    },
+    "docs/agent-ops/plans/2026-10-10-fase-08-daily-state.md": {
+      "MD003/heading-style": 15,
+      "MD013/line-length": 31,
+      "MD031/blanks-around-fences": 16
+    },
+    "docs/agent-ops/plans/2026-10-10-fase-09-dominios-funcionales.md": {
+      "MD003/heading-style": 16,
+      "MD013/line-length": 13,
+      "MD031/blanks-around-fences": 1,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/plans/2026-10-10-fase-10-recovery-and-hardening.md": {
+      "MD003/heading-style": 18,
+      "MD013/line-length": 10,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/plans/2026-10-13-plan-deuda-residual.md": {
+      "MD003/heading-style": 19,
+      "MD013/line-length": 11,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 6,
+      "MD009/no-trailing-spaces": 85
+    },
+    "docs/agent-ops/plans/2026-10-14-handoff-ejecucion-paralela.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 14,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/plans/2026-10-14-plan-diseno-frontend.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 9,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 6
+    },
+    "docs/agent-ops/plans/2026-10-14-plan-reparacion-integral-frontend-backend.md": {
+      "MD003/heading-style": 17,
+      "MD013/line-length": 58,
+      "MD036/no-emphasis-as-heading": 33,
+      "MD031/blanks-around-fences": 25,
+      "MD032/blanks-around-lists": 22
+    },
+    "docs/agent-ops/plans/2026-10-15-dynamic-ui-ego.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 18,
+      "MD032/blanks-around-lists": 4,
+      "MD036/no-emphasis-as-heading": 10
+    },
+    "docs/agent-ops/plans/2026-10-15-plan-fase-b-e2.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 17,
+      "MD001/heading-increment": 1,
+      "MD032/blanks-around-lists": 5
+    },
+    "docs/agent-ops/plans/2026-10-15-plan-maestro-cierre-ego.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 8,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/A1-docs.md": {
+      "MD003/heading-style": 14,
+      "MD013/line-length": 24,
+      "MD022/blanks-around-headings": 9,
+      "MD032/blanks-around-lists": 8
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/A2-nucleo.md": {
+      "MD003/heading-style": 15,
+      "MD013/line-length": 38,
+      "MD022/blanks-around-headings": 10,
+      "MD032/blanks-around-lists": 9
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/A3-ejecucion.md": {
+      "MD003/heading-style": 18,
+      "MD013/line-length": 36,
+      "MD022/blanks-around-headings": 13,
+      "MD032/blanks-around-lists": 11
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/A4-desktop.md": {
+      "MD003/heading-style": 21,
+      "MD013/line-length": 43,
+      "MD022/blanks-around-headings": 15,
+      "MD032/blanks-around-lists": 13
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/A5-extraccion.md": {
+      "MD003/heading-style": 12,
+      "MD013/line-length": 29,
+      "MD022/blanks-around-headings": 7,
+      "MD032/blanks-around-lists": 7
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/A6-avatar.md": {
+      "MD003/heading-style": 15,
+      "MD013/line-length": 35,
+      "MD022/blanks-around-headings": 9,
+      "MD032/blanks-around-lists": 9
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/A7-calidad-ci.md": {
+      "MD003/heading-style": 16,
+      "MD013/line-length": 39,
+      "MD022/blanks-around-headings": 11,
+      "MD032/blanks-around-lists": 11
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/A8-maestro.md": {
+      "MD003/heading-style": 13,
+      "MD013/line-length": 15,
+      "MD022/blanks-around-headings": 7,
+      "MD032/blanks-around-lists": 6,
+      "MD031/blanks-around-fences": 2,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A1.md": {
+      "MD003/heading-style": 16,
+      "MD056/table-column-count": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2-ola1b.md": {
+      "MD003/heading-style": 14,
+      "MD013/line-length": 43,
+      "MD022/blanks-around-headings": 4,
+      "MD032/blanks-around-lists": 8,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2-ola1c.md": {
+      "MD003/heading-style": 13,
+      "MD013/line-length": 48,
+      "MD056/table-column-count": 1,
+      "MD032/blanks-around-lists": 1,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2.md": {
+      "MD003/heading-style": 20,
+      "MD013/line-length": 65,
+      "MD022/blanks-around-headings": 11,
+      "MD032/blanks-around-lists": 14,
+      "MD036/no-emphasis-as-heading": 1,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A3-ola1b.md": {
+      "MD003/heading-style": 17,
+      "MD013/line-length": 23,
+      "MD032/blanks-around-lists": 1,
+      "MD028/no-blanks-blockquote": 1,
+      "MD033/no-inline-html": 16,
+      "MD031/blanks-around-fences": 4,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A3.md": {
+      "MD003/heading-style": 21,
+      "MD033/no-inline-html": 41,
+      "MD031/blanks-around-fences": 12,
+      "MD013/line-length": 18,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola1b.md": {
+      "MD003/heading-style": 42,
+      "MD013/line-length": 73,
+      "MD032/blanks-around-lists": 4,
+      "MD056/table-column-count": 1,
+      "MD040/fenced-code-language": 6,
+      "MD031/blanks-around-fences": 4,
+      "MD028/no-blanks-blockquote": 2
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola1c.md": {
+      "MD003/heading-style": 28,
+      "MD013/line-length": 34,
+      "MD040/fenced-code-language": 3,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4.md": {
+      "MD003/heading-style": 27,
+      "MD013/line-length": 44,
+      "MD040/fenced-code-language": 2,
+      "MD037/no-space-in-emphasis": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A5.md": {
+      "MD003/heading-style": 14,
+      "MD038/no-space-in-code": 2
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola1b.md": {
+      "MD013/line-length": 15,
+      "MD030/list-marker-space": 1,
+      "MD032/blanks-around-lists": 4,
+      "MD004/ul-style": 6,
+      "MD046/code-block-style": 2
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6.md": {
+      "MD003/heading-style": 15,
+      "MD040/fenced-code-language": 1,
+      "MD037/no-space-in-emphasis": 1,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A7.md": {
+      "MD003/heading-style": 26,
+      "MD040/fenced-code-language": 6,
+      "MD013/line-length": 12,
+      "MD038/no-space-in-code": 1,
+      "MD056/table-column-count": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A8.md": {
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/README.md": {
+      "MD003/heading-style": 17,
+      "MD013/line-length": 26,
+      "MD032/blanks-around-lists": 1,
+      "MD040/fenced-code-language": 1,
+      "MD022/blanks-around-headings": 6
+    },
+    "docs/agent-ops/plans/archive/2026-10-12-aisdk-model-adapters.md": {
+      "MD003/heading-style": 14,
+      "MD013/line-length": 40,
+      "MD001/heading-increment": 1,
+      "MD022/blanks-around-headings": 12,
+      "MD032/blanks-around-lists": 24,
+      "MD036/no-emphasis-as-heading": 24
+    },
+    "docs/agent-ops/plans/archive/2026-10-12-c02-get-envelope.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 14,
+      "MD001/heading-increment": 1,
+      "MD032/blanks-around-lists": 6,
+      "MD036/no-emphasis-as-heading": 1,
+      "MD031/blanks-around-fences": 1
+    },
+    "docs/agent-ops/plans/archive/2026-10-12-c03-list-unwrap.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 11,
+      "MD001/heading-increment": 1,
+      "MD032/blanks-around-lists": 3
+    },
+    "docs/agent-ops/plans/archive/2026-10-12-plan-backlog-10.md": {
+      "MD003/heading-style": 12,
+      "MD013/line-length": 8,
+      "MD009/no-trailing-spaces": 55
+    },
+    "docs/agent-ops/plans/archive/2026-10-12-plan-maestro-hallazgos.md": {
+      "MD003/heading-style": 22,
+      "MD013/line-length": 31,
+      "MD032/blanks-around-lists": 14,
+      "MD022/blanks-around-headings": 1,
+      "MD009/no-trailing-spaces": 30
+    },
+    "docs/agent-ops/plans/archive/2026-10-15-isla-flotante-ego-completa.md": {
+      "MD003/heading-style": 16,
+      "MD013/line-length": 18,
+      "MD032/blanks-around-lists": 15,
+      "MD036/no-emphasis-as-heading": 65,
+      "MD031/blanks-around-fences": 4
+    },
+    "docs/agent-ops/plans/archive/2026-10-16-plan-configs-revision-total.md": {
+      "MD003/heading-style": 11,
+      "MD013/line-length": 26,
+      "MD004/ul-style": 4,
+      "MD050/strong-style": 2
+    },
+    "docs/agent-ops/plans/archive/2026-10-16-plan-estabilizacion-ego.md": {
+      "MD003/heading-style": 21,
+      "MD013/line-length": 69,
+      "MD032/blanks-around-lists": 19,
+      "MD022/blanks-around-headings": 18,
+      "MD058/blanks-around-tables": 34
+    },
+    "docs/agent-ops/README.md": {
+      "MD003/heading-style": 6
+    },
+    "docs/agent-ops/reports/2026-10-13-auditoria-diseno-frontend-ego.md": {
+      "MD003/heading-style": 102,
+      "MD032/blanks-around-lists": 46,
+      "MD013/line-length": 222,
+      "MD022/blanks-around-headings": 57,
+      "MD058/blanks-around-tables": 18,
+      "MD036/no-emphasis-as-heading": 4,
+      "MD031/blanks-around-fences": 2,
+      "MD040/fenced-code-language": 2,
+      "MD029/ol-prefix": 12
+    },
+    "docs/agent-ops/reports/2026-10-14-brechas-decisiones-diseno.md": {
+      "MD003/heading-style": 6,
+      "MD022/blanks-around-headings": 2,
+      "MD058/blanks-around-tables": 2
+    },
+    "docs/agent-ops/reports/INDEX.md": {
+      "MD003/heading-style": 1,
+      "MD013/line-length": 12
+    },
+    "docs/agent-ops/reports/reviews/remediation-wave1-2026-10-19.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 4
+    },
+    "docs/agent-ops/reports/reviews/review-full-2026-10-19.md": {
+      "MD003/heading-style": 33,
+      "MD013/line-length": 97,
+      "MD022/blanks-around-headings": 20,
+      "MD032/blanks-around-lists": 10,
+      "MD056/table-column-count": 1,
+      "MD049/emphasis-style": 2
+    },
+    "docs/agent-ops/reports/STAB-00-matriz.md": {
+      "MD003/heading-style": 12,
+      "MD013/line-length": 20,
+      "MD022/blanks-around-headings": 9,
+      "MD032/blanks-around-lists": 9
+    },
+    "docs/agent-ops/tasks/ACT-06.md": {
+      "MD003/heading-style": 5,
+      "MD022/blanks-around-headings": 3,
+      "MD013/line-length": 7,
+      "MD032/blanks-around-lists": 3,
+      "MD031/blanks-around-fences": 1
+    },
+    "docs/agent-ops/tasks/ACT-07.md": {
+      "MD003/heading-style": 5,
+      "MD022/blanks-around-headings": 3,
+      "MD013/line-length": 6,
+      "MD032/blanks-around-lists": 3,
+      "MD031/blanks-around-fences": 1
+    },
+    "docs/agent-ops/tasks/ACT-08.md": {
+      "MD003/heading-style": 5,
+      "MD022/blanks-around-headings": 3,
+      "MD013/line-length": 7,
+      "MD032/blanks-around-lists": 5,
+      "MD031/blanks-around-fences": 2
+    },
+    "docs/agent-ops/tasks/ACT-09.md": {
+      "MD003/heading-style": 5,
+      "MD022/blanks-around-headings": 3,
+      "MD032/blanks-around-lists": 4,
+      "MD013/line-length": 7,
+      "MD031/blanks-around-fences": 2
+    },
+    "docs/agent-ops/tasks/ACT-10.md": {
+      "MD003/heading-style": 4,
+      "MD022/blanks-around-headings": 3,
+      "MD013/line-length": 11,
+      "MD032/blanks-around-lists": 4
+    },
+    "docs/agent-ops/tasks/ACT-11.md": {
+      "MD003/heading-style": 8,
+      "MD022/blanks-around-headings": 6,
+      "MD013/line-length": 5,
+      "MD032/blanks-around-lists": 4,
+      "MD031/blanks-around-fences": 2
+    },
+    "docs/agent-ops/tasks/ACT-12.md": {
+      "MD003/heading-style": 8,
+      "MD022/blanks-around-headings": 6,
+      "MD013/line-length": 5,
+      "MD032/blanks-around-lists": 4,
+      "MD031/blanks-around-fences": 2,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/agent-ops/tasks/archive/C02-blast-radius.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/archive/C03-list-blast-radius.md": {
+      "MD003/heading-style": 6,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/archive/CFG-01.md": {
+      "MD003/heading-style": 15,
+      "MD022/blanks-around-headings": 15,
+      "MD032/blanks-around-lists": 9,
+      "MD013/line-length": 28
+    },
+    "docs/agent-ops/tasks/archive/CFG-02.md": {
+      "MD003/heading-style": 15,
+      "MD022/blanks-around-headings": 15,
+      "MD032/blanks-around-lists": 9,
+      "MD013/line-length": 29
+    },
+    "docs/agent-ops/tasks/archive/CFG-07.md": {
+      "MD003/heading-style": 5,
+      "MD022/blanks-around-headings": 5,
+      "MD032/blanks-around-lists": 3,
+      "MD013/line-length": 7
+    },
+    "docs/agent-ops/tasks/archive/CFG-09.md": {
+      "MD003/heading-style": 5,
+      "MD022/blanks-around-headings": 5,
+      "MD032/blanks-around-lists": 3,
+      "MD013/line-length": 7
+    },
+    "docs/agent-ops/tasks/archive/CFG-10.md": {
+      "MD003/heading-style": 11,
+      "MD022/blanks-around-headings": 11,
+      "MD032/blanks-around-lists": 9,
+      "MD013/line-length": 28,
+      "MD058/blanks-around-tables": 1
+    },
+    "docs/agent-ops/tasks/archive/CFG-11.md": {
+      "MD003/heading-style": 11,
+      "MD022/blanks-around-headings": 11,
+      "MD032/blanks-around-lists": 5,
+      "MD013/line-length": 16,
+      "MD058/blanks-around-tables": 1
+    },
+    "docs/agent-ops/tasks/archive/CFG-12.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 8,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/archive/CFG-13.md": {
+      "MD003/heading-style": 5
+    },
+    "docs/agent-ops/tasks/archive/CFG-14.md": {
+      "MD003/heading-style": 6
+    },
+    "docs/agent-ops/tasks/archive/DIST-01.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 11,
+      "MD022/blanks-around-headings": 1,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/archive/F1T1-safestorage-backend.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 2
+    },
+    "docs/agent-ops/tasks/archive/F1T2-wiring-mcp.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 2
+    },
+    "docs/agent-ops/tasks/archive/F2T3-bitemporal-hybrid.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/archive/F2T4-domains-rehydrate.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/archive/F2T5-graph-lifecycle-export.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/archive/F2T6-memory-gateway.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 2
+    },
+    "docs/agent-ops/tasks/archive/F3T6-decision-contracts.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 2
+    },
+    "docs/agent-ops/tasks/archive/F3T7-models-hygiene.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/archive/F4T8-task-engine.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/archive/F4T9-daily-recovery-ui.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 2
+    },
+    "docs/agent-ops/tasks/archive/F5T10-desktop-deps-ipc.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/archive/F5T11-desktop-hygiene.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/archive/F6T12-repo-docs.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 2
+    },
+    "docs/agent-ops/tasks/archive/F6T13-lows-sweep.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 2
+    },
+    "docs/agent-ops/tasks/archive/H28-gates.md": {
+      "MD003/heading-style": 23,
+      "MD022/blanks-around-headings": 16,
+      "MD032/blanks-around-lists": 8,
+      "MD024/no-duplicate-heading": 12
+    },
+    "docs/agent-ops/tasks/archive/SEC-01.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 5,
+      "MD022/blanks-around-headings": 1,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/archive/SEC-02.md": {
+      "MD003/heading-style": 10,
+      "MD013/line-length": 15,
+      "MD022/blanks-around-headings": 1,
+      "MD032/blanks-around-lists": 1,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/agent-ops/tasks/archive/SEC-03.md": {
+      "MD003/heading-style": 11,
+      "MD013/line-length": 11,
+      "MD034/no-bare-urls": 4,
+      "MD022/blanks-around-headings": 1,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/archive/SEC-04.md": {
+      "MD003/heading-style": 12,
+      "MD013/line-length": 17,
+      "MD032/blanks-around-lists": 3,
+      "MD022/blanks-around-headings": 1,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/agent-ops/tasks/archive/SEC-05.md": {
+      "MD003/heading-style": 12,
+      "MD013/line-length": 23,
+      "MD032/blanks-around-lists": 3,
+      "MD022/blanks-around-headings": 1
+    },
+    "docs/agent-ops/tasks/archive/SEC-06.md": {
+      "MD003/heading-style": 6,
+      "MD032/blanks-around-lists": 2,
+      "MD013/line-length": 3,
+      "MD022/blanks-around-headings": 1
+    },
+    "docs/agent-ops/tasks/archive/SEC-07.md": {
+      "MD003/heading-style": 7,
+      "MD022/blanks-around-headings": 1,
+      "MD032/blanks-around-lists": 1,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/agent-ops/tasks/archive/SEC-08.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 1,
+      "MD022/blanks-around-headings": 1,
+      "MD032/blanks-around-lists": 1,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/agent-ops/tasks/archive/SEC-09.md": {
+      "MD003/heading-style": 14,
+      "MD013/line-length": 30,
+      "MD038/no-space-in-code": 3,
+      "MD032/blanks-around-lists": 4,
+      "MD022/blanks-around-headings": 2
+    },
+    "docs/agent-ops/tasks/archive/STAB-00.md": {
+      "MD003/heading-style": 21,
+      "MD022/blanks-around-headings": 18,
+      "MD032/blanks-around-lists": 13,
+      "MD013/line-length": 12,
+      "MD058/blanks-around-tables": 2
+    },
+    "docs/agent-ops/tasks/archive/STAB-01.md": {
+      "MD003/heading-style": 20,
+      "MD022/blanks-around-headings": 17,
+      "MD032/blanks-around-lists": 12,
+      "MD013/line-length": 18,
+      "MD058/blanks-around-tables": 2
+    },
+    "docs/agent-ops/tasks/archive/STAB-02.md": {
+      "MD003/heading-style": 26,
+      "MD022/blanks-around-headings": 22,
+      "MD032/blanks-around-lists": 16,
+      "MD013/line-length": 29,
+      "MD058/blanks-around-tables": 2
+    },
+    "docs/agent-ops/tasks/archive/STAB-03.md": {
+      "MD003/heading-style": 21,
+      "MD022/blanks-around-headings": 19,
+      "MD032/blanks-around-lists": 14,
+      "MD058/blanks-around-tables": 4,
+      "MD013/line-length": 26
+    },
+    "docs/agent-ops/tasks/archive/STAB-04.md": {
+      "MD003/heading-style": 28,
+      "MD022/blanks-around-headings": 26,
+      "MD032/blanks-around-lists": 19,
+      "MD058/blanks-around-tables": 3,
+      "MD013/line-length": 36
+    },
+    "docs/agent-ops/tasks/archive/STAB-05.md": {
+      "MD003/heading-style": 9,
+      "MD013/line-length": 15
+    },
+    "docs/agent-ops/tasks/archive/STAB-06.md": {
+      "MD003/heading-style": 16,
+      "MD022/blanks-around-headings": 15,
+      "MD032/blanks-around-lists": 10,
+      "MD013/line-length": 31,
+      "MD058/blanks-around-tables": 2
+    },
+    "docs/agent-ops/tasks/archive/STAB-07.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 13,
+      "MD056/table-column-count": 1
+    },
+    "docs/agent-ops/tasks/archive/STAB-08.md": {
+      "MD003/heading-style": 5,
+      "MD032/blanks-around-lists": 1,
+      "MD013/line-length": 6
+    },
+    "docs/agent-ops/tasks/archive/STAB-09.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 13
+    },
+    "docs/agent-ops/tasks/archive/STAB-10.md": {
+      "MD003/heading-style": 8,
+      "MD022/blanks-around-headings": 4,
+      "MD032/blanks-around-lists": 3,
+      "MD013/line-length": 11
+    },
+    "docs/agent-ops/tasks/archive/STAB-11.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 17
+    },
+    "docs/agent-ops/tasks/archive/STAB-12.md": {
+      "MD003/heading-style": 16,
+      "MD022/blanks-around-headings": 13,
+      "MD032/blanks-around-lists": 7,
+      "MD013/line-length": 18,
+      "MD058/blanks-around-tables": 2
+    },
+    "docs/agent-ops/tasks/archive/STAB-13.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 8
+    },
+    "docs/agent-ops/tasks/archive/STAB-14.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 10,
+      "MD032/blanks-around-lists": 2
+    },
+    "docs/agent-ops/tasks/archive/STAB-15.md": {
+      "MD003/heading-style": 8,
+      "MD034/no-bare-urls": 2,
+      "MD024/no-duplicate-heading": 1
+    },
+    "docs/agent-ops/tasks/archive/STAB-16.md": {
+      "MD003/heading-style": 5,
+      "MD013/line-length": 2,
+      "MD032/blanks-around-lists": 1,
+      "MD004/ul-style": 9
+    },
+    "docs/agent-ops/tasks/archive/VOICE-01.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 32,
+      "MD032/blanks-around-lists": 2
+    },
+    "docs/agent-ops/tasks/CHAR-03.md": {
+      "MD003/heading-style": 6,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 6,
+      "MD013/line-length": 7
+    },
+    "docs/agent-ops/tasks/CHAR-04.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 4
+    },
+    "docs/agent-ops/tasks/CHAR-06.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 4,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/CHAR-07.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 1,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/CHAR-08.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 3,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/CORE-15.md": {
+      "MD003/heading-style": 5,
+      "MD022/blanks-around-headings": 3,
+      "MD013/line-length": 8,
+      "MD009/no-trailing-spaces": 1,
+      "MD032/blanks-around-lists": 2
+    },
+    "docs/agent-ops/tasks/DIST-02.md": {
+      "MD003/heading-style": 9,
+      "MD022/blanks-around-headings": 7,
+      "MD013/line-length": 11,
+      "MD032/blanks-around-lists": 5,
+      "MD037/no-space-in-emphasis": 2
+    },
+    "docs/agent-ops/tasks/DIST-03.md": {
+      "MD003/heading-style": 11,
+      "MD022/blanks-around-headings": 9,
+      "MD013/line-length": 29,
+      "MD032/blanks-around-lists": 8
+    },
+    "docs/agent-ops/tasks/DIST-05.md": {
+      "MD003/heading-style": 15,
+      "MD022/blanks-around-headings": 13,
+      "MD013/line-length": 24,
+      "MD032/blanks-around-lists": 9,
+      "MD058/blanks-around-tables": 1,
+      "MD024/no-duplicate-heading": 2
+    },
+    "docs/agent-ops/tasks/DIST-07.md": {
+      "MD003/heading-style": 13,
+      "MD013/line-length": 19
+    },
+    "docs/agent-ops/tasks/DIST-08.md": {
+      "MD003/heading-style": 13,
+      "MD013/line-length": 15
+    },
+    "docs/agent-ops/tasks/DIST-09.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 1
+    },
+    "docs/agent-ops/tasks/DIST-10.md": {
+      "MD003/heading-style": 11,
+      "MD022/blanks-around-headings": 9,
+      "MD013/line-length": 29,
+      "MD032/blanks-around-lists": 8
+    },
+    "docs/agent-ops/tasks/DIST-11.md": {
+      "MD003/heading-style": 12,
+      "MD022/blanks-around-headings": 10,
+      "MD013/line-length": 25,
+      "MD032/blanks-around-lists": 8
+    },
+    "docs/agent-ops/tasks/DIST-12.md": {
+      "MD003/heading-style": 12,
+      "MD022/blanks-around-headings": 10,
+      "MD032/blanks-around-lists": 8,
+      "MD013/line-length": 21
+    },
+    "docs/agent-ops/tasks/E2E-ELECTRON-PROBE.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 5,
+      "MD022/blanks-around-headings": 6,
+      "MD058/blanks-around-tables": 1,
+      "MD032/blanks-around-lists": 4
+    },
+    "docs/agent-ops/tasks/E2E-GUI-FULL.md": {
+      "MD003/heading-style": 7,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 5,
+      "MD013/line-length": 17,
+      "MD058/blanks-around-tables": 1
+    },
+    "docs/agent-ops/tasks/E2E-GUI-RUN.md": {
+      "MD003/heading-style": 6,
+      "MD022/blanks-around-headings": 5,
+      "MD013/line-length": 14,
+      "MD058/blanks-around-tables": 1,
+      "MD032/blanks-around-lists": 3
+    },
+    "docs/agent-ops/tasks/FIND-11-01-mock.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 13,
+      "MD022/blanks-around-headings": 7,
+      "MD058/blanks-around-tables": 1,
+      "MD032/blanks-around-lists": 5
+    },
+    "docs/agent-ops/tasks/FIND-11-02-escape.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 2,
+      "MD022/blanks-around-headings": 7,
+      "MD058/blanks-around-tables": 1,
+      "MD032/blanks-around-lists": 5
+    },
+    "docs/agent-ops/tasks/FIND-12-01-avatar.md": {
+      "MD003/heading-style": 9,
+      "MD013/line-length": 19,
+      "MD038/no-space-in-code": 9,
+      "MD056/table-column-count": 2
+    },
+    "docs/agent-ops/tasks/FIND-12-02-mount.md": {
+      "MD003/heading-style": 8,
+      "MD033/no-inline-html": 1,
+      "MD004/ul-style": 1
+    },
+    "docs/agent-ops/tasks/HIG-01.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 15
+    },
+    "docs/agent-ops/tasks/HIG-02.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 13
+    },
+    "docs/agent-ops/tasks/HIG-03.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 15
+    },
+    "docs/agent-ops/tasks/HIG-04.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 14
+    },
+    "docs/agent-ops/tasks/HIG-05.md": {
+      "MD003/heading-style": 5,
+      "MD013/line-length": 7
+    },
+    "docs/agent-ops/tasks/INT-01.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 4
+    },
+    "docs/agent-ops/tasks/INT-02.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 2
+    },
+    "docs/agent-ops/tasks/INT-03.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 4
+    },
+    "docs/agent-ops/tasks/INT-04.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 2,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/INT-05.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 4
+    },
+    "docs/agent-ops/tasks/INT-06.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 6,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/README.md": {
+      "MD003/heading-style": 5,
+      "MD033/no-inline-html": 1
+    },
+    "docs/agent-ops/tasks/SUB-01.md": {
+      "MD003/heading-style": 7,
+      "MD022/blanks-around-headings": 5,
+      "MD013/line-length": 4,
+      "MD032/blanks-around-lists": 4,
+      "MD031/blanks-around-fences": 1,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/agent-ops/tasks/SUB-02.md": {
+      "MD003/heading-style": 12,
+      "MD022/blanks-around-headings": 12,
+      "MD032/blanks-around-lists": 11,
+      "MD013/line-length": 5,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/agent-ops/tasks/SUB-03.md": {
+      "MD003/heading-style": 12,
+      "MD022/blanks-around-headings": 12,
+      "MD032/blanks-around-lists": 11,
+      "MD013/line-length": 6,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/agent-ops/tasks/SUB-04.md": {
+      "MD003/heading-style": 12,
+      "MD022/blanks-around-headings": 12,
+      "MD033/no-inline-html": 1,
+      "MD032/blanks-around-lists": 11,
+      "MD013/line-length": 4,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/agent-ops/tasks/SUB-05.md": {
+      "MD003/heading-style": 6,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 6,
+      "MD013/line-length": 7
+    },
+    "docs/agent-ops/tasks/SUB-06.md": {
+      "MD003/heading-style": 4,
+      "MD013/line-length": 3,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/SUB-07.md": {
+      "MD003/heading-style": 6,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 6,
+      "MD013/line-length": 4
+    },
+    "docs/agent-ops/tasks/SUB-08.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 5,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/SUB-09.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 5,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/SUB-10.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 5,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/SUB-11.md": {
+      "MD003/heading-style": 6,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 6,
+      "MD013/line-length": 4
+    },
+    "docs/agent-ops/tasks/SUB-12.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 4,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/T-isla-04-autoshow.md": {
+      "MD003/heading-style": 24,
+      "MD022/blanks-around-headings": 19,
+      "MD032/blanks-around-lists": 15,
+      "MD013/line-length": 33,
+      "MD050/strong-style": 2,
+      "MD058/blanks-around-tables": 1
+    },
+    "docs/agent-ops/tasks/T-isla-05-fisica.md": {
+      "MD003/heading-style": 6,
+      "MD032/blanks-around-lists": 4,
+      "MD022/blanks-around-headings": 5,
+      "MD058/blanks-around-tables": 1,
+      "MD013/line-length": 4
+    },
+    "docs/agent-ops/tasks/T-isla-06-vistas.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 8
+    },
+    "docs/agent-ops/tasks/T-isla-07-hitl.md": {
+      "MD003/heading-style": 5,
+      "MD013/line-length": 8
+    },
+    "docs/agent-ops/tasks/T-isla-09-upload.md": {
+      "MD003/heading-style": 9,
+      "MD013/line-length": 9
+    },
+    "docs/agent-ops/tasks/T-isla-10-tray.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 5,
+      "MD022/blanks-around-headings": 5,
+      "MD032/blanks-around-lists": 4,
+      "MD058/blanks-around-tables": 1,
+      "MD038/no-space-in-code": 2,
+      "MD056/table-column-count": 1,
+      "MD004/ul-style": 16
+    },
+    "docs/agent-ops/tasks/T-isla-11-e2e.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 20,
+      "MD022/blanks-around-headings": 6,
+      "MD058/blanks-around-tables": 1,
+      "MD032/blanks-around-lists": 4
+    },
+    "docs/agent-ops/tasks/T-isla-12-docs.md": {
+      "MD003/heading-style": 8,
+      "MD013/line-length": 11,
+      "MD056/table-column-count": 1
+    },
+    "docs/agent-ops/tasks/T-isla-gates.md": {
+      "MD003/heading-style": 11,
+      "MD013/line-length": 12
+    },
+    "docs/agent-ops/tasks/T01.md": {
+      "MD003/heading-style": 14,
+      "MD022/blanks-around-headings": 9,
+      "MD032/blanks-around-lists": 8,
+      "MD013/line-length": 15
+    },
+    "docs/agent-ops/tasks/T02.md": {
+      "MD003/heading-style": 25,
+      "MD022/blanks-around-headings": 7,
+      "MD032/blanks-around-lists": 7,
+      "MD013/line-length": 34,
+      "MD024/no-duplicate-heading": 1
+    },
+    "docs/agent-ops/tasks/T03.md": {
+      "MD003/heading-style": 24,
+      "MD022/blanks-around-headings": 21,
+      "MD032/blanks-around-lists": 16,
+      "MD013/line-length": 34,
+      "MD058/blanks-around-tables": 1
+    },
+    "docs/agent-ops/tasks/T04.md": {
+      "MD003/heading-style": 26,
+      "MD022/blanks-around-headings": 21,
+      "MD032/blanks-around-lists": 16,
+      "MD013/line-length": 37,
+      "MD058/blanks-around-tables": 3
+    },
+    "docs/agent-ops/tasks/T05.md": {
+      "MD003/heading-style": 14,
+      "MD022/blanks-around-headings": 8,
+      "MD032/blanks-around-lists": 8,
+      "MD013/line-length": 23
+    },
+    "docs/agent-ops/tasks/T06.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 11,
+      "MD032/blanks-around-lists": 3
+    },
+    "docs/agent-ops/tasks/T07.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 14,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/T08.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 12,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/T09.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 10
+    },
+    "docs/agent-ops/tasks/T10.md": {
+      "MD003/heading-style": 13,
+      "MD013/line-length": 13,
+      "MD022/blanks-around-headings": 4,
+      "MD032/blanks-around-lists": 4,
+      "MD058/blanks-around-tables": 2
+    },
+    "docs/agent-ops/tasks/T11.md": {
+      "MD003/heading-style": 11,
+      "MD013/line-length": 14,
+      "MD056/table-column-count": 1,
+      "MD036/no-emphasis-as-heading": 2
+    },
+    "docs/agent-ops/tasks/T12.md": {
+      "MD003/heading-style": 4,
+      "MD013/line-length": 15,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/tasks/T13.md": {
+      "MD003/heading-style": 20,
+      "MD022/blanks-around-headings": 17,
+      "MD032/blanks-around-lists": 13,
+      "MD013/line-length": 20
+    },
+    "docs/agent-ops/tasks/T14.md": {
+      "MD003/heading-style": 22,
+      "MD022/blanks-around-headings": 9,
+      "MD032/blanks-around-lists": 9,
+      "MD013/line-length": 29
+    },
+    "docs/agent-ops/tasks/T15.md": {
+      "MD003/heading-style": 26,
+      "MD022/blanks-around-headings": 9,
+      "MD032/blanks-around-lists": 9,
+      "MD013/line-length": 32
+    },
+    "docs/agent-ops/tasks/T16.md": {
+      "MD003/heading-style": 22,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 6,
+      "MD013/line-length": 23
+    },
+    "docs/agent-ops/tasks/T17.md": {
+      "MD003/heading-style": 24,
+      "MD022/blanks-around-headings": 20,
+      "MD032/blanks-around-lists": 17,
+      "MD013/line-length": 33,
+      "MD038/no-space-in-code": 1,
+      "MD033/no-inline-html": 1,
+      "MD050/strong-style": 2
+    },
+    "docs/agent-ops/tasks/T18.md": {
+      "MD003/heading-style": 18,
+      "MD022/blanks-around-headings": 15,
+      "MD032/blanks-around-lists": 11,
+      "MD013/line-length": 22
+    },
+    "docs/agent-ops/tasks/T19.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 9,
+      "MD032/blanks-around-lists": 3
+    },
+    "docs/agent-ops/tasks/T20.md": {
+      "MD003/heading-style": 10,
+      "MD013/line-length": 10,
+      "MD036/no-emphasis-as-heading": 1
+    },
+    "docs/agent-ops/tasks/T21.md": {
+      "MD003/heading-style": 13,
+      "MD013/line-length": 19
+    },
+    "docs/agent-ops/tasks/T22.md": {
+      "MD003/heading-style": 10,
+      "MD022/blanks-around-headings": 3,
+      "MD032/blanks-around-lists": 3
+    },
+    "docs/architecture/agentes.md": {
+      "MD003/heading-style": 55,
+      "MD022/blanks-around-headings": 46,
+      "MD013/line-length": 86,
+      "MD032/blanks-around-lists": 19,
+      "MD040/fenced-code-language": 3,
+      "MD012/no-multiple-blanks": 1,
+      "MD031/blanks-around-fences": 2,
+      "MD038/no-space-in-code": 1
+    },
+    "docs/architecture/arquitectura-unificada.md": {
+      "MD003/heading-style": 61,
+      "MD022/blanks-around-headings": 22,
+      "MD001/heading-increment": 1,
+      "MD013/line-length": 47,
+      "MD026/no-trailing-punctuation": 1,
+      "MD031/blanks-around-fences": 3,
+      "MD032/blanks-around-lists": 16,
+      "MD024/no-duplicate-heading": 1,
+      "MD029/ol-prefix": 22
+    },
+    "docs/architecture/character-system.md": {
+      "MD003/heading-style": 35,
+      "MD022/blanks-around-headings": 6,
+      "MD001/heading-increment": 1,
+      "MD040/fenced-code-language": 1,
+      "MD013/line-length": 39,
+      "MD032/blanks-around-lists": 4,
+      "MD026/no-trailing-punctuation": 2,
+      "MD004/ul-style": 3
+    },
+    "docs/architecture/ciclo-memoria-unificado.md": {
+      "MD003/heading-style": 12,
+      "MD022/blanks-around-headings": 8,
+      "MD001/heading-increment": 1,
+      "MD013/line-length": 9,
+      "MD032/blanks-around-lists": 7,
+      "MD040/fenced-code-language": 1,
+      "MD004/ul-style": 14,
+      "MD031/blanks-around-fences": 2
+    },
+    "docs/architecture/dominios-funcionales.md": {
+      "MD003/heading-style": 8,
+      "MD022/blanks-around-headings": 6,
+      "MD013/line-length": 4,
+      "MD032/blanks-around-lists": 3,
+      "MD009/no-trailing-spaces": 1
+    },
+    "docs/architecture/jev.md": {
+      "MD034/no-bare-urls": 5,
+      "MD003/heading-style": 5,
+      "MD009/no-trailing-spaces": 1,
+      "MD013/line-length": 15,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/architecture/memoria-vantadb.md": {
+      "MD003/heading-style": 20,
+      "MD013/line-length": 26,
+      "MD040/fenced-code-language": 4,
+      "MD032/blanks-around-lists": 4,
+      "MD004/ul-style": 31,
+      "MD031/blanks-around-fences": 1
+    },
+    "docs/architecture/namespaces.md": {
+      "MD003/heading-style": 9,
+      "MD022/blanks-around-headings": 7,
+      "MD013/line-length": 10,
+      "MD009/no-trailing-spaces": 1,
+      "MD032/blanks-around-lists": 4
+    },
+    "docs/architecture/navigation-sidebar.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 3,
+      "MD040/fenced-code-language": 1,
+      "MD022/blanks-around-headings": 1,
+      "MD032/blanks-around-lists": 1,
+      "MD004/ul-style": 2
+    },
+    "docs/architecture/subego-soul.md": {
+      "MD003/heading-style": 8,
+      "MD022/blanks-around-headings": 3,
+      "MD001/heading-increment": 1,
+      "MD013/line-length": 7,
+      "MD032/blanks-around-lists": 2,
+      "MD040/fenced-code-language": 1,
+      "MD031/blanks-around-fences": 2
+    },
+    "docs/architecture/ui-iframe-sandbox-spec.md": {
+      "MD003/heading-style": 4,
+      "MD013/line-length": 6
+    },
+    "docs/architecture/ui-runtime.md": {
+      "MD003/heading-style": 8,
+      "MD022/blanks-around-headings": 7,
+      "MD013/line-length": 8,
+      "MD031/blanks-around-fences": 2,
+      "MD032/blanks-around-lists": 2
+    },
+    "docs/architecture/vision-general.md": {
+      "MD003/heading-style": 21,
+      "MD013/line-length": 47,
+      "MD022/blanks-around-headings": 20,
+      "MD032/blanks-around-lists": 12,
+      "MD040/fenced-code-language": 2,
+      "MD031/blanks-around-fences": 1,
+      "MD024/no-duplicate-heading": 1
+    },
+    "docs/architecture/workspace-dinamico.md": {
+      "MD003/heading-style": 13,
+      "MD022/blanks-around-headings": 12,
+      "MD009/no-trailing-spaces": 2,
+      "MD013/line-length": 22,
+      "MD032/blanks-around-lists": 5
+    },
+    "docs/changelog.md": {
+      "MD003/heading-style": 7,
+      "MD024/no-duplicate-heading": 1
+    },
+    "docs/deployment/distribution.md": {
+      "MD003/heading-style": 11,
+      "MD004/ul-style": 1
+    },
+    "docs/deployment/release-notes-template.md": {
+      "MD003/heading-style": 6
+    },
+    "docs/deployment/releases/v0.1.0-beta.1/release-notes.md": {
+      "MD003/heading-style": 6
+    },
+    "docs/design/design-system.md": {
+      "MD003/heading-style": 14,
+      "MD013/line-length": 17,
+      "MD033/no-inline-html": 1
+    },
+    "docs/design/DESIGN.md": {
+      "MD003/heading-style": 5
+    },
+    "docs/dev/desktop/DEV_LOOP.md": {
+      "MD003/heading-style": 5
+    },
+    "docs/dev/e2e-skip-inventory.md": {
+      "MD003/heading-style": 14,
+      "MD013/line-length": 14,
+      "MD032/blanks-around-lists": 7,
+      "MD022/blanks-around-headings": 6,
+      "MD004/ul-style": 8
+    },
+    "docs/engineering/integraciones.md": {
+      "MD003/heading-style": 19,
+      "MD013/line-length": 40,
+      "MD040/fenced-code-language": 2,
+      "MD022/blanks-around-headings": 5,
+      "MD032/blanks-around-lists": 5
+    },
+    "docs/engineering/lenguajes.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 6
+    },
+    "docs/engineering/stack-tecnico.md": {
+      "MD003/heading-style": 16,
+      "MD022/blanks-around-headings": 14,
+      "MD036/no-emphasis-as-heading": 1,
+      "MD032/blanks-around-lists": 13,
+      "MD013/line-length": 8
+    },
+    "docs/engineering/testing-e2e.md": {
+      "MD003/heading-style": 12
+    },
+    "docs/engineering/vantadb-readiness-plan.md": {
+      "MD003/heading-style": 15,
+      "MD009/no-trailing-spaces": 1,
+      "MD013/line-length": 15,
+      "MD040/fenced-code-language": 1,
+      "MD022/blanks-around-headings": 7,
+      "MD032/blanks-around-lists": 7,
+      "MD012/no-multiple-blanks": 1
+    },
+    "docs/extractions/coucou.md": {
+      "MD003/heading-style": 134,
+      "MD013/line-length": 8,
+      "MD036/no-emphasis-as-heading": 2,
+      "MD024/no-duplicate-heading": 28,
+      "MD026/no-trailing-punctuation": 1,
+      "MD022/blanks-around-headings": 8
+    },
+    "docs/extractions/README.md": {
+      "MD003/heading-style": 9,
+      "MD013/line-length": 11
+    },
+    "docs/getting-started.md": {
+      "MD003/heading-style": 5
+    },
+    "docs/index.md": {
+      "MD003/heading-style": 5,
+      "MD036/no-emphasis-as-heading": 14
+    },
+    "docs/jerarquia-canonica.md": {
+      "MD003/heading-style": 8,
+      "MD022/blanks-around-headings": 7,
+      "MD013/line-length": 4,
+      "MD032/blanks-around-lists": 3,
+      "MD012/no-multiple-blanks": 1
+    },
+    "docs/operations/despliegue.md": {
+      "MD003/heading-style": 5,
+      "MD013/line-length": 4
+    },
+    "docs/operations/snapshots-respaldo.md": {
+      "MD003/heading-style": 4,
+      "MD013/line-length": 3
+    },
+    "docs/PLAN-EGO.md": {
+      "MD003/heading-style": 5,
+      "MD022/blanks-around-headings": 4,
+      "MD013/line-length": 14,
+      "MD032/blanks-around-lists": 2
+    },
+    "docs/plan/README.md": {
+      "MD003/heading-style": 4,
+      "MD013/line-length": 5
+    },
+    "docs/product/character-art-direction.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 10,
+      "MD022/blanks-around-headings": 1,
+      "MD032/blanks-around-lists": 1,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/product/concepto.md": {
+      "MD003/heading-style": 11,
+      "MD009/no-trailing-spaces": 1,
+      "MD013/line-length": 10,
+      "MD030/list-marker-space": 26,
+      "MD032/blanks-around-lists": 4
+    },
+    "docs/product/definicion-soc.md": {
+      "MD003/heading-style": 7,
+      "MD013/line-length": 1,
+      "MD030/list-marker-space": 11,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/product/guia-mvp.md": {
+      "MD003/heading-style": 13,
+      "MD013/line-length": 15,
+      "MD022/blanks-around-headings": 8,
+      "MD032/blanks-around-lists": 7,
+      "MD040/fenced-code-language": 1
+    },
+    "docs/product/mascota.md": {
+      "MD003/heading-style": 18,
+      "MD022/blanks-around-headings": 4,
+      "MD001/heading-increment": 1,
+      "MD013/line-length": 25,
+      "MD028/no-blanks-blockquote": 1,
+      "MD032/blanks-around-lists": 3,
+      "MD026/no-trailing-punctuation": 1,
+      "MD012/no-multiple-blanks": 1
+    },
+    "docs/product/modelo-economico.md": {
+      "MD003/heading-style": 14,
+      "MD022/blanks-around-headings": 12,
+      "MD024/no-duplicate-heading": 1,
+      "MD009/no-trailing-spaces": 3,
+      "MD013/line-length": 16,
+      "MD032/blanks-around-lists": 5
+    },
+    "docs/product/modulos.md": {
+      "MD003/heading-style": 7,
+      "MD022/blanks-around-headings": 6,
+      "MD013/line-length": 13,
+      "MD032/blanks-around-lists": 2
+    },
+    "docs/product/personas.md": {
+      "MD003/heading-style": 9,
+      "MD013/line-length": 8,
+      "MD030/list-marker-space": 3
+    },
+    "docs/product/principios-innegociables.md": {
+      "MD003/heading-style": 6,
+      "MD022/blanks-around-headings": 5,
+      "MD013/line-length": 9,
+      "MD032/blanks-around-lists": 1,
+      "MD058/blanks-around-tables": 1
+    },
+    "docs/product/ux-ui.md": {
+      "MD003/heading-style": 20,
+      "MD022/blanks-around-headings": 20,
+      "MD013/line-length": 59,
+      "MD032/blanks-around-lists": 12
+    },
+    "docs/product/vision.md": {
+      "MD003/heading-style": 6,
+      "MD013/line-length": 5,
+      "MD030/list-marker-space": 13,
+      "MD032/blanks-around-lists": 1
+    },
+    "docs/prompts/CHANGELOG.md": {
+      "MD003/heading-style": 2
+    },
+    "docs/prompts/ego-example.md": {
+      "MD003/heading-style": 1
+    },
+    "docs/prompts/README.md": {
+      "MD003/heading-style": 4
+    },
+    "docs/prompts/system-prompt-template.md": {
+      "MD003/heading-style": 1
+    },
+    "docs/public/quickstart/README.md": {
+      "MD003/heading-style": 1
+    },
+    "docs/references/diseno-skills.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 4
+    },
+    "docs/references/fuentes.md": {
+      "MD003/heading-style": 4,
+      "MD013/line-length": 2,
+      "MD034/no-bare-urls": 6
+    },
+    "docs/references/glosario.md": {
+      "MD003/heading-style": 1,
+      "MD013/line-length": 43,
+      "MD012/no-multiple-blanks": 2
+    },
+    "docs/references/gui-desktop.md": {
+      "MD003/heading-style": 4,
+      "MD013/line-length": 3,
+      "MD034/no-bare-urls": 10
+    },
+    "docs/references/repos-intel.md": {
+      "MD003/heading-style": 3,
+      "MD013/line-length": 5
+    },
+    "docs/research/Arquitectura y Diseño de Sistemas para Plataformas y Agentes de IA.md": {
+      "MD003/heading-style": 88,
+      "MD013/line-length": 253,
+      "MD040/fenced-code-language": 2,
+      "MD029/ol-prefix": 44,
+      "MD032/blanks-around-lists": 2,
+      "MD009/no-trailing-spaces": 1,
+      "MD047/single-trailing-newline": 1
+    },
+    "docs/research/arquitectura-master-matrix.md": {
+      "MD013/line-length": 3
+    },
+    "docs/research/character-audit-and-coucou-inventory.md": {
+      "MD003/heading-style": 16,
+      "MD022/blanks-around-headings": 2,
+      "MD013/line-length": 5,
+      "MD032/blanks-around-lists": 3,
+      "MD004/ul-style": 6
+    },
+    "docs/research/coucou-deep-dive.md": {
+      "MD003/heading-style": 21,
+      "MD022/blanks-around-headings": 10,
+      "MD001/heading-increment": 1,
+      "MD009/no-trailing-spaces": 3,
+      "MD013/line-length": 16,
+      "MD032/blanks-around-lists": 7,
+      "MD004/ul-style": 11,
+      "MD031/blanks-around-fences": 4
+    },
+    "docs/research/hermes-agent-deep-dive.md": {
+      "MD003/heading-style": 26,
+      "MD022/blanks-around-headings": 12,
+      "MD001/heading-increment": 1,
+      "MD013/line-length": 35,
+      "MD032/blanks-around-lists": 12,
+      "MD004/ul-style": 11,
+      "MD009/no-trailing-spaces": 1
+    },
+    "docs/research/openclaw-deep-dive.md": {
+      "MD003/heading-style": 22,
+      "MD022/blanks-around-headings": 7,
+      "MD001/heading-increment": 1,
+      "MD013/line-length": 21,
+      "MD032/blanks-around-lists": 5,
+      "MD004/ul-style": 4
+    },
+    "docs/research/README.md": {
+      "MD003/heading-style": 5,
+      "MD013/line-length": 1,
+      "MD029/ol-prefix": 1,
+      "MD004/ul-style": 1,
+      "MD032/blanks-around-lists": 2
+    },
+    "docs/review/backlog-coucou.md": {
+      "MD001/heading-increment": 1,
+      "MD013/line-length": 1
+    },
+    "docs/review/README.md": {
+      "MD003/heading-style": 4,
+      "MD013/line-length": 3,
+      "MD032/blanks-around-lists": 2,
+      "MD004/ul-style": 6
+    },
+    "docs/review/revision-proyecto/revision-proyecto-2026-10-12.md": {
+      "MD003/heading-style": 63,
+      "MD013/line-length": 125,
+      "MD022/blanks-around-headings": 40
+    },
+    "docs/roadmap/Backlog.md": {
+      "MD003/heading-style": 43,
+      "MD013/line-length": 26,
+      "MD032/blanks-around-lists": 2,
+      "MD022/blanks-around-headings": 1,
+      "MD058/blanks-around-tables": 1,
+      "MD033/no-inline-html": 2,
+      "MD038/no-space-in-code": 1,
+      "MD056/table-column-count": 1
+    },
+    "docs/roadmap/metricas-okr.md": {
+      "MD003/heading-style": 14,
+      "MD022/blanks-around-headings": 11,
+      "MD013/line-length": 18,
+      "MD032/blanks-around-lists": 8,
+      "MD012/no-multiple-blanks": 2
+    },
+    "docs/roadmap/roadmap.md": {
+      "MD003/heading-style": 23,
+      "MD022/blanks-around-headings": 21,
+      "MD013/line-length": 12,
+      "MD032/blanks-around-lists": 55,
+      "MD004/ul-style": 5,
+      "MD036/no-emphasis-as-heading": 1
+    },
+    "docs/testing/estrategia.md": {
+      "MD003/heading-style": 5,
+      "MD013/line-length": 18
+    },
+    "docs/user/changelog.md": {
+      "MD003/heading-style": 3
+    },
+    "docs/user/concepts.md": {
+      "MD003/heading-style": 9
+    },
+    "docs/user/configuration.md": {
+      "MD003/heading-style": 7
+    },
+    "docs/user/getting-started.md": {
+      "MD003/heading-style": 9
+    },
+    "docs/user/README.md": {
+      "MD003/heading-style": 3
+    },
+    "docs/user/troubleshooting.md": {
+      "MD003/heading-style": 9
+    },
+    "docs/VANTADB-FEEDBACK-Y-MEJORAS.md": {
+      "MD013/line-length": 16,
+      "MD022/blanks-around-headings": 15,
+      "MD032/blanks-around-lists": 16,
+      "MD031/blanks-around-fences": 25,
+      "MD040/fenced-code-language": 7
+    }
+  }
+}

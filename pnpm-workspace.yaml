@@ -2,3 +2,10 @@ packages:
   - "apps/**"
   - "packages/**"
   - "tests"
+  # T4 (EGO-FIND-62): la suite Playwright GUI (`@ego/gui-tests`) vive en el
+  # repo pero NO era miembro del workspace → `pnpm -r test` NUNCA ejecutaba su
+  # gate (`scripts/check-gui-coverage.cjs`) ni sus 16 specs. Al formar parte
+  # del workspace, su `test` script entra en `pnpm -r test` (gate estático) y
+  # sus dependencias (@playwright/test) pasan a estar gestionadas por el
+  # lockfile raíz → build reproducible.
+  - "tests/gui"
