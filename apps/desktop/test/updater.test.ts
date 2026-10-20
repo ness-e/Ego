@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMainSource } from "./helpers/main-source.js";
 import {
   checkForUpdates,
   compareVersions,
@@ -157,7 +158,7 @@ describe("@ego/desktop — updater DIST-05 (sin red real, feed mock local)", () 
   });
 
   it("main.ts cablea el updater (solo-packaged, diferido, system.alert)", () => {
-    const mainSrc = readFileSync(join(here, "..", "src", "main.ts"), "utf-8");
+    const mainSrc = readMainSource();
     expect(mainSrc).toContain('from "./updater.js"');
     expect(mainSrc).toContain("initAutoUpdater");
     expect(mainSrc).toContain("app.isPackaged");

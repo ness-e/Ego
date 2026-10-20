@@ -12,6 +12,7 @@ import {
 } from "../src/windows/WindowStateManager.js";
 import { pauseAllTasks } from "../src/main/tray-status.js";
 import { BackgroundEngine } from "@ego/tasks";
+import { readMainSource } from "./helpers/main-source.js";
 
 vi.mock("electron", () => {
   const webContents = {
@@ -55,7 +56,7 @@ vi.mock("electron", () => {
 });
 
 const here = dirname(fileURLToPath(import.meta.url));
-const mainSrc = readFileSync(join(here, "..", "src", "main.ts"), "utf-8");
+const mainSrc = readMainSource();
 
 function mockAdapter() {
   const records: Record<string, any> = {};

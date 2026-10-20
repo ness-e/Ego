@@ -105,7 +105,11 @@ describe("@ego/desktop — Sub-Egos UI Integration & Multi-Modal Factory (INT-04
       });
       expect(manifest.id).toBeDefined();
       expect(manifest.name).toBe("Dev Senior Reviewer");
-      expect(manifest.tools).toContain("ast_linter");
+      // A3 / EGO-FIND-45: la plantilla declara SOLO tools reales del
+      // catálogo (`NATIVE_TOOL_NAMES`). Antes afirmaba `ast_linter`, que
+      // nunca existió como tool registrada (catálogo fantasma).
+      expect(manifest.tools).toContain("git_status");
+      expect(manifest.tools).not.toContain("ast_linter");
       expect(manifest.creator).toBe("template");
     });
 

@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { WindowStateManager, WindowState } from "../src/windows/WindowStateManager.js";
+import { WindowStateHelper } from "@ego/ui-runtime";
 
 describe("WindowStateManager (WIDG-05, HERM-04)", () => {
   let tmpDir: string;
@@ -99,5 +100,56 @@ describe("WindowStateManager (WIDG-05, HERM-04)", () => {
         mockDisplays
       )
     ).toBe(false);
+  });
+
+  it("HERM-08: la geometría la decide el WindowStateHelper canónico (workArea, no bounds)", () => {
+    // Una pantalla con barra de tareas: `bounds` (1920×1080) incluye la
+    // barra, `workArea` (1920×1000) no. Una ventana guardada 100 px por
+    // DEBAJO del workArea es "visible" según la implementación paralela
+    // (que miraba `bounds`) pero NO según el helper canónico (que mira
+    // `workArea`) → debe recolocarse dentro del área de trabajo.
+    const mockDisplays = [
+      {
+        id: 1,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1000 },
+      },
+    ] as any[];
+
+    // Bajo el workArea → el helper canónico dice que NO es visible.
+    expect(
+      WindowStateManager.isVisibleOnAnyDisplay(
+        { x: 100, y: 1030, width: 800, height: 600 },
+        mockDisplays
+      )
+    ).toBe(false);
+
+    // Dentro del workArea → visible.
+    expect(
+      WindowStateManager.isVisibleOnAnyDisplay(
+        { x: 100, y: 500, width: 800, height: 600 },
+        mockDisplays
+      )
+    ).toBe(true);
+  });
+
+  it("HERM-08: una ventana parcialmente fuera se RECOLOCA dentro del workArea", () => {
+    const manager = new WindowStateManager({ userDataDir: tmpDir });
+    const mockDisplays = [
+      {
+        id: 1,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1000 },
+      },
+    ] as any[];
+
+    // Simula el caso: la ventana se guardó asomando por debajo del
+    // workArea. El helper canónico la deja dentro.
+    const safe = WindowStateHelper.resolveSafeBounds(
+      { x: 100, y: 1030, width: 800, height: 600, isMaximized: false },
+      mockDisplays
+    );
+    expect(safe.y + safe.height).toBeLessThanOrEqual(1000);
+    expect(safe.x).toBeGreaterThanOrEqual(0);
   });
 });

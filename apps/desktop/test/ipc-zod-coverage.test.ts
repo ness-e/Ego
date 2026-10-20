@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMainSource } from "./helpers/main-source.js";
 import {
   ChatStreamSchema,
   DecisionListAuditsSchema,
@@ -17,7 +18,7 @@ import {
 } from "../src/ipc/schema.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const mainSrc = readFileSync(join(here, "..", "src", "main.ts"), "utf-8");
+const mainSrc = readMainSource();
 
 function handlerBlock(channel: string): string {
   const idx = mainSrc.indexOf(`ipcMain.handle("${channel}"`);

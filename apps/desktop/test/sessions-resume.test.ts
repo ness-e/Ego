@@ -9,9 +9,10 @@ import { EgoMemoryAdapter } from "@ego/memory";
 import { EgoMemoryLifecycle } from "@ego/memory";
 import { SessionGetSchema, SessionResumeSchema } from "../src/ipc/schema.js";
 import { turnsToMessages } from "../renderer/lib/session-resume.js";
+import { readMainSource } from "./helpers/main-source.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const mainSrc = readFileSync(join(here, "..", "src", "main.ts"), "utf-8");
+const mainSrc = readMainSource();
 
 /**
  * T18 — Resume real de sesión desde VantaDB (RED primero, TDD).

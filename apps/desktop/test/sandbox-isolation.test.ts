@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildCsp } from "../src/main.js";
 
 /**
  * SEC-01 — Guard de regresión de Sandboxing y Context Isolation.
@@ -49,8 +50,23 @@ describe("@ego/desktop — SEC-01 sandboxing y context isolation", () => {
     const main = read("src/main.ts");
     expect(main).toMatch(/onHeadersReceived/);
     expect(main).toMatch(/Content-Security-Policy/);
-    expect(main).toMatch(/object-src 'none'/);
-    expect(main).toMatch(/frame-ancestors 'none'/);
+  });
+
+  it("la CSP generada es estricta en modo empaquetado (R13/SEC-01)", () => {
+    // T11: las directivas viven en `buildCsp()` (módulo de seguridad), no
+    // inline en `main.ts`. Se verifica el COMPORTAMIENTO, no el texto.
+    const csp = buildCsp(true);
+    expect(csp).toMatch(/default-src 'self'/);
+    expect(csp).toMatch(/script-src 'self'/);
+    expect(csp).toMatch(/object-src 'none'/);
+    expect(csp).toMatch(/frame-ancestors 'none'/);
+    // T13: sin `img-src`/`frame-src` las imágenes remotas y los iframes
+    // de terceros son vectores de exfiltración.
+    expect(csp).toMatch(/img-src 'self' data: blob:/);
+    expect(csp).toMatch(/frame-src 'self'/);
+    // En dev se permite el dev-server local, pero nunca `object-src`.
+    expect(buildCsp(false)).toMatch(/http:\/\/127\.0\.0\.1:5173/);
+    expect(buildCsp(false)).toMatch(/object-src 'none'/);
   });
 
   it("renderer no importa APIs Node/VantaDB/Electron directas", () => {
