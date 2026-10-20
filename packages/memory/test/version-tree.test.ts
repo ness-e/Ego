@@ -116,18 +116,18 @@ describe("EgoMemoryAdapter — Version Tree y Time Travel (DSEK-01, DSEK-02)", (
     const vAtAfterV1 = await adapter.getAtTimestamp(ns, "doc:v3", afterV1);
     expect(vAtAfterV1).toBeDefined();
     expect(vAtAfterV1?.key).toBe("doc:v1");
-    expect((vAtAfterV1?.payload as any).version).toBe(1);
+    expect((vAtAfterV1?.payload as { version?: unknown }).version).toBe(1);
 
     // Consulta en instante afterV2 -> debe ser v2
     const vAtAfterV2 = await adapter.getAtTimestamp(ns, "doc:v1", afterV2);
     expect(vAtAfterV2).toBeDefined();
     expect(vAtAfterV2?.key).toBe("doc:v2");
-    expect((vAtAfterV2?.payload as any).version).toBe(2);
+    expect((vAtAfterV2?.payload as { version?: unknown }).version).toBe(2);
 
     // Consulta en tiempo actual -> debe ser v3
     const vCurrent = await adapter.getAtTimestamp(ns, "doc:v2", Date.now());
     expect(vCurrent).toBeDefined();
     expect(vCurrent?.key).toBe("doc:v3");
-    expect((vCurrent?.payload as any).version).toBe(3);
+    expect((vCurrent?.payload as { version?: unknown }).version).toBe(3);
   });
 });

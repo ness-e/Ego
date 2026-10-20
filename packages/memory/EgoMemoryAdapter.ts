@@ -19,6 +19,11 @@ import {
   type QuarantineAwareRecord,
 } from "./QuarantineAwareReads.js";
 import { sanitizeForLog, scanEgoPut } from "@ego/security";
+import {
+  normalizeNativeGraphRag,
+  type GraphRagBinding,
+  type NativeGraphRagResult,
+} from "./GraphRag.js";
 export type { QuarantineAwareRecord };
 
 export interface EgoPut {
@@ -27,6 +32,11 @@ export interface EgoPut {
   payload: unknown;
   metadata?: Record<string, unknown>;
   ttl_ms?: number;
+  /**
+   * Procedencia del registro (metadato obligatorio del esquema de
+   * namespaces). Si se omite, `writeLive` fuerza `"ego"` (EGO-FIND-35).
+   */
+  source?: string;
 }
 
 /**
@@ -498,6 +508,10 @@ export class EgoMemoryAdapter {
       metadata.agent_id = { String: String(item.metadata?.agent_id || "ego.nucleus") };
       metadata.confidence = { Float: typeof item.metadata?.confidence === "number" ? item.metadata.confidence : 1.0 };
       metadata.state = { String: String(item.metadata?.state || "active") };
+      // EGO-FIND-35: `source` es metadato obligatorio del esquema de
+      // namespaces y antes NUNCA se escribía. Ahora se fuerza siempre.
+      const source = item.source ?? item.metadata?.source ?? "ego";
+      metadata.source = { String: String(source) };
 
       return {
         namespace: item.namespace,
@@ -587,7 +601,7 @@ export class EgoMemoryAdapter {
       return page.records.map((r: MemoryRecord) => ({
         key: r.key,
         payload: this.parseRecord(r),
-        // Workaround: VDB-BUG-02
+        // Workaround: VDB-BUG-02 (envoltorio etiquetado de metadata)
         metadata: unwrapMetadata(r.metadata as Record<string, unknown>),
       }));
     } catch (err) {
@@ -620,7 +634,7 @@ export class EgoMemoryAdapter {
       records: page.records.map((r: MemoryRecord) => ({
         key: r.key,
         payload: this.parseRecord(r),
-        // Workaround: VDB-BUG-02
+        // Workaround: VDB-BUG-02 (envoltorio etiquetado de metadata)
         metadata: unwrapMetadata(r.metadata as Record<string, unknown>),
       })),
       nextCursor:
@@ -649,10 +663,26 @@ export class EgoMemoryAdapter {
   }
 
   /**
-   * Búsqueda híbrida multi-namespace con RRF (BM25 + HNSW).
-   * VantaDB soporta searchMulti nativo — no iterar manualmente.
-   * Firma intacta (F2T6/M07): la degradación por namespace emite log
-   * estructurado vía console.error (ver `test/gateway-errors.test.ts`).
+   * Búsqueda federada multi-namespace sobre el fast path BM25.
+   *
+   * VantaDB soporta `searchMulti` nativo — no iterar manualmente. Las
+   * búsquedas por namespace se lanzan en paralelo (`Promise.all`) y los
+   * resultados se fusionan por score en un único ranking.
+   *
+   * **Sin RRF y sin lista vectorial (EGO-FIND-41):** el fast path napi-rs
+   * opera en BM25 léxico puro (`query_vector: []` — workaround upstream
+   * `VDB-REQ-02`), de modo que no hay lista densa que fusionar ni score
+   * coseno por hit. La firma se mantiene intacta (F2T6/M07); la degradación
+   * por namespace emite log estructurado vía console.error (ver
+   * `test/gateway-errors.test.ts`).
+   *
+   * Workaround upstream: `VDB-REQ-10` — el binding `vantadb-node@0.8.0` no
+   * expone embeddings en el fast path (el path cognitivo L0-L3 vive en
+   * `vantadb-mcp`), por lo que la fusión RRF real (BM25 + denso) no puede
+   * calcularse: `searchMulti` devuelve una única lista léxica reordenada por
+   * score, sin lista densa que fusionar ni score coseno por hit.
+   * TODO(EGO-FIND-41): migrar a RRF real (BM25 + denso) cuando VantaDB
+   * exponga scores vectoriales por hit en `search_multi`.
    */
   async searchMulti(
     namespaces: string[],
@@ -1060,10 +1090,166 @@ export class EgoMemoryAdapter {
   }
 
   /**
+   * Id de nodo de grafo (`node_id`, u128 decimal) de un registro KV.
+   *
+   * Es la llave que une el registro del namespace con su nodo en el sustrato
+   * de grafo: `graphragSearch` siembra por búsqueda en el namespace y expande
+   * por aristas sobre esos mismos ids.
+   *
+   * Workaround: VDB-REQ-12 — el sustrato de grafo no se sembraba, de modo que
+   * la expansión nativa del GraphRAG devolvía `edges: []`.
+   */
+  async getGraphNodeId(namespace: string, key: string): Promise<string | null> {
+    const db = this.ensureReady();
+    try {
+      const record = await db.get({ namespace, key });
+      const nodeId = record?.node_id;
+      return nodeId === undefined || nodeId === null ? null : String(nodeId);
+    } catch (err) {
+      console.warn(
+        `[EgoMemoryAdapter] getGraphNodeId(${namespace}:${key}) falló: ${sanitizeForLog(describeError(err))}`
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Inserta (o actualiza) un nodo del sustrato de grafo.
+   *
+   * El binding napi-rs 0.8.0 expone `insertNode`/`addEdge`/`getNode`; este
+   * adaptador los delega con *capability probe* para no romper con bindings
+   * que no los expongan.
+   *
+   * Workaround: VDB-REQ-12 — siembra del sustrato de grafo, que no existía
+   * (sin `insertNode`/`addEdge` el GraphRAG nativo no tenía aristas).
+   */
+  async insertGraphNode(id: string, content: string): Promise<boolean> {
+    const db = this.ensureReady();
+    const binding = db as unknown as {
+      insertNode?: (input: { id: string; content?: string }) => Promise<void>;
+    };
+    if (typeof binding.insertNode !== "function") return false;
+    try {
+      await binding.insertNode({ id, content });
+      return true;
+    } catch (err) {
+      console.warn(
+        `[EgoMemoryAdapter] insertGraphNode(${id}) falló: ${sanitizeForLog(describeError(err))}`
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Crea una arista dirigida entre dos nodos del grafo.
+   * El binding crea automáticamente la arista inversa.
+   *
+   * Workaround: VDB-REQ-12 — siembra del sustrato de grafo (sin aristas, el
+   * GraphRAG nativo no tenía relaciones que recorrer).
+   */
+  async addGraphEdge(
+    sourceId: string,
+    targetId: string,
+    label: string,
+    weight?: number
+  ): Promise<boolean> {
+    const db = this.ensureReady();
+    const binding = db as unknown as {
+      addEdge?: (source: string, target: string, label: string, weight?: number) => Promise<void>;
+    };
+    if (typeof binding.addEdge !== "function") return false;
+    try {
+      await binding.addEdge(sourceId, targetId, label, weight);
+      return true;
+    } catch (err) {
+      console.warn(
+        `[EgoMemoryAdapter] addGraphEdge(${sourceId}→${targetId}) falló: ${sanitizeForLog(describeError(err))}`
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Enlaza dos registros KV como nodos del grafo.
+   *
+   * Resuelve el `node_id` de ambos y crea la arista. Es la vía por la que
+   * las relaciones que Ego ya conoce (cadena causal de ingeniería, hechos
+   * derivados, supersedes) se convierten en **aristas reales** que el
+   * pipeline GraphRAG nativo puede recorrer.
+   *
+   * Workaround: VDB-REQ-12 — siembra del sustrato de grafo (el binding 0.8.0
+   * sí expone `insertNode`/`addEdge`, pero Ego no lo invocaba y el grafo
+   * quedaba vacío).
+   */
+  async linkGraphNodes(
+    sourceNamespace: string,
+    sourceKey: string,
+    targetNamespace: string,
+    targetKey: string,
+    label: string,
+    weight?: number
+  ): Promise<boolean> {
+    const [sourceId, targetId] = await Promise.all([
+      this.getGraphNodeId(sourceNamespace, sourceKey),
+      this.getGraphNodeId(targetNamespace, targetKey),
+    ]);
+    if (!sourceId || !targetId) return false;
+    return this.addGraphEdge(sourceId, targetId, label, weight);
+  }
+
+  /**
+   * Pipeline GraphRAG nativo de VantaDB (DIST-15).
+   *
+   * El binding napi-rs 0.8.0 expone `graphragSearch(namespace, query, queryVector?)`
+   * con la forma canónica `{ nodes, edges, context_text, stats }`; las aristas
+   * provienen del **sustrato de grafo real** (`insertNode`/`addEdge`), no de
+   * heurísticas de metadatos.
+   *
+   * Workaround upstream: `VDB-REQ-11` — el binding 0.8.0 no expone el motor
+   * IQL (`query`), de modo que el descubrimiento de aristas del GraphRAG se
+   * hace vía `graphragSearch` y, si el grafo no aporta aristas, degrada a
+   * heurística (metadata + regex).
+   * Workaround: `VDB-REQ-12` — siembra del sustrato de grafo: sin
+   * `insertNode`/`addEdge` la fase nativa devolvía `edges: []`; hoy Ego
+   * puebla aristas reales (ver `linkGraphNodes`).
+   *
+   * Capability probe: si el binding no expone el método (versiones
+   * anteriores) se devuelve `null` y el llamante degrada a su método
+   * heurístico. Si el grafo está vacío (todavía sin sembrar), el resultado
+   * llega con `edges: []` y también degrada.
+   */
+  async graphRagSearch(
+    namespace: string,
+    query: string,
+    queryVector?: number[]
+  ): Promise<NativeGraphRagResult | null> {
+    const db = this.ensureReady();
+    const binding = db as unknown as Partial<GraphRagBinding>;
+    if (typeof binding.graphragSearch !== "function") return null;
+    try {
+      const raw = await binding.graphragSearch(namespace, query, queryVector ?? null);
+      return normalizeNativeGraphRag(raw);
+    } catch (err) {
+      console.warn(
+        `[EgoMemoryAdapter] graphRagSearch(${namespace}) falló, degradando a null: ${sanitizeForLog(describeError(err))}`
+      );
+      return null;
+    }
+  }
+
+  /**
    * Consultas IQL (Integrated Query Language v4).
-   * Capability probe (NO es workaround VDB: el binding napi-rs aún no expone
-   * motor IQL, sin ID upstream registrado): si falta, degradar a objeto de
-   * error explícito en vez de lanzar.
+   *
+   * Capability probe: el binding napi-rs 0.8.0 **no expone** el motor IQL
+   * (no existe método `query` en `NativeVantaDB`), por lo que la llamada
+   * devuelve `{ ok: false }` y el grafo debe consultarse vía
+   * `graphragSearch()` / API de grafo (`getNode`, `graphBfs`, …).
+   *
+   * Workaround upstream: `VDB-REQ-11` — ausencia de `query`/IQL en el
+   * binding napi-rs 0.8.0: el descubrimiento de aristas del GraphRAG no
+   * puede consultarse con `graphQuery` y usa `graphragSearch()` / API de
+   * grafo (`getNode`, `graphBfs`, …). Registrado en
+   * `docs/VANTADB-FEEDBACK-Y-MEJORAS.md` (handoff A2 → A1).
    */
   async graphQuery(queryStr: string): Promise<unknown> {
     const db = this.ensureReady();

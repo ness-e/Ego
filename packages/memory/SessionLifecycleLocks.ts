@@ -21,6 +21,11 @@ interface QueuedTask<T = unknown> {
  * aportó `fn`, sin cruces entre tipos.
  */
 export class SessionLifecycleLocks {
+  // AGENTS.md §4 (justificación de `any`): la cola serializa tareas de tipos
+  // heterogéneos por `sessionId`; el tipo real viaja en la `Promise<T>` que la
+  // tarea devuelve, y el `resolve` se invoca con el valor ya tipado por el
+  // llamante. `unknown` no serviría: `resolve` exige el tipo exacto.
+  // L10: un `any` aquí no cruza fronteras de confianza (sólo tipa el contenedor).
   private readonly queues = new Map<string, Array<QueuedTask<any>>>();
   private readonly running = new Set<string>();
   private readonly asyncLocalStorage = new AsyncLocalStorage<Set<string>>();
