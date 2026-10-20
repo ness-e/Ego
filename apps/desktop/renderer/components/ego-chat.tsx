@@ -28,13 +28,12 @@ import {
   ShieldCheck,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Virtualizer } from "virtua";
 import { MOTION } from "./canvas/DesignSystemProvider.js";
 import { ego, RecallBadgeInfo, PendingApprovalInfo, ModelConfigInfo } from "../lib/ego";
 import { turnsToMessages, type SessionTurnRecord } from "../lib/session-resume.js";
 import { ApprovalCard } from "./tools/ApprovalCard";
 import { CharacterBadge } from "./character/CharacterBadge.js";
-import type { CharacterState } from "./character/state/CharacterStateMachine.js";
+import type { CharacterState } from "./character/state/character-state.js";
 import { FileMentionBadge } from "./FileMentionBadge.js";
 import { parseSlashCommand, extractMentions, LOCAL_SLASH_COMMANDS, SLASH_HELP_TEXT } from "./composer-slash.js";
 import { useCanvasBridge } from "../hooks/useCanvasBridge";
@@ -44,6 +43,11 @@ import { MarkdownText } from "./assistant-ui/markdown-text.js";
 import { MessageRenderBoundary } from "./assistant-ui/message-render-boundary.js";
 import { toTurnUsage, type TurnUsage } from "./daily-state/MetricsConsole.js";
 import { ToolExecutionCard } from "./chat/ToolExecutionCard.js";
+import {
+  ChatMessageList,
+  type ChatMessageRole,
+} from "./chat/ChatMessageList.js";
+import { useChatTranscript, type Msg } from "./chat/chat-transcript-store.js";
 
 const ChatActionsContext = createContext<{
   onRewind?: (messageId: string) => void;
@@ -185,16 +189,16 @@ const AssistantMessage = memo(
 );
 AssistantMessage.displayName = "AssistantMessage";
 
-export type Msg = {
-  id: string;
-  role: "user" | "assistant";
-  content: [{ type: "text"; text: string }];
-  recall?: RecallBadgeInfo;
-  isError?: boolean;
-};
+/**
+ * T8 (EGO-FIND-73): el tipo del mensaje vive en el store del transcript
+ * (fuera del componente) para que el store y el chat compartan EXACTAMENTE
+ * la misma forma. Se re-exporta aquí por compatibilidad con los tests y
+ * consumidores que ya importaban `Msg` desde `ego-chat`.
+ */
+export type { Msg };
 
 /**
- * T21 (PERF-VIRTUA) / UI-05: Virtualización con virtua por encima de umbral.
+ * T21 (PERF-VIRTUA) / UI-05 / T1 (EGO-FIND-20): Virtualización con virtua por encima de umbral.
  *
  * Decisión arquitectónica (@assistant-ui 0.15 + virtua):
  * 1. ThreadPrimitive.Messages de @assistant-ui no admite contenedor externo ni virtualización
@@ -211,6 +215,17 @@ export type Msg = {
  *    para hilos cortos.
  * 6. Con keepMounted={[messages.length - 1]}, el último mensaje (turno activo / streaming)
  *    permanece SIEMPRE montado en el DOM, garantizando que el streaming no se interrumpa.
+ *
+ * T1 (EGO-FIND-20) — por qué se usa `Unstable_MessageById` y NO `MessageByIndex`:
+ * `ThreadPrimitive.MessageByIndex` resuelve el mensaje por ÍNDICE contra el store de
+ * assistant-ui (`aui.thread.message({index})` → `useClientLookup`). El `<Virtualizer>`
+ * itera el array local `messages` (estado React), que adelanta al store en un tick
+ * durante el streaming. Al añadir un turno, el índice renderizado puede exceder
+ * `thread.messages.length` → throw `useClientLookup: index N out of bounds`.
+ * `ThreadPrimitive.Unstable_MessageById` resuelve por ID y **devuelve `null` en vez de
+ * lanzar** cuando el id todavía no existe en el store — exactamente el contrato que la
+ * librería documenta para windowing. Además desacopla el mensaje de su posición, lo que
+ * sobrevive a reordenamientos y al propio windowing.
  */
 export const CHAT_VIRTUALIZATION_THRESHOLD = 60;
 
@@ -224,7 +239,6 @@ export function shouldVirtualizeChat(
 export function getChatKeepMountedIndices(messagesLength: number): readonly number[] {
   return messagesLength > 0 ? [messagesLength - 1] : [];
 }
-
 interface ActiveChatError {
   message: string;
   prompt: string;
@@ -508,7 +522,13 @@ export function EgoChat({
   initialMessages,
   virtualizationThreshold,
 }: EgoChatProps = {}) {
-  const [messages, setMessages] = useState<Msg[]>(() => initialMessages ?? []);
+  // T8 (EGO-FIND-73): el transcript vive en un store Zustand dedicado, no
+  // en `useState` del componente raíz. Motivo: cada delta de streaming
+  // provocaba un re-render del componente raíz COMPLETO (25 useState +
+  // 25 refs + el runtime de assistant-ui) y, en cascada, de todos los
+  // consumidores del `ChatActionsContext`.
+  const messages = useChatTranscript((s) => s.messages);
+  const setMessages = useChatTranscript((s) => s.setMessages);
   const [latestRecall, setLatestRecall] = useState<RecallBadgeInfo | null>(null);
   const [activeError, setActiveError] = useState<ActiveChatError | null>(null);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalInfo[]>([]);
@@ -1389,11 +1409,14 @@ export function EgoChat({
   );
 
   const threshold = virtualizationThreshold ?? CHAT_VIRTUALIZATION_THRESHOLD;
-  const isVirtualized = shouldVirtualizeChat(messages.length, threshold);
-  const keepMountedIndices = useMemo(
-    () => getChatKeepMountedIndices(messages.length),
-    [messages.length]
-  );
+  // Rol por id: el estado local va un tick por delante del store de assistant-ui,
+  // así que este mapa puede contener ids que el store todavía no conoce.
+  // `ChatMessageList` solo lo consulta para los ids que SÍ están en el store.
+  const roleById = useMemo(() => {
+    const map = new Map<string, ChatMessageRole>();
+    for (const m of messages) map.set(m.id, m.role);
+    return map;
+  }, [messages]);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
@@ -1507,7 +1530,7 @@ export function EgoChat({
                     key={starter.title}
                     type="button"
                     onClick={() => fillComposer(starter.prompt)}
-                    className="group w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border border-white/5 bg-[#18181b]/40 hover:bg-[#202024] hover:border-white/15 transition-all text-left shadow-sm cursor-pointer"
+                    className="group w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl border border-white/5 bg-[#18181b]/40 hover:bg-[#202024] hover:border-white/15 transition-colors text-left shadow-sm cursor-pointer"
                   >
                     <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">
                       {starter.icon}
@@ -1539,36 +1562,12 @@ export function EgoChat({
               lastMessageId: messages[messages.length - 1]?.id,
             }}
           >
-            {isVirtualized ? (
-              <Virtualizer
-                scrollRef={viewportRef}
-                data={messages}
-                keepMounted={keepMountedIndices}
-                itemSize={120}
-              >
-                {(msg, index) => (
-                  <div
-                    key={msg.id}
-                    data-testid="chat-message-turn"
-                    data-message-id={msg.id}
-                    data-role={msg.role}
-                    style={{
-                      contentVisibility: "auto",
-                      containIntrinsicSize: msg.role === "user" ? "auto 96px" : "auto 140px",
-                    }}
-                  >
-                    <ThreadPrimitive.MessageByIndex
-                      index={index}
-                      components={messageComponents}
-                    />
-                  </div>
-                )}
-              </Virtualizer>
-            ) : (
-              <ThreadPrimitive.Messages
-                components={messageComponents}
-              />
-            )}
+            <ChatMessageList
+              roleById={roleById}
+              components={messageComponents}
+              viewportRef={viewportRef}
+              threshold={threshold}
+            />
           </ChatActionsContext.Provider>
         </ThreadPrimitive.Viewport>
 
@@ -1860,7 +1859,7 @@ export function EgoChat({
             </div>
           )}
 
-          <ComposerPrimitive.Root className="flex flex-col gap-2 rounded-3xl border border-white/10 bg-[#161822]/90 shadow-2xl backdrop-blur-xl p-3.5 transition-all focus-within:border-white/20">
+          <ComposerPrimitive.Root className="flex flex-col gap-2 rounded-3xl border border-white/10 bg-[#161822]/90 shadow-2xl backdrop-blur-xl p-3.5 transition-colors focus-within:border-white/20">
             {/* Input de archivo montado para tests */}
             <input
               ref={fileInputRef}
@@ -1896,7 +1895,7 @@ export function EgoChat({
                   aria-expanded={isPlusMenuOpen}
                   title="Acciones y adjuntos (+)"
                   data-testid="composer-attach-button"
-                  className={`min-h-[34px] min-w-[34px] flex items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                  className={`min-h-[34px] min-w-[34px] flex items-center justify-center rounded-xl border transition-colors cursor-pointer ${
                     isPlusMenuOpen
                       ? "bg-white/15 text-white border-white/20"
                       : "border-white/10 bg-white/5 hover:bg-white/10 text-faint hover:text-ink"
@@ -1917,7 +1916,7 @@ export function EgoChat({
                   }}
                   title="Mencionar archivo del proyecto (@)"
                   aria-label="Mencionar archivo"
-                  className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-faint hover:text-ink text-xs font-mono transition-all cursor-pointer"
+                  className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-faint hover:text-ink text-xs font-mono transition-colors cursor-pointer"
                 >
                   @
                 </button>
@@ -1927,7 +1926,7 @@ export function EgoChat({
                   <button
                     type="button"
                     onClick={() => setIsSubEgoMenuOpen((prev) => !prev)}
-                    className="min-h-[34px] px-2.5 flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11.5px] font-medium transition-all cursor-pointer"
+                    className="min-h-[34px] px-2.5 flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11.5px] font-medium transition-colors cursor-pointer"
                   >
                     <span className="text-cyan-400">🤖</span>
                     <span className="truncate max-w-[95px]">{subEgoId ?? "ego.nucleus"}</span>
@@ -1974,7 +1973,7 @@ export function EgoChat({
                     onClick={() => setIsModelMenuOpen((prev) => !prev)}
                     aria-expanded={isModelMenuOpen}
                     title="Seleccionar modelo de lenguaje (solo disponibles)"
-                    className="min-h-[34px] px-2.5 flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11.5px] font-medium transition-all cursor-pointer"
+                    className="min-h-[34px] px-2.5 flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11.5px] font-medium transition-colors cursor-pointer"
                   >
                     <Sparkle size={13} className="text-violet-400 shrink-0" />
                     <span className="truncate max-w-[110px]">{currentModelDisplayName}</span>
@@ -2020,7 +2019,7 @@ export function EgoChat({
                     onClick={() => setIsEffortMenuOpen((prev) => !prev)}
                     aria-expanded={isEffortMenuOpen}
                     title="Intensidad de razonamiento cognitivo"
-                    className="min-h-[34px] px-2 flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11px] font-medium transition-all cursor-pointer"
+                    className="min-h-[34px] px-2 flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11px] font-medium transition-colors cursor-pointer"
                   >
                     <Lightning size={12} className="text-amber-400 shrink-0" />
                     <span>{effortLabels[reasoningEffort]}</span>
@@ -2060,7 +2059,7 @@ export function EgoChat({
                     onClick={() => setIsModeMenuOpen((prev) => !prev)}
                     aria-expanded={isModeMenuOpen}
                     title="Modo de ejecución: Manual (HITL) o Auto"
-                    className="min-h-[34px] px-2 flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11px] font-medium transition-all cursor-pointer"
+                    className="min-h-[34px] px-2 flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-ink text-[11px] font-medium transition-colors cursor-pointer"
                   >
                     <ShieldCheck size={12} className={executionMode === "manual" ? "text-cyan-400" : "text-emerald-400"} />
                     <span>{executionMode === "manual" ? "Manual" : "Auto"}</span>
@@ -2172,7 +2171,7 @@ export function EgoChat({
                     >
                       <ComposerPrimitive.Send
                         aria-label="Enviar mensaje"
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-white text-black hover:bg-white/90 rounded-full font-bold text-sm shadow-md cursor-pointer transition-all"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-white text-black hover:bg-white/90 rounded-full font-bold text-sm shadow-md cursor-pointer transition-colors"
                       >
                         <span className="text-[15px] leading-none font-bold">↑</span>
                         <span className="sr-only">Enviar</span>

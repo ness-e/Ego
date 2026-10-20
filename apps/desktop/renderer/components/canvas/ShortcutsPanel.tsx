@@ -9,6 +9,7 @@ import {
   type CustomShortcut,
   type ShortcutAction,
 } from "./workbench-guards.js";
+import { Select } from "../ui-kit/Select.js";
 
 /**
  * CFG-13 — Atajos custom (renderer-only, sin IPC).
@@ -123,16 +124,14 @@ export const ShortcutsPanel: React.FC = () => {
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="cfg13-sc-action" className="text-[10px] text-faint">Acción</label>
-          <select
+          <Select
             id="cfg13-sc-action"
+            ariaLabel="Acción"
             value={action}
-            onChange={(e) => setAction(e.target.value as ShortcutAction)}
-            className="rounded border border-hairline bg-raised px-2 py-1 text-[11px] text-ink focus:outline-none"
-          >
-            {SHORTCUT_ACTIONS.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
+            onValueChange={(v) => setAction(v as ShortcutAction)}
+            options={SHORTCUT_ACTIONS.map((a) => ({ value: a, label: a }))}
+            triggerClassName="rounded border border-hairline bg-raised px-2 py-1 text-[11px] text-ink"
+          />
         </div>
         <button
           type="submit"

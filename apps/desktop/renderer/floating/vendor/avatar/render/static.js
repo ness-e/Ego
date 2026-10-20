@@ -1,6 +1,6 @@
 // static.js — SVG estático SIN DOM (para miniaturas, tests y export en Node).
 // Mismo determinismo que el elemento vivo: misma semilla ⇒ mismo string.
-// Añadido: pose por hash djb2 de la semilla (port de coucou MochiStill.swift —
+// Añadido: pose por hash djb2 de la semilla (port de vendor/coucou-swift/MochiStill.swift -
 // superficies sin animación eligen pose establecida por hash, no siempre idle).
 
 import { generateGenome } from '../core/genome.js';
@@ -11,7 +11,7 @@ import { renderShell } from './shell.js';
 import { STATES, EMOTES } from '../runtime/states.js';
 import { POSES } from '../runtime/poses.js';
 
-/** djb2 (port de MochiStill.swift: hash = 5381; h = h·33 + c). */
+/** djb2 (port de vendor/coucou-swift/MochiStill.swift: hash = 5381; h = h·33 + c). */
 export function djb2(str) {
   let h = 5381;
   const s = String(str);

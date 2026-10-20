@@ -81,9 +81,12 @@ describe("T16 FIND-12: Button — 9 estados P22", () => {
     expect(el.querySelector("button")?.className).toContain("bg-red-950");
   });
 
-  it("empty: sin children mantiene altura mínima", async () => {
+  it("empty: sin children mantiene altura mínima (>=44px, objetivo táctil)", async () => {
     const el = await mount(<Button variant="primary" aria-label="vacio" />);
-    expect(el.querySelector("button")?.className).toContain("min-h-[28px]");
+    // T5 (EGO-FIND-55): el default era `min-h-[28px] min-w-[28px]`, que
+    // contradecía el objetivo de 44px. El test CODIFICABA la regresión.
+    expect(el.querySelector("button")?.className).toContain("min-h-11");
+    expect(el.querySelector("button")?.className).toContain("min-w-11");
   });
 
   it("overflow: truncate limita ancho con max-w-full", async () => {

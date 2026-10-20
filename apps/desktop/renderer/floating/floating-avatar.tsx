@@ -32,10 +32,21 @@ declare global {
   }
 }
 
-// FIND-12-01: avatar vendorizado bajo el root servido (renderer/floating/
-// vendor/avatar/). El import del elemento DEBE ser un LITERAL dentro del root:
-// Vite no analiza `import(CONST)` y lo deja suelto → 404 en prod
-// (out/renderer/). Test: floating-avatar-vendor.
+// FIND-12-01 / A6 (Ola 1b): el motor de personaje se importa desde el
+// PAQUETE `@ego/avatar` (fuente canónica, ADR-0018). Vite resuelve el
+// specifier de paquete estáticamente, así que el MPA del flotante lo
+// empaqueta igual que el resto.
+//
+// El specifier original (`repos-referencia/avatar/src/index.js`) apuntaba
+// FUERA del root del dev-server y producía un 404 en dev y en prod,
+// dejando el `<ego-avatar>` inerte (box 0×0). La copia vendorizada bajo
+// `renderer/floating/vendor/avatar/` lo resolvió; hoy se conserva como
+// fallback (decisión D5: las tres copias se mantienen) y el paquete es el
+// canónico.
+//
+// El import del elemento DEBE ser un LITERAL: Vite no analiza
+// `import(CONST)` y lo deja suelto → 404 en prod (out/renderer/).
+// Test: floating-avatar-vendor.
 
 /**
  * Criatura avatar mini para el flotante (D1, NO Mochi).
@@ -67,7 +78,12 @@ export function FloatingAvatar({
       try {
         // Literal a propósito (ver nota arriba): el bundler lo emite en dev
         // y prod (out/renderer/floating/) como chunk code-split.
-        await import("./vendor/avatar/runtime/avatar-element.js");
+        //
+        // A6 (Ola 1b): el PAQUETE `@ego/avatar` es la fuente canónica. El
+        // espejo vendorizado NO se importa (D5: la copia se mantiene en el
+        // repo para la cadena MIT y la puerta `sync:check`, pero importarlo
+        // además duplicaría el chunk del motor en el bundle: +181 KB).
+        await import("@ego/avatar/runtime/avatar-element.js");
       } catch {
         if (!cancelled) {
           // Sin elemento registrado el tag queda inerte; no romper el flotante.

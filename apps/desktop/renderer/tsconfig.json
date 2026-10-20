@@ -31,8 +31,32 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      // T5 / A6 (Ola 1b): el motor de personaje se importa desde el PAQUETE
+      // `@ego/avatar` (fuente canónica, ADR-0018). El espejo vendorizado
+      // sigue siendo el fallback (decisión D5 del owner: las tres copias se
+      // mantienen). Estas rutas sustituyen al enlace de workspace hasta que
+      // A7 cierre el lockfile (`workspace:*` ya declarado en este
+      // `package.json` y en el de `apps/desktop`).
+      "@ego/avatar/runtime/avatar-element.js": [
+        "../../../packages/avatar/src/runtime/avatar-element.d.ts"
+      ],
+      "@ego/avatar/runtime/sound.js": [
+        "../../../packages/avatar/src/runtime/sound.d.ts"
+      ]
     }
   },
-  "include": ["src", "components", "lib", "hooks", "test", "floating"]
+  "include": ["src", "components", "lib", "hooks", "test", "floating"],
+  // T0 (Ola 1b): el corpus de atribución MIT que A6 replicó dentro del
+  // espejo vendorizado (`floating/vendor/avatar/vendor/**`) es material
+  // legal de SOLO LECTURA: no es código de runtime de Ego, no debe
+  // compilarse ni typecheckearse (le faltan los tipos de `@tauri-apps/api`
+  // y usa un tsconfig propio). Excluirlo aquí lo saca del typecheck del
+  // renderer sin borrarlo: la cadena de atribución MIT debe seguir siendo
+  // resoluble desde las dos copias (upstream / paquete / vendorizada).
+  "exclude": [
+    "node_modules",
+    "dist",
+    "floating/vendor/avatar/vendor"
+  ]
 }

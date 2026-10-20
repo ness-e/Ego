@@ -1,8 +1,14 @@
-// helpers.js — Ayudas de dibujo 2D (puerto verbatim del avatar studio).
-// Fuente: repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
-//   roundRectPath: líneas 896-915 · hexToRgba: 4112-4117 ·
-//   shadeColor: 4119-4128 · buildSquirclePath: 2227-2240 ·
-//   getStateAccentColor: 2069-2096.
+// helpers.js — ayudas de dibujo 2D del motor studio.
+//
+// GEOMETRÍA PROPIA DE EGO: este es el nivel de primitivas del renderer. Son
+// cinco utilidades genéricas de Canvas 2D (rectángulo redondeado, conversión
+// de color, superelipse y acento por estado), sin ninguna forma de robot
+// dentro: las proporciones del avatar viven en ./geometry.js.
+//
+// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// líneas 896-915, 4112-4117, 4119-4128, 2227-2240, 2069-2096: se adapta el
+// patrón (utilidades de canvas sin dependencias); la implementación, la
+// nomenclatura y el soporte de hsl/rgb son propios.
 // Vanilla ESM, sin dependencias. `ctx` solo se toca dentro de las funciones.
 // `S` es el objeto plano de estado del avatar (nunca se importa la clase).
 

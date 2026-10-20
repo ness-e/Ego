@@ -58,6 +58,19 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = "" }) => 
   const [frameKey, setFrameKey] = useState(0);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
+  /**
+   * T10 (A4-31) — Re-validación del `src` en CADA render.
+   *
+   * `classifyBrowserUrl` solo se aplicaba en el submit: una URL ya
+   * comiteada no volvía a pasar por el guard. Aquí se revalida el
+   * `committed` en cada render y, si deja de ser válida, se desmonta el
+   * iframe (fail-closed) en vez de dejar un iframe con origen externo.
+   */
+  const committedVerdict = committed === null ? null : classifyBrowserUrl(committed);
+  const committedAllowed = committedVerdict?.allowed === true ? committed : null;
+  const committedBlockReason =
+    committedVerdict && !committedVerdict.allowed ? committedVerdict.reason : null;
+
   // Listeners nativos (no props React `onLoad/onError`): `error` del iframe
   // no llega vía delegación React en todos los runtimes; nativo es
   // determinista en Chromium y en happy-dom (tests).
@@ -77,7 +90,11 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = "" }) => 
 
   let status: BrowserStatus;
   let blockedReason: BrowserBlockReason | null = null;
-  if (committed !== null) {
+  if (committedBlockReason !== null) {
+    // T10 (A4-31): la URL comiteada ya no es válida → fail-closed.
+    blockedReason = committedBlockReason;
+    status = reasonToStatus(committedBlockReason);
+  } else if (committedAllowed !== null) {
     status = phase;
   } else if (draft.trim() === "") {
     status = "empty";
@@ -163,22 +180,22 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = "" }) => 
       >
         {status === "empty" && "Sin URL: escribí un dev-server loopback (p. ej. http://localhost:5173)."}
         {status === "editing" && "URL loopback válida: lista para cargar."}
-        {blockedReason !== null && committed === null && (
+        {blockedReason !== null && (
           <span className="text-warning">{blockReasonMessage(blockedReason)}</span>
         )}
         {status === "loading" && "Cargando dev-server…"}
         {status === "ready" && (
-          <span className="font-mono text-[10px] text-dim">{committed}</span>
+          <span className="font-mono text-[10px] text-dim">{committedAllowed}</span>
         )}
         {status === "error" && "El iframe reportó un error de carga. Verificá que el dev-server esté corriendo."}
       </div>
 
-      {committed !== null && status !== "error" && (
+      {committedAllowed !== null && status !== "error" && (
         <iframe
           key={frameKey}
           ref={frameRef}
           title="Vista de dev-server (solo loopback)"
-          src={committed}
+          src={committedAllowed}
           sandbox="allow-scripts"
           referrerPolicy="no-referrer"
           className="min-h-[320px] w-full flex-1 rounded border border-hairline bg-paper"

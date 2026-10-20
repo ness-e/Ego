@@ -22,7 +22,8 @@ interface Snapshot {
 }
 
 function installBridge(state: Snapshot, spies: { approve: () => Promise<unknown>; deny: () => Promise<unknown> }): void {
-  window.egoFloating = {
+  window.ego = {
+    floating: {
     onState: (cb: (s: Snapshot) => void) => {
       cb(state);
       return () => {};
@@ -30,7 +31,8 @@ function installBridge(state: Snapshot, spies: { approve: () => Promise<unknown>
     approve: spies.approve,
     deny: spies.deny,
     setMuted: () => Promise.resolve({}),
-  } as unknown as Window["egoFloating"];
+  },
+  } as unknown as Window["ego"];
 }
 
 async function mountFloating(state: Snapshot, spies = { approve: () => Promise.resolve({}), deny: () => Promise.resolve({}) }): Promise<{ host: HTMLElement; root: Root; main: () => HTMLElement | null }> {
@@ -57,7 +59,7 @@ async function pressKeyAct(key: string): Promise<void> {
 }
 
 afterEach(() => {
-  delete window.egoFloating;
+  delete (window as unknown as { ego?: unknown }).ego;
   document.body.innerHTML = "";
 });
 

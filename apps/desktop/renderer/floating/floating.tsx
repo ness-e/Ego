@@ -19,12 +19,6 @@ import { CountdownController, COUNTDOWN_AUTOCLOSE_S } from "./countdown.js";
 import { DropQueue, UploadCanvas } from "./upload-canvas.js";
 import { UploadSeq } from "./upload-seq.js";
 
-declare global {
-  interface Window {
-    egoFloating?: EgoFloatingBridge;
-  }
-}
-
 /** Puente mínimo de `window.ego` que la flotante necesita (mismo preload que
  *  la ventana principal — `FloatingWindowView.ts:52` — sin IPC nuevo). */
 interface FloatingEgoBridge {
@@ -32,11 +26,21 @@ interface FloatingEgoBridge {
   knowledge?: {
     ingest?: (req: unknown) => Promise<unknown>;
   };
+  floating?: EgoFloatingBridge;
 }
 
 function readEgoBridge(): FloatingEgoBridge | null {
   const w = window as unknown as { ego?: FloatingEgoBridge };
   return w.ego ?? null;
+}
+
+/**
+ * T10 (A4-32): la superficie flotante se lee de `window.ego.floating`.
+ * Antes se exponía un SEGUNDO global (`window.egoFloating`) desde el
+ * preload, duplicando la superficie IPC. Ahora hay un único objeto global.
+ */
+function readFloatingBridge(): EgoFloatingBridge | null {
+  return readEgoBridge()?.floating ?? null;
 }
 
 const INITIAL_STATE: FloatingStateSnapshot = {
@@ -184,7 +188,7 @@ export function FloatingApp() {
   approvalRef.current = approval;
 
   useEffect(() => {
-    const bridge = window.egoFloating;
+    const bridge = readFloatingBridge();
     if (!bridge) return;
     return bridge.onState((next) => {
       setSnapshot(next);
@@ -255,7 +259,7 @@ export function FloatingApp() {
   const handleDecide = useCallback((d: ApprovalDecision) => {
     const data = approvalRef.current ?? PREVIEW_APPROVAL;
     const p =
-      d === "allow" ? window.egoFloating?.approve(data.approvalId) : window.egoFloating?.deny(data.approvalId);
+      d === "allow" ? readFloatingBridge()?.approve(data.approvalId) : readFloatingBridge()?.deny(data.approvalId);
     // Sin console.error: un id preview o un main caído rechazan en silencio.
     void p?.catch(noop);
   }, []);
@@ -333,7 +337,7 @@ export function FloatingApp() {
 
   const toggleMute = useCallback(async () => {
     const next = !snapshot.muted;
-    await window.egoFloating?.setMuted(next);
+    await readFloatingBridge()?.setMuted(next);
     setSnapshot((prev) => ({ ...prev, muted: next }));
   }, [snapshot.muted]);
   const toggleMuteRef = useRef(toggleMute);
@@ -498,7 +502,7 @@ export function FloatingApp() {
             type="button"
             className="ego-btn-restore"
             onClick={() => {
-              void window.egoFloating?.restoreMain?.();
+              void readFloatingBridge()?.restoreMain?.();
             }}
           >
             Abrir Ego ↗
@@ -507,7 +511,7 @@ export function FloatingApp() {
             type="button"
             className="ego-btn-minimize"
             onClick={() => {
-              void window.egoFloating?.toggleExpand?.("compact");
+              void readFloatingBridge()?.toggleExpand?.("compact");
               setSnapshot((prev) => ({ ...prev, attentionState: "compact" }));
             }}
           >
@@ -528,14 +532,14 @@ export function FloatingApp() {
               style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
               onClick={() => {
                 if (snapshot.attentionState === "compact") {
-                  void window.egoFloating?.toggleExpand?.("expanded");
+                  void readFloatingBridge()?.toggleExpand?.("expanded");
                   setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
                 }
               }}
               onKeyDown={(e) => {
                 if ((e.key === "Enter" || e.key === " ") && snapshot.attentionState === "compact") {
                   e.preventDefault();
-                  void window.egoFloating?.toggleExpand?.("expanded");
+                  void readFloatingBridge()?.toggleExpand?.("expanded");
                   setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
                 }
               }}
@@ -610,14 +614,14 @@ export function FloatingApp() {
                 style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
                 onClick={() => {
                   if (snapshot.attentionState === "compact") {
-                    void window.egoFloating?.toggleExpand?.("expanded");
+                    void readFloatingBridge()?.toggleExpand?.("expanded");
                     setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
                   }
                 }}
                 onKeyDown={(e) => {
                   if ((e.key === "Enter" || e.key === " ") && snapshot.attentionState === "compact") {
                     e.preventDefault();
-                    void window.egoFloating?.toggleExpand?.("expanded");
+                    void readFloatingBridge()?.toggleExpand?.("expanded");
                     setSnapshot((prev) => ({ ...prev, attentionState: "expanded" }));
                   }
                 }}
@@ -652,7 +656,7 @@ export function FloatingApp() {
                 type="button"
                 className="ego-btn-restore ego-quick-open"
                 onClick={() => {
-                  void window.egoFloating?.restoreMain?.();
+                  void readFloatingBridge()?.restoreMain?.();
                 }}
               >
                 Abrir Ego ↗
@@ -669,7 +673,7 @@ export function FloatingApp() {
               type="button"
               className="ego-subego-pill"
               onClick={() => {
-                void window.egoFloating?.restoreMain?.();
+                void readFloatingBridge()?.restoreMain?.();
               }}
               title={`Abrir Sub-Ego ${sub.name}`}
             >

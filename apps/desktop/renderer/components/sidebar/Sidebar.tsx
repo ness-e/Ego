@@ -273,7 +273,7 @@ export function Sidebar({
             }}
             title="Inicio / Chat"
             aria-label="Inicio / Chat"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
               !workspaceOpen
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -290,7 +290,7 @@ export function Sidebar({
             }}
             title="Sub-Egos Fábrica"
             aria-label="Sub-Egos Fábrica"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
               workspaceOpen && activeWorkspaceTab === "subegos"
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -307,7 +307,7 @@ export function Sidebar({
             }}
             title="Tareas e Historial (Workbench)"
             aria-label="Tareas e Historial"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
               workspaceOpen && activeWorkspaceTab === "workbench"
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -324,7 +324,7 @@ export function Sidebar({
             }}
             title="Conocimiento y Memoria"
             aria-label="Conocimiento y Memoria"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
               workspaceOpen && activeWorkspaceTab === "domains"
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -341,7 +341,7 @@ export function Sidebar({
             }}
             title="Personalización (Skills y Complementos MCP)"
             aria-label="Personalización"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
               workspaceOpen && activeWorkspaceTab === "personalization"
                 ? "bg-white/10 text-white shadow-xs"
                 : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -357,7 +357,7 @@ export function Sidebar({
               onClick={() => setDotsMenuOpen(!dotsMenuOpen)}
               title="Más vistas y herramientas"
               aria-label="Más vistas y herramientas"
-              className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all cursor-pointer ${
+              className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
                 dotsMenuOpen
                   ? "bg-white/15 text-white"
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -567,7 +567,7 @@ export function Sidebar({
               type="button"
               onClick={onNewSession}
               title="Nueva conversación (Ctrl+N)"
-              className="flex w-full items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] px-3 py-2 text-xs font-medium text-white transition-all cursor-pointer shadow-xs border border-white/[0.04]"
+              className="flex w-full items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] px-3 py-2 text-xs font-medium text-white transition-colors cursor-pointer shadow-xs border border-white/[0.04]"
             >
               <Plus size={14} weight="bold" className="text-zinc-300" />
               <span>Nueva sesión</span>
@@ -580,7 +580,7 @@ export function Sidebar({
               type="button"
               onClick={requestOpenOmnibar}
               title="Búsqueda federada (Ctrl+K)"
-              className="flex w-full items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.06] px-2.5 py-1.5 text-xs text-zinc-400 hover:text-white transition-all cursor-pointer group shadow-2xs"
+              className="flex w-full items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.06] px-2.5 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer group shadow-2xs"
             >
               <div className="flex items-center gap-2 truncate">
                 <MagnifyingGlass size={13} className="text-zinc-500 group-hover:text-white transition-colors shrink-0" />
@@ -665,7 +665,7 @@ export function Sidebar({
                       key={s.id}
                       type="button"
                       onClick={() => onSelectSubEgo(s.id)}
-                      className={`flex w-full items-center justify-between rounded-xl p-2 text-xs transition-all cursor-pointer ${
+                      className={`flex w-full items-center justify-between rounded-xl p-2 text-xs transition-colors cursor-pointer ${
                         isSelected
                           ? "bg-white/10 text-white font-medium border border-white/10 shadow-xs"
                           : "text-zinc-400 hover:bg-white/5 hover:text-white"

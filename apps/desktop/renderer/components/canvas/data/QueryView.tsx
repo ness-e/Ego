@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import type { QueryViewProps, QueryResultItem } from "@ego/ui-runtime";
 import { MagnifyingGlass, SlidersHorizontal, ChatCircleDots } from "@phosphor-icons/react";
 import { useSelectionContext } from "../../../hooks/useSelectionContext.js";
+import { Select } from "../../ui-kit/Select.js";
 
 interface QueryViewComponentProps {
   props: QueryViewProps;
@@ -76,16 +77,18 @@ export const QueryView: React.FC<QueryViewComponentProps> = ({ props }) => {
             />
           </div>
 
-          <select
+          <Select
+            ariaLabel="Filtrar por namespace"
             value={selectedNamespace}
-            onChange={(e) => setSelectedNamespace(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg bg-raised border border-hairline text-xs text-ink focus:outline-hidden"
-          >
-            <option value="all">Todos los Namespaces</option>
-            <option value="kb/docs">kb/docs (Documentos)</option>
-            <option value="kb/facts">kb/facts (Hechos)</option>
-            <option value="gov/audit">gov/audit (Decisiones)</option>
-          </select>
+            onValueChange={setSelectedNamespace}
+            options={[
+              { value: "all", label: "Todos los Namespaces" },
+              { value: "kb/docs", label: "kb/docs (Documentos)" },
+              { value: "kb/facts", label: "kb/facts (Hechos)" },
+              { value: "gov/audit", label: "gov/audit (Decisiones)" },
+            ]}
+            triggerClassName="px-2.5 py-1.5 rounded-lg bg-raised border border-hairline text-xs text-ink"
+          />
         </div>
 
         {/* Control deslizante de corte dinámico de similitud coseno (KHOJ-03) */}

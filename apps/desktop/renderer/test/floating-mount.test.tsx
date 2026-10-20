@@ -24,7 +24,8 @@ function installBridge(spies: {
   approve: (id: string) => Promise<unknown>;
   deny: (id: string, reason?: string) => Promise<unknown>;
 }): void {
-  window.egoFloating = {
+  window.ego = {
+    floating: {
     onState: (cb: (s: Snapshot) => void) => {
       push = cb;
       return () => {
@@ -34,7 +35,8 @@ function installBridge(spies: {
     approve: spies.approve,
     deny: spies.deny,
     setMuted: () => Promise.resolve({}),
-  } as unknown as Window["egoFloating"];
+  },
+  } as unknown as Window["ego"];
 }
 
 async function mountFloating(): Promise<{ root: Root }> {
@@ -68,7 +70,7 @@ function childCount(id: string): number {
 
 afterEach(() => {
   push = null;
-  delete window.egoFloating;
+  delete (window as unknown as { ego?: unknown }).ego;
   document.body.innerHTML = "";
 });
 

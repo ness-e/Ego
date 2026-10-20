@@ -296,7 +296,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 key={item.id}
                 type="button"
                 onClick={() => setActiveTab(item.id)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
                   isActive
                     ? "bg-white/10 text-white shadow-xs font-semibold"
                     : "text-dim hover:text-ink hover:bg-white/5"
@@ -363,7 +363,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     onChange={(e) =>
                       setModelConfig((prev) => ({ ...prev, modelName: e.target.value }))
                     }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-all shadow-2xs"
+                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
                   />
                 </div>
 
@@ -384,7 +384,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       onChange={(e) =>
                         setModelConfig((prev) => ({ ...prev, [providerField]: e.target.value }))
                       }
-                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-all shadow-2xs"
+                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
                     />
                   </div>
                 )}
@@ -401,7 +401,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       placeholder="sk-... (Fallback)"
                       value={modelConfig.apiKey ?? ""}
                       onChange={(e) => setModelConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
-                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-all shadow-2xs"
+                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
                     />
                   </div>
                 )}
@@ -425,7 +425,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       }
                       value={modelConfig.baseUrl ?? ""}
                       onChange={(e) => setModelConfig((prev) => ({ ...prev, baseUrl: e.target.value }))}
-                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-all shadow-2xs"
+                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
                     />
                   </div>
                 )}
@@ -443,7 +443,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     onChange={(e) =>
                       setModelConfig((prev) => ({ ...prev, openaiBaseURL: e.target.value }))
                     }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-all shadow-2xs"
+                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
                   />
                 </div>
 
@@ -460,7 +460,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     onChange={(e) =>
                       setModelConfig((prev) => ({ ...prev, deepseekBaseURL: e.target.value }))
                     }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-all shadow-2xs"
+                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
                   />
                 </div>
 
@@ -477,7 +477,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     onChange={(e) =>
                       setModelConfig((prev) => ({ ...prev, ollamaBaseURL: e.target.value }))
                     }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-all shadow-2xs"
+                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
                   />
                 </div>
               </div>

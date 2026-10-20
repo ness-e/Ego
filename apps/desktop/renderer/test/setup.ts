@@ -194,6 +194,18 @@ export function createMockEgoBridge(): EgoBridge & {
         description: "",
         state: req.state,
       })),
+      update: vi.fn().mockImplementation(async (req) => {
+        const base = (req.manifest ?? {}) as Record<string, unknown>;
+        return {
+          id: req.subEgoId,
+          name: (base["name"] as string) ?? req.subEgoId,
+          role: (base["role"] as string) ?? "Especialista",
+          description: (base["description"] as string) ?? "",
+          instructions: (base["instructions"] as string) ?? "",
+          state: (base["state"] as "active" | "paused") ?? "active",
+        };
+      }),
+      remove: vi.fn().mockResolvedValue(true),
     },
     projects: {
       list: vi.fn().mockResolvedValue(projects),

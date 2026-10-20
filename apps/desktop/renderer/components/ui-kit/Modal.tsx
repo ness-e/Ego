@@ -78,6 +78,12 @@ export function Modal({
                 asChild
                 aria-modal="true"
                 aria-busy={loading || undefined}
+                // T5 / D3: marca estable para que un `<Select>` anidado pueda
+                // portaleal su listbox DENTRO del subárbol del diálogo. Sin
+                // esto, el listbox cae en `document.body`, fuera del
+                // `FocusScope` del Dialog, y ambos scopes compiten por el
+                // foco → `RangeError: Maximum call stack size exceeded`.
+                data-ego-dialog-content=""
                 onOpenAutoFocus={(e) => {
                   const container = e.currentTarget as HTMLElement | null;
                   const input = container?.querySelector<HTMLElement>(

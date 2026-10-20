@@ -18,6 +18,7 @@ import {
 import { STUDIO_STATES } from './config.js';
 
 /** Nombres de estado válidos del motor canvas. */
+/** @type {Set<string>} */
 const STUDIO_STATE_NAMES = new Set(STUDIO_STATES.map((s) => s.name));
 
 const HAS_DOCUMENT = typeof document !== 'undefined';
@@ -48,7 +49,6 @@ export const STUDIO_PRESET_NAMES = Object.freeze([
   'ego-cyber',
   'ego-sentinel',
   'ego-architect',
-  'coucou-mochi',
 ]);
 
 export class StudioHost {
@@ -100,9 +100,8 @@ export class StudioHost {
         this.syncGenome();
         const presetToApply = this._pendingPreset || this.el?.getAttribute?.('preset');
         if (presetToApply && STUDIO_PRESET_NAMES.includes(presetToApply)) {
-          const effective = presetToApply === 'coucou-mochi' ? 'cx-faithful' : presetToApply;
           try {
-            backend.applyPreset(effective);
+            backend.applyPreset(presetToApply);
           } catch {
             /* preset inválido tolerado */
           }
@@ -192,9 +191,8 @@ export class StudioHost {
     if (!this.backend) return false;
     const activePreset = this._pendingPreset || this.el?.getAttribute?.('preset');
     if (activePreset && STUDIO_PRESET_NAMES.includes(activePreset)) {
-      const effective = activePreset === 'coucou-mochi' ? 'cx-faithful' : activePreset;
       try {
-        this.backend.applyPreset(effective);
+        this.backend.applyPreset(activePreset);
         return true;
       } catch {
         /* fallback al genoma estándar */
@@ -255,7 +253,7 @@ export class StudioHost {
       return true;
     }
     try {
-      this.backend.play(name);
+      this.backend.play(/** @type {never} */ (name));
     } catch {
       return false;
     }
@@ -283,7 +281,7 @@ export class StudioHost {
     const m = studioMicroFor(name);
     if (!m || !this.backend) return false;
     try {
-      if (m.spin) this.backend.triggerSpin(m.spin);
+      if ('spin' in m) this.backend.triggerSpin(m.spin);
       else this.backend.triggerIdleMicroAnimation();
     } catch {
       return false;
@@ -342,7 +340,7 @@ export class StudioHost {
    */
   applyPreset(name) {
     if (!STUDIO_PRESET_NAMES.includes(name)) return false;
-    const effectiveName = name === 'coucou-mochi' ? 'cx-faithful' : name;
+    const effectiveName = name;
     this._pendingPreset = effectiveName;
     this._pendingParams = {};
     if (!this.backend) {

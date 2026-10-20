@@ -53,7 +53,7 @@ export function Button({
       className={cn(
         buttonVariants({ variant, size }),
         truncate && "max-w-full truncate",
-        !children && "min-h-[28px] min-w-[28px]",
+        !children && "min-h-11 min-w-11",
         className,
       )}
     >

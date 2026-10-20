@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import { TerminalWindow, SidebarSimple } from "@phosphor-icons/react";
 import { EgoChat } from "../components/ego-chat";
 import { Omnibar } from "../components/omnibar";
@@ -70,6 +70,16 @@ function ThemeControl() {
   const presetKeys = Object.keys(availablePresets);
   const selectedKey =
     presetKeys.find((k) => availablePresets[k]?.id === tokens.id) ?? "default-dark";
+  // T8 (EGO-FIND-73): memoiza las opciones — sin esto, cada render del
+  // shell crea un array nuevo y el `Select` de Radix re-renderiza.
+  const options = useMemo(
+    () =>
+      presetKeys.map((k) => ({
+        value: k,
+        label: availablePresets[k]?.name ?? k,
+      })),
+    [presetKeys.join("|"), availablePresets]
+  );
   return (
     <div className="flex items-center gap-1.5 text-xs">
       <div className="relative flex items-center">
@@ -79,10 +89,7 @@ function ThemeControl() {
           ariaLabel="Tema de diseño"
           title="Ego Generative Design System — Tokens"
           className="ego-pill-select font-mono text-[11px] max-w-[155px] truncate min-h-11 min-w-11"
-          options={presetKeys.map((k) => ({
-            value: k,
-            label: availablePresets[k]?.name ?? k,
-          }))}
+          options={options}
         />
       </div>
     </div>
@@ -110,10 +117,14 @@ export function App() {
   const modelPickerOpen = useUiStore((s) => s.modelPickerOpen);
   const activeModelId = useUiStore((s) => s.activeModelId);
   const activeSessionId = useUiStore((s) => s.activeSessionId);
-  const activeModelName =
-    CANONICAL_MODELS.find((m) => m.id === activeModelId)?.name ?? activeModelId;
+  // T8 (EGO-FIND-73): `useMemo` para el nombre del modelo — antes se
+  // recalculaba en cada render del shell.
+  const activeModelName = useMemo(
+    () => CANONICAL_MODELS.find((m) => m.id === activeModelId)?.name ?? activeModelId,
+    [activeModelId]
+  );
 
-  const handleSelectModel = async (model: ModelOption) => {
+  const handleSelectModel = useCallback(async (model: ModelOption) => {
     useUiStore.getState().setActiveModelId(model.id);
     try {
       const cfg = await ego().settings.getModelConfig();
@@ -121,7 +132,7 @@ export function App() {
     } catch {
       // sin bridge: el store local conserva la selección
     }
-  };
+  }, []);
 
   useEffect(() => {
     ego()
@@ -237,7 +248,7 @@ export function App() {
               onClick={() => setSidebarCollapsed((v) => !v)}
               title="Mostrar / Ocultar panel lateral (Ctrl+B)"
               aria-label="Conmutar barra lateral"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-dim hover:text-ink hover:bg-raised/70 transition-colors cursor-pointer"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-dim hover:text-ink hover:bg-raised/70 transition-colors cursor-pointer"
             >
               <SidebarSimple size={15} />
             </button>
@@ -263,7 +274,7 @@ export function App() {
               <button
                 type="button"
                 onClick={() => setWorkspaceOpen(false)}
-                className={`rounded-full px-4 py-1 text-xs font-medium transition-all cursor-pointer ${
+                className={`rounded-full px-4 py-1 text-xs font-medium transition-colors cursor-pointer ${
                   !workspaceOpen
                     ? "bg-white/10 text-white font-semibold shadow-xs"
                     : "text-zinc-400 hover:text-white"
@@ -274,7 +285,7 @@ export function App() {
               <button
                 type="button"
                 onClick={() => setWorkspaceOpen(true)}
-                className={`rounded-full px-4 py-1 text-xs font-medium transition-all cursor-pointer ${
+                className={`rounded-full px-4 py-1 text-xs font-medium transition-colors cursor-pointer ${
                   workspaceOpen
                     ? "bg-white/10 text-white font-semibold shadow-xs"
                     : "text-zinc-400 hover:text-white"
@@ -295,7 +306,7 @@ export function App() {
               onClick={() => useUiStore.getState().openModelPicker()}
               title="Selector de modelo (Model Router)"
               aria-label="Selector de modelo activo"
-              className="flex max-w-[200px] min-h-11 min-w-11 items-center gap-2 rounded-full border border-hairline bg-raised/90 hover:bg-raised px-2.5 py-1 font-mono text-[10px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
+              className="flex max-w-[200px] min-h-11 min-w-11 items-center gap-2 rounded-full border border-hairline bg-raised/90 hover:bg-raised px-2.5 py-1 font-mono text-[10px] text-ink transition-colors hover:border-strong shadow-xs cursor-pointer"
             >
               <span className="relative flex h-2 w-2 items-center justify-center shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
@@ -310,7 +321,7 @@ export function App() {
               onClick={() => (window as any).ego?.floating?.toggleFloating?.()}
               title="Mostrar/Ocultar Isla Flotante Companion (Alt+Win+P)"
               aria-label="Mostrar u ocultar Isla Flotante"
-              className="flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border border-hairline bg-raised/80 hover:bg-raised px-2.5 py-1 font-sans text-[11px] text-ink transition-all hover:border-strong shadow-xs cursor-pointer"
+              className="flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border border-hairline bg-raised/80 hover:bg-raised px-2.5 py-1 font-sans text-[11px] text-ink transition-colors hover:border-strong shadow-xs cursor-pointer"
             >
               <span>🏝️</span>
               <span className="font-medium hidden sm:inline">Isla</span>
@@ -323,7 +334,7 @@ export function App() {
               title="Alternar panel de Workspace (Ctrl+\)"
               aria-label="Alternar panel de Workspace"
               aria-expanded={workspaceOpen}
-              className={`flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border px-2.5 py-1 font-sans text-[11px] transition-all shadow-xs cursor-pointer ${
+              className={`flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border px-2.5 py-1 font-sans text-[11px] transition-colors shadow-xs cursor-pointer ${
                 workspaceOpen
                   ? "border-strong bg-raised text-ink font-semibold"
                   : "border-hairline bg-panel text-dim hover:text-ink hover:bg-raised/70"
@@ -372,53 +383,129 @@ export function App() {
             />
           </SplitPane>
 
-          {/* Panel 1: Conversation River (Chat) */}
-          <section
-            aria-label="Chat"
-            className={`flex flex-col bg-paper transition-all duration-200 ${
-              workspaceOpen
-                ? "w-[46%] min-w-[420px] max-w-[680px]"
-                : "flex-1 w-full min-w-0"
-            }`}
-          >
-            <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-3.5 text-xs text-faint bg-paper">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-ink text-xs">Chat</span>
-                <SubEgoSelector
-                  activeSubEgoId={activeSubEgo}
-                  onSelectSubEgo={(id) => setActiveSubEgo(id)}
+          {/* Panel 1: Conversation River (Chat)
+              T15 (EGO-FIND-62): el reparto Chat ↔ Canvas lo decide el
+              usuario. Antes el chat tenía ancho FIJO (46%, 420–680 px)
+              cuando el workspace está abierto: no había forma de darle
+              más espacio. Se reutiliza el primitive del proyecto
+              `SplitPane` (divisor `role="separator"` operable por teclado,
+              límites elásticos y persistencia en localStorage) en vez de
+              añadir una dependencia nueva (principio D3 del owner). */}
+          {workspaceOpen ? (
+            <SplitPane
+              id="app-chat"
+              side="left"
+              defaultWidth={560}
+              minWidth={360}
+              maxWidth={900}
+            >
+              <section
+                aria-label="Chat"
+                className="flex h-full min-w-0 flex-col bg-paper"
+              >
+                <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-3.5 text-xs text-faint bg-paper">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-ink text-xs">Chat</span>
+                    <SubEgoSelector
+                      activeSubEgoId={activeSubEgo}
+                      onSelectSubEgo={(id) => setActiveSubEgo(id)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      ariaLabel="Modelo del chat"
+                      title="Modelo del chat (Model Router)"
+                      value={
+                        CANONICAL_MODELS.some((m) => m.id === activeModelId)
+                          ? activeModelId
+                          : `custom:${activeModelId}`
+                      }
+                      onValueChange={(val) => {
+                        const found = CANONICAL_MODELS.find((m) => m.id === val);
+                        if (found) void handleSelectModel(found);
+                      }}
+                      className="ego-pill-select font-mono text-[10px] max-w-[140px] truncate text-dim hover:text-ink min-h-11 min-w-11"
+                      options={[
+                        ...CANONICAL_MODELS.map((m) => ({
+                          value: m.id,
+                          label: m.name,
+                        })),
+                        ...(!CANONICAL_MODELS.some((m) => m.id === activeModelId)
+                          ? [
+                              {
+                                value: `custom:${activeModelId}`,
+                                label: `${activeModelId} (custom)`,
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <EgoChat
+                    key={sessionNonce}
+                    projectId={activeProject}
+                    subEgoId={activeSubEgo}
+                    sessionId={activeSessionId}
+                  />
+                </div>
+              </section>
+            </SplitPane>
+          ) : (
+            <section
+              aria-label="Chat"
+              className="flex flex-1 min-h-0 min-w-0 flex-col bg-paper"
+            >
+              <div className="flex h-10 shrink-0 items-center justify-between border-b border-hairline px-3.5 text-xs text-faint bg-paper">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-ink text-xs">Chat</span>
+                  <SubEgoSelector
+                    activeSubEgoId={activeSubEgo}
+                    onSelectSubEgo={(id) => setActiveSubEgo(id)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select
+                    ariaLabel="Modelo del chat"
+                    title="Modelo del chat (Model Router)"
+                    value={
+                      CANONICAL_MODELS.some((m) => m.id === activeModelId)
+                        ? activeModelId
+                        : `custom:${activeModelId}`
+                    }
+                    onValueChange={(val) => {
+                      const found = CANONICAL_MODELS.find((m) => m.id === val);
+                      if (found) void handleSelectModel(found);
+                    }}
+                    className="ego-pill-select font-mono text-[10px] max-w-[140px] truncate text-dim hover:text-ink min-h-11 min-w-11"
+                    options={[
+                      ...CANONICAL_MODELS.map((m) => ({
+                        value: m.id,
+                        label: m.name,
+                      })),
+                      ...(!CANONICAL_MODELS.some((m) => m.id === activeModelId)
+                        ? [
+                            {
+                              value: `custom:${activeModelId}`,
+                              label: `${activeModelId} (custom)`,
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <EgoChat
+                  key={sessionNonce}
+                  projectId={activeProject}
+                  subEgoId={activeSubEgo}
+                  sessionId={activeSessionId}
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <Select
-                  ariaLabel="Modelo del chat"
-                  title="Modelo del chat (Model Router)"
-                  value={
-                    CANONICAL_MODELS.some((m) => m.id === activeModelId)
-                      ? activeModelId
-                      : `custom:${activeModelId}`
-                  }
-                  onValueChange={(val) => {
-                    const found = CANONICAL_MODELS.find((m) => m.id === val);
-                    if (found) void handleSelectModel(found);
-                  }}
-                  className="ego-pill-select font-mono text-[10px] max-w-[140px] truncate text-dim hover:text-ink min-h-11 min-w-11"
-                  options={[
-                    ...CANONICAL_MODELS.map((m) => ({
-                      value: m.id,
-                      label: m.name,
-                    })),
-                    ...(!CANONICAL_MODELS.some((m) => m.id === activeModelId)
-                      ? [{ value: `custom:${activeModelId}`, label: `${activeModelId} (custom)` }]
-                      : []),
-                  ]}
-                />
-              </div>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <EgoChat key={sessionNonce} projectId={activeProject} subEgoId={activeSubEgo} sessionId={activeSessionId} />
-            </div>
-          </section>
+            </section>
+          )}
 
           {/* Panel 2: Dynamic Canvas (Superficie de Trabajo Interactiva)
               Accesible en el DOM para pruebas y screen readers vía sr-only cuando workspaceOpen es false */}
@@ -426,7 +513,7 @@ export function App() {
             aria-label="Área de trabajo dinámica"
             className={
               workspaceOpen
-                ? "flex flex-1 flex-col min-w-0 bg-panel transition-all duration-200"
+                ? "flex flex-1 flex-col min-w-0 bg-panel transition-opacity duration-200"
                 : "sr-only"
             }
           >
@@ -467,7 +554,7 @@ export function App() {
                       setActiveWorkspaceTab("daily");
                       setWorkspaceOpen(true);
                     }}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-150 cursor-pointer ${
                       activeWorkspaceTab === "daily"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
                         : "text-dim hover:text-ink hover:bg-panel/40"
@@ -480,7 +567,7 @@ export function App() {
                       setActiveWorkspaceTab("domains");
                       setWorkspaceOpen(true);
                     }}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-150 cursor-pointer ${
                       activeWorkspaceTab === "domains"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
                         : "text-dim hover:text-ink hover:bg-panel/40"
@@ -493,7 +580,7 @@ export function App() {
                       setActiveWorkspaceTab("canvas");
                       setWorkspaceOpen(true);
                     }}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-150 cursor-pointer ${
                       activeWorkspaceTab === "canvas"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
                         : "text-dim hover:text-ink hover:bg-panel/40"
@@ -506,7 +593,7 @@ export function App() {
                       setActiveWorkspaceTab("workbench");
                       setWorkspaceOpen(true);
                     }}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-150 cursor-pointer ${
                       activeWorkspaceTab === "workbench"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
                         : "text-dim hover:text-ink hover:bg-panel/40"
@@ -519,7 +606,7 @@ export function App() {
                       setActiveWorkspaceTab("subegos");
                       setWorkspaceOpen(true);
                     }}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-150 cursor-pointer ${
                       activeWorkspaceTab === "subegos"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
                         : "text-dim hover:text-ink hover:bg-panel/40"
@@ -532,7 +619,7 @@ export function App() {
                       setActiveWorkspaceTab("personalization");
                       setWorkspaceOpen(true);
                     }}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-150 cursor-pointer ${
                       activeWorkspaceTab === "personalization"
                         ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
                         : "text-dim hover:text-ink hover:bg-panel/40"

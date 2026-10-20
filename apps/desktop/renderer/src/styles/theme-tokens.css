@@ -19,49 +19,71 @@
   --ego-glass-border: rgba(255, 255, 255, 0.09);
 }
 
-/* 4 Paletas Canónicas */
+/* 4 Paletas Canónicas
+ *
+ * T14 (EGO-FIND-60): los colores se declaran en OKLCH, no en HEX sRGB.
+ * OKLCH separa LUMINOSIDAD (L) de CROMANCIA (C) y MATIZ (H): la misma
+ * diferencia de L produce el mismo salto de luminosidad en cualquier
+ * matiz, así que "subir un nivel de superficie" conserva la identidad
+ * perceptiva del color en las paletas frías, cálidas y de alto contraste.
+ * El contraste WCAG 2.2 se verifica en `test/ThemeTokensOklch.test.tsx`
+ * convirtiendo el OKLCH de vuelta a sRGB.
+ *
+ * T14 / EGO-FIND-71: las superficies se oscurecen donde un token FIJO del
+ * design system (`dim` #8a8a92, `border-strong` #71717a / #78716c) no
+ * alcanzaba el ratio exigido. Es el mismo fix que el aplicado a los
+ * presets del `DesignSystemProvider` (los valores OKLCH de aquí son los
+ * equivalentes EXACTOS de los hex corregidos):
+ *   - warm-sepia / midnight-cyan / amber-warm / emerald-terminal:
+ *     superficies recalculadas para que el borde fuerte fijo llegue a 3:1
+ *     y el dim fijo a 4.5:1.
+ */
 [data-palette="dark-graphite"],
 .palette-dark-graphite {
-  --ego-color-bg: #09090b;
-  --ego-color-panel: #141416;
-  --ego-color-raised: #1c1c20;
-  --ego-color-text: #f4f4f5;
-  --ego-color-muted: #a1a1aa;
-  --ego-color-border: #27272a;
-  --ego-color-border-strong: #71717a;
+  --ego-color-bg: oklch(0.141 0.004 285.8);
+  --ego-color-panel: oklch(0.192 0.004 286);
+  --ego-color-raised: oklch(0.228 0.008 285.8);
+  --ego-color-text: oklch(0.967 0.001 286.4);
+  --ego-color-muted: oklch(0.712 0.013 286.1);
+  --ego-color-border: oklch(0.274 0.005 286);
+  --ego-color-border-strong: oklch(0.552 0.014 285.9);
 }
 
 [data-palette="midnight-cyan"],
 .palette-midnight-cyan {
-  --ego-color-bg: #030712;
-  --ego-color-panel: #0f172a;
-  --ego-color-raised: #1e293b;
-  --ego-color-text: #f8fafc;
-  --ego-color-muted: #94a3b8;
-  --ego-color-border: #334155;
-  --ego-color-border-strong: #64748b;
+  --ego-color-bg: oklch(0.13 0.027 261.7);
+  --ego-color-panel: oklch(0.208 0.04 265.8);
+  /* EGO-FIND-71 / FIND-A11Y-04: #1e293b daba 4.27:1 con el dim fijo
+     (#8a8a92). Superficie a #1a2536 → 4.50:1. */
+  --ego-color-raised: oklch(0.262 0.037 260);
+  --ego-color-text: oklch(0.984 0.003 247.9);
+  --ego-color-muted: oklch(0.711 0.035 256.8);
+  --ego-color-border: oklch(0.372 0.039 257.3);
+  --ego-color-border-strong: oklch(0.554 0.041 257.4);
 }
 
 [data-palette="warm-sepia"],
 .palette-warm-sepia {
-  --ego-color-bg: #1c1917;
-  --ego-color-panel: #292524;
-  --ego-color-raised: #44403c;
-  --ego-color-text: #fef3c7;
-  --ego-color-muted: #d6d3d1;
-  --ego-color-border: #57534e;
-  --ego-color-border-strong: #78716c;
+  --ego-color-bg: oklch(0.216 0.006 56);
+  --ego-color-panel: oklch(0.268 0.006 34.3);
+  /* EGO-FIND-71 / FIND-A11Y-01: #44403c daba 2.14:1 con el borde fuerte
+     (#78716c). Superficie a #2c2825 → 3.05:1. */
+  --ego-color-raised: oklch(0.28 0.008 59.3);
+  --ego-color-text: oklch(0.962 0.058 95.6);
+  --ego-color-muted: oklch(0.869 0.004 56.4);
+  --ego-color-border: oklch(0.444 0.01 73.6);
+  --ego-color-border-strong: oklch(0.553 0.012 58.1);
 }
 
 [data-palette="high-contrast"],
 .palette-high-contrast {
-  --ego-color-bg: #000000;
-  --ego-color-panel: #0a0a0a;
-  --ego-color-raised: #141414;
-  --ego-color-text: #ffffff;
-  --ego-color-muted: #cccccc;
-  --ego-color-border: #404040;
-  --ego-color-border-strong: #a3a3a3;
+  --ego-color-bg: oklch(0 0 0);
+  --ego-color-panel: oklch(0.145 0 89.9);
+  --ego-color-raised: oklch(0.191 0 89.9);
+  --ego-color-text: oklch(1 0 89.9);
+  --ego-color-muted: oklch(0.845 0 89.9);
+  --ego-color-border: oklch(0.371 0 89.9);
+  --ego-color-border-strong: oklch(0.715 0 89.9);
 }
 
 /* Scrollbars oscuras y sutiles (Flat, not boxed) */

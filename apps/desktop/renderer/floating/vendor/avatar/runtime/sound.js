@@ -1,5 +1,5 @@
 // sound.js — motor de sonido procedural (cero assets: todo se sintetiza con Web Audio).
-// ADAPTADO de coucou core/sound.ts + mochi/engine.ts (MIT, © Louis Raillart) — ver LICENSE.md.
+// ADAPTADO de vendor/coucou/core/sound.ts + vendor/coucou/mochi/engine.ts (MIT, © Louis Raillart) — ver LICENSE.md.
 // El original reproduce 28 WAV; aquí cada sonido es una receta sintetizada, así el
 // módulo sigue siendo cero-dependencias y funciona sin red.
 
@@ -20,7 +20,7 @@ export const SOUND_VOLUME_BOUNDS = Object.freeze([0, 0.2]);
 /** La suspensión por inactividad programa su timer con este delay (sound.ts:74). */
 export const SOUND_IDLE_SUSPEND_MS = 1500;
 
-/** Estado → sonido (coucou engine.ts:106-110, literal). */
+/** Estado → sonido (vendor/coucou/mochi/engine.ts:106-110, literal). */
 export const STATE_SOUND = Object.freeze({
   working: 'work', thinking: 'think', searching: 'search', approval: 'approval',
   question: 'question', error: 'error', finished: 'finish', ratelimit: 'rate',

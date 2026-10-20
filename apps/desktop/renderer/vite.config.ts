@@ -32,9 +32,25 @@ export default defineConfig({
           if (id.includes('node_modules/recharts')) return 'vendor-charts';
           if (id.includes('node_modules/@phosphor-icons')) return 'vendor-icons';
           if (id.includes('node_modules/@tanstack')) return 'vendor-table';
-          if (id.includes('shiki') || id.includes('@shikijs')) return 'vendor-shiki';
+          // T7 (EGO-FIND-58): shiki SOLO se usa desde el Web Worker y desde
+          // el fallback in-thread (import DINÁMICO). Forzarlo a un chunk
+          // `vendor-shiki` lo hacía estático en el chunk `index` (10 MB
+          // descargados en el arranque), anulando el offload. Ahora se deja
+          // que Vite lo coloque en el chunk del worker / lazy.
           if (id.includes('framer-motion') || id.includes('motion-dom') || id.includes('motion-utils')) return 'vendor-motion';
-          if (id.includes('prosemirror')) return 'vendor-prosemirror';
+          // T6 (EGO-FIND-57): CodeMirror 6 (~1.05 MB con sus gramáticas) se
+          // colaba en el chunk `CanvasRuntime` porque `registry.ts` importa
+          // estáticamente `EditorView`. Sin chunk propio, el bundle del
+          // CanvasRuntime superaba el budget de 1 MB de `verify-dist.cjs`.
+          //
+          // El corte es POR FAMILIA (no por submódulo) para no generar un
+          // chunk circular: `@codemirror/*` → `vendor-codemirror` y
+          // `@lezer/*` (los parsers) → `vendor-lezer`. La dependencia es
+          // unidireccional (`@codemirror` → `@lezer`), así que no hay ciclo.
+          if (id.includes('@lezer')) return 'vendor-lezer';
+          if (id.includes('@codemirror') || id.includes('style-mod')) {
+            return 'vendor-codemirror';
+          }
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) {
             return 'vendor-react';
           }
@@ -46,6 +62,16 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      // T5 / A6 (VERDICT): el motor de personaje se importa desde el PAQUETE
+      // `@ego/avatar` (fuente canónica, ADR-0018). El alias apunta al código
+      // fuente del paquete hasta que A7 cierre el lockfile con el enlace de
+      // workspace (dependencia `workspace:*` ya declarada en este
+      // `package.json`). El espejo vendorizado sigue siendo el fallback.
+      "@ego/avatar/runtime/avatar-element.js": resolve(
+        __dirname,
+        "../../../packages/avatar/src/runtime/avatar-element.js"
+      ),
+      "@ego/avatar": resolve(__dirname, "../../../packages/avatar/src"),
     },
   },
   server: {

@@ -30,7 +30,7 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
   if (!combinedText) return null;
 
   return (
-    <div className="my-2 rounded-2xl border border-white/10 bg-[#161822]/70 overflow-hidden text-xs transition-all hover:border-white/20 shadow-sm backdrop-blur-sm">
+    <div className="my-2 rounded-2xl border border-white/10 bg-[#161822]/70 overflow-hidden text-xs transition-colors hover:border-white/20 shadow-sm backdrop-blur-sm">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}

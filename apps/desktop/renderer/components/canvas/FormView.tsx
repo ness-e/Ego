@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { FormProps } from "@ego/ui-runtime";
+import { Select } from "../ui-kit/Select.js";
 
 interface FormViewProps {
   props: FormProps;
@@ -94,18 +95,20 @@ export const FormView: React.FC<FormViewProps> = ({ props, onSubmit }) => {
             )}
 
             {field.type === "select" && (
-              <select
+              <Select
+                ariaLabel={field.label ?? field.name}
                 value={String(values[field.name] ?? "")}
-                onChange={(e) => handleChange(field.name, e.target.value)}
-                className="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-ink"
-              >
-                <option value="">Seleccionar una opción…</option>
-                {field.options?.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => handleChange(field.name, v)}
+                placeholder="Seleccionar una opción…"
+                options={[
+                  { value: "", label: "Seleccionar una opción…" },
+                  ...(field.options ?? []).map((opt) => ({
+                    value: opt.value,
+                    label: opt.label,
+                  })),
+                ]}
+                triggerClassName="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink"
+              />
             )}
 
             {field.type === "switch" && (

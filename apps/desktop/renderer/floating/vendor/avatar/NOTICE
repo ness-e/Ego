@@ -1,0 +1,68 @@
+Ego — Avatar Engine (@ego/avatar)
+Copyright (c) 2026 Ego Project
+
+This product includes software developed as part of the Ego project and
+derived, in part, from the following third-party works. All of them are
+distributed under the MIT License. The complete, per-file derivation table
+is in `LICENSE.md`; the full licence texts are in `LICENSE`.
+
+--------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------
+
+1. ego-avatar (upstream, this package's ancestor)
+   MIT License — Copyright (c) 2026 Ego Project
+   Upstream: repos-referencia/avatar (a reference clone; NOT part of the
+   repository — it is git-ignored).
+   Usage:   this package is a forked descendant of that working tree
+             (28/44 source files byte-identical, 16 forked, 5 new — see
+             README.md "Las tres copias" and DESIGN.md § 11).
+
+2. agent-robot-avatar
+   MIT License — Copyright (c) 2026 CX ART Lab
+   Upstream: repos-referencia/agent-robot-avatar (reference clone).
+   Corpus:   vendor/agent-robot-avatar/ (16 modules, byte-identical copies
+             of `agent-robot-avatar/src/agent-robot-avatar-*.js` with the
+             `agent-robot-avatar-` prefix removed).
+   Usage:   source of the robot head template and eye rig. `src/render/
+             ara-head.js` contains a verbatim copy of the `#headShape d`
+             path from `vendor/agent-robot-avatar/core.js:261`;
+             `src/runtime/poses.js` contains the numeric POSE table from
+             `vendor/agent-robot-avatar/core.js:8-57`.
+
+3. coucou
+   MIT License — Copyright (c) 2026 Louis Raillard
+   Upstream: repos-referencia/coucou (reference clone).
+   Corpus:   vendor/coucou/{core,island,mochi}/ (10 files, byte-identical
+             copies of `coucou/windows/src/**`) and vendor/coucou-swift/
+             (5 files, the original Swift engine).
+   Usage:   source of the animation model (easing, springs, tracked tweens
+             with field locks), the eye projection model, the presence
+             state machine, the procedural sound recipes and the static
+             pose-by-hash. Adapted to JavaScript ESM in `src/core/anim.js`,
+             `src/core/timeline.js`, `src/render/projection.js`,
+             `src/runtime/micro.js`, `src/runtime/presence.js`,
+             `src/runtime/sound.js`, `src/runtime/states.js` and
+             `src/render/static.js`.
+
+--------------------------------------------------------------------------
+Notes
+--------------------------------------------------------------------------
+
+* No third-party asset (image, font, audio, model) is bundled: the engine
+  synthesises every visual and every sound procedurally at runtime.
+* The third-party `vendor/` tree of THIS package is a **read-only attribution
+  corpus**: verbatim copies of the upstream works named above, kept so that
+  every path cited in `LICENSE.md` and in the source headers resolves inside
+  the repository. It is **not** runtime code and **must not be imported**
+  (the engine has zero runtime dependencies and does not import from it).
+  See `vendor/README.md`.
+* The `vendor/` corpus is also replicated in the vendored runtime copy under
+  `apps/desktop/renderer/floating/vendor/avatar/vendor/`, so that the
+  attribution chain is resolvable from either copy. Both copies are kept
+  byte-identical by `scripts/sync-check.mjs` (SHA-256).
+* "Mochi" / "Coucou" is the property of its respective authors. Ego does not
+  redistribute those names, drawings, sounds or icons as product identity; the
+  visual language shipped here is Ego's own.
+* `scripts/check-attribution.mjs` verifies that every path cited in
+  `LICENSE.md` and in the source headers resolves inside the repository.

@@ -6,11 +6,19 @@
 import React, { useEffect, useRef, useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { TraitRegistry } from "./traits/TraitRegistry.js";
-import type { CharacterState } from "./state/CharacterStateMachine.js";
+import type { CharacterState } from "./state/character-state.js";
 import { MOTION } from "../canvas/DesignSystemProvider.js";
 
-// Registro automático del web component <ego-avatar>
-import "../../floating/vendor/avatar/runtime/avatar-element.js";
+// Registro automático del web component <ego-avatar>.
+//
+// T5 / A6 (VERDICT): la **fuente canónica** del motor es el paquete
+// `@ego/avatar` (ADR-0018, decisión D5 del owner: se mantienen las TRES
+// copias — upstream / paquete / vendorizada). El espejo vendorizado NO se
+// importa aquí: se mantiene en el repo (cadena MIT + puerta `sync:check`)
+// pero importarlo además duplicaría el chunk del motor en el bundle
+// (+181 KB). Los dos ficheros son byte-idénticos (mismo SHA-256) y el
+// registro del custom element está protegido (`!customElements.get(...)`).
+import "@ego/avatar/runtime/avatar-element.js";
 
 import type { BaseFormType } from "./wardrobe/WardrobeSelector.js";
 
@@ -41,7 +49,8 @@ export function subEgoIdToStudioPreset(subEgoId: string = "ego.nucleus"): string
 }
 
 /**
- * Mapea estados canónicos del CharacterStateMachine al vocabulario de <ego-avatar>.
+ * Mapea estados canónicos del personaje (vocabulario `CharacterState`) al
+ * vocabulario de <ego-avatar>.
  */
 export function mapCharacterStateToAvatarState(state?: CharacterState | string): string {
   if (!state) return "idle";

@@ -160,12 +160,21 @@ describe("T05: tokens reales + chat al design system", () => {
       });
       // 2026-10-15: antes del fix, `--color-panel` computaba el fallback
       // `#111113` porque el `var(--ego-*)` de `@theme` se resuelve en `:root`.
-      expect(docStyle().getPropertyValue("--color-panel")).toBe("#064e3b");
+      //
+      // EGO-FIND-71: el valor esperado se lee del PRESET (assert de
+      // comportamiento: `:root` recibe el token del preset, no un hex fijado
+      // ni el fallback). El panel de emerald-terminal se oscureció a #002b1b
+      // para cumplir AA (>= 4.5:1) con los tokens fijos del sistema.
+      expect(docStyle().getPropertyValue("--color-panel")).toBe(
+        PRESET_THEMES["emerald-terminal"]!.colors.panel
+      );
       expect(docStyle().getPropertyValue("--color-brand")).toBe("#10b981");
       await act(async () => {
         btn("amber-warm").click();
       });
-      expect(docStyle().getPropertyValue("--color-panel")).toBe("#292524");
+      expect(docStyle().getPropertyValue("--color-panel")).toBe(
+        PRESET_THEMES["amber-warm"]!.colors.panel
+      );
       // Restaurar default para no contaminar otros tests del archivo.
       await act(async () => {
         btn("default-dark").click();

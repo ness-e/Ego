@@ -377,7 +377,11 @@ export async function createFloatingSoundWithAvatar(
   }
   try {
     // Literal a propósito (ver floating-avatar.tsx): code-split dev+prod.
-    const mod = (await import("./vendor/avatar/runtime/sound.js")) as {
+    //
+    // A6 (Ola 1b): el PAQUETE `@ego/avatar` es la fuente canónica; el
+    // espejo vendorizado no se importa (D5: la copia se mantiene en el
+    // repo; importarlo además duplicaría el chunk del motor).
+    const mod = (await import("@ego/avatar/runtime/sound.js")) as {
       createSoundEngine: (o: FloatingSoundEngineOptions) => AvatarSoundEngine;
     };
     if (typeof mod.createSoundEngine !== "function") {

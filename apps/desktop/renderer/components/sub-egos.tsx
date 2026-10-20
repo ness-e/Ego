@@ -105,21 +105,13 @@ export function SubEgosView() {
         },
       };
 
-      await ego().memory("put", [
-        {
-          namespace: "gov/sub_egos",
-          key: editingSubEgo.id,
-          payload: updatedPayload,
-        },
-      ]);
-
-      await ego().memory("put", [
-        {
-          namespace: `egos/${editingSubEgo.id.replace(/^ego\./, "")}`,
-          key: "manifest",
-          payload: updatedPayload,
-        },
-      ]).catch(() => {});
+      // A3 / EGO-FIND-53: la escritura pasa por el main, que valida el
+      // manifiesto con `SubEgoRegistry` (Zod). Antes el renderer escribía
+      // directo en memoria y se saltaba esa validación.
+      await ego().subegos.update({
+        subEgoId: editingSubEgo.id,
+        manifest: updatedPayload as unknown as Record<string, unknown>,
+      });
 
       setEditingSubEgo(null);
       setFeedback(`Sub-Ego '${updatedPayload.name}' actualizado con éxito.`);
@@ -140,13 +132,13 @@ export function SubEgosView() {
     if (!confirmed) return;
 
     try {
-      await ego().subegos.toggleState({ subEgoId: subEgo.id, state: "paused" }).catch(() => {});
-      await ego().memory("delete", ["gov/sub_egos", subEgo.id]).catch(() => {});
+      // A3 / EGO-FIND-53: sin `.catch(() => {})` — el error debe verse.
+      await ego().subegos.remove({ subEgoId: subEgo.id });
       setSubEgos((prev) => prev.filter((s) => s.id !== subEgo.id));
       setFeedback(`Sub-Ego '${subEgo.name}' eliminado.`);
       setTimeout(() => setFeedback(null), 3000);
     } catch (err: unknown) {
-      console.warn("[SubEgosView] Error al eliminar Sub-Ego:", err);
+      setModalError(toMessage(err, "Error al eliminar Sub-Ego."));
     }
   };
 
@@ -399,7 +391,7 @@ export function SubEgosView() {
             return (
               <div
                 key={se.id}
-                className="flex flex-col justify-between rounded-xl border border-hairline bg-panel p-4.5 transition-all hover:border-ink/40 hover:shadow-md shadow-xs group"
+                className="flex flex-col justify-between rounded-xl border border-hairline bg-panel p-4.5 transition-colors hover:border-ink/40 hover:shadow-md shadow-xs group"
               >
                 <div>
                   <div className="mb-2.5 flex items-center justify-between">

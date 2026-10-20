@@ -63,7 +63,7 @@ export const EMOTES = Object.freeze({
 /** Emotes que el usuario puede lanzar desde la demo (orden de la UI). */
 export const EMOTE_NAMES = Object.freeze(Object.keys(EMOTES));
 
-/** Estado → sonido (coucou mochi/engine.ts:106-110 STATE_SOUND, literal). */
+/** Estado → sonido (vendor/coucou/mochi/engine.ts:106-110 STATE_SOUND, literal). */
 export const STATE_SOUND = Object.freeze({
   working: 'work', thinking: 'think', searching: 'search', approval: 'approval',
   question: 'question', error: 'error', finished: 'finish', ratelimit: 'rate',
@@ -77,7 +77,7 @@ export const EMOTE_SOUND = Object.freeze(Object.fromEntries(
 
 /**
  * Mapeo hooks del Cognitive Runtime (Ego) → estados visuales.
- * Base: coucou hooks.ts handleHook() (143-284) — UserPromptSubmit → thinking,
+ * Base: vendor/coucou/island/hooks.ts handleHook() (143-284) — UserPromptSubmit → thinking,
  * Pre/PostToolUse → working, PostToolUseFailure → working, Stop → finished,
  * StopFailure → error, PermissionRequest → approval, SessionEnd → idle.
  * Notification → question (el runtime puede re-dirigir a ratelimit si el
@@ -99,7 +99,7 @@ export const HOOK_STATE_MAP = Object.freeze({
 });
 
 /**
- * Auto-retorno tras hooks puntuales (coucou hooks.ts:239-246: Stop → idle a
+ * Auto-retorno tras hooks puntuales (vendor/coucou/island/hooks.ts:239-246: Stop → idle a
  * los 5200 ms). El elemento aplica setState(prev) tras el delay.
  */
 export const HOOK_AUTO_RETURN = Object.freeze({

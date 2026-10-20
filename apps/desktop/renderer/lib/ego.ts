@@ -502,6 +502,13 @@ export interface EgoBridge {
       rawText?: string;
     }) => Promise<SubEgoDetailInfo>;
     toggleState: (req: { subEgoId: string; state: "active" | "paused" }) => Promise<SubEgoDetailInfo>;
+    /**
+     * A3 / EGO-FIND-53: la escritura de Sub-Egos pasa por el main, que
+     * valida el manifiesto con `SubEgoRegistry` (Zod). El renderer ya no
+     * escribe directo en memoria.
+     */
+    update: (req: { subEgoId: string; manifest: unknown }) => Promise<SubEgoDetailInfo>;
+    remove: (req: { subEgoId: string }) => Promise<boolean>;
   };
   projects: {
     list: () => Promise<ProjectInfo[]>;
@@ -794,6 +801,21 @@ const mock: EgoBridge = {
         description: "",
         state,
       };
+    },
+    update: async ({ subEgoId, manifest }: { subEgoId: string; manifest: unknown }) => {
+      const base = (manifest ?? {}) as Partial<SubEgoDetailInfo>;
+      return {
+        id: subEgoId,
+        name: base.name ?? subEgoId,
+        role: base.role ?? "Especialista",
+        description: base.description ?? "",
+        instructions: base.instructions ?? "",
+        state: base.state ?? "active",
+      } as SubEgoDetailInfo;
+    },
+    remove: async ({ subEgoId }: { subEgoId: string }) => {
+      void subEgoId;
+      return true;
     },
   },
   projects: {

@@ -304,7 +304,10 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
       "warm-sepia": {
         bg: "#1c1917",
         panel: "#292524",
-        raised: "#44403c",
+        // EGO-FIND-71 (FIND-A11Y-01): superficie `raised` oscurecida para que
+        // el borde fuerte #78716c alcance >= 3:1 (2.14:1 antes). Mismo valor
+        // que el `raised` del preset `amber-warm` (misma paleta "Warm Sepia").
+        raised: "#2c2825",
         text: "#fef3c7",
         muted: "#d6d3d1",
         borderStrong: "#78716c",
@@ -346,12 +349,13 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
       }
       expect(wcagRatio(PALETTES["warm-sepia"].borderStrong, PALETTES["warm-sepia"].bg)).toBeGreaterThanOrEqual(3.0);
       expect(wcagRatio(PALETTES["warm-sepia"].borderStrong, PALETTES["warm-sepia"].panel)).toBeGreaterThanOrEqual(3.0);
+      // EGO-FIND-71 (FIND-A11Y-01): `raised` ya cumple y vuelve al contrato
+      // completo (antes quedaba excluido por el hallazgo documentado).
+      expect(wcagRatio(PALETTES["warm-sepia"].borderStrong, PALETTES["warm-sepia"].raised)).toBeGreaterThanOrEqual(3.0);
     });
 
-    // Hallazgo FIND-A11Y-01 documentado en docs/dev/e2e-skip-inventory.md:
-    // En warm-sepia, borderStrong (#78716c) sobre raised (#44403c) rinde 2.14:1 (< 3:1).
-    it.fails("warm-sepia: borderStrong #78716c sobre raised #44403c falla >= 3:1 (Hallazgo FIND-A11Y-01)", () => {
-      expect(wcagRatio("#78716c", "#44403c")).toBeGreaterThanOrEqual(3.0);
+    it("warm-sepia: borderStrong #78716c sobre raised #2c2825 cumple >= 3:1 (3.05:1, FIND-A11Y-01 corregido)", () => {
+      expect(wcagRatio("#78716c", PALETTES["warm-sepia"].raised)).toBeGreaterThanOrEqual(3.0);
     });
   });
 
@@ -380,25 +384,44 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
       }
     });
 
-    // Hallazgos documentados en docs/dev/e2e-skip-inventory.md para presets con fondos oscuros/intermedios:
-    it.fails("midnight-cyan: fixed dim #8a8a92 sobre raised #1e293b rinde 4.27:1 (falla >= 4.5:1, FIND-A11Y-04)", () => {
-      expect(wcagRatio("#8a8a92", "#1e293b")).toBeGreaterThanOrEqual(4.5);
+    it("EGO-FIND-71: los tokens FIJOS cumplen en TODAS las superficies de TODOS los presets", () => {
+      // Blinda el fix: el dim (#8a8a92) y el borde fuerte (#71717a) son
+      // FIJOS del design system, así que cada superficie de cada preset
+      // debe dar con ellos el ratio exigido. Sin este assert, un preset
+      // nuevo (o un token retocado) volvería a colar un ratio por debajo
+      // de AA sin que nadie lo note.
+      for (const [key, preset] of Object.entries(PRESET_THEMES)) {
+        const c = preset.colors;
+        for (const surface of [c.background, c.panel, c.raised]) {
+          expect(
+            wcagRatio("#8a8a92", surface),
+            `Preset ${key}: dim fijo #8a8a92 sobre ${surface} debe ser >= 4.5:1`
+          ).toBeGreaterThanOrEqual(4.5);
+          expect(
+            wcagRatio("#71717a", surface),
+            `Preset ${key}: borde fuerte fijo #71717a sobre ${surface} debe ser >= 3:1`
+          ).toBeGreaterThanOrEqual(3.0);
+        }
+      }
     });
 
-    it.fails("emerald-terminal: fixed dim #8a8a92 sobre panel #064e3b rinde 2.84:1 (falla >= 4.5:1, FIND-A11Y-05)", () => {
-      expect(wcagRatio("#8a8a92", "#064e3b")).toBeGreaterThanOrEqual(4.5);
+    it("midnight-cyan: fixed dim #8a8a92 sobre raised #1a2536 cumple >= 4.5:1 (4.50:1, FIND-A11Y-04 corregido)", () => {      expect(wcagRatio("#8a8a92", PRESET_THEMES["midnight-cyan"]!.colors.raised)).toBeGreaterThanOrEqual(4.5);
     });
 
-    it.fails("emerald-terminal: fixed borderStrong #71717a sobre panel #064e3b rinde 2.01:1 (falla >= 3:1, FIND-A11Y-02)", () => {
-      expect(wcagRatio("#71717a", "#064e3b")).toBeGreaterThanOrEqual(3.0);
+    it("emerald-terminal: fixed dim #8a8a92 sobre panel #002b1b cumple >= 4.5:1 (4.50:1, FIND-A11Y-05 corregido)", () => {
+      expect(wcagRatio("#8a8a92", PRESET_THEMES["emerald-terminal"]!.colors.panel)).toBeGreaterThanOrEqual(4.5);
     });
 
-    it.fails("amber-warm: fixed dim #8a8a92 sobre panel #292524 rinde 4.43:1 (falla >= 4.5:1, FIND-A11Y-06)", () => {
-      expect(wcagRatio("#8a8a92", "#292524")).toBeGreaterThanOrEqual(4.5);
+    it("emerald-terminal: fixed borderStrong #71717a sobre panel #002b1b cumple >= 3:1 (3.19:1, FIND-A11Y-02 corregido)", () => {
+      expect(wcagRatio("#71717a", PRESET_THEMES["emerald-terminal"]!.colors.panel)).toBeGreaterThanOrEqual(3.0);
     });
 
-    it.fails("amber-warm: fixed borderStrong #71717a sobre raised #44403c rinde 2.13:1 (falla >= 3:1, FIND-A11Y-03)", () => {
-      expect(wcagRatio("#71717a", "#44403c")).toBeGreaterThanOrEqual(3.0);
+    it("amber-warm: fixed dim #8a8a92 sobre panel #272323 cumple >= 4.5:1 (4.54:1, FIND-A11Y-06 corregido)", () => {
+      expect(wcagRatio("#8a8a92", PRESET_THEMES["amber-warm"]!.colors.panel)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it("amber-warm: fixed borderStrong #71717a sobre raised #2c2825 cumple >= 3:1 (3.02:1, FIND-A11Y-03 corregido)", () => {
+      expect(wcagRatio("#71717a", PRESET_THEMES["amber-warm"]!.colors.raised)).toBeGreaterThanOrEqual(3.0);
     });
   });
 

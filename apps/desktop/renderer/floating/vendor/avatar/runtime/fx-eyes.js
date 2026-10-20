@@ -157,13 +157,22 @@ export function angryDropModifier(elapsed, cfg = ANGRY_DROP) {
 }
 
 /* ── bob emocional (ARA CORE:997-1002) ────────────────────────────────────── */
+/**
+ * @typedef {{ duration: number, amp: number, cycles?: number }} EyeBobCfg
+ */
+
+/** @type {Readonly<{ happy: EyeBobCfg, sad: EyeBobCfg, cycles: number }>} */
 export const EYE_BOB = Object.freeze({
   happy: Object.freeze({ duration: 620, amp: 8 }),
   sad: Object.freeze({ duration: 700, amp: 7 }),
   cycles: 2,
 });
 
-/** `sin(t·π·cycles·2)·amp·(1-0.38t)`. */
+/**
+ * `sin(t·π·cycles·2)·amp·(1-0.38t)`.
+ * @param {number} elapsed
+ * @param {EyeBobCfg} [cfg]
+ */
 export function eyeBobModifier(elapsed, cfg = EYE_BOB.happy) {
   const t = clamp(elapsed / cfg.duration, 0, 1);
   const cycles = cfg.cycles ?? EYE_BOB.cycles;

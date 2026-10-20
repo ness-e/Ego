@@ -42,7 +42,7 @@ export const ToolExecutionCard: React.FC<ToolExecutionCardProps> = ({ event }) =
     (event.detail && event.detail !== "ok" && event.detail !== "falló");
 
   return (
-    <div className="my-1.5 rounded-xl border border-white/10 bg-[#161822]/80 text-xs overflow-hidden transition-all hover:border-white/20 shadow-sm backdrop-blur-sm">
+    <div className="my-1.5 rounded-xl border border-white/10 bg-[#161822]/80 text-xs overflow-hidden transition-colors hover:border-white/20 shadow-sm backdrop-blur-sm">
       <div
         onClick={() => hasDetails && setIsOpen((prev) => !prev)}
         className={`flex items-center justify-between px-3.5 py-2 select-none ${

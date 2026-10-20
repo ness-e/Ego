@@ -34,9 +34,26 @@ describe("FIND-12-01: avatar vendorizado dentro del root", () => {
       const specs = specifiersOf(src);
       expect(specs.length, `${file} sin import dinámico de avatar`).toBeGreaterThan(0);
       for (const s of specs) {
-        expect(s, `${file}: ${s} sale del root`).toMatch(/^\.\/vendor\//);
+        // A6 (Ola 1b): la fuente canónica del motor es el PAQUETE
+        // `@ego/avatar`, que Vite resuelve estáticamente (lo empaqueta en el
+        // chunk). Sigue cumpliendo la intención del guard: el specifier
+        // nunca puede apuntar fuera del root servido (404 → avatar inerte).
+        const resoluble =
+          s.startsWith("./vendor/") || s.startsWith("@ego/avatar/");
+        expect(resoluble, `${file}: ${s} sale del root y no lo resuelve el bundler`).toBe(
+          true
+        );
         expect(s, `${file}: ${s} contiene ..`).not.toContain("..");
       }
+    }
+  });
+
+  it("el motor canónico es el paquete @ego/avatar (A6, Ola 1b)", () => {
+    for (const file of ["floating-avatar.tsx", "floating-sound.ts"]) {
+      const raw = readFileSync(join(floatingDir, file), "utf8");
+      expect(raw, `${file} debe cargar el motor desde el paquete`).toContain(
+        '"@ego/avatar/runtime/'
+      );
     }
   });
 

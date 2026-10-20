@@ -44,7 +44,10 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
       brand: "#06b6d4",
       background: "#030712",
       panel: "#0f172a",
-      raised: "#1e293b",
+      // EGO-FIND-71 FIND-A11Y-04: dim fijo #8a8a92 sobre raised #1e293b = 4.27:1
+      // (< 4.5:1). Superficie oscurecida a #1a2536 → 4.50:1
+      // (OKLCH: L 0.279 → 0.262, C 0.037 y H 260 conservados).
+      raised: "#1a2536",
       text: "#f8fafc",
       muted: "#94a3b8",
       border: "#334155",
@@ -67,9 +70,24 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
     version: 1,
     colors: {
       brand: "#10b981",
-      background: "#022c22",
-      panel: "#064e3b",
-      raised: "#065f46",
+      // EGO-FIND-71 (FIND-A11Y-05/02): el dim fijo #8a8a92 exige una
+      // superficie con Ls <= 0.0181; el fondo (#022c22, Ls 0.0193) quedaba
+      // por encima → se oscurece a #022a21 (4.52:1) para que la rampa siga
+      // siendo monótona (fondo < panel < raised).
+      background: "#022a21",
+      // EGO-FIND-71 FIND-A11Y-05 + FIND-A11Y-02: dim fijo #8a8a92 sobre panel
+      // #064e3b = 2.84:1 (< 4.5:1) y borde fuerte fijo #71717a = 2.01:1 (< 3:1).
+      // Superficie oscurecida a #002b1b → 4.50:1 / 3.19:1
+      // (OKLCH: L 0.378 → 0.256, C y H conservados dentro del gamut sRGB).
+      panel: "#002b1b",
+      // EGO-FIND-71 (residuo, hallazgo 7): el dim GLOBAL #8a8a92 (no
+      // puenteado al muted del preset) daba 2.24:1 sobre #065f46. La
+      // superficie elevada se oscurece a #032a1f (dim 4.53:1, borde fuerte
+      // 3.21:1). Coste de diseño: en este preset la "elevación" sobre el
+      // panel es casi imperceptible — es la consecuencia matemática de
+      // que un gris neutro sobre verde no puede llegar a 4.5:1 sin
+      // oscurecer la superficie casi al nivel del panel.
+      raised: "#032a1f",
       text: "#ecfdf5",
       muted: "#6ee7b7",
       border: "#047857",
@@ -93,8 +111,18 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
     colors: {
       brand: "#f59e0b",
       background: "#1c1917",
-      panel: "#292524",
-      raised: "#44403c",
+      // EGO-FIND-71 FIND-A11Y-06: dim fijo #8a8a92 sobre panel #292524 = 4.43:1
+      // (< 4.5:1). Superficie oscurecida a #272323 → 4.54:1
+      // (OKLCH: L 0.268 → 0.261, C 0.006 y H 34 conservados).
+      panel: "#272323",
+      // EGO-FIND-71 FIND-A11Y-03: borde fuerte fijo #71717a sobre raised #44403c
+      // = 2.13:1 (< 3:1). Superficie oscurecida a #2c2825 → 3.02:1
+      // (OKLCH: L 0.374 → 0.280, C 0.009 y H 68 conservados). El mismo valor
+      // cierra FIND-A11Y-01, que exige #78716c >= 3:1 → 3.05:1.
+      // EGO-FIND-71 (residuo): el dim fijo #8a8a92 sobre esta superficie daba
+      // 4.27:1 (< 4.5:1) → se oscurece a #272421 (4.51:1). El borde fuerte
+      // sigue en 3.03:1.
+      raised: "#272421",
       text: "#fef3c7",
       muted: "#d6d3d1",
       border: "#57534e",
@@ -175,6 +203,9 @@ const FONT_STACK_MAP: Record<string, string> = {
  * - `FIXED_BORDER_STRONG` #71717a >= 3.2:1 sobre panel (WCAG 2.2 AA en componentes interactivos).
  * - `FIXED_FOCUS_RING` #f59e0b ≈9.2:1 sobre paper (componente UI ≥3:1 ✅).
  * - `FIXED_TEXT_ON_BRAND` #0a0a0b sobre ámbar ≈9.2:1 ✅.
+ * - EGO-FIND-71: los fijos NO se pisan; para que cumplan AA sobre las
+ *   superficies de CADA preset se oscurecieron `panel`/`raised` de los
+ *   presets afectados (comentarios EGO-FIND-71 en PRESET_THEMES).
  */
 const FIXED_BORDER_STRONG = "#71717a";
 const FIXED_FOCUS_RING = "#f59e0b";

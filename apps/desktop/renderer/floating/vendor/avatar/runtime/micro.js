@@ -1,5 +1,5 @@
 // micro.js — keyframes de micro-animación (squash, hop, insignia, saludos…).
-// ADAPTADO de coucou mochi/engine.ts (MIT, © Louis Raillart) — ver LICENSE.md.
+// ADAPTADO de vendor/coucou/mochi/engine.ts (MIT, © Louis Raillart) — ver LICENSE.md.
 // Tablas keyframe literales del original, aplicadas sobre nuestro timeline.
 // Las keys de cabeza de ARA (error/nod/warning) también viven aquí: son el
 // mismo tipo de dato (listas [objetivo, ms, ease] para createTimeline) y así
@@ -148,7 +148,7 @@ export function microDuration(name) {
 
 /**
  * Aplica un micro a un timeline (createTimeline). Los campos atrapados por otro
- * tween (`locked`) se respetan — semántica `locks` de coucou engine.ts:477-482.
+ * tween (`locked`) se respetan — semántica `locks` de vendor/coucou/mochi/engine.ts:477-482.
  * @param {{anim:Function, locked:Function}} timeline
  * @param {string} name
  * @param {(name:string)=>void} [onComplete] se invoca UNA vez al terminar el micro
@@ -197,7 +197,7 @@ export const BLINK_DURATION = 200;
 const cbA = cubicBezier(0.38, 0, 0.28, 1);
 const cbB = cubicBezier(0.35, 0, 0.22, 1);
 
-/** Shake de error: translateX 0 → −4 @.34 → +4 @.72 → 0, 1380 ms (208-213). */
+/** Shake de error: translateX 0 → −4 (0,34 s) → +4 (0,72 s) → 0, 1380 ms (208-213). */
 export function errorHeadKeys(duration = 1380) {
   const d = Number.isFinite(duration) && duration > 0 ? duration : 1380;
   return [
@@ -207,7 +207,7 @@ export function errorHeadKeys(duration = 1380) {
   ];
 }
 
-/** Nodo de asentimiento ("send"): translateY 0 → 5 @.52 → 0, 920 ms (160-164). */
+/** Nodo de asentimiento ("send"): translateY 0 → 5 (0,52 s) → 0, 920 ms (160-164). */
 export function nodKeys(duration = 920) {
   const d = Number.isFinite(duration) && duration > 0 ? duration : 920;
   return [

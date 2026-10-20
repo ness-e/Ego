@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ego } from "../../lib/ego.js";
 import type { BackgroundTaskInfo } from "../../lib/ego.js";
+import { Select } from "../ui-kit/Select.js";
 
 /**
  * CFG-13 — Cron UI sobre el `BackgroundEngine` existente.
@@ -155,16 +156,18 @@ export const CronPanel: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="flex flex-1 flex-col gap-1">
               <label className="text-[10px] text-faint">Programación / Cadencia:</label>
-              <select
+              <Select
+                ariaLabel="Programación / Cadencia"
                 value={taskSchedule}
-                onChange={(e) => setTaskSchedule(e.target.value)}
-                className="rounded border border-hairline bg-raised px-2 py-1 text-xs text-ink focus:outline-hidden"
-              >
-                <option value="manual">Manual (One-off)</option>
-                <option value="every_5m">Cada 5 minutos</option>
-                <option value="every_1h">Cada hora</option>
-                <option value="daily">Diario (00:00 UTC)</option>
-              </select>
+                onValueChange={setTaskSchedule}
+                options={[
+                  { value: "manual", label: "Manual (One-off)" },
+                  { value: "every_5m", label: "Cada 5 minutos" },
+                  { value: "every_1h", label: "Cada hora" },
+                  { value: "daily", label: "Diario (00:00 UTC)" },
+                ]}
+                triggerClassName="rounded border border-hairline bg-raised px-2 py-1 text-xs text-ink"
+              />
             </div>
             <button
               type="submit"

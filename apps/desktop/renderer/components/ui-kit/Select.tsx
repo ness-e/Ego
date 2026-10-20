@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useId, type KeyboardEvent } from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import { CaretDown, Check } from "@phosphor-icons/react";
-import { cn } from "./cva.js";
+import { useLayoutEffect, useRef, useState } from "react";
 
 export interface SelectOption {
   value: string;
@@ -18,6 +18,7 @@ export interface SelectProps {
   ariaLabel: string;
   placeholder?: string;
   disabled?: boolean;
+  /** Clase extra del contenedor (envoltorio del trigger). */
   className?: string;
   triggerClassName?: string;
   contentClassName?: string;
@@ -27,10 +28,43 @@ export interface SelectProps {
 }
 
 /**
- * T13/STAB-13: Select accesible (role=combobox + role=listbox + role=option)
- * Diseñado específicamente para ser 100% libre de <select> nativos (cero menús del SO),
- * compatible con Happy-DOM sin colisiones de FocusScope/RangeError en Dialogs,
- * y con target interactivo >=44px (min-h-11 min-w-11).
+ * T5 / D3 — Select sobre `@radix-ui/react-select`.
+ *
+ * Antes: implementación **propia** de combobox/listbox/option con ARIA
+ * escrita a mano (~300 líneas) que el commit `87fc3ad` presentó como
+ * "Radix Select" pero nunca usó Radix (0 imports). Eso dejaba en manos del
+ * proyecto la corrección de teclado, foco, `aria-activedescendant` y
+ * navegación por tipo — y el listbox se renderizaba **inline**, sin
+ * `Portal`, por lo que un `overflow: hidden` ancestors lo recortaba.
+ *
+ * Ahora: Radix aporta el patrón ARIA canónico (`role=combobox` +
+ * `aria-expanded` + `role=listbox` + `role=option`), la navegación por
+ * teclado (flechas, Home/End, type-ahead, Escape) y la gestión de foco
+ * (incluido el retorno al trigger al cerrar). El listbox se renderiza en
+ * `SelectPrimitive.Portal` para que ningún ancestro lo recorte.
+ *
+ * ## `position`: `item-aligned` (default de Radix), NO `popper`
+ * Con `position="popper"`, el `SelectContent` se monta dentro de un
+ * `FocusScope` **trapped** propio. Cuando el Select vive dentro de un
+ * `Dialog` de Radix (que también atrapa el foco), ambos scopes compiten por
+ * el foco y se produce un ping-pong `focusin` → `RangeError: Maximum call
+ * stack size exceeded` al abrir el desplegable. Con el alineamiento
+ * `item-aligned` (el default de la librería) el conflicto se agrava, porque
+ * el listbox **sigue portaleado al `document.body`**, es decir FUERA del
+ * subárbol del Dialog.
+ *
+ * ## `container` del Portal: el contenedor del diálogo anfitrión
+ * La corrección estructural es **portaleal el listbox dentro del mismo
+ * contenedor que el `Dialog` anfitrión** (y no al `document.body`). Así el
+ * `FocusScope` del Dialog sigue viendo el foco dentro de su subárbol → no
+ * hay ping-pong → no hay `RangeError`. El contenedor se localiza por el
+ * atributo `data-ego-dialog-content` que `ui-kit/Modal.tsx` pone en su
+ * `Dialog.Content`, subiendo desde el trigger del Select. Si no hay diálogo
+ * anfitrión (Select en la cabecera, en la barra lateral…), el `Portal` va al
+ * `document.body`, que es el comportamiento normal.
+ *
+ * API pública **idéntica** a la anterior (`SelectProps`), de modo que los
+ * consumidores (`App.tsx`, `Sidebar.tsx`, `SettingsModal.tsx`) no cambian.
  */
 export function Select({
   value: controlledValue,
@@ -49,263 +83,98 @@ export function Select({
   id: customId,
   name,
 }: SelectProps) {
-  const autoId = useId();
-  const selectId = customId ?? autoId;
-  const listboxId = `${selectId}-listbox`;
+  const selectedOption = options.find((opt) => opt.value === controlledValue);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
 
-  const [uncontrolledValue, setUncontrolledValue] = useState<string>(
-    defaultValue ?? options[0]?.value ?? ""
-  );
-  const isControlled = controlledValue !== undefined;
-  const activeValue = isControlled ? controlledValue : uncontrolledValue;
-
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
-  const isOpen = controlledOpen !== undefined ? controlledOpen : uncontrolledOpen;
-
-  const setOpen = (next: boolean) => {
-    if (disabled && next) return;
-    if (controlledOpen === undefined) {
-      setUncontrolledOpen(next);
-    }
-    onOpenChange?.(next);
-  };
-
-  const selectedIndex = options.findIndex((opt) => opt.value === activeValue);
-  const [highlightedIndex, setHighlightedIndex] = useState<number>(
-    selectedIndex >= 0 ? selectedIndex : 0
-  );
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const listboxRef = useRef<HTMLDivElement>(null);
-
-  // Sincronizar índice resaltado cuando cambia el valor o al abrir
-  useEffect(() => {
-    if (isOpen) {
-      const idx = options.findIndex((opt) => opt.value === activeValue);
-      setHighlightedIndex(idx >= 0 ? idx : 0);
-    }
-  }, [isOpen, activeValue, options]);
-
-  // Click outside listener para cerrar el listbox
-  useEffect(() => {
-    if (!isOpen) return;
-
-    function handleClickOutside(event: MouseEvent | PointerEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", handleClickOutside);
-    return () => {
-      document.removeEventListener("pointerdown", handleClickOutside);
-    };
-  }, [isOpen]);
-
-  const handleSelectOption = (option: SelectOption) => {
-    if (option.disabled) return;
-    if (!isControlled) {
-      setUncontrolledValue(option.value);
-    }
-    onValueChange?.(option.value);
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement | HTMLDivElement>) => {
-    if (disabled) return;
-
-    if (!isOpen) {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        setOpen(true);
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case "Escape":
-      case "Tab":
-        e.preventDefault();
-        setOpen(false);
-        triggerRef.current?.focus();
-        break;
-
-      case "ArrowDown": {
-        e.preventDefault();
-        let next = highlightedIndex + 1;
-        while (next < options.length && options[next]?.disabled) {
-          next++;
-        }
-        if (next < options.length) {
-          setHighlightedIndex(next);
-        }
-        break;
-      }
-
-      case "ArrowUp": {
-        e.preventDefault();
-        let prev = highlightedIndex - 1;
-        while (prev >= 0 && options[prev]?.disabled) {
-          prev--;
-        }
-        if (prev >= 0) {
-          setHighlightedIndex(prev);
-        }
-        break;
-      }
-
-      case "Home": {
-        e.preventDefault();
-        const first = options.findIndex((opt) => !opt.disabled);
-        if (first >= 0) setHighlightedIndex(first);
-        break;
-      }
-
-      case "End": {
-        e.preventDefault();
-        for (let i = options.length - 1; i >= 0; i--) {
-          if (!options[i]?.disabled) {
-            setHighlightedIndex(i);
-            break;
-          }
-        }
-        break;
-      }
-
-      case "Enter":
-      case " ": {
-        e.preventDefault();
-        const opt = options[highlightedIndex];
-        if (opt && !opt.disabled) {
-          handleSelectOption(opt);
-        }
-        break;
-      }
-
-      default: {
-        // Tipo-ahead simple (primer carácter alfanumérico)
-        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          const char = e.key.toLowerCase();
-          const matchIdx = options.findIndex(
-            (opt, idx) =>
-              idx > highlightedIndex &&
-              !opt.disabled &&
-              opt.label.toLowerCase().startsWith(char)
-          );
-          if (matchIdx >= 0) {
-            setHighlightedIndex(matchIdx);
-          } else {
-            const wrapIdx = options.findIndex(
-              (opt) => !opt.disabled && opt.label.toLowerCase().startsWith(char)
-            );
-            if (wrapIdx >= 0) setHighlightedIndex(wrapIdx);
-          }
-        }
-      }
-    }
-  };
-
-  const selectedOption = options.find((opt) => opt.value === activeValue);
+  // Localiza el `Dialog.Content` anfitrión (si lo hay) para portaleal el
+  // listbox dentro de su subárbol: evita el ping-pong de `FocusScope` entre
+  // el Dialog y el Select (ver la nota del módulo).
+  useLayoutEffect(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const dialogContent = trigger.closest("[data-ego-dialog-content]");
+    setPortalContainer(dialogContent instanceof HTMLElement ? dialogContent : null);
+  }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className={cn("relative inline-block text-left", className)}
-      onKeyDown={handleKeyDown}
+    <SelectPrimitive.Root
+      value={controlledValue}
+      defaultValue={defaultValue}
+      onValueChange={onValueChange}
+      open={controlledOpen}
+      onOpenChange={onOpenChange}
+      disabled={disabled}
+      name={name}
     >
-      <button
+      <SelectPrimitive.Trigger
         ref={triggerRef}
-        id={selectId}
-        type="button"
-        role="combobox"
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-controls={isOpen ? listboxId : undefined}
-        aria-activedescendant={
-          isOpen && highlightedIndex >= 0
-            ? `${listboxId}-opt-${highlightedIndex}`
-            : undefined
-        }
+        id={customId}
         aria-label={ariaLabel}
         title={title}
-        disabled={disabled}
-        onClick={() => setOpen(!isOpen)}
-        className={cn(
-          "inline-flex min-h-11 min-w-11 w-full items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#1e1e22] px-3 py-2 text-xs text-zinc-200 transition-colors cursor-pointer select-none",
-          "hover:border-white/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-black",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          triggerClassName
-        )}
+        className={
+          "inline-flex min-h-11 min-w-11 w-full items-center justify-between gap-2 rounded-xl " +
+          "border border-white/10 bg-[#1e1e22] px-3 py-2 text-xs text-zinc-200 " +
+          "transition-colors cursor-pointer select-none " +
+          "hover:border-white/20 hover:text-white " +
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand " +
+          "focus-visible:ring-offset-1 focus-visible:ring-offset-black " +
+          "disabled:cursor-not-allowed disabled:opacity-50" +
+          (className ? ` ${className}` : "") +
+          (triggerClassName ? ` ${triggerClassName}` : "")
+        }
       >
-        <span className="truncate">
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <CaretDown
-          size={14}
-          className={cn(
-            "shrink-0 text-zinc-400 transition-transform duration-150",
-            isOpen && "rotate-180 text-white"
-          )}
-        />
-      </button>
+        <SelectPrimitive.Value placeholder={placeholder}>
+          {selectedOption?.label ?? null}
+        </SelectPrimitive.Value>
+        <SelectPrimitive.Icon asChild>
+          <CaretDown
+            size={14}
+            className="shrink-0 text-zinc-400 transition-transform duration-150"
+            aria-hidden
+          />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
 
-      {isOpen && (
-        <div
-          ref={listboxRef}
-          id={listboxId}
-          role="listbox"
-          aria-label={ariaLabel}
-          tabIndex={-1}
-          className={cn(
-            "absolute left-0 top-[calc(100%+4px)] z-50 min-w-[8rem] w-full max-h-60 overflow-y-auto rounded-xl border border-white/10 bg-[#1e1e22] p-1 text-xs text-zinc-200 shadow-2xl backdrop-blur-xl animate-in fade-in-50 zoom-in-95",
-            contentClassName
-          )}
+      <SelectPrimitive.Portal container={portalContainer ?? undefined}>
+        <SelectPrimitive.Content
+          sideOffset={4}
+          className={
+            "z-50 max-h-60 min-w-[8rem] overflow-y-auto rounded-xl border border-white/10 " +
+            "bg-[#1e1e22] p-1 text-xs text-zinc-200 shadow-2xl backdrop-blur-xl " +
+            "data-[state=open]:animate-in data-[state=closed]:animate-out " +
+            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 " +
+            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 " +
+            (contentClassName ? ` ${contentClassName}` : "")
+          }
         >
-          {options.length === 0 ? (
-            <div className="px-2.5 py-2 text-zinc-500 text-center">Sin opciones</div>
-          ) : (
-            options.map((option, idx) => {
-              const isSelected = option.value === activeValue;
-              const isHighlighted = idx === highlightedIndex;
-
-              return (
-                <div
+          <SelectPrimitive.Viewport>
+            {options.length === 0 ? (
+              <div className="px-2.5 py-2 text-zinc-500 text-center">Sin opciones</div>
+            ) : (
+              options.map((option) => (
+                <SelectPrimitive.Item
                   key={option.value}
-                  id={`${listboxId}-opt-${idx}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  aria-disabled={option.disabled}
-                  onClick={() => handleSelectOption(option)}
-                  onMouseEnter={() => {
-                    if (!option.disabled) setHighlightedIndex(idx);
-                  }}
-                  className={cn(
-                    "relative flex cursor-pointer select-none items-center justify-between rounded-lg px-2.5 py-2 text-xs outline-none transition-colors",
-                    isSelected
-                      ? "bg-white/15 text-white font-medium"
-                      : "text-zinc-300 hover:bg-white/10 hover:text-white",
-                    isHighlighted && !isSelected && "bg-white/10 text-white",
-                    option.disabled && "pointer-events-none opacity-40 cursor-not-allowed"
-                  )}
+                  value={option.value}
+                  disabled={option.disabled}
+                  className={
+                    "relative flex cursor-pointer select-none items-center justify-between " +
+                    "rounded-lg px-2.5 py-2 text-xs outline-none transition-colors " +
+                    "data-[highlighted]:bg-white/10 data-[highlighted]:text-white " +
+                    "data-[state=checked]:bg-white/15 data-[state=checked]:text-white " +
+                    "data-[disabled]:pointer-events-none data-[disabled]:opacity-40"
+                  }
                 >
-                  <span className="truncate">{option.label}</span>
-                  {isSelected && (
-                    <Check size={14} className="ml-2 shrink-0 text-brand" />
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {/* Input oculto sólo para soporte de nombre de campo en forms tradicionales si aplica */}
-      {name && <input type="hidden" name={name} value={activeValue} />}
-    </div>
+                  <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemIndicator>
+                    <Check size={14} className="ml-2 shrink-0 text-brand" aria-hidden />
+                  </SelectPrimitive.ItemIndicator>
+                </SelectPrimitive.Item>
+              ))
+            )}
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
   );
 }

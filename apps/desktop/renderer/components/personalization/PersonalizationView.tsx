@@ -351,7 +351,7 @@ export function PersonalizationView() {
                 placeholder={`Buscar en ${activeTab === "skills" ? "skills" : "conectores"}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-hairline bg-raised/70 pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-dim focus:border-strong focus:outline-none transition-all shadow-2xs"
+                className="w-full rounded-xl border border-hairline bg-raised/70 pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-dim focus:border-strong focus:outline-none transition-colors shadow-2xs"
               />
             </div>
           )}
@@ -407,7 +407,7 @@ export function PersonalizationView() {
                   return (
                     <div
                       key={s.id}
-                      className="group flex flex-col justify-between rounded-2xl border border-hairline bg-raised/50 hover:bg-raised p-4 transition-all duration-150 shadow-2xs hover:border-strong/60"
+                      className="group flex flex-col justify-between rounded-2xl border border-hairline bg-raised/50 hover:bg-raised p-4 transition-colors duration-150 shadow-2xs hover:border-strong/60"
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2 mb-2.5">
@@ -490,7 +490,7 @@ export function PersonalizationView() {
                   return (
                     <div
                       key={m.id}
-                      className="group flex flex-col justify-between rounded-2xl border border-hairline bg-raised/50 hover:bg-raised p-4 transition-all duration-150 shadow-2xs hover:border-strong/60"
+                      className="group flex flex-col justify-between rounded-2xl border border-hairline bg-raised/50 hover:bg-raised p-4 transition-colors duration-150 shadow-2xs hover:border-strong/60"
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2 mb-2.5">
