@@ -1,16 +1,50 @@
 {
   "name": "@ego/avatar",
   "version": "0.1.0",
+  "description": "Motor de personaje de Ego: semilla -> genoma -> organismo vivo con estados cognitivos. Web Component <ego-avatar> con motor SVG y motor canvas (Robot Studio).",
+  "license": "MIT",
+  "keywords": [
+    "avatar",
+    "generative",
+    "svg",
+    "web-component",
+    "deterministic",
+    "ego"
+  ],
   "type": "module",
   "main": "./src/index.js",
+  "module": "./src/index.js",
   "types": "./index.d.ts",
   "exports": {
     ".": "./src/index.js",
     "./static": "./src/render/static.js",
-    "./studio": "./src/studio/index.js"
+    "./studio": "./src/studio/index.js",
+    "./runtime/avatar-element.js": "./src/runtime/avatar-element.js",
+    "./runtime/sound.js": "./src/runtime/sound.js"
   },
+  "files": [
+    "src",
+    "dist",
+    "index.d.ts",
+    "README.md",
+    "DESIGN.md",
+    "RESEARCH.md",
+    "LICENSE",
+    "LICENSE.md",
+    "NOTICE"
+  ],
   "scripts": {
-    "typecheck": "node -e \"process.exit(0)\"",
-    "build": "node -e \"const fs=require('node:fs');fs.mkdirSync('dist',{recursive:true});fs.writeFileSync('dist/index.js','export * from \\'../src/index.js\\';\\n');fs.copyFileSync('index.d.ts','dist/index.d.ts');\""
-  }
+    "build": "node scripts/build.mjs",
+    "build:check": "node scripts/build.mjs --check",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test tests/",
+    "geometry:check": "node scripts/compare-geometry.mjs --check tests/golden/geometry.json src",
+    "geometry:record": "node scripts/compare-geometry.mjs --record tests/golden/geometry.json src",
+    "sync:check": "node scripts/sync-check.mjs",
+    "sync:write": "node scripts/sync-check.mjs --write",
+    "attribution:check": "node scripts/check-attribution.mjs",
+    "capture:visuals": "node scripts/capture-visuals.mjs --out captures/current"
+  },
+  "dependencies": {},
+  "devDependencies": {}
 }

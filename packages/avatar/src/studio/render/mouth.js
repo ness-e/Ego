@@ -1,12 +1,23 @@
 // mouth.js — boca del avatar y articulación labial (lip-sync).
-// Puerto verbatim de avatar_studio_cx_artlab_mochi_2_0.html:
-//   drawMouth (líneas 3030-3206), update paso 6 (líneas 1410-1429).
-// Contrato: drawMouth(ctx, S, rx, ry); updateMouth(S, dt) muta S.
-// `this.X` del original se lee como `S.X`; ayudantes desde ./helpers.js.
+//
+// GEOMETRÍA PROPIA DE EGO. La articulación (sílabas, escucha, decaimiento) y las
+// métricas de cada estilo de boca están en ./geometry.js.
+//
+// Se elimina el estilo "mochi-cute" (boca felina con lengua): no figuraba en
+// la enumeración vigente de estilos de boca de Ego y el producto no distribuye
+// la identidad visual de Mochi.
+//
+// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// líneas 3030-3206 y 1410-1429: se adapta el patrón (boca por estados con
+// sombra de acento y ledger); la geometría y los nombres son propios.
 
 import { getStateAccentColor, roundRectPath } from './helpers.js';
+import { MOUTH } from './geometry.js';
 
-/** Articulación labial: sílabas a 24 Hz / 15.5 Hz, oscilación en listen, decaimiento (líneas 1410-1429, literal). */
+/**
+ * Articulación labial.
+ * Sílabas a 24 Hz / 15,5 Hz, oscilación en escucha y decaimiento al reposo.
+ */
 export function updateMouth(S, dt) {
     if (S.talkTimer > 0) {
         S.talkTimer = Math.max(0, S.talkTimer - dt);
@@ -15,21 +26,21 @@ export function updateMouth(S, dt) {
         S.isTalking = false;
     }
     if (S.isTalking || S.state === 'talk') {
-        const syllA = Math.max(0, Math.sin(S.time * 24));
-        const syllB = Math.max(0, Math.cos(S.time * 15.5));
+        const syllA = Math.max(0, Math.sin(S.time * MOUTH.SYLLABLE_HZ));
+        const syllB = Math.max(0, Math.cos(S.time * MOUTH.SYLLABLE_HZ_B));
         const targetOpen = 0.2 + syllA * 0.65 + syllB * 0.25;
-        S.mouthOpen += (targetOpen - S.mouthOpen) * 0.45;
-        S.mouthWidth = 0.85 + Math.sin(S.time * 19) * 0.25;
+        S.mouthOpen += (targetOpen - S.mouthOpen) * MOUTH.OPEN_SMOOTH;
+        S.mouthWidth = 0.85 + Math.sin(S.time * MOUTH.WIDTH_HZ) * 0.25;
     } else if (S.state === 'listen') {
-        S.mouthOpen += (0.15 + Math.abs(Math.sin(S.time * 12)) * 0.2 - S.mouthOpen) * 0.3;
+        S.mouthOpen += (0.15 + Math.abs(Math.sin(S.time * MOUTH.LISTEN_HZ)) * 0.2 - S.mouthOpen) * MOUTH.LISTEN_SMOOTH;
         S.mouthWidth = 1.0;
     } else {
-        S.mouthOpen += (0 - S.mouthOpen) * 0.25;
-        S.mouthWidth += (1 - S.mouthWidth) * 0.25;
+        S.mouthOpen += (0 - S.mouthOpen) * MOUTH.DECAY_SMOOTH;
+        S.mouthWidth += (1 - S.mouthWidth) * MOUTH.DECAY_SMOOTH;
     }
 }
 
-/** Dibuja la boca según mouthStyle y estado (líneas 3030-3206, literal). */
+/** Dibuja la boca según `mouthStyle` y el estado. */
 export function drawMouth(ctx, S, rx, ry) {
     ctx.save();
     const mx = S.eyeLookX * 20;
@@ -37,106 +48,61 @@ export function drawMouth(ctx, S, rx, ry) {
     ctx.translate(mx, my);
     ctx.scale(S.mouthScale, S.mouthScale);
 
-    const activeColor = (S.eyeStyle === 'mochi-sphere' && !S.showVisor && !S.autoStateColors)
-        ? '#181210'
-        : getStateAccentColor(S);
+    const activeColor = getStateAccentColor(S);
     const open = S.mouthOpen;
     const t = S.time;
 
-    if (S.mouthStyle !== 'mochi-cute' || S.showVisor) {
-        ctx.shadowColor = activeColor;
-        ctx.shadowBlur = S.eyeGlowBlur * 0.6;
-    }
+    // Halo de estado: envuelve la boca sea cual sea su estilo.
+    ctx.shadowColor = activeColor;
+    ctx.shadowBlur = S.eyeGlowBlur * 0.6;
 
+    // Estilo por defecto de Ego: una barra de LED que late y se deforma.
     if (S.mouthStyle === 'led-wave') {
         ctx.strokeStyle = activeColor;
         ctx.fillStyle = activeColor;
-        ctx.lineWidth = 3.5;
+        ctx.lineWidth = MOUTH.LED_WAVE_W;
         ctx.lineCap = 'round';
 
         if (open > 0.08 || S.state === 'surprise') {
-            const mw = (S.state === 'surprise' ? 14 : 24 * S.mouthWidth);
-            const mh = (S.state === 'surprise' ? 15 : 4 + open * 16);
+            const mw = S.state === 'surprise' ? MOUTH.SURPRISE_W : MOUTH.OPEN_W * S.mouthWidth;
+            const mh = S.state === 'surprise' ? MOUTH.SURPRISE_H : MOUTH.OPEN_MIN_H + open * MOUTH.OPEN_H_GAIN;
             roundRectPath(ctx, -mw / 2, -mh / 2, mw, mh, mh / 2);
             ctx.stroke();
         } else if (S.state === 'error' || S.state === 'dizzy') {
-            // Wavy glitch / dizzy sine mouth
+            // Onda de desajuste.
             ctx.beginPath();
-            for (let x = -14; x <= 14; x += 2) {
+            for (let x = -MOUTH.ERROR_WAVE_W; x <= MOUTH.ERROR_WAVE_W; x += MOUTH.ERROR_WAVE_STEP) {
                 const y = Math.sin(x * 0.45 + t * 18) * 3.5;
-                if (x === -14) ctx.moveTo(x, y);
+                if (x === -MOUTH.ERROR_WAVE_W) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
             ctx.stroke();
         } else if (['failure', 'blocked', 'poke', 'warning'].includes(S.state)) {
+            // Ceño fruncido.
             ctx.beginPath();
-            ctx.moveTo(-12, 5);
-            ctx.quadraticCurveTo(0, -6, 12, 5);
+            ctx.moveTo(-MOUTH.FROWN_W, 5);
+            ctx.quadraticCurveTo(0, -6, MOUTH.FROWN_W, 5);
             ctx.stroke();
         } else if (['bored', 'waiting', 'inspect', 'input'].includes(S.state)) {
+            // Boca plana, ligeramente ladeada al inspeccionar.
             const shift = S.state === 'inspect' ? 3 : 0;
             ctx.beginPath();
-            ctx.moveTo(-10 + shift, 1);
-            ctx.lineTo(10 + shift, 1 - shift * 0.4);
+            ctx.moveTo(-MOUTH.FLAT_W + shift, 1);
+            ctx.lineTo(MOUTH.FLAT_W + shift, 1 - shift * 0.4);
             ctx.stroke();
         } else if (S.state === 'sleep') {
+            // Respiración lenta.
             const breathR = 3.5 + Math.sin(t * 1.6) * 1.5;
             ctx.beginPath();
             ctx.arc(0, 2, breathR, 0, Math.PI * 2);
             ctx.stroke();
         } else {
-            const smileDepth = ['success', 'wake', 'wave', 'love', 'spin'].includes(S.state) ? 12 : 8;
+            // Sonrisa: más profunda en los estados afirmativos.
+            const happy = ['success', 'wake', 'wave', 'love', 'spin'].includes(S.state);
+            const smileDepth = happy ? MOUTH.SMILE_DEPTH_HAPPY : MOUTH.SMILE_DEPTH;
             ctx.beginPath();
-            ctx.moveTo(-13, -1);
-            ctx.quadraticCurveTo(0, smileDepth, 13, -1);
-            ctx.stroke();
-        }
-    } else if (S.mouthStyle === 'mochi-cute') {
-        ctx.strokeStyle = activeColor;
-        ctx.lineWidth = 3.2;
-        ctx.lineCap = 'round';
-
-        if (open > 0.08 || S.state === 'surprise' || ['success', 'love'].includes(S.state)) {
-            const rxM = S.state === 'surprise' ? 7.5 : (['success', 'love'].includes(S.state) && open <= 0.08 ? 10 : (8 + open * 4) * S.mouthWidth);
-            const ryM = S.state === 'surprise' ? 8.5 : (['success', 'love'].includes(S.state) && open <= 0.08 ? 6.5 : 3 + open * 9);
-            ctx.fillStyle = '#9f1239';
-            ctx.beginPath();
-            ctx.ellipse(0, 2, rxM, ryM, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.save();
-            ctx.clip();
-            ctx.fillStyle = '#fb7185';
-            ctx.beginPath();
-            ctx.ellipse(0, ryM * 0.55 + 2, rxM * 0.75, ryM * 0.65, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-            ctx.stroke();
-        } else if (S.state === 'dizzy' || S.state === 'error') {
-            ctx.beginPath();
-            for (let x = -10; x <= 10; x += 2) {
-                const y = Math.sin(x * 0.5 + t * 15) * 3;
-                if (x === -10) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-        } else if (['failure', 'poke', 'blocked', 'warning'].includes(S.state)) {
-            const quiver = S.state === 'failure' ? Math.sin(t * 25) * 0.8 : 0;
-            ctx.beginPath();
-            ctx.moveTo(-8, 4 + quiver);
-            ctx.quadraticCurveTo(0, -3 + quiver, 8, 4 + quiver);
-            ctx.stroke();
-        } else if (S.state === 'sleep') {
-            ctx.beginPath();
-            ctx.arc(0, 2, 3 + Math.sin(t * 1.5) * 1.2, 0, Math.PI * 2);
-            ctx.stroke();
-        } else if (['bored', 'waiting', 'inspect'].includes(S.state)) {
-            ctx.beginPath();
-            ctx.moveTo(-7, 2);
-            ctx.lineTo(7, 2);
-            ctx.stroke();
-        } else {
-            ctx.beginPath();
-            ctx.arc(0, -1, 8, 0.18 * Math.PI, 0.82 * Math.PI);
+            ctx.moveTo(-MOUTH.SMILE_W, -1);
+            ctx.quadraticCurveTo(0, smileDepth, MOUTH.SMILE_W, -1);
             ctx.stroke();
         }
     } else if (S.mouthStyle === 'cat-kawaii') {
@@ -156,7 +122,7 @@ export function drawMouth(ctx, S, rx, ry) {
             ctx.fill();
             ctx.stroke();
         } else if (['failure', 'error', 'poke', 'blocked'].includes(S.state)) {
-            // Angry/sad inverted cat mouth + tiny fang
+            // Boca felina invertida (enfado) con uncolmillo.
             ctx.beginPath();
             ctx.moveTo(-11, 4);
             ctx.quadraticCurveTo(-5, -2, 0, 2);

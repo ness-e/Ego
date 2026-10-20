@@ -1,0 +1,50 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>diag</title>
+<style>html,body{margin:0;background:#000;color:#0f0;font:16px monospace;white-space:pre}</style>
+</head><body>
+<div id="out">?</div>
+<script type="module">
+import '../../src/runtime/avatar-element.js';
+const params = new URLSearchParams(location.search);
+const preset = params.get('preset') || 'ego-nucleus';
+const state = params.get('state') || 'idle';
+const el = document.createElement('ego-avatar');
+el.setAttribute('mode', 'studio');
+el.setAttribute('preset', preset);
+el.setAttribute('state', state);
+el.setAttribute('size', '400');
+el.setAttribute('sound', 'false');
+el.setAttribute('motion', 'reduce');
+el.setAttribute('presence', 'home');
+el.setAttribute('pointer-follow', 'false');
+el.setAttribute('auto-sleep', 'false');
+document.body.appendChild(el);
+
+const lines = [];
+function wait(n) {
+  return new Promise((res) => {
+    let i = 0;
+    const tick = () => { if (++i > n) { res(); return; } requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+}
+await wait(120);
+const host = el._studioHost;
+const b = host && host.backend;
+lines.push('presetAttr=' + el.getAttribute('preset'));
+lines.push('stateAttr=' + el.getAttribute('state'));
+lines.push('el.getState()=' + (el.getState ? el.getState() : 'n/a'));
+lines.push('host.expect=' + (host ? host.expect : 'n/a'));
+lines.push('backend=' + (b ? 'yes' : 'no'));
+if (b) {
+  lines.push('backend.bodyColor=' + b.bodyColor);
+  lines.push('backend.eyeStyle=' + b.eyeStyle);
+  lines.push('backend.accessory=' + b.accessory);
+  lines.push('backend.eyeColor=' + b.eyeColor);
+  lines.push('backend.state=' + b.state);
+  lines.push('backend.variantMode=' + b.variantMode);
+}
+lines.push('customElements.get=' + (typeof customElements.get('ego-avatar')));
+document.getElementById('out').textContent = lines.join('\n');
+</script>
+</body></html>

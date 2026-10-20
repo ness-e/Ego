@@ -1,0 +1,10 @@
+{
+  "ego-nucleus--idle.png": "2bdeedf7cc750f6684ebe25c0940c2427faaeb6dc362cda8c80713f1499fd84b",
+  "ego-cyber--idle.png": "84d998f99ec20d299546e012edda2559f969a358646c1f37a92986f5d56c3aea",
+  "ego-sentinel--idle.png": "6737a74eea2b15f67fd96a81f7b589836c7255ee33197ef94eef8b88980ae183",
+  "ego-architect--idle.png": "8d2982d1350d12056c5900c56a8c111f9617da118e8bb868e1c716a3f7fb858c",
+  "cx-faithful--idle.png": "582e6754450c5e053d402499ca170bdcd9330270d5e27430b2a8818559aa02bb",
+  "ego-nucleus--success.png": "d090e2ff244a9500ffa110c78354ee4639d1ee7165b10a2384be2ac79184fe42",
+  "ego-nucleus--error.png": "5e80842b8b073b7bec64d5a76b1ca6de4362dc3b19c5e8b6f623887aec12699a",
+  "ego-cyber--waiting.png": "1ed35bdd988e7566fcac75d11fe0d1cb7251efae2720631ed1c072eaea9c932f"
+}

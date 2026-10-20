@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ego Avatar — Robot Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='3' width='12' height='11' rx='5' fill='%237ddba3'/%3E%3Ccircle cx='6' cy='8' r='1.6' fill='%2307090d'/%3E%3Ccircle cx='10.5' cy='8' r='1.6' fill='%2307090d'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./studio.css" />
+</head>
+<body>
+<button type="button" id="dockToggle" aria-label="Abrir panel de personalización" aria-controls="dock" aria-expanded="false">⚙</button>
+
+<div class="canvas" id="stage">
+  <div class="title">Ego Avatar · Robot Studio / SVG + Vanilla JS / Web Component</div>
+  <div class="build-badge" id="buildBadge">Robot Studio …</div>
+
+  <div class="top-hud" id="topHud" aria-label="Accesos rápidos">
+    <span class="status-dot" aria-hidden="true"></span>
+    <span class="mono" id="hud-api-call">avatar.play('idle')</span>
+    <span class="hud-sep" aria-hidden="true">|</span>
+    <span class="hands-pill" id="handsPill">✋ Manos: auto</span>
+    <button type="button" id="hudSpin" title="Vuelta 360°">🔄 Vuelta</button>
+    <button type="button" id="hudTalk" title="Hablar">🗣️ Hablar</button>
+    <button type="button" id="hudZen" title="Solo avatar (oculta la interfaz)">👁️ Solo</button>
+  </div>
+  <button type="button" id="exitZen" hidden>⚙️ Mostrar interfaz</button>
+
+  <div class="avatar-home" id="home">
+    <ego-avatar id="face" seed="subego:conocimiento" size="140" mode="studio"></ego-avatar>
+  </div>
+
+  <div class="controls" id="controls" aria-label="Controles del avatar">
+    <div class="ctrl-group" aria-label="Estados">
+      <span class="ctrl-label">Estados</span>
+      <div class="ctrl-btns">
+        <button type="button" data-play="idle">Normal</button>
+        <button type="button" data-play="thinking">Pensando</button>
+        <button type="button" data-play="working">Trabajando</button>
+        <button type="button" data-play="searching">Buscando</button>
+        <button type="button" data-play="listening">Escuchando</button>
+        <button type="button" data-play="waiting">En espera</button>
+        <button type="button" data-play="success">Éxito</button>
+        <button type="button" data-play="finished">Terminado</button>
+        <button type="button" data-play="error">Error</button>
+        <button type="button" data-play="ratelimit">Límite</button>
+        <button type="button" data-play="approval">Aprobación</button>
+        <button type="button" data-play="question">Pregunta</button>
+        <button type="button" data-play="dizzy">Mareo</button>
+        <button type="button" data-play="sleeping">Dormido</button>
+      </div>
+    </div>
+    <div class="ctrl-group" aria-label="Emotes">
+      <span class="ctrl-label">Emotes</span>
+      <div class="ctrl-btns">
+        <button type="button" data-play="love">Enamorado</button>
+        <button type="button" data-play="surprised">Sorprendido</button>
+        <button type="button" data-play="proud">Orgulloso</button>
+        <button type="button" data-play="annoyed">Molesto</button>
+        <button type="button" data-play="wink">Guiño</button>
+        <button type="button" data-play="yawn">Bostezo</button>
+        <button type="button" data-play="happy">Alegre</button>
+        <button type="button" data-play="angry">Enfadado</button>
+        <button type="button" data-play="surprise">Sorpresa</button>
+        <button type="button" data-play="sad">Triste</button>
+        <button type="button" data-play="cool">Genial</button>
+      </div>
+    </div>
+    <div class="ctrl-group" aria-label="Acciones">
+      <span class="ctrl-label">Acciones</span>
+      <div class="ctrl-btns">
+        <button type="button" data-play="success">Éxito</button>
+        <button type="button" data-play="error">Error</button>
+        <button type="button" data-play="waiting">Espera</button>
+        <button type="button" data-play="inspect">Inspeccionar</button>
+        <button type="button" data-play="roll">Girar</button>
+        <button type="button" data-play="greet">Saludar</button>
+        <button type="button" data-play="send" data-studio-only title="Solo modo Studio">Despegar</button>
+        <button type="button" data-play="box" data-studio-only title="Solo modo Studio">Caja</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-pill" id="status" role="status">idle · en reposo</div>
+
+  <div class="switch-cluster">
+    <label class="follow-control" title="Controla si ojos y cabeza siguen el puntero">
+      <span>Seguimiento</span>
+      <input id="pointerFollow" type="checkbox" checked />
+      <span class="follow-switch" aria-hidden="true"></span>
+    </label>
+    <label class="follow-control" title="Activa o silencia el sonido procedural">
+      <span>Sonido</span>
+      <input id="soundSwitch" type="checkbox" checked />
+      <span class="follow-switch" aria-hidden="true"></span>
+    </label>
+  </div>
+
+  <p class="dbl-hint">Doble clic en el avatar para abrir el chat</p>
+</div>
+
+<aside id="dock" aria-label="Panel de personalización">
+  <div class="dock-head">
+    <strong>Personalizar</strong>
+    <span class="dock-sub">genoma · runtime · sonido</span>
+  </div>
+
+  <section class="dock-sec" aria-label="Identidad">
+    <h2>Identidad</h2>
+    <div class="row">
+      <input type="text" id="seedInput" aria-label="Semilla" value="subego:conocimiento" spellcheck="false" />
+      <button type="button" class="primary" id="seedApply">Aplicar</button>
+    </div>
+    <div class="row">
+      <button type="button" id="seedRandom">Semilla aleatoria</button>
+    </div>
+    <label class="ctl" for="gene-temperament">
+      <span class="ctl-head"><span class="ctl-name">Temperamento</span><output id="val-temperament" for="gene-temperament">0.50</output></span>
+      <input type="range" id="gene-temperament" data-gene="temperament" min="0" max="1" step="0.01" value="0.5" />
+    </label>
+    <label class="ctl" for="gene-aura">
+      <span class="ctl-head"><span class="ctl-name">Aura</span><output id="val-aura" for="gene-aura">0.60</output></span>
+      <input type="range" id="gene-aura" data-gene="aura" min="0.25" max="1" step="0.01" value="0.6" />
+    </label>
+  </section>
+
+  <section class="dock-sec" aria-label="Cabeza">
+    <h2>Cabeza</h2>
+    <label class="ctl" for="gene-roundness">
+      <span class="ctl-head"><span class="ctl-name">Redondez</span><output id="val-roundness" for="gene-roundness">50</output></span>
+      <input type="range" id="gene-roundness" data-gene="shape.roundness" data-fmt="int" min="0" max="100" step="1" value="50" />
+    </label>
+    <div class="row" aria-label="Redondez predefinida">
+      <button type="button" data-round="0">0</button>
+      <button type="button" data-round="50">50</button>
+      <button type="button" data-round="100">100</button>
+    </div>
+    <label class="ctl" for="gene-ratio">
+      <span class="ctl-head"><span class="ctl-name">Proporción</span><output id="val-ratio" for="gene-ratio">1.00</output></span>
+      <input type="range" id="gene-ratio" data-gene="shape.ratio" min="0.88" max="1.12" step="0.01" value="1" />
+    </label>
+  </section>
+
+  <section class="dock-sec" aria-label="Ojos">
+    <h2>Ojos</h2>
+    <label class="ctl" for="gene-eyes-scale">
+      <span class="ctl-head"><span class="ctl-name">Escala</span><output id="val-eyes-scale" for="gene-eyes-scale">1.00</output></span>
+      <input type="range" id="gene-eyes-scale" data-gene="eyes.scale" min="0.8" max="1.25" step="0.01" value="1" />
+    </label>
+    <label class="ctl" for="gene-eyes-spacing">
+      <span class="ctl-head"><span class="ctl-name">Separación</span><output id="val-eyes-spacing" for="gene-eyes-spacing">0.34</output></span>
+      <input type="range" id="gene-eyes-spacing" data-gene="eyes.spacing" min="0.28" max="0.42" step="0.01" value="0.34" />
+    </label>
+    <label class="ctl" for="gene-eyes-yBias">
+      <span class="ctl-head"><span class="ctl-name">Sesgo vertical</span><output id="val-eyes-yBias" for="gene-eyes-yBias">0.00</output></span>
+      <input type="range" id="gene-eyes-yBias" data-gene="eyes.yBias" min="-0.06" max="0.04" step="0.005" value="0" />
+    </label>
+  </section>
+
+  <section class="dock-sec" aria-label="Paleta">
+    <h2>Paleta</h2>
+    <label class="ctl" for="gene-hue">
+      <span class="ctl-head"><span class="ctl-name">Tono</span><output id="val-hue" for="gene-hue">210</output></span>
+      <input type="range" class="hue" id="gene-hue" data-gene="palette.hue" data-fmt="int" min="0" max="359" step="1" value="210" />
+    </label>
+    <label class="ctl" for="gene-sat">
+      <span class="ctl-head"><span class="ctl-name">Saturación</span><output id="val-sat" for="gene-sat">58</output></span>
+      <input type="range" id="gene-sat" data-gene="palette.sat" min="45" max="72" step="0.5" value="58" />
+    </label>
+    <label class="ctl" for="gene-deepShift">
+      <span class="ctl-head"><span class="ctl-name">Profundidad</span><output id="val-deepShift" for="gene-deepShift">0</output></span>
+      <input type="range" id="gene-deepShift" data-gene="palette.deepShift" data-fmt="int" min="-26" max="26" step="1" value="0" />
+    </label>
+    <label class="ctl" for="gene-accentHue">
+      <span class="ctl-head"><span class="ctl-name">Tono acento</span><output id="val-accentHue" for="gene-accentHue">170</output></span>
+      <input type="range" class="hue" id="gene-accentHue" data-gene="palette.accentHue" data-fmt="int" min="0" max="359" step="1" value="170" />
+    </label>
+    <label class="ctl" for="gene-accentSat">
+      <span class="ctl-head"><span class="ctl-name">Saturación acento</span><output id="val-accentSat" for="gene-accentSat">70</output></span>
+      <input type="range" id="gene-accentSat" data-gene="palette.accentSat" min="60" max="85" step="0.5" value="70" />
+    </label>
+    <label class="ctl" for="gene-accentLight">
+      <span class="ctl-head"><span class="ctl-name">Luz acento</span><output id="val-accentLight" for="gene-accentLight">58</output></span>
+      <input type="range" id="gene-accentLight" data-gene="palette.accentLight" min="52" max="64" step="0.5" value="58" />
+    </label>
+    <label class="ctl" for="gene-inkLight">
+      <span class="ctl-head"><span class="ctl-name">Luz tinta</span><output id="val-inkLight" for="gene-inkLight">14</output></span>
+      <input type="range" id="gene-inkLight" data-gene="palette.inkLight" min="12" max="17" step="0.1" value="14" />
+    </label>
+    <div class="presets" id="huePresets" aria-label="Tonos predefinidos">
+      <button type="button" data-hue="210" data-accent="170"><span class="sw" style="background:hsl(210 65% 55%)"></span>Océano</button>
+      <button type="button" data-hue="150" data-accent="90"><span class="sw" style="background:hsl(150 60% 45%)"></span>Bosque</button>
+      <button type="button" data-hue="28" data-accent="350"><span class="sw" style="background:hsl(28 85% 55%)"></span>Atardecer</button>
+      <button type="button" data-hue="265" data-accent="310"><span class="sw" style="background:hsl(265 65% 60%)"></span>Violeta</button>
+      <button type="button" data-hue="330" data-accent="200"><span class="sw" style="background:hsl(330 70% 60%)"></span>Rosa</button>
+      <button type="button" data-hue="220" data-accent="220"><span class="sw" style="background:hsl(220 20% 55%)"></span>Monocromo</button>
+    </div>
+  </section>
+
+  <section class="dock-sec" aria-label="Preset Studio">
+    <h2>Preset Studio</h2>
+    <div class="btn-grid" id="studioPresetBtns" aria-label="Presets fieles del Studio">
+      <button type="button" data-preset="cx-faithful">🟢 CX fiel</button>
+      <button type="button" data-preset="coucou-mochi">🍑 Mochi</button>
+    </div>
+    <p class="hint">El preset repinta la identidad visual (chasis, ojos, boca, accesorio).</p>
+  </section>
+
+  <section class="dock-sec" aria-label="Ojos Studio">
+    <h2>Ojos Studio</h2>
+    <div class="btn-grid small" id="eyeStyleBtns" aria-label="Estilos de ojo Studio">
+      <button type="button" data-eyes="cx-led">Robot</button>
+      <button type="button" data-eyes="mochi-sphere">Mochi</button>
+      <button type="button" data-eyes="cyber-visor">Visor</button>
+      <button type="button" data-eyes="pixel">Píxel</button>
+      <button type="button" data-eyes="anime">Anime</button>
+      <button type="button" data-eyes="cyclops">Cíclope</button>
+      <button type="button" data-eyes="heart">Corazón</button>
+      <button type="button" data-eyes="zen-arc">Arcos</button>
+      <button type="button" data-eyes="terminal">Terminal</button>
+    </div>
+    <label class="ctl" for="sp-eyeWidthRatio">
+      <span class="ctl-head"><span class="ctl-name">Ancho ojo</span><output id="out-eyeWidthRatio" for="sp-eyeWidthRatio">1</output></span>
+      <input type="range" id="sp-eyeWidthRatio" data-sp="eyeWidthRatio" min="0.55" max="1.65" step="0.05" value="1" />
+    </label>
+    <label class="ctl" for="sp-eyeHeightRatio">
+      <span class="ctl-head"><span class="ctl-name">Alto ojo</span><output id="out-eyeHeightRatio" for="sp-eyeHeightRatio">1</output></span>
+      <input type="range" id="sp-eyeHeightRatio" data-sp="eyeHeightRatio" min="0.55" max="1.65" step="0.05" value="1" />
+    </label>
+    <label class="ctl" for="sp-eyeSpacing">
+      <span class="ctl-head"><span class="ctl-name">Separación</span><output id="out-eyeSpacing" for="sp-eyeSpacing">28</output></span>
+      <input type="range" id="sp-eyeSpacing" data-sp="eyeSpacing" min="14" max="48" step="1" value="28" />
+    </label>
+    <label class="ctl" for="sp-eyeOffsetY">
+      <span class="ctl-head"><span class="ctl-name">Desplazamiento Y</span><output id="out-eyeOffsetY" for="sp-eyeOffsetY">-2</output></span>
+      <input type="range" id="sp-eyeOffsetY" data-sp="eyeOffsetY" min="-24" max="20" step="1" value="-2" />
+    </label>
+    <label class="ctl" for="sp-eyeGlowBlur">
+      <span class="ctl-head"><span class="ctl-name">Brillo</span><output id="out-eyeGlowBlur" for="sp-eyeGlowBlur">18</output></span>
+      <input type="range" id="sp-eyeGlowBlur" data-sp="eyeGlowBlur" min="0" max="36" step="1" value="18" />
+    </label>
+  </section>
+
+  <section class="dock-sec" aria-label="Boca y voz">
+    <h2>Boca y voz</h2>
+    <div class="btn-grid small" id="mouthStyleBtns" aria-label="Estilos de boca Studio">
+      <button type="button" class="mouth-btn" data-mouth="none">Sin boca</button>
+      <button type="button" class="mouth-btn" data-mouth="led-wave">LED</button>
+      <button type="button" class="mouth-btn" data-mouth="mochi-cute">Mochi</button>
+      <button type="button" class="mouth-btn" data-mouth="cat-kawaii">Gato</button>
+      <button type="button" class="mouth-btn" data-mouth="vocoder">Vocoder</button>
+      <button type="button" class="mouth-btn" data-mouth="pixel-mouth">Píxel</button>
+    </div>
+    <label class="ctl" for="sp-mouthScale">
+      <span class="ctl-head"><span class="ctl-name">Escala boca</span><output id="out-mouthScale" for="sp-mouthScale">1</output></span>
+      <input type="range" id="sp-mouthScale" data-sp="mouthScale" min="0.5" max="1.7" step="0.05" value="1" />
+    </label>
+    <label class="ctl" for="sp-mouthOffsetY">
+      <span class="ctl-head"><span class="ctl-name">Desplazamiento Y</span><output id="out-mouthOffsetY" for="sp-mouthOffsetY">24</output></span>
+      <input type="range" id="sp-mouthOffsetY" data-sp="mouthOffsetY" min="8" max="42" step="1" value="24" />
+    </label>
+    <div class="row">
+      <input type="text" id="speechText" placeholder="Escribe para hablar…" aria-label="Texto para hablar" />
+      <button type="button" class="primary" id="speakBtn">Hablar</button>
+    </div>
+  </section>
+
+  <section class="dock-sec" aria-label="Accesorios">
+    <h2>Accesorios</h2>
+    <div class="btn-grid small" id="accBtns" aria-label="Accesorios Studio">
+      <button type="button" data-acc="none">Sin accesorio</button>
+      <button type="button" data-acc="cx-full-kit">Kit CX</button>
+      <button type="button" data-acc="cx-antenna">Antena</button>
+      <button type="button" data-acc="headphones">Cascos</button>
+      <button type="button" data-acc="cat-ears">Gato</button>
+      <button type="button" data-acc="bunny-ears">Conejo</button>
+      <button type="button" data-acc="fox-ears">Zorro</button>
+      <button type="button" data-acc="bear-ears">Oso</button>
+      <button type="button" data-acc="aviator-glasses">Aviador</button>
+      <button type="button" data-acc="cyber-goggles">Goggles</button>
+      <button type="button" data-acc="glasses">Gafas</button>
+      <button type="button" data-acc="witch">Bruja</button>
+      <button type="button" data-acc="crown">Corona</button>
+      <button type="button" data-acc="halo">Halo</button>
+      <button type="button" data-acc="sprout">Brote</button>
+      <button type="button" data-acc="santa">Gorro</button>
+    </div>
+    <label class="ctl" for="sp-accessoryScale">
+      <span class="ctl-head"><span class="ctl-name">Escala</span><output id="out-accessoryScale" for="sp-accessoryScale">1</output></span>
+      <input type="range" id="sp-accessoryScale" data-sp="accessoryScale" min="0.55" max="1.6" step="0.05" value="1" />
+    </label>
+    <label class="ctl" for="sp-accessoryOffsetY">
+      <span class="ctl-head"><span class="ctl-name">Desplazamiento Y</span><output id="out-accessoryOffsetY" for="sp-accessoryOffsetY">0</output></span>
+      <input type="range" id="sp-accessoryOffsetY" data-sp="accessoryOffsetY" min="-25" max="25" step="1" value="0" />
+    </label>
+    <label class="ctl" for="sp-accessoryBounce">
+      <span class="ctl-head"><span class="ctl-name">Rebote</span><output id="out-accessoryBounce" for="sp-accessoryBounce">1</output></span>
+      <input type="range" id="sp-accessoryBounce" data-sp="accessoryBounce" min="0" max="2.2" step="0.1" value="1" />
+    </label>
+  </section>
+
+  <section class="dock-sec" aria-label="Cuerpo 3D">
+    <h2>Cuerpo 3D</h2>
+    <p class="pill mono" id="dimensions-pill" aria-live="off">📐 —</p>
+    <div class="row">
+      <button type="button" id="btnResetPreset">↺ Restablecer</button>
+      <button type="button" id="btnRandomMicro" title="Micro idle aleatorio ahora">✨ Micro ahora</button>
+    </div>
+    <label class="ctl" for="sp-bodyWidthRatio">
+      <span class="ctl-head"><span class="ctl-name">Ancho cuerpo</span><output id="out-bodyWidthRatio" for="sp-bodyWidthRatio">1</output></span>
+      <input type="range" id="sp-bodyWidthRatio" data-sp="bodyWidthRatio" min="0.55" max="1.65" step="0.02" value="1" />
+    </label>
+    <label class="ctl" for="sp-bodyHeightRatio">
+      <span class="ctl-head"><span class="ctl-name">Alto cuerpo</span><output id="out-bodyHeightRatio" for="sp-bodyHeightRatio">1</output></span>
+      <input type="range" id="sp-bodyHeightRatio" data-sp="bodyHeightRatio" min="0.55" max="1.65" step="0.02" value="1" />
+    </label>
+    <label class="ctl" for="sp-userScale">
+      <span class="ctl-head"><span class="ctl-name">Escala</span><output id="out-userScale" for="sp-userScale">1</output></span>
+      <input type="range" id="sp-userScale" data-sp="userScale" min="0.5" max="1.65" step="0.02" value="1" />
+    </label>
+    <label class="ctl" for="sp-squircleN">
+      <span class="ctl-head"><span class="ctl-name">Redondez n</span><output id="out-squircleN" for="sp-squircleN">4</output></span>
+      <input type="range" id="sp-squircleN" data-sp="squircleN" min="2" max="7.5" step="0.1" value="4" />
+    </label>
+    <label class="ctl" for="sp-visorWidthRatio">
+      <span class="ctl-head"><span class="ctl-name">Ancho visor</span><output id="out-visorWidthRatio" for="sp-visorWidthRatio">1</output></span>
+      <input type="range" id="sp-visorWidthRatio" data-sp="visorWidthRatio" min="0.65" max="1.25" step="0.02" value="1" />
+    </label>
+    <label class="ctl" for="sp-visorHeightRatio">
+      <span class="ctl-head"><span class="ctl-name">Alto visor</span><output id="out-visorHeightRatio" for="sp-visorHeightRatio">1</output></span>
+      <input type="range" id="sp-visorHeightRatio" data-sp="visorHeightRatio" min="0.6" max="1.3" step="0.02" value="1" />
+    </label>
+    <label class="ctl" for="sp-visorCornerRadius">
+      <span class="ctl-head"><span class="ctl-name">Radio visor</span><output id="out-visorCornerRadius" for="sp-visorCornerRadius">30</output></span>
+      <input type="range" id="sp-visorCornerRadius" data-sp="visorCornerRadius" min="8" max="52" step="1" value="30" />
+    </label>
+    <label class="ctl" for="sp-handScaleConfig">
+      <span class="ctl-head"><span class="ctl-name">Manos</span><output id="out-handScaleConfig" for="sp-handScaleConfig">1</output></span>
+      <input type="range" id="sp-handScaleConfig" data-sp="handScaleConfig" min="0.5" max="1.5" step="0.05" value="1" />
+    </label>
+    <p class="hint">El deslizador de redondez del genoma cubre un subconjunto; la forma completa está aquí.</p>
+  </section>
+
+  <section class="dock-sec" aria-label="Colores y física">
+    <h2>Colores y física</h2>
+    <div class="field">
+      <label class="lbl" for="bodyColorPick">Cuerpo</label>
+      <input type="color" id="bodyColorPick" value="#1e222d" aria-label="Color del cuerpo" />
+    </div>
+    <div class="swatches" id="bodySwatches" aria-label="Colores de cuerpo">
+      <button type="button" class="swatch" data-body="#1e222d" style="background:#1e222d" aria-label="Cuerpo #1e222d"></button>
+      <button type="button" class="swatch" data-body="#D97757" style="background:#D97757" aria-label="Cuerpo #D97757"></button>
+      <button type="button" class="swatch" data-body="#f4f4f6" style="background:#f4f4f6" aria-label="Cuerpo #f4f4f6"></button>
+      <button type="button" class="swatch" data-body="#231934" style="background:#231934" aria-label="Cuerpo #231934"></button>
+      <button type="button" class="swatch" data-body="#10B981" style="background:#10B981" aria-label="Cuerpo #10B981"></button>
+    </div>
+    <div class="field">
+      <label class="lbl" for="visorColorPick">Visor</label>
+      <input type="color" id="visorColorPick" value="#06080e" aria-label="Color del visor" />
+    </div>
+    <div class="swatches" id="visorSwatches" aria-label="Colores de visor">
+      <button type="button" class="swatch" data-visor="#06080e" style="background:#06080e" aria-label="Visor #06080e"></button>
+      <button type="button" class="swatch" data-visor="#151e2e" style="background:#151e2e" aria-label="Visor #151e2e"></button>
+      <button type="button" class="swatch" data-visor="#092218" style="background:#092218" aria-label="Visor #092218"></button>
+      <button type="button" class="swatch" data-visor="#261429" style="background:#261429" aria-label="Visor #261429"></button>
+    </div>
+    <div class="field">
+      <label class="lbl" for="eyeColorPick">Ojos</label>
+      <input type="color" id="eyeColorPick" value="#dbf59d" aria-label="Color de ojos" />
+    </div>
+    <div class="swatches" id="eyeSwatches" aria-label="Colores de ojos">
+      <button type="button" class="swatch" data-eye="#dbf59d" style="background:#dbf59d" aria-label="Ojos #dbf59d"></button>
+      <button type="button" class="swatch" data-eye="#38bdf8" style="background:#38bdf8" aria-label="Ojos #38bdf8"></button>
+      <button type="button" class="swatch" data-eye="#f472b6" style="background:#f472b6" aria-label="Ojos #f472b6"></button>
+      <button type="button" class="swatch" data-eye="#f59e0b" style="background:#f59e0b" aria-label="Ojos #f59e0b"></button>
+      <button type="button" class="swatch" data-eye="#09090b" style="background:#09090b" aria-label="Ojos #09090b"></button>
+    </div>
+    <div class="btn-grid small">
+      <button type="button" id="tglVisor">Visor: ON</button>
+      <button type="button" id="tglPods">Orejas: ON</button>
+      <button type="button" id="tglAutoColor">Color estado: ON</button>
+      <button type="button" id="handsCycle">Manos: Auto</button>
+    </div>
+    <label class="ctl" for="sp-jellyIntensity">
+      <span class="ctl-head"><span class="ctl-name">Gelatina</span><output id="out-jellyIntensity" for="sp-jellyIntensity">1</output></span>
+      <input type="range" id="sp-jellyIntensity" data-sp="jellyIntensity" min="0" max="1.5" step="0.1" value="1" />
+    </label>
+    <label class="ctl" for="sp-parallaxIntensity">
+      <span class="ctl-head"><span class="ctl-name">Paralaje</span><output id="out-parallaxIntensity" for="sp-parallaxIntensity">1</output></span>
+      <input type="range" id="sp-parallaxIntensity" data-sp="parallaxIntensity" min="0" max="1.8" step="0.1" value="1" />
+    </label>
+    <label class="ctl" for="sp-liveliness">
+      <span class="ctl-head"><span class="ctl-name">Viveza</span><output id="out-liveliness" for="sp-liveliness">1</output></span>
+      <input type="range" id="sp-liveliness" data-sp="liveliness" min="0" max="2" step="0.1" value="1" />
+    </label>
+  </section>
+
+  <section class="dock-sec" aria-label="Marca y apéndice">
+    <h2>Marca y apéndice</h2>
+    <div class="field">
+      <label class="lbl" for="sel-marking">Marca</label>
+      <select id="sel-marking">
+        <option value="none">Sin marca</option>
+        <option value="dots">Puntos</option>
+        <option value="stripe">Franja</option>
+        <option value="orbit">Órbita</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sel-appendage">Apéndice</label>
+      <select id="sel-appendage">
+        <option value="none">Sin apéndice</option>
+        <option value="antenna">Antena</option>
+        <option value="sprout">Brote</option>
+        <option value="ears">Orejas</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="dock-sec" aria-label="Runtime">
+    <h2>Runtime</h2>
+    <div class="field stack">
+      <span class="lbl">Motor</span>
+      <div class="seg" id="segMode" role="radiogroup" aria-label="Motor de render">
+        <input type="radio" id="mode-svg" name="avatar-mode" value="svg" /><label for="mode-svg">SVG · robot</label>
+        <input type="radio" id="mode-studio" name="avatar-mode" value="studio" checked /><label for="mode-studio">Studio · canvas</label>
+      </div>
+    </div>
+    <div class="field stack">
+      <span class="lbl">Tamaño</span>
+      <div class="seg" id="segSize" role="radiogroup" aria-label="Tamaño del avatar">
+        <input type="radio" id="size-96" name="avatar-size" value="96" /><label for="size-96">96</label>
+        <input type="radio" id="size-160" name="avatar-size" value="160" /><label for="size-160">160</label>
+        <input type="radio" id="size-220" name="avatar-size" value="220" /><label for="size-220">220</label>
+        <input type="radio" id="size-320" name="avatar-size" value="320" /><label for="size-320">320</label>
+      </div>
+    </div>
+    <div class="field">
+      <label class="chk"><input type="checkbox" id="motionChk" /> movimiento reducido</label>
+    </div>
+    <div class="field">
+      <label class="lbl" for="autoSleepSec">auto-sleep (s)</label>
+      <input type="number" id="autoSleepSec" min="0" step="1" placeholder="vacío = defecto · 0 = nunca" />
+    </div>
+    <div class="field">
+      <label class="chk"><input type="checkbox" id="pointerDock" checked /> pointer-follow</label>
+    </div>
+  </section>
+
+  <section class="dock-sec" aria-label="Sonido">
+    <h2>Sonido</h2>
+    <div class="field">
+      <label class="chk"><input type="checkbox" id="soundChk" checked /> sonido activado</label>
+    </div>
+    <label class="ctl" for="soundVol">
+      <span class="ctl-head"><span class="ctl-name">Volumen</span><output id="soundVolOut" for="soundVol">0.120</output></span>
+      <input type="range" id="soundVol" min="0" max="0.2" step="0.005" value="0.12" aria-label="Volumen" />
+    </label>
+    <div class="btn-grid small" id="soundBtns" aria-label="Catálogo de sonidos"></div>
+    <p class="hint">El volumen solo afecta al motor SVG; el Studio usa mezcla fija.</p>
+  </section>
+
+  <section class="dock-sec" aria-label="Micros">
+    <h2>Micros</h2>
+    <div class="btn-grid small" id="microBtns" aria-label="Micro-animaciones"></div>
+  </section>
+
+  <section class="dock-sec" aria-label="Hooks y presencia">
+    <h2>Hooks y presencia</h2>
+    <div class="row">
+      <select id="hookSel" aria-label="Hook del Cognitive Runtime"></select>
+      <button type="button" class="primary" id="hookNotify">Notify</button>
+    </div>
+    <div class="field">
+      <label class="chk"><input type="checkbox" id="hookNoReturn" /> noAutoReturn</label>
+    </div>
+    <div class="btn-grid" id="presenceBtns" aria-label="Presencia">
+      <button type="button" data-presence="home">Fijar base</button>
+      <button type="button" data-presence="compact">Compactar</button>
+      <button type="button" data-presence="hidden">Ocultar</button>
+      <button type="button" data-presence="launch">Lanzar</button>
+    </div>
+  </section>
+
+  <section class="dock-sec" aria-label="Exportar e importar">
+    <h2>Exportar / Importar</h2>
+    <div class="row">
+      <button type="button" id="expSvg">Exportar SVG</button>
+      <button type="button" id="expJson">Exportar JSON</button>
+    </div>
+    <div class="row">
+      <button type="button" id="copyGenome">Copiar genoma</button>
+      <button type="button" id="resetGenome">Reiniciar genes</button>
+    </div>
+    <textarea id="genomeText" aria-label="Genoma JSON" spellcheck="false" placeholder='{"shape":{"roundness":80},"palette":{"hue":210}}'></textarea>
+    <div class="row">
+      <button type="button" class="primary" id="applyGenome">Pegar → Aplicar</button>
+    </div>
+  </section>
+</aside>
+
+<div class="agent-overlay" id="agentOverlay" aria-hidden="true">
+  <section class="agent-phone" role="dialog" aria-modal="true" aria-label="Conversación con Ego">
+    <div class="panel-head">
+      <div class="panel-face-slot" id="slot"></div>
+      <div class="panel-copy"><div class="panel-title">Ego</div><div class="panel-sub">demo de conversación</div></div>
+      <button type="button" class="close" id="closeAgent" aria-label="Cerrar conversación">×</button>
+    </div>
+    <div class="chat" id="chat">
+      <div class="chat-spacer" aria-hidden="true"></div>
+      <div class="message agent"><div class="bubble">Soy Ego. Escríbeme algo y responderé con una expresión distinta cada vez.</div></div>
+    </div>
+    <div class="composer-wrap">
+      <div class="composer">
+        <textarea id="chatInput" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea>
+        <div class="sendrow">
+          <span class="hint">Enter envía · Mayús+Enter salto de línea</span>
+          <button type="button" class="send" id="chatSend">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="avatar-bubble" class="speech-bubble" aria-hidden="true"></div>
+
+<script type="module" src="./studio.js"></script>
+</body>
+</html>

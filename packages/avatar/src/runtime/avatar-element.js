@@ -12,7 +12,7 @@
 //  · matemática ocular (barrido, warning, modificadores)  → runtime/fx-eyes.js    (ARA)
 //  · keys de cabeza (error/nod/warning)+micros            → runtime/micro.js      (ARA+coucou)
 //  · puntero/wander/aburrimiento + springs de cabeza      → runtime/pointer.js    (ARA CORE:368-1043)
-//  · sonido procedural (28 recetas, cero assets)          → runtime/sound.js      (coucou core/sound.ts)
+//  · sonido procedural (28 recetas, cero assets)          → runtime/sound.js      (vendor/coucou/core/sound.ts)
 
 import { generateGenome, temperamentProfile } from '../core/genome.js';
 import { buildPalette, lerpHsl } from '../core/palette.js';
@@ -87,7 +87,8 @@ import {
 } from './extension-host.js';
 // Host del backend canvas (modo studio): importación estática ligera — el
 // motor pesado entra por import dinámico dentro del host.
-import { StudioHost } from '../studio/element-host.js';
+import { isStudio, studioHost, mountStudio, setStateStudio, runEmoteStudio } from './studio-bridge.js';
+import { toSVGString as serializeSVG } from './svg-export.js';
 
 const FRAME_MS = 33; // ~30 fps (patrón agent-robot-avatar)
 const CX = 120;
@@ -319,7 +320,7 @@ export class EgoAvatar extends ElementBase {
     // hooks con auto-retorno
     this._hookReturnTimer = 0;
 
-    // ambiente (zz/sweat) — coucou engine.ts:584-588
+    // ambiente (zz/sweat) — vendor/coucou/mochi/engine.ts:584-588
     this._lastAmbient = 0;
 
     // sonido procedural (runtime/sound.js): 28 recetas sintetizadas, sin assets.
@@ -390,8 +391,7 @@ export class EgoAvatar extends ElementBase {
 
   /** ¿Renderiza con el motor canvas del studio? (atributo `mode` manda) */
   _isStudio() {
-    const attr = this.getAttribute?.('mode');
-    return (attr ?? this._renderMode) === 'studio';
+    return isStudio(this, this._renderMode);
   }
 
   /**
@@ -399,8 +399,7 @@ export class EgoAvatar extends ElementBase {
    * sin backend). Solo en modo studio; en SVG devuelve null.
    */
   _studio() {
-    if (!this._studioHost && this._isStudio()) this._studioHost = new StudioHost(this);
-    return this._studioHost;
+    return studioHost(this);
   }
 
   /** Motor actual: 'svg' o 'studio'. */
@@ -656,81 +655,7 @@ export class EgoAvatar extends ElementBase {
    * el elemento solo conserva actividad (auto-sleep) y visibilidad.
    */
   _mountStudio() {
-    if (typeof this.attachShadow !== 'function') {
-      if (!this._studioHost) this._studioHost = new StudioHost(this);
-      this._n = { canvas: null, svg: null };
-      this._mounted = true;
-      return;
-    }
-    if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
-    if (!this.shadowRoot) {
-      if (!this._studioHost) this._studioHost = new StudioHost(this);
-      this._n = { canvas: null, svg: null };
-      this._mounted = true;
-      return;
-    }
-    this.shadowRoot.innerHTML = `<style>${STYLES}</style><canvas class="studio-canvas"></canvas>`;
-    const canvas = this.shadowRoot.querySelector('canvas');
-    this._n = { canvas: canvas || null, svg: null };
-    this._studioHost?.detach();
-    // se acarrea lo ajustado por el usuario (escala, flags, pendientes)
-    const prev = this._studioHost;
-    const host = new StudioHost(this);
-    if (prev) {
-      host.userScale = prev.userScale;
-      host.pointerOn = prev.pointerOn;
-      host.soundOn = prev.soundOn;
-      Object.assign(host._pendingParams, prev._pendingParams);
-    }
-    this._studioHost = host;
-    // sin DOM (Node/tests) no hay backend: la API de Ego sigue operativa
-    if (typeof document === 'undefined' || !canvas) {
-      this._mounted = true;
-      return;
-    }
-    host.pointerOn = this._pointerFollow !== false;
-    host.soundOn = this._soundEnabled !== false;
-    const presetAttr = this.getAttribute?.('preset');
-    if (presetAttr) host.applyPreset(presetAttr);
-    host.attach(canvas);
-    // listeners mínimos (el resto los pone el studio en su canvas)
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('pointermove', this._onPointerMove);
-      window.removeEventListener('pointermove', this._onDragMove);
-      window.removeEventListener('pointerup', this._onDragEnd);
-      window.removeEventListener('pointercancel', this._onDragEnd);
-      window.removeEventListener('resize', this._onStudioResize);
-    }
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', this._onVisibility);
-    }
-    this.removeEventListener?.('mouseenter', this._onEnter);
-    this.removeEventListener?.('mouseleave', this._onLeave);
-    this.removeEventListener?.('click', this._onHostClick);
-    this.removeEventListener?.('keydown', this._onKeyDown);
-    this._n.svg?.removeEventListener?.('pointerdown', this._onDragStart);
-    this._onPointerMove = (e) => {
-      this._pointer = { x: e.clientX, y: e.clientY };
-      this._lastPointerMove = performance.now();
-      this._noteActivity(false);
-    };
-    this._onVisibility = () => (typeof document !== 'undefined' && document.hidden ? this._stop() : this._start());
-    this._onStudioResize = () => this._studioHost?.resize();
-    if (typeof window !== 'undefined') {
-      window.addEventListener('pointermove', this._onPointerMove, { passive: true });
-      window.addEventListener('resize', this._onStudioResize, { passive: true });
-    }
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', this._onVisibility);
-    }
-    if (typeof ResizeObserver !== 'undefined' && canvas) {
-      this._resizeObserver?.disconnect();
-      this._resizeObserver = new ResizeObserver(() => {
-        this._studioHost?.resize();
-      });
-      this._resizeObserver.observe(canvas);
-    }
-    this._mounted = true;
+    return mountStudio(this, STYLES);
   }
 
   /* ─── loop ──────────────────────────────────────────────────── */
@@ -861,7 +786,7 @@ export class EgoAvatar extends ElementBase {
         this._blinkStart = 0;
         this._blink = 1;
         this._nextBlink = now + this._randBlinkDelay();
-        // 22 % de doble parpadeo (coucou engine.ts:574: setTimeout(blink, 230))
+        // 22 % de doble parpadeo (vendor/coucou/mochi/engine.ts:574: setTimeout(blink, 230))
         // la chance la modula el temperamento; el retardo viene de la config
         if (!this._doubleBlinkQueued && Math.random() < this._profile.doubleBlinkChance) {
           this._doubleBlinkQueued = true;
@@ -912,17 +837,17 @@ export class EgoAvatar extends ElementBase {
       tx = this._pose.gaze[0] * amp * 1.6;
       ty = this._pose.gaze[1] * amp * 1.2;
     }
-    // escaneo: sin(t·2.6)·0.6 (coucou engine.ts:514-517)
+    // escaneo: sin(t·2.6)·0.6 (vendor/coucou/mochi/engine.ts:514-517)
     if (cfgState.scans && !reduced) {
       tx = Math.sin(now / 1000 * 2.6) * amp * 0.85;
       ty = -0.12 * amp;
     }
-    // mirada mareada: sin(t·9)·0.25 (coucou engine.ts:519)
+    // mirada mareada: sin(t·9)·0.25 (vendor/coucou/mochi/engine.ts:519)
     if (cfgState.dizzyGaze && !reduced) {
       tx = Math.sin(now / 1000 * 9) * amp * 0.4;
       ty = Math.cos(now / 1000 * 7) * amp * 0.15;
     }
-    // dormido: pitch hacia abajo (coucou engine.ts:518)
+    // dormido: pitch hacia abajo (vendor/coucou/mochi/engine.ts:518)
     if (this._state === 'sleeping') {
       tx = 0;
       ty = -0.28 * amp;
@@ -1462,7 +1387,7 @@ export class EgoAvatar extends ElementBase {
     }
   }
 
-  /** Partícula ambiente: "z" de sueño o gota de sudor (coucou engine.ts:584-588). */
+  /** Partícula ambiente: "z" de sueño o gota de sudor (vendor/coucou/mochi/engine.ts:584-588). */
   _spawnAmbientParticle(kind) {
     if (!this._mounted || !this._n.particles || typeof document === 'undefined') return;
     if (!this._palette) return;
@@ -1497,7 +1422,7 @@ export class EgoAvatar extends ElementBase {
     if (this._particles.length > 18) this._retireParticle(0);
   }
 
-  /** Emisión ambiente cada 1.3 s (coucou engine.ts:584-588: zz / sweat 50 %). */
+  /** Emisión ambiente cada 1.3 s (vendor/coucou/mochi/engine.ts:584-588: zz / sweat 50 %). */
   _updateAmbient(now) {
     if (now - this._lastAmbient < this._cfgRuntime.ambientMs) return;
     this._lastAmbient = now;
@@ -1697,19 +1622,7 @@ export class EgoAvatar extends ElementBase {
    * contabilidad (acción manual que interrumpe), actividad y el evento.
    */
   _setStateStudio(name, opts = {}) {
-    const previous = this._state;
-    if (previous === name && !opts.immediate) return this;
-    this._state = name;
-    this._cfg = STATES[name];
-    this._studioHost?.applyState(name, { silent: !!opts.immediate });
-    // una acción temporal activa se invalida al cambiar de estado manual
-    if (this._action && !opts.fromAction) this._cancelAction('state-change');
-    this._noteActivity(false);
-    // dispatch opcional: en Node (tests sin DOM) no hay EventTarget
-    this.dispatchEvent?.(
-      new CustomEvent('state-change', { detail: { state: name, previous }, bubbles: true, composed: true })
-    );
-    return this;
+    return setStateStudio(this, name, opts);
   }
 
   /**
@@ -1877,13 +1790,7 @@ export class EgoAvatar extends ElementBase {
    * terminar se restaura el estado del elemento. Sin poses ni timeline SVG.
    */
   async _runEmoteStudio(name, token, cfg) {
-    this._emote = { name, cfg };
-    this._studioHost?.playEmote(name);
-    const ok = await this._wait(cfg.duration, token);
-    if (!ok) return { cancelled: true };
-    this._emote = null;
-    this._studioHost?.restore();
-    return { cancelled: false };
+    return runEmoteStudio(this, name, token, cfg);
   }
 
   /** Enciende los modificadores de ojos propios de cada emote. */
@@ -2256,8 +2163,7 @@ export class EgoAvatar extends ElementBase {
 
   /** Snapshot SVG del estado actual (exportación/miniaturas; '' en modo studio). */
   toSVGString() {
-    if (this._isStudio()) return '';
-    return this.shadowRoot?.querySelector('svg')?.outerHTML ?? '';
+    return serializeSVG(this);
   }
 
   /* ─── seguimiento de puntero ────────────────────────────────── */
@@ -2331,7 +2237,7 @@ export class EgoAvatar extends ElementBase {
 
   /**
    * Mapea un hook del Cognitive Runtime de Ego a su estado visual
-   * (coucou hooks.ts:143-284). `Stop` → finished con auto-retorno a los
+   * (vendor/coucou/island/hooks.ts:143-284). `Stop` → finished con auto-retorno a los
    * 5.2 s (hooks.ts:239-246).
    * @param {string} hookName
    * @param {{noAutoReturn?: boolean}} [opts]

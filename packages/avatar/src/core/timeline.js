@@ -1,6 +1,6 @@
 // timeline.js — secuenciador de tracks por campo + fases desde tablas de tiempos.
 // PORTES VERBATIM:
-//  · runner anim()/update(): coucou mochi/engine.ts:477-507 (tracks [to, dur, ease]
+//  · runner anim()/update(): vendor/coucou/mochi/engine.ts:477-507 (tracks [to, dur, ease]
 //    por prop con `locks` — un campo atrapado por un tween no lo pisan los
 //    sistemas de movimiento).
 //  · buildPhases(): agent-robot-avatar actions.js:32-42 (tabla de tiempos →
@@ -23,7 +23,7 @@ export function createTimeline({ now = () => performance.now() } = {}) {
   const api = {
     /**
      * Programa una secuencia de keys sobre un campo.
-     * (coucou engine.ts:477 — misma semántica: desde el valor ACTUAL del campo)
+     * (vendor/coucou/mochi/engine.ts:477 — misma semántica: desde el valor ACTUAL del campo)
      * @param {string} prop
      * @param {Array<[number, number, (t:number)=>number]>} keys [valorObjetivo, duraciónMs, ease]
      * @param {() => void} [onComplete]
@@ -37,7 +37,7 @@ export function createTimeline({ now = () => performance.now() } = {}) {
       return api;
     },
 
-    /** (coucou engine.ts:490-507) Avanza todos los tweens y escribe valores. */
+    /** (vendor/coucou/mochi/engine.ts:490-507) Avanza todos los tweens y escribe valores. */
     update() {
       const nowMs = now();
       for (const tw of [...tweens.values()]) {
@@ -69,7 +69,7 @@ export function createTimeline({ now = () => performance.now() } = {}) {
       return locks.has(prop);
     },
 
-    /** ¿Hay algo en movimiento? (coucou engine.ts:456) */
+    /** ¿Hay algo en movimiento? (vendor/coucou/mochi/engine.ts:456) */
     get busy() {
       return tweens.size > 0;
     },
@@ -105,8 +105,10 @@ export function createTimeline({ now = () => performance.now() } = {}) {
  * {W2: 400, W4: 600, …} en fases acumuladas: {w2Start, w2End, w4Start, …, duration}.
  * Como en el original, `keys` permite excluir claves que no forman parte del
  * fx (ARA excluye W1 de la secuencia de fases).
- * @param {Record<string, number>} timing
- * @param {string[]} [keys]
+ * @param {Readonly<Record<string, number>>} timing
+ * @param {ReadonlyArray<string>} [keys]
+ * @returns {Readonly<Record<string, number>>} fases acumuladas
+ *   `{w2Start, w2End, w4Start, …, duration}` (clave = clave en minúscula).
  */
 export function buildPhases(timing, keys) {
   if (!timing || typeof timing !== 'object') return Object.freeze({ duration: 0 });

@@ -24,12 +24,21 @@ export function el(tag, attrs = {}, children = '') {
   return `${open}${inner}</${tag}>`;
 }
 
-/** <g> con atributos; children en array. */
+/**
+ * <g> con atributos; children en array o ya serializado a string.
+ * @param {Record<string, unknown>} [attrs]
+ * @param {string|Array<string>} [children]
+ */
 export function group(attrs, children = []) {
   return el('g', attrs, children);
 }
 
-/** Agrupa nodos con transform/clase. */
+/**
+ * Agrupa nodos con transform/clase.
+ * @param {string} cls
+ * @param {string|Array<string>} [children]
+ * @param {Record<string, unknown>} [attrs]
+ */
 export function g(cls, children = [], attrs = {}) {
   return group({ class: cls, ...attrs }, children);
 }

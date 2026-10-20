@@ -11,7 +11,7 @@ Un solo elemento, dos motores de render:
 - **SVG** (defecto): organismo generativo por semilla — cabeza paramétrica de
   160 puntos, redondeo 0–100, ojos con párpados por poses numéricas, genoma
   propio (tinta, marca, apéndice, aura), 14 estados y 11 emotes.
-- **Studio** (canvas, `mode="studio"`): 22 estados, 9 estilos de ojo, 6 bocas
+- **Studio** (canvas, `mode="studio"`): 22 estados, 9 estilos de ojo, 5 bocas
   con lip-sync, 16 accesorios, manos articuladas de 5 dedos, visor, partículas
   y habla (burbuja + sonido).
 
@@ -46,7 +46,7 @@ Equivalente manual: `npx --yes serve -l 5199 .` y abre
   avatar.presence.forceHome();          // FSM de presencia: hidden/compact/home/greet
   avatar.setSeed('ego:otro');           // nueva identidad (regenera todo)
   avatar.speak('Hola', 3);              // habla (motor studio; burbuja + boca)
-  avatar.applyStudioPreset('fiel');     // preset visual del studio
+  avatar.applyStudioPreset('ego-nucleus'); // preset visual del studio
 </script>
 ```
 
@@ -110,6 +110,9 @@ Mapeo de hooks del runtime en `HOOK_STATE_MAP` (`UserPromptSubmit→thinking`,
 `Stop→finished` con auto-retorno a los 5.2 s, `StopFailure→error`,
 `PermissionRequest→approval`…) — ver `HOOK_AUTO_RETURN`.
 
+El vocabulario del **studio** es más amplio (22 estados) y se traduce con
+`EGO_TO_STUDIO_STATE` / `STUDIO_TO_EGO_STATE` (`src/studio/adapter.js`).
+
 ## Genoma (identidad)
 
 ```js
@@ -124,10 +127,15 @@ Mapeo de hooks del runtime en `HOOK_STATE_MAP` (`UserPromptSubmit→thinking`,
 ## Estructura
 
 ```
-avatar/
+packages/avatar/
 ├── RESEARCH.md            investigación (internet + motores de referencia, con URLs)
-├── DESIGN.md              principios (P1–P10), esquema de genoma, tabla de estados
-├── LICENSE.md             atribuciones (vendor/ y adaptaciones)
+├── DESIGN.md              principios (P1–P10), esquema de genoma, tabla de estados,
+│                          estado real del fork y divergencias documentadas
+├── LICENSE                MIT del motor (obligatorio en toda copia)
+├── LICENSE.md             tabla de atribuciones por fichero (obligatoria)
+├── NOTICE                 atribuciones de terceros en formato de aviso
+├── index.d.ts             tipos públicos del paquete
+├── tsconfig.json          typecheck real (allowJs + checkJs)
 ├── src/
 │   ├── core/              prng · genome (roundness) · palette · morph
 │   │                      config (Defaults/Bounds/clamp)
@@ -137,19 +145,26 @@ avatar/
 │   │                      · parts · shell · static (pose por hash djb2)
 │   ├── studio/            motor canvas Robot Studio (config, avatar, render/,
 │   │                      rig/, sound, adapter, element-host) + barrel `./studio`
+│   │   └── render/        geometry.js = proporciones canónicas de Ego
 │   └── runtime/           states (11 emotes + STATE_SOUND) · poses (tabla numérica)
-│                          · avatar-element · policy (action records/auto-sleep/
-│                          reduced-motion) · presence (FSM hidden/compact/home/greet)
+│                          · avatar-element · studio-bridge · svg-export
+│                          · policy (action records/auto-sleep/reduced-motion)
+│                          · presence (FSM hidden/compact/home/greet)
 │                          · fx-eyes (matemática ocular) · pointer (puntero/wander/
 │                          bored/head-follow) · micro (21 keyframes + keys de cabeza)
 │                          · sound (28 recetas Web Audio procedurales, cero assets)
-├── vendor/                copias originales de referencia (MIT, ver LICENSE.md)
 ├── demo/robot-studio/     Robot Studio (única demo del producto)
-├── captures/              capturas del rig
-└── tests/                 248 tests (determinismo, cabeza, rig ocular,
-                           poses numéricas, estados, config, timeline, política,
-                           FSM, puntero, fx-eyes, micros, sonido, elemento,
-                           studio y demos verificadas)
+├── vendor/                **corpus de atribución (solo lectura)**: copias
+│                          literales de las obras de terceros de las que
+│                          derivan partes de `src/`. NO es código de runtime
+│                          y NO debe importarse. Ver `vendor/README.md`.
+├── captures/
+│   ├── harness/           arnés de captura determinista del studio
+│   ├── before/            capturas de referencia (antes de un cambio)
+│   └── after/             capturas tras el cambio
+├── scripts/               build · sync-check · capture-visuals · capture · compare-*
+├── tests/                 266 tests (node --test) + golden/geometry.json
+└── dist/                  artefacto de build (generado, ignorado por git)
 ```
 
 ## API
@@ -167,12 +182,12 @@ avatar/
 | `playSound(name)` | reproduce una de las 28 recetas por nombre |
 | `playMicro(name)` | dispara una de las 21 micro-animaciones por nombre |
 | `toSVGString()` | snapshot SVG exportable (miniaturas/widgets; `''` en modo studio) |
-| `setMode(mode)` / `getMode()` | motor de render: `'svg'` (defecto) o `'studio'` (canvas: 22 estados, 9 ojos, 6 bocas, manos, visor) |
+| `setMode(mode)` / `getMode()` | motor de render: `'svg'` (defecto) o `'studio'` (canvas: 22 estados, 9 ojos, 5 bocas, manos, visor) |
 | `setStudioParam(k, v)` / `getStudioParam(k)` / `getStudioParams()` | parámetros visuales del motor studio |
-| `applyStudioPreset(name)` | aplica un preset visual del studio |
+| `applyStudioPreset(name)` | aplica un preset visual del studio (`cx-faithful`, `ego-nucleus`, `ego-cyber`, `ego-sentinel`, `ego-architect`) |
 | `speak(text, seconds?)` | habla en modo studio (burbuja + boca + sonido) |
 | `reset()` · `getState()` | utilidades |
-| atributos | `seed` `state` `size` `motion`(`auto\|full\|reduce`) `auto-sleep` `presence` `pointer-follow` `sound` `mode`(`svg\|studio`) |
+| atributos | `seed` `state` `size` `motion`(`auto\|full\|reduce`) `auto-sleep` `presence` `pointer-follow` `sound` `mode`(`svg\|studio`) `preset` |
 | config global | `configure({fps, blinkMinMs, autoSleepMs, gazeGain, jellyResponse…})` — toda cifra acota a `AVATAR_BOUNDS` |
 | estático | `staticSVG(seed, {state, emote, pose: 'hash'})` — pose por hash djb2 |
 | studio (import) | `import { HybridRobotAvatar } from './src/studio/index.js'` — clase canvas + `SoundSynthesizer`, tablas `STUDIO_STATES`/`EYE_STYLE_NAMES`/`MOUTH_STYLE_NAMES`/`ACCESSORY_NAMES` |
@@ -187,14 +202,107 @@ Extensiones: `registerAvatarExtension({name, actions, beforePlay, afterPlay, res
    approval > question > error > working > … > idle.
 4. Listas/widgets ⇒ `staticSVG(seed, {state})` sin DOM ni animación.
 
+---
+
+## Las tres copias (decisión del owner, 2026-10-19)
+
+Hay **tres** copias del motor en el repo, y se mantienen a propósito:
+
+| Copia | Ruta | Papel |
+|---|---|---|
+| Upstream | `repos-referencia/avatar/` | referencia (clon). **No se modifica ni se commitea**: su working tree está sucio y su `HEAD` está desfasado respecto a la copia de Ego. Material de estudio. |
+| **Paquete** | `packages/avatar/` | **canónico**. Se empaqueta, se documenta y se verifica. |
+| Vendorizada | `apps/desktop/renderer/floating/vendor/avatar/` | la que el renderer carga de verdad (import literal dentro del root servido, requisito de `FIND-12-01`). Debe ser **byte-idéntica** al paquete. |
+
+Este paquete es un **descendiente bifurcado** del *working tree* de upstream, no
+un espejo: de los 44 ficheros de `src/` del upstream, **28 son byte-idénticos**,
+**16 están bifurcados** (Ego va por delante) y **5 son nuevos** (no existen
+upstream). El detalle fichero a fichero está en
+[`DESIGN.md`](DESIGN.md) § *Estado real: este paquete es un fork del upstream*.
+
+La divergencia silenciosa entre las tres copias es el riesgo real de este
+diseño, así que hay una **puerta verificable por SHA-256**:
+
+```bash
+pnpm --filter @ego/avatar sync:check   # exit 1 si el paquete y la copia vendorizada divergen
+pnpm --filter @ego/avatar sync:write   # realinea la copia vendorizada desde el paquete
+```
+
+La puerta compara además los ficheros legales (`LICENSE`, `LICENSE.md`,
+`NOTICE`) y el corpus de atribución (`vendor/`): si una copia lleva la licencia
+y la otra no, también falla.
+
+### Estado honesto: qué copia ejecuta el runtime
+
+| | Ruta | ¿Quién la usa? |
+|---|---|---|
+| **Canónica** | `packages/avatar/` | Es el paquete que se empaqueta, se documenta y se verifica. **Hoy nadie lo importa**: `grep -rn "@ego/avatar" apps packages` → 0 resultados. |
+| **Vendorizada** | `apps/desktop/renderer/floating/vendor/avatar/` | **La que ejecuta el runtime.** `CharacterBadge.tsx:13` y `floating-avatar.tsx:70` importan el Web Component desde aquí, por un specifier **literal** dentro del root servido (requisito de `FIND-12-01`: `import(CONST)` no lo analiza Vite y produce un 404 en producción). |
+
+Es decir: **el paquete es canónico en el papel, y la copia vendorizada es la
+que corre**. Es la consecuencia directa de mantener las tres copias (decisión
+del owner, D5). Cablear el paquete como canónico exige tocar
+`CharacterBadge.tsx` y `floating-avatar.tsx` — y el flotante **seguirá
+necesitando** el specifier literal, así que la vendorización del flotante no
+se elimina aunque el resto migre. La diff exacta que A4 debe aplicar está en
+el handoff A6 de la ola de remediación.
+
+### La cadena de atribución MIT
+
+`vendor/` es un **corpus de atribución de solo lectura**: copias literales de
+las obras de terceros de las que derivan partes de `src/`. **No es código de
+runtime y no debe importarse** (el motor tiene 0 dependencias y no importa de
+ahí). Está en el repositorio —y no sólo en `repos-referencia/`, que está
+ignorado por git— para que **toda ruta citada en `LICENSE.md` y en las
+cabeceras de `src/` resuelva** y un auditor pueda seguir la cadena.
+
+```bash
+pnpm --filter @ego/avatar attribution:check   # exit 1 si alguna referencia queda colgando
+```
+
+## Scripts y verificación
+
+| Comando | Qué hace |
+|---|---|
+| `pnpm --filter @ego/avatar test` | 266 tests (`node --test tests/`) |
+| `pnpm --filter @ego/avatar typecheck` | `tsc -p tsconfig.json` (`allowJs` + `checkJs`), exit 0 real |
+| `pnpm --filter @ego/avatar build` | copia `src/` → `dist/` + `index.d.ts` y escribe `dist/build-manifest.json` (SHA-256 por fichero) |
+| `pnpm --filter @ego/avatar build:check` | verifica que `dist/` está al día |
+| `pnpm --filter @ego/avatar geometry:check` | **puerta geométrica**: compara la traza de operaciones de canvas contra la golden `tests/golden/geometry.json` (168 combinaciones: 28 estados × 6 módulos) |
+| `pnpm --filter @ego/avatar sync:check` | puerta de sincronización SHA-256 entre el paquete y la copia vendorizada (incluye el corpus de atribución) |
+| `pnpm --filter @ego/avatar attribution:check` | **puerta de atribución**: toda ruta citada en `LICENSE.md` y en las cabeceras de `src/` resuelve dentro del repo (exit 1 si alguna queda colgando) |
+| `pnpm --filter @ego/avatar capture:visuals` | capturas PNG del studio (registro visual) |
+
+### La puerta geométrica, y por qué no se fía de los píxeles
+
+`compare-geometry.mjs` registra **todas** las llamadas al contexto de canvas
+(`arc`, `ellipse`, `fillRect`, gradientes…) y compara las trazas. Es
+determinista al 100 %: la misma entrada produce siempre la misma traza, sin
+navegador.
+
+La alternativa —comparar PNG— **no sirve como puerta**: comparando el mismo
+código en dos sesiones de navegador distintas se ha medido hasta un **12 % de
+píxeles distintos** (rasterizado de canvas, acumulación del estado del motor).
+Un gate basado en hashes daría falsos rojos; uno basado en un umbral de píxeles
+daría falsos verdes. La golden de geometría resuelve las dos cosas: es
+determinista y verifica la forma real, no su antialiasing.
+
+La golden se generó a partir del código **anterior** a la sustitución de la
+geometría (D4), de modo que el código actual demuestra que la sustitución no movió
+ni un píxel de geometría.
+
 ## Atribuciones legales
 
-Este producto integra código MIT de terceros (motores de referencia) y un port
-del single-file HTML original. Detalle completo en [`LICENSE.md`](LICENSE.md).
+Este producto integra código MIT de terceros (motores de referencia) y código
+adaptado de un single-file HTML. El detalle por fichero está en
+[`LICENSE.md`](LICENSE.md); el aviso de terceros, en [`NOTICE`](NOTICE); la
+licencia del motor, en [`LICENSE`](LICENSE).
+
+**Ninguna copia del motor puede publicly distribuirse sin esos tres ficheros.**
 
 ## Estadísticas
 
-- **265 tests** · `node --test tests/` — determinismo byte a byte, cabeza
+- **266 tests** · `node --test tests/` — determinismo byte a byte, cabeza
   (plantilla 160 pts + roundness 0–100), rig ocular (párpados por pose,
   input-bar, amor), poses numéricas sin conmutaciones, estados, config/Bounds,
   timeline, política, FSM de presencia, puntero, fx-eyes unificados, micros,
@@ -202,4 +310,5 @@ del single-file HTML original. Detalle completo en [`LICENSE.md`](LICENSE.md).
   sonido, ojos, boca+manos, avatar headless, adaptador, modo dual del elemento
   con passthrough de parámetros/presets/habla y estados crudos) — y demo
   verificada (0 errores).
+- **168 combinaciones geométricas** verificadas contra la golden.
 - **0 dependencias** (runtime y dev).

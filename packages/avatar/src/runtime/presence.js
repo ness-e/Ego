@@ -1,5 +1,5 @@
 // presence.js — FSM de presencia del avatar (modos de mostrarse).
-// PORTADO de coucou windows/src/island/fsm.ts (IslandStateMachine, MIT):
+// PORTADO de vendor/coucou/island/fsm.ts (IslandStateMachine, MIT):
 // máquina hidden → petit → home → coucou con temporizadores de colapso
 // (petit 60 s, home 15 s, saludo 0.6 s / 10 s en hover) y modo "pinned"
 // para alertas que no deben colapsar. Adaptación: timers inyectables (Node

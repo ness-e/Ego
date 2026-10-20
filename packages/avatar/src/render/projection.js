@@ -1,5 +1,5 @@
 // projection.js — proyección de los ojos sobre la silueta (mirada 3D-ish).
-// PORTADO de coucou mochi/engine.ts drawEyes() (líneas 749-784, MIT):
+// PORTADO de vendor/coucou/mochi/engine.ts drawEyes() (líneas 749-784, MIT):
 //  · eyeYaw = sd·EYE_SP + yaw — cada ojo se desplaza/foreshortenece según el
 //    giro de cabeza, no solo con un translate plano.
 //  · visibilidad: cos(eyeYaw)·cos(eyePitch) > 0.04 (ojo trasero en el limbo).

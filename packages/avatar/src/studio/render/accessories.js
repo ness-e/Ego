@@ -1,8 +1,14 @@
 // accessories.js — accesorio superior de la cabeza.
-// Puerto verbatim de avatar_studio_cx_artlab_mochi_2_0.html:
-//   drawTopAccessory (líneas 3389-3805), los 16 accesorios.
+//
+// GEOMETRÍA PROPIA DE EGO. El catálogo de accesorios (antena, auriculares,
+// gafas, gorros de ears, visores, corona, halo, brote) y sus medidas están
+// definidos por Ego; los anclajes de la antena viven en ./geometry.js.
+//
+// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// líneas 3389-3805: se adapta el patrón (accesorio anclado sobre el casco que
+// gira con `antennaAngle` y emite un anillo expansivo según el estado); la
+// geometría, el catálogo y los nombres son propios.
 // Contrato: drawTopAccessory(ctx, S, rx, ry, turnShiftX = 0, sinYaw = 0).
-// `this.X` del original se lee como `S.X`; ayudantes desde ./helpers.js.
 
 import { getStateAccentColor, hexToRgba, roundRectPath, shadeColor } from './helpers.js';
 

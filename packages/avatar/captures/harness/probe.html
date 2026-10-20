@@ -1,0 +1,10 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>probe</title>
+<style>html,body{margin:0;background:#000;color:#0f0;font:28px monospace}</style>
+</head><body>
+<div id="out">?</div>
+<script>
+document.getElementById('out').textContent =
+  'search=[' + location.search + '] preset=[' + (new URLSearchParams(location.search).get('preset')) + ']';
+</script>
+</body></html>

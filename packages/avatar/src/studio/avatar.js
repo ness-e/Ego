@@ -1,5 +1,8 @@
 // HybridRobotAvatar — clase principal del estudio avatar (ESM puro, sin dependencias).
-// Puerto verbatim de `avatar_studio_cx_artlab_mochi_2_0.html` (4812 líneas):
+// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// líneas 4131-4810: se adapta el patrón (bucle de render, máquina de estados
+// del canvas, catálogo de estados y aplicación de presets); la geometría vive
+// en ./render/ y es propia de Ego.
 //   - constructor ............ líneas 707-872 del fichero fuente
 //   - resize ................. líneas 874-894
 //   - activateHands .......... líneas 983-986
@@ -360,9 +363,9 @@ export class HybridRobotAvatar {
 
   speak(text, duration = 3.2) {
     if (this.mouthStyle === 'none') {
-      this.mouthStyle = (this.variantMode === 'coucou-mochi' || this.eyeStyle === 'mochi-sphere') ? 'mochi-cute' : 'led-wave';
+      this.mouthStyle = 'led-wave';
       if (HAS_DOM) {
-        document.querySelectorAll('.mouth-btn').forEach((b) => {
+        /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.mouth-btn')).forEach((b) => {
           b.classList.toggle('active', b.dataset.mouth === this.mouthStyle);
         });
       }
@@ -392,7 +395,7 @@ export class HybridRobotAvatar {
     if (HAS_DOM) {
       const hud = document.getElementById('hud-api-call');
       if (hud) hud.textContent = `avatar.play('${stateName}')`;
-      document.querySelectorAll('.state-btn').forEach((btn) => {
+      /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.state-btn')).forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.state === stateName);
       });
     }
@@ -407,7 +410,7 @@ export class HybridRobotAvatar {
         this.speak('¡Hola! Todo mi cuerpo, ojos, boca y accesorios reaccionan en tiempo real.', 3.8);
         break;
       case 'bored':
-        this.impulse(1.12, 0.88, 6, 0.06, 0, 0.06);
+        this.impulse(1.12, 0.88, 6, 0.06, 0);
         this.say('😒 Qué aburrimiento... nada que procesar');
         break;
       case 'waiting':
@@ -431,7 +434,7 @@ export class HybridRobotAvatar {
         this.say('✅ ¡Tarea completada con éxito!');
         break;
       case 'failure':
-        this.impulse(1.24, 0.78, 14, -0.14, 0, -0.08);
+        this.impulse(1.24, 0.78, 14, -0.14, 0);
         this.say('🫠 La tarea falló en el último paso...');
         break;
       case 'warning':
@@ -440,11 +443,11 @@ export class HybridRobotAvatar {
         this.say('⚠️ Atención: revisa los permisos o parámetros');
         break;
       case 'inspect':
-        this.impulse(1.1, 0.92, -3, 0.08, 0, -0.06);
+        this.impulse(1.1, 0.92, -3, 0.08, 0);
         this.say('🧐 Inspeccionando código y trazas al detalle...');
         break;
       case 'blocked':
-        this.impulse(1.18, 0.85, 0, -0.18, 0, 0.1);
+        this.impulse(1.18, 0.85, 0, -0.18, 0);
         this.triggerSurfaceRipple(Math.PI, 0.9);
         this.say('🛑 Acción bloqueada por política o firewall');
         break;
@@ -923,14 +926,16 @@ export class HybridRobotAvatar {
     drawParticles(ctx, this);
   }
 
-  // Solo los 2 presets fieles: CX-ArtLab Fiel y Mochi 2.0 Fiel (fuente: 4731-4781).
+  // Aplica uno de los presets de Ego (ver STUDIO_PRESETS en ./config.js).
+  // Cada preset fija una identidad completa: chasis, visor, ojos, boca,
+  // accesorio y estado inicial.
   applyPreset(presetName) {
     if (HAS_DOM) {
-      document.querySelectorAll('.preset-btn').forEach((b) => b.classList.toggle('active', b.dataset.preset === presetName));
+      /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.preset-btn')).forEach((b) => b.classList.toggle('active', b.dataset.preset === presetName));
     }
 
     // Reset parametric dimensions to clean 100% defaults when switching base model
-    const D = STUDIO_DEFAULTS ?? {};
+    const D = /** @type {Record<string, number>} */ (STUDIO_DEFAULTS ?? {});
     this.bodyWidthRatio = D.bodyWidthRatio ?? 1.0;
     this.bodyHeightRatio = D.bodyHeightRatio ?? 1.0;
     this.globalScale = D.globalScale ?? 1.0;
@@ -948,8 +953,7 @@ export class HybridRobotAvatar {
     this.accessoryOffsetY = D.accessoryOffsetY ?? 0;
     this.accessoryBounce = D.accessoryBounce ?? 1.0;
 
-    const effective = presetName === 'coucou-mochi' ? 'cx-faithful' : presetName;
-    const p = STUDIO_PRESETS[effective] || STUDIO_PRESETS['cx-faithful'];
+    const p = STUDIO_PRESETS[presetName] || STUDIO_PRESETS['cx-faithful'];
     this.variantMode = p.variantMode;
     this.bodyColor = p.bodyColor;
     this.visorColor = p.visorColor ?? '#06080e';
@@ -1152,10 +1156,10 @@ export class HybridRobotAvatar {
 
       if (clickOffsetX < -10) {
         this.leftFlinch = 1.0;
-        this.impulse(1.22, 0.82, -5, 0.22, 6, 0.12);
+        this.impulse(1.22, 0.82, -5, 0.22, 6);
       } else if (clickOffsetX > 10) {
         this.rightFlinch = 1.0;
-        this.impulse(1.22, 0.82, -5, -0.22, -6, -0.12);
+        this.impulse(1.22, 0.82, -5, -0.22, -6);
       } else {
         this.impulse(1.24, 0.78, -6, 0);
       }

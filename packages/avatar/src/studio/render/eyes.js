@@ -1,12 +1,22 @@
-// eyes.js — Ojos del avatar studio (puerto verbatim del avatar studio).
-// Fuente: repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
-//   buildEyeSilhouettePath: líneas 922-981 · drawEyes: 2565-2588 ·
-//   drawCyberVisorBar: 2593-2633 · drawSingleEye: 2635-2898 ·
-//   drawCXArtLabEye: 2905-3028 · getStateAccentColor: 2069-2096.
+// eyes.js — ojos del avatar studio.
+//
+// GEOMETRÍA PROPIA DE EGO. Cada familia de ojos (LED, visor cyber, terminal,
+// pixel, anime, cyclops, corazón, arco zen) se recorta contra la silueta real
+// del ojo —no contra polígonos aproximados— y comparte el mismo rig de pupilas
+// (studio/rig/eyes.js).
+//
+// Se elimina la familia "mochi-sphere" (esfera oscura con brillo): no figuraba
+// en la enumeración vigente de estilos de ojo de Ego y el producto no
+// distribuye la identidad visual de Mochi.
+//
+// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// líneas 922-981, 2565-2588, 2593-2633, 2635-2898, 2905-3028, 2069-2096:
+// se adapta el patrón (silueta recortada real, barra de visor cyber, ojo LED
+// con halo de estado); la geometría y los nombres son propios.
 // Vanilla ESM, sin dependencias. `S` es el objeto plano de estado del avatar
 // (nunca se importa la clase — evita ciclos). `ctx` solo se toca dentro.
-// Orden de ramas de drawSingleEye preservado: cx-led → terminal → dizzy →
-// cross → arch → sleep → love → mochi → pixel → anime → cyclops.
+// Orden de ramas de drawSingleEye: cx-led → terminal → dizzy →
+// cross → arch → sleep → love → pixel → anime → cyclops.
 
 import { roundRectPath, hexToRgba, shadeColor } from './helpers.js';
 
@@ -192,13 +202,10 @@ export function drawSingleEye(ctx, S, x, y, scaleXFactor, isLeft, activeColor) {
   const h = Math.max(3.5, rig.h);
   const rad = Math.min(w / 2, h / 2, rig.radius);
 
-  const isDarkMochiEye = (S.eyeStyle === 'mochi-sphere' && !S.showVisor && !S.autoStateColors);
-  const strokeColor = (S.eyeStyle === 'mochi-sphere' && !S.showVisor) ? '#181210' : activeColor;
+  const strokeColor = activeColor;
 
-  if (!isDarkMochiEye && S.eyeStyle !== 'mochi-sphere') {
-    ctx.shadowColor = activeColor;
-    ctx.shadowBlur = S.eyeGlowBlur;
-  }
+  ctx.shadowColor = activeColor;
+  ctx.shadowBlur = S.eyeGlowBlur;
 
   // 1. Terminal Prompts Eye Style (Dynamic ASCII per state!)
   if (S.eyeStyle === 'terminal') {
@@ -305,58 +312,8 @@ export function drawSingleEye(ctx, S, x, y, scaleXFactor, isLeft, activeColor) {
     return;
   }
 
-  // 3. Mochi 2.0, Pixel, Anime & Cyclops Eyes with TRUE SILHOUETTE CLIPPING (Zero fake mask polygons!)
-  if (S.eyeStyle === 'mochi-sphere') {
-    const mw = Math.max(10, w * 0.92);
-    const mh = Math.max(5, h * 0.94);
-
-    // Subtle soft drop shadow of the eye socket
-    ctx.save();
-    ctx.translate(0, 1.5);
-    buildEyeSilhouettePath(ctx, mw + 1.5, mh + 1.5, Math.min(mw, mh) * 0.5, rig, isLeft, false);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
-    ctx.fill();
-    ctx.restore();
-
-    // Clip directly to the true morphed eye silhouette!
-    ctx.save();
-    buildEyeSilhouettePath(ctx, mw, mh, Math.min(mw, mh) * 0.5, rig, isLeft, false);
-    ctx.clip();
-
-    const eyeGrad = ctx.createLinearGradient(0, -mh / 2, 0, mh / 2);
-    eyeGrad.addColorStop(0, '#09090b');
-    eyeGrad.addColorStop(0.68, '#18181b');
-    eyeGrad.addColorStop(1, '#3f3f46');
-    ctx.fillStyle = eyeGrad;
-    ctx.fillRect(-mw, -mh, mw * 2, mh * 2);
-
-    // Lower iris bounce reflection (tinted by state accent when active)
-    ctx.fillStyle = S.autoStateColors && S.state !== 'idle'
-      ? hexToRgba(activeColor, 0.28)
-      : 'rgba(255, 255, 255, 0.16)';
-    ctx.beginPath();
-    ctx.ellipse(0, mh * 0.24, mw * 0.34 * rig.pupilScale, mh * 0.18 * rig.pupilScale, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Main upper-left catchlight (scales with pupilScale & quivers on failure/warning)
-    const jitter = (S.state === 'failure' || S.state === 'warning') ? Math.sin(S.time * 35) * 0.8 : 0;
-    const pupilShiftX = S.eyeLookX * 2.8 + jitter;
-    const pupilShiftY = S.eyeLookY * 2.8 + jitter;
-    const catchR = 4.5 * rig.pupilScale;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(-mw * 0.15 + pupilShiftX, -mh * 0.18 + pupilShiftY, catchR, catchR * 1.12, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Secondary bottom-right catchlight
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-    ctx.beginPath();
-    ctx.arc(mw * 0.16 + pupilShiftX * 0.5, mh * 0.16 + pupilShiftY * 0.5, 2.2 * rig.pupilScale, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-  } else if (S.eyeStyle === 'pixel') {
+  // 3. Pixel, Anime & Cyclops eyes with TRUE SILHOUETTE CLIPPING (no fake mask polygons).
+  if (S.eyeStyle === 'pixel') {
     const pw = Math.round(w * 0.88);
     const ph = Math.max(5, Math.round(h * 0.85));
     ctx.save();

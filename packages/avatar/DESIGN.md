@@ -285,6 +285,57 @@ explícitos). La demo `demo/robot-studio/` replica el dock sin CDN ni fuentes
 externas (CSS local, offline). El motor SVG sigue vivo en paralelo (barrel
 raíz); el studio tiene su propio barrel (`src/studio/index.js`).
 
+### 8b-bis. Geometría propia de Ego (decisión D4, 2026-10-19)
+
+El studio se había portado como transcripción del single-file HTML, con las
+cabeceras "Puerto verbatim de avatar_studio_cx_artlab_mochi_2_0.html" y la
+identidad visual de Mochi en el catálogo (preset `coucou-mochi`, estilo de ojo
+`mochi-sphere`, estilo de boca `mochi-cute`, rama de cuerpo "blob" y LED rosa de
+la vaina auditiva).
+
+**D4 (owner):** sustituir esos puertos por geometría propia que mantenga el
+comportamiento visual, y eliminar el preset `coucou-mochi`.
+
+Qué se hizo:
+
+| Cambio | Detalle |
+|---|---|
+| `src/studio/render/geometry.js` (nuevo) | **proporciones canónicas del robot de Ego**: chasis, panel trasero, reactor, vaina auditiva, accesorio, rubor y métricas de boca. Un solo hogar para las medidas que antes vivían dispersas como números mágicos heredados. |
+| `src/studio/render/{body,ears,eyes,mouth,accessories}.js` | reescritos con la geometría propia; **eliminadas** las ramas de Mochi (cuerpo blob, LED rosa, ojo `mochi-sphere`, boca `mochi-cute`). |
+| `src/studio/render/helpers.js` | re-elegido como capa de primitivas 2D genéricas (sin formas de robot); conserva el soporte `hsl`/`rgb` → hex. |
+| `src/studio/config.js` | **eliminado** el preset `coucou-mochi`; el catálogo queda en `cx-faithful` + los cuatro presets de identidad de Ego (`ego-nucleus`, `ego-cyber`, `ego-sentinel`, `ego-architect`). |
+| `src/studio/element-host.js` | fuera las redirecciones `coucou-mochi → cx-faithful`. |
+| `src/studio/avatar.js` | `applyPreset` sin rama `coucou-mochi`; `mouthStyle` por defecto `led-wave`. |
+| `src/runtime/avatar-element.js` | el comentario del preset `coucou-mochi` desaparece de la API pública. |
+| Cabeceras | normalizadas al formato canónico `Adapted from <upstream> (MIT), <ruta>`, con la nota de qué es geometría propia. |
+
+**La sustitución no movió geometría.** La prueba es determinista, no una
+comparación de píxeles: `scripts/compare-geometry.mjs` registra todas las
+llamadas al contexto de canvas y compara las trazas. La golden
+`tests/golden/geometry.json` se generó a partir del código **anterior** a la
+sustitución; el código actual coincide en **168/168 combinaciones**
+(28 estados × 6 módulos de dibujo), sin una sola operación distinta.
+
+> Por qué no se usa un diff de píxeles como prueba: comparando el **mismo**
+> código en dos sesiones de navegador distintas se midió hasta un 12 % de
+> píxeles distintos (rasterizado de canvas + acumulación del estado del motor).
+> La traza de operaciones no tiene ese ruido.
+
+### 8b-ter. Separación del elemento (2026-10-19)
+
+`runtime/avatar-element.js` era un monolito (2360 líneas) que mezclaba el
+contrato del elemento con la implementación de un renderizador. Se extrajeron:
+
+| Módulo nuevo | Contenido |
+|---|---|
+| `runtime/studio-bridge.js` | el pegamento con el motor canvas: `isStudio`, `studioHost`, `mountStudio`, `setStateStudio`, `runEmoteStudio`. |
+| `runtime/svg-export.js` | la serialización a SVG (`toSVGString`, `toSVGDocument`). |
+
+La clase `StudioHost` (backend canvas) ya vivía en `studio/element-host.js`;
+lo que se extrajo fue el glue. La extracción se verificó **sentencia a
+sentencia** contra el original (65 sentencias idénticas en `mountStudio`) y con
+los 266 tests en verde.
+
 ## 8c. Un solo elemento, dos motores (2026-10-14)
 
 `<ego-avatar mode="svg"|"studio">` (defecto `svg`): el vocabulario del producto
@@ -326,4 +377,79 @@ público en ambos; solo cambia el render.
 ## Atribuciones legales
 
 El rig visual y varios algoritmos provienen de código MIT de terceros.
-Detalle completo en `LICENSE.md`.
+Detalle completo en `LICENSE.md` (tabla por fichero), `NOTICE` (aviso de
+terceros) y `LICENSE` (MIT del motor). **Los tres ficheros deben viajar con
+toda copia** del motor: la cláusula MIT exige incluir el aviso de copyright, y
+`src/render/ara-head.js` es una copia literal de código de `agent-robot-avatar`
+(MIT, © CX ART Lab).
+
+---
+
+## 11. Estado real: este paquete es un fork del upstream
+
+`packages/avatar/` **no es un espejo** de `repos-referencia/avatar/`. Es un
+descendiente **bifurcado** de su *working tree* (el `HEAD` del upstream está
+desfasado respecto a su propio working tree, y no se modifica).
+
+De los 44 ficheros de `src/` del upstream: **28 byte-idénticos**,
+**16 bifurcados** y **5 nuevos**.
+
+| Situación | Ficheros |
+|---|---|
+| Byte-idénticos (28) | `core/{genome,morph,palette,prng,config}`, `render/{ara-head,body,eyes,parts,shell,static,projection}`, `runtime/{states,poses,policy,presence,extension-host,pointer,sound}`, `studio/{index,sound}`, `studio/render/{visor,overlays,particles}`, `studio/rig/{eyes,hands}` |
+| Bifurcados (16) | `core/timeline.js`, `render/builder.js`, `runtime/avatar-element.js`, `runtime/fx-eyes.js`, `runtime/micro.js`, `studio/adapter.js`, `studio/avatar.js`, `studio/config.js`, `studio/element-host.js`, `studio/sound.js`, `studio/render/{accessories,body,ears,eyes,helpers,mouth}.js` |
+| Nuevos (5) | `runtime/studio-bridge.js`, `runtime/svg-export.js`, `runtime/avatar-element.d.ts`, `runtime/sound.d.ts`, `studio/render/geometry.js` |
+
+En **todos** los bifurcados **Ego va por delante**:
+
+| Fichero | Divergencia |
+|---|---|
+| `runtime/avatar-element.js` | `preset` pasa a ser un atributo observado; `toSVGString()` y `setPointerFollow()` exponen API pública; `ResizeObserver` propio; el host de studio y el export SVG se extraen (§8b-ter). |
+| `studio/render/helpers.js` | soporte `hsl`/`rgb` → hex canónico; `hexToRgba` y `shadeColor` extraídas y reutilizables. |
+| `studio/render/body.js` | geometría propia de Ego; rama de Mochi eliminada. |
+| `studio/render/ears.js` | geometría propia de Ego; LED siempre de acento. |
+| `studio/render/eyes.js` | geometría propia de Ego; familia `mochi-sphere` eliminada. |
+| `studio/render/mouth.js` | geometría propia de Ego; estilo `mochi-cute` eliminado. |
+| `studio/render/accessories.js` | cabecera y catálogo de accesorios de Ego. |
+| `studio/config.js` | presets de identidad de Ego; `coucou-mochi` eliminado. |
+| `studio/element-host.js` | presets de Ego; `applyGenomeToStudio`; DPR. |
+| `studio/avatar.js` | `applyPreset` con catálogo de Ego. |
+| `studio/adapter.js` | `toHexColor` en la conversión de color del genoma. |
+| `core/timeline.js`, `render/builder.js`, `runtime/fx-eyes.js`, `runtime/micro.js`, `studio/sound.js` | tipos reales (JSDoc) que el `checkJs` exige; **sin cambio de comportamiento**. |
+
+> El detalle completo y actualizado de estas divergencias vive en
+> `docs/research/character-audit-and-coucou-inventory.md`.
+
+## 12. Verificación
+
+| Puerta | Qué garantiza |
+|---|---|
+| `pnpm --filter @ego/avatar test` | 266 tests (`node --test tests/`): determinismo, genoma, rig ocular, poses, estados, config, timeline, política, presencia, puntero, fx, micros, sonido, elemento, studio. |
+| `pnpm --filter @ego/avatar typecheck` | `tsc -p tsconfig.json` con `allowJs` + `checkJs`: el motor es JavaScript plano, pero **sí** se tipa. Exit 0 real (antes era un no-op). |
+| `pnpm --filter @ego/avatar geometry:check` | la geometría dibujada no cambia respecto a la golden (168 combinaciones). |
+| `pnpm --filter @ego/avatar sync:check` | el paquete y la copia vendorizada son idénticos (SHA-256), incluidos los ficheros legales. |
+| `pnpm --filter @ego/avatar build` | `dist/` reproducible, con manifiesto SHA-256 por fichero. |
+
+### Defecto latente encontrado por el typecheck
+
+`HybridRobotAvatar.impulse(sx, sy, vy, rot, vx)` acepta **cinco**
+parámetros, pero **seis** llamadas le pasaban un sexto argumento que
+**nunca se leía** (el valor se descartaba en silencio). Es un defecto
+**preexistente del upstream** —los cuatro primeros casos ya estaban en el
+single-file HTML original—, no una regresión. Se corrigió **eliminando el
+argumento muerto** (comportamiento idéntico) en lugar de adivinar qué
+significaba.
+
+## 13. Deuda conocida
+
+- El motor sigue siendo **JavaScript plano** con tipos públicos declarados en
+  `index.d.ts`. El tipado es real (`checkJs`), pero no estricto; migrar el
+  elemento a TypeScript eliminaría el `any` justificado de `studio-bridge.js` y
+  `svg-export.js`.
+- El corpus de atribuciones de terceros **vive en `packages/avatar/vendor/`** (31
+  ficheros de `agent-robot-avatar`, `coucou` y `coucou-swift`, copia literal).
+  Está en el repositorio —y no en `repos-referencia/avatar/vendor/`, que está
+  en `.gitignore`— precisamente para que **toda ruta citada en `LICENSE.md` y
+  en las cabeceras de `src/` resuelva** y la cadena MIT sea auditable. No es
+  dependencia de runtime (cero imports reales, verificado por
+  `scripts/check-attribution.mjs`).

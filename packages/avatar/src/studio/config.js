@@ -61,8 +61,14 @@ export const PRESET_DIM_RESET = Object.freeze({
 });
 
 /**
- * Presets fieles del Robot Studio de Ego.
- * CERO MOCHI: 'coucou-mochi' se redirige internamente a 'cx-faithful'.
+ * Presets del Robot Studio de Ego.
+ *
+ * Cada preset es una identidad completa: chasis, visor, color de ojos, estilo
+ * de ojo, boca, accesorio y estado inicial. `ego-nucleus` es el del núcleo de
+ * Ego; el resto identifica a los Sub-Egos por color y accesorio.
+ *
+ * No existe ningún preset "Mochi": el producto no distribuye la identidad
+ * visual de Mochi.
  */
 export const STUDIO_PRESETS = Object.freeze({
   'cx-faithful': Object.freeze({
@@ -140,23 +146,6 @@ export const STUDIO_PRESETS = Object.freeze({
     eyeStyle: 'terminal',
     mouthStyle: 'none',
     accessory: 'headphones',
-    squircleN: 4.0,
-    handsActiveTimer: 0,
-    play: 'idle',
-    playOptions: Object.freeze({ keepHandsHidden: true }),
-  }),
-  'coucou-mochi': Object.freeze({
-    // Redirigido internamente a cx-faithful (CERO MOCHI)
-    variantMode: 'cx-faithful',
-    bodyColor: '#1e222d',
-    visorColor: '#06080e',
-    showVisor: true,
-    showSidePods: true,
-    eyeColor: '#dbf59d',
-    autoStateColors: true,
-    eyeStyle: 'cx-led',
-    mouthStyle: 'none',
-    accessory: 'none',
     squircleN: 4.0,
     handsActiveTimer: 0,
     play: 'idle',

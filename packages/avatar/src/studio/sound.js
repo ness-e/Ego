@@ -40,12 +40,26 @@ export class SoundSynthesizer {
     if (!this.ctx) {
       // Guardia Node: sin `window` no hay AudioContext; se mantiene `ctx = null`.
       if (typeof window === 'undefined') return;
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx();
+      // `webkitAudioContext` es el prefijo heredado de Safari; no está en los
+      // tipos estándar de DOM, así que se lee de forma indexada.
+      const win = /** @type {Record<string, unknown>} */ (/** @type {unknown} */ (window));
+      const AudioCtx = win['AudioContext'] ?? win['webkitAudioContext'];
+      if (typeof AudioCtx === 'function') {
+        const Ctor = /** @type {new () => AudioContext} */ (AudioCtx);
+        this.ctx = new Ctor();
+      }
     }
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   }
 
+  /**
+   * @param {number} f1 frecuencia inicial (Hz)
+   * @param {number} f2 frecuencia final (Hz)
+   * @param {number} dur duración (s)
+   * @param {number} start offset de inicio (s)
+   * @param {OscillatorType} [type]
+   * @param {number} [vol]
+   */
   tone(f1, f2, dur, start, type = 'sine', vol = 0.11) {
     if (!this.enabled || !this.ctx) return;
     const osc = this.ctx.createOscillator();
