@@ -45,6 +45,27 @@ describe("@ego/tools — Conectores Nivel A Nativos (ACT-04)", () => {
       }).toThrow(/Violación de Sandbox/i);
     });
 
+    it("`validatePathAsync` bloquea un symlink en el DIRECTORIO padre que apunta fuera (TOCTOU)", async () => {
+      // T11: la variante síncrona solo comprobaba el symlink si el destino ya
+      // existía; un symlink nuevo en el padre escapaba del workspace.
+      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-outside-"));
+      try {
+        const linkPath = path.join(tempWorkspace, "escape");
+        fs.symlinkSync(outsideDir, linkPath, "junction");
+
+        await expect(
+          PathValidator.validatePathAsync("escape/secret.txt", tempWorkspace)
+        ).rejects.toThrow(/Symlink|Violación de Sandbox/i);
+      } finally {
+        fs.rmSync(outsideDir, { recursive: true, force: true });
+      }
+    });
+
+    it("`validatePathAsync` acepta una ruta válida dentro del workspace", async () => {
+      const resolved = await PathValidator.validatePathAsync("src/index.ts", tempWorkspace);
+      expect(resolved).toBe(path.resolve(tempWorkspace, "src/index.ts"));
+    });
+
     it("bloquea rutas críticas del sistema operativo", () => {
       const isWindows = process.platform === "win32";
       const criticalPath = isWindows ? "C:\\Windows\\System32\\cmd.exe" : "/etc/shadow";
@@ -68,7 +89,7 @@ describe("@ego/tools — Conectores Nivel A Nativos (ACT-04)", () => {
 
       expect(result).toBe(42);
       expect(insideLock).toBe(true);
-      expect(FileLockManager.isLocked(targetFile)).toBe(false);
+      expect(await FileLockManager.isLocked(targetFile)).toBe(false);
     });
 
     it("libera el lock incluso si la función interna arroja excepción", async () => {
@@ -80,7 +101,7 @@ describe("@ego/tools — Conectores Nivel A Nativos (ACT-04)", () => {
         })
       ).rejects.toThrow("Fallo de prueba");
 
-      expect(FileLockManager.isLocked(targetFile)).toBe(false);
+      expect(await FileLockManager.isLocked(targetFile)).toBe(false);
     });
   });
 
@@ -269,12 +290,26 @@ M  src/utils.ts
       };
 
       const result = await terminalTool.execute(
-        { command: "node -e \"console.log('EGO_SYSTEM_OK')\"" },
+        { command: "echo EGO_SYSTEM_OK" },
         ctx
       );
 
       expect(result.exitCode).toBe(0);
       expect(result.output).toContain("EGO_SYSTEM_OK");
+    }, 20_000);
+
+    it("rechaza `node -e` (ejecución de código arbitrario) en la ruta del agente", async () => {
+      const terminalTool = createTerminalExecTool();
+      const ctx = {
+        callId: "test-c4b",
+        sessionId: "s1",
+        workspacePath: tempWorkspace,
+      };
+
+      // `node -e` es un bypass total de cualquier allowlist: debe rechazarse.
+      await expect(
+        terminalTool.execute({ command: "node -e \"console.log('EGO_SYSTEM_OK')\"" }, ctx)
+      ).rejects.toThrow(/política de terminal/i);
     });
 
     it("cancela la ejecución cooperativamente ante AbortSignal (HELM-04)", async () => {
@@ -287,16 +322,21 @@ M  src/utils.ts
         abortSignal: abortController.signal,
       };
 
+      // Script real en el workspace: la política admite `node <script.js>`
+      // relativo, pero rechaza `node -e`.
+      const scriptPath = path.join(tempWorkspace, "sleeper.js");
+      fs.writeFileSync(scriptPath, "setTimeout(() => {}, 10000);", "utf-8");
+
       // Disparar cancelación rápida
       setTimeout(() => abortController.abort(), 100);
 
       await expect(
         terminalTool.execute(
-          { command: "node -e \"setTimeout(() => {}, 10000)\"" },
+          { command: "node sleeper.js" },
           ctx
         )
       ).rejects.toThrow(/cancelada por el usuario/i);
-    });
+    }, 20_000);
   });
 
   describe("6. registerNativeTools (ACT-04 — Integración completa)", () => {

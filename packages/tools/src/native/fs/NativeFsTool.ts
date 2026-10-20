@@ -5,10 +5,25 @@ import { z } from "zod";
 import { ToolDefinition, ToolExecutionContext } from "../../types.js";
 import { PathValidator } from "./PathValidator.js";
 import { FileLockManager } from "./FileLockManager.js";
+import { DEFAULT_MAX_READ_BYTES } from "./NativeFsSearchTools.js";
 
 const ReadFileInputSchema = z.object({
   path: z.string().describe("Ruta relativa o absoluta del archivo a leer dentro del workspace"),
   encoding: z.enum(["utf-8", "base64"]).default("utf-8").describe("Codificación de lectura"),
+  /**
+   * Tope de bytes leídos (T7 / A3-12). Antes la tool leía el fichero ENTERO
+   * sin ningún tope: el truncado a 5 MB ocurría después, en el
+   * `ExecutionManager`, con el contenido ya volcado en memoria.
+   */
+  maxBytes: z
+    .number()
+    .int()
+    .min(1)
+    .max(10 * 1024 * 1024)
+    .default(1024 * 1024)
+    .describe("Máximo de bytes a leer (1 MiB por defecto, 10 MiB máximo)."),
+  /** Desplazamiento inicial en bytes (para lecturas por trozos). */
+  offset: z.number().int().min(0).default(0).describe("Offset en bytes desde el inicio del fichero."),
 });
 
 const WriteFileInputSchema = z.object({
@@ -40,7 +55,7 @@ export function createFsReadFileTool(options: NativeFsOptions = {}): ToolDefinit
         throw new Error("No se definió workspacePath para la operación de lectura");
       }
 
-      const resolved = PathValidator.validatePath(input.path, workspace);
+      const resolved = await PathValidator.validatePathAsync(input.path, workspace);
 
       let stats: fs.Stats;
       try {
@@ -56,13 +71,49 @@ export function createFsReadFileTool(options: NativeFsOptions = {}): ToolDefinit
         throw new Error(`La ruta '${input.path}' es un directorio, no un archivo regular`);
       }
 
-      const content = await fs.promises.readFile(resolved, { encoding: input.encoding as BufferEncoding });
+      // T7 / A3-12: lectura ACOTADA. Antes se leía el fichero entero sin
+      // tope (el truncado a 5 MB era posterior, en el ExecutionManager).
+      const offset = input.offset ?? 0;
+      const maxBytes = input.maxBytes ?? DEFAULT_MAX_READ_BYTES;
+
+      if (offset > 0 && offset >= stats.size) {
+        return {
+          path: path.relative(workspace, resolved),
+          sizeBytes: stats.size,
+          mtimeMs: stats.mtimeMs,
+          content: "",
+          offset,
+          bytesRead: 0,
+          truncated: false,
+        };
+      }
+
+      const handle = await fs.promises.open(resolved, "r");
+      let content: string;
+      let bytesRead: number;
+      let truncated: boolean;
+      try {
+        const length = Math.min(maxBytes, Math.max(0, stats.size - offset));
+        const buffer = Buffer.alloc(length);
+        const { bytesRead: read } = await handle.read(buffer, 0, length, offset);
+        bytesRead = read;
+        truncated = offset + read < stats.size;
+        content =
+          input.encoding === "base64"
+            ? buffer.subarray(0, read).toString("base64")
+            : buffer.subarray(0, read).toString("utf8");
+      } finally {
+        await handle.close();
+      }
 
       return {
         path: path.relative(workspace, resolved),
         sizeBytes: stats.size,
         mtimeMs: stats.mtimeMs,
         content,
+        offset,
+        bytesRead,
+        truncated,
       };
     },
   };
@@ -88,7 +139,7 @@ export function createFsWriteFileTool(options: NativeFsOptions = {}): ToolDefini
         throw new Error("No se definió workspacePath para la operación de escritura");
       }
 
-      const resolved = PathValidator.validatePath(input.path, workspace);
+      const resolved = await PathValidator.validatePathAsync(input.path, workspace);
       const targetDir = path.dirname(resolved);
 
       await fs.promises.mkdir(targetDir, { recursive: true });
@@ -122,7 +173,13 @@ export function createFsWriteFileTool(options: NativeFsOptions = {}): ToolDefini
           // Limpiar archivo temporal si falló
           try {
             await fs.promises.unlink(tmpPath);
-          } catch {}
+          } catch (cleanupErr: unknown) {
+            console.warn(
+              `[NativeFsTool] No se pudo limpiar el temporal '${tmpPath}': ${
+                cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
+              }`
+            );
+          }
           throw err;
         }
 

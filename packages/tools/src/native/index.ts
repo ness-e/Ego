@@ -5,8 +5,14 @@ import {
   NativeFsOptions,
 } from "./fs/NativeFsTool.js";
 import {
+  createFsGlobTool,
+  createFsGrepTool,
+} from "./fs/NativeFsSearchTools.js";
+import { createFsEditPatchTool } from "./fs/NativeFsEditTool.js";
+import {
   createGitStatusTool,
   createGitDiffTool,
+  createGitSessionDiffTool,
   NativeGitOptions,
 } from "./git/NativeGitTool.js";
 import {
@@ -18,22 +24,26 @@ import {
   NativeCanvasOptions,
 } from "./canvas/NativeCanvasTool.js";
 
+export * from "./nativeToolNames.js";
 export * from "./fs/PathValidator.js";
 export * from "./fs/FileLockManager.js";
 export * from "./fs/NativeFsTool.js";
+export * from "./fs/NativeFsSearchTools.js";
+export * from "./fs/NativeFsEditTool.js";
+export * from "./fs/glob.js";
 
 export * from "./git/GitParser.js";
 export * from "./git/NativeGitTool.js";
 export * from "./git/SessionDiffRevisions.js";
 export * from "./git/ChangeSetService.js";
 export * from "./security/NetPolicy.js";
-export * from "./security/ResourcePolicy.js";
 
 export * from "./canvas/NativeCanvasTool.js";
 
 export * from "./terminal/TerminalOutputBuffer.js";
 export * from "./terminal/NativeTerminalTool.js";
 export * from "./terminal/TerminalSessionStore.js";
+export * from "./terminal/TerminalCommandPolicy.js";
 
 export interface NativeToolsOptions {
   workspacePath?: string;
@@ -74,6 +84,22 @@ export function registerNativeTools(
         ...options.fsOptions,
       })
     );
+    // T7 / A3-12: búsqueda en el filesystem (solo lectura).
+    registry.register(
+      createFsGlobTool({
+        defaultWorkspacePath: options.workspacePath,
+      })
+    );
+    registry.register(
+      createFsGrepTool({
+        defaultWorkspacePath: options.workspacePath,
+      })
+    );
+    registry.register(
+      createFsEditPatchTool({
+        defaultWorkspacePath: options.workspacePath,
+      })
+    );
   }
 
   if (enableGit) {
@@ -85,6 +111,12 @@ export function registerNativeTools(
     );
     registry.register(
       createGitDiffTool({
+        defaultWorkspacePath: options.workspacePath,
+        ...options.gitOptions,
+      })
+    );
+    registry.register(
+      createGitSessionDiffTool({
         defaultWorkspacePath: options.workspacePath,
         ...options.gitOptions,
       })

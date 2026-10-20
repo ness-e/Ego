@@ -244,7 +244,13 @@ export class TerminalSessionStore {
     if (instance.status === "running" && instance.killHandler) {
       try {
         instance.killHandler();
-      } catch {}
+      } catch (err: unknown) {
+        console.warn(
+          `[TerminalSessionStore] killHandler falló al cerrar la sesión '${sessionId}': ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      }
     }
 
     this.instances.delete(sessionId);

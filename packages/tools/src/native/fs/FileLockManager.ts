@@ -11,6 +11,10 @@ export interface FileLockOptions {
 /**
  * Gestor de exclusión mutua basada en lockfiles para evitar carreras concurrentes en filesystem.
  * Patrón Career-Ops CARP-02 (pipeline-lock.mjs).
+ *
+ * EGO-FIND-66 (Ola 1 / A3 / T11): todo el I/O pasó a `fs/promises`. Este
+ * lockfile está en el path de escritura (`fs_write_file`), es decir, en un
+ * path de IPC: el I/O síncrono bloqueaba el event loop del proceso main.
  */
 export class FileLockManager {
   private static readonly DEFAULT_TIMEOUT_MS = 5000;
@@ -51,9 +55,7 @@ export class FileLockManager {
       try {
         // Asegurar que el directorio padre existe
         const dir = path.dirname(lockPath);
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
+        await fs.promises.mkdir(dir, { recursive: true });
 
         // Bandera 'wx': falla inmediatamente si el archivo ya existe (atómico)
         const content = JSON.stringify({
@@ -61,17 +63,21 @@ export class FileLockManager {
           timestamp: Date.now(),
         });
 
-        fs.writeFileSync(lockPath, content, { flag: "wx" });
+        await fs.promises.writeFile(lockPath, content, { flag: "wx" });
         return; // Lock adquirido exitosamente
       } catch (err: unknown) {
         if (getErrorParts(err).code === "EEXIST") {
           // El lock ya existe. Verificar si es stale (huérfano/zombie)
-          if (this.isLockStale(lockPath, staleTimeout)) {
+          if (await this.isLockStale(lockPath, staleTimeout)) {
             try {
-              fs.unlinkSync(lockPath);
+              await fs.promises.unlink(lockPath);
               continue; // Reintentar inmediatamente tras limpiar stale lock
-            } catch {
-              // Otra instancia pudo haberlo eliminado
+            } catch (cleanupErr: unknown) {
+              console.warn(
+                `[FileLockManager] No se pudo limpiar el lock stale '${lockPath}': ${
+                  cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
+                }`
+              );
             }
           }
 
@@ -94,35 +100,46 @@ export class FileLockManager {
    */
   public static async releaseLock(lockPath: string): Promise<void> {
     try {
-      if (fs.existsSync(lockPath)) {
-        fs.unlinkSync(lockPath);
+      await fs.promises.unlink(lockPath);
+    } catch (err: unknown) {
+      const code = getErrorParts(err).code;
+      if (code !== "ENOENT") {
+        console.warn(
+          `[FileLockManager] No se pudo liberar el lock '${lockPath}': ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
       }
-    } catch {
-      // Ignorar si ya fue removido
     }
   }
 
   /**
-   * Determina si existe un archivo de bloqueo activo para la ruta especificada.
+   * Determina si existe un lockfile activo para la ruta especificada.
    */
-  public static isLocked(targetFilePath: string): boolean {
+  public static async isLocked(targetFilePath: string): Promise<boolean> {
     const lockPath = `${targetFilePath}.ego.lock`;
-    return fs.existsSync(lockPath);
+    try {
+      await fs.promises.access(lockPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
    * Determina si un lockfile pertenece a un proceso caído o expiró su tiempo de vida máximo.
    */
-  private static isLockStale(lockPath: string, staleTimeoutMs: number): boolean {
+  private static async isLockStale(lockPath: string, staleTimeoutMs: number): Promise<boolean> {
     try {
-      const stats = fs.statSync(lockPath);
+      const stats = await fs.promises.stat(lockPath);
       const ageMs = Date.now() - stats.mtimeMs;
       if (ageMs > staleTimeoutMs) {
         return true;
       }
 
-      // Intentar leer PID para verificar si sigue vivo
-      const data = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+      // Leer PID para verificar si sigue vivo
+      const raw = await fs.promises.readFile(lockPath, "utf-8");
+      const data = JSON.parse(raw) as { pid?: unknown };
       if (data.pid && typeof data.pid === "number") {
         try {
           process.kill(data.pid, 0); // Señal 0 verifica existencia del proceso sin matarlo
@@ -131,7 +148,12 @@ export class FileLockManager {
           return true; // Proceso no existe -> lock stale
         }
       }
-    } catch {
+    } catch (err: unknown) {
+      console.warn(
+        `[FileLockManager] No se pudo evaluar el lock '${lockPath}': ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
       return true;
     }
     return false;
