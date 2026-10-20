@@ -193,6 +193,62 @@ export class PayloadRegistry {
   }
 
   /**
+   * Lista los payloads registrados como **descriptores** de recurso.
+   *
+   * Ola 1b T5.3 (COUC-08): `PayloadRegistry` era código asimilado sin caller.
+   * Ahora es el proveedor de recursos del **servidor MCP de Ego**
+   * (`EgoMcpServer` → `resources/list` / `resources/read`): el registro
+   * expone la forma estructural que el servidor consume (`uri`, `name`,
+   * `description`, `mimeType`).
+   */
+  public list(): Array<{
+    uri: string;
+    name: string;
+    description?: string;
+    mimeType?: string;
+  }> {
+    const out: Array<{
+      uri: string;
+      name: string;
+      description?: string;
+      mimeType?: string;
+    }> = [];
+    for (const [id, entry] of this.store) {
+      out.push({
+        uri: `payload://${id}`,
+        name: entry.metadata.summary || id,
+        description: `[${entry.metadata.kind}] ${entry.metadata.sizeBytes} bytes`,
+        mimeType: entry.metadata.mimeType,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Lee un payload por su URI (`payload://<id>`).
+   *
+   * Devuelve `undefined` si el payload no existe o no está en caché.
+   */
+  public read(uri: string): { text?: string; blob?: string; mimeType?: string } | undefined {
+    const id = uri.startsWith("payload://") ? uri.slice("payload://".length) : uri;
+    const entry = this.store.get(id);
+    if (!entry) return undefined;
+
+    const mimeType = entry.metadata.mimeType;
+    if (typeof entry.data === "string") {
+      return { text: entry.data, mimeType };
+    }
+    if (entry.data === undefined || entry.data === null) {
+      return { text: "", mimeType };
+    }
+    try {
+      return { text: JSON.stringify(entry.data, null, 2), mimeType: mimeType ?? "application/json" };
+    } catch {
+      return { text: String(entry.data), mimeType: mimeType ?? "text/plain" };
+    }
+  }
+
+  /**
    * Obtiene sólo los metadatos ligeros de la referencia.
    */
   public getMetadata(refId: string): PayloadMetadata | undefined {
