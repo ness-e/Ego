@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-21T11:47:03.883Z",
+  "generatedAt": "2026-10-21T15:28:08.632Z",
   "markdownlintVersion": "0.15.0",
   "globs": "docs/**/*.md",
-  "totalViolations": 7143,
+  "totalViolations": 7148,
   "files": {
     "docs/adr/0001-electron-vite.md": {
       "MD003/heading-style": 6
@@ -352,8 +352,9 @@
       "MD022/blanks-around-headings": 6
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/VERDICT.md": {
-      "MD003/heading-style": 22,
-      "MD024/no-duplicate-heading": 1
+      "MD003/heading-style": 26,
+      "MD024/no-duplicate-heading": 1,
+      "MD012/no-multiple-blanks": 1
     },
     "docs/agent-ops/plans/archive/2026-10-12-aisdk-model-adapters.md": {
       "MD013/line-length": 21,

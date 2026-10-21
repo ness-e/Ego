@@ -319,7 +319,7 @@ describe("E2E isla flotante — comportamiento de la ventana flotante", () => {
     mgr.destroy();
   });
 
-  it("seguridad: click-through en hidden/muted y captura del ratón en hitl_approval", () => {
+  it("seguridad: click-through en hidden y captura del ratón en muted/compact y hitl_approval (EGO-FIND-104)", () => {
     const mgr = new FloatingWindowManager();
     mgr.show();
     const setIgnore = (mgr.getFloatingWindow() as unknown as {
@@ -336,11 +336,12 @@ describe("E2E isla flotante — comportamiento de la ventana flotante", () => {
     mgr.updateState({ attentionState: "hitl_approval" });
     expect(setIgnore).toHaveBeenCalledWith(false);
 
-    // muted → vuelve a click-through aunque el estado sea compacto.
+    // EGO-FIND-104: muted es SOLO audio. Una isla muted en compact sigue
+    // INTERACTIVA: el unmute vive en su propio botón (deadlock del fix).
     setIgnore.mockClear();
     mgr.updateState({ attentionState: "compact" });
     mgr.setMuted(true);
-    expect(setIgnore).toHaveBeenCalledWith(true, { forward: true });
+    expect(setIgnore).toHaveBeenCalledWith(false);
     mgr.destroy();
   });
 

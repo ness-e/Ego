@@ -342,6 +342,65 @@ handoff de A4 la negaba.
 | **Ola 6 · T2** — Backlog ↔ catálogo de extracción | ✅ **CERRADO** (A1) | `verify-backlog-gates` → **exit 0**: **546 filas coherentes** (antes 506). **33 filas** alineadas a `🚫 Descartada (con justificación)` con puntero a la fila canónica, y **7** a `✅ Completada` con el **caller de producción verificado** (no la ruta del upstream, que no existe en Ego). Las 2 celdas con texto descriptivo (`COUC-10`, `DSEK-05`) **reescritas**, no sólo el emoji. |
 | **Ola 6 · T3** — publicar el ADR-0023 y actualizar el registro | ✅ **CERRADO** (A1) | ADR-0023 **verificado** antes de publicar (`inner` es campo público en el JS compilado: `native.js:123`; las 5 APIs en `index.d.ts:603,614,622,629,636`; la resolución de `vantadb` **uniforme** en los 3 paquetes) e indexado. Registro: `VDB-REQ-02` (resuelto **y retirado**) · `VDB-REQ-15` (✅ cableado) · `VDB-REQ-16` (b resuelta + a pendiente, con el puente como workaround de Ego) · `VDB-REQ-14` (cuantificada: 320,03 MB de **disco**, ≈ 0,45 MB de **RAM**, 1 store en producción). → 26 hallazgos: **8 resueltos · 4 parciales · 4 persisten · 10 sin verificar**. |
 
+### 7.6 Contabilidad real del Backlog (verificada 2026-07-21) #
+
+> **Recuento medido** sobre `docs/roadmap/Backlog.md` (no una estimación): **103 filas
+> `EGO-FIND`** — la serie de hallazgos de la revisión full, que es la que
+> `scripts/verify-backlog-gates.mjs` contrasta con el catálogo canónico.
+
+| Estado | Filas | % |
+|---|---:|---:|
+| ✅ Completada | **86** | 83,5 % |
+| 🟡 Parcial | **4** | 3,9 % |
+| 🆕 Pendiente | **13** | 12,6 % |
+
+> ⚠️ El árbol se mueve: en la Ola 6 A5 abrió `EGO-FIND-96..103` (8 hallazgos de
+> auditoría visual/UX). El recuento de arriba es el de este momento; el de la
+> ola anterior era 95 filas / 81 ✅. **Lo que no cambia es el criterio**: una fila
+> sólo pasa a ✅ con **evidencia verificable** (fichero:línea o test).
+
+### 7.6.1 Las 17 que quedan abiertas, con su motivo en una línea #
+
+| Id | Estado | Qué falta exactamente |
+|---|---|---|
+| `EGO-FIND-22` | 🟡 | `DelegationRouter` **ya** se instancia en producción (`packages/subegos/src/DelegationRuntime.ts:14`); `DreamConsolidator` y `MemoryCurator` siguen **sólo en sus propios tests** ⇒ instanciarlos o retirarlos (decisión de producto) |
+| `EGO-FIND-29` | 🟡 | Las **5 APIs nativas ya tienen callsite** y el puente HybridRuntime funciona; falta el **call site** que arma el contexto cognitivo en el turno y el **ADR de activación** del nativo como motor canónico (el TS sigue siéndolo) |
+| `EGO-FIND-63` | 🟡 | Quedan **6 ficheros / 14 asserts** sobre texto de fuente (A4 → 11, A7 → 3); convertirlos en aserciones de comportamiento o aislarlos como lint-tests |
+| `EGO-FIND-94` | 🟡 | **(b) RESUELTA** (A7: raíz + resolución ascendente + puerta `vantadb:check` bloqueante). **(a) es upstream**: el wrapper `vantadb@0.9.0` no re-expone las APIs cognitivas ⇒ petición `VDB-REQ-16` a. Mitigada en Ego por el puente HybridRuntime |
+| `EGO-FIND-49` | 🆕 | Un servidor MCP puede **pisar tools nativas** (`overrideExisting: true`): exigir `allowOverride` explícito por servidor + auditar el override |
+| `EGO-FIND-81` | 🆕 | El **canal de obtención del token MCP** para clientes externos no está decidido ⇒ **decisión del owner** |
+| `EGO-FIND-82` | 🆕 | La cabecera canónica de atribución de licencia no está desplegada en **0 de 313** ficheros de `packages/` |
+| `EGO-FIND-83` | 🆕 | `khoj` es **AGPL-3.0** y el catálogo de extracción lo presenta como origen de 4 compuertas ✅ asimiladas ⇒ hay que corregir la clasificación |
+| `EGO-FIND-87` | 🆕 | `VDB-REQ-14` (**upstream**): 320,03 MB de pre-reserva por store, no parametrizable |
+| `EGO-FIND-96` | 🆕 | El CTA «Enviar» **deshabilitado es visualmente idéntico** al habilitado (`bg-brand` a opacidad plena) |
+| `EGO-FIND-97` | 🆕 | **3 selectores de modelo y 3 superficies de Sub-Ego visibles a la vez** en la vista Chat |
+| `EGO-FIND-98` | 🆕 | *Empty states* desalineados: Workbench «Navegador» y «Temas» dejan ~70 % de superficie vacía sin guía |
+| `EGO-FIND-99` | 🆕 | Los **presets de paleta canónicos no son visibles ni intercambiables** en la UI |
+| `EGO-FIND-100` | 🆕 | El **idioma del CTA primario no es estable**: coexisten ámbar sólido y blanco-outline como acciones primarias |
+| `EGO-FIND-101` | 🆕 | Anillo de foco ámbar **doble y denso** en el Selector de Modelos sobre dark |
+| `EGO-FIND-102` | 🆕 | El shell del panel anima `width`: la **única transición no-composited** de la app (reflow por frame) |
+| `EGO-FIND-103` | 🆕 | La **escala de motion no está canonizada**: duraciones/easings en producción son defaults de Tailwind, no tokens |
+
+### 7.6.2 Las 7 decisiones de producto que esperan al owner #
+
+| # | Decisión | Contexto | Recomendación de quien laMidió |
+|---|---|---|---|
+| 1 | **`OpaqueId` (DSEK-03) y `SessionCheckpointPolicy` (DSEK-05): ¿retirar o cablear?** | `OpaqueId` sólo lo usa `SessionCheckpointPolicy`, que sólo usan sus propios tests; en producción los `sessionId` son **cadenas libres** (`apps/desktop/src/ipc/schema.ts:712`) | A2bis: **retirar** (−2 módulos muertos), salvo que se quiera la durability fail-closed de sesión (entonces cablear, con el `beforeModelStream` ya diseñado) |
+| 2 | **`ZeroContextKernel` (HERM-18): ¿se cablea en producción?** | Sandbox endurecido (worker + `node:vm` sin intrínsecos) con caller real **sólo en la suite de seguridad** (`tests/security/injection-boundaries.test.ts`, SEC-08.C); cero uso en `apps/desktop` | A2bis: **mantenerlo como componente de test de seguridad** y documentarlo así, para que no se lea como código muerto por ignorancia; la alternativa (ejecutor de tools programáticas) es capacidad real con su coste |
+| 3 | **Hueco de capacidad tras retirar `UntrustedContentSanitizer` (CARP-04): ¿cablear la detección o aceptar la brecha?** | Era el **único** módulo con detección de inyección de prompt (13 patrones EN/ES, normalización anti-obfuscación) y neutralización de tags de control. No lo llamaba nadie ⇒ retirarlo **no cambia el comportamiento**, pero `scanEgoPut` sólo detecta **secretos** y el `TrustBoundary` **no** neutraliza tags | A2bis: **no lo decide** (es política de seguridad). Opciones: (a) cablear en el borde de escritura (`scanEgoPut` → quarantine + marca `untrusted`), o (b) aceptar y documentar la brecha |
+| 4 | **El clon confinado por Sub-Ego** (diff 3 de A3) | En el desktop **no existe** `cloneRegistryForProfile` y hay **un** registro de producción | A4: **no implementado**; la propuesta medida da ~2–5 tools por Sub-Ego sin coste de memoria, y **no cambia** qué tools puede invocar un Sub-Ego (eso lo decide el registro) |
+| 5 | **El canal de obtención del token MCP** (`EGO-FIND-81`) | El token vive sólo en el main (keychain) y **no** se expone al renderer; un cliente externo necesita otro canal | A1: variable de entorno con nombre explícito (`EGO_MCP_TOKEN`) o fichero `0600` en el directorio de datos + **descubrimiento del puerto** (hoy efímero) |
+| 6 | **Los certificados de firma** (`DIST-04`) | Bloquea E3 (binarios MCP embebidos + firma) y el bucket de distribución | — (material criptográfico que sólo el owner puede emitir) |
+| 7 | **El cifrado at-rest** (`VDB-REQ-08` / FIND-249) | VantaDB persiste todo en claro; la cuarentena de SEC-09 es **control de acceso, no confidencialidad** | — (upstream). Decisión de owner: **relajar SEC-09 o no** mientras el motor no cifre |
+
+### 7.6.3 Las peticiones upstream que quedan (no son trabajo de Ego) #
+
+| Id | Qué pide | Por qué no la cierra Ego |
+|---|---|---|
+| `VDB-REQ-14` | Que `ConnectOptions` permita **dimensionar o desactivar** la pre-reserva del índice vectorial (hoy 320,03 MB por store, no parametrizable: `read_only` + `memory_limit` a secas) | El consumo es **del motor**: el cliente no puede pedir «no reserves 320 MB». En Ego la mitigación es mantener **un solo** store abierto (lo que ya hace) |
+| `VDB-REQ-16` (a) | Que el wrapper `vantadb@0.9.0` **re-exponga** los métodos cognitivos del binding (`memoryRecall`, `contextAssemble`, `memoryConsolidate`, `memoryReinforce`) y declare `vantadb-node` como dependencia **no opcional**, con versión mínima de Node | El binding **ya** los tiene (`index.d.ts:614,622,629,636`); lo que falta es el espejo en el wrapper. **No bloquea el path cognitivo**: el puente HybridRuntime (`packages/memory/CognitivePath.ts:70`) llega al binding por `db.inner`, que es un `VantaDb` alcanzable en runtime. El fix upstream sigue siendo lo correcto: es el **destino** del puente |
+
+
 ### Reglas de la progresión por fases (no negociables) #
 
 1. La Ola 5 **no abre** fase nueva: cierra la contradicción y registra lo que las

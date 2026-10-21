@@ -171,12 +171,18 @@ Para cerrar la brecha entre los proyectos, el backlog técnico de VantaDB (`docs
    `vantadb-node@*`~~ → **resuelto el 2026-10-21**: `vantadb-node@0.9.0` está
    **publicado en npm** (Apache-2.0; `win32`/`darwin`/`linux`; `x64`+`arm64`;
    con firmas y `sha512`).
-   **Pendiente (A7, `EGO-FIND-64`):** los dos manifiestos siguen apuntando a
-   `file:../../../VantaDB/vantadb-node` (`apps/desktop/package.json:38`,
-   `packages/memory/package.json:27`) y CI sigue compilando un stub no-op. El
-   cambio a versión semántica es lo que convierte la publicación en un beneficio
-   real: install reproducible sin path local y **CI ejercitando el binding
-   real**.
+   **Y el repo ya lo consume (A7, verificado 2026-07-21):** `apps/desktop/package.json`
+   y `packages/memory/package.json` declaran `"vantadb-node": "0.9.0"` y
+   `"vantadb": "0.9.0"` **del registry** (no `file:`), `pnpm-lock.yaml` tiene **0
+   rutas `file:…VantaDB`** (antes 2), la **raíz** declara ambas dependencias (por
+   lo que la **resolución es ascendente** y uniforme en los 20 miembros del
+   workspace) y CI **ya no usa el stub no-op**: `scripts/verify-real-binding.mjs`
+   carga el binario nativo real y hace round-trip (connect → put → get → close).
+   **Puerta de regresión:** `scripts/verify-vantadb-resolution.mjs` (`vantadb:check`,
+   bloqueante en CI y dentro de `verify:all`) verifica la resolución desde **todos**
+   los miembros del workspace — sin ella, un agente puede volver a concluir, con
+   una medición aparentemente válida, que el motor no tiene una API (ya pasó).
+   Cierra `EGO-FIND-64`, `DIST-09` y `VDB-REQ-09`.
 
 ---
 
