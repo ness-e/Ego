@@ -1,8 +1,40 @@
 import { z } from "zod";
 import { ToolRegistry } from "../ToolRegistry.js";
-import { findMissingTools } from "../ToolContract.js";
-import type { ToolDefinition, ToolJsonSchema } from "../types.js";
+import { subEgoToolsView } from "../subEgoView.js";
+import type {
+  ToolDefinition,
+  ToolExecutionContext,
+  ToolFilter,
+  ToolJsonSchema,
+} from "../types.js";
 import { rankSkills, type SkillCatalogEntry, type SkillCatalogLike } from "./skillCatalog.js";
+
+/**
+ * Superficie mínima de consulta que comparten el registro global y la
+ * vista filtrada por Sub-Ego (Ola 9).
+ */
+interface ToolQuerySurface {
+  list(filter?: ToolFilter): ToolDefinition[];
+  exportJsonSchemas(filter?: ToolFilter): ToolJsonSchema[];
+}
+
+/**
+ * La superficie que consulta un metatool.
+ *
+ * - Con `subEgoId` en el contexto → la **vista filtrada** de ese Sub-Ego
+ *   (las tools privadas de otro no aparecen).
+ * - Sin `subEgoId` (la introspección de la UI, el servidor MCP) → el
+ *   registro **global** (que sigue siendo la fuente de verdad).
+ */
+function surfaceFor(
+  registry: ToolRegistry,
+  context?: ToolExecutionContext
+): ToolQuerySurface {
+  const subEgoId = context?.subEgoId;
+  return subEgoId
+    ? (subEgoToolsView(registry, subEgoId) as ToolQuerySurface)
+    : registry;
+}
 
 /**
  * E13 (Ola 4b / A3 / T2) — Metatools de divulgación progresiva.
@@ -222,13 +254,14 @@ export function createSearchToolsTool(
         .describe("Filtra por nivel de riesgo operacional."),
       limit: z.number().int().positive().max(maxLimit).optional()
     }),
-    execute: async (input): Promise<{
+    execute: async (input, context): Promise<{
       query: string;
       matches: ToolSummary[];
       total: number;
       truncated: boolean;
     }> => {
-      const all = registry.list();
+      const surface = surfaceFor(registry, context);
+      const all = surface.list();
       const filtered = all.filter((tool) => {
         if (input.category && tool.category !== input.category) return false;
         if (input.riskLevel && tool.riskLevel !== input.riskLevel) return false;
@@ -303,7 +336,7 @@ export function createExpandToolsTool(
         .describe("Alternativa a `tools`: expone las tools que casen con el texto."),
       limit: z.number().int().positive().max(maxLimit).optional()
     }),
-    execute: async (input): Promise<{
+    execute: async (input, context): Promise<{
       tools: ToolJsonSchema[];
       expanded: string[];
       total: number;
@@ -316,10 +349,15 @@ export function createExpandToolsTool(
         );
       }
 
+      const surface = surfaceFor(registry, context);
       let names: string[];
       if (requested.length > 0) {
-        // Contrato de existencia: fail-closed ante tools desconocidas.
-        const missing = findMissingTools(requested, registry);
+        // Contrato de existencia: fail-closed ante tools desconocidas **y**
+        // ante las que no pertenecen a este ámbito (Ola 9): la comprobación
+        // se hace sobre la MISMA superficie que se va a exportar, para que
+        // "no existe" signifique lo mismo en los dos sitios.
+        const available = new Set(surface.list().map((t) => t.name));
+        const missing = requested.filter((name: string) => !available.has(name));
         if (missing.length > 0) {
           throw new MetaToolError(
             `expand_tools: no se pueden expandir las tools '${missing.join(", ")}': no existen en el ` +
@@ -330,7 +368,7 @@ export function createExpandToolsTool(
       } else {
         const query = (input.query ?? "").trim();
         const limit = clampLimit(input.limit, defaultLimit, maxLimit);
-        names = registry
+        names = surface
           .list()
           .map((tool) => ({ tool, score: scoreTool(tool, query) }))
           .filter((entry) => entry.score > 0)
@@ -342,7 +380,7 @@ export function createExpandToolsTool(
           .map((entry) => entry.tool.name);
       }
 
-      const exported = registry.exportJsonSchemas();
+      const exported = surface.exportJsonSchemas();
       const byName = new Map(exported.map((schema) => [schema.name, schema]));
       const tools = names
         .map((name) => byName.get(name))

@@ -32,10 +32,15 @@ export class ToolRegistry {
   /**
    * Registra una herramienta en el catálogo.
    * Lanza excepción si el nombre es inválido o ya se encuentra registrado (salvo que allowOverride sea true).
+   *
+   * Ola 9 · vista filtrada: `options.ownerSubEgoId` declara el **dueño** de
+   * la tool → la tool queda **privada** de ese Sub-Ego (ninguna otra vista
+   * la expone). Sin dueño → la tool es **global** (la regla, documentada en
+   * `subEgoView.ts`).
    */
   public register(
     tool: ToolDefinition,
-    options: { allowOverride?: boolean } = {}
+    options: { allowOverride?: boolean; ownerSubEgoId?: string } = {}
   ): void {
     this.validateToolDefinition(tool);
 
@@ -46,7 +51,17 @@ export class ToolRegistry {
       );
     }
 
-    this.tools.set(tool.name, Object.freeze({ ...tool }));
+    // El dueño declarado en la propia tool tiene prioridad (es el dato
+    // estable); el de la llamada es el que se usa para las tools que se
+    // registran "en nombre de" un Sub-Ego (p. ej. las de un servidor MCP
+    // que se conecta en caliente).
+    const ownerSubEgoId = tool.ownerSubEgoId ?? options.ownerSubEgoId;
+    this.tools.set(
+      tool.name,
+      Object.freeze(
+        ownerSubEgoId !== undefined ? { ...tool, ownerSubEgoId } : { ...tool },
+      ),
+    );
   }
 
   /**
@@ -54,7 +69,7 @@ export class ToolRegistry {
    */
   public registerMany(
     tools: ToolDefinition[],
-    options: { allowOverride?: boolean } = {}
+    options: { allowOverride?: boolean; ownerSubEgoId?: string } = {}
   ): void {
     for (const tool of tools) {
       this.register(tool, options);

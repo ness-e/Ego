@@ -55,6 +55,19 @@ export interface ToolDefinition<TInput = any, TOutput = any> {
   readonly origin: ToolOrigin;
   readonly mcpServerId?: string;
   readonly tags?: readonly string[];
+  /**
+   * Sub-Ego **dueño** de la tool (Ola 9 · vista filtrada).
+   *
+   * - `undefined` → la tool es **GLOBAL**: la ven todos (ver la regla en
+   *   `subEgoView.ts`).
+   * - `X` → la tool es **privada** de `X`: ninguna otra vista la expone.
+   *
+   * Es lo que hace que el *arrival tardío* de una tool (una tool que
+   * registra un Sub-Ego concreto cuando su servidor MCP se conecta) no se
+   * filtre de forma desigual: la vista se calcula en el momento, sobre el
+   * registro global, sin copias.
+   */
+  readonly ownerSubEgoId?: string;
   readonly execute: (input: TInput, context: ToolExecutionContext) => Promise<TOutput>;
 }
 

@@ -25,7 +25,14 @@ import { SubEgoRuntime } from "./SubEgoRuntime.js";
 
 /** Superficie mínima de registro de tools (compatible con `ToolRegistry`). */
 export interface DelegationToolSink {
-  register(tool: ToolDefinition, options?: { allowOverride?: boolean }): void;
+  /**
+   * Ola 9 · vista filtrada: `ownerSubEgoId` declara el **dueño** de la tool
+   * → queda privada de ese Sub-Ego (las demás vistas no la exponen).
+   */
+  register(
+    tool: ToolDefinition,
+    options?: { allowOverride?: boolean; ownerSubEgoId?: string }
+  ): void;
   has?(name: string): boolean;
 }
 

@@ -187,6 +187,17 @@ export interface StructuredChildOutput {
   findings: string[];
   files: string[];
   issues: string[];
+  /**
+   * Ola 9 · vista filtrada: la superficie efectiva de tools del hijo (lo que
+   * declara ∧ lo que ve en su vista del registro). Es el presupuesto de tools
+   * del Sub-Ego: si se calculara sobre el registro global, mediría una
+   * superficie que el hijo no usa.
+   */
+  toolSurface?: {
+    tools: string[];
+    missing: string[];
+    budget: number;
+  };
 }
 
 /**
