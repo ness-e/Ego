@@ -2,6 +2,7 @@
 // Cubre src/studio/render/mouth.js, ears.js, accessories.js y src/studio/rig/hands.js
 // con ctx stub (Proxy) y estado plano `S` con los defaults del constructor
 // (avatar_studio_cx_artlab_mochi_2_0.html, líneas 713-766).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-mouth-hands.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { drawMouth, updateMouth } from '../src/studio/render/mouth.js';

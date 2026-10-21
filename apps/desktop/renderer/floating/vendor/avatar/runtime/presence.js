@@ -5,6 +5,7 @@
 // para alertas que no deben colapsar. Adaptación: timers inyectables (Node
 // testeable) y nombres de modo orientados a Ego:
 //   hidden (no visible) · compact (miniatura) · home (expandido) · greet (saludo)
+// Adapted from coucou (MIT), vendor/coucou/island/fsm.ts
 
 export const PRESENCE_MODES = Object.freeze(['hidden', 'compact', 'home', 'greet']);
 

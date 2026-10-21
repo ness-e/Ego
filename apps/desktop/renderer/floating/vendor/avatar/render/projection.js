@@ -6,6 +6,7 @@
 //  · fx/fy = lerp(max(0.18, cos·), 1, morph·0.7) — compresión acotada al 18 %.
 // Adaptado a SVG: devuelve deltas sobre la posición base del ojo (nuestro
 // espaciamiento lo aporta el genoma; EYE_SP solo gobierna la sensación 3D).
+// Adapted from coucou (MIT), vendor/coucou/mochi/engine.ts
 
 import { lerp } from '../core/morph.js';
 

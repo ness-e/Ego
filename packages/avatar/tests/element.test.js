@@ -3,6 +3,7 @@
 // superficie pública nueva (genoma, seguimiento de puntero, sonido) debe poder
 // USARSE sin montar el SVG. Aquí no se renderiza nada — eso lo cubre
 // tests/render.test.js con el render estático.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/element.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

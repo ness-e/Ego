@@ -1,6 +1,7 @@
 // genome.test.js — determinismo y rangos del genoma (P1/P2).
 // Genes de forma/ojos del rig ARA: shape {roundness, ratio}, eyes
 // {scale, spacing, yBias} (sin estilos ni exponentes).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/genome.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

@@ -3,6 +3,7 @@
 //   updateEyeRig: líneas 1531-1751.
 // Vanilla ESM, sin dependencias. `S` es el objeto plano de estado del avatar
 // (nunca se importa la clase — evita ciclos). Muta S.leftEye / S.rightEye.
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 
 export function updateEyeRig(S, dt) {
   const hoverDilate = 1.0 + S.bodyHoverAmount * 0.08;

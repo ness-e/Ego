@@ -1,5 +1,5 @@
 // HybridRobotAvatar — clase principal del estudio avatar (ESM puro, sin dependencias).
-// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 // líneas 4131-4810: se adapta el patrón (bucle de render, máquina de estados
 // del canvas, catálogo de estados y aplicación de presets); la geometría vive
 // en ./render/ y es propia de Ego.

@@ -3,6 +3,7 @@
 // barrido de error, cascada del warning, nod/angry/bob/shake, órbita de
 // espera, inspección, amor y caída de fallo. Envoltorio estándar:
 // { dx, dy, sx, sy, lid, done } (ver runtime/fx-eyes.js).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/fx-eyes.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

@@ -1,4 +1,5 @@
 // render.test.js — SVG estático: determinismo, estructura y sanidad.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/render.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { staticSVG } from '../src/render/static.js';

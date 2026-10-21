@@ -1,5 +1,5 @@
 // sound.js — motor de sonido procedural (cero assets: todo se sintetiza con Web Audio).
-// ADAPTADO de vendor/coucou/core/sound.ts + vendor/coucou/mochi/engine.ts (MIT, © Louis Raillart) — ver LICENSE.md.
+// Adapted from coucou (MIT), vendor/coucou/core/sound.ts
 // El original reproduce 28 WAV; aquí cada sonido es una receta sintetizada, así el
 // módulo sigue siendo cero-dependencias y funciona sin red.
 

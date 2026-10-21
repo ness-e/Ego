@@ -1,5 +1,6 @@
 // guards.test.js — regression de los parches de robustez (null-guards,
 // Node-safety, leaks y edge cases de timeline/micro). Cero DOM: todo corre en Node.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/guards.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

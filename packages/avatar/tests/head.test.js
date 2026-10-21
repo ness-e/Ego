@@ -1,6 +1,7 @@
 // head.test.js — cabeza del robot: plantilla ARA + aplastado + redondeo.
 // Todo viene de agent-robot-avatar (MIT © CX ArtLab): core.js (plantilla y
 // parseo), geometry.js (flatten) y head-roundness.js (mezcla 0–100).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/head.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ARA_HEAD_D, ARA_HEAD } from '../src/render/ara-head.js';

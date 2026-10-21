@@ -1,6 +1,7 @@
 // Tests Node-safe de src/studio/avatar.js (HybridRobotAvatar).
 // Si los módulos hermanos aún no existen (agentes en paralelo), el import falla y
 // la suite se marca como pendiente (skip) en vez de romper el árbol de tests.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-avatar.test.js
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';

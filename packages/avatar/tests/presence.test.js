@@ -1,4 +1,5 @@
 // presence.test.js — FSM de presencia (port de coucou IslandStateMachine).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/presence.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PresenceStateMachine, PRESENCE_MODES } from '../src/runtime/presence.js';

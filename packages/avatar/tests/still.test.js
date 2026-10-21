@@ -1,4 +1,5 @@
 // still.test.js — pose estática determinista (port de coucou MochiStill.swift).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/still.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { staticSVG, djb2, poseForSeed } from '../src/render/static.js';

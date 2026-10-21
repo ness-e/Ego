@@ -1,4 +1,5 @@
 // timeline.test.js — runner de tweens por campo (coucou anim()) + fases (ARA).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/timeline.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTimeline, buildPhases, piecewise } from '../src/core/timeline.js';

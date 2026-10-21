@@ -1,4 +1,5 @@
 // tests/studio-sound.test.js — sintetizador del studio (src/studio/sound.js).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-sound.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SoundSynthesizer, STUDIO_SOUND_NAMES } from '../src/studio/sound.js';

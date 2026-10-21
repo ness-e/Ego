@@ -1,4 +1,5 @@
 // policy.test.js — política del runtime: action records + auto-sleep (ARA).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/policy.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

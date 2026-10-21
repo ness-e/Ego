@@ -413,7 +413,7 @@ contrato del elemento con la implementación de un renderizador. Se extrajeron:
 La clase `StudioHost` (backend canvas) ya vivía en `studio/element-host.js`;
 lo que se extrajo fue el glue. La extracción se verificó **sentencia a
 sentencia** contra el original (65 sentencias idénticas en `mountStudio`) y con
-los 266 tests en verde.
+los 302 tests en verde.
 
 ## 8c. Un solo elemento, dos motores (2026-10-14)
 
@@ -559,15 +559,86 @@ En **todos** los bifurcados **Ego va por delante**:
 > El detalle histórico completo vive en
 > `docs/research/character-audit-and-coucou-inventory.md`.
 
+## 11-bis. El modelo de atribución (dos planos) y su manifiesto
+
+> Verificado y cerrado en la Ola 8 (2026-10-21).
+
+El modelo canónico (`docs/extractions/README.md` §4.3) distingue dos planos que
+no se pueden confundir:
+
+| Plano | Qué es | Qué lleva |
+|---|---|---|
+| **1 · Código** (`packages/**`) | un fichero **realmente derivado** (un port literal de un repo de referencia) | cabecera `Adapted from <upstream> (<LICENCIA>), <ruta de origen>` + aviso en el `LICENSE.md` del paquete |
+| **2 · Ficha** (`docs/extractions/*.md`) | documento de análisis **escrito por Ego** | fila de procedencia. **Nunca** `Adapted from` |
+
+Y la regla que no se puede violar: **un fichero nativo no lleva esa
+cabecera**. Inventarla sería una atribución falsa — el precedente `EGO-FIND-83`
+(el owner retiró el crédito a `khoj` porque el código atribuido era propio).
+
+### El manifiesto es el denominador
+
+`provenance.manifest.json` declara, **fichero a fichero**, si el código es
+derivado o nativo; y para cada derivado: su upstream, su licencia, su ruta de
+origen, el camino intermedio (`via`) y la **evidencia** de la clasificación.
+
+La clasificación no se además de la nada: se **midió** contra el clon de
+referencia `repos-referencia/avatar` con dos instrumentos complementarios:
+
+1. **Residuo de *shingles*** (48 caracteres sobre el texto normalizado, sin
+   comentarios): da la fracción del fichero que sigue siendo texto del
+   upstream. Cubre también el contenido de los literales de cadena (el punto
+   ciego de una métrica por líneas).
+2. **Literales y tablas**: para los ficheros que son una tabla de datos (por
+   ejemplo `src/studio/config.js`), la prueba es que cada valor literal
+   aparece en el fichero de origen.
+
+El `LICENSE.md` del propio clon es además el registro de procedencia por
+fichero del port, y se usó como contraste.
+
+### Lo que reveal la medición
+
+- La separación tiene un **hueco natural**: 3 ficheros a 0 % de residuo
+  (nuevos de Ego: `runtime/studio-bridge.js`, `runtime/svg-export.js`,
+  `src/studio/render/geometry.js`) frente a 36 ficheros entre el 26 % y el
+  100 %.
+- `src/render/ara-head.js` es el caso extremo: contiene el path SVG de 2411
+  caracteres **idéntico byte a byte** al atributo `d` de `#headShape` en
+  `vendor/agent-robot-avatar/core.js` (verificado).
+- `src/studio/render/accessories.js` conserva el código del clon **idéntico**
+  (366/366 líneas sin comentarios) pero su cabecera dice "geometría propia de
+  Ego": la verdad es que **no** se sustituyó bajo D4. El manifiesto lo declara
+  como derivado, que es lo correcto.
+- `demo/robot-studio/*` **no** es un port de los bloques del single-file HTML
+  (0 % de residuo contra el HTML completo): es una reescritura cuyo origen
+  inmediato es el clon de referencia. El manifiesto lo dice así, en vez de
+  repetir la fila histórica del `LICENSE.md` del clon.
+
+### La puerta
+
+`scripts/check-attribution.mjs` usa el manifiesto como denominador y falla si:
+
+- un derivado **no** lleva cabecera canónica;
+- la cabecera no tiene la forma exacta, o su upstream / licencia / ruta no
+  cuadran con el manifiesto;
+- **un nativo la lleva** (atribución falsa);
+- un fichero en disco no está clasificado, o una entrada del manifiesto no
+  existe;
+- el `LICENSE.md` no recoge el aviso de un upstream en uso;
+- alguna ruta `vendor/…` citada deja de resolver.
+
+Es **reproducible**: `--fix` reescribe las cabeceras que falten o no cuadren a
+partir del manifiesto, sin edición manual. Su test (`tests/attribution.test.js`)
+la ejercita con 11 *fixtures*.
+
 ## 12. Verificación
 
 | Puerta | Qué garantiza |
 |---|---|
-| `pnpm --filter @ego/avatar test` | 291 tests (`node --test tests/`): determinismo, genoma, rig ocular, poses, estados, config, timeline, política, presencia, puntero, fx, micros, sonido, elemento, studio, atributo `hands`, round-trip del puente. |
+| `pnpm --filter @ego/avatar test` | 302 tests (`node --test tests/`): determinismo, genoma, rig ocular, poses, estados, config, timeline, política, presencia, puntero, fx, micros, sonido, elemento, studio, atributo `hands`, round-trip del puente. |
 | `pnpm --filter @ego/avatar typecheck` | `tsc -p tsconfig.json` con `allowJs` + `checkJs`: el motor es JavaScript plano, pero **sí** se tipa. Exit 0 real (antes era un no-op). |
 | `pnpm --filter @ego/avatar geometry:check` | la geometría dibujada no cambia respecto a la golden (231 combinaciones: 33 estados × 7 módulos). |
 | `pnpm --filter @ego/avatar sync:check` | el paquete y la copia vendorizada son idénticos (SHA-256), incluidos los ficheros legales. |
-| `pnpm --filter @ego/avatar attribution:check` | toda ruta citada en `LICENSE.md` y en las cabeceras de `src/` resuelve dentro del repo. |
+| `pnpm --filter @ego/avatar attribution:check` | **puerta de atribución y de procedencia**: contra `provenance.manifest.json`, cada derivado lleva su cabecera canónica con el upstream/licencia/ruta correctos, ningún nativo la lleva, todo fichero de código está clasificado, el `LICENSE.md` recoge el aviso de cada upstream en uso y toda ruta `vendor/…` citada resuelve dentro del repo. |
 | `pnpm --filter @ego/avatar bridge:check` | ningún mapa nombra un estado del studio inexistente y el round-trip Ego↔studio conserva la identidad (15/15). |
 | `pnpm --filter @ego/avatar upstream:check` | toda divergencia frente al upstream está **declarada** con su motivo y su hash aprobado (§11). |
 | `pnpm --filter @ego/avatar build` | `dist/` reproducible, con manifiesto SHA-256 por fichero. |

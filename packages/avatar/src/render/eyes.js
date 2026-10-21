@@ -4,6 +4,7 @@
 // dentro de una máscara de clip local. Las expresiones son NÚMEROS de pose
 // (poses.js, tabla literal de core.js:8-57): aquí no hay modos, trazos ni
 // formas — solo geometría que el runtime muta por frame.
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/core.js
 
 import { el, group } from './builder.js';
 import { BODY } from './body.js';

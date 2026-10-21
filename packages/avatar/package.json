@@ -31,7 +31,8 @@
     "RESEARCH.md",
     "LICENSE",
     "LICENSE.md",
-    "NOTICE"
+    "NOTICE",
+    "provenance.manifest.json"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -46,6 +47,8 @@
     "sync:check": "node scripts/sync-check.mjs",
     "sync:write": "node scripts/sync-check.mjs --write",
     "attribution:check": "node scripts/check-attribution.mjs",
+    "attribution:declare": "node scripts/check-attribution.mjs --fix",
+    "provenance:check": "node scripts/check-attribution.mjs",
     "capture:visuals": "node scripts/capture-visuals.mjs --out captures/current"
   },
   "dependencies": {},

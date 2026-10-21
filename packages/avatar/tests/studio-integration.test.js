@@ -1,5 +1,6 @@
 // studio-integration.test.js — el motor completo corre headless en Node con
 // un ctx stub: play() → update() → draw() sin DOM ni canvas real.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-integration.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HybridRobotAvatar } from '../src/studio/avatar.js';

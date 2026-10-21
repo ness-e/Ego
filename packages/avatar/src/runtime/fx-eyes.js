@@ -4,6 +4,7 @@
 // LICENSE.md). Las tablas de keys de cabeza viven en `runtime/micro.js` y la
 // rutina de aburrimiento en `runtime/pointer.js`: aquí solo queda el espacio
 // de los OJOS.
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/actions.js
 //
 // ── Envoltorio estándar ─────────────────────────────────────────────────
 // Cada `sample` devuelve un DELTA con la misma forma:

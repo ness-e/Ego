@@ -6,6 +6,7 @@
 //  · buildPhases(): agent-robot-avatar actions.js:32-42 (tabla de tiempos →
 //    fases acumuladas por cursor).
 //  · segment(): actions.js:46-50 (= morph.js `seg`, se reexporta).
+// Adapted from coucou (MIT), vendor/coucou/mochi/engine.ts
 import { seg as segment, smooth } from './morph.js';
 import { Ease } from './anim.js';
 

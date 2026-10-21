@@ -4,6 +4,7 @@
 // ocurre solo dentro de `init()` (tiempo de ejecución) y está protegido con
 // `typeof window`, de modo que en Node (sin AudioContext) `play()` es un no-op
 // seguro que devuelve `false` en lugar de lanzar.
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 
 /** Nombres de sonido del `switch` de `play()` (html:642-701), incluido `'default'`. */
 export const STUDIO_SOUND_NAMES = Object.freeze([

@@ -1,6 +1,7 @@
 // extension-host.js — sistema de extensiones del avatar.
 // MISMO PATRÓN que vendor/agent-robot-avatar/extension-host.js (MIT, CX ArtLab):
 // un módulo externo registra acciones/hooks sin tocar el core:
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/extension-host.js
 //
 //   registerAvatarExtension({
 //     name: 'glitch',

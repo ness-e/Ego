@@ -1,5 +1,5 @@
 // micro.js — keyframes de micro-animación (squash, hop, insignia, saludos…).
-// ADAPTADO de vendor/coucou/mochi/engine.ts (MIT, © Louis Raillart) — ver LICENSE.md.
+// Adapted from coucou (MIT), vendor/coucou/mochi/engine.ts
 // Tablas keyframe literales del original, aplicadas sobre nuestro timeline.
 // Las keys de cabeza de ARA (error/nod/warning) también viven aquí: son el
 // mismo tipo de dato (listas [objetivo, ms, ease] para createTimeline) y así

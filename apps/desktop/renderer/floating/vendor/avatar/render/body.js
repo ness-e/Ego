@@ -5,6 +5,7 @@
 // 0–100 (head-roundness.js: exponente 10 ↔ 2.2, default 50). Todo como funciones
 // puras; el runtime solo re-emite el path al cambiar el genoma.
 // El relleno es plano (tinta de la identidad); el estado tiñe con un overlay.
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/geometry.js
 
 import { el, group } from './builder.js';
 import { ARA_HEAD_D } from './ara-head.js';

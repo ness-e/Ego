@@ -192,7 +192,7 @@ packages/avatar/
 │   ├── before/            capturas de referencia (antes de un cambio)
 │   └── after/             capturas tras el cambio
 ├── scripts/               build · sync-check · capture-visuals · capture · compare-*
-├── tests/                 266 tests (node --test) + golden/geometry.json
+├── tests/                 302 tests (node --test) + golden/geometry.json
 └── dist/                  artefacto de build (generado, ignorado por git)
 ```
 
@@ -303,20 +303,21 @@ ignorado por git— para que **toda ruta citada en `LICENSE.md` y en las
 cabeceras de `src/` resuelva** y un auditor pueda seguir la cadena.
 
 ```bash
-pnpm --filter @ego/avatar attribution:check   # exit 1 si alguna referencia queda colgando
+pnpm --filter @ego/avatar attribution:check   # exit 1 si un derivado no lleva su cabecera, si un nativo la lleva, si algo no esta clasificado o si una referencia queda colgando
+pnpm --filter @ego/avatar attribution:declare # reescribe las cabeceras canonicas que falten (desde el manifiesto; sin edicion manual)
 ```
 
 ## Scripts y verificación
 
 | Comando | Qué hace |
 |---|---|
-| `pnpm --filter @ego/avatar test` | 291 tests (`node --test tests/`) |
+| `pnpm --filter @ego/avatar test` | 302 tests (`node --test tests/`) |
 | `pnpm --filter @ego/avatar typecheck` | `tsc -p tsconfig.json` (`allowJs` + `checkJs`), exit 0 real |
 | `pnpm --filter @ego/avatar build` | copia `src/` → `dist/` + `index.d.ts` y escribe `dist/build-manifest.json` (SHA-256 por fichero) |
 | `pnpm --filter @ego/avatar build:check` | verifica que `dist/` está al día |
 | `pnpm --filter @ego/avatar geometry:check` | **puerta geométrica**: compara la traza de operaciones de canvas contra la golden `tests/golden/geometry.json` (231 combinaciones: 33 estados × 7 módulos) |
 | `pnpm --filter @ego/avatar sync:check` | puerta de sincronización SHA-256 entre el paquete y la copia vendorizada (incluye el corpus de atribución) |
-| `pnpm --filter @ego/avatar attribution:check` | **puerta de atribución**: toda ruta citada en `LICENSE.md` y en las cabeceras de `src/` resuelve dentro del repo (exit 1 si alguna queda colgando) |
+| `pnpm --filter @ego/avatar attribution:check` | **puerta de atribución y de procedencia**: contra `provenance.manifest.json`, cada derivado lleva su cabecera canónica con el upstream/licencia/ruta correctos, ningún nativo la lleva, todo fichero está clasificado, el `LICENSE.md` recoge el aviso de cada upstream en uso y toda ruta `vendor/…` citada resuelve dentro del repo |
 | `pnpm --filter @ego/avatar bridge:check` | **puerta del contrato del puente**: ningún mapa nombra un estado del studio inexistente y el round-trip Ego↔studio conserva la identidad (15/15) |
 | `pnpm --filter @ego/avatar upstream:check` | **puerta de divergencia declarada**: exit 1 si un fichero diverge del upstream sin estar declarado en `upstream-divergence.json`, si una declaración deja de ser verdad, o si cambia el contenido aprobado de un fichero declarado |
 | `pnpm --filter @ego/avatar upstream:declare` | re-declara los hashes del manifiesto de divergencias (imprime el cambio) |
@@ -349,9 +350,49 @@ licencia del motor, en [`LICENSE`](LICENSE).
 
 **Ninguna copia del motor puede publicly distribuirse sin esos tres ficheros.**
 
+### El manifiesto de procedencia (el denominador)
+
+[`provenance.manifest.json`](provenance.manifest.json) es el **registro
+canónico** de qué ficheros del paquete son código realmente derivado (un port
+literal) y cuáles son código nativo de Ego. Por fichero declara su upstream,
+su licencia, su ruta de origen y la **evidencia** de la clasificación.
+
+> **Un fichero derivado lleva cabecera canónica; un nativo no.** La forma es
+> `Adapted from <upstream> (<LICENCIA>), <ruta de origen>`, y un nativo que la
+> llevara sería una atribución falsa (precedente `EGO-FIND-83`).
+
+Clasificación actual (medida contra el clon de referencia
+`repos-referencia/avatar`, con residuo de *shingles* de 48 caracteres sobre el
+texto sin comentarios, y contrastada con el `LICENSE.md` del propio clon):
+
+| | Ficheros | Nota |
+|---|:---:|---|
+| **Derivados** | **63** | 31 en `src/`, 29 en `tests/`, 3 en `demo/` |
+| **Nativos** | **23** | 19 en `src/`, 3 tests propios, 1 golden (dato) |
+
+Por upstream: `agent-robot-avatar` 9 · `coucou` 7 · `coucou-swift` 1 ·
+`ego-avatar-studio` 14 (el motor canvas del single-file HTML) · `ego-avatar`
+32 (los 29 tests portados y los 3 ficheros de la demo).
+
+**La puerta que lo vigila** es `scripts/check-attribution.mjs`
+(`pnpm --filter @ego/avatar attribution:check`): falla si un derivado no lleva
+su cabecera canónica, si la cabecera no tiene la forma exacta, si su upstream,
+licencia o ruta no cuadran con el manifiesto, si **un nativo la lleva**, si un
+fichero en disco no está clasificado, si el `LICENSE.md` no recoge el aviso de
+algún upstream en uso, o si alguna ruta `vendor/…` citada deja de resolver.
+
+La clasificación es **reproducible**: `pnpm --filter @ego/avatar
+attribution:declare` reescribe las cabeceras que falten o no cuadren a partir
+del manifiesto (`--fix`), sin edición manual. Su test es
+`tests/attribution.test.js` (11 casos con *fixtures*: conforme → 0 · derivado
+sin cabecera → 1 · cabecera malformada → 1 · licencia que no cuadra → 1 ·
+ruta que no cuadra → 1 · nativo sin cabecera → 0 · nativo con cabecera → 1 ·
+sin aviso en `LICENSE.md` → 1 · fichero sin clasificar → 1 · entrada
+inexistente → 1).
+
 ## Estadísticas
 
-- **266 tests** · `node --test tests/` — determinismo byte a byte, cabeza
+- **302 tests** · `node --test tests/` — determinismo byte a byte, cabeza
   (plantilla 160 pts + roundness 0–100), rig ocular (párpados por pose,
   input-bar, amor), poses numéricas sin conmutaciones, estados, config/Bounds,
   timeline, política, FSM de presencia, puntero, fx-eyes unificados, micros,

@@ -1,5 +1,6 @@
 // studio.js — cableado del Robot Studio (ESM vanilla, sin dependencias).
 // Motor importado de src/index.js (registra <ego-avatar>); aquí solo UI.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/demo/robot-studio/studio.js
 
 import {
   EgoAvatar,

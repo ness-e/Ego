@@ -4,7 +4,7 @@
 // gafas, gorros de ears, visores, corona, halo, brote) y sus medidas están
 // definidos por Ego; los anclajes de la antena viven en ./geometry.js.
 //
-// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 // líneas 3389-3805: se adapta el patrón (accesorio anclado sobre el casco que
 // gira con `antennaAngle` y emite un anillo expansivo según el estado); la
 // geometría, el catálogo y los nombres son propios.

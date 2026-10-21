@@ -14,10 +14,10 @@
 // con `globalScale`; por eso las medidas absolutas son aquí la fuente de
 // verdad y `rx`/`ry` se usan solo para las proporciones (ancho/alto).
 //
-// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
-// líneas 2325-2474, 2245-2320, 3030-3206, 3389-3805: se adapta el PATRÓN
-// (casco, cúpula acústica, boca por estados, accesorio superior); las
-// proporciones y la nomenclatura son propias.
+// PATRÓN ASIMILADO, NO CÓDIGO DERIVADO: del single-file del estudio se adopta
+// el PATRÓN (casco, cúpula acústica, boca por estados, accesorio superior);
+// las proporciones, los valores y la nomenclatura son propios de Ego. Por eso
+// este fichero NO lleva cabecera de atribución: no contiene código del origen.
 
 /**
  * Chasis: superelipse con exponente variable (`squircleN`).

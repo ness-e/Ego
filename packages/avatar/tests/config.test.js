@@ -1,4 +1,5 @@
 // config.test.js — sistema de configuración (Defaults/Bounds/clamp/parseSize).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/config.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

@@ -1,4 +1,5 @@
 // tests/studio-config.test.js — datos declarativos del studio (src/studio/config.js).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-config.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

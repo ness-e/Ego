@@ -5,6 +5,7 @@
 // poses interpolan limpiamente — sin conmutaciones de modo.
 // Aliases propios para los estados de Ego (wide/flat/closed/tired/spiral) y
 // `thinking` (idle + mirada forzada): mismo esquema, cero casos especiales.
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/core.js
 
 import { lerp, clamp, smooth } from '../core/morph.js';
 

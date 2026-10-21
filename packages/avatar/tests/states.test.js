@@ -1,4 +1,5 @@
 // states.test.js — integridad de la tabla de estados y mapeos.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/states.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { STATES, EMOTES, HOOK_STATE_MAP, resolveState, assertState, STATE_NAMES } from '../src/runtime/states.js';

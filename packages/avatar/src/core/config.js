@@ -4,6 +4,7 @@
 // y `parseSize` literal (vendor/agent-robot-avatar/core.js:63-68).
 // Toda cifra que entra al runtime se normaliza y se acota — nunca hay
 // valores fuera de rango ni NaN silenciosos.
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/random.js
 
 /** Valores por defecto del runtime del avatar. */
 export const AVATAR_DEFAULTS = Object.freeze({

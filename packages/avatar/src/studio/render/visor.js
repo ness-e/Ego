@@ -3,6 +3,7 @@
 //   drawInnerVisor: líneas 2476-2563.
 // Vanilla ESM, sin dependencias. `S` es el objeto plano de estado del avatar
 // (nunca se importa la clase — evita ciclos). `ctx` solo se toca dentro.
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 
 import { roundRectPath, hexToRgba, shadeColor } from './helpers.js';
 import { getStateAccentColor } from './eyes.js';

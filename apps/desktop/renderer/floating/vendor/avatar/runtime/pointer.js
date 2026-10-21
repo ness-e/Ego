@@ -1,6 +1,7 @@
 // pointer.js — muestreo de puntero, wander de mirada y springs de seguimiento de cabeza.
 // ADAPTADO de agent-robot-avatar (ARA CORE:368-383, CORE:922-948, CORE:955-997, MIT)
 // — ver LICENSE.md. Constantes literales del original.
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/core.js
 
 import { clamp } from '../core/morph.js';
 

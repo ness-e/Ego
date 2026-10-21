@@ -1,5 +1,6 @@
 // studio/render/overlays.js — imagenes de estado del avatar studio.
 // Contrato: (ctx, S, …) — S es el estado del avatar (sin importar la clase).
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 //
 // El acento por estado vive en `../config.js` (fuente única): aquí sólo se
 // reexporta para no romper los imports existentes.

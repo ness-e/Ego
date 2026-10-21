@@ -1,0 +1,600 @@
+{
+  "$comment": [
+    "Manifiesto de procedencia de `packages/avatar/` (motor de personaje de Ego).",
+    "",
+    "Es el DENOMINADOR de la puerta `scripts/check-attribution.mjs`: decide que",
+    "ficheros son codigo derivado (y por tanto llevan cabecera canonica) y que",
+    "ficheros son codigo nativo de Ego (y por tanto NO la llevan).",
+    "",
+    "Modelo (docs/extractions/README.md 4.3, dos planos):",
+    "  - Plano 1 (CODIGO): fichero realmente derivado -> cabecera",
+    "    `Adapted from <upstream> (<LICENCIA>), <ruta de origen>` + aviso en el",
+    "    LICENSE.md del paquete.",
+    "  - Plano 2 (FICHA): documento de analisis escrito por Ego -> fila de",
+    "    procedencia. Nunca `Adapted from`.",
+    "",
+    "Un fichero NATIVO no lleva cabecera canonica: inventarla seria una",
+    "atribucion falsa (precedente EGO-FIND-83).",
+    "",
+    "Clasificacion medida contra el clon de referencia `repos-referencia/avatar`",
+    "(residuo de shingles de 48 caracteres sobre el texto sin comentarios) y",
+    "contrastada con el LICENSE.md del propio clon, que es el registro de",
+    "procedencia por fichero del port. Ver `docs/agent-ops/plans/",
+    "2026-10-19-remediation-wave1/handoff/A6-ola8.md` para la evidencia completa."
+  ],
+  "version": 1,
+  "package": "@ego/avatar",
+  "headerForm": "Adapted from <upstream> (<LICENCIA>), <ruta de origen>",
+  "headerPattern": "^\\s*//\\s*Adapted from\\s+([A-Za-z0-9_.-]+)\\s+\\(([^)]*)\\),\\s*(\\S.*?)\\s*$",
+  "upstreams": {
+    "agent-robot-avatar": {
+      "license": "MIT",
+      "copyright": "(c) CX ArtLab",
+      "note": "Robot SVG paramétrico (cabeza de 160 puntos, rig ocular, poses, runtime, acciones).",
+      "corpus": "vendor/agent-robot-avatar/"
+    },
+    "coucou": {
+      "license": "MIT",
+      "copyright": "(c) Louis Raillart",
+      "note": "Motor de la isla de Coucou/Mochi (easings, timeline, FSM de presencia, sonido, motor de Mochi).",
+      "corpus": "vendor/coucou/"
+    },
+    "coucou-swift": {
+      "license": "MIT",
+      "copyright": "(c) Louis Raillart",
+      "note": "Motor Swift original de Coucou (pose estática por hash djb2).",
+      "corpus": "vendor/coucou-swift/"
+    },
+    "ego-avatar": {
+      "license": "MIT",
+      "copyright": "(c) Ego Project",
+      "note": "Repo de referencia `ego-avatar` (clon en repos-referencia/avatar, gitignored). MIT propio de Ego: es el port intermedio desde el que se deriva el paquete canonico.",
+      "corpus": null,
+      "reference": "repos-referencia/avatar/"
+    },
+    "ego-avatar-studio": {
+      "license": "licencia no declarada en el origen",
+      "copyright": "sin atribucion declarada",
+      "note": "Single-file HTML del Avatar Studio (CX-ArtLab Fiel & Mochi 2.0). El fichero NO declara licencia; su LICENSE.md de origen dice \"segun archivo de origen\". El material MIT que incorpora (robot de CX ArtLab y Mochi de Louis Raillart) queda acreditado en LICENSE.md y NOTICE.",
+      "corpus": null,
+      "reference": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html"
+    }
+  },
+  "derived": [
+    {
+      "path": "src/core/anim.js",
+      "upstream": "coucou",
+      "origin": "vendor/coucou/core/anim.ts",
+      "via": "repos-referencia/avatar/src/core/anim.js",
+      "evidence": "Port del modulo de easings/spring de coucou (sub-stepping 240 Hz, Tracked). El LICENSE.md del clon lo declara \"adaptado de coucou/windows/src/core/anim.ts\"."
+    },
+    {
+      "path": "src/core/config.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/random.js",
+      "via": "repos-referencia/avatar/src/core/config.js",
+      "evidence": "Port del patron Defaults/Bounds + clampConfig de agent-robot-avatar, con `parseSize` literal de core.js:63-68."
+    },
+    {
+      "path": "src/core/timeline.js",
+      "upstream": "coucou",
+      "origin": "vendor/coucou/mochi/engine.ts",
+      "via": "repos-referencia/avatar/src/core/timeline.js",
+      "evidence": "Port del runner anim()/update() por campo con `locks` de coucou/mochi/engine.ts:477-507 + buildPhases de agent-robot-avatar/actions.js."
+    },
+    {
+      "path": "src/render/ara-head.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/core.js",
+      "via": "repos-referencia/avatar/src/render/ara-head.js",
+      "evidence": "COPIA LITERAL verificada: el path SVG de 2411 caracteres de ARA_HEAD_D es identico byte a byte al atributo d de #headShape en vendor/agent-robot-avatar/core.js."
+    },
+    {
+      "path": "src/render/body.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/geometry.js",
+      "via": "repos-referencia/avatar/src/render/body.js",
+      "evidence": "Port de la silueta del robot (plantilla verbatim de 160 puntos de ara-head.js) + superelipse y mezcla de redondeo de geometry.js/head-roundness.js."
+    },
+    {
+      "path": "src/render/eyes.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/core.js",
+      "via": "repos-referencia/avatar/src/render/eyes.js",
+      "evidence": "Port del rig ocular del robot (plantilla de core.js:270-285 y setEye de CORE:1046-1103)."
+    },
+    {
+      "path": "src/render/projection.js",
+      "upstream": "coucou",
+      "origin": "vendor/coucou/mochi/engine.ts",
+      "via": "repos-referencia/avatar/src/render/projection.js",
+      "evidence": "Port de drawEyes() de coucou/mochi/engine.ts:749-784 (eyeYaw, foreshortening, umbral 0.04, piso 0.18)."
+    },
+    {
+      "path": "src/render/static.js",
+      "upstream": "coucou-swift",
+      "origin": "vendor/coucou-swift/MochiStill.swift",
+      "via": "repos-referencia/avatar/src/render/static.js",
+      "evidence": "Port de la pose estatica por hash djb2 de coucou-swift/MochiStill.swift."
+    },
+    {
+      "path": "src/runtime/extension-host.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/extension-host.js",
+      "via": "repos-referencia/avatar/src/runtime/extension-host.js",
+      "evidence": "Port del sistema de extensiones de agent-robot-avatar (runner de funciones con registro)."
+    },
+    {
+      "path": "src/runtime/fx-eyes.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/actions.js",
+      "via": "repos-referencia/avatar/src/runtime/fx-eyes.js",
+      "evidence": "Port de los efectos oculares de agent-robot-avatar/actions.js (barrido, warnings) mas CORE:999-1037, inspect.js, love.js, waiting.js y failure.js."
+    },
+    {
+      "path": "src/runtime/micro.js",
+      "upstream": "coucou",
+      "origin": "vendor/coucou/mochi/engine.ts",
+      "via": "repos-referencia/avatar/src/runtime/micro.js",
+      "evidence": "Port de las tablas de keyframe de micro-animacion de coucou/mochi/engine.ts con la semantica `locks`."
+    },
+    {
+      "path": "src/runtime/pointer.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/core.js",
+      "via": "repos-referencia/avatar/src/runtime/pointer.js",
+      "evidence": "Port con constantes literales del original (CORE:368-383 puntero, CORE:922-948 wander, CORE:955-1043 springs de cabeza)."
+    },
+    {
+      "path": "src/runtime/policy.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/runtime.js",
+      "via": "repos-referencia/avatar/src/runtime/policy.js",
+      "evidence": "Port de la capa de politica de agent-robot-avatar/runtime.js (requestedMotion/reducedMotion, action records, scheduleAutoSleep)."
+    },
+    {
+      "path": "src/runtime/poses.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/core.js",
+      "via": "repos-referencia/avatar/src/runtime/poses.js",
+      "evidence": "TABLA LITERAL: la tabla de 10 numeros por pose procede de agent-robot-avatar/core.js:8-57 (verificado por residuo de shingles del 38% contra el corpus)."
+    },
+    {
+      "path": "src/runtime/presence.js",
+      "upstream": "coucou",
+      "origin": "vendor/coucou/island/fsm.ts",
+      "via": "repos-referencia/avatar/src/runtime/presence.js",
+      "evidence": "Port de la FSM de presencia IslandStateMachine de coucou/island/fsm.ts (hidden/compact/home/greet con sus temporizadores)."
+    },
+    {
+      "path": "src/runtime/sound.js",
+      "upstream": "coucou",
+      "origin": "vendor/coucou/core/sound.ts",
+      "via": "repos-referencia/avatar/src/runtime/sound.js",
+      "evidence": "Port del catalogo de sonidos y del envelope de coucou/core/sound.ts (28 nombres, volumen 0.12, idle 1500 ms)."
+    },
+    {
+      "path": "src/runtime/states.js",
+      "upstream": "coucou",
+      "origin": "vendor/coucou/mochi/engine.ts",
+      "via": "repos-referencia/avatar/src/runtime/states.js",
+      "evidence": "Port de la tabla estado -> configuracion visual de coucou/mochi/engine.ts:91-103 reorientada a los hooks de Ego."
+    },
+    {
+      "path": "src/studio/avatar.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/avatar.js",
+      "evidence": "Port de HybridRobotAvatar (bucle de render, maquina de estados del canvas, catalogo de estados y aplicacion de presets) desde el single-file HTML de origen."
+    },
+    {
+      "path": "src/studio/config.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/config.js",
+      "evidence": "Port de DATOS: los literales de STUDIO_DEFAULTS, de los presets de applyPreset y del mapa estado -> acento proceden del constructor del single-file HTML de origen (verificado: cada valor literal -#1e222d, #dbf59d, cx-faithful, cx-led, eyeSpacing, squircleN...- aparece en el fichero de origen)."
+    },
+    {
+      "path": "src/studio/render/accessories.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/accessories.js",
+      "evidence": "Port de drawTopAccessory del single-file HTML de origen (codigo identico al del clon: 366/366 lineas sin comentarios)."
+    },
+    {
+      "path": "src/studio/render/body.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/body.js",
+      "evidence": "Port de drawBody del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4)."
+    },
+    {
+      "path": "src/studio/render/ears.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/ears.js",
+      "evidence": "Port de drawEars del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4)."
+    },
+    {
+      "path": "src/studio/render/eyes.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/eyes.js",
+      "evidence": "Port de drawEyes del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4)."
+    },
+    {
+      "path": "src/studio/render/helpers.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/helpers.js",
+      "evidence": "Port de las primitivas de canvas (rectangulo redondeado, superelipse, acento) del single-file HTML de origen."
+    },
+    {
+      "path": "src/studio/render/mouth.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/mouth.js",
+      "evidence": "Port de drawMouth y del lip-sync del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4)."
+    },
+    {
+      "path": "src/studio/render/overlays.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/overlays.js",
+      "evidence": "Port de las imagenes de estado del single-file HTML de origen."
+    },
+    {
+      "path": "src/studio/render/particles.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/particles.js",
+      "evidence": "Port de spawnParticles del single-file HTML de origen (codigo identico al del clon: 100% de shingles)."
+    },
+    {
+      "path": "src/studio/render/visor.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/render/visor.js",
+      "evidence": "Port de drawInnerVisor del single-file HTML de origen (codigo identico al del clon: 100% de shingles)."
+    },
+    {
+      "path": "src/studio/rig/eyes.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/rig/eyes.js",
+      "evidence": "Port de updateEyeRig del single-file HTML de origen (79% de shingles contra el HTML)."
+    },
+    {
+      "path": "src/studio/rig/hands.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/rig/hands.js",
+      "evidence": "Port de updateHandsRig, drawHands y drawSingleHand del single-file HTML de origen (70% de shingles contra el HTML)."
+    },
+    {
+      "path": "src/studio/sound.js",
+      "upstream": "ego-avatar-studio",
+      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
+      "via": "repos-referencia/avatar/src/studio/sound.js",
+      "evidence": "Port de SoundSynthesizer del single-file HTML de origen (64% de shingles contra el HTML)."
+    },
+    {
+      "path": "tests/anim.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/anim.test.js",
+      "via": "repos-referencia/avatar/tests/anim.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/config.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/config.test.js",
+      "via": "repos-referencia/avatar/tests/config.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/element.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/element.test.js",
+      "via": "repos-referencia/avatar/tests/element.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/emotes.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/emotes.test.js",
+      "via": "repos-referencia/avatar/tests/emotes.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/fx-eyes.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/fx-eyes.test.js",
+      "via": "repos-referencia/avatar/tests/fx-eyes.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/genome.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/genome.test.js",
+      "via": "repos-referencia/avatar/tests/genome.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/guards.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/guards.test.js",
+      "via": "repos-referencia/avatar/tests/guards.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/head.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/head.test.js",
+      "via": "repos-referencia/avatar/tests/head.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/micro.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/micro.test.js",
+      "via": "repos-referencia/avatar/tests/micro.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/morph.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/morph.test.js",
+      "via": "repos-referencia/avatar/tests/morph.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/palette.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/palette.test.js",
+      "via": "repos-referencia/avatar/tests/palette.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/pointer.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/pointer.test.js",
+      "via": "repos-referencia/avatar/tests/pointer.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/policy.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/policy.test.js",
+      "via": "repos-referencia/avatar/tests/policy.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/presence.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/presence.test.js",
+      "via": "repos-referencia/avatar/tests/presence.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/projection.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/projection.test.js",
+      "via": "repos-referencia/avatar/tests/projection.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/render.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/render.test.js",
+      "via": "repos-referencia/avatar/tests/render.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/sound.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/sound.test.js",
+      "via": "repos-referencia/avatar/tests/sound.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/states.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/states.test.js",
+      "via": "repos-referencia/avatar/tests/states.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/still.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/still.test.js",
+      "via": "repos-referencia/avatar/tests/still.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-adapter.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-adapter.test.js",
+      "via": "repos-referencia/avatar/tests/studio-adapter.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-avatar.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-avatar.test.js",
+      "via": "repos-referencia/avatar/tests/studio-avatar.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-body.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-body.test.js",
+      "via": "repos-referencia/avatar/tests/studio-body.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-config.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-config.test.js",
+      "via": "repos-referencia/avatar/tests/studio-config.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-element.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-element.test.js",
+      "via": "repos-referencia/avatar/tests/studio-element.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-eyes.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-eyes.test.js",
+      "via": "repos-referencia/avatar/tests/studio-eyes.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-integration.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-integration.test.js",
+      "via": "repos-referencia/avatar/tests/studio-integration.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-mouth-hands.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-mouth-hands.test.js",
+      "via": "repos-referencia/avatar/tests/studio-mouth-hands.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/studio-sound.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/studio-sound.test.js",
+      "via": "repos-referencia/avatar/tests/studio-sound.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "tests/timeline.test.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/tests/timeline.test.js",
+      "via": "repos-referencia/avatar/tests/timeline.test.js",
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+    },
+    {
+      "path": "demo/robot-studio/index.html",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/demo/robot-studio/index.html",
+      "via": "repos-referencia/avatar/demo/robot-studio/index.html",
+      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo."
+    },
+    {
+      "path": "demo/robot-studio/studio.css",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/demo/robot-studio/studio.css",
+      "via": "repos-referencia/avatar/demo/robot-studio/studio.css",
+      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo."
+    },
+    {
+      "path": "demo/robot-studio/studio.js",
+      "upstream": "ego-avatar",
+      "origin": "repos-referencia/avatar/demo/robot-studio/studio.js",
+      "via": "repos-referencia/avatar/demo/robot-studio/studio.js",
+      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo."
+    }
+  ],
+  "native": [
+    {
+      "path": "src/index.js",
+      "reason": "Barrel publico del paquete (registra el custom element). Codigo propio de Ego."
+    },
+    {
+      "path": "src/version.js",
+      "reason": "Version del paquete. Codigo propio de Ego."
+    },
+    {
+      "path": "src/core/genome.js",
+      "reason": "Genoma -> identidad. Asimilacion de patron: usa los traits `roundness`/`ratio` del robot de agent-robot-avatar, pero el codigo (semilla, genes, rangos) es propio."
+    },
+    {
+      "path": "src/core/morph.js",
+      "reason": "Geometria procedural de la silueta. Asimilacion de patron: la superelipse (formula matematica) y su uso como shape language proceden de ambos repos; la implementacion es propia."
+    },
+    {
+      "path": "src/core/palette.js",
+      "reason": "Genoma -> paleta CSS. Codigo propio de Ego (deriva la tinta del hue del genoma)."
+    },
+    {
+      "path": "src/core/prng.js",
+      "reason": "PRNG determinista (xmur3 + mulberry32). Codigo propio de Ego; la referencia conceptual es externa (DiceBear / boring-avatars) y no es un repo de referencia."
+    },
+    {
+      "path": "src/render/builder.js",
+      "reason": "Helper minimo para construir SVG como string, sin DOM. Codigo propio de Ego."
+    },
+    {
+      "path": "src/render/parts.js",
+      "reason": "Aura, apendice, insignia y particulas. Codigo propio de Ego."
+    },
+    {
+      "path": "src/render/shell.js",
+      "reason": "Ensamblaje del SVG completo. Asimilacion de patron: la estructura del rig (cabeza + ojos recortados + grupo de movimiento) procede de agent-robot-avatar; el ensamblaje es propio."
+    },
+    {
+      "path": "src/runtime/avatar-element.js",
+      "reason": "Web component <ego-avatar>. Codigo propio de Ego: el elemento orquesta modulos derivados (ara-head, poses, eyes), pero su implementacion es propia."
+    },
+    {
+      "path": "src/runtime/studio-bridge.js",
+      "reason": "Pegamento elemento <-> motor canvas, extraido del elemento en la Ola 1. Codigo propio de Ego."
+    },
+    {
+      "path": "src/runtime/svg-export.js",
+      "reason": "Serializacion a SVG, extraida del elemento en la Ola 1. Codigo propio de Ego."
+    },
+    {
+      "path": "src/runtime/avatar-element.d.ts",
+      "reason": "Declaracion de tipos publica del web component. Codigo propio de Ego."
+    },
+    {
+      "path": "src/runtime/sound.d.ts",
+      "reason": "Declaracion de tipos del motor de sonido. Codigo propio de Ego."
+    },
+    {
+      "path": "src/studio/adapter.js",
+      "reason": "Puente del vocabulario Ego (15 estados) con el studio (26 estados). Codigo propio de Ego."
+    },
+    {
+      "path": "src/studio/element-host.js",
+      "reason": "Host canvas de <ego-avatar mode=\"studio\">: conduce el motor HybridRobotAvatar. Codigo propio de Ego."
+    },
+    {
+      "path": "src/studio/index.js",
+      "reason": "Barrel del motor Avatar Studio. Codigo propio de Ego."
+    },
+    {
+      "path": "src/studio/render/geometry.js",
+      "reason": "Proporciones canonicas del robot de Ego. Codigo propio de Ego: sustituye las medidas heredadas de Mochi (decision D4) y no contiene codigo del origen."
+    },
+    {
+      "path": "tests/hands-attribute.test.js",
+      "reason": "Test propio de la Ola 4b (ruta del atributo hands)."
+    },
+    {
+      "path": "tests/attribution.test.js",
+      "reason": "Test propio de la Ola 8 (puerta de atribucion con fixtures)."
+    },
+    {
+      "path": "tests/studio-roundtrip.test.js",
+      "reason": "Test propio de la Ola 2 (contrato del puente Ego <-> studio)."
+    },
+    {
+      "path": "tests/warning.test.js",
+      "reason": "Test propio de la Ola 2 (estado warning)."
+    },
+    {
+      "path": "tests/golden/geometry.json",
+      "reason": "Golden generada por el propio motor de Ego (traza de operaciones de canvas). Dato, no codigo."
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 // studio-element.test.js — <ego-avatar mode="studio"> sin DOM.
 // En Node no hay canvas: el host existe pero sin backend; la API de Ego
 // (estados, emotes, genes, sonido) debe seguir operativa y degradar a no-op.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-element.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

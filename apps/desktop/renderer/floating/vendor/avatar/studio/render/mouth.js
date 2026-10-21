@@ -7,7 +7,7 @@
 // la enumeración vigente de estilos de boca de Ego y el producto no distribuye
 // la identidad visual de Mochi.
 //
-// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 // líneas 3030-3206 y 1410-1429: se adapta el patrón (boca por estados con
 // sombra de acento y ledger); la geometría y los nombres son propios.
 

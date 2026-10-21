@@ -5,6 +5,7 @@
 // Contrato: updateHandsRig(S, dt) muta S; drawHands(ctx, S, targetLayer);
 // drawSingleHand(ctx, S, hand, isLeft).
 // `this.X` del original se lee como `S.X`; ayudantes desde ../render/helpers.js.
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 
 import { getStateAccentColor, hexToRgba, roundRectPath, shadeColor } from '../render/helpers.js';
 

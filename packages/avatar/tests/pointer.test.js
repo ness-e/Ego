@@ -1,5 +1,5 @@
 // pointer.test.js — muestreo de puntero, wander de mirada y springs de cabeza.
-// Adaptado de agent-robot-avatar (ARA CORE:368-383, CORE:922-948, CORE:955-1043, MIT).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/pointer.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

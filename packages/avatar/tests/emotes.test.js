@@ -1,4 +1,5 @@
 // emotes.test.js — tabla extendida de emotes: campos, ojos y catálogo de sonidos.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/emotes.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EMOTES, EMOTE_NAMES, STATE_SOUND, EMOTE_SOUND } from '../src/runtime/states.js';

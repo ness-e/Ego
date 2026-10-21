@@ -8,7 +8,7 @@
 // la configuración vigente de Ego y el producto no distribuye la identidad
 // visual de Mochi.
 //
-// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 // líneas 2325-2353, 2358-2474, 4034-4084: se adapta el patrón (casco
 // superelíptico con luz superior, rebote inferior de acento y foco de
 // puntero); la geometría y los nombres son propios de Ego.

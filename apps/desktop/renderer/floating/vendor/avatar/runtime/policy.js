@@ -7,6 +7,7 @@
 //    {action, phase, source} y fase única por registro.
 //  · scheduleAutoSleep/clearAutoSleep/autoSleepBlocked (189-233) — reprograma si
 //    cambia el delay, se bloquea mientras hay acciones o puntero activo.
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/runtime.js
 
 /** motion="auto|reduce|full" leído de cualquier fuente con getAttribute. */
 export function requestedMotion(instance) {

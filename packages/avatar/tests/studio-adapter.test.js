@@ -1,4 +1,5 @@
 // studio-adapter.test.js — puente Ego → Studio: tablas y genoma.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-adapter.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

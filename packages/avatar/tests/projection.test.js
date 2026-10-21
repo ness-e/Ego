@@ -1,4 +1,5 @@
 // projection.test.js — proyección de ojos sobre la silueta (coucou drawEyes).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/projection.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { projectEye, gazeToYawPitch, EYE_SP, VIS_THRESHOLD, FX_FLOOR } from '../src/render/projection.js';

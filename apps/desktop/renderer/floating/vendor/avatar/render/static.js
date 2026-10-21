@@ -2,6 +2,7 @@
 // Mismo determinismo que el elemento vivo: misma semilla ⇒ mismo string.
 // Añadido: pose por hash djb2 de la semilla (port de vendor/coucou-swift/MochiStill.swift -
 // superficies sin animación eligen pose establecida por hash, no siempre idle).
+// Adapted from coucou-swift (MIT), vendor/coucou-swift/MochiStill.swift
 
 import { generateGenome } from '../core/genome.js';
 import { buildPalette } from '../core/palette.js';

@@ -9,7 +9,7 @@
 // en la enumeración vigente de estilos de ojo de Ego y el producto no
 // distribuye la identidad visual de Mochi.
 //
-// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 // líneas 922-981, 2565-2588, 2593-2633, 2635-2898, 2905-3028, 2069-2096:
 // se adapta el patrón (silueta recortada real, barra de visor cyber, ojo LED
 // con halo de estado); la geometría y los nombres son propios.

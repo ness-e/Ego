@@ -4,6 +4,7 @@
 // Añadidos de coucou: estados searching/finished/ratelimit/dizzy, badges de
 // un punto, flags de comportamiento (scans/zz/sweat) y mapeo de hooks con
 // auto-retorno (Stop → finished 5.2 s, hooks.ts:233-246).
+// Adapted from coucou (MIT), vendor/coucou/mochi/engine.ts
 
 /**
  * Cada estado define: tinte sobre el cuerpo, pose de ojos, insignia,

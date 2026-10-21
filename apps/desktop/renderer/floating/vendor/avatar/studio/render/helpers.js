@@ -5,7 +5,7 @@
 // de color, superelipse y acento por estado), sin ninguna forma de robot
 // dentro: las proporciones del avatar viven en ./geometry.js.
 //
-// Adapted from ego-avatar/avatar_studio_cx_artlab_mochi_2_0.html (MIT),
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 // líneas 896-915, 4112-4117, 4119-4128, 2227-2240, 2069-2096: se adapta el
 // patrón (utilidades de canvas sin dependencias); la implementación, la
 // nomenclatura y el soporte de hsl/rgb son propios.

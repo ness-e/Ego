@@ -1,4 +1,5 @@
 // palette.test.js — paleta determinista y contraste de tinta.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/palette.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateGenome } from '../src/core/genome.js';

@@ -5,6 +5,7 @@
 //   drawEyes/drawCyberVisorBar/drawSingleEye/drawCXArtLabEye: 2565-3028 ·
 //   drawInnerVisor: 2476-2563.
 // Node-safe: ctx stub que registra llamadas (sin canvas real).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-eyes.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { updateEyeRig } from '../src/studio/rig/eyes.js';

@@ -1,5 +1,6 @@
 // studio/render/particles.js — port verbatim de avatar_studio_cx_artlab_mochi_2_0.html:1079-1092, 1521-1528, 4086-4110.
 // Contrato: (ctx, S, …) — S es el estado del avatar (sin importar la clase).
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 import { getStateAccentColor } from './overlays.js';
 export function spawnParticles(S, type, count = 8) {
     for (let i = 0; i < count; i++) {

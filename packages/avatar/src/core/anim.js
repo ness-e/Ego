@@ -1,5 +1,5 @@
 // anim.js — easings + springs.
-// ADAPTADO de vendor/coucou/core/anim.ts (MIT, © Louis Raillart) — ver LICENSE.md.
+// Adapted from coucou (MIT), vendor/coucou/core/anim.ts
 // El original está en TypeScript para SwiftUI-equivalent springs; aquí se porta a
 // JS ESM puro. Mantén la numeración de sub-stepping (240 Hz): un frame perdido no
 // debe desestabilizar el muelle.

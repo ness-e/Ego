@@ -37,12 +37,12 @@
     "core/anim.js": {
       "kind": "attribution",
       "reason": "La cabecera citaba `vendor/coucou/anim.ts`, ruta que no existe (el corpus real es `vendor/coucou/core/anim.ts`). Normalizada para que la cadena MIT sea resoluble dentro del repo.",
-      "sha256": "722d1f48b2f0e95a712980d9bb1e0ead895f9e6c08a7bc5904ff21ee2c7f5aa2"
+      "sha256": "3e7f1f7897d572acc9764a69a7532a369b096359f685c918046c882f9d364f91"
     },
     "core/timeline.js": {
       "kind": "attribution",
       "reason": "Cabeceras de derivacion normalizadas a `vendor/coucou/mochi/engine.ts` (resoluble) y anadido el `@returns` que exige el typecheck con checkJs (el tipo de retorno era `{duration:number}` y noCubria `w2End`, `w8End`...).",
-      "sha256": "c5ef23b2be04282d896bfbd481b2a2ca8b05744a100f5c676f793db490bca2f7"
+      "sha256": "9ec51b6d229120faf1e19e2554d9c7c62d37b541a46b0c2ba948ec752ed5a7e7"
     },
     "render/builder.js": {
       "kind": "types",
@@ -57,12 +57,12 @@
     "render/projection.js": {
       "kind": "attribution",
       "reason": "Cabecera normalizada a `vendor/coucou/mochi/engine.ts` (resoluble dentro del repo).",
-      "sha256": "74dbd12e6e4927b8cff1973e11885ed7aeda0a837e8a7830c5dbc9e7489bab8f"
+      "sha256": "7eda88d605ef2bc43a131f454c91c378653262d67588b97413a57125e1e99e20"
     },
     "render/static.js": {
       "kind": "attribution",
       "reason": "Cabeceras normalizadas a `vendor/coucou-swift/MochiStill.swift` y `vendor/coucou/mochi/engine.ts`; ademas, el SVG estatico enciende la insignia `warn`.",
-      "sha256": "5a3d1b25d1b9528c9659f573bc4b207e47c7b458e6f2a2d490d2a7c22266c4e9"
+      "sha256": "fc91e21064963473223543225eecf9f7a8f00580f901c334e26e28b1d046e844"
     },
     "runtime/avatar-element.js": {
       "kind": "feature",
@@ -72,32 +72,32 @@
     "runtime/fx-eyes.js": {
       "kind": "types",
       "reason": "typedef `EyeBobCfg`: sin el, el typecheck rechazaba leer `cfg.cycles` (el tipo inferido era `{duration,amp}`).",
-      "sha256": "f9d5cc8bb4fab3deb550e567a1cd742989a9f4a59be47582b07e2772b7027065"
+      "sha256": "5b83fb89c14d93bacb7995d26c3d17c6e00963d9951442f1a2541204f6f94ff9"
     },
     "runtime/micro.js": {
       "kind": "attribution",
       "reason": "Cabeceras normalizadas a `vendor/coucou/mochi/engine.ts` (resoluble) y dos JSDoc con `@.34`/`@.52` reescritos (TypeScript parseaba el `@` como etiqueta JSDoc invalida).",
-      "sha256": "a57fc3bdd61a38c26aaf8e19c4adcdb9b8079734f2c4a3419523339604307f7a"
+      "sha256": "cac5d5be860586c70b91b741884e273ce34448fd5c62a494a4dcef617af37c34"
     },
     "runtime/poses.js": {
       "kind": "feature",
       "reason": "Pose `warn` (ojos estrechados, parpados bajos y neutros) para el estado `warning`: distinta de `angry`/`flat` (error) y de `sleepy`/`tired` (ratelimit).",
-      "sha256": "98456d2467fdc3c15aca1b45f0cb4f67427a351b6b8ac958fb94f05e05e961b9"
+      "sha256": "dceda90757b6a371843c6ae8a0906c9486dab93a13a3f710cf5a54df68f5b740"
     },
     "runtime/presence.js": {
       "kind": "attribution",
       "reason": "Cabecera normalizada a `vendor/coucou/island/fsm.ts` (la ruta citada, `coucou/windows/src/island/fsm.ts`, no existe en el corpus).",
-      "sha256": "8bf7d9cdaaa9d6fab3451e0193e6722202ad82620f18ce19b0878a4bd605380b"
+      "sha256": "5b342154e958e3c5dbc644527cafe32b1455f2de824dc757a9203819afe9dfb3"
     },
     "runtime/sound.js": {
       "kind": "attribution",
       "reason": "Cabeceras normalizadas a `vendor/coucou/core/sound.ts` y `vendor/coucou/mochi/engine.ts` (resolubles).",
-      "sha256": "9a6a42bb019c682a197bf989219d33f7bd8d6958e85e7517d955255265bc14d9"
+      "sha256": "cb5c593e09116c98660cf49264c92f7b66ae9305e5abbea23e66ad10ec267074"
     },
     "runtime/states.js": {
       "kind": "feature",
       "reason": "Estado `warning` (degradacion tolerable) con su tinte, pose, insignia, movimiento, sonido y prioridad; y cabeceras de derivacion normalizadas a rutas `vendor/...` resolubles.",
-      "sha256": "4ac6e6736931353d89527b316988d351cae93c974f4d43c3b90f1e25f0d1bc57"
+      "sha256": "714208d45b68e5cd64b230b02a3f5e62b28f1a1303294b814ba9289fe5f837c8"
     },
     "studio/adapter.js": {
       "kind": "state",
@@ -107,12 +107,12 @@
     "studio/avatar.js": {
       "kind": "state",
       "reason": "`applyPreset` con el catalogo de presets de Ego (sin la rama `coucou-mochi`) y casos de `play()` para los cuatro estados nuevos, con su movimiento y su voz.",
-      "sha256": "bae1291c809c5a0f1a7c697ae0007b2cc09e34d05f4b4cecdd7a6d542e8e8a36"
+      "sha256": "55e4d7af094cc8e7b8f5ab60c5ae8094724902c6d5b8d384c3d5626080758e6d"
     },
     "studio/config.js": {
       "kind": "state",
       "reason": "Catalogos propios de Ego: presets de identidad (ego-nucleus/cyber/sentinel/architect) en lugar del preset `coucou-mochi`; 26 estados de studio; `STATE_ACCENT` con los acentos nuevos y `getStateAccentColor` como fuente unica del acento por estado.",
-      "sha256": "a104f010d16a017faa6066f8753a06f66815b7a3e68682721eebf38a9c3b340d"
+      "sha256": "02f2aa174ab07bce746c2306851f0acde7ff1bb91b466d9f16bcc941f64626e2"
     },
     "studio/element-host.js": {
       "kind": "state",
@@ -122,42 +122,97 @@
     "studio/render/accessories.js": {
       "kind": "geometry",
       "reason": "Geometria propia de Ego (decision D4) y cabecera canonica `Adapted from ... (MIT), <ruta>`; el upstream lo declaraba 'puerto verbatim'.",
-      "sha256": "6fc1baefaa5f2bd93b95ee15aec688ed6afdea1d9fa75df9370df5116f505c9d"
+      "sha256": "fc78fe34f6566c67bd8bfddc82b7ad3ffef921616402b37c6efeed6d4152761e"
     },
     "studio/render/body.js": {
       "kind": "geometry",
       "reason": "Geometria propia de Ego (decision D4): se elimino la rama de cuerpo 'blob' heredada y las medidas viven ahora en `render/geometry.js`.",
-      "sha256": "58f6f62725b972da4e0957f1f86cdd88956bb0670ff7631694a0e5163ac41f68"
+      "sha256": "51037f9d265e8945e007c81e7b13a2f804eb82edce13bf1f28d80a806a876ac0"
     },
     "studio/render/ears.js": {
       "kind": "geometry",
       "reason": "Geometria propia de Ego (decision D4): se elimino el LED rosa fijo heredado; las medidas de la vaina viven en `render/geometry.js`.",
-      "sha256": "c95d7a06a33e8548d3ceb9e385f4820e3c2512ee4d3a4b4bbbf80361ffeb5932"
+      "sha256": "b7173a95b46663039ee936f0db3c35081710d48987acce80acd4ec4ddb88fc02"
     },
     "studio/render/eyes.js": {
       "kind": "geometry",
       "reason": "Geometria propia de Ego (decision D4): se elimino la familia de ojo 'mochi-sphere'; ademas el acento se reexporta desde `config.js` (fuente unica).",
-      "sha256": "16e7fb884e1b66ed2255451b95c704c78be131c9d007879fea7d3c544254d47a"
+      "sha256": "7fb8bd2bd3288d7a42393c91c00f9b4f0d550d852449f75cccc19d8690253099"
     },
     "studio/render/helpers.js": {
       "kind": "geometry",
       "reason": "Capa de primitivas 2D re-elegida como propia (cabecera canonica) y acento por estado reexportado desde `config.js` (fuente unica), en lugar de una tercera copia del switch.",
-      "sha256": "218d1d6f7585e858abf25341b08c66d49457e9a27f584096e7330b61f57c5b9d"
+      "sha256": "cbde43ae736da15696253af5a41859dee37f48efc70a9091334a78912085c1ba"
     },
     "studio/render/mouth.js": {
       "kind": "geometry",
       "reason": "Geometria propia de Ego (decision D4): se elimino el estilo de boca 'mochi-cute'; las metricas viven en `render/geometry.js`.",
-      "sha256": "5847cafb8c06fb62e1e479e15b65ed1b464476297579d812d9812c6764e844b6"
+      "sha256": "cb70b02df20150ce10f411274404b147e7110124fed4663837fd0d6ca48aa791"
     },
     "studio/render/overlays.js": {
       "kind": "feature",
       "reason": "Imagenes propias de los cuatro estados nuevos de studio (arco girando, anillos, cartel '?', barras de regulador) con geometria de Ego, y el acento importado de `config.js`.",
-      "sha256": "1b1c2ee8b1b41021691fc6f3c1135a2bdb97217b01e7793855c0d02e29d14a6a"
+      "sha256": "ad478845996403b2295cd7bb464d25cd4e4268aa7aa34579cd35da9506832554"
     },
     "studio/sound.js": {
       "kind": "feature",
       "reason": "Cuatro recetas de sonido nuevas para los estados `thinking`, `approval`, `question` y `ratelimit` del studio.",
-      "sha256": "c533e4652d8eea8b25a651f0316cdb8c2cdb55d99e8c10a8ce208e5375f94acd"
+      "sha256": "7250e2f68aab6886ad9115afd65de5d2e72cf5a3d168b0229f9b4798498c4f35"
+    },
+    "core/config.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "6b58d2f18f3f195c206516e90379d57496df27be55d8cf9e8edbba43f87fb850"
+    },
+    "render/ara-head.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "c7c58a3f10ea832b8f1559e16f97bb76d5eba74a5a03a598a96282c94a5ffc48"
+    },
+    "render/body.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "31c38edf936c6dd8530004fd33268270451e1124fd0d697ece5486bbf8245f4e"
+    },
+    "render/eyes.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "606f357ede84fb24f18f66352e8014b2083003b2d35a0fba44dc8fc9f8aeed6b"
+    },
+    "runtime/extension-host.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "27ff7f0ba9b69e235c82b0b5c6adf69cd5d3e6181b90fa0237fd38f76a616ec6"
+    },
+    "runtime/pointer.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "d5f37c536ddcc7af266abb1b48bcecb68e4f8bc9288e8f66cf773b33d4b99eac"
+    },
+    "runtime/policy.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "7527096da0d45f8caed076edd450a08868289f7c5e87d1c545080d6e5e08ce33"
+    },
+    "studio/render/particles.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from ego-avatar-studio (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "36efca755d88b56824dc6059c0eb407741249383d06fccd28defe320bb5e1637"
+    },
+    "studio/render/visor.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from ego-avatar-studio (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "a225dc612e5a528107198a26856b2dba49d804954319b69beb940e122a191c1d"
+    },
+    "studio/rig/eyes.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from ego-avatar-studio (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "abc49d5f26f1edb21a3a8fa71a25197010eb3e4050612342e5ac8f47e35e5e9f"
+    },
+    "studio/rig/hands.js": {
+      "kind": "attribution",
+      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from ego-avatar-studio (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
+      "sha256": "9170c426252e8841de35db845ad2d7fe6e369ad41f25c5f6a0f581e747d57d61"
     }
   },
   "newFiles": {
@@ -184,7 +239,7 @@
     "studio/render/geometry.js": {
       "kind": "geometry",
       "reason": "Proporciones canonicas del robot de Ego (chasis, reactor, vaina auditiva, accesorio, rubor, metricas de boca): un solo hogar para las medidas que antes vivian dispersas como numeros magicos heredados.",
-      "sha256": "9ca1b8b305dc708442ea612838b3a0d70bf66e755cc36725085aa3ad287be483"
+      "sha256": "f3396ca2fb2c4dce32015b8096255c1080f55427e2c3f88919b544908ecc2843"
     }
   },
   "removedFiles": {}

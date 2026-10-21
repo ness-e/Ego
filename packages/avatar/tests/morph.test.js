@@ -1,4 +1,5 @@
 // morph.test.js — geometría de la silueta y helpers.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/morph.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

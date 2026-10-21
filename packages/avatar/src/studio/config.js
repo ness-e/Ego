@@ -3,6 +3,7 @@
 // (applyPreset:4732-4781), enumeraciones del dock y mapa estado→acento
 // (getStateAccentColor:2069-2096). Sin lógica, solo datos.
 // Fuente: avatar_studio_cx_artlab_mochi_2_0.html (ver LICENSE.md).
+// Adapted from ego-avatar-studio (licencia no declarada en el origen), repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
 
 /** Defaults del constructor (variante cx-faithful). */
 export const STUDIO_DEFAULTS = Object.freeze({

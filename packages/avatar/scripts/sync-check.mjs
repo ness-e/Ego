@@ -67,7 +67,7 @@ function fingerprint(dir) {
  * parte de `src/`, pero DEBEN ser identicos a los del paquete: si divergen,
  * una copia lleva la licencia y la otra no (el incumplimiento que D5 cierra).
  */
-const SIDECAR = ['LICENSE', 'LICENSE.md', 'NOTICE'];
+const SIDECAR = ['LICENSE', 'LICENSE.md', 'NOTICE', 'provenance.manifest.json'];
 
 /**
  * Subarboles que se comparan aparte del codigo: no son codigo de runtime,

@@ -1,4 +1,5 @@
 // anim.test.js — easings y springs (regresión: colisión campo/método `curveTo`).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/anim.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Ease, Spring, Tracked, cubicBezier, closeCurve, lerp, clamp } from '../src/core/anim.js';

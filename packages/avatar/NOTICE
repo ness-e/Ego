@@ -1,49 +1,60 @@
-Ego — Avatar Engine (@ego/avatar)
+Ego - Avatar Engine (@ego/avatar)
 Copyright (c) 2026 Ego Project
 
 This product includes software developed as part of the Ego project and
-derived, in part, from the following third-party works. All of them are
-distributed under the MIT License. The complete, per-file derivation table
-is in `LICENSE.md`; the full licence texts are in `LICENSE`.
+derived, in part, from the following third-party works. The complete,
+per-file derivation table is in `LICENSE.md`; the canonical machine-readable
+register is `provenance.manifest.json`; the full licence texts are in
+`LICENSE`.
 
 --------------------------------------------------------------------------
 Third-party components
 --------------------------------------------------------------------------
 
-1. ego-avatar (upstream, this package's ancestor)
-   MIT License — Copyright (c) 2026 Ego Project
-   Upstream: repos-referencia/avatar (a reference clone; NOT part of the
-   repository — it is git-ignored).
-   Usage:   this package is a forked descendant of that working tree
-             (28/44 source files byte-identical, 16 forked, 5 new — see
-             README.md "Las tres copias" and DESIGN.md § 11).
+1. agent-robot-avatar — robot SVG parametrico (cabeza, rig ocular, poses, runtime)
+   MIT License - (c) CX ART Lab
+   Upstream: https://github.com/cx-art-lab/agent-robot-avatar
+   Corpus:   vendor/agent-robot-avatar/
+   Usage:   
+             - plantilla SVG de la cabeza (160 puntos) y su mezcla de redondeo;
+             - rig ocular (elipse blanca + parpados numericos) y la tabla de poses;
+             - capa de politica (movimiento reducido, auto-sleep, registros de accion);
+             - runner de extensiones y los efectos oculares y de micro-animacion.
 
-2. agent-robot-avatar
-   MIT License — Copyright (c) 2026 CX ART Lab
-   Upstream: repos-referencia/agent-robot-avatar (reference clone).
-   Corpus:   vendor/agent-robot-avatar/ (16 modules, byte-identical copies
-             of `agent-robot-avatar/src/agent-robot-avatar-*.js` with the
-             `agent-robot-avatar-` prefix removed).
-   Usage:   source of the robot head template and eye rig. `src/render/
-             ara-head.js` contains a verbatim copy of the `#headShape d`
-             path from `vendor/agent-robot-avatar/core.js:261`;
-             `src/runtime/poses.js` contains the numeric POSE table from
-             `vendor/agent-robot-avatar/core.js:8-57`.
+2. coucou — motor de la isla de Coucou (y el motor de Mochi)
+   MIT License - (c) Louis Raillard
+   Upstream: https://github.com/louis-raillart/coucou
+   Corpus:   vendor/coucou/
+   Usage:   
+             - easings, muelles y el runner de tweens por campo con `locks`;
+             - proyeccion de ojos sobre la silueta (`drawEyes`);
+             - FSM de presencia de la isla (hidden / compact / home / greet);
+             - catalogo de estados, tabla estado -> configuracion visual y recetas de sonido.
 
-3. coucou
-   MIT License — Copyright (c) 2026 Louis Raillard
-   Upstream: repos-referencia/coucou (reference clone).
-   Corpus:   vendor/coucou/{core,island,mochi}/ (10 files, byte-identical
-             copies of `coucou/windows/src/**`) and vendor/coucou-swift/
-             (5 files, the original Swift engine).
-   Usage:   source of the animation model (easing, springs, tracked tweens
-             with field locks), the eye projection model, the presence
-             state machine, the procedural sound recipes and the static
-             pose-by-hash. Adapted to JavaScript ESM in `src/core/anim.js`,
-             `src/core/timeline.js`, `src/render/projection.js`,
-             `src/runtime/micro.js`, `src/runtime/presence.js`,
-             `src/runtime/sound.js`, `src/runtime/states.js` and
-             `src/render/static.js`.
+3. coucou (Swift) — motor original del que cuelgan MochiStill y el wardrobe
+   MIT License - (c) Louis Raillard
+   Upstream: https://github.com/louis-raillart/coucou
+   Corpus:   vendor/coucou-swift/
+   Usage:   
+             - pose estatica determinista por hash djb2 (`MochiStill.swift`).
+
+4. Avatar Studio — single-file HTML "CX-ArtLab Fiel & Mochi 2.0"
+   licencia no declarada en el origen - sin atribucion de copyright declarada en el fichero de origen
+   Upstream: fichero local de referencia: repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html
+   Usage:   
+             - motor canvas completo: `HybridRobotAvatar` (bucle de render, maquina de estados, presets);
+             - rigs de ojos y de manos articuladas, visor, particulas, bocas y accesorios;
+             - sintetizador de sonido del studio y los datos de su configuracion.
+   Licence:  the origin file declares NO licence; this NOTICE therefore
+             states so verbatim rather than asserting one. The MIT material
+             it embeds is credited above and in the `vendor/` corpus.
+
+5. ego-avatar — repo de referencia (el antepasado directo de este paquete)
+   MIT License - (c) 2026 Ego Project
+   Upstream: repos-referencia/avatar (clon de referencia; esta en .gitignore, no forma parte del repositorio)
+   Usage:   
+             - los 29 ficheros de test portados de `tests/`;
+             - los 3 ficheros de la demo del dock (`demo/robot-studio/`).
 
 --------------------------------------------------------------------------
 Notes
@@ -54,8 +65,7 @@ Notes
 * The third-party `vendor/` tree of THIS package is a **read-only attribution
   corpus**: verbatim copies of the upstream works named above, kept so that
   every path cited in `LICENSE.md` and in the source headers resolves inside
-  the repository. It is **not** runtime code and **must not be imported**
-  (the engine has zero runtime dependencies and does not import from it).
+  the repository. It is **not** runtime code and **must not be imported**.
   See `vendor/README.md`.
 * The `vendor/` corpus is also replicated in the vendored runtime copy under
   `apps/desktop/renderer/floating/vendor/avatar/vendor/`, so that the
@@ -63,6 +73,9 @@ Notes
   byte-identical by `scripts/sync-check.mjs` (SHA-256).
 * "Mochi" / "Coucou" is the property of its respective authors. Ego does not
   redistribute those names, drawings, sounds or icons as product identity; the
-  visual language shipped here is Ego's own.
-* `scripts/check-attribution.mjs` verifies that every path cited in
-  `LICENSE.md` and in the source headers resolves inside the repository.
+  visual language shipped here is Ego's own (decision D4).
+* `scripts/check-attribution.mjs` verifies, against
+  `provenance.manifest.json`, that every derived file carries its canonical
+  header with the right upstream, licence and origin path; that no native
+  file carries one; that every `vendor/` path cited resolves; and that the
+  package keeps a licence notice for every upstream in use.

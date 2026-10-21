@@ -1,5 +1,6 @@
 // tests/studio-body.test.js — Puerto studio/render: cuerpo + overlays + partículas.
 // Node-safe: ctx stub que graba llamadas (incluye strokeRect, usado por drawBoxBody).
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/studio-body.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSquirclePath, hexToRgba, roundRectPath, shadeColor } from '../src/studio/render/helpers.js';

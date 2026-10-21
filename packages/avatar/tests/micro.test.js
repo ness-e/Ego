@@ -1,4 +1,5 @@
 // micro.test.js — tablas de micro-animaciones, duraciones y runner sobre timeline real.
+// Adapted from ego-avatar (MIT), repos-referencia/avatar/tests/micro.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
