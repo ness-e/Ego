@@ -25,9 +25,11 @@ function realCatalog(): ToolCatalogLike {
 }
 
 describe("T5 — Contrato de catálogo de tools (EGO-FIND-45)", () => {
-  it("la lista canónica NATIVE_TOOL_NAMES tiene las 10 tools reales de Nivel A", () => {
+  it("la lista canónica NATIVE_TOOL_NAMES tiene las 12 tools reales de Nivel A", () => {
     expect([...NATIVE_TOOL_NAMES].sort()).toEqual([
       "canvas_render",
+      "eval_expression",
+      "export_artifact",
       "fs_edit_patch",
       "fs_glob",
       "fs_grep",

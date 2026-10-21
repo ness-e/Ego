@@ -39,6 +39,29 @@ describe("T2 — Proactividad: triggers reales (EGO-FIND-51)", () => {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /**
+   * Espera determinista: sondea hasta que la condición se cumple.
+   *
+   * Un `sleep` fijo es una fuente de flakiness bajo carga (la entrega de
+   * eventos de `fs.watch` puede retrasarse más de lo previsto). Con el
+   * sondeo, el test espera lo que haga falta y además fija un **margen de
+   * quietud** para comprobar que el debounce realmente agrupó.
+   */
+  async function waitUntil(
+    condition: () => boolean,
+    timeoutMs = 5000,
+    pollMs = 20
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (condition()) return;
+      await wait(pollMs);
+    }
+    throw new Error(
+      `waitUntil: la condición no se cumplió en ${timeoutMs}ms (last check: ${condition()})`
+    );
+  }
+
   it("`startWatching` dispara el trigger cuando un archivo casa con el patrón", async () => {
     const handler = vi.fn();
     engine.registerWatchTrigger(
@@ -56,7 +79,7 @@ describe("T2 — Proactividad: triggers reales (EGO-FIND-51)", () => {
     expect(engine.isWatching()).toBe(true);
 
     fs.writeFileSync(path.join(tmpDir, "notas.txt"), "hola", "utf8");
-    await wait(220);
+    await waitUntil(() => handler.mock.calls.length > 0);
 
     expect(handler).toHaveBeenCalledTimes(1);
     expect(String(handler.mock.calls[0]?.[0])).toContain("notas.txt");
@@ -64,12 +87,13 @@ describe("T2 — Proactividad: triggers reales (EGO-FIND-51)", () => {
 
   it("el debounce agrupa ráfagas de cambios en una sola invocación", async () => {
     const handler = vi.fn();
+    const DEBOUNCE_MS = 400;
     engine.registerWatchTrigger(
       {
         id: "w1",
         subEgoId: "ego.dev",
         pattern: "*.txt",
-        debounceMs: 120,
+        debounceMs: DEBOUNCE_MS,
         enabled: true,
       },
       handler
@@ -77,10 +101,15 @@ describe("T2 — Proactividad: triggers reales (EGO-FIND-51)", () => {
 
     await engine.startWatching(tmpDir);
 
+    // Las 5 escrituras son SÍNCRONAS: caen en la misma ventana de debounce
+    // aunque la entrega de eventos se retrase.
     for (let i = 0; i < 5; i++) {
       fs.writeFileSync(path.join(tmpDir, "notas.txt"), `v${i}`, "utf8");
     }
-    await wait(350);
+
+    await waitUntil(() => handler.mock.calls.length > 0);
+    // Margen de quietud: si el debounce agrupase mal, aparecería una 2ª llamada.
+    await wait(DEBOUNCE_MS + 300);
 
     expect(handler).toHaveBeenCalledTimes(1);
   });

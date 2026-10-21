@@ -16,7 +16,8 @@
     "@ego/subegos": "workspace:*",
     "@ego/tasks": "workspace:*",
     "@ego/tools": "workspace:*",
-    "@ego/ui-runtime": "workspace:*"
+    "@ego/ui-runtime": "workspace:*",
+    "vantadb": "0.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",
