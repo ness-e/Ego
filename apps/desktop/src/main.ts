@@ -474,6 +474,9 @@ import { ensureFloatMgr, refreshTrayStatus, floatingSnapshot, syncFloatingFromEn
 import { getOrCreateDefaultProject } from "./main/subsystems/default-project.js";
 import { syncModelCredentialPool } from "./main/models/model-pool.js";
 import { scheduleMemoryCleanup } from "./main/subsystems/memory-cleanup.js";
+// Ola 9 (A4): la curaduría programada de memoria (CFG-08) — se cablea en el
+// arranque (`create-window.ts`) y se para en el apagado.
+import { stopMemoryCuration } from "./main/subsystems/memory-curation.js";
 export { getOrCreateDefaultProject } from "./main/subsystems/default-project.js";
 export { getModelCredentialPool, setModelCredentialPoolForTests, syncModelCredentialPool } from "./main/models/model-pool.js";
 export { scheduleMemoryCleanup, stopMemoryCleanupForTests } from "./main/subsystems/memory-cleanup.js";
@@ -970,6 +973,15 @@ const createWindowDeps: CreateWindowDeps = {
         proactivityEngine?.stopAll();
       } catch {
         // noop
+      }
+      // Ola 9 (A4): la curaduría programada (CFG-08) se detiene ANTES de
+      // cerrar el adapter (usa el store): si siguiera viva, una corrida
+      // could write against a closed store. Su `setInterval` lleva `unref()`
+      // (no impediría el cierre), pero pararlo aquí deja el estado limpio.
+      try {
+        stopMemoryCuration();
+      } catch {
+        // noop: el apagado nunca falla por la curaduría
       }
       if (adapter) {
         await adapter.close();

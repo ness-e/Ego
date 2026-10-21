@@ -103,6 +103,8 @@ import { ModelRouter, createRouterSummarizer } from "@ego/models";
 import { ToolRegistry, registerNativeTools } from "@ego/tools";
 // E13 (Ola 5 · T1): registro de los metatools de divulgación progresiva.
 import { registerProgressiveMetaTools } from "../tools/meta-tools.js";
+// Ola 9 (A4): curaduría programada de memoria (CFG-08) — marca stale.
+import { startMemoryCuration } from "../subsystems/memory-curation.js";
 import { McpManager, SkillScanner } from "@ego/integrations";
 import { EventBus, StructuredLogger, type EgoEventType } from "@ego/events";
 import { ToolExecutionLoop, ContextCompactionJob } from "@ego/runtime";
@@ -212,6 +214,21 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
     lifecycle.startCuratorJob({ intervalMs: 60 * 60 * 1000, staleAfterDays: 30, maxSnapshots: 50 });
   } catch (err) {
     console.warn("[Ego Main] Job curator STAB-06 no arrancó (reintento manual vía lifecycle):", err);
+  }
+
+  // CFG-08: curaduría programada (marca stale). Sin `DreamConsolidator`: el
+  // "sueño" lo dispara el lifecycle (ver `@ego/memory`), así que pasárselo
+  // aquí consolidaría dos veces por el mismo ciclo.
+  //
+  // Ola 9 (A4): hasta ahora `MemoryCurator` estaba implementado y verificado
+  // en `@ego/tasks` pero **sin instanciar** → su capacidad (marcar stale)
+  // no ocurría nunca (el último punto de `EGO-FIND-22`). El apagado lo
+  // llama `main.ts` (`stopMemoryCuration`): sin él, el `setInterval`
+  // seguiría vivo e impediría que Electron cerrase.
+  try {
+    startMemoryCuration(adapter, { intervalHours: 24, staleAfterDays: 90 });
+  } catch (err) {
+    console.warn("[Ego Main] Curaduría CFG-08 no arrancó (la memoria no se curaría):", err);
   }
 
   setModelRouter(new ModelRouter());

@@ -34,6 +34,9 @@ import type { AttentionStateMachine, ContextCompactionJob, SummarizerFn, ToolExe
 import type { ModelRouter } from "@ego/models";
 import type { ApprovalEngine, ExecutionManager, WidgetHitlBridge } from "@ego/execution";
 import type { ToolRegistry } from "@ego/tools";
+// Ola 9 (A4): la curaduría programada de memoria (CFG-08) — su instancia
+// viva es estado del proceso (E6: un único sitio).
+import type { MemoryCurator } from "@ego/tasks";
 import type { DelegationRuntime, SubEgoRegistry, SubEgoSoul } from "@ego/subegos";
 import type { DecisionAuditor, DecisionRouter, DecisionTelemetry, LoopBreaker } from "@ego/decision";
 import type { McpManager, SkillScanner } from "@ego/integrations";
@@ -446,6 +449,20 @@ export function setModelCredentialPool(value: CredentialPool | null): void {
 * acepta el hook cuando exista instancia gobernada (deuda STAB-05→STAB-12).
 */
 export let memoryCleanupTimer: NodeJS.Timeout | null = null;
+
+/**
+ * Ola 9 (A4) — La curaduría programada de memoria (CFG-08) viva.
+ *
+ * El estado mutable del proceso vive AQUÍ (E6: un único sitio), no en el
+ * módulo que la usa: `subsystems/memory-curation.ts` guarda aquí su
+ * instancia viva para poder pararla en el apagado.
+ */
+export let memoryCurator: MemoryCurator | null = null;
+
+/** Asigna `memoryCurator` (único punto de escritura del estado). */
+export function setMemoryCurator(value: MemoryCurator | null): void {
+  memoryCurator = value;
+}
 
 /** Asigna `memoryCleanupTimer` (único punto de escritura del estado). */
 export function setMemoryCleanupTimer(value: NodeJS.Timeout | null): void {
