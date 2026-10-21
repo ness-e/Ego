@@ -159,7 +159,11 @@ describe("@ego/desktop — updater DIST-05 (sin red real, feed mock local)", () 
 
   it("main.ts cablea el updater (solo-packaged, diferido, system.alert)", () => {
     const mainSrc = readMainSource();
-    expect(mainSrc).toContain('from "./updater.js"');
+    // E6 (Ola 2): el updater se importa desde el módulo que arranca la
+    // ventana (`src/main/window/create-window.ts`), así que la ruta es
+    // relativa a ese módulo. El guard afirma el CONTRATO (se cablea el
+    // updater real), no la ruta concreta.
+    expect(mainSrc).toMatch(/from "(\.\.\/)+updater\.js"/);
     expect(mainSrc).toContain("initAutoUpdater");
     expect(mainSrc).toContain("app.isPackaged");
     expect(mainSrc).toContain('"system.alert"');

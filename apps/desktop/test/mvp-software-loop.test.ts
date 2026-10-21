@@ -108,7 +108,29 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
     }
   });
 
-  it("Ejecuta el Golden Path completo de 6 pasos de guia-mvp.md sin errores y verifica durabilidad post-reinicio", async () => {
+  it(
+    "Ejecuta el Golden Path completo de 6 pasos de guia-mvp.md sin errores y verifica durabilidad post-reinicio",
+    // E6 (Ola 2) — Presupuesto explícito, medido.
+    //
+    // Este test es un E2E real: 6 pasos canónicos + materialización en disco
+    // + **reapertura en frío** del `EgoMemoryAdapter` (I/O de VantaDB en
+    // disco). Su coste intrínseco es de ~1,9 s en reposo (medido en la Ola
+    // 1c) y ~2,3 s aislado en esta máquina; con el presupuesto por defecto
+    // de vitest (5 s) solo tenía un margen de 2,2×, insuficiente cuando el
+    // repo corre sus 19 paquetes en paralelo (la suite global + otros
+    // agentes saturan la CPU y el disco).
+    //
+    // MEDIDO: con 64 procesos `node` concurrentes en la máquina, el test
+    // tardó 6,6 s → `Test timed out in 5000ms` (fallo por presupuesto, no
+    // por aserción). El A/B con el `main.ts` pre-E6 en su sitio dio el
+    // MISMO timeout en el import del módulo `main` (5 244 ms), lo que
+    // descarta que el refactor sea la causa.
+    //
+    // El presupuesto nuevo (20 s) es proporcional al coste real de un E2E
+    // de disco y NO esconde ningún fallo: si el golden path se rompe, el
+    // test sigue fallando por aserción.
+    { timeout: 20_000 },
+    async () => {
     // ─────────────────────────────────────────────────────────────
     // PASO 1: Configurar & Conectar (BYOK / ModelRouter)
     // ─────────────────────────────────────────────────────────────

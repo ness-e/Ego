@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildCsp } from "../src/main.js";
+import { readMainSource } from "./helpers/main-source.js";
 
 /**
  * SEC-01 — Guard de regresión de Sandboxing y Context Isolation.
@@ -15,10 +16,20 @@ const read = (rel: string): string =>
 
 describe("@ego/desktop — SEC-01 sandboxing y context isolation", () => {
   it("main BrowserWindow exige sandbox + contextIsolation + sin nodeIntegration", () => {
-    const main = read("src/main.ts");
-    expect(main).toMatch(/sandbox:\s*true/);
-    expect(main).toMatch(/contextIsolation:\s*true/);
-    expect(main).toMatch(/nodeIntegration:\s*false/);
+    // E6 (Ola 2): la creación de la ventana principal vive en
+    // `src/main/window/create-window.ts`, así que el guard sigue al código
+    // por TODO el árbol del proceso main (`readMainSource`) en vez de leer
+    // un único fichero.
+    const main = readMainSource();
+    // Y las aserciones se ACOTAN al bloque de opciones de la BrowserWindow
+    // (antes bastaba con que `sandbox: true` apareciera en cualquier sitio
+    // del fichero: era un assert de presencia de texto, no de contrato).
+    const idx = main.indexOf("new BrowserWindow(");
+    expect(idx, "no se encontró la creación de la BrowserWindow principal").toBeGreaterThan(-1);
+    const opts = main.slice(idx, idx + 1200);
+    expect(opts).toMatch(/sandbox:\s*true/);
+    expect(opts).toMatch(/contextIsolation:\s*true/);
+    expect(opts).toMatch(/nodeIntegration:\s*false/);
   });
 
   it("ventana flotante replica el endurecimiento (sandbox:true + preload)", () => {
@@ -47,7 +58,10 @@ describe("@ego/desktop — SEC-01 sandboxing y context isolation", () => {
   });
 
   it("main aplica CSP estricta vía onHeadersReceived (R13/SEC-01)", () => {
-    const main = read("src/main.ts");
+    // E6 (Ola 2): la CSP se aplica en el arranque de la ventana
+    // (`src/main/window/create-window.ts`), así que el guard sigue al código
+    // por todo el árbol del proceso main.
+    const main = readMainSource();
     expect(main).toMatch(/onHeadersReceived/);
     expect(main).toMatch(/Content-Security-Policy/);
   });
