@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 import { EgoMemoryAdapter, EgoMemoryLifecycle } from "@ego/memory";
 import { ModelRouter, EgoModelInterface, ModelGenerateOptions, ModelGenerateResult } from "@ego/models";
 import { ToolRegistry, registerNativeTools } from "@ego/tools";
 import { EventBus } from "@ego/events";
 import { ApprovalEngine, ExecutionManager } from "@ego/execution";
 import { ToolExecutionLoop } from "@ego/runtime";
-import { setupModelProviders, handleLlmStream, applyModelConfig, resolveEnvModelKeys, resolvePersistedModelKeys, mergeModelKeys, encryptCredential, maskApiKey } from "../src/main.js";
+import { setupModelProviders, applyModelConfig, resolveEnvModelKeys, resolvePersistedModelKeys, mergeModelKeys, encryptCredential, maskApiKey } from "../src/main.js";
 import { ModelConfigSchema, type ModelConfig } from "../src/ipc/schema.js";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 const PROVIDER_ENV_VARS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_BASE_URL", "DEEPSEEK_BASE_URL", "OLLAMA_BASE_URL"] as const;
 
@@ -47,7 +47,7 @@ describe("@ego/desktop — Fast-Path ToolExecutionLoop & Real Providers Integrat
   let toolLoop: ToolExecutionLoop;
 
   beforeEach(async () => {
-    tmpDir = path.join(os.tmpdir(), `ego-desktop-ipc-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
+    tmpDir = createScratchDir("ego-desktop-ipc-test");
     await fs.mkdir(tmpDir, { recursive: true });
 
     adapter = new EgoMemoryAdapter(tmpDir);
@@ -77,7 +77,7 @@ describe("@ego/desktop — Fast-Path ToolExecutionLoop & Real Providers Integrat
 
   afterEach(async () => {
     await adapter.close();
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    removeScratchDir(tmpDir);
   });
 
   describe("1. INT-02: Configuración de Proveedores y BYOK Fallback", () => {

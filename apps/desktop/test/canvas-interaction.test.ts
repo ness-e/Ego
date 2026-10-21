@@ -1,20 +1,13 @@
 // apps/desktop/test/canvas-interaction.test.ts
 // Golden Path Alpha — Pasos 15 al 20: Ciclo cerrado del Dynamic Workspace & Canvas (CANV-10)
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import * as os from "node:os";
-import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { EgoMemoryAdapter } from "@ego/memory";
-import {
-  CanvasBridge,
-  CanvasPersistenceManager,
-  CanvasComponentManifestSchema,
-  type CanvasWorkspaceState,
-  type CanvasChangeSet,
-} from "../../packages/ui-runtime/dist/index.js";
+import { CanvasBridge, CanvasPersistenceManager, CanvasComponentManifestSchema, type CanvasWorkspaceState, type CanvasChangeSet } from "../../packages/ui-runtime/dist/index.js";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 describe("CANV-10: Golden Path Alpha (Pasos 15 al 20) — Dynamic Workspace & Canvas E2E", () => {
-  const testDir = path.join(os.tmpdir(), `ego-canvas-desktop-e2e-${Date.now()}`);
+  const testDir = createScratchDir("ego-canvas-desktop-e2e");
   let adapter: EgoMemoryAdapter | null = null;
 
   beforeAll(async () => {
@@ -30,7 +23,7 @@ describe("CANV-10: Golden Path Alpha (Pasos 15 al 20) — Dynamic Workspace & Ca
 
   afterAll(async () => {
     try {
-      await fs.rm(testDir, { recursive: true, force: true });
+      removeScratchDir(testDir);
     } catch {
       // Ignorar bloqueos transitorios de descriptores en Windows
     }

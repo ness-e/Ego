@@ -1,18 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import * as os from "node:os";
 import { EventEmitter } from "node:events";
-import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  WindowStateManager,
-  FloatingWindowPersistSchema,
-} from "../src/windows/WindowStateManager.js";
+import { WindowStateManager, FloatingWindowPersistSchema } from "../src/windows/WindowStateManager.js";
 import { pauseAllTasks } from "../src/main/tray-status.js";
 import { BackgroundEngine } from "@ego/tasks";
 import { readMainSource } from "./helpers/main-source.js";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 vi.mock("electron", () => {
   const webContents = {
@@ -88,13 +82,13 @@ describe("Task10 — persistencia flotante (WIDG-05)", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-floating-persist-"));
+    tmpDir = createScratchDir("ego-floating-persist");
   });
 
   afterEach(() => {
     vi.useRealTimers();
     try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      removeScratchDir(tmpDir);
     } catch {
       // ignore
     }

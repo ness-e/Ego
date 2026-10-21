@@ -1,7 +1,8 @@
 // apps/desktop/test/ipc.integration.test.ts
 // Suite de integración IPC con DB real (Fjall en tmpdir). NO toca tests unitarios
 // existentes ni renderer ni CI.
-// - Usa EgoMemoryAdapter real con `os.tmpdir() + mkdtemp` y patrón close/reopen
+// - Usa EgoMemoryAdapter real con el scratch compartido (T-X1) y patrón
+//   close/reopen
 //   (golden-path-alpha.test.ts:35-107) para probar durabilidad real.
 // - Invoca la lógica REAL de 3 handlers IPC de main.ts por llamada directa
 //   (no solo Schema.safeParse); los espejos locales citan la línea exacta que
@@ -11,15 +12,9 @@
 // - Corre siempre con tmpdir (rápido <2s) cuando EGO_REAL_DB=1;
 //   limpia tmpdir en afterAll.
 import { describe, it, expect, afterAll, vi } from "vitest";
-import * as os from "node:os";
 import * as path from "node:path";
-import * as fs from "node:fs/promises";
 import { EgoMemoryAdapter, EgoMemoryLifecycle } from "@ego/memory";
-import {
-  MemoryOpSchema,
-  SessionsListSchema,
-  SelectFolderRedeemSchema,
-} from "../src/ipc/schema.js";
+import { MemoryOpSchema, SessionsListSchema, SelectFolderRedeemSchema } from "../src/ipc/schema.js";
 
 // Mock SOLO del diálogo externo del SO (sin GUI en tests). El resto de
 // `electron` queda como stub inerte: main.ts no ejecuta nada de electron a
@@ -32,7 +27,7 @@ vi.mock("electron", () => ({
   dialog: {
     showOpenDialog: vi.fn(async () => ({
       canceled: false,
-      filePaths: [path.join(os.tmpdir(), "ego-proyecto-seleccionado")],
+      filePaths: [path.join(scratchRunDir(), "ego-proyecto-seleccionado")],
     })),
   },
   safeStorage: undefined,
@@ -49,6 +44,7 @@ vi.mock("electron", () => ({
 //   sin la variable se salta (entornos sin nativo, p. ej. este sandbox).
 import { dialog } from "electron";
 import { issueFolderToken, redeemFolderToken } from "../src/main.js";
+import { createScratchDir, removeScratchDir, scratchRunDir } from "./helpers/test-scratch.js";
 
 const describeRealDb = describe.skipIf(!process.env.EGO_REAL_DB);
 
@@ -60,7 +56,7 @@ describeRealDb("IPC integración con DB real (tmpdir Fjall, sin mocks de persist
   // selectFolder/redeem (puro en memoria) corre sin binding nativo.
   async function getAdapter(): Promise<EgoMemoryAdapter> {
     if (!adapter) {
-      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-ipc-integration-"));
+      tmpDir = createScratchDir("ego-ipc-integration");
       adapter = new EgoMemoryAdapter(tmpDir);
       await adapter.init();
       expect(adapter.ready).toBe(true);
@@ -87,7 +83,7 @@ describeRealDb("IPC integración con DB real (tmpdir Fjall, sin mocks de persist
       adapter = null;
     }
     try {
-      if (tmpDir) await fs.rm(tmpDir, { recursive: true, force: true });
+      if (tmpDir) removeScratchDir(tmpDir);
     } catch {
       // Ignorar bloqueos en Windows
     } finally {

@@ -80,12 +80,30 @@ describe("E6 — el main process tiene UN sitio con su estado mutable", () => {
     }
   });
 
-  it("main.ts es un compositor: por debajo de 1 500 líneas", () => {
+  it("main.ts es un compositor: por debajo de 1 100 líneas (E6-res, Ola 3)", () => {
     const lines = readFileSync(join(SRC, "main.ts"), "utf8").split(/\r?\n/).length;
     expect(
       lines,
-      `main.ts tiene ${lines} líneas (objetivo E6: < 1500)`
-    ).toBeLessThan(1500);
+      `main.ts tiene ${lines} líneas (objetivo E6-res: < 1100)`
+    ).toBeLessThan(1100);
+  });
+
+  it("la descomposición de main.ts vive en módulos con responsabilidad propia", () => {
+    // E6-res: los bloques extraídos (tray, proyecto por defecto, limpieza de
+    // memoria, pool de modelos) tienen su propio módulo. El gate no mira
+    // nombres concretos: comprueba que el compositor no los contenga.
+    const main = readFileSync(join(SRC, "main.ts"), "utf8");
+    for (const symbol of [
+      "function ensureTray",
+      "function getOrCreateDefaultProject",
+      "function scheduleMemoryCleanup",
+      "function modelPoolProviderFactory",
+    ]) {
+      expect(
+        main.includes(symbol),
+        `${symbol} sigue en main.ts: su bloque debe vivir en un módulo propio`
+      ).toBe(false);
+    }
   });
 
   it("los handlers IPC siguen registrado en el main (no se han movido de sitio)", () => {

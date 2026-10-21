@@ -1,20 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 import { WindowStateManager, WindowState } from "../src/windows/WindowStateManager.js";
 import { WindowStateHelper } from "@ego/ui-runtime";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 describe("WindowStateManager (WIDG-05, HERM-04)", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-window-state-test-"));
+    tmpDir = createScratchDir("ego-window-state-test");
   });
 
   afterEach(() => {
     try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      removeScratchDir(tmpDir);
     } catch {
       // ignore
     }

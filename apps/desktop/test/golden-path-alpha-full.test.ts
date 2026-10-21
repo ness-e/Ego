@@ -1,34 +1,18 @@
 // apps/desktop/test/golden-path-alpha-full.test.ts
 // DEC-09: CIERRE DEL HITO P0-ALPHA — Validación Automatizada del Golden Path Alpha Completo (20 Pasos Canónicos)
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { EgoMemoryAdapter } from "@ego/memory";
 import { EventBus } from "@ego/events";
 import { ToolRegistry, registerNativeTools } from "@ego/tools";
-import {
-  SubEgoRegistry,
-  createSubEgoManifest,
-  type SubEgoManifest
-} from "@ego/subegos";
-import {
-  DecisionRouter,
-  DecisionAuditor,
-  DecisionTelemetry,
-  LoopBreaker,
-  SubEgoSelector
-} from "@ego/decision";
-import {
-  CanvasBridge,
-  CanvasPersistenceManager,
-  type CanvasComponentManifest,
-  type CanvasChangeSet,
-  type CanvasWorkspaceState
-} from "@ego/ui-runtime";
+import { SubEgoRegistry, createSubEgoManifest, type SubEgoManifest } from "@ego/subegos";
+import { DecisionRouter, DecisionAuditor, DecisionTelemetry, LoopBreaker, SubEgoSelector } from "@ego/decision";
+import { CanvasBridge, CanvasPersistenceManager, type CanvasComponentManifest, type CanvasChangeSet, type CanvasWorkspaceState } from "@ego/ui-runtime";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milestone Validation", () => {
-  const tmpDir = path.join(os.tmpdir(), `ego-golden-path-desktop-${Date.now()}`);
+  const tmpDir = createScratchDir("ego-golden-path-desktop");
   const workspacePath = path.join(tmpDir, "workspace");
   let adapter: EgoMemoryAdapter | null = null;
 
@@ -43,7 +27,7 @@ describe("DEC-09: Golden Path Alpha Completo (Pasos 1 al 20) — E2E Core Milest
       adapter = null;
     }
     try {
-      await fs.rm(tmpDir, { recursive: true, force: true });
+      removeScratchDir(tmpDir);
     } catch {
       // Ignorar bloqueos en Windows
     }

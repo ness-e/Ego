@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { OpGate, CrashRecoveryEngine } from "@ego/recovery";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 describe("OpGate & CrashRecoveryEngine Desktop Integration (REC-01, REC-02)", () => {
   it("crea y administra la barrera de drenado OpGate en el ciclo de vida", async () => {
@@ -23,7 +24,7 @@ describe("OpGate & CrashRecoveryEngine Desktop Integration (REC-01, REC-02)", ()
   });
 
   it("administra ego.lock y detecta cierre limpio", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-main-lock-"));
+    const tmpDir = createScratchDir("ego-main-lock");
     try {
       const engine = new CrashRecoveryEngine({ storageDir: tmpDir });
       const report = await engine.checkAndAcquireLock("session_desktop");
@@ -36,7 +37,7 @@ describe("OpGate & CrashRecoveryEngine Desktop Integration (REC-01, REC-02)", ()
       engine.releaseLock();
       expect(fs.existsSync(lockFile)).toBe(false);
     } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      removeScratchDir(tmpDir);
     }
   });
 });

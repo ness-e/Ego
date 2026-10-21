@@ -15,11 +15,11 @@
  *      saliente) y el servidor recibe el valor correcto.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { McpClient, McpManager, type McpServerConfig } from "@ego/integrations";
 import { createCredentialSecretResolver } from "../src/main/mcp/secret-resolver.js";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 /** Servidor MCP de prueba: habla JSON-RPC por stdio y expone 2 tools. */
 const SERVER_SCRIPT = `
@@ -101,13 +101,13 @@ describe("T1 (R2): D2 — el secretResolver se inyecta y resuelve en el punto de
   let script: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "ego-d2-"));
+    dir = createScratchDir("ego-d2");
     script = join(dir, "mcp-fixture.mjs");
     writeFileSync(script, SERVER_SCRIPT, "utf8");
   });
 
   afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
+    removeScratchDir(dir);
   });
 
   const config = (): McpServerConfig => ({

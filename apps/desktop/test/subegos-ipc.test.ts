@@ -1,17 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import * as os from "node:os";
-import {
-  CreateSubEgoSchema,
-  ToggleSubEgoStateSchema,
-} from "../src/ipc/schema.js";
+import { CreateSubEgoSchema, ToggleSubEgoStateSchema } from "../src/ipc/schema.js";
 import { EgoMemoryAdapter } from "@ego/memory";
-import {
-  SubEgoRegistry,
-  SubEgoFactory,
-  SubEgoSystemImmutableError,
-} from "@ego/subegos";
+import { SubEgoRegistry, SubEgoFactory, SubEgoSystemImmutableError } from "@ego/subegos";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 describe("@ego/desktop — Sub-Egos UI Integration & Multi-Modal Factory (INT-04, SUB-08)", () => {
   let tmpDir: string;
@@ -19,7 +10,7 @@ describe("@ego/desktop — Sub-Egos UI Integration & Multi-Modal Factory (INT-04
   let registry: SubEgoRegistry;
 
   beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-subegos-test-"));
+    tmpDir = createScratchDir("ego-subegos-test");
     adapter = new EgoMemoryAdapter(tmpDir);
     await adapter.init();
     registry = new SubEgoRegistry(adapter);
@@ -28,7 +19,7 @@ describe("@ego/desktop — Sub-Egos UI Integration & Multi-Modal Factory (INT-04
   afterEach(async () => {
     try {
       await adapter.close();
-      await fs.rm(tmpDir, { recursive: true, force: true });
+      removeScratchDir(tmpDir);
     } catch {
       // ignore
     }

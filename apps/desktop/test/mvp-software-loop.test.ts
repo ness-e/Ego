@@ -10,19 +10,15 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 import { EgoMemoryAdapter, EgoMemoryLifecycle } from "@ego/memory";
 import { ModelRouter, MockProvider } from "@ego/models";
 import { ToolRegistry, registerNativeTools } from "@ego/tools";
 import { EventBus } from "@ego/events";
 import { ApprovalEngine, ExecutionManager, PendingApproval } from "@ego/execution";
 import { ToolExecutionLoop } from "@ego/runtime";
-import {
-  SubEgoRegistry,
-  SubEgoRuntime,
-  createSubEgoManifest,
-} from "@ego/subegos";
+import { SubEgoRegistry, SubEgoRuntime, createSubEgoManifest } from "@ego/subegos";
 import { ProjectManifestSchema, type ProjectManifest } from "../src/ipc/schema.js";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engineering Anchor)", () => {
   let baseTmpDir: string;
@@ -42,10 +38,7 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
   let pendingApprovalCaptured: PendingApproval | null = null;
 
   beforeEach(async () => {
-    baseTmpDir = path.join(
-      os.tmpdir(),
-      `ego-mvp-e2e-${Date.now()}-${Math.random().toString(36).substring(7)}`
-    );
+    baseTmpDir = createScratchDir("ego-mvp-e2e");
     vdbDir = path.join(baseTmpDir, "vdb");
     workspaceDir = path.join(baseTmpDir, "repo_workspace");
 
@@ -102,7 +95,7 @@ describe("INT-06 — Validación E2E del Bucle Completo del MVP (Software Engine
       await adapter.close();
     }
     try {
-      await fs.rm(baseTmpDir, { recursive: true, force: true });
+      removeScratchDir(baseTmpDir);
     } catch {
       // Ignorar bloqueos temporales en Windows
     }

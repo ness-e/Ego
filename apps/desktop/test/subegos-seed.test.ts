@@ -32,11 +32,9 @@
  * prueba, sin base de datos.
  */
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import * as os from "node:os";
 import { EgoMemoryAdapter, type PutRouteReport } from "@ego/memory";
 import { SubEgoRegistry, SubEgoManifestSchema, createSubEgoId } from "@ego/subegos";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 /** `electron` no existe fuera del proceso Electron: se mockea (patrón T03/T13). */
 vi.mock("electron", () => ({
@@ -104,7 +102,7 @@ describe("@ego/desktop — siembra de sub-egos canónicos (DSEK-03)", () => {
     let registry: SubEgoRegistry;
 
     beforeAll(async () => {
-      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-subegos-seed-"));
+      tmpDir = createScratchDir("ego-subegos-seed");
       adapter = new EgoMemoryAdapter(tmpDir);
       await adapter.init();
       registry = new SubEgoRegistry(adapter);
@@ -113,7 +111,7 @@ describe("@ego/desktop — siembra de sub-egos canónicos (DSEK-03)", () => {
     afterAll(async () => {
       try {
         await adapter.close();
-        await fs.rm(tmpDir, { recursive: true, force: true });
+        removeScratchDir(tmpDir);
       } catch {
         // ignore
       }

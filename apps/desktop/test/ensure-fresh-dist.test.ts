@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { isStale, findStalePackages, sourceFiles } from "../../../scripts/ensure-fresh-dist.cjs";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 describe("ensure-fresh-dist gate (HIG-02)", () => {
   let root = "";
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "hig02-"));
+    root = createScratchDir("hig02");
   });
 
   afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
+    removeScratchDir(root);
   });
 
   function makePkg(name: string, opts: { withDist: boolean; srcNewer: boolean }): string {

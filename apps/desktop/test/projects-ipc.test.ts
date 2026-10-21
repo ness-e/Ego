@@ -1,21 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import * as os from "node:os";
-import {
-  ProjectManifestSchema,
-  CreateProjectSchema,
-  SelectProjectSchema,
-} from "../src/ipc/schema.js";
+import { ProjectManifestSchema, CreateProjectSchema, SelectProjectSchema } from "../src/ipc/schema.js";
 import { EgoMemoryAdapter } from "@ego/memory";
 import { getOrCreateDefaultProject } from "../src/main.js";
+import { createScratchDir, removeScratchDir } from "./helpers/test-scratch.js";
 
 describe("@ego/desktop — Project Entity & Dynamic Isolation (INT-03)", () => {
   let tmpDir: string;
   let adapter: EgoMemoryAdapter;
 
   beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-proj-test-"));
+    tmpDir = createScratchDir("ego-proj-test");
     adapter = new EgoMemoryAdapter(tmpDir);
     await adapter.init();
   });
@@ -23,7 +17,7 @@ describe("@ego/desktop — Project Entity & Dynamic Isolation (INT-03)", () => {
   afterEach(async () => {
     try {
       await adapter.close();
-      await fs.rm(tmpDir, { recursive: true, force: true });
+      removeScratchDir(tmpDir);
     } catch {
       // ignore
     }
