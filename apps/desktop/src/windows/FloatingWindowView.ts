@@ -12,6 +12,15 @@ export interface FloatingWindowOptions {
   width?: number;
   height?: number;
   transparent?: boolean;
+  /**
+   * EGO-FIND-104b: modo opaco de emergencia. `opaque: true` crea la ventana
+   * con `transparent: false` + `backgroundColor` — la única variante que
+   * compone SIEMPRE al escritorio (la superficie DirectComposition de las
+   * transparentes puede no presentarse jamás en ciertos desktops Windows).
+   * El contenido de floating.css es agnóstico: pinta sus pills sobre el
+   * fondo oscuro de la ventana.
+   */
+  opaque?: boolean;
   alwaysOnTop?: boolean;
   focusable?: boolean;
   initialPosition?: 'top-right' | 'bottom-right' | 'dock';
@@ -36,6 +45,9 @@ export class FloatingWindow {
 
     const width = this.options.width ?? 240;
     const height = this.options.height ?? 240;
+    // EGO-FIND-104b: `opaque` manda sobre `transparent` (modo de emergencia).
+    const opaque = this.options.opaque ?? false;
+    const transparent = !opaque && (this.options.transparent ?? true);
 
     // Posición por defecto: esquina inferior derecha sobre la bandeja del sistema
     const x = screenWidth - width - 24;
@@ -47,7 +59,10 @@ export class FloatingWindow {
       x,
       y,
       frame: false,
-      transparent: this.options.transparent ?? true,
+      transparent,
+      // En modo opaco el fondo de la ventana substituye el del escritorio:
+      // tinta del design-system (misma familia que la ventana principal).
+      ...(opaque ? { backgroundColor: "#101013" } : {}),
       alwaysOnTop: this.options.alwaysOnTop ?? true,
       focusable: this.options.focusable ?? false,
       skipTaskbar: true,

@@ -116,7 +116,10 @@ import { CrashRecoveryEngine, OpGate } from "@ego/recovery";
 import { BackgroundEngine, WorkerTaskPool, ProactivityEngine, TaskCheckpointManager, registerBackgroundTaskTools, RunRecorder } from "@ego/tasks";
 import { evaluateToolCall } from "@ego/security";
 import { isPresenceAllowed } from "../../windows/FloatingWindow.js";
-import { WindowStateManager } from "../../windows/WindowStateManager.js";
+import {
+  WindowStateManager,
+  type FloatingWindowPersist,
+} from "../../windows/WindowStateManager.js";
 import { initAutoUpdater, resolveUpdateFeedUrl } from "../../updater.js";
 import { defaultWorkspaceRoot } from "../path-scope.js";
 import { applyNavigationGuards, buildCsp, installIpcOriginLogging, setFetchAuthTokenResolver } from "../security/electron-security.js";
@@ -900,17 +903,41 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
   // `muted` es solo audio y NUNCA bloquea la presencia. Al restaurar/enfocar
   // con 0 trabajo y 0 HITL, `onMainRestoreOrFocus` auto-oculta.
   // Task10 (WIDG-05): restore de persistencia flotante (mute/presencia/pos).
+  // EGO-FIND-104b: restore del opacityMode (transparent/opaque/auto) y
+  // armado de la sonda de composición con persistencia de la decisión.
   deps.ensureFloatMgr();
+  let floatingState: FloatingWindowPersist | null = null;
   try {
-    const floatingState = await windowStateManager.restoreFloatingState();
+    floatingState = await windowStateManager.restoreFloatingState();
+  } catch {
+    // noop: sin persistencia previa la flotante arranca con defaults
+  }
+  if (floatingState) {
+    deps.ensureFloatMgr().setOpacityMode(floatingState.opacityMode);
     deps.ensureFloatMgr().setMuted(floatingState.muted);
     deps.ensureFloatMgr().setDisabled(floatingState.disabled ?? false);
     setFloatingRestoredPosition(floatingState.x !== undefined && floatingState.y !== undefined
         ? { x: floatingState.x, y: floatingState.y }
         : null);
-  } catch {
-    // noop: sin persistencia previa la flotante arranca con defaults
   }
+  // La sonda queda armada en el main real SIEMPRE (con o sin persistencia):
+  // en modo `auto`, ~4.2 s tras el primer show verifica por píxeles que la
+  // superficie transparente compone; si no compone, migra a opaco y notifica.
+  deps.ensureFloatMgr().enableCompositingProbe((mode) => {
+    try {
+      const st = deps.ensureFloatMgr().getState();
+      void windowStateManager
+        .persistFloatingState({
+          muted: st.muted,
+          disabled: st.disabled ?? false,
+          presenceMode: "auto",
+          opacityMode: mode,
+        })
+        .catch(() => undefined);
+    } catch {
+      // noop: la persistencia de la decisión nunca tumba la flotante
+    }
+  });
   mainWindow.on("minimize", () => {
     try {
       if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -941,10 +968,13 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
             windowStateManager.trackFloatingWindow(floatingWin, () => {
               const currentSt = deps.ensureFloatMgr().getState();
               // presenceMode vive en persistencia (default "auto"; settings UI → Task12).
+              // EGO-FIND-104b: el opacityMode vivo viaja en el extra para que
+              // los saves por move/cierre no machaquen la decisión del fallback.
               return {
                 muted: currentSt.muted,
                 disabled: currentSt.disabled ?? false,
                 presenceMode: "auto" as const,
+                opacityMode: deps.ensureFloatMgr().getOpacityMode(),
               };
             });
           }
@@ -1072,8 +1102,20 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
     mainWindow.webContents.openDevTools({ mode: "detach" });
   }
 
-  mainWindow.show();
-  mainWindow.focus();
+  // EGO-FIND-104c (boot race): si el usuario minimizó durante el `await
+  // loadFile` (que puede tardar segundos en arranque frío), el handler de
+  // `minimize` ya ejecutó hide() + autoshow de la isla. Un show() tardío
+  // incondicional DES-minimiza la ventana principal y dispara
+  // `restore`/`focus` → la isla se auto-oculta a los pocos segundos de
+  // arrancar. Sólo se muestra si la ventana sigue atendida.
+  if (!mainWindow.isMinimized() && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+  } else {
+    console.log(
+      "[Ego Desktop] Ventana minimizada durante la carga: se respeta el minimize (no se des-minimiza al fin de la carga).",
+    );
+  }
   if (isDev) {
     mainWindow.setAlwaysOnTop(true);
     mainWindow.setAlwaysOnTop(false);

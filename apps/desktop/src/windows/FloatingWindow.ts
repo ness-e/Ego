@@ -1,4 +1,5 @@
 import { FloatingWindow } from './FloatingWindowView.js';
+import { probeIslandCompositing } from './floating-compositing-probe.js';
 
 /** Re-export del nombre definitivo (WIDG-01): la vista vive en `FloatingWindowView.ts`. */
 export { FloatingWindow } from './FloatingWindowView.js';
@@ -87,15 +88,71 @@ export function syncFromAttention(
   }
 }
 
+/**
+ * EGO-FIND-104b: modo de composición de la isla.
+ * - `transparent`: superficie DirectComposition con transparencia real.
+ * - `opaque`: ventana opaca de emergencia (`transparent:false` + fondo
+ *   tinta) — la única variante que compone SIEMPRE al escritorio.
+ * - `auto`: arranca transparente y la sonda de composición verifica los
+ *   píxeles reales; si no compone, migra a `opaque` (y lo notifica para
+ *   persistir la decisión).
+ */
+export type FloatingOpacityMode = 'transparent' | 'opaque' | 'auto';
+
+export interface FloatingWindowManagerOptions {
+  /** Modo persistido por Task10 (`window-state.json`). Default `auto`. */
+  opacityMode?: FloatingOpacityMode;
+  /**
+   * Activa la sonda de composición (EGO-FIND-104b). Solo el main real la
+   * activa: los tests instancian el manager sin esta opción y no deben
+   * lanzar capturas de escritorio.
+   */
+  enableCompositingProbe?: boolean;
+  /** Modo resuelto definitivamente tras la sonda (para persistir en Task10). */
+  onOpacityModeDecided?: (mode: 'transparent' | 'opaque') => void;
+}
+
 export class FloatingWindowManager {
   private prototype: FloatingWindow;
   private state: FloatingWindowState;
+  private opacityMode: FloatingOpacityMode;
+  private resolvedOpacity: 'transparent' | 'opaque';
+  private envForcedOpaque: boolean;
+  private probeCapable = false;
+  private probeDone = false;
+  private probeTimer: NodeJS.Timeout | null = null;
+  private opaqueVerifyTimer: NodeJS.Timeout | null = null;
+  private decidedCb: ((mode: 'transparent' | 'opaque') => void) | null = null;
 
-  constructor() {
-    this.prototype = new FloatingWindow({
+  constructor(options: FloatingWindowManagerOptions = {}) {
+    this.envForcedOpaque = process.env.EGO_ISLAND_OPAQUE === '1';
+    if (this.envForcedOpaque) {
+      // Override de emergencia: manda sobre la persistencia mientras la env exista.
+      this.opacityMode = 'opaque';
+    } else {
+      this.opacityMode = options.opacityMode ?? 'auto';
+    }
+    this.resolvedOpacity = this.opacityMode === 'opaque' ? 'opaque' : 'transparent';
+    this.prototype = this.buildPrototype(this.resolvedOpacity);
+    this.decidedCb = options.onOpacityModeDecided ?? null;
+    if (options.enableCompositingProbe) {
+      this.probeCapable = true;
+    }
+
+    this.state = {
+      visible: false,
+      muted: false,
+      disabled: false,
+      attentionState: 'hidden',
+    };
+  }
+
+  private buildPrototype(mode: 'transparent' | 'opaque'): FloatingWindow {
+    return new FloatingWindow({
       width: 180,
       height: 180,
-      transparent: true,
+      transparent: mode === 'transparent',
+      opaque: mode === 'opaque',
       alwaysOnTop: true,
       focusable: false,
       // EGO-FIND-104: el push de estado hecho justo tras `showInactive()` se
@@ -105,13 +162,132 @@ export class FloatingWindowManager {
       // re-empuja el estado ACTUAL del manager, una vez por carga.
       onContentLoaded: () => this.pushState(),
     });
+  }
 
-    this.state = {
-      visible: false,
-      muted: false,
-      disabled: false,
-      attentionState: 'hidden',
-    };
+  public getOpacityMode(): FloatingOpacityMode {
+    return this.opacityMode;
+  }
+
+  public isOpaque(): boolean {
+    return this.resolvedOpacity === 'opaque';
+  }
+
+  /**
+   * EGO-FIND-104b: fija el modo de composición (restaurado por Task10).
+   * Cambiar de variante destruye y recrea la ventana conservando el estado
+   * (visible, tamaño por attentionState, click-through y push de estado).
+   */
+  public setOpacityMode(requested: FloatingOpacityMode | undefined): void {
+    if (!requested) return;
+    if (this.envForcedOpaque && requested !== 'opaque') {
+      console.warn(
+        '[FloatingWindow] EGO_ISLAND_OPAQUE=1 manda: se ignora opacityMode="' + requested + '".',
+      );
+      return;
+    }
+    this.opacityMode = requested;
+    const target: 'transparent' | 'opaque' = requested === 'opaque' ? 'opaque' : 'transparent';
+    if (target === this.resolvedOpacity) return;
+    this.recreateWithOpacity(target);
+    this.decidedCb?.(target);
+  }
+
+  /** EGO-FIND-104b: activa la sonda (solo main real). Idempotente. */
+  public enableCompositingProbe(
+    onOpacityModeDecided?: (mode: 'transparent' | 'opaque') => void,
+  ): void {
+    if (onOpacityModeDecided) {
+      this.decidedCb = onOpacityModeDecided;
+    }
+    this.probeCapable = true;
+    if (this.opacityMode === 'auto' && !this.probeDone) {
+      this.armProbe();
+    }
+  }
+
+  private recreateWithOpacity(target: 'transparent' | 'opaque'): void {
+    const wasVisible = this.state.visible;
+    const current = this.prototype.getWindow();
+    if (current && !current.isDestroyed()) {
+      try {
+        current.destroy();
+      } catch {
+        // noop: la recreación nunca tumba la flotante
+      }
+    }
+    this.resolvedOpacity = target;
+    this.prototype = this.buildPrototype(target);
+    if (!wasVisible) return;
+    // show() recrea la ventana y repone estado visible; updateState({}) repone
+    // click-through según el attentionState actual y re-empuja el estado.
+    this.show();
+    if (this.state.attentionState !== 'hidden') {
+      this.prototype.resizeForState(this.state.attentionState);
+    }
+    this.updateState({});
+  }
+
+  private armProbe(): void {
+    if (!this.probeCapable || this.probeDone || this.probeTimer) return;
+    // Diferencia suficiente para que la primera composición (show + carga del
+    // DOM + rAF) ya deba haberse presentado al escritorio.
+    this.probeTimer = setTimeout(() => {
+      this.probeTimer = null;
+      void this.runCompositingProbe();
+    }, 4200);
+    this.probeTimer.unref?.();
+  }
+
+  private async runCompositingProbe(): Promise<void> {
+    if (this.probeDone || this.opacityMode !== 'auto' || this.resolvedOpacity !== 'transparent') {
+      return;
+    }
+    try {
+      const win = this.prototype.getWindow();
+      if (!win || win.isDestroyed() || !win.isVisible()) {
+        // Nada visible que sondear: la sonda queda armada para el próximo show().
+        return;
+      }
+      const painted = await probeIslandCompositing(win);
+      if (painted) {
+        this.probeDone = true;
+        this.decidedCb?.('transparent');
+        return;
+      }
+      // EGO-FIND-104b window-level contract intacto (isVisible=true, DOM vivo)
+      // pero 0 píxeles compuestos: migrar al modo que compone siempre.
+      console.warn(
+        '[FloatingWindow] EGO-FIND-104b: la isla transparente no compone al escritorio (ventana visible, DOM vivo, 0 píxeles). Migrando a modo opaco.',
+      );
+      this.probeDone = true;
+      this.setOpacityMode('opaque');
+      this.opaqueVerifyTimer = setTimeout(() => void this.verifyOpaqueOnce(), 4200);
+      this.opaqueVerifyTimer.unref?.();
+    } catch (err) {
+      // La sonda muerde el polvo antes que la flotante: si falla, mantener transparente.
+      console.warn('[FloatingWindow] Sonda de composición falló (se mantiene transparente):', err);
+      this.probeDone = true;
+    }
+  }
+
+  private async verifyOpaqueOnce(): Promise<void> {
+    if (this.resolvedOpacity !== 'opaque') {
+      this.probeDone = true;
+      return;
+    }
+    try {
+      const win = this.prototype.getWindow();
+      if (win && !win.isDestroyed() && win.isVisible()) {
+        const painted = await probeIslandCompositing(win);
+        console.log(
+          `[FloatingWindow] EGO-FIND-104b: modo opaco compone=${painted ? 'sí' : 'no'} (medición por píxeles).`,
+        );
+      }
+    } catch {
+      // noop: la verificación nunca tumba la flotante
+    } finally {
+      this.probeDone = true;
+    }
   }
 
   /** Push canónico del estado actual al renderer de la isla (si existe). */
@@ -128,6 +304,9 @@ export class FloatingWindowManager {
     }
     win.showInactive();
     this.state.visible = true;
+    if (this.opacityMode === 'auto' && !this.probeDone) {
+      this.armProbe();
+    }
   }
 
   public hide(): void {
@@ -183,6 +362,15 @@ export class FloatingWindowManager {
   }
 
   public destroy(): void {
+    if (this.probeTimer) {
+      clearTimeout(this.probeTimer);
+      this.probeTimer = null;
+    }
+    if (this.opaqueVerifyTimer) {
+      clearTimeout(this.opaqueVerifyTimer);
+      this.opaqueVerifyTimer = null;
+    }
+    this.probeDone = true;
     this.prototype.destroy();
     this.state.visible = false;
   }

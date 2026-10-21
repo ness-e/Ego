@@ -31,6 +31,13 @@ export const FloatingWindowPersistSchema = z.object({
   muted: z.boolean().default(false),
   disabled: z.boolean().default(false),
   presenceMode: FloatingPresenceModeSchema.default("auto"),
+  /**
+   * EGO-FIND-104b: variante de composición de la isla. `auto` = transparente
+   * + sonda de píxeles; cuando la sonda detecta que la superficie
+   * transparente no se compone (0 píxeles con ventana visible), migra a
+   * `opaque` y persiste esta decisión para los arranques siguientes.
+   */
+  opacityMode: z.enum(["transparent", "opaque", "auto"]).default("auto"),
 });
 
 export type FloatingWindowPersist = z.infer<typeof FloatingWindowPersistSchema>;
@@ -39,6 +46,8 @@ export interface FloatingWindowExtra {
   muted: boolean;
   disabled?: boolean;
   presenceMode?: FloatingPresenceMode;
+  /** EGO-FIND-104b: modo de composición vivo del manager (para no perderlo al mover/cerrar). */
+  opacityMode?: FloatingWindowPersist["opacityMode"];
 }
 
 /** Envelope del fallback local: ambas ventanas en un solo `window-state.json`. */
@@ -77,6 +86,12 @@ export class WindowStateManager {
   /** Task10: debounce y ventana independientes para la flotante. */
   private floatingSaveTimeout: NodeJS.Timeout | null = null;
   private trackedFloatingWindow: BrowserWindow | null = null;
+  /**
+   * EGO-FIND-104b: último `opacityMode` persistido. `saveCurrentFloatingState`
+   * (move/close de la isla) no conoce el manager: si persistiera el default
+   * `auto` machacaría la decisión del fallback opaco en cualquier move/cierre.
+   */
+  private lastFloatingOpacityMode: FloatingWindowPersist["opacityMode"] = "auto";
 
   constructor(options: WindowStateManagerOptions) {
     this.fallbackFilePath = path.join(options.userDataDir, "window-state.json");
@@ -191,6 +206,7 @@ export class WindowStateManager {
       muted: false,
       disabled: false,
       presenceMode: "auto",
+      opacityMode: "auto",
     };
     return this.validateFloatingBoundsAgainstDisplays(state);
   }
@@ -246,6 +262,7 @@ export class WindowStateManager {
       muted: extra.muted ?? false,
       disabled: extra.disabled ?? false,
       presenceMode: extra.presenceMode ?? "auto",
+      opacityMode: extra.opacityMode ?? this.lastFloatingOpacityMode,
     });
   }
 
@@ -253,6 +270,9 @@ export class WindowStateManager {
   public async persistFloatingState(state: FloatingWindowPersist): Promise<void> {
     const parsed = FloatingWindowPersistSchema.safeParse(state);
     const payload = parsed.success ? parsed.data : state;
+    // EGO-FIND-104b: memoriza el modo persistido; los saves de move/close que
+    // no conocen el manager (sin extra) conservan esta decisión.
+    this.lastFloatingOpacityMode = payload.opacityMode ?? this.lastFloatingOpacityMode;
 
     if (this.adapter && typeof this.adapter.put === "function") {
       try {

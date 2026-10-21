@@ -29,6 +29,7 @@ import { AttentionStateMachine } from "@ego/runtime";
 import {
   FloatingWindowManager,
   syncFromAttention,
+  type FloatingWindowManagerOptions,
 } from "../../windows/FloatingWindow.js";
 import {
   TRAY_COLORS,
@@ -41,9 +42,11 @@ import {
 import { approvalEngine, win, backgroundEngine, tray, trayStatus, floatMgr, attentionFsm, llmAbortControllers } from "../state/app-context.js";
 import { setTray, setTrayStatus, setFloatMgr, setAttentionFsm } from "../state/app-context.js";
 
-export function ensureFloatMgr(): FloatingWindowManager {
+export function ensureFloatMgr(options?: FloatingWindowManagerOptions): FloatingWindowManager {
+  // Las options SÓLO se aplican a la primera construcción (memoize); los
+  // llamantes posteriores reciben la instancia ya configurada.
   if (!floatMgr) {
-    const created = new FloatingWindowManager();
+    const created = new FloatingWindowManager(options);
     setFloatMgr(created);
     return created;
   }

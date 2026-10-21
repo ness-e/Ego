@@ -163,7 +163,19 @@ test("electron minimize sin trabajo: aparece la isla y se auto-oculta al restaur
   // 1. Minimize NATIVO desde el proceso main.
   await electronApp.evaluate(async (api: unknown) => {
     const { BrowserWindow } = api as ElectronMinimizeApi;
-    const main = BrowserWindow.getAllWindows()[0];
+    const isIsland = (w: { webContents: { getURL: () => string } }): boolean => {
+      try {
+        return w.webContents.getURL().includes("floating");
+      } catch {
+        return false;
+      }
+    };
+    // EGO-FIND-104b: `getAllWindows()` puede devolver la isla PRIMERO
+    // (orden por z-order, no por creación); identificar la principal por URL.
+    const main =
+      BrowserWindow.getAllWindows()
+        .filter((w) => !w.isDestroyed())
+        .find((w) => !isIsland(w)) ?? BrowserWindow.getAllWindows()[0];
     if (!main) throw new Error("sin ventana principal tras firstWindow");
     main.minimize();
   });
@@ -175,16 +187,44 @@ test("electron minimize sin trabajo: aparece la isla y se auto-oculta al restaur
     .toMatchObject({ mainMinimized: true, islandVisible: true });
 
   // 3. La isla monta su raíz real (`#floating-root` → React `FloatingApp`).
-  const floatingPages = electronApp.windows().slice(1);
-  expect(floatingPages.length).toBeGreaterThanOrEqual(1);
-  await expect(floatingPages[0].locator("#floating-root").first()).toBeVisible({ timeout: 15_000 });
+  //    EGO-FIND-104b: en desktops donde la superficie transparente no compone,
+  //    la sonda puede recrear la ventana (transparente → opaca) durante esta
+  //    ventana temporal; esperar a la página VIVA de la isla, no a un
+  //    snapshot fijo de páginas.
+  await expect
+    .poll(
+      async () => {
+        const pages = electronApp.windows().slice(1);
+        if (pages.length === 0) return false;
+        try {
+          return pages[pages.length - 1].locator("#floating-root").first().isVisible();
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 20_000, intervals: [500, 1_000, 2_000] },
+    )
+    .toBe(true);
 
   // 4. Restore de la principal → auto-ocultado de la isla (snap.active===0
   //    && snap.hitl===0 → `onMainRestoreOrFocus` → hide + attentionState hidden).
+  //    EGO-FIND-104b: `getAllWindows()[0]` era la ISLA (z-order) — el restore
+  //    golpeaba a la isla, la principal quedaba oculta y la pierna fallaba
+  //    con {mainVisible:false, islandVisible:true}.
   await electronApp.evaluate(async (api: unknown) => {
     const { BrowserWindow } = api as ElectronMinimizeApi;
-    const main = BrowserWindow.getAllWindows()[0];
-    if (main && !main.isDestroyed()) {
+    const isIsland = (w: { webContents: { getURL: () => string } }): boolean => {
+      try {
+        return w.webContents.getURL().includes("floating");
+      } catch {
+        return false;
+      }
+    };
+    const main =
+      BrowserWindow.getAllWindows()
+        .filter((w) => !w.isDestroyed())
+        .find((w) => !isIsland(w));
+    if (main) {
       main.restore();
       main.show();
       main.focus();

@@ -111,7 +111,7 @@ test("electron shell: header Ego + Chat + Canvas, sin diálogos nativos", async 
 
     // 3. Shell pinta: header Ego…
     await expect(window.getByText("Ego", { exact: true }).first()).toBeVisible();
-    await expect(window.getByText("Cognitive OS").first()).toBeVisible();
+    await expect(window.getByText("SOC").first()).toBeVisible();
 
     // …panel Chat…
     const chat = window.locator('section[aria-label="Chat"]');
@@ -119,10 +119,16 @@ test("electron shell: header Ego + Chat + Canvas, sin diálogos nativos", async 
     await expect(chat.getByText("Chat", { exact: true }).first()).toBeVisible();
 
     // …y Canvas (la pestaña monta `CanvasRuntime` bajo demanda: el marcador
-    // estable es su barra "Superficie Generativa").
+    // estable es su barra "Superficie Generativa"). El workspace arranca
+    // CERRADO (sr-only): un botón del Icon Rail lo abre y sólo entonces la
+    // pestaña "Canvas" del control segmentado es clicable.
     const workspace = window.locator('section[aria-label="Área de trabajo dinámica"]');
     await expect(workspace).toBeVisible();
     await expect(workspace.getByText("Dynamic Workspace").first()).toBeVisible();
+    await window
+      .getByRole("navigation", { name: "Icon Rail" })
+      .getByRole("button", { name: "Sub-Egos Fábrica" })
+      .click();
     await workspace.getByRole("button", { name: "Canvas", exact: true }).click();
     await expect(workspace.getByText("Superficie Generativa").first()).toBeVisible();
   } finally {
