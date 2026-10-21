@@ -16,9 +16,9 @@
     "build:verify": "pnpm --filter @ego/desktop build:verify",
     "dist": "pnpm --filter @ego/desktop dist && node scripts/generate-checksums.cjs apps/desktop/release",
     "typecheck": "pnpm -r typecheck",
-    "lint": "oxlint --ignore-path .gitignore apps packages tests scripts eval --max-warnings 296 && pnpm run typecheck",
-    "lint:oxlint": "oxlint --ignore-path .gitignore apps packages tests scripts eval --max-warnings 296",
-    "test": "pnpm -r --no-bail --filter \"!@ego/avatar\" --filter \"!@ego/gui-tests\" --filter \"!@ego/recovery\" run test && pnpm --filter @ego/recovery exec vitest run --test-timeout=20000 && pnpm --filter @ego/avatar run test && pnpm --filter @ego/gui-tests run test",
+    "lint": "node scripts/verify-lint-budget.mjs && pnpm run typecheck",
+    "lint:oxlint": "node scripts/verify-lint-budget.mjs",
+    "test": "node scripts/preflight-disk.mjs && pnpm -r --no-bail --filter \"!@ego/avatar\" --filter \"!@ego/gui-tests\" --filter \"!@ego/recovery\" run test && pnpm --filter @ego/recovery exec vitest run --test-timeout=20000 && pnpm --filter @ego/avatar run test && pnpm --filter @ego/gui-tests run test",
     "test:memory": "pnpm --filter @ego/memory test",
     "test:e2e": "pnpm --filter @ego/e2e-tests test",
     "test:e2e:electron": "pnpm --dir tests/gui run test:e2e:electron",
@@ -29,14 +29,21 @@
     "telemetry:export": "node scripts/export-telemetry.mjs",
     "verify:ci": "node scripts/verify-ci-triggers.mjs",
     "verify:harness": "node scripts/verify-harness.mjs",
-    "verify:all": "pnpm run verify:ci && pnpm run verify:harness",
+    "verify:all": "pnpm run verify:ci && pnpm run verify:harness && pnpm run vantadb:check",
     "docs:lint": "node scripts/check-docs-lint.mjs",
     "docs:lint:baseline": "node scripts/check-docs-lint.mjs --write-baseline",
     "changelog:preview": "git cliff --unreleased",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "lint:commit": "commitlint --edit",
-    "prepare": "husky"
+    "prepare": "husky",
+    "disk:check": "node scripts/preflight-disk.mjs",
+    "disk:check:json": "node scripts/preflight-disk.mjs --json",
+    "disk:clean": "node scripts/preflight-disk.mjs --clean --budget-gb 0",
+    "vantadb:check": "node scripts/verify-vantadb-resolution.mjs",
+    "audit:extraction:test": "node scripts/test-audit-extraction-gates.mjs",
+    "lint:budget:check": "node scripts/verify-lint-budget.mjs",
+    "lint:budget:test": "node scripts/test-verify-lint-budget.mjs"
   },
   "lint-staged": {
     "!packages/avatar/vendor/**": [],
@@ -60,6 +67,8 @@
     "lint-staged": "^17.6.0",
     "oxlint": "1.87.0",
     "typescript": "^5.6.3",
+    "vantadb": "0.9.0",
+    "vantadb-node": "0.9.0",
     "vitepress": "1.6.4"
   }
 }

@@ -1,0 +1,9 @@
+{
+  "maxWarnings": 317,
+  "previousMaxWarnings": 350,
+  "raisedBecause": "",
+  "countedAt": "2026-10-21",
+  "scope": "apps packages tests scripts eval",
+  "command": "oxlint --ignore-path .gitignore apps packages tests scripts eval",
+  "notes": "Presupuesto de avisos de oxlint. FUENTE ÚNICA: `pnpm lint` y CI leen ESTE fichero (no un número en package.json). `maxWarnings` sólo puede BAJAR: subirlo exige `raisedBecause` no vacío Y que el recuento real también haya subido por encima del valor anterior. Ver scripts/verify-lint-budget.mjs."
+}

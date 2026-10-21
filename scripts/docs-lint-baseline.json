@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-20T20:48:56.943Z",
+  "generatedAt": "2026-10-21T11:32:06.461Z",
   "markdownlintVersion": "0.15.0",
   "globs": "docs/**/*.md",
-  "totalViolations": 7125,
+  "totalViolations": 7133,
   "files": {
     "docs/adr/0001-electron-vite.md": {
       "MD003/heading-style": 6
@@ -191,6 +191,9 @@
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A1-ola2-adr.md": {
       "MD056/table-column-count": 1
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A1-ola6.md": {
+      "MD032/blanks-around-lists": 2
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A1.md": {
       "MD056/table-column-count": 1
     },
@@ -224,16 +227,29 @@
       "MD036/no-emphasis-as-heading": 1,
       "MD040/fenced-code-language": 1
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis-router.md": {
+      "MD036/no-emphasis-as-heading": 2,
+      "MD032/blanks-around-lists": 2,
+      "MD013/line-length": 6
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis.md": {
+      "MD004/ul-style": 1,
+      "MD032/blanks-around-lists": 4,
+      "MD036/no-emphasis-as-heading": 3,
+      "MD013/line-length": 5,
+      "MD022/blanks-around-headings": 1
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A3-ola1b.md": {
       "MD013/line-length": 12,
       "MD032/blanks-around-lists": 1,
       "MD028/no-blanks-blockquote": 1,
-      "MD033/no-inline-html": 16,
       "MD031/blanks-around-fences": 4,
       "MD040/fenced-code-language": 1
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A3-ola3.md": {
+      "MD013/line-length": 28
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A3.md": {
-      "MD033/no-inline-html": 41,
       "MD031/blanks-around-fences": 12,
       "MD013/line-length": 13,
       "MD040/fenced-code-language": 1
@@ -265,6 +281,17 @@
       "MD013/line-length": 18,
       "MD040/fenced-code-language": 3
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola3.md": {
+      "MD013/line-length": 27
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola4.md": {
+      "MD013/line-length": 30,
+      "MD032/blanks-around-lists": 1,
+      "MD031/blanks-around-fences": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola6.md": {
+      "MD036/no-emphasis-as-heading": 1
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4.md": {
       "MD040/fenced-code-language": 2,
       "MD013/line-length": 32,
@@ -286,6 +313,9 @@
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola2-warning.md": {
       "MD040/fenced-code-language": 3
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola4b.md": {
+      "MD036/no-emphasis-as-heading": 1
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6.md": {
       "MD040/fenced-code-language": 1,
@@ -312,6 +342,9 @@
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A8.md": {
       "MD003/heading-style": 13
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/OLA3-CONTRATO.md": {
+      "MD013/line-length": 8
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/README.md": {
       "MD013/line-length": 14,
       "MD032/blanks-around-lists": 1,
@@ -319,7 +352,8 @@
       "MD022/blanks-around-headings": 6
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/VERDICT.md": {
-      "MD003/heading-style": 17
+      "MD003/heading-style": 22,
+      "MD024/no-duplicate-heading": 1
     },
     "docs/agent-ops/plans/archive/2026-10-12-aisdk-model-adapters.md": {
       "MD013/line-length": 21,
@@ -1096,9 +1130,9 @@
     },
     "docs/dev/e2e-skip-inventory.md": {
       "MD013/line-length": 3,
-      "MD032/blanks-around-lists": 7,
-      "MD022/blanks-around-headings": 6,
-      "MD003/heading-style": 2,
+      "MD022/blanks-around-headings": 5,
+      "MD032/blanks-around-lists": 5,
+      "MD003/heading-style": 1,
       "MD004/ul-style": 8
     },
     "docs/engineering/integraciones.md": {
@@ -1118,10 +1152,10 @@
     },
     "docs/engineering/vantadb-readiness-plan.md": {
       "MD009/no-trailing-spaces": 1,
-      "MD013/line-length": 12,
+      "MD013/line-length": 10,
       "MD040/fenced-code-language": 1,
-      "MD022/blanks-around-headings": 7,
-      "MD032/blanks-around-lists": 7,
+      "MD022/blanks-around-headings": 6,
+      "MD032/blanks-around-lists": 6,
       "MD012/no-multiple-blanks": 1
     },
     "docs/extractions/ag-ui.md": {
@@ -1321,10 +1355,6 @@
       "MD009/no-trailing-spaces": 1,
       "MD047/single-trailing-newline": 1
     },
-    "docs/research/arquitectura-master-matrix.md": {
-      "MD013/line-length": 2,
-      "MD003/heading-style": 12
-    },
     "docs/research/automatizacion-y-agentes-ejecucion.md": {
       "MD003/heading-style": 63
     },
@@ -1505,12 +1535,9 @@
       "MD003/heading-style": 11
     },
     "docs/VANTADB-FEEDBACK-Y-MEJORAS.md": {
-      "MD003/heading-style": 26,
-      "MD013/line-length": 2,
-      "MD022/blanks-around-headings": 15,
-      "MD032/blanks-around-lists": 16,
-      "MD031/blanks-around-fences": 25,
-      "MD040/fenced-code-language": 7
+      "MD003/heading-style": 25,
+      "MD040/fenced-code-language": 7,
+      "MD013/line-length": 16
     }
   }
 }

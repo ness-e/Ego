@@ -35,6 +35,12 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+      vantadb:
+        specifier: 0.9.0
+        version: 0.9.0
+      vantadb-node:
+        specifier: 0.9.0
+        version: 0.9.0
       vitepress:
         specifier: 1.6.4
         version: 1.6.4(@algolia/client-search@5.60.0)(@types/node@22.20.5)(axios@1.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.29)(search-insights@2.17.3)(typescript@5.9.3)(yaml@2.9.1)
@@ -92,9 +98,12 @@ importers:
       '@ego/ui-runtime':
         specifier: workspace:*
         version: link:../../packages/ui-runtime
+      vantadb:
+        specifier: 0.9.0
+        version: 0.9.0
       vantadb-node:
-        specifier: file:../../../VantaDB/vantadb-node
-        version: file:../VantaDB/vantadb-node
+        specifier: 0.9.0
+        version: 0.9.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -454,11 +463,11 @@ importers:
         specifier: workspace:*
         version: link:../security
       vantadb:
-        specifier: 0.8.0
-        version: 0.8.0
+        specifier: 0.9.0
+        version: 0.9.0
       vantadb-node:
-        specifier: file:../../../VantaDB/vantadb-node
-        version: file:../VantaDB/vantadb-node
+        specifier: 0.9.0
+        version: 0.9.0
     devDependencies:
       '@types/node':
         specifier: ^22.8.0
@@ -507,6 +516,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@ego/tools':
+        specifier: workspace:*
+        version: link:../tools
       '@types/node':
         specifier: ^22.8.0
         version: 22.20.5
@@ -684,6 +696,9 @@ importers:
       '@ego/ui-runtime':
         specifier: workspace:*
         version: link:../packages/ui-runtime
+      vantadb:
+        specifier: 0.9.0
+        version: 0.9.0
     devDependencies:
       '@types/node':
         specifier: ^22.8.0
@@ -3308,7 +3323,7 @@ packages:
     resolution: {integrity: sha512-NEGWJS2XNu2PfRLQwOO3CTKj1tTETxNBdk454vDxVBhxJYhPaA/eS0nAI0c+1El1P7a60z8+i+ZrQoGESweGKg==}
     peerDependencies:
       '@vitest/browser': 3.2.7
-      vitest: ^3.2.7
+      vitest: 3.2.7
     peerDependenciesMeta:
       '@vitest/browser':
         optional: true
@@ -5752,17 +5767,16 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  vantadb-node@file:../VantaDB/vantadb-node:
-    resolution: {directory: ../VantaDB/vantadb-node, type: directory}
+  vantadb-node@0.9.0:
+    resolution: {integrity: sha512-ErJGW96yNe1vtXWQeOoProSL4EAGiMLpo6oq809Y2gvbMrsySd9HYKIp2jkihi3nK/MVJLHmzYOdGcyLhBCSwg==}
     engines: {node: '>=18'}
-    cpu: [x64, arm64]
     os: [win32, darwin, linux]
 
-  vantadb-wasm@0.8.0:
-    resolution: {integrity: sha512-3y5CCVZHnpNexylVYSvxua5KhkyOMv1NBi7jUr3GOAbtP6LW7HBT+74tKPAnP7LtSqa/aJRfs6HrNmJRRXcJ2g==}
+  vantadb-wasm@0.9.0:
+    resolution: {integrity: sha512-P3PdsqVpNhwkKNJHHR8X/R5+lpoJxGY258cwb/YfK8XZ8qFP4RRunlfmp1VvAGS4E8jA4TxAScdyThQU4WulwQ==}
 
-  vantadb@0.8.0:
-    resolution: {integrity: sha512-fOi7/JyyY7HYae2iFvuJCBX6g99yg0tfCm2De3tZujCMue4v91EHbHZwjLQb7MiwEt8R8IHNCA9DUL6/BhGgBA==}
+  vantadb@0.9.0:
+    resolution: {integrity: sha512-DKEjvdcmm5dMpZkzVyXq/fSafHUUvmMT7IIICsm1XrnJTgn2AtyJKVX01V9nIcj3jdc6RVrN8tGhaQfOpSYIMA==}
     engines: {node: '>=22.19'}
 
   verkit@0.5.0:
@@ -11653,13 +11667,13 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vantadb-node@file:../VantaDB/vantadb-node: {}
+  vantadb-node@0.9.0: {}
 
-  vantadb-wasm@0.8.0: {}
+  vantadb-wasm@0.9.0: {}
 
-  vantadb@0.8.0:
+  vantadb@0.9.0:
     dependencies:
-      vantadb-wasm: 0.8.0
+      vantadb-wasm: 0.9.0
 
   verkit@0.5.0: {}
 

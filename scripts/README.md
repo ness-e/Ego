@@ -15,7 +15,12 @@ como dependencia.
 |---|---|---|---|
 | `verify-ci-triggers.mjs` | Comprueba que **cada** workflow de `.github/workflows/` tenga un trigger alcanzable en la rama real del repo (cruza los filtros de rama con `git branch -r`). Sin esto, un workflow puede quedar **inerte** (rojo/verde que no significa nada). | CI, job `verify` (step "Verificar triggers alcanzables"). Local: `pnpm verify:ci`. | exit 0 + "TODOS LOS WORKFLOWS ALCANZABLES (6)". Si hay un workflow inerte → exit 1 con el fichero. |
 | `verify-harness.mjs` | Valida el rack de agentes: frontmatter de `.opencode/agents/*.md` (description + mode + permission con claves soportadas), **sin drift** con `.agents/`, paridad de comandos y anti-stale de refs en `AGENTS.md`. | CI, job `verify`. Local: `pnpm verify:harness`. | exit 0 + "harness sano". Con drift → exit 1 con el agente afectado. |
-| `check-docs-lint.mjs` | Gate de markdownlint **con línea base**: falla sólo ante violaciones NUEVAS (el corpus arrastra **7 125** preexistentes en 333 ficheros, toleradas por `scripts/docs-lint-baseline.json`). | CI, job `docs-lint` (`pnpm docs:lint`). | exit 0 + "gate OK: ninguna violación nueva". `--write-baseline` recalibra. |
+| `check-docs-lint.mjs` | Gate de markdownlint **con línea base**: falla sólo ante violaciones NUEVAS (el corpus arrastra **7 131** preexistentes en 336 ficheros, toleradas por `scripts/docs-lint-baseline.json`). | CI, job `docs-lint` (`pnpm docs:lint`). | exit 0 + "gate OK: ninguna violación nueva". `--write-baseline` recalibra. |
+| `preflight-disk.mjs` | **Gate de disco previo a la suite**: mide el espacio libre, lo compara con el presupuesto MEDIDO de la suite y limpia los restos de test de `%TEMP%` (> 1 h y sin proceso vivo). | `pnpm test` (primero, no se puede saltar) · `pnpm disk:check`. | exit 0 con margen · exit 1 con el mensaje accionable (cuánta GB faltan y cómo liberarlas). |
+| `verify-vantadb-resolution.mjs` | **Puerta de la resolución de VantaDB** (EGO-FIND-16): desde **cada** miembro del workspace resuelve `vantadb/native` y `vantadb-node` y falla si la ruta cae **fuera del repo**, si la versión ≠ la fijada, o si el tipo del binding no declara `contextAssemble`. | `pnpm vantadb:check` · `pnpm verify:all` · CI (job `verify`, bloqueante). | exit 0 = los 20 miembros resuelven dentro del repo. |
+| `verify-real-binding.mjs` | **Prueba que el binding de VantaDB es el REAL** (no el stub no-op): resuelve el paquete, exige un binario `.node` > 1 MB, la API `VantaDb.connect` y (por defecto) un round-trip real sobre disco. | CI: job `verify` (`--shallow`) y job `integration-real-db` (round-trip). | exit 0 = binding real verificado · exit 1 = es un stub o no carga. |
+| `audit-extraction-gates.mjs` | Gate de coherencia de las fichas de extracción ↔ backlog. Además (A5-S3) comprueba que **cada fila `✅ Completada` cite un caller de producción REAL**: `archivo:línea` que existe, bajo `packages/`/`apps/`, y cuya línea no sea sólo un comentario. `--root <dir>` permite auditar un fixture. | `pnpm audit:extraction` · `pnpm audit:extraction:test`. | exit 0 = coherentes y con callers verificables. |
+| `test-audit-extraction-gates.mjs` | **Test del gate anterior** (TDD): 3 casos con fixture — caller inexistente → falla · caller real → pasa · caller que es un comentario → falla. | `pnpm audit:extraction:test`. | exit 0 = 3/3. |
 | `audit-security.mjs` | Gate de advisories: parsea `pnpm audit --json`; **falla con cualquier CRITICAL** y con cualquier HIGH que no esté en su `ALLOWLIST` (cada entrada exige justificación escrita). | CI, job `security` (bloqueante). Local: `pnpm audit:security`. | exit 0 + "0 críticos y 0 altos sin justificar". |
 | `verify-vantadb-ids.mjs` | Gate de **trazabilidad de los IDs del registro canónico de VantaDB** (`docs/VANTADB-FEEDBACK-Y-MEJORAS.md`): toda referencia `VDB-XXX-NN` del código debe existir en el registro, y el registro debe ser coherente (índice↔detalle, descripciones, secciones mínimas). Es el gate mecánico del guardrail de `AGENTS.md` §4 ("Prohibición de Workarounds Silenciosos"). | CI, job `verify` (step "Trazabilidad de IDs de VantaDB"), **no bloqueante** mientras el registro no cuadre (`continue-on-error` + `::warning::`). Local: `node scripts/verify-vantadb-ids.mjs`. | exit 0 + "todas las referencias cuadran". Con desalineación → exit 1 con fichero:línea de cada problema. `--json` para el job; `--strict` hace que los avisos también bloqueen; `--root <dir>` audita otro árbol (fixtures). |
 | `audit-debt.mjs` | Mide la deuda técnica: `any`, `catch {}` vacío, I/O síncrono, `disable` huérfanos, `transition-all`, hex hardcodeados, god files y skips (producción vs test). | CI, job `debt` (informativo, publica `debt-report.json`). Local: `pnpm audit:debt`. | exit 0 siempre (job informativo). `--baseline <f>` + `--fail-on-regression` lo convierte en gate. |
@@ -59,10 +64,145 @@ como dependencia.
 | `export-telemetry.mjs` | **T10**: agregador/exportador de telemetría (p50/p90/p99, cumplimiento del presupuesto de 150 ms, % con `correlationId`). |
 | `correlation.mjs` | **T10**: helper de `correlationId` (nuevo, derivado y determinista) para `packages/events` / `packages/decision` (handoff A2). |
 | `prepare-vantadb-tarball.mjs` | **T7/B6**: empaqueta `vantadb-node` y emite el diff exacto para eliminar la dependencia `file:` fuera del repo. Flujo completo abajo. |
-| `check-docs-lint.mjs` | **B4**: gate de markdownlint con **línea base** (`scripts/docs-lint-baseline.json`). Falla sólo ante violaciones NUEVAS (el corpus arrastra **7 125** preexistentes en 333 ficheros). `--write-baseline` regenera la base. Ver §"El gate de markdownlint: línea base y convención". |
+| `check-docs-lint.mjs` | **B4**: gate de markdownlint con **línea base** (`scripts/docs-lint-baseline.json`). Falla sólo ante violaciones NUEVAS (el corpus arrastra **7 131** preexistentes en 336 ficheros). `--write-baseline` regenera la base. Ver §"El gate de markdownlint: línea base y convención". |
+| `preflight-disk.mjs` | **T2 (Ola 3)**: preflight de disco de la suite. Ver §"El preflight de disco". |
+| `verify-real-binding.mjs` | **EGO-FIND-64 (Ola 3)**: prueba que el binding de VantaDB instalado es el real. Ver §"El binding de VantaDB en CI: real, no stub". |
+| `fix-md-linter-driven.mjs` | **T1 (Ola 3)**: corrige MD032 (blancos alrededor de listas) y MD037 (espacio dentro de énfasis) **guiado por el informe del linter**, no por heurísticas. Sólo inserta blancos y quita espacios intra-énfasis; nunca borra texto. Idempotente. |
 | `fix-md-headings.mjs` | **B4**: normaliza los encabezados de un markdown al estilo `atx` que exige `.markdownlint.json` (MD003). Idempotente. |
 | `fix-md-fences.mjs` | **B4**: pone lenguaje a los bloques de código (MD040), deja líneas en blanco alrededor (MD031) y colapsa blancos consecutivos (MD012). Idempotente. |
 | `verify-vantadb-ids.mjs` | **Ola 1c**: gate de trazabilidad de los IDs de VantaDB (guardrail de `AGENTS.md` §4). Ver la tabla de puertas arriba. |
+
+## El preflight de disco (T2, Ola 3)
+
+`pnpm test` **no arranca la suite sin comprobar el disco antes**. El primer paso
+del script raíz `test` es `node scripts/preflight-disk.mjs`.
+
+### Por qué
+
+La suite completa falló con `IO error: Disk full` dentro de `@ego/memory`: un
+test que **no tiene nada que ver con el disco**. La causa es que
+`NativeVantaDB.connect()` **pre-reserva 320 MB por store**, aunque esté vacío.
+Medido con el binding real:
+
+| Fichero del store | Tamaño |
+|---|---:|
+| `vstore_L0.vanta` … `vstore_L3.vanta` | 4 × 64 MB |
+| `0.jnl` (journal) | 64 MB |
+| **Total por store** | **320 MB** |
+
+### El presupuesto (medido, no estimado)
+
+Un muestreador de disco corriendo **en paralelo** a `pnpm test` (740 muestras
+cada 2 s durante 1 501 s, 2026-10-21) midió:
+
+| Métrica | Valor |
+|---|---:|
+| Stores de VantaDB **simultáneos** en el pico | **10** |
+| Caída de espacio libre observada | 22,96 GB → **19,57 GB** (−3,39 GB) |
+| Presupuesto aplicado | pico (10 × 320 MB = 3,13 GB) × **3** de seguridad + **5 GB** de margen = **14,38 GB** |
+
+> El factor 3 cubre: máquinas con más CPUs (más paquetes en paralelo), una
+> fuga que vuelva a aparecer, y corridas solapadas.
+>
+> **Contexto**: antes de que A3/A4 arreglaran la fuga (T-X1) el pico era
+> **~19 GB** (cada paquete dejaba su store de 320 MB sin limpiar). Con la fuga
+> corregida, el pico es 3,2 GB. El presupuesto del preflight cubre el caso
+> **peor**: si la fuga vuelve, el gate salta **antes** de que un test ajeno
+> falle con "Disk full".
+
+### Qué hace
+
+1. **Limpia** los restos de test de `%TEMP%`: patrones `ego-*`, `vdb-*`,
+   `ego-scratch`, `ego-test-scratch`, `tmp*`, `vanta-cog-ckpt*`, `a7-*`, con
+   **tres** condiciones: casa con el patrón, su último write es de hace **más
+   de 1 h**, y si el nombre lleva PID, **ese proceso no existe** → nunca se
+   toca el store de un proceso vivo.
+2. **Comprueba** el espacio libre contra el presupuesto. Si no hay margen,
+   **falla rápido** con un mensaje accionable (cuánta GB faltan, por qué cada
+   store reserva 320 MB, y tres formas de liberarlo).
+
+### Verificado
+
+| Escenario | Resultado |
+|---|---|
+| Disco sano (22,4 GB libres) | exit **0** en 1 s, limpia 2 restos obsoletos |
+| Disco simulado lleno (`EGO_DISK_BUDGET_GB=40`) | exit **1** en **1,1 s** con el mensaje (antes: ~15 min hasta "Disk full" en un test ajeno) |
+
+```bash
+pnpm disk:check          # comprobar (y limpiar)
+pnpm disk:check:json     # informe machine
+pnpm disk:clean          # sólo limpiar
+```
+
+## La mina de resolución de `vantadb` (EGO-FIND-16, Ola 5)
+
+`vantadb` sólo estaba declarado en `packages/memory`. Los demás miembros del
+workspace (`apps/desktop`, `tests` y cualquier paquete futuro) **resolvían
+fuera del repo**, al `node_modules` **global** del usuario
+(`C:\Users\Eros\node_modules\vantadb` = **0.6.1**, tres menores por detrás y
+**sin `vantadb-node`**) → el import lanzaba `VANTADB_NOT_FOUND: Node not found: 7`
+y un agente llegó a la conclusión **falsa** de que `contextAssemble()` no existía.
+
+**Cómo queda resuelto:**
+
+1. `vantadb: 0.9.0` declarado como dependencia **directa** en `apps/desktop` y
+   `tests` (declara lo que usa).
+2. `vantadb: 0.9.0` y `vantadb-node: 0.9.0` como **devDependencies de la raíz**
+   del workspace → pnpm las enlaza en el `node_modules` raíz y **cualquier**
+   miembro las resuelve por **resolución ascendente**: siempre la versión
+   **fijada dentro del repo**, nunca la global.
+3. La puerta `scripts/verify-vantadb-resolution.mjs` (`pnpm vantadb:check`,
+   **bloqueante en CI**) verifica desde los 20 miembros: ruta dentro del repo ·
+   versión fijada · `contextAssemble` en el **tipo** del binding.
+
+> **Por qué NO un `.npmrc` con `public-hoist-pattern[]=vantadb*`**: cambia la
+> configuración de layout de pnpm → **purga `node_modules` entero**. En Windows
+> ese purge es inviable con otros agentes vivos: cada binario nativo
+> reimportado (esbuild, rollup, lightningcss, tailwindcss-oxide) falla con
+> `ERR_PNPM_EPERM` porque **Defender escanea el fichero recién escrito** en el
+> instante en que pnpm intenta desenlazarlo. El devDependency de la raíz da la
+> **misma garantía** sin purgar el árbol.
+
+## La pre-reserva de 320 MB por store (VDB-REQ-14, pendiente de A1)
+
+`NativeVantaDB.connect()` **pre-reserva 320 MB por store** aunque esté vacío
+(4 × `vstore_L*.vanta` de 64 MB + `0.jnl` de 64 MB) y **no es parametrizable**
+(`ConnectOptions` sólo expone `read_only` y `memory_limit`). Con 10 stores
+simultáneos (el pico medido de la suite) son 3,2 GB; antes del arreglo de la fuga
+(T-X1) eran ~19 GB → el disco se agotaba y los tests fallaban con
+`IO error: Disk full` en ficheros ajenos. **Es la petición upstream más
+urgente**: afecta al 100 % del estado persistente del producto.
+
+## El binding de VantaDB en CI: real, no stub (EGO-FIND-64, Ola 3)
+
+`vantadb-node@0.9.0` está **publicado en npm** (Apache-2.0) con binarios
+precompilados para las 6 plataformas (`linux-x64-gnu`, `linux-x64-musl`,
+`linux-arm64-gnu`, `linux-arm64-musl`, `darwin-x64`, `darwin-arm64`,
+`win32-x64-msvc`) y **sin script de compilación** → `pnpm install` lo instala
+en cualquier runner.
+
+**Lo que se eliminó** (4 pasos de stub + checkout + toolchain Rust + build napi):
+
+| Antes | Ahora |
+|---|---|
+| `verify`, `e2e-electron`, `gui`, `visual` instalaban un stub no-op (`put(){}` / `get(){return null}`) → **el pipeline estaba verde sin tocar VantaDB** | `pnpm install` baja el paquete publicado |
+| `integration-real-db` hacía checkout de `ness-e/Vantadb` + Rust + `napi build` | instala el paquete del registry (sin toolchain) |
+
+**Lo que se añadió** — `scripts/verify-real-binding.mjs`, un gate que **prueba**
+que el binding instalado es el real:
+
+1. `vantadb-node` resuelve al paquete publicado;
+2. trae un binario `.node` de **> 1 MB** (un stub pesa KB);
+3. exporta `VantaDb.connect` (la API que usa `vantadb/native`);
+4. (por defecto) **round-trip real sobre disco**: connect → put → get → close.
+
+En CI corre en dos sitios: `verify` (`--shallow`, sin disco) e
+`integration-real-db` (round-trip completo).
+
+> **Los manifiestos** `apps/desktop/package.json` y `packages/memory/package.json`
+> ya no declaran `file:../../../VantaDB/vantadb-node`: declaran
+> `vantadb-node: 0.9.0` (publicado) y `vantadb: 0.9.0`. El repo **ya no
+> necesita un checkout hermano** para instalar.
 
 ## El gate de markdownlint: línea base y convención
 
@@ -190,21 +330,24 @@ descubrimiento en el app-data con permisos restringidos, o entrega manual por ca
 Hasta que el owner lo fije, el descubrimiento del puerto **no se publica** en ningún sitio
 público: sólo vive en el handle del proceso main.
 
-### `EGO-FIND-64` — binding `vantadb-node` fuera del repo (BLOQUEO owner, DIST-09)
+### `EGO-FIND-64` — binding `vantadb-node` fuera del repo — **RESUELTO en la Ola 3**
 
-Estado (verificado en la Ola 2):
+**Ya no está bloqueado**: `vantadb-node@0.9.0` está publicado en npm
+(Apache-2.0) con binarios precompilados para todas las plataformas.
 
-- `apps/desktop` y `packages/memory` declaran
-  `"vantadb-node": "file:../../../VantaDB/vantadb-node"` → dependencia **fuera del repo**:
-  `pnpm install --frozen-lockfile` no es reproducible para quien clonea, y CI compila un
-  **stub no-op** (`put(){}` / `get(){return null}`).
-- El **tarball no se versiona** (decisión de arquitectura): es un artefacto de build de una
-  dependencia externa. `*.tgz` y `vendor/vantadb-node/` están en `.gitignore`.
-- **DIST-09 sigue ABIERTO**: publicar `vantadb-node@0.8.0` en el registry + tag de release.
-  Hasta entonces, el smoke de ABI (`apps/desktop/scripts/smoke-native-packaged.cjs`) valida
-  el binding real en local; en CI, el job `integration-real-db` lo compila por plataforma.
-- Flujo exacto (preparar → instalar local → publicar) en la sección
-  *"Flujo del binding `vantadb-node`"* de este fichero.
+- `apps/desktop` y `packages/memory` declaran **`vantadb-node: 0.9.0`** (el
+  paquete publicado) y `packages/memory` declara **`vantadb: 0.9.0`** — ya no
+  hay dependencia `file:` fuera del repo: `pnpm install --frozen-lockfile` es
+  **reproducible para quien clonea**.
+- El **tarball no se versiona** (decisión de arquitectura): `*.tgz` y
+  `vendor/vantadb-node/` están en `.gitignore`.
+- **CI ya ejercita el binding real**: se eliminaron los 4 stubs no-op y el
+  build napi con Rust; el gate `scripts/verify-real-binding.mjs` prueba que lo
+  instalado es el binding real (binario nativo + round-trip). Ver §"El binding
+  de VantaDB en CI: real, no stub".
+- Verificado en local: `node scripts/verify-real-binding.mjs` → exit 0
+  (0.9.0, binario de 6,56 MB, round-trip `connect → put → get → close` OK) y
+  `@ego/memory` → **24 ficheros / 153 tests en verde** con el paquete publicado.
 
 ### `EGO-FIND-23` — override de `electron` (YA RESUELTO)
 

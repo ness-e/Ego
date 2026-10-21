@@ -2,6 +2,18 @@
   "default": true,
   "MD003": { "style": "atx" },
   "MD013": { "line_length": 200, "tables": false },
+  "MD033": {
+    "allowed_elements": [
+      "b",
+      "br",
+      "code",
+      "details",
+      "kbd",
+      "sub",
+      "sup",
+      "summary"
+    ]
+  },
   "MD046": { "style": "fenced" },
   "MD048": { "style": "backtick" },
   "MD059": false

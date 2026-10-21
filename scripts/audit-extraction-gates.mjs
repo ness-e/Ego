@@ -22,9 +22,15 @@
  * Exit 0 = todo coherente; exit 1 = hay discrepancias.
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, resolve } from "node:path";
 
-const ROOT = join(import.meta.dirname, "..");
+const argv = process.argv.slice(2);
+const rootArg = argv.indexOf("--root");
+// `resolve` (no `join`): una ruta ABSOLUTA debe REEMPLAZAR el cwd, no concatenarse.
+const ROOT =
+  rootArg >= 0 && argv[rootArg + 1]
+    ? resolve(process.cwd(), argv[rootArg + 1])
+    : join(import.meta.dirname, "..");
 const EXTRACTIONS = join(ROOT, "docs", "extractions");
 const REVIEW = join(ROOT, "docs", "review");
 
@@ -97,6 +103,112 @@ const tally = (rows) => {
   for (const r of rows) { if (r.state === null) c.none++; else c[r.state]++; }
   return c;
 };
+/**
+ * Índice de ficheros de PRODUCCIÓN por basename, para resolver citas que
+ * sólo dan el nombre del fichero (`main.ts:1958`, `ego-chat.tsx:42`). Los
+ * backlogs heredados citan así; las fichas nuevas citan rutas completas.
+ */
+const PROD_ROOTS = ["packages", "apps"];
+const byBasename = new Map();
+{
+  const walkDirs = (d, depth) => {
+    if (depth > 6) return;
+    let entries;
+    try {
+      entries = readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.name === "node_modules" || e.name === "dist" || e.name === "out") continue;
+      const p = join(d, e.name);
+      if (e.isDirectory()) { walkDirs(p, depth + 1); continue; }
+      const list = byBasename.get(e.name) ?? [];
+      list.push(p);
+      byBasename.set(e.name, list);
+    }
+  };
+  for (const r of PROD_ROOTS) {
+    const base = join(ROOT, r);
+    if (existsSync(base)) walkDirs(base, 0);
+  }
+}
+
+/** Resuelve una cita `archivo:línea` a ficheros de producción candidatos. */
+function resolveCitation(file) {
+  const norm = file.replace(/\\/g, "/");
+  const abs = join(ROOT, norm);
+  if (existsSync(abs) && !/^docs\//.test(norm)) return [abs];
+  const base = norm.split("/").pop();
+  return byBasename.get(base) ?? [];
+}
+
+/**
+ * A5-S3 (Ola 5): una fila `✅ Completada` debe citar un caller de PRODUCCIÓN
+ * REAL. Hasta ahora el gate sólo comprobaba que el estado fuera una de las 4
+ * formas canónicas: un `✅ Completada` con un caller inexistente (o cuya
+ * "cadena de callers" era sólo un comentario) pasaba como verde — ese hueco
+ * dejó pasar 2 falsos verdes (`OCLW-16`/`OCLW-17`, ficheros inexistentes) y 11
+ * "completadas" cuya cadena de callers era un comentario.
+ *
+ * Criterio (los tres tienen que cumplirse):
+ *   1. la fila cita un `archivo:línea` (backticks) que EXISTE en el repo;
+ *   2. ese archivo está bajo `packages/` o `apps/` (código de producción; no
+ *      vale citar `docs/`);
+ *   3. la línea citada NO es sólo un comentario (una cadena de callers
+ *      escrita en prosa dentro de un comentario no es un caller).
+ *
+ * Devuelve `{ ok, reason, candidates }`.
+ */
+function checkCompletedCaller(rowLine) {
+  // Cita: contenido entre backticks con la forma `ruta:líneas`. Admite
+  // varios rangos separados por coma CON espacio: `Foo.ts:54, 77-91`.
+  const cites = [...rowLine.matchAll(/`([^`|]+?):(\d[\d]*(?:\s*[-,]\s*\d[\d]*)*)`/g)];
+  if (cites.length === 0) {
+    return { ok: false, reason: "no cita ningún `archivo:línea`", candidates: [] };
+  }
+  const candidates = [];
+  const rejected = [];
+  for (const c of cites) {
+    const file = c[1].replace(/\\/g, "/");
+    const nums = [...c[2].matchAll(/\d+/g)]
+      .map((m) => Number(m[0]))
+      .filter((n) => Number.isInteger(n) && n > 0);
+    const absList = resolveCitation(file);
+    if (absList.length === 0) {
+      rejected.push(`${file}:${c[2]} (no existe en el repo)`);
+      continue;
+    }
+    let hit = null;
+    for (const abs of absList) {
+      const rel = relative(ROOT, abs).replace(/\\/g, "/");
+      if (!/^(packages|apps)\//.test(rel)) continue;
+      let lines;
+      try {
+        lines = readFileSync(abs, "utf8").split(/\r?\n/);
+      } catch {
+        continue;
+      }
+      const inRange = nums.filter((n) => n <= lines.length);
+      if (inRange.length === 0) continue;
+      const cited = inRange.map((n) => lines[n - 1] ?? "");
+      const isComment = (l) => /^\s*(\/\/|\*|\/\*|<!--|#)/.test(l);
+      const code = cited.filter((l) => l.trim() !== "" && !isComment(l));
+      if (code.length === 0) continue;
+      hit = { file: rel, lines: nums, code: code.length };
+      break;
+    }
+    if (hit) candidates.push(hit);
+    else rejected.push(`${file}:${c[2]} (no es código de producción con caller)`);
+  }
+  if (candidates.length > 0) return { ok: true, reason: "", candidates };
+  return {
+    ok: false,
+    reason: `ninguna cita es un caller de producción real (${rejected.join("; ") || "sin citas válidas"})`,
+    candidates: [],
+  };
+}
+
 const fmt = (c) => `${c.ok}/${c.dis}/${c.pen}/${c.fut}`;
 
 /** Recuento declarado en una línea con 4 pares número+estado. */
@@ -193,11 +305,23 @@ for (const ficha of fichas) {
   const dupes = [...new Set(fIds.filter((v, i) => fIds.indexOf(v) !== i))];
 
   const stateMismatches = [];
+  const callerProblems = [];
   for (const r of F.rows) {
     const o = B.rows.find((x) => x.id === r.id);
     if (!o) { stateMismatches.push(`${prefix}-${r.id}: ausente en backlog`); continue; }
     if (o.state !== r.state) {
       stateMismatches.push(`${prefix}-${r.id}: ficha=${r.state ?? "SIN ESTADO"} backlog=${o.state ?? "SIN ESTADO"}`);
+    }
+    // A5-S3: un ✅ Completada exige caller de producción real (en ficha Y backlog)
+    if (r.state === "ok") {
+      for (const [label, row] of [["ficha", r], ["backlog", o]]) {
+        const chk = checkCompletedCaller(row.line);
+        if (!chk.ok) {
+          callerProblems.push(
+            `${prefix}-${r.id} (${label}): ${chk.reason}`,
+          );
+        }
+      }
     }
   }
 
@@ -210,6 +334,7 @@ for (const ficha of fichas) {
   if (dupes.length) problems.push(`${slug}: IDs duplicados -> ${dupes.join(",")}`);
   if (noEstado) problems.push(`${slug}: ${noEstado} fila(s) sin estado canónico (en el limbo)`);
   if (stateMismatches.length) problems.push(`${slug}: estado distinto entre ficha y backlog -> ${stateMismatches.join(" | ")}`);
+  if (callerProblems.length) problems.push(`${slug}: ✅ Completada SIN caller de producción verificable -> ${callerProblems.join(" | ")}`);
   if (fDecl !== fmt(fc)) problems.push(`${slug}: recuento de la FICHA no coincide -> declarado=${fDecl ?? "NO DECLARADO"} real=${fmt(fc)}`);
   if (bDecl !== fmt(bc)) problems.push(`${slug}: recuento del BACKLOG no coincide -> declarado=${bDecl ?? "NO DECLARADO"} real=${fmt(bc)}`);
 

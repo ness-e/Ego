@@ -54,3 +54,25 @@ __pycache__/
 
 # Worktrees
 .ego-worktrees/
+
+# ── Artefactos de auditoría visual (Ola 6, A7) ─────────────────────────────
+# Los generadores (`apps/desktop/scripts/run-design-audit.ps1`,
+# `design-audit-headless.mjs`, `ego-browser-audit.mjs`) escriben capturas
+# (`<OUT>/shots/*.png`) y un `<OUT>/report.json`. Por defecto `OUT` es
+# `%TEMP%\ego-audit` (fuera del repo), pero si se lanzan con `-Out` apuntando
+# al repo —o con la config `%TEMP%\ego-audit-config.json` con `dir` así—
+# dejan artefactos sueltos que hay que limpiar a mano.
+#
+# PATRONES ANCLADOS A LA RAÍZ a propósito: el repo versiona 36 PNG legítimos
+# (`docs/public/…`, `images/`, `packages/avatar/captures/…`,
+# `.agents/skills/*/assets/`). Un `*.png` global los ignoraría.
+#   · `/*.png`             → capturas sueltas en la raíz
+#   · `/.playwright-cli/`  → directorio de salida de la herramienta playwright-cli
+#   · `/audit-artifacts/`  → artefactos de auditoría agrupados
+#   · `/shots/`            → `<OUT>/shots/` cuando OUT = raíz del repo
+#   · `/report.json`       → `<OUT>/report.json` cuando OUT = raíz del repo
+/*.png
+/.playwright-cli/
+/audit-artifacts/
+/shots/
+/report.json

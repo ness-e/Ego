@@ -42,46 +42,15 @@ jobs:
         with:
           args: -color
 
-      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
-        run: |
-          mkdir -p ../VantaDB/vantadb-node
-          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
-          {
-            "name": "vantadb-node",
-            "version": "0.8.0",
-            "main": "index.js",
-            "types": "index.d.ts"
-          }
-          EOF
-          cat << 'EOF' > ../VantaDB/vantadb-node/index.d.ts
-          export class NativeVantaDB {
-            constructor(path?: string);
-            open(path: string): Promise<void>;
-            close(): Promise<void>;
-            put(namespace: string, key: string, payload: any): Promise<void>;
-            get(namespace: string, key: string): Promise<any>;
-            delete(namespace: string, key: string): Promise<boolean>;
-            scan(prefix: string): Promise<any[]>;
-            search(query: string, limit?: number): Promise<any[]>;
-          }
-          EOF
-          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
-          module.exports = {
-            NativeVantaDB: class NativeVantaDB {
-              constructor() {}
-              async open() {}
-              async close() {}
-              async put() {}
-              async get() { return null; }
-              async delete() { return true; }
-              async scan() { return []; }
-              async search() { return []; }
-            }
-          };
-          EOF
-
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+      # EGO-FIND-64 (Ola 3): `vantadb-node@0.9.0` está PUBLICADO en npm
+      # (Apache-2.0) con binarios precompilados para las 6 plataformas →
+      # ya no hace falta el stub local. Este gate PRUEBA que el binding
+      # instalado es el real (binario nativo > 1 MB + API VantaDb.connect),
+      # no un no-op: antes el pipeline estaba verde sin tocar VantaDB.
+      - name: Verify real VantaDB binding (no stub)
+        run: node scripts/verify-real-binding.mjs --shallow
 
       - name: Verificar triggers alcanzables (T1)
         # Si un workflow vuelve a filtrar por una rama inexistente, este gate
@@ -91,6 +60,16 @@ jobs:
       - name: Verificar rack de agentes del harness (T11)
         # `.opencode/` desincronizado con `.agents/` → fallo (drift de harness).
         run: node scripts/verify-harness.mjs
+
+      - name: Verificar resolución de VantaDB (EGO-FIND-16)
+        # MINA SILENCIOSA (Ola 5): si un miembro del workspace resuelve
+        # `vantadb/native` FUERA del repo (típicamente al node_modules global
+        # del usuario, con una versión más antigua y sin `vantadb-node`), los
+        # imports fallan con VANTADB_NOT_FOUND y las conclusiones sobre la API
+        # del motor son FALSAS. Esta puerta lo comprueba desde CADA miembro
+        # (ruta dentro del repo · versión fijada · `contextAssemble` en el tipo
+        # del binding). BLOQUEANTE.
+        run: node scripts/verify-vantadb-resolution.mjs
 
       - name: "Avatar: sync-check + geometry-check (R13)"
         # R13 (A6): hay TRES copias del motor de avatar (upstream de referencia,
@@ -109,7 +88,23 @@ jobs:
           pnpm --filter @ego/avatar geometry:check
 
       - name: Run Linter (oxlint pinned via devDependencies)
-        run: pnpm exec oxlint --ignore-path .gitignore apps packages tests scripts eval
+        # El tope de avisos vive en `scripts/lint-budget.json` (FUENTE ÚNICA), no
+        # en un número de package.json: este paso lo lee y lo aplica. Antes
+        # corría oxlint SIN `--max-warnings` → el ratchet no restringía nada en CI.
+        run: pnpm lint:oxlint
+
+      - name: Puerta del presupuesto de lint (sólo puede bajar)
+        # `scripts/lint-budget.json` es la fuente única del ratchet. La puerta
+        # falla si el recuento real supera el presupuesto (regresión) o si
+        # alguien ha SUBIDO el presupuesto sin justificarlo (el ratchet sólo
+        # puede bajar: subirlo exige `raisedBecause` Y que el recuento real
+        # también haya subido). Bloqueante.
+        run: node scripts/verify-lint-budget.mjs
+
+      - name: Test de la puerta del presupuesto de lint
+        # 5 casos: respetado · regresión · subida sin justificar · subida
+        # justificada · presupuesto apretado.
+        run: node scripts/test-verify-lint-budget.mjs
 
       - name: "Puerta de calidad del design system (design-lint)"
         # Convierte la prosa de `docs/design/design-system.md` en ley: el
@@ -137,6 +132,16 @@ jobs:
         run: pnpm typecheck
 
       - name: Run Test Suite
+        # EGO-FIND-64/Ola-3: `vantadb-node@0.9.0` viene del registry (binarios
+        # precompilados) → ya no hace falta el stub local.
+        #
+        # El preflight de disco (`scripts/preflight-disk.mjs`) va con presupuesto
+        # REDUCIDO: un runner de GitHub tiene ~14 GB libres, no los ~25 GB de una
+        # máquina de desarrollo. El pico MEDIDO de la suite son 3,39 GB (10 stores
+        # × 320 MB), así que 8 GB deja margen de sobra para el runner y sigue
+        # saltando antes de un "Disk full" en un test ajeno.
+        env:
+          EGO_DISK_BUDGET_GB: 8
         run: pnpm test
 
       - name: Build Desktop and Renderer
@@ -243,17 +248,20 @@ jobs:
   integration-real-db:
     # STAB-07: integración con DB REAL (Fjall vía napi-rs). Causa 44
     # `VantaError connect` (STAB-00): NativeVantaDB.connect
-    # (vantadb@0.8.0 dist/native.js) hace `await import("vantadb-node")` y
+    # (vantadb/dist/native.js) hace `await import("vantadb-node")` y
     # usa `VantaDb.connect`; el stub de `verify` no exporta `VantaDb` y todo
-    # lo que toca memoria cae con DbError "VantaError". Este job compila el
-    # binding real (Camino A Gate D: checkout + build napi → ABI exacta del
-    # runner; Camino B vendorizar .node descartado: binario por plataforma
-    # en git) y corre ipc.integration + golden-path con EGO_REAL_DB=1.
+    # lo que toca memoria cae con DbError "VantaError".
+    #
+    # EGO-FIND-64 (Ola 3): el binding REAL ya está PUBLICADO en npm
+    # (`vantadb-node@0.9.0`, Apache-2.0) con binarios precompilados para
+    # linux-x64-gnu/musl, darwin y win32, y SIN script de compilación. Por eso
+    # este job ya NO compila nada: instala el paquete del registry y lo
+    # PRUEBA (gate `verify-real-binding` con round-trip real sobre disco)
+    # antes de correr la suite con EGO_REAL_DB=1. Se eliminan el checkout de
+    # `ness-e/Vantadb`, el toolchain de Rust y el `napi build`.
     # STAB-11: endurecido a HARD (STAB-07 ✅ COMPLETED + review approve
     # Fast + DB real local 5/5 y 3/3 verdes; el plan pre-autorizaba
     # "fail-soft inicial, luego hard — STAB-11 lo endurece").
-    # Si el build napi falla en un runner nuevo, el TODO es acotar por
-    # SO con include/exclude, NO volver a fail-soft global.
     name: Integration DB real
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -265,18 +273,6 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: Ego
-
-      - name: Checkout VantaDB (binding napi-rs real)
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          repository: ness-e/Vantadb
-          # T7 (EGO-FIND-64): pin a un TAG de RELEASE del binding
-          # (`vantadb-node@0.8.0` → tag `v0.8.0`), no a la rama mutable
-          # `develop` (cambia bajo los pies → build no reproducible).
-          # TODO(DIST-09): publicar el tarball vendorizado con hash y
-          # sustituir este checkout por la dependencia `file:` vendorizada.
-          ref: d533948071391acc6b513eb673b1a1f937b93dfc # v0.8.0
-          path: VantaDB
 
       - name: Setup pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -290,22 +286,16 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: Ego/pnpm-lock.yaml
 
-      - name: Setup Rust stable (napi build)
-        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-
-      - name: Build vantadb-node napi prebuilt (linux x64, ABI runner)
-        working-directory: VantaDB/vantadb-node
-        run: |
-          npm ci
-          npm run build
-          # STAB-11: `ls *.node` pelado falla sin contexto si el glob no
-          # matchea (el dir listing previo muestra qué dejó el build).
-          ls -la .
-          ls -la *.node || (echo "::error::sin artefacto .node tras npm run build" && exit 1)
-
       - name: Install Dependencies
         working-directory: Ego
         run: pnpm install --frozen-lockfile
+      # EGO-FIND-64 (Ola 3): con `vantadb-node@0.9.0` publicado en npm
+      # (binarios precompilados linux-x64-gnu/musl, sin script de
+      # compilación), ya no hace falta checkout + toolchain de Rust: el
+      # binding real se instala del registry. Este job corre la suite con
+      # DB REAL y lo PRUEBA (round-trip connect → put → get → close).
+      - name: Verify real VantaDB binding (round-trip on disk)
+        run: node scripts/verify-real-binding.mjs
 
       - name: IPC integration con DB real (EGO_REAL_DB=1)
         working-directory: Ego
@@ -346,44 +336,6 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
-
-      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
-        run: |
-          mkdir -p ../VantaDB/vantadb-node
-          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
-          {
-            "name": "vantadb-node",
-            "version": "0.8.0",
-            "main": "index.js",
-            "types": "index.d.ts"
-          }
-          EOF
-          cat << 'EOF' > ../VantaDB/vantadb-node/index.d.ts
-          export class NativeVantaDB {
-            constructor(path?: string);
-            open(path: string): Promise<void>;
-            close(): Promise<void>;
-            put(namespace: string, key: string, payload: any): Promise<void>;
-            get(namespace: string, key: string): Promise<any>;
-            delete(namespace: string, key: string): Promise<boolean>;
-            scan(prefix: string): Promise<any[]>;
-            search(query: string, limit?: number): Promise<any[]>;
-          }
-          EOF
-          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
-          module.exports = {
-            NativeVantaDB: class NativeVantaDB {
-              constructor() {}
-              async open() {}
-              async close() {}
-              async put() {}
-              async get() { return null; }
-              async delete() { return true; }
-              async scan() { return []; }
-              async search() { return []; }
-            }
-          };
-          EOF
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -453,21 +405,6 @@ jobs:
           node-version: 22
           cache: "pnpm"
 
-      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
-        run: |
-          mkdir -p ../VantaDB/vantadb-node
-          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
-          {
-            "name": "vantadb-node",
-            "version": "0.8.0",
-            "main": "index.js",
-            "types": "index.d.ts"
-          }
-          EOF
-          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
-          module.exports = {};
-          EOF
-
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
@@ -529,23 +466,6 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
-
-      - name: Setup VantaDB Local Dependency Stub (CI Compatibility)
-        # Igual que `verify`: `pnpm install` debe resolver el
-        # `file:../../../VantaDB/vantadb-node` (el visual no toca memoria).
-        run: |
-          mkdir -p ../VantaDB/vantadb-node
-          cat << 'EOF' > ../VantaDB/vantadb-node/package.json
-          {
-            "name": "vantadb-node",
-            "version": "0.8.0",
-            "main": "index.js",
-            "types": "index.d.ts"
-          }
-          EOF
-          cat << 'EOF' > ../VantaDB/vantadb-node/index.js
-          module.exports = {};
-          EOF
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
