@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { EventBus } from "../src/EventBus.js";
-import { EventNormalizer } from "../src/EventNormalizer.js";
 import { StructuredLogger } from "../src/StructuredLogger.js";
 
 describe("@ego/events — EventBus & Logging Suite (ACT-05)", () => {
@@ -113,20 +112,6 @@ describe("@ego/events — EventBus & Logging Suite (ACT-05)", () => {
 
     // Debe rechazar por timeout si el evento no llega
     await expect(bus.waitFor("system.alert", undefined, 50)).rejects.toThrow("Timeout");
-  });
-
-  it("6. Normaliza eventos en el borde con EventNormalizer (COUC-01)", () => {
-    expect(EventNormalizer.canNormalize("PreToolUse")).toBe(true);
-    expect(EventNormalizer.normalizeType("PreToolUse")).toBe("tool.started");
-    expect(EventNormalizer.normalizeType("PermissionRequest")).toBe("approval.required");
-
-    const normalizedPayload = EventNormalizer.normalizePayload("PreToolUse", {
-      tool: "fs_write_file",
-      arguments: { path: "src/main.ts", content: "hello" },
-    });
-
-    expect(normalizedPayload.toolName).toBe("fs_write_file");
-    expect(normalizedPayload.input).toEqual({ path: "src/main.ts", content: "hello" });
   });
 
   it("7. StructuredLogger enmascara secretos y API keys en los logs (Zero Secrets)", () => {

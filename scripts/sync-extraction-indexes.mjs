@@ -28,13 +28,13 @@ const BACKLOG = join(ROOT, "docs", "roadmap", "Backlog.md");
  * `backlog` es el nombre del fichero de backlog cuando difiere del slug.
  */
 const CATALOG = [
-  ["hermes-agent", "HERM", "Electron 40 + React 19 + assistant-ui + Python backend", "gemelo de stack: UI Chat/Composer, artifacts, layout de ventanas, hardening Windows, packaging", 30, 14, 3, 6, 7, "7.5", "hermes"],
-  ["openclaw", "OCLW", "Node.js + WebSocket + SQLite Kysely", "admisión inmutable de runs, auto-reparación de tools, locks de sesión, workers", 24, 7, 5, 11, 1, "6.0"],
-  ["coucou", "COUC", "Swift/macOS + Tauri 2/Rust/TS", "normalización en el borde, atención, HITL con ACK, ChangeSet, SafeConfigMutation", 29, 10, 6, 12, 1, "6.5"],
-  ["khoj", "KHOJ", "Python FastAPI + Next.js + SQLite/pgvector", "chunking de 256 tokens con solapamiento y hash, filtrado de umbral, extracción de hechos", 13, 3, 1, 2, 7, "7.0"],
-  ["helmor", "HELM", "Tauri 2 (Rust) + React 19 + PTY", "terminal output scheduler (coalescencia 16 KB/tick, ring-buffer 2 MB), puente de UI", 10, 4, 0, 6, 0, "7.5"],
+  ["hermes-agent", "HERM", "Electron 40 + React 19 + assistant-ui + Python backend", "gemelo de stack: UI Chat/Composer, artifacts, layout de ventanas, hardening Windows, packaging", 30, 16, 7, 0, 7, "7.5", "hermes"],
+  ["openclaw", "OCLW", "Node.js + WebSocket + SQLite Kysely", "admisión inmutable de runs, auto-reparación de tools, locks de sesión, workers", 24, 9, 8, 6, 1, "6.0"],
+  ["coucou", "COUC", "Swift/macOS + Tauri 2/Rust/TS", "normalización en el borde, atención, HITL con ACK, ChangeSet, SafeConfigMutation", 29, 12, 12, 4, 1, "6.5"],
+  ["khoj", "KHOJ", "Python FastAPI + Next.js + SQLite/pgvector", "chunking de 256 tokens con solapamiento y hash, filtrado de umbral, extracción de hechos", 13, 3, 3, 0, 7, "7.0"],
+  ["helmor", "HELM", "Tauri 2 (Rust) + React 19 + PTY", "terminal output scheduler (coalescencia 16 KB/tick, ring-buffer 2 MB), puente de UI", 10, 4, 1, 5, 0, "7.5"],
   ["career-ops", "CARP", "Node.js ESM (`.mjs`) + Filesystem", "DATA_CONTRACT.md (User vs System), locks atómicos de filesystem, cuarentena", 8, 2, 3, 2, 1, "6.0"],
-  ["deepseek-harness", "DSEK", "Monorepo TypeScript (pnpm) + Electron/Node", "sesiones versionadas, IDs opacos, patrón supersede sin borrado, migraciones aditivas", 12, 0, 0, 8, 4, "6.5"],
+  ["deepseek-harness", "DSEK", "Monorepo TypeScript (pnpm) + Electron/Node", "sesiones versionadas, IDs opacos, patrón supersede sin borrado, migraciones aditivas", 12, 1, 4, 3, 4, "6.5"],
   ["opencode", "OCDE", "TypeScript (monorepo turbo/bun)", "motor de sesión/agente: permisos persistidos, compactación negociada, code mode, inbox de prompts", 9, 0, 1, 7, 1, "—"],
   ["codex", "CDX", "Rust (CLI)", "política de tool de tres estados, caché de aprobación por clave, perfil de permisos con degradación, parcheo con anclaje contextual", 9, 0, 1, 8, 0, "—"],
   ["goose", "GOOS", "Rust (extensible)", "cadena componible de inspectores de tool-call, inspector de egreso de red, lease del catálogo de tools", 9, 0, 1, 7, 1, "—"],
@@ -128,20 +128,31 @@ function replaceBlock(text, startRe, endRe, build) {
     () => {
       const row = (r) =>
         `| **${r[0]}** | ${r[2]} | [\`${r[0]}.md\`](${r[0]}.md) / [\`backlog-${backlogName(r)}.md\`](../review/backlog-${backlogName(r)}.md) | \`${range(r)}\` | ${r[4]} | ${r[3]} |`;
-      const legacy = CATALOG.slice(0, 7);
-      const ola2 = CATALOG.slice(7);
-      return [
-        "| Repositorio | Naturaleza / Stack | Archivo de Extracción / Backlog | Rango de IDs | Tareas | Foco Principal en Ego |",
-        "|---|---|---|---|:---:|---|",
-        ...legacy.map(row),
-        "",
-        "### 3.1 Ola 2 — Catálogo de agentes de código y de conocimiento (2026-10-20) ###",
-        "",
-        "Repositorios clonados el 2026-10-20 en profundidad 1 (`--depth 1 --single-branch`).",
-        "**Todos son repositorios nuevos: ninguno tiene hallazgos en estado `✅ Completada`",
-        "por asilación propia** (el `0 ✅` de cada repo nuevo es correcto y está",
-        "documentado en su §0 de backlog). La verificación de caller se hizo por grep",
-        "sobre `packages/` + `apps/desktop/` excluyendo `test/`, `dist/` y `node_modules/`.",
+  const legacy = CATALOG.slice(0, 7);
+  const ola2 = CATALOG.slice(7);
+  // A5-S2 (Ola 5): el texto que decía "ningún repo nuevo tiene ✅ Completada"
+  // era FALSO (gemini-cli 2, mem0 2, mcp-servers 2 y claude-squad 1 SÍ lo
+  // tienen, con caller real). El texto se GENERA ahora desde la CATALOG →
+  // no puede volver a quedar desincronizado.
+  const ola2ConCompletada = ola2.filter((r) => r[5] > 0);
+  const detalleCompletada = ola2ConCompletada
+    .map((r) => `\`${r[0]}\` ${r[5]}`)
+    .join(", ");
+  const textoCompletada =
+    ola2ConCompletada.length === 0
+      ? "**Ninguno de los repositorios nuevos tiene hallazgos en estado `✅ Completada` por asilación propia.**"
+      : `**${ola2ConCompletada.length} de los ${ola2.length} repositorios nuevos tienen hallazgos en estado \`✅ Completada\` por asilación propia** (${detalleCompletada}); el resto tienen \`0 ✅\`.`;
+  return [
+    "| Repositorio | Naturaleza / Stack | Archivo de Extracción / Backlog | Rango de IDs | Tareas | Foco Principal en Ego |",
+    "|---|---|---|---|:---:|---|",
+    ...legacy.map(row),
+    "",
+    "### 3.1 Ola 2 — Catálogo de agentes de código y de conocimiento (2026-10-20) ###",
+    "",
+    "Repositorios clonados el 2026-10-20 en profundidad 1 (`--depth 1 --single-branch`).",
+    textoCompletada,
+    "La verificación de caller se hizo por grep",
+    "sobre `packages/` + `apps/desktop/` excluyendo `test/`, `dist/` y `node_modules/`.",
         "",
         "| Repositorio | Naturaleza / Stack | Archivo de Extracción / Backlog | Rango de IDs | Tareas | Foco Principal en Ego |",
         "|---|---|---|---|:---:|---|",
