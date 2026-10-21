@@ -1,7 +1,7 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 import * as zlib from "node:zlib";
 import { ProjectExport } from "../src/ProjectExport.js";
 
@@ -9,7 +9,7 @@ describe("ProjectExport", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-export-test-"));
+    tmpDir = createTempWorkspace({ prefix: "ego-export-test-" }).path;
   });
 
   afterEach(() => {

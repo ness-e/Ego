@@ -1,3 +1,4 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -8,7 +9,7 @@ describe("DiagnosticsLogger", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-diag-test-"));
+    tmpDir = createTempWorkspace({ prefix: "ego-diag-test-" }).path;
   });
 
   afterEach(() => {

@@ -77,6 +77,7 @@ export class ProjectExport {
     try {
       // Etapa 1: volcar registros paginados al cuerpo temporal en streaming.
       const bodyStream = fs.createWriteStream(bodyPath);
+      const bodyWriter = new ChunkedLineWriter(bodyStream);
       try {
         for (const ns of namespaces) {
           const nsHasher = crypto.createHash("sha256");
@@ -86,13 +87,18 @@ export class ProjectExport {
             nsHasher.update(line);
             totalHasher.update(line);
             nsCount++;
-            await writeLine(bodyStream, line + "\n");
+            // Escritura por LOTES: un `await` por línea significa un
+            // round-trip al SO por registro (2 s para 1 200 líneas en
+            // Windows). El buffer agrupa 64 KB ⇒ ~20 escrituras en vez de
+            // 1 200, con el mismo contenido byte a byte.
+            bodyWriter.write(line + "\n");
           });
           recordCounts[ns] = nsCount;
           totalRecords += nsCount;
           checksums[ns] = nsHasher.digest("hex");
         }
       } finally {
+        bodyWriter.flush();
         bodyStream.end();
         await streamFinished(bodyStream);
       }
@@ -208,6 +214,47 @@ export class ProjectExport {
   }
 }
 
+/**
+ * Escritor de líneas por lotes.
+ *
+ * Escribir NDJSON línea a línea con un `await` por línea fuerza un round-trip
+ * al sistema de ficheros por registro (en Windows, ~2 s para 1 200 líneas).
+ * Este escritor agrupa hasta 64 KB antes de volcar al stream: ~20 escrituras
+ * en vez de 1 200, con contenido **byte a byte idéntico**.
+ */
+class ChunkedLineWriter {
+  private buffer = "";
+  private failed: Error | null = null;
+
+  constructor(private readonly stream: fs.WriteStream) {
+    this.stream.on("error", (err: Error) => {
+      this.failed = err;
+    });
+  }
+
+  /** Encola una línea (sin newline: el caller lo añade). */
+  public write(line: string): void {
+    if (this.failed) return;
+    this.buffer += line;
+    if (this.buffer.length >= 64 * 1024) {
+      this.flush();
+    }
+  }
+
+  /** Vuelca el buffer pendiente al stream. */
+  public flush(): void {
+    if (this.buffer.length === 0) return;
+    const chunk = this.buffer;
+    this.buffer = "";
+    this.stream.write(chunk);
+  }
+
+  /** Error asíncrono del stream, si lo hubo. */
+  public get error(): Error | null {
+    return this.failed;
+  }
+}
+
 /** Genera manifiesto seguido del cuerpo temporal, en streaming. */
 async function* generateCombined(
   manifestLine: string,
@@ -220,19 +267,6 @@ async function* generateCombined(
   } finally {
     bodyIn.destroy();
   }
-}
-
-/** Escritura con backpressure en el stream del cuerpo. */
-function writeLine(stream: fs.WriteStream, chunk: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const ok = stream.write(chunk, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-    if (!ok) {
-      stream.once("drain", () => resolve());
-    }
-  });
 }
 
 /** Espera al cierre del stream de escritura. */

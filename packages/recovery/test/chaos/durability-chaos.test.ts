@@ -1,3 +1,4 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -10,7 +11,7 @@ describe("Durability Chaos (REC-09, FIND-246/248)", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-durability-chaos-"));
+    tmpDir = createTempWorkspace({ prefix: "ego-durability-chaos-" }).path;
   });
 
   afterEach(() => {

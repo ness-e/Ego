@@ -1,6 +1,6 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { CrashRecoveryEngine } from "../src/CrashRecoveryEngine.js";
 
@@ -20,7 +20,7 @@ describe("T11 — Escritura atómica del lockfile (EGO-FIND-66)", () => {
   let lockFilePath: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-atomic-lock-"));
+    tmpDir = createTempWorkspace({ prefix: "ego-atomic-lock-" }).path;
     lockFilePath = path.join(tmpDir, "ego.lock");
   });
 

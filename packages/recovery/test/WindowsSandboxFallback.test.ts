@@ -1,7 +1,6 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
-import * as path from "node:path";
-import * as os from "node:os";
 import {
   evaluateSandboxFallback,
   isWindowsSandboxBreakpointExit,
@@ -16,7 +15,7 @@ describe("HERM-07: WindowsSandboxFallback (Crash-loop & Sandbox Recovery)", () =
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-sandbox-test-"));
+    tmpDir = createTempWorkspace({ prefix: "ego-sandbox-test-" }).path;
   });
 
   afterEach(() => {

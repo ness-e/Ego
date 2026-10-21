@@ -1,3 +1,4 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,7 +9,7 @@ describe("CrashRecoveryEngine (REC-01)", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-recovery-test-"));
+    tmpDir = createTempWorkspace({ prefix: "ego-recovery-test-" }).path;
   });
 
   afterEach(() => {

@@ -1,7 +1,7 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 import { SchemaMigrator } from "../src/SchemaMigrator.js";
 import { SnapshotManager } from "../src/SnapshotManager.js";
 
@@ -10,7 +10,7 @@ describe("SchemaMigrator", () => {
   let configPath: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-schema-test-"));
+    tmpDir = createTempWorkspace({ prefix: "ego-schema-test-" }).path;
     configPath = path.join(tmpDir, "ego.namespaces.json");
   });
 

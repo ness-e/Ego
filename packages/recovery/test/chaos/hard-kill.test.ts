@@ -1,7 +1,7 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 import { fork } from "node:child_process";
 import { CrashRecoveryEngine } from "../../src/CrashRecoveryEngine.js";
 
@@ -45,7 +45,7 @@ describe("Chaos Monkey: Hard-Kill & Resilience (REC-08)", () => {
   let dataDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ego-chaos-hardkill-"));
+    tmpDir = createTempWorkspace({ prefix: "ego-chaos-hardkill-" }).path;
     lockFilePath = path.join(tmpDir, "ego.lock");
     dataDir = path.join(tmpDir, "data");
   });
