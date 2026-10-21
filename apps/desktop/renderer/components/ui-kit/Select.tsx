@@ -1,6 +1,8 @@
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { CaretDown, Check } from "@phosphor-icons/react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { CaretDown, Check, CircleNotch, WarningCircle } from "@phosphor-icons/react";
+import { useId, useRef } from "react";
+import { cn } from "./cva.js";
+import { usePortalHost } from "./portalHost.js";
 
 export interface SelectOption {
   value: string;
@@ -25,6 +27,10 @@ export interface SelectProps {
   title?: string;
   id?: string;
   name?: string;
+  /** Estado `loading`: spinner + `aria-busy` + deshabilita el selector. */
+  loading?: boolean;
+  /** Estado `error`: borde de error + mensaje `role="alert"`. */
+  error?: string;
 }
 
 /**
@@ -59,12 +65,20 @@ export interface SelectProps {
  * `FocusScope` del Dialog sigue viendo el foco dentro de su subárbol → no
  * hay ping-pong → no hay `RangeError`. El contenedor se localiza por el
  * atributo `data-ego-dialog-content` que `ui-kit/Modal.tsx` pone en su
- * `Dialog.Content`, subiendo desde el trigger del Select. Si no hay diálogo
- * anfitrión (Select en la cabecera, en la barra lateral…), el `Portal` va al
- * `document.body`, que es el comportamiento normal.
+ * `Dialog.Content`, subiendo desde el trigger del Select (`usePortalHost`).
+ * Si no hay diálogo anfitrión (Select en la cabecera, en la barra lateral…),
+ * el `Portal` va al `document.body`, que es el comportamiento normal.
  *
- * API pública **idéntica** a la anterior (`SelectProps`), de modo que los
- * consumidores (`App.tsx`, `Sidebar.tsx`, `SettingsModal.tsx`) no cambian.
+ * ## Densidad y color
+ * - Trigger de 32 px (`h-8`): tiene etiqueta visible, luego la regla de
+ *   densidad del owner (2026-10-20) le permite medir 32 px. `min-w-11`
+ *   mantiene un ancho mínimo razonable.
+ * - Todos los colores salen de tokens (`bg-raised`, `text-ink`, `text-faint`,
+ *   `border-hairline`); sin hex ni clases zinc/white.
+ *
+ * API pública **idéntica** a la anterior (`SelectProps`), más `loading` y
+ * `error` (estados `loading`/`error` del contrato de 9 estados), de modo que
+ * los consumidores (`App.tsx`, `Sidebar.tsx`, `SettingsModal.tsx`) no cambian.
  */
 export function Select({
   value: controlledValue,
@@ -82,99 +96,126 @@ export function Select({
   title,
   id: customId,
   name,
+  loading = false,
+  error,
 }: SelectProps) {
   const selectedOption = options.find((opt) => opt.value === controlledValue);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
-
-  // Localiza el `Dialog.Content` anfitrión (si lo hay) para portaleal el
-  // listbox dentro de su subárbol: evita el ping-pong de `FocusScope` entre
-  // el Dialog y el Select (ver la nota del módulo).
-  useLayoutEffect(() => {
-    const trigger = triggerRef.current;
-    if (!trigger) return;
-    const dialogContent = trigger.closest("[data-ego-dialog-content]");
-    setPortalContainer(dialogContent instanceof HTMLElement ? dialogContent : null);
-  }, []);
+  const portalHost = usePortalHost(triggerRef);
+  const isDisabled = disabled || loading;
+  // Id estable para `aria-errormessage` (nunca `undefined-error`).
+  const reactId = useId().replace(/:/g, "");
+  const errMsgId = `${customId ?? name ?? `ego-select-${reactId}`}-error`;
 
   return (
-    <SelectPrimitive.Root
-      value={controlledValue}
-      defaultValue={defaultValue}
-      onValueChange={onValueChange}
-      open={controlledOpen}
-      onOpenChange={onOpenChange}
-      disabled={disabled}
-      name={name}
-    >
-      <SelectPrimitive.Trigger
-        ref={triggerRef}
-        id={customId}
-        aria-label={ariaLabel}
-        title={title}
-        className={
-          "inline-flex min-h-11 min-w-11 w-full items-center justify-between gap-2 rounded-xl " +
-          "border border-white/10 bg-[#1e1e22] px-3 py-2 text-xs text-zinc-200 " +
-          "transition-colors cursor-pointer select-none " +
-          "hover:border-white/20 hover:text-white " +
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand " +
-          "focus-visible:ring-offset-1 focus-visible:ring-offset-black " +
-          "disabled:cursor-not-allowed disabled:opacity-50" +
-          (className ? ` ${className}` : "") +
-          (triggerClassName ? ` ${triggerClassName}` : "")
-        }
+    <>
+      <SelectPrimitive.Root
+        value={controlledValue}
+        defaultValue={defaultValue}
+        onValueChange={onValueChange}
+        open={controlledOpen}
+        onOpenChange={onOpenChange}
+        disabled={isDisabled}
+        name={name}
       >
-        <SelectPrimitive.Value placeholder={placeholder}>
-          {selectedOption?.label ?? null}
-        </SelectPrimitive.Value>
-        <SelectPrimitive.Icon asChild>
-          <CaretDown
-            size={14}
-            className="shrink-0 text-zinc-400 transition-transform duration-150"
-            aria-hidden
-          />
-        </SelectPrimitive.Icon>
-      </SelectPrimitive.Trigger>
-
-      <SelectPrimitive.Portal container={portalContainer ?? undefined}>
-        <SelectPrimitive.Content
-          sideOffset={4}
-          className={
-            "z-50 max-h-60 min-w-[8rem] overflow-y-auto rounded-xl border border-white/10 " +
-            "bg-[#1e1e22] p-1 text-xs text-zinc-200 shadow-2xl backdrop-blur-xl " +
-            "data-[state=open]:animate-in data-[state=closed]:animate-out " +
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 " +
-            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 " +
-            (contentClassName ? ` ${contentClassName}` : "")
-          }
+        <SelectPrimitive.Trigger
+          ref={triggerRef}
+          id={customId}
+          aria-label={ariaLabel}
+          aria-busy={loading || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-errormessage={error ? errMsgId : undefined}
+          title={title}
+          className={cn(
+            "inline-flex h-8 min-w-11 w-full items-center justify-between gap-2 rounded-[var(--radius-card)] border border-hairline bg-raised px-2.5",
+            "text-xs text-ink transition-colors cursor-pointer select-none",
+            "hover:border-strong hover:bg-panel",
+            "focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            error && "border-error/50",
+            className,
+            triggerClassName,
+          )}
         >
-          <SelectPrimitive.Viewport>
-            {options.length === 0 ? (
-              <div className="px-2.5 py-2 text-zinc-500 text-center">Sin opciones</div>
-            ) : (
-              options.map((option) => (
-                <SelectPrimitive.Item
-                  key={option.value}
-                  value={option.value}
-                  disabled={option.disabled}
-                  className={
-                    "relative flex cursor-pointer select-none items-center justify-between " +
-                    "rounded-lg px-2.5 py-2 text-xs outline-none transition-colors " +
-                    "data-[highlighted]:bg-white/10 data-[highlighted]:text-white " +
-                    "data-[state=checked]:bg-white/15 data-[state=checked]:text-white " +
-                    "data-[disabled]:pointer-events-none data-[disabled]:opacity-40"
-                  }
-                >
-                  <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
-                  <SelectPrimitive.ItemIndicator>
-                    <Check size={14} className="ml-2 shrink-0 text-brand" aria-hidden />
-                  </SelectPrimitive.ItemIndicator>
-                </SelectPrimitive.Item>
-              ))
+          {loading && (
+            <CircleNotch size={13} className="animate-spin shrink-0 text-dim" aria-hidden />
+          )}
+          {/*
+            Radix 2.3.x **descarta** el `className` de `Select.Value` (lo
+            desestructura y no lo reinyecta en el <span> que renderiza):
+            el DOM real queda como `<span style="pointer-events:none">` sin
+            ninguna clase, así que un `truncate` aplicado aquí NUNCA tenía
+            efecto y toda etiqueta larga se envolvía en varias líneas
+            desbordando el trigger (defecto D2 de la auditoría de diseño).
+            Por eso el recorte va en un <span> ENVOLTORIO: el texto de
+            Radix queda dentro y lo recorta el padre.
+          */}
+          <span className="min-w-0 truncate text-left">
+            <SelectPrimitive.Value placeholder={placeholder}>
+              {selectedOption?.label ?? null}
+            </SelectPrimitive.Value>
+          </span>
+          <SelectPrimitive.Icon asChild>
+            <CaretDown
+              size={14}
+              className="shrink-0 text-faint transition-transform duration-150"
+              aria-hidden
+            />
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+
+        <SelectPrimitive.Portal container={portalHost ?? undefined}>
+          <SelectPrimitive.Content
+            sideOffset={4}
+            className={cn(
+              "z-50 max-h-60 min-w-[8rem] overflow-y-auto rounded-[var(--radius-card)] border border-hairline bg-raised p-1 text-xs text-ink shadow-[var(--ego-elevation-l2)]",
+              // Entrada sutil con la variante `starting:` de Tailwind v4
+              // (`@starting-style`): sin plugin de animación externo y
+              // respetando `prefers-reduced-motion` (index.css desactiva las
+              // transiciones globales).
+              "transition-[opacity,transform] duration-150 ease-[var(--motion-ease-out)] starting:opacity-0 starting:scale-95 data-[state=open]:opacity-100 data-[state=open]:scale-100",
+              contentClassName,
             )}
-          </SelectPrimitive.Viewport>
-        </SelectPrimitive.Content>
-      </SelectPrimitive.Portal>
-    </SelectPrimitive.Root>
+          >
+            <SelectPrimitive.Viewport>
+              {options.length === 0 ? (
+                <div className="px-2.5 py-2 text-center text-faint">Sin opciones</div>
+              ) : (
+                options.map((option) => (
+                  <SelectPrimitive.Item
+                    key={option.value}
+                    value={option.value}
+                    disabled={option.disabled}
+                    className={cn(
+                      "relative flex cursor-pointer select-none items-center justify-between rounded-lg px-2.5 py-2 text-xs text-ink outline-none transition-colors",
+                      "data-[highlighted]:bg-panel",
+                      "data-[state=checked]:bg-raised",
+                      "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+                    )}
+                  >
+                    <SelectPrimitive.ItemText className="min-w-0 truncate">
+                      {option.label}
+                    </SelectPrimitive.ItemText>
+                    <SelectPrimitive.ItemIndicator>
+                      <Check size={14} className="ml-2 shrink-0 text-brand" aria-hidden />
+                    </SelectPrimitive.ItemIndicator>
+                  </SelectPrimitive.Item>
+                ))
+              )}
+            </SelectPrimitive.Viewport>
+          </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
+      </SelectPrimitive.Root>
+      {error && (
+        <p
+          id={errMsgId}
+          role="alert"
+          className="mt-1 flex items-center gap-1 text-xs text-error"
+        >
+          <WarningCircle size={12} className="shrink-0" aria-hidden />
+          {error}
+        </p>
+      )}
+    </>
   );
 }

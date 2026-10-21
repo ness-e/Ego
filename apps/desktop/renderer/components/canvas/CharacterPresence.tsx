@@ -18,7 +18,7 @@ export const CharacterPresence: React.FC<CharacterPresenceProps> = ({
 
   return (
     <div
-      className={`flex items-center justify-between px-2 pb-1.5 text-[11px] text-faint font-mono ${className}`}
+      className={`flex items-center justify-between px-2 pb-1.5 font-mono text-xs text-faint ${className}`}
     >
       <div className="flex items-center gap-1.5">
         <CharacterBadge
@@ -27,7 +27,7 @@ export const CharacterPresence: React.FC<CharacterPresenceProps> = ({
           state="idle"
           animated={false}
         />
-        <span className="text-dim">Por:</span>
+        <span className="text-faint">Por:</span>
         <span className="font-semibold text-ink">{metadata.generatedBy}</span>
       </div>
 

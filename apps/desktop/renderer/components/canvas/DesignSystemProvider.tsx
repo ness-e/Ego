@@ -8,21 +8,56 @@ export interface DesignSystemContextValue {
   availablePresets: Record<string, DesignSystemTokens>;
 }
 
+/**
+ * T14 / EGO-FIND-72 + owner 2026-10-20 — **FUENTE ÚNICA DE LOS TOKENS**.
+ *
+ * Este bloque es la ÚNICA definición de las 4 paletas del producto. Los
+ * valores están en **OKLCH** (no HEX) porque OKLCH separa L (luminancia),
+ * C (cromancia) y H (matiz): la misma diferencia de `L` produce el mismo
+ * salto perceptual en cualquier matiz, de modo que "subir un nivel de
+ * superficie" conserva la identidad del color en las paletas frías, cálidas
+ * y de alto contraste (mismo argumento que en `docs/design/DESIGN.md` §1).
+ *
+ * ## Por qué aquí y no en `theme-tokens.css`
+ * Antes (2026-10-20) las paletas vivían duplicadas: en CSS bajo
+ * `[data-palette="…"]` — que **ningún componente asignaba**, por lo que
+ * nunca se activaban — y en HEX dentro de este provider, que sí era lo que
+ * corría. Dos fuentes de verdad y una muerta. Ahora:
+ *  - este provider define los valores (OKLCH) y los **aplica**;
+ *  - `theme-tokens.css` conserva solo lo que no es paleta (elevación L0–L3,
+ *    vidrio, scrollbar);
+ *  - la puerta de contraste `test/ThemeTokensOklch.test.tsx` lee **este
+ *    fichero** y verifica los 4 presets reales.
+ *
+ * ## Rampas de superficie (bg < panel < raised), verificadas 2026-10-20
+ * Las 4 paletas comparten la misma estructura de rampa en `L`
+ * (0.130 → 0.195 → 0.260): el salto entre niveles es idéntico en todas, que
+ * es exactamente el efecto buscado con OKLCH. Los valores concretos se
+ * resolvieron por búsqueda numérica contra las restricciones WCAG 2.2 con
+ * los tokens FIJOS del sistema (`dim` #8a8a92, `border-strong` #71717a):
+ * `dim` >= 4.5:1 y `border-strong` >= 3:1 sobre las TRES superficies.
+ *
+ * Antes, `emerald-terminal` y `amber-warm` tenían rampas casi planas (L
+ * 0.255 / 0.256 / 0.255): la "elevación" era imperceptible. Corregido.
+ */
 export const DEFAULT_DESIGN_TOKENS: DesignSystemTokens = {
   id: "theme-default-dark",
   name: "Obsidian Graphite · Slate Oscuro",
   version: 1,
   colors: {
-    brand: "#38bdf8",
-    background: "#09090b",
-    panel: "#141416",
-    raised: "#202024",
-    text: "#fafafa",
-    muted: "#a1a1aa",
-    border: "#27272a",
-    success: "#10b981",
-    warning: "#f59e0b",
-    error: "#f43f5e",
+    // Accent ÁMBAR #f59e0b (decisión owner 2026-10-20): alinea el runtime con
+    // la doc (D12 "accent ámbar") y elimina el conflicto con el focus-ring,
+    // que ahora es SIEMPRE el brand del preset (un solo accent por app).
+    brand: "oklch(0.769 0.165 70.1)",
+    background: "oklch(0.13 0.004 285.8)",
+    panel: "oklch(0.195 0.004 286)",
+    raised: "oklch(0.26 0.008 285.8)",
+    text: "oklch(0.985 0 89.9)",
+    muted: "oklch(0.712 0.013 286.1)",
+    border: "oklch(0.274 0.005 286)",
+    success: "oklch(0.696 0.149 162.5)",
+    warning: "oklch(0.837 0.164 84.4)",
+    error: "oklch(0.645 0.215 16.4)",
   },
   geometry: {
     radius: "md",
@@ -41,19 +76,16 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
     name: "Midnight Cyan · Medianoche Cyan",
     version: 1,
     colors: {
-      brand: "#06b6d4",
-      background: "#030712",
-      panel: "#0f172a",
-      // EGO-FIND-71 FIND-A11Y-04: dim fijo #8a8a92 sobre raised #1e293b = 4.27:1
-      // (< 4.5:1). Superficie oscurecida a #1a2536 → 4.50:1
-      // (OKLCH: L 0.279 → 0.262, C 0.037 y H 260 conservados).
-      raised: "#1a2536",
-      text: "#f8fafc",
-      muted: "#94a3b8",
-      border: "#334155",
-      success: "#10b981",
-      warning: "#f59e0b",
-      error: "#ef4444",
+      brand: "oklch(0.715 0.126 215.2)",
+      background: "oklch(0.13 0.027 261.7)",
+      panel: "oklch(0.195 0.04 265.8)",
+      raised: "oklch(0.26 0.037 260)",
+      text: "oklch(0.984 0.003 247.9)",
+      muted: "oklch(0.711 0.035 256.8)",
+      border: "oklch(0.372 0.039 257.3)",
+      success: "oklch(0.696 0.149 162.5)",
+      warning: "oklch(0.769 0.165 70.1)",
+      error: "oklch(0.637 0.208 25.3)",
     },
     geometry: {
       radius: "lg",
@@ -69,31 +101,19 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
     name: "Emerald Studio",
     version: 1,
     colors: {
-      brand: "#10b981",
-      // EGO-FIND-71 (FIND-A11Y-05/02): el dim fijo #8a8a92 exige una
-      // superficie con Ls <= 0.0181; el fondo (#022c22, Ls 0.0193) quedaba
-      // por encima → se oscurece a #022a21 (4.52:1) para que la rampa siga
-      // siendo monótona (fondo < panel < raised).
-      background: "#022a21",
-      // EGO-FIND-71 FIND-A11Y-05 + FIND-A11Y-02: dim fijo #8a8a92 sobre panel
-      // #064e3b = 2.84:1 (< 4.5:1) y borde fuerte fijo #71717a = 2.01:1 (< 3:1).
-      // Superficie oscurecida a #002b1b → 4.50:1 / 3.19:1
-      // (OKLCH: L 0.378 → 0.256, C y H conservados dentro del gamut sRGB).
-      panel: "#002b1b",
-      // EGO-FIND-71 (residuo, hallazgo 7): el dim GLOBAL #8a8a92 (no
-      // puenteado al muted del preset) daba 2.24:1 sobre #065f46. La
-      // superficie elevada se oscurece a #032a1f (dim 4.53:1, borde fuerte
-      // 3.21:1). Coste de diseño: en este preset la "elevación" sobre el
-      // panel es casi imperceptible — es la consecuencia matemática de
-      // que un gris neutro sobre verde no puede llegar a 4.5:1 sin
-      // oscurecer la superficie casi al nivel del panel.
-      raised: "#032a1f",
-      text: "#ecfdf5",
-      muted: "#6ee7b7",
-      border: "#047857",
-      success: "#34d399",
-      warning: "#fbbf24",
-      error: "#f87171",
+      brand: "oklch(0.696 0.149 162.5)",
+      // Rampa rehecha 2026-10-20: la anterior (L 0.255 / 0.256 / 0.255) era
+      // NO monótona y la elevación sobre el panel era imperceptible. La nueva
+      // mantiene los mismos tonos (H 165–174) con 3 escalones reales.
+      background: "oklch(0.13 0.047 173.8)",
+      panel: "oklch(0.19 0.05 165)",
+      raised: "oklch(0.25 0.048 169.6)",
+      text: "oklch(0.979 0.021 166.1)",
+      muted: "oklch(0.845 0.13 165)",
+      border: "oklch(0.508 0.105 165.6)",
+      success: "oklch(0.773 0.153 163.2)",
+      warning: "oklch(0.837 0.164 84.4)",
+      error: "oklch(0.711 0.166 22.2)",
     },
     geometry: {
       radius: "sm",
@@ -109,26 +129,18 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
     name: "Warm Sepia (Paper Ink)",
     version: 1,
     colors: {
-      brand: "#f59e0b",
-      background: "#1c1917",
-      // EGO-FIND-71 FIND-A11Y-06: dim fijo #8a8a92 sobre panel #292524 = 4.43:1
-      // (< 4.5:1). Superficie oscurecida a #272323 → 4.54:1
-      // (OKLCH: L 0.268 → 0.261, C 0.006 y H 34 conservados).
-      panel: "#272323",
-      // EGO-FIND-71 FIND-A11Y-03: borde fuerte fijo #71717a sobre raised #44403c
-      // = 2.13:1 (< 3:1). Superficie oscurecida a #2c2825 → 3.02:1
-      // (OKLCH: L 0.374 → 0.280, C 0.009 y H 68 conservados). El mismo valor
-      // cierra FIND-A11Y-01, que exige #78716c >= 3:1 → 3.05:1.
-      // EGO-FIND-71 (residuo): el dim fijo #8a8a92 sobre esta superficie daba
-      // 4.27:1 (< 4.5:1) → se oscurece a #272421 (4.51:1). El borde fuerte
-      // sigue en 3.03:1.
-      raised: "#272421",
-      text: "#fef3c7",
-      muted: "#d6d3d1",
-      border: "#57534e",
-      success: "#10b981",
-      warning: "#f59e0b",
-      error: "#ef4444",
+      brand: "oklch(0.769 0.165 70.1)",
+      // Rampa rehecha 2026-10-20 (misma razón que emerald-terminal): la
+      // anterior era casi plana (L 0.261 / 0.262). Mismos tonos cálidos.
+      background: "oklch(0.13 0.006 56)",
+      panel: "oklch(0.195 0.006 34.3)",
+      raised: "oklch(0.26 0.008 67.6)",
+      text: "oklch(0.962 0.058 95.6)",
+      muted: "oklch(0.869 0.004 56.4)",
+      border: "oklch(0.444 0.01 73.6)",
+      success: "oklch(0.696 0.149 162.5)",
+      warning: "oklch(0.837 0.164 84.4)",
+      error: "oklch(0.637 0.208 25.3)",
     },
     geometry: {
       radius: "md",
@@ -199,16 +211,22 @@ const FONT_STACK_MAP: Record<string, string> = {
  * - `FIXED_DIM` #8a8a92 ≈5.8:1 sobre paper (AA). El provider NUNCA lo pisa
  *   con `muted` del preset sin medir cada preset (riesgo emerald-terminal
  *   verdoso: rompería el AA silenciosamente).
- * - `FIXED_BORDER_STRONG` #52525b ≈2.4:1 sobre panel (medido 2026-10-14:
- * - `FIXED_BORDER_STRONG` #71717a >= 3.2:1 sobre panel (WCAG 2.2 AA en componentes interactivos).
- * - `FIXED_FOCUS_RING` #f59e0b ≈9.2:1 sobre paper (componente UI ≥3:1 ✅).
- * - `FIXED_TEXT_ON_BRAND` #0a0a0b sobre ámbar ≈9.2:1 ✅.
+ * - `FIXED_BORDER_STRONG` #71717a >= 3.2:1 sobre panel (WCAG 2.2 AA en
+ *   componentes interactivos).
+ * - `FIXED_TEXT_ON_BRAND` #0a0a0b sobre ámbar ≈9.2:1 ✅. Medido también
+ *   sobre los otros accents (cyan 8.15:1, emerald 7.80:1) → AA en los 4.
  * - EGO-FIND-71: los fijos NO se pisan; para que cumplan AA sobre las
- *   superficies de CADA preset se oscurecieron `panel`/`raised` de los
- *   presets afectados (comentarios EGO-FIND-71 en PRESET_THEMES).
+ *   superficies de CADA preset se resolvieron las rampas de `PRESET_THEMES`
+ *   por búsqueda numérica contra estas restricciones.
+ *
+ * ## Focus ring = brand (decisión owner 2026-10-20)
+ * Antes coexistían DOS acentos vivos: el brand real en runtime era cyan
+ * (#38bdf8) y el focus-ring era ámbar (#f59e0b) → un control podía tener
+ * borde cyan y foco ámbar. Ahora el focus-ring **es el brand del preset**:
+ * un único accent por app. Todos los brands pasan >= 3:1 (UI) sobre bg y
+ * panel: ámbar 9.26:1, cyan 8.29:1, emerald 6.11:1, sepia 8.14:1.
  */
 const FIXED_BORDER_STRONG = "#71717a";
-const FIXED_FOCUS_RING = "#f59e0b";
 const FIXED_TEXT_ON_BRAND = "#0a0a0b";
 const FIXED_DIM = "#8a8a92";
 const FIXED_CHART_INDIGO = "#818cf8";
@@ -288,6 +306,14 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
     if (typeof document === "undefined") return;
     const root = document.documentElement.style;
     const c = tokens.colors;
+    // `data-palette`: hook de CSS por preset (y atributo observable para
+    // tests). Antes las paletas OKLCH de `theme-tokens.css` colgaban de
+    // `[data-palette]` y NUNCA se asignaban → estaban muertas. Ahora el
+    // atributo se escribe siempre con la clave del preset activo.
+    document.documentElement.setAttribute(
+      "data-palette",
+      presetKeyOf(tokens),
+    );
     root.setProperty("--color-brand", c.brand);
     root.setProperty("--color-ink", c.text);
     root.setProperty("--color-paper", c.background);
@@ -300,7 +326,10 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
     // deriva de `c.muted`: queda anclado a #8a8a92 hasta medir cada preset.
     root.setProperty("--color-strong", FIXED_BORDER_STRONG);
     root.setProperty("--color-border-strong", FIXED_BORDER_STRONG);
-    root.setProperty("--color-focus-ring", FIXED_FOCUS_RING);
+    // Focus ring = brand del preset (decisión owner 2026-10-20): un único
+    // accent por app. Antes el focus-ring era ámbar fijo mientras el brand
+    // real era cyan → dos acentos vivos a la vez.
+    root.setProperty("--color-focus-ring", c.brand);
     root.setProperty("--color-on-brand", FIXED_TEXT_ON_BRAND);
     root.setProperty("--color-text-on-brand", FIXED_TEXT_ON_BRAND);
     root.setProperty("--color-dim", FIXED_DIM);
@@ -316,7 +345,7 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
     root.setProperty("--motion-ease-out", FIXED_MOTION_EASE_OUT);
     root.setProperty("--motion-ease-in", FIXED_MOTION_EASE_IN);
     root.setProperty("--ego-color-border-strong", FIXED_BORDER_STRONG);
-    root.setProperty("--ego-color-focus-ring", FIXED_FOCUS_RING);
+    root.setProperty("--ego-color-focus-ring", c.brand);
     root.setProperty("--ego-color-text-on-brand", FIXED_TEXT_ON_BRAND);
     root.setProperty("--ego-color-dim", FIXED_DIM);
     root.setProperty("--ego-color-success", c.success);
@@ -352,7 +381,8 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
       "--ego-color-error": tokens.colors.error,
       // T-contraste: fijos del sistema; el preset no los gobierna.
       "--ego-color-border-strong": FIXED_BORDER_STRONG,
-      "--ego-color-focus-ring": FIXED_FOCUS_RING,
+      // Focus ring = brand del preset (decisión owner 2026-10-20).
+      "--ego-color-focus-ring": tokens.colors.brand,
       "--ego-color-text-on-brand": FIXED_TEXT_ON_BRAND,
       "--ego-color-dim": FIXED_DIM,
       "--ego-color-chart-indigo": FIXED_CHART_INDIGO,

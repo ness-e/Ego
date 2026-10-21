@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ego } from "../../lib/ego.js";
 import type { BackgroundTaskInfo } from "../../lib/ego.js";
 import { Select } from "../ui-kit/Select.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
 
 /**
  * CFG-13 — Cron UI sobre el `BackgroundEngine` existente.
@@ -87,122 +89,149 @@ export const CronPanel: React.FC = () => {
 
   if (state.kind === "loading") {
     return (
-      <p role="status" aria-busy="true" className="text-[11px] text-faint">
-        Cargando tareas en segundo plano…
-      </p>
+      <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
+        <h3 className="mb-3 border-b border-hairline pb-3 text-sm font-semibold text-ink">
+          Tareas en Segundo Plano
+        </h3>
+        <p role="status" aria-busy="true" className="text-xs text-faint">
+          Cargando tareas en segundo plano…
+        </p>
+      </div>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <div className="flex flex-col gap-2">
-        <p role="alert" className="text-[11px] text-error">
-          No se pudieron listar las tareas: {state.message}
-        </p>
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          className="w-fit rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-ink"
-        >
-          Reintentar
-        </button>
+      <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
+        <h3 className="mb-3 border-b border-hairline pb-3 text-sm font-semibold text-ink">
+          Tareas en Segundo Plano
+        </h3>
+        <div className="flex flex-col gap-2">
+          <p role="alert" className="text-xs text-error">
+            No se pudieron listar las tareas: {state.message}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => void refresh()}
+            className="w-fit"
+          >
+            Reintentar
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] text-faint">
-          {state.tasks.length === 0
-            ? "Sin tareas en segundo plano."
-            : `${state.tasks.length} tarea(s) en segundo plano.`}
-        </p>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-ink transition-colors hover:bg-panel cursor-pointer"
-          >
-            {showCreateForm ? "Cerrar" : "+ Nueva Tarea"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-dim transition-colors hover:text-ink cursor-pointer"
-          >
-            Actualizar
-          </button>
-        </div>
-      </div>
-
-      {showCreateForm && (
-        <form
-          onSubmit={handleCreateTask}
-          className="flex flex-col gap-2 rounded-lg border border-hairline bg-paper p-3 text-xs"
-        >
-          <span className="font-semibold text-ink">Nueva Tarea en Segundo Plano</span>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-faint">Nombre / Objetivo:</label>
-            <input
-              type="text"
-              placeholder="ej. Sincronización nocturna de memoria"
-              value={taskName}
-              onChange={(e) => setTaskName(e.target.value)}
-              className="rounded border border-hairline bg-raised px-2 py-1 text-xs text-ink placeholder:text-faint focus:outline-hidden"
-              required
-            />
+    <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
+      <h3 className="mb-3 border-b border-hairline pb-3 text-sm font-semibold text-ink">
+        Tareas en Segundo Plano
+      </h3>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-faint">
+            {state.tasks.length === 0
+              ? "Sin tareas en segundo plano."
+              : `${state.tasks.length} tarea(s) en segundo plano.`}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowCreateForm(!showCreateForm)}
+            >
+              {showCreateForm ? "Cerrar" : "+ Nueva Tarea"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void refresh()}
+            >
+              Actualizar
+            </Button>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex flex-1 flex-col gap-1">
-              <label className="text-[10px] text-faint">Programación / Cadencia:</label>
-              <Select
-                ariaLabel="Programación / Cadencia"
-                value={taskSchedule}
-                onValueChange={setTaskSchedule}
-                options={[
-                  { value: "manual", label: "Manual (One-off)" },
-                  { value: "every_5m", label: "Cada 5 minutos" },
-                  { value: "every_1h", label: "Cada hora" },
-                  { value: "daily", label: "Diario (00:00 UTC)" },
-                ]}
-                triggerClassName="rounded border border-hairline bg-raised px-2 py-1 text-xs text-ink"
+        </div>
+
+        {showCreateForm && (
+          <form
+            onSubmit={handleCreateTask}
+            className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-hairline bg-raised p-3 text-xs"
+          >
+            <span className="font-semibold text-ink">Nueva Tarea en Segundo Plano</span>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-faint" htmlFor="cfg13-cron-name">
+                Nombre / Objetivo:
+              </label>
+              <Input
+                id="cfg13-cron-name"
+                type="text"
+                placeholder="ej. Sincronización nocturna de memoria"
+                value={taskName}
+                onChange={(e) => setTaskName(e.target.value)}
+                required
               />
             </div>
-            <button
-              type="submit"
-              disabled={isSubmitting || !taskName.trim()}
-              className="mt-4 rounded border border-hairline bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-500 transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              {isSubmitting ? "Encolando..." : "Encolar"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {state.tasks.length > 0 && (
-        <ul className="flex flex-col gap-1.5">
-          {state.tasks.map((t) => (
-            <li
-              key={t.taskId}
-              className="flex items-center justify-between gap-2 rounded border border-hairline bg-paper px-2 py-1.5"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-mono text-[11px] text-ink">{t.taskId}</p>
-                <p className="font-mono text-[10px] text-faint">{t.status}</p>
+            <div className="flex items-end gap-2">
+              <div className="flex flex-1 flex-col gap-1">
+                <label className="text-xs text-faint" htmlFor="cfg13-cron-schedule">
+                  Programación / Cadencia:
+                </label>
+                <Select
+                  id="cfg13-cron-schedule"
+                  ariaLabel="Programación / Cadencia"
+                  value={taskSchedule}
+                  onValueChange={setTaskSchedule}
+                  options={[
+                    { value: "manual", label: "Manual (One-off)" },
+                    { value: "every_5m", label: "Cada 5 minutos" },
+                    { value: "every_1h", label: "Cada hora" },
+                    { value: "daily", label: "Diario (00:00 UTC)" },
+                  ]}
+                />
               </div>
-              <button
-                type="button"
-                onClick={() => void handleCancel(t.taskId)}
-                aria-label={`Cancelar tarea ${t.taskId}`}
-                className="shrink-0 rounded border border-hairline bg-raised px-2 py-0.5 text-[11px] text-dim transition-colors hover:text-ink cursor-pointer"
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                loading={isSubmitting}
+                disabled={!taskName.trim()}
               >
-                Cancelar
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+                {isSubmitting ? "Encolando..." : "Encolar"}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {state.tasks.length > 0 && (
+          <ul className="flex flex-col gap-1.5">
+            {state.tasks.map((t) => (
+              <li
+                key={t.taskId}
+                className="flex items-center justify-between gap-2 rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-1.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-mono text-xs text-ink">{t.taskId}</p>
+                  <p className="font-mono text-xs text-faint">{t.status}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleCancel(t.taskId)}
+                  aria-label={`Cancelar tarea ${t.taskId}`}
+                  className="shrink-0"
+                >
+                  Cancelar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };

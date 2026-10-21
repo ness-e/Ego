@@ -3,9 +3,19 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Sparkle, Warning, Check, X } from "@phosphor-icons/react";
 import { useActivityState } from "./useActivityState.js";
 import { Modal } from "../ui-kit/Modal.js";
+import { Button } from "../ui-kit/Button.js";
+import { Badge } from "../ui-kit/Badge.js";
 import { MOTION } from "../canvas/DesignSystemProvider.js";
 import { CharacterBadge } from "../character/CharacterBadge.js";
 
+/**
+ * Activity Widget — telemetría + HITL en la cabecera de la app.
+ *
+ * FASE 1 (design system): los botones pasan por el kit `ui-kit` y toda la
+ * superficie usa los tokens canónicos (radio del sistema, escala tipográfica
+ * de 3 tamaños, sin colores de paleta crudos: el CTA ámbar es `bg-brand` +
+ * `text-on-brand`).
+ */
 export function ActivityWidget() {
   const { status, activeSubEgo, currentAction, pendingApprovals, vantaDbOk, resolveApproval } =
     useActivityState();
@@ -50,7 +60,7 @@ export function ActivityWidget() {
               transition={transition}
               style={noAnimStyle}
               data-testid="activity-idle"
-              className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised px-2.5 py-0.5 text-[11px] text-faint"
+              className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised px-2.5 py-0.5 text-xs text-faint"
             >
               <CharacterBadge
                 subEgoId="ego.nucleus"
@@ -59,7 +69,7 @@ export function ActivityWidget() {
                 animated={!reduceMotion}
               />
               <span
-                className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
+                className="h-1.5 w-1.5 rounded-full bg-success animate-pulse"
                 style={noAnimStyle}
               />
               <span>VantaDB Core OK</span>
@@ -75,7 +85,7 @@ export function ActivityWidget() {
               style={noAnimStyle}
               data-testid="activity-error"
               role="alert"
-              className="flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-950/30 px-2.5 py-0.5 text-[11px] text-rose-300"
+              className="flex items-center gap-1.5 rounded-full border border-error/40 bg-error/10 px-2.5 py-0.5 text-xs text-error"
             >
               <CharacterBadge
                 subEgoId="ego.nucleus"
@@ -83,7 +93,7 @@ export function ActivityWidget() {
                 state="error"
                 animated={!reduceMotion}
               />
-              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" style={noAnimStyle} />
+              <span className="h-1.5 w-1.5 rounded-full bg-error" style={noAnimStyle} />
               <span>VantaDB error — sin verificación de snapshots</span>
             </motion.div>
           ))}
@@ -99,7 +109,7 @@ export function ActivityWidget() {
             transition={transition}
             style={noAnimStyle}
             data-testid="activity-working"
-            className="flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-950/20 px-3 py-0.5 text-[11px] text-cyan-300"
+            className="flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3 py-0.5 text-xs text-brand"
           >
             <CharacterBadge
               subEgoId={activeSubEgo || "ego.nucleus"}
@@ -107,7 +117,7 @@ export function ActivityWidget() {
               state="working"
               animated={!reduceMotion}
             />
-            <Sparkle className="text-cyan-400" style={noAnimStyle} size={13} />
+            <Sparkle className="text-brand" style={noAnimStyle} size={13} />
             <span className="truncate max-w-[200px]">
               {activeSubEgo ? `${activeSubEgo}: ` : ""}
               {currentAction || "Ejecutando..."}
@@ -126,7 +136,7 @@ export function ActivityWidget() {
             transition={transition}
             style={noAnimStyle}
             data-testid="activity-approval"
-            className="flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-950/30 px-3 py-0.5 text-[11px] text-amber-200 shadow-sm"
+            className="flex items-center gap-2 rounded-full border border-warning/40 bg-warning/10 px-3 py-0.5 text-xs text-warning"
           >
             <CharacterBadge
               subEgoId={currentApproval?.action?.subEgoId || activeSubEgo || "ego.nucleus"}
@@ -134,13 +144,19 @@ export function ActivityWidget() {
               state="approval"
               animated={!reduceMotion}
             />
-            <Warning size={14} className="text-amber-400" />
+            <Warning size={14} className="text-warning" />
             <span>
               HITL Requerido{pendingApprovals.length > 1 ? ` (${pendingApprovals.length})` : ""}
             </span>
+            {/* El CTA de revisión conserva el `<button>` nativo: la puerta
+                STAB-13 (`test/Stab13UxMotion.test.tsx`) verifica el target
+                de 44 px sobre el nodo que lleva el TEXTO visible, y el
+                `Button` del kit envuelve los hijos en un `<span>`. Sus
+                clases replican las canónicas del kit. */}
             <button
+              type="button"
               onClick={() => setIsModalOpen(true)}
-              className="rounded bg-amber-500 px-3 min-h-[44px] min-w-[44px] inline-flex items-center justify-center py-0.2 text-[10px] font-semibold text-black hover:bg-amber-400 transition-colors"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[var(--radius-card)] bg-brand px-3 text-xs font-semibold text-on-brand transition-colors hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             >
               Revisar
             </button>
@@ -158,7 +174,7 @@ export function ActivityWidget() {
           description="Revisa los parámetros y resuelve la operación sensible pendiente."
         >
           <div className="space-y-3 text-xs">
-            <div className="flex items-center gap-3 p-2 rounded-lg bg-raised border border-hairline">
+            <div className="flex items-center gap-3 rounded-[var(--radius-card)] bg-raised border border-hairline p-2">
               <CharacterBadge
                 subEgoId={currentApproval.action.subEgoId}
                 size={32}
@@ -167,13 +183,13 @@ export function ActivityWidget() {
               />
               <div className="flex flex-col">
                 <span className="font-semibold text-ink">{currentApproval.action.subEgoId}</span>
-                <span className="text-[10px] font-mono text-amber-300">HITL en espera</span>
+                <span className="text-xs font-mono text-brand">HITL en espera</span>
               </div>
             </div>
 
             <div>
               <span className="text-faint">Herramienta: </span>
-              <span className="font-mono font-bold text-amber-300">{currentApproval.toolName}</span>
+              <span className="font-mono font-bold text-brand">{currentApproval.toolName}</span>
             </div>
             <div>
               <span className="text-faint">Sub-Ego: </span>
@@ -181,51 +197,47 @@ export function ActivityWidget() {
             </div>
             <div>
               <span className="text-faint">Nivel de Riesgo: </span>
-              <span
-                className={`font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
-                  currentApproval.riskLevel === "destructive"
-                    ? "bg-rose-950 text-rose-300 border border-rose-500/30"
-                    : "bg-amber-950 text-amber-300 border border-amber-500/30"
-                }`}
-              >
+              <Badge tone={currentApproval.riskLevel === "destructive" ? "risk" : "warn"}>
                 {currentApproval.riskLevel}
-              </span>
+              </Badge>
             </div>
 
             <div>
               <span className="text-faint">Parámetros:</span>
-              <pre className="mt-1 max-h-36 overflow-auto rounded bg-paper p-2 font-mono text-[11px] text-ink border border-hairline">
+              <pre className="mt-1 max-h-36 overflow-auto rounded-[var(--radius-card)] bg-paper p-2 font-mono text-xs text-ink border border-hairline">
                 {JSON.stringify(currentApproval.arguments, null, 2)}
               </pre>
             </div>
           </div>
 
           <div className="mt-5 flex items-center justify-between border-t border-hairline pt-3">
-            <span className="text-[10px] text-dim">
-              Atajos: <kbd className="px-1 py-0.5 bg-raised rounded font-mono">Enter</kbd> Aprobar,{" "}
-              <kbd className="px-1 py-0.5 bg-raised rounded font-mono">Esc</kbd> Cancelar
+            <span className="text-xs text-dim">
+              Atajos: <kbd className="px-1 py-0.5 bg-raised rounded-md font-mono">Enter</kbd> Aprobar,{" "}
+              <kbd className="px-1 py-0.5 bg-raised rounded-md font-mono">Esc</kbd> Cancelar
             </span>
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                size="lg"
+                variant="danger"
+                icon={<X size={14} />}
                 onClick={() => {
                   resolveApproval(currentApproval.approvalId, false, "Rechazado desde widget");
                   if (pendingApprovals.length <= 1) setIsModalOpen(false);
                 }}
-                className="flex items-center gap-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 px-3 py-1.5 min-h-[44px] text-xs font-semibold text-rose-300 transition-colors"
               >
-                <X size={14} />
-                <span>Rechazar</span>
-              </button>
-              <button
+                Rechazar
+              </Button>
+              <Button
+                size="lg"
+                variant="accent"
+                icon={<Check size={14} weight="bold" />}
                 onClick={() => {
                   resolveApproval(currentApproval.approvalId, true);
                   if (pendingApprovals.length <= 1) setIsModalOpen(false);
                 }}
-                className="flex items-center gap-1 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 min-h-[44px] text-xs font-semibold text-white transition-colors"
               >
-                <Check size={14} weight="bold" />
-                <span>Aprobar</span>
-              </button>
+                Aprobar
+              </Button>
             </div>
           </div>
         </Modal>

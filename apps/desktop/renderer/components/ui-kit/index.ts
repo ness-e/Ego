@@ -1,8 +1,13 @@
 export { Button, type ButtonProps } from "./Button.js";
 export { Input, type InputProps } from "./Input.js";
+export { Textarea, type TextareaProps } from "./Textarea.js";
 export { Modal, type ModalProps } from "./Modal.js";
 export { Tabs, type TabsProps, type KitTab } from "./Tabs.js";
 export { Badge, type BadgeProps } from "./Badge.js";
 export { Select, type SelectProps, type SelectOption } from "./Select.js";
+export { Switch, type SwitchProps } from "./Switch.js";
+export { Menu, type MenuProps, type MenuItem } from "./Menu.js";
+export { Popover, type PopoverProps } from "./Popover.js";
+export { Tooltip, type TooltipProps } from "./Tooltip.js";
 export { useUiStore, type UiKitState } from "./store.js";
 export { cva, cn, type VariantMap, type CvaConfig } from "./cva.js";

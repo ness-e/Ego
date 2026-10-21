@@ -38,7 +38,9 @@ describe("ui-kit Select (Radix)", () => {
     const trigger = screen.getByRole("combobox", { name: "Selector de prueba" });
     expect(trigger).toBeTruthy();
     expect(trigger).toHaveTextContent("Opción 1");
-    expect(trigger.className).toContain("min-h-11");
+    // Densidad densa (decisión owner 2026-10-20): un control CON etiqueta
+    // visible puede medir 32 px (h-8); el ancho mínimo de 44 px se mantiene.
+    expect(trigger.className).toContain("h-8");
     expect(trigger.className).toContain("min-w-11");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(document.querySelector("select")).toBeNull();

@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import type { FormProps } from "@ego/ui-runtime";
 import { Select } from "../ui-kit/Select.js";
+import { Input } from "../ui-kit/Input.js";
+import { Textarea } from "../ui-kit/Textarea.js";
+import { Button } from "../ui-kit/Button.js";
 
 interface FormViewProps {
   props: FormProps;
@@ -58,99 +61,109 @@ export const FormView: React.FC<FormViewProps> = ({ props, onSubmit }) => {
   };
 
   return (
-    <div className="rounded-xl border border-hairline bg-panel p-4 shadow-xs select-text">
-      <div className="pb-3 border-b border-hairline mb-4">
-        <h3 className="font-semibold text-sm text-ink">{props.title}</h3>
-        {props.description && <p className="text-xs text-dim mt-0.5">{props.description}</p>}
+    <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)] select-text">
+      <div className="mb-4 border-b border-hairline pb-3">
+        <h3 className="text-sm font-semibold text-ink">{props.title}</h3>
+        {props.description && <p className="mt-0.5 text-xs text-faint">{props.description}</p>}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {props.fields.map((field) => (
           <div key={field.name} className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-ink flex items-center justify-between">
+            <label className="flex items-center justify-between text-xs font-medium text-ink">
               <span>
                 {field.label}
-                {field.required && <span className="text-rose-400 ml-1">*</span>}
+                {field.required && <span className="ml-1 text-error">*</span>}
               </span>
             </label>
 
+            {/* Los controles de texto/número/área usan el `Input`/`Textarea` del
+                kit: su borde base es `border-strong` con anillo `brand` en
+                foco (nunca `border-hairline` como único indicador) y el
+                mensaje de error va con `role="alert"` + `aria-errormessage`. */}
             {field.type === "text" && (
-              <input
+              <Input
                 type="text"
                 placeholder={field.placeholder}
                 value={String(values[field.name] ?? "")}
                 onChange={(e) => handleChange(field.name, e.target.value)}
-                className="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-ink"
+                error={errors[field.name]}
               />
             )}
 
             {field.type === "number" && (
-              <input
+              <Input
                 type="number"
                 placeholder={field.placeholder}
                 value={Number(values[field.name] ?? 0)}
                 onChange={(e) => handleChange(field.name, Number(e.target.value))}
-                className="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink font-mono focus:outline-none focus:ring-1 focus:ring-ink"
+                error={errors[field.name]}
+                className="font-mono"
               />
             )}
 
             {field.type === "select" && (
-              <Select
-                ariaLabel={field.label ?? field.name}
-                value={String(values[field.name] ?? "")}
-                onValueChange={(v) => handleChange(field.name, v)}
-                placeholder="Seleccionar una opción…"
-                options={[
-                  { value: "", label: "Seleccionar una opción…" },
-                  ...(field.options ?? []).map((opt) => ({
-                    value: opt.value,
-                    label: opt.label,
-                  })),
-                ]}
-                triggerClassName="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink"
-              />
+              <>
+                <Select
+                  ariaLabel={field.label ?? field.name}
+                  value={String(values[field.name] ?? "")}
+                  onValueChange={(v) => handleChange(field.name, v)}
+                  placeholder="Seleccionar una opción…"
+                  options={[
+                    { value: "", label: "Seleccionar una opción…" },
+                    ...(field.options ?? []).map((opt) => ({
+                      value: opt.value,
+                      label: opt.label,
+                    })),
+                  ]}
+                />
+                {errors[field.name] && (
+                  <span role="alert" className="text-xs text-error">
+                    {errors[field.name]}
+                  </span>
+                )}
+              </>
             )}
 
             {field.type === "switch" && (
-              <div className="flex items-center gap-2 mt-1">
+              <div className="mt-1 flex items-center gap-2">
                 <input
                   type="checkbox"
                   id={`field-${field.name}`}
                   checked={Boolean(values[field.name])}
                   onChange={(e) => handleChange(field.name, e.target.checked)}
-                  className="rounded border-hairline bg-raised accent-ink"
+                  className="rounded-[var(--radius-card)] border-strong bg-raised accent-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 />
-                <label htmlFor={`field-${field.name}`} className="text-xs text-dim cursor-pointer">
+                <label htmlFor={`field-${field.name}`} className="cursor-pointer text-xs text-dim">
                   {values[field.name] ? "Activado" : "Desactivado"}
                 </label>
+                {errors[field.name] && (
+                  <span role="alert" className="text-xs text-error">
+                    {errors[field.name]}
+                  </span>
+                )}
               </div>
             )}
 
             {field.type === "textarea" && (
-              <textarea
+              <Textarea
                 rows={3}
                 placeholder={field.placeholder}
                 value={String(values[field.name] ?? "")}
                 onChange={(e) => handleChange(field.name, e.target.value)}
-                className="w-full rounded-md bg-raised border border-hairline px-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-ink font-mono"
+                error={errors[field.name]}
+                className="font-mono"
               />
-            )}
-
-            {errors[field.name] && (
-              <span className="text-[11px] text-rose-400">{errors[field.name]}</span>
             )}
           </div>
         ))}
 
-        <div className="flex items-center justify-between pt-2 border-t border-hairline">
-          {isSubmitted && <span className="text-xs text-emerald-400">✓ Enviado con éxito</span>}
+        <div className="flex items-center justify-between border-t border-hairline pt-2">
+          {isSubmitted && <span className="text-xs text-success">✓ Enviado con éxito</span>}
           <div className="ml-auto">
-            <button
-              type="submit"
-              className="rounded bg-ink px-4 py-1.5 text-xs font-semibold text-paper hover:opacity-90 transition-opacity"
-            >
+            <Button type="submit" variant="primary" size="sm">
               {props.submitLabel}
-            </button>
+            </Button>
           </div>
         </div>
       </form>

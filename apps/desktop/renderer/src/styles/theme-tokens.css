@@ -19,107 +19,43 @@
   --ego-glass-border: rgba(255, 255, 255, 0.09);
 }
 
-/* 4 Paletas Canónicas
+/* 4 Paletas Canónicas — FUENTE ÚNICA: `components/canvas/DesignSystemProvider.tsx`
  *
- * T14 (EGO-FIND-60): los colores se declaran en OKLCH, no en HEX sRGB.
- * OKLCH separa LUMINOSIDAD (L) de CROMANCIA (C) y MATIZ (H): la misma
- * diferencia de L produce el mismo salto de luminosidad en cualquier
+ * T14 (EGO-FIND-60) + owner 2026-10-20: los colores se declaran en OKLCH,
+ * no en HEX sRGB. OKLCH separa LUMINOSIDAD (L) de CROMANCIA (C) y MATIZ (H):
+ * la misma diferencia de L produce el mismo salto de luminosidad en cualquier
  * matiz, así que "subir un nivel de superficie" conserva la identidad
  * perceptiva del color en las paletas frías, cálidas y de alto contraste.
- * El contraste WCAG 2.2 se verifica en `test/ThemeTokensOklch.test.tsx`
- * convirtiendo el OKLCH de vuelta a sRGB.
  *
- * T14 / EGO-FIND-71: las superficies se oscurecen donde un token FIJO del
- * design system (`dim` #8a8a92, `border-strong` #71717a / #78716c) no
- * alcanzaba el ratio exigido. Es el mismo fix que el aplicado a los
- * presets del `DesignSystemProvider` (los valores OKLCH de aquí son los
- * equivalentes EXACTOS de los hex corregidos):
- *   - warm-sepia / midnight-cyan / amber-warm / emerald-terminal:
- *     superficies recalculadas para que el borde fuerte fijo llegue a 3:1
- *     y el dim fijo a 4.5:1.
+ * ## Dónde están ahora las paletas (y por qué)
+ * Antes vivían AQUÍ, en bloques `[data-palette="…"]` — y ese atributo **no lo
+ * asignaba ningún componente**, de modo que las 4 paletas nunca se activaban
+ * (código muerto). La paleta real la aplicaba el `DesignSystemProvider` con
+ * valores HEX distintos: dos fuentes de verdad, una muerta.
+ *
+ * Ahora el provider es la ÚNICA fuente (OKLCH) y escribe además
+ * `data-palette` en `<html>` con la clave del preset activo, de modo que
+ * este hook de CSS queda disponible y observable. La puerta de contraste
+ * `test/ThemeTokensOklch.test.tsx` lee el provider y verifica los 4
+ * presets reales.
+ *
+ * Este fichero conserva lo que NO es paleta: elevación L0–L3, vidrio,
+ * scrollbar y las utilidades de superficie `.ego-surface-*`.
  */
-[data-palette="dark-graphite"],
-.palette-dark-graphite {
-  --ego-color-bg: oklch(0.141 0.004 285.8);
-  --ego-color-panel: oklch(0.192 0.004 286);
-  --ego-color-raised: oklch(0.228 0.008 285.8);
-  --ego-color-text: oklch(0.967 0.001 286.4);
-  --ego-color-muted: oklch(0.712 0.013 286.1);
-  --ego-color-border: oklch(0.274 0.005 286);
-  --ego-color-border-strong: oklch(0.552 0.014 285.9);
-}
 
-[data-palette="midnight-cyan"],
-.palette-midnight-cyan {
-  --ego-color-bg: oklch(0.13 0.027 261.7);
-  --ego-color-panel: oklch(0.208 0.04 265.8);
-  /* EGO-FIND-71 / FIND-A11Y-04: #1e293b daba 4.27:1 con el dim fijo
-     (#8a8a92). Superficie a #1a2536 → 4.50:1. */
-  --ego-color-raised: oklch(0.262 0.037 260);
-  --ego-color-text: oklch(0.984 0.003 247.9);
-  --ego-color-muted: oklch(0.711 0.035 256.8);
-  --ego-color-border: oklch(0.372 0.039 257.3);
-  --ego-color-border-strong: oklch(0.554 0.041 257.4);
-}
-
-[data-palette="warm-sepia"],
-.palette-warm-sepia {
-  --ego-color-bg: oklch(0.216 0.006 56);
-  --ego-color-panel: oklch(0.268 0.006 34.3);
-  /* EGO-FIND-71 / FIND-A11Y-01: #44403c daba 2.14:1 con el borde fuerte
-     (#78716c). Superficie a #2c2825 → 3.05:1. */
-  --ego-color-raised: oklch(0.28 0.008 59.3);
-  --ego-color-text: oklch(0.962 0.058 95.6);
-  --ego-color-muted: oklch(0.869 0.004 56.4);
-  --ego-color-border: oklch(0.444 0.01 73.6);
-  --ego-color-border-strong: oklch(0.553 0.012 58.1);
-}
-
-[data-palette="high-contrast"],
-.palette-high-contrast {
-  --ego-color-bg: oklch(0 0 0);
-  --ego-color-panel: oklch(0.145 0 89.9);
-  --ego-color-raised: oklch(0.191 0 89.9);
-  --ego-color-text: oklch(1 0 89.9);
-  --ego-color-muted: oklch(0.845 0 89.9);
-  --ego-color-border: oklch(0.371 0 89.9);
-  --ego-color-border-strong: oklch(0.715 0 89.9);
-}
-
-/* Scrollbars oscuras y sutiles (Flat, not boxed) */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
-}
+/* Scrollbars: definidas UNA sola vez en `src/index.css` (antes estaban
+   duplicadas aquí y allí — mismo bloque, dos veces). */
 
 /* Superficie Nivel 1: Panel Flat sutil (Hermes-agent style) */
 .ego-surface-l1 {
-  background-color: var(--color-panel, #0d0d10);
+  background-color: var(--color-panel, oklch(0.195 0.004 286));
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 /* Superficie Nivel 2: Tarjeta elevada con luminancia diferenciada */
 .ego-surface-l2 {
-  background-color: var(--color-raised, #131317);
+  background-color: var(--color-raised, oklch(0.26 0.008 285.8));
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -137,9 +73,9 @@
 .ego-pill-select {
   appearance: none;
   -webkit-appearance: none;
-  background-color: var(--color-raised, #17171a);
-  color: var(--color-ink, #f4f4f5);
-  border: 1px solid var(--color-hairline, #27272a);
+  background-color: var(--color-raised, oklch(0.26 0.008 285.8));
+  color: var(--color-ink, oklch(0.985 0 89.9));
+  border: 1px solid var(--color-hairline, oklch(0.274 0.005 286));
   border-radius: 9999px;
   padding: 0.25rem 1.75rem 0.25rem 0.75rem;
   font-size: 0.75rem;
@@ -154,7 +90,7 @@
 
 .ego-pill-select:hover {
   border-color: var(--color-strong, #71717a);
-  background-color: var(--color-panel, #141416);
+  background-color: var(--color-panel, oklch(0.195 0.004 286));
 }
 
 .ego-pill-select:focus-visible {

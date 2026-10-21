@@ -5,6 +5,7 @@ import {
   type MermaidComponentProps,
 } from "@ego/ui-runtime";
 import type { ComponentRendererProps } from "./registry.js";
+import { Badge } from "../ui-kit/Badge.js";
 
 /**
  * OCLW-11 (A3) — Vista React del tipo de componente `mermaid` del Canvas.
@@ -37,7 +38,7 @@ export function MermaidView({ props }: ComponentRendererProps) {
     return (
       <div
         data-mermaid-view="invalid"
-        className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-[11px] text-rose-300"
+        className="rounded-[var(--radius-card)] border border-error/30 bg-error/10 p-4 text-xs text-error"
       >
         Diagrama Mermaid no válido: {prepared.error ?? "contenido rechazado"}
       </div>
@@ -50,17 +51,13 @@ export function MermaidView({ props }: ComponentRendererProps) {
     <div
       data-mermaid-view="valid"
       data-mermaid-type={prepared.diagramType}
-      className="rounded-lg border border-hairline bg-panel p-3"
+      className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]"
     >
-      <div className="mb-1.5 flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-faint">
+      <div className="mb-1.5 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-faint">
         <span>Mermaid</span>
-        {prepared.diagramType ? (
-          <span className="rounded border border-hairline px-1.5 py-0.5">
-            {prepared.diagramType}
-          </span>
-        ) : null}
+        {prepared.diagramType ? <Badge tone="info">{prepared.diagramType}</Badge> : null}
       </div>
-      <pre className="m-0 overflow-x-auto whitespace-pre font-mono text-[11px] leading-relaxed text-ink">
+      <pre className="m-0 overflow-x-auto whitespace-pre font-mono text-xs leading-relaxed text-ink">
         {source}
       </pre>
     </div>

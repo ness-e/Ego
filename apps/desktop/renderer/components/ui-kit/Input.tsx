@@ -1,5 +1,5 @@
 import React from "react";
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { CircleNotch, WarningCircle } from "@phosphor-icons/react";
 import { cn } from "./cva.js";
 
@@ -13,12 +13,44 @@ import { cn } from "./cva.js";
  * - Borde base `border-strong` (nunca hairline como único indicador).
  * - Placeholder `placeholder:text-faint` SÓLIDO (sin `opacity-*` ni `/60`).
  * - `errMsgId` vía `React.useId` (nunca `undefined-error`).
+ *
+ * Densidad (owner 2026-10-20): `sm` = 28 px · `md` = 32 px, en línea con el
+ * `Button` para que un campo y su botón ocupen la misma altura.
  */
-export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+/**
+ * `size` se re-declara como densidad del kit ("sm" | "md") y por eso se
+ * EXCLUYE del `size?: number` nativo del `<input>` (anchura en caracteres),
+ * que ningún consumidor del renderer usa.
+ */
+export interface InputProps
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
   error?: string;
   hint?: string;
   loading?: boolean;
   truncate?: boolean;
+  size?: "sm" | "md";
+  /**
+   * Clases del ENVOLTORIO (el `<div>` que contiene el campo), no del
+   * `<input>`. Existe porque `className` va al control interior: sin esto,
+   * dar ancho al campo (p. ej. `w-full sm:w-64`) obligaba a envolver el
+   * `Input` en un `<div>` extra en cada consumidor.
+   */
+  wrapperClassName?: string;
+  /**
+   * Icono a la izquierda DENTRO del campo (p. ej. la lupa del buscador de
+   * `QueryView`).
+   *
+   * ## Por qué vive dentro y no fuera
+   * El icono se renderiza como hermano del `<input>` dentro de la caja del
+   * campo, así que hereda el borde, el foco (`focus-within`) y el padding
+   * `px-2.5` del contenedor: no hace falta que cada consumidor reconstruya
+   * la "caja" con un `<div>` propio. El separador entre icono y texto es el
+   * `gap-2` del contenedor.
+   *
+   * El icono es **decorativo** (`aria-hidden`): el nombre accesible del
+   * campo lo aporta el `aria-label`/`label` del consumidor.
+   */
+  leadingIcon?: ReactNode;
 }
 
 export function Input({
@@ -26,15 +58,23 @@ export function Input({
   hint,
   loading = false,
   truncate = false,
+  size = "md",
   disabled,
   maxLength,
   value,
   className,
+  wrapperClassName,
+  leadingIcon,
   ...rest
 }: InputProps) {
-  const isDisabled = disabled ?? loading;
-  const showCount =
-    typeof maxLength === "number" && typeof value === "string";
+  // `loading` SIEMPRE deshabilita (aunque el consumidor pase
+  // `disabled={false}`): un control en carga no debe ser editable.
+  const isDisabled = Boolean(disabled) || loading;
+  const textValue = typeof value === "string" ? value : undefined;
+  // Contador de overflow: se muestra SIEMPRE que haya `maxLength` y valor,
+  // con o sin `hint` (antes sólo aparecía dentro del bloque de `hint`, lo
+  // que lo hacía invisible en el uso real).
+  const showCount = typeof maxLength === "number" && textValue !== undefined;
   // T-contraste: id estable para el mensaje de error. Sin `id` ni `name`
   // el `useId` evita el clásico `undefined-error` (a11y: aria-errormessage
   // debe apuntar a un id real).
@@ -42,21 +82,25 @@ export function Input({
   const errBase = rest.id ?? rest.name ?? `ego-input-${reactErrId}`;
   const errMsgId = `${errBase}-error`;
   return (
-    <div className="flex w-full flex-col gap-1">
+    <div className={cn("flex w-full flex-col gap-1", wrapperClassName)}>
       <div
         className={cn(
-          "flex items-center gap-2 rounded-[var(--radius-card)] border bg-panel px-2.5 py-1.5 transition-colors",
+          "flex items-center gap-2 rounded-[var(--radius-card)] border bg-panel px-2.5 transition-colors",
+          size === "sm" ? "h-7" : "h-8",
           "hover:border-dim",
           "focus-within:border-brand focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-brand",
           "active:border-dim",
-          error
-            ? "border-red-800/60"
-            : "border-strong",
+          error ? "border-error/50" : "border-strong",
           isDisabled && "cursor-not-allowed opacity-50",
         )}
       >
         {loading && (
           <CircleNotch size={13} className="animate-spin shrink-0 text-dim" aria-hidden />
+        )}
+        {leadingIcon && (
+          <span className="shrink-0 text-faint" aria-hidden>
+            {leadingIcon}
+          </span>
         )}
         <input
           {...rest}
@@ -72,22 +116,27 @@ export function Input({
             className,
           )}
         />
-        {error && <WarningCircle size={14} className="shrink-0 text-red-400" aria-hidden />}
+        {error && <WarningCircle size={14} className="shrink-0 text-error" aria-hidden />}
       </div>
       {error ? (
-        <p
-          id={errMsgId}
-          role="alert"
-          className="text-[11px] text-red-300"
-        >
+        <p id={errMsgId} role="alert" className="text-xs text-error">
           {error}
         </p>
-      ) : hint ? (
-        <div className="flex items-center justify-between text-[10px] text-faint">
-          <span className={cn(!value && "italic")}>{hint}</span>
+      ) : hint || showCount ? (
+        <div
+          className={cn(
+            "flex items-center gap-2 text-xs text-faint",
+            hint ? "justify-between" : "justify-end",
+          )}
+        >
+          {hint && (
+            <span className={cn("min-w-0 truncate", !textValue && "italic")}>
+              {hint}
+            </span>
+          )}
           {showCount && (
-            <span className="font-mono text-dim">
-              {(value as string).length}/{maxLength}
+            <span className="shrink-0 font-mono text-dim">
+              {textValue.length}/{maxLength}
             </span>
           )}
         </div>

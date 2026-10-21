@@ -66,74 +66,104 @@ export function MetricsConsole({
   }, [hourlyTelemetry, totalTokensToday, estimatedCostUsd]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-hairline/80 bg-raised/40 p-4 shadow-xs">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Cpu size={16} className="text-dim" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-ink">
+    // `@container`: el grid de KPIs se dimensiona según el ANCHO DEL
+    // CONTENEDOR, no el del viewport. Antes se usaba `xl:grid-cols-4`
+    // (breakpoint de VIEWPORT) y esta consola vive en una columna
+    // estrecha del dashboard: el viewport daba 4 columnas para un
+    // contenedor de 228 px, y las etiquetas quedaban cortadas a media
+    // palabra ("COSTE ESTIMA|DO", "LATENCI|A P99", "TAREA|S").
+    // El salto a 4 columnas lo decide el ancho real disponible.
+    <div className="@container flex flex-col gap-3 rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Cpu size={16} className="shrink-0 text-dim" />
+          <h3 className="min-w-0 text-sm font-semibold text-ink">
             Consola de Consumo y Telemetría
           </h3>
         </div>
-        <span className="font-mono text-[11px] text-faint">Fast-Path · $0 Overhead</span>
+        <span className="shrink-0 font-mono text-xs text-faint">Fast-Path · $0 Overhead</span>
       </div>
 
-      {/* Grid Bento de 4 tarjetas de métricas */}
-      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+      {/* Grid Bento de 4 tarjetas de métricas. Los saltos son de CONTENEDOR
+          (`@container`), no de viewport: esta consola vive en una columna
+          del dashboard que puede medir 90 px o 560 px según el ancho real
+          del panel, así que un `xl:grid-cols-4` (breakpoint de viewport)
+          le encajaba 4 columnas en un contenedor de 228 px y las etiquetas
+          quedaban cortadas a media palabra ("COSTE ESTIMA|DO",
+          "LATENCI|A P99", "TAREA|S").
+          - 1 columna por debajo de 380 px: la tarjeta queda ancha y la
+            etiqueta cabe en UNA línea.
+          - 2 columnas entre 380 y 700 px.
+          - 4 columnas a partir de 700 px.
+          `min-w-0` en la tarjeta, en la fila de la etiqueta y en la propia
+          etiqueta permite que el texto ENCOJA y se parta por palabra
+          (nunca a media palabra) en vez de desbordar y recortarse. */}
+      <div className="grid grid-cols-1 gap-2.5 @[380px]:grid-cols-2 @[700px]:grid-cols-4">
         {/* Tokens */}
-        <div className="flex flex-col rounded-lg border border-hairline bg-panel/90 p-3 hover:border-dim/40 transition-colors">
-          <span className="text-[10px] uppercase font-semibold tracking-wider text-faint">Tokens Hoy</span>
+        <div className="flex min-w-0 flex-col rounded-[var(--radius-card)] border border-hairline bg-raised p-3 hover:border-strong transition-colors">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <span className="min-w-0 text-xs font-semibold uppercase tracking-wider text-faint [overflow-wrap:break-word]">
+              Tokens Hoy
+            </span>
+          </div>
           <span className="mt-1 font-mono text-base font-bold text-ink">
             {totalTokensToday.toLocaleString()}
           </span>
-          <span className="text-[9px] text-dim mt-0.5">Prompt + Inferencia</span>
+          <span className="mt-0.5 text-xs text-dim">Prompt + Inferencia</span>
         </div>
 
         {/* Coste USD */}
-        <div className="flex flex-col rounded-lg border border-hairline bg-panel/90 p-3 hover:border-dim/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-semibold tracking-wider text-faint">Coste Estimado</span>
-            <CurrencyDollar size={13} className="text-emerald-400" />
+        <div className="flex min-w-0 flex-col rounded-[var(--radius-card)] border border-hairline bg-raised p-3 hover:border-strong transition-colors">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <span className="min-w-0 text-xs font-semibold uppercase tracking-wider text-faint [overflow-wrap:break-word]">
+              Coste Estimado
+            </span>
+            <CurrencyDollar size={13} className="shrink-0 text-success" />
           </div>
           <span className="mt-1 font-mono text-base font-bold text-ink">
             ${estimatedCostUsd.toFixed(4)}
           </span>
-          <span className="text-[9px] text-dim mt-0.5">USD Tarifado</span>
+          <span className="mt-0.5 text-xs text-dim">USD Tarifado</span>
         </div>
 
         {/* Latencia p99 */}
-        <div className="flex flex-col rounded-lg border border-hairline bg-panel/90 p-3 hover:border-dim/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-semibold tracking-wider text-faint">Latencia p99</span>
-            <Clock size={13} className="text-amber-400" />
+        <div className="flex min-w-0 flex-col rounded-[var(--radius-card)] border border-hairline bg-raised p-3 hover:border-strong transition-colors">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <span className="min-w-0 text-xs font-semibold uppercase tracking-wider text-faint [overflow-wrap:break-word]">
+              Latencia p99
+            </span>
+            <Clock size={13} className="shrink-0 text-brand" />
           </div>
           <span className="mt-1 font-mono text-base font-bold text-ink">
             {p99LatencyMs} ms
           </span>
-          <span className="text-[9px] text-dim mt-0.5">Percentil 99</span>
+          <span className="mt-0.5 text-xs text-dim">Percentil 99</span>
         </div>
 
         {/* Tareas */}
-        <div className="flex flex-col rounded-lg border border-hairline bg-panel/90 p-3 hover:border-dim/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-semibold tracking-wider text-faint">Tareas</span>
-            <CheckCircle size={13} className="text-blue-400" />
+        <div className="flex min-w-0 flex-col rounded-[var(--radius-card)] border border-hairline bg-raised p-3 hover:border-strong transition-colors">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <span className="min-w-0 text-xs font-semibold uppercase tracking-wider text-faint [overflow-wrap:break-word]">
+              Tareas
+            </span>
+            <CheckCircle size={13} className="shrink-0 text-brand" />
           </div>
           <span className="mt-1 font-mono text-base font-bold text-ink">
             {completedTasksCount} / {completedTasksCount + pendingTasksCount}
           </span>
-          <span className="text-[9px] text-dim mt-0.5">{pendingTasksCount} en background</span>
+          <span className="mt-0.5 text-xs text-dim">{pendingTasksCount} en background</span>
         </div>
       </div>
 
       {/* T19: coste real por turno (HERM-21). Sin `turns`: vacío honesto. */}
-      <div className="mt-1 rounded-lg border border-hairline bg-panel/90 p-3.5">
+      <div className="mt-1 rounded-[var(--radius-card)] border border-hairline bg-raised p-3.5">
         <div className="mb-2.5 flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-ink">Coste por Turno</span>
-          <span className="font-mono text-[10px] text-faint">usage real · sin estimaciones</span>
+          <span className="text-sm font-semibold text-ink">Coste por Turno</span>
+          <span className="font-mono text-xs text-faint">usage real · sin estimaciones</span>
         </div>
         {turns && turns.length > 0 ? (
           <div data-testid="metrics-turns-table" className="flex flex-col gap-1.5">
-            <div className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 px-1 font-mono text-[9px] uppercase tracking-wider text-faint">
+            <div className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 px-1 font-mono text-xs uppercase tracking-wider text-faint">
               <span>Turno</span>
               <span className="text-right">Prompt</span>
               <span className="text-right">Respuesta</span>
@@ -142,19 +172,19 @@ export function MetricsConsole({
             {turns.map((t, i) => (
               <div
                 key={t.turnId ?? `turn-${i}`}
-                className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 rounded-md border border-hairline bg-raised/40 px-2.5 py-1.5 font-mono text-[11px] text-ink"
+                className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-3 rounded-md border border-hairline bg-panel px-2.5 py-1.5 font-mono text-xs text-ink"
               >
                 <span className="truncate text-dim font-medium">{t.turnId ?? `turno ${i + 1}`}</span>
                 <span className="text-right">{t.promptTokens.toLocaleString()}</span>
                 <span className="text-right">{t.completionTokens.toLocaleString()}</span>
-                <span className="text-right font-semibold text-emerald-400">${t.estimatedCostUsd.toFixed(4)}</span>
+                <span className="text-right font-semibold text-success">${t.estimatedCostUsd.toFixed(4)}</span>
               </div>
             ))}
           </div>
         ) : (
           <div
             data-testid="metrics-turns-empty"
-            className="px-1 py-2 font-mono text-[11px] italic text-faint"
+            className="px-1 py-2 font-mono text-xs italic text-faint"
           >
             Sin turnos registrados en la jornada — el coste por turno aparece aquí
             cuando haya inferencia real (vacío honesto, sin estimaciones).
@@ -163,15 +193,15 @@ export function MetricsConsole({
       </div>
 
       {/* Gráfico interactivo Recharts */}
-      <div className="mt-1 rounded-lg border border-hairline bg-panel/90 p-3.5">
+      <div className="mt-1 rounded-[var(--radius-card)] border border-hairline bg-raised p-3.5">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-ink">Distribución Temporal de Tokens</span>
-          <span className="font-mono text-[10px] text-faint">Área de Inferencia</span>
+          <span className="text-sm font-semibold text-ink">Distribución Temporal de Tokens</span>
+          <span className="font-mono text-xs text-faint">Área de Inferencia</span>
         </div>
         <div className="h-40 w-full">
           <Suspense
             fallback={
-              <div className="flex h-full w-full items-center justify-center font-mono text-[11px] text-dim">
+              <div className="flex h-full w-full items-center justify-center font-mono text-xs text-dim">
                 Cargando telemetría…
               </div>
             }

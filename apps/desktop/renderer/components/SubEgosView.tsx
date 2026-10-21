@@ -1,2 +1,2 @@
-export { SubEgosView } from "./sub-egos";
-export { SubEgosView as default } from "./sub-egos";
+export { SubEgosView } from "./sub-egos.js";
+export { SubEgosView as default } from "./sub-egos.js";

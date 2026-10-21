@@ -19,7 +19,80 @@
 import { USC, eIn, eInOut, eOut, lerp, progressAt } from "./upload-seq.js";
 import type { UploadEyeShape, UploadFrame } from "./upload-seq.js";
 
-const FONT = 'system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif';
+/**
+ * Paleta de la escena de drop.
+ *
+ * El canvas 2D no resuelve `var(--token)`: por eso se lee el valor
+ * computado del custom property en `:root` (que `floating.css` declara con
+ * los MISMOS tokens que `src/index.css`) y se cachea. Así la escena se
+ * pinta con la paleta del design system —no con hex propios— y las
+ * transparencias se aplican con `ctx.globalAlpha` (no con colores rgba
+ * sueltos).
+ */
+type IslandToken =
+  | "paper"
+  | "panel"
+  | "raised"
+  | "ink"
+  | "faint"
+  | "dim"
+  | "hairline"
+  | "brand"
+  | "success"
+  | "error"
+  | "indigo";
+
+/** Token del sistema → custom property equivalente. */
+const TOKEN_VAR: Record<IslandToken, string> = {
+  paper: "--color-paper",
+  panel: "--color-panel",
+  raised: "--color-raised",
+  ink: "--color-ink",
+  faint: "--color-faint",
+  dim: "--color-dim",
+  hairline: "--color-hairline",
+  brand: "--color-brand",
+  success: "--color-success",
+  error: "--color-error",
+  indigo: "--color-chart-indigo",
+};
+
+/** Mismo valor por defecto que declara `floating.css` (preset `default-dark`). */
+const TOKEN_FALLBACK: Record<IslandToken, string> = {
+  paper: "oklch(0.13 0.004 285.8)",
+  panel: "oklch(0.195 0.004 286)",
+  raised: "oklch(0.26 0.008 285.8)",
+  ink: "oklch(0.985 0 89.9)",
+  faint: "oklch(0.712 0.013 286.1)",
+  dim: "oklch(0.636 0.0118 286.1)",
+  hairline: "oklch(0.274 0.005 286)",
+  brand: "oklch(0.769 0.165 70.1)",
+  success: "oklch(0.696 0.149 162.5)",
+  error: "oklch(0.645 0.215 16.4)",
+  indigo: "oklch(0.6801 0.1583 276.9)",
+};
+
+const tokenCache = new Map<IslandToken, string>();
+
+/** Color del sistema para el canvas (cacheado: se lee una sola vez). */
+function token(name: IslandToken): string {
+  const cached = tokenCache.get(name);
+  if (cached !== undefined) return cached;
+  let value = "";
+  try {
+    if (typeof document !== "undefined" && typeof getComputedStyle === "function") {
+      value = getComputedStyle(document.documentElement).getPropertyValue(TOKEN_VAR[name]).trim();
+    }
+  } catch {
+    value = "";
+  }
+  const resolved = value.length > 0 ? value : TOKEN_FALLBACK[name];
+  tokenCache.set(name, resolved);
+  return resolved;
+}
+
+/** Pila tipográfica del sistema (la misma que declara `--ego-font`). */
+const FONT = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
 /** Espejo del `rr()` de referencia: rounded rect con radio limitado a la caja. */
 function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -142,14 +215,14 @@ export class UploadCanvas {
 
   private drawScene(ctx: CanvasRenderingContext2D, f: UploadFrame, wallTime: number): void {
     // Fondo de isla.
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle = token("paper");
     ctx.fillRect(0, 0, USC.W, USC.ISL_H);
 
     // Tarjeta.
     ctx.save();
     rr(ctx, USC.CARD_X, USC.CARD_Y, USC.CARD_W, USC.CARD_H, USC.CARD_R);
     ctx.clip();
-    ctx.fillStyle = "#0D0E10";
+    ctx.fillStyle = token("panel");
     ctx.fillRect(USC.CARD_X, USC.CARD_Y, USC.CARD_W, USC.CARD_H);
 
     // Resplandor verde desde el borde inferior de la tarjeta.
@@ -157,19 +230,24 @@ export class UploadCanvas {
       const gx = USC.CARD_X + USC.CARD_W / 2;
       const gy = USC.CARD_Y + USC.CARD_H;
       const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, USC.CARD_H * 1.5);
-      g.addColorStop(0, `rgba(40,212,130,${f.greenWash * 0.9})`);
-      g.addColorStop(0.55, `rgba(40,212,130,${f.greenWash * 0.3})`);
-      g.addColorStop(1, "rgba(40,212,130,0)");
+      g.addColorStop(0, token("success"));
+      g.addColorStop(0.55, token("success"));
+      g.addColorStop(1, "transparent");
+      // La intensidad del wash la fija la opacidad global (el color del
+      // sistema no lleva alfa propio).
+      ctx.save();
+      ctx.globalAlpha = f.greenWash * 0.9;
       ctx.fillStyle = g;
       ctx.fillRect(USC.CARD_X, USC.CARD_Y, USC.CARD_W, USC.CARD_H);
+      ctx.restore();
     }
     ctx.restore();
 
     // Borde punteado, marchando ~20 pt/s.
     if (f.zoneAlpha > 0) {
       ctx.save();
-      ctx.globalAlpha = f.zoneAlpha;
-      ctx.strokeStyle = f.zoneOver ? "rgba(52,212,153,0.55)" : "rgba(255,255,255,0.14)";
+      ctx.globalAlpha = f.zoneAlpha * (f.zoneOver ? 0.55 : 0.14);
+      ctx.strokeStyle = f.zoneOver ? token("success") : token("hairline");
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 5]);
       ctx.lineDashOffset = -wallTime * 20;
@@ -191,15 +269,19 @@ export class UploadCanvas {
   private drawDropText(ctx: CanvasRenderingContext2D, f: UploadFrame): void {
     ctx.save();
     ctx.globalAlpha = f.textAlpha;
-    text(ctx, "Drop your files here", USC.TEXT_X, USC.TEXT_Y - 4, `500 13px ${FONT}`, "#D5D7DB");
+    text(ctx, "Drop your files here", USC.TEXT_X, USC.TEXT_Y - 4, `500 14px ${FONT}`, token("ink"));
 
     let cx = USC.TEXT_X;
     for (const chip of ["PDF", "Images", "Code", "Docs"]) {
       const w = chip.length * 6.5 + 16;
-      ctx.fillStyle = "rgba(255,255,255,0.07)";
+      // Chip = superficie elevada con un velo suave (no un blanco roto).
+      ctx.save();
+      ctx.globalAlpha = f.textAlpha * 0.35;
+      ctx.fillStyle = token("raised");
       rr(ctx, cx, USC.TEXT_Y + 9, w, 18, 9);
       ctx.fill();
-      text(ctx, chip, cx + 8, USC.TEXT_Y + 18, `500 11px ${FONT}`, "#B9BDC4");
+      ctx.restore();
+      text(ctx, chip, cx + 8, USC.TEXT_Y + 18, `500 12px ${FONT}`, token("faint"));
       cx += w + 6;
     }
     ctx.restore();
@@ -217,7 +299,7 @@ export class UploadCanvas {
     const barLen = (x1 - x0) * f.barReveal;
 
     const name = this.fileName ?? "file";
-    text(ctx, `Uploading ${name}`, x0, by - 30, `500 12.5px ${FONT}`, "#A9ADB5");
+    text(ctx, `Uploading ${name}`, x0, by - 30, `500 12px ${FONT}`, token("dim"));
 
     if (f.check > 0) {
       ctx.save();
@@ -225,41 +307,51 @@ export class UploadCanvas {
       ctx.scale(f.check, f.check);
       ctx.beginPath();
       ctx.arc(0, 0, 8, 0, Math.PI * 2);
-      ctx.fillStyle = "#34D399";
+      ctx.fillStyle = token("success");
       ctx.fill();
       ctx.beginPath();
       ctx.moveTo(-3.6, 0.2);
       ctx.lineTo(-1, 2.8);
       ctx.lineTo(3.8, -2.6);
-      ctx.strokeStyle = "#07130E";
+      ctx.strokeStyle = token("paper");
       ctx.lineWidth = 2;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.stroke();
       ctx.restore();
     } else {
-      text(ctx, `${Math.round(f.progress * 100)} %`, x1, by - 30, `500 12.5px ${FONT}`, "#A9ADB5", "right");
+      text(ctx, `${Math.round(f.progress * 100)} %`, x1, by - 30, `500 12px ${FONT}`, token("dim"), "right");
     }
 
     // Track.
     if (barLen > 0) {
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = token("raised");
       rr(ctx, x0, by - 3, barLen, 6, 3);
       ctx.fill();
+      ctx.restore();
     }
 
     // Fill.
     const fx = lerp(x0, x1, f.progress);
     if (fx > x0 + 1) {
-      const flashGreen = `rgb(${Math.round(lerp(52, 110, f.flash))},${Math.round(
-        lerp(211, 231, f.flash),
-      )},${Math.round(lerp(153, 183, f.flash))})`;
       const g = ctx.createLinearGradient(x0, 0, fx, 0);
-      g.addColorStop(0, "#1FA87A");
-      g.addColorStop(1, flashGreen);
+      g.addColorStop(0, token("success"));
+      g.addColorStop(1, token("success"));
       ctx.fillStyle = g;
       rr(ctx, x0, by - 3, fx - x0, 6, 3);
       ctx.fill();
+      // Destello: velo claro del sistema sobre la barra (mismo mecanismo,
+      // color del sistema en vez de un verde suelto).
+      if (f.flash > 0) {
+        ctx.save();
+        ctx.globalAlpha = f.flash * 0.5;
+        ctx.fillStyle = token("ink");
+        rr(ctx, x0, by - 3, fx - x0, 6, 3);
+        ctx.fill();
+        ctx.restore();
+      }
     }
 
     // Estela, larga según la velocidad de la barra.
@@ -269,10 +361,11 @@ export class UploadCanvas {
           progressAt(f.t, USC.T_PROG_START, f.progEnd)) / 0.01;
       const tl = Math.max(8, Math.min(34, 8 + v * 40));
       const g = ctx.createLinearGradient(fx - tl, 0, fx, 0);
-      g.addColorStop(0, "rgba(52,212,153,0)");
-      g.addColorStop(1, "rgba(110,231,183,0.6)");
+      g.addColorStop(0, "transparent");
+      g.addColorStop(1, token("success"));
       ctx.save();
       ctx.filter = "blur(3px)";
+      ctx.globalAlpha = 0.6;
       ctx.fillStyle = g;
       rr(ctx, fx - tl, by - 4, tl, 8, 4);
       ctx.fill();
@@ -289,18 +382,23 @@ export class UploadCanvas {
     ctx.translate(0, (1 - f.chooseAlpha) * 4);
 
     const name = this.fileName ?? "file";
-    text(ctx, `${name} is ready.`, 114, 80, `600 14px ${FONT}`, "#F5F6F8");
-    text(ctx, "What do you want to do with it?", 114, 100, `400 12.5px ${FONT}`, "#9398A1");
+    text(ctx, `${name} is ready.`, 114, 80, `600 14px ${FONT}`, token("ink"));
+    text(ctx, "What do you want to do with it?", 114, 100, `400 12px ${FONT}`, token("dim"));
 
-    ctx.fillStyle = "#F5F6F8";
+    // Botón primario = `bg-ink` / `text-paper` (variante `primary` del kit).
+    ctx.fillStyle = token("ink");
     rr(ctx, 114, 113, 168, 26, 13);
     ctx.fill();
-    text(ctx, "Ask a question about it", 198, 126, `500 12.5px ${FONT}`, "#0B0C0E", "center");
+    text(ctx, "Ask a question about it", 198, 126, `500 12px ${FONT}`, token("paper"), "center");
 
-    ctx.fillStyle = "rgba(255,255,255,0.09)";
+    // Botón secundario = superficie elevada.
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = token("raised");
     rr(ctx, 290, 113, 120, 26, 13);
     ctx.fill();
-    text(ctx, "Cancel", 350, 126, `500 12.5px ${FONT}`, "#F1F2F4", "center");
+    ctx.restore();
+    text(ctx, "Cancel", 350, 126, `500 12px ${FONT}`, token("ink"), "center");
     ctx.restore();
   }
 
@@ -320,20 +418,23 @@ export class UploadCanvas {
 
     const { rx, ry } = creaturePath(ctx, f.morph, R);
 
-    // Cuerpo neutro.
+    // Cuerpo neutro: gris del sistema (ink → faint), sin color propio.
     const bg = ctx.createLinearGradient(rx * 0.7, -ry * 0.9, -rx * 0.8, ry * 0.9);
-    bg.addColorStop(0, "#E4E4E7");
-    bg.addColorStop(1, "#A1A1AA");
+    bg.addColorStop(0, token("ink"));
+    bg.addColorStop(1, token("faint"));
     ctx.fillStyle = bg;
     ctx.fill();
 
     // Sombra de borde.
     const sg = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.3);
-    sg.addColorStop(0, "rgba(0,0,0,0)");
-    sg.addColorStop(0.62, "rgba(0,0,0,0)");
-    sg.addColorStop(1, "rgba(0,0,0,0.12)");
+    sg.addColorStop(0, "transparent");
+    sg.addColorStop(0.62, "transparent");
+    sg.addColorStop(1, token("paper"));
+    ctx.save();
+    ctx.globalAlpha = 0.12;
     ctx.fillStyle = sg;
     ctx.fill();
+    ctx.restore();
 
     // El path se reutiliza como clip de todo lo interior.
     ctx.save();
@@ -343,13 +444,16 @@ export class UploadCanvas {
     // Borde superior, cuando la forma ya es caja.
     if (mc > 0.3) {
       const a = Math.max(0, Math.min(1, (mc - 0.3) / 0.7));
+      ctx.save();
+      ctx.globalAlpha = 0.6 * a;
       ctx.beginPath();
       ctx.moveTo(-rx * 0.72, -ry + 0.9);
       ctx.lineTo(rx * 0.72, -ry + 0.9);
-      ctx.strokeStyle = `rgba(255,255,255,${0.6 * a})`;
+      ctx.strokeStyle = token("ink");
       ctx.lineWidth = 1.2;
       ctx.lineCap = "round";
       ctx.stroke();
+      ctx.restore();
     }
 
     // Agujero de boca.
@@ -359,20 +463,23 @@ export class UploadCanvas {
       const mx = -mw / 2;
       const my = -ry + 0.1 * R;
       const g = ctx.createLinearGradient(0, my, 0, my + mh);
-      g.addColorStop(0, "#030304");
-      g.addColorStop(1, "#101114");
+      g.addColorStop(0, token("paper"));
+      g.addColorStop(1, token("panel"));
       ctx.fillStyle = g;
       rr(ctx, mx, my, mw, mh, Math.min(mw / 2, mh / 2));
       ctx.fill();
       if (mh > 4) {
         const r = Math.min(mw / 2, mh / 2);
+        ctx.save();
+        ctx.globalAlpha = 0.55;
         ctx.beginPath();
         ctx.moveTo(mx + r, my + mh + 0.5);
         ctx.lineTo(mx + mw - r, my + mh + 0.5);
-        ctx.strokeStyle = "rgba(255,255,255,0.55)";
+        ctx.strokeStyle = token("ink");
         ctx.lineWidth = 1;
         ctx.lineCap = "round";
         ctx.stroke();
+        ctx.restore();
       }
     }
 
@@ -460,22 +567,25 @@ export class UploadCanvas {
       const px = lerp(sx0, ex, kk);
       const py = lerp(sy0, ey, kk) - Math.sin(Math.PI * k) * 6;
       const rad = 2.2 * (1 - k * 0.5);
+      ctx.save();
+      ctx.globalAlpha = 1 - k;
       ctx.beginPath();
       ctx.arc(px, py, rad, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(52,212,153,${1 - k})`;
+      ctx.fillStyle = token("success");
       ctx.fill();
+      ctx.restore();
     }
   }
 }
 
 // ── Formas de ojo (canvas.ts:456-487) ────────────────────────────────────────
 
-const INK = "#0E0F12";
-
 function drawEye(ctx: CanvasRenderingContext2D, shape: UploadEyeShape, w: number, h: number): void {
+  // La tinta del ojo es la superficie más oscura del sistema.
+  const ink = token("paper");
   switch (shape) {
     case "pill":
-      ctx.fillStyle = INK;
+      ctx.fillStyle = ink;
       rr(ctx, -w / 2, -h / 2, w, h, w / 2);
       ctx.fill();
       break;
@@ -489,7 +599,7 @@ function drawEye(ctx: CanvasRenderingContext2D, shape: UploadEyeShape, w: number
       ctx.lineTo(w / 2, hh / 2 - w / 2);
       ctx.arc(0, hh / 2 - w / 2, w / 2, 0, Math.PI, false);
       ctx.closePath();
-      ctx.fillStyle = INK;
+      ctx.fillStyle = ink;
       ctx.fill();
       break;
     }
@@ -497,7 +607,7 @@ function drawEye(ctx: CanvasRenderingContext2D, shape: UploadEyeShape, w: number
     case "content":
       ctx.beginPath();
       ctx.arc(0, -h * 0.12, w * 0.85, Math.PI * 0.15, Math.PI * 0.85, false);
-      ctx.strokeStyle = INK;
+      ctx.strokeStyle = ink;
       ctx.lineWidth = w * 0.5;
       ctx.lineCap = "round";
       ctx.stroke();
@@ -520,7 +630,7 @@ function drawDoc(ctx: CanvasRenderingContext2D, cx: number, cy: number, wsc: num
   const fold = 8 * Math.min(wsc, hsc);
 
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowColor = token("paper");
   ctx.shadowBlur = 8;
   ctx.shadowOffsetY = 3;
   ctx.beginPath();
@@ -534,7 +644,7 @@ function drawDoc(ctx: CanvasRenderingContext2D, cx: number, cy: number, wsc: num
   ctx.lineTo(x, y + 2);
   ctx.quadraticCurveTo(x, y, x + 2, y);
   ctx.closePath();
-  ctx.fillStyle = "#F4F4F6";
+  ctx.fillStyle = token("ink");
   ctx.fill();
   ctx.restore();
 
@@ -543,10 +653,11 @@ function drawDoc(ctx: CanvasRenderingContext2D, cx: number, cy: number, wsc: num
   ctx.lineTo(x + w - fold, y + fold);
   ctx.lineTo(x + w, y + fold);
   ctx.closePath();
-  ctx.fillStyle = "#D5D6DB";
+  ctx.fillStyle = token("faint");
   ctx.fill();
 
-  ctx.fillStyle = "#3B82F5";
+  // Línea de color de la hoja: el azul del sistema (paleta de charts).
+  ctx.fillStyle = token("indigo");
   rr(ctx, x + w * 0.18, y + h * 0.58, w * 0.64, h * 0.16, 2);
   ctx.fill();
 }

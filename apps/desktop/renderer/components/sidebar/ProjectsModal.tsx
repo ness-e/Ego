@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Modal } from "../ui-kit/Modal.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
 import { ego } from "../../lib/ego.js";
 
 export interface ProjectsModalProps {
@@ -65,55 +67,58 @@ export function ProjectsModal({ open, onOpenChange, onCreated }: ProjectsModalPr
     >
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="font-medium text-ink" htmlFor="new-project-name">
+          <label className="text-xs font-medium text-ink" htmlFor="new-project-name">
             Nombre del Proyecto
           </label>
-          <input
+          <Input
             id="new-project-name"
             type="text"
             placeholder="Ej. Mi Aplicación Core"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="font-medium text-ink" htmlFor="new-project-path">
+          <label className="text-xs font-medium text-ink" htmlFor="new-project-path">
             Carpeta Local (Root Path)
           </label>
-          <div className="flex gap-2">
-            <input
+          <div className="flex items-start gap-2">
+            <Input
               id="new-project-path"
               type="text"
               placeholder="C:\ruta\al\proyecto..."
               value={rootPath}
               onChange={(e) => setRootPath(e.target.value)}
-              className="flex-1 rounded border border-hairline bg-paper px-3 py-1.5 font-mono text-[11px] text-ink placeholder:text-dim focus:border-ink/50 focus:outline-none"
+              className="font-mono"
             />
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
               onClick={() => void handleSelectFolder()}
-              className="shrink-0 rounded border border-hairline bg-raised px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-raised/80"
+              className="shrink-0"
             >
               Examinar...
-            </button>
+            </Button>
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-hairline pt-2">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="md"
             onClick={() => onOpenChange(false)}
-            className="rounded px-3 py-1 text-xs text-faint transition-colors hover:text-ink"
+            className="text-faint hover:text-ink"
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
             type="submit"
-            disabled={creating}
-            className="rounded bg-ink px-3 py-1 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50"
+            loading={creating}
+            className="font-semibold"
           >
             {creating ? "Creando..." : "Crear Proyecto en VantaDB"}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

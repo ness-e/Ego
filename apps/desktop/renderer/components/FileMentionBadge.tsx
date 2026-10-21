@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   FileText,
   Image as ImageIcon,
@@ -7,6 +7,8 @@ import {
   X,
   ArrowSquareOut,
 } from "@phosphor-icons/react";
+import { Badge } from "./ui-kit/Badge.js";
+import { Tooltip } from "./ui-kit/Tooltip.js";
 
 export interface FileMentionBadgeProps {
   path: string;
@@ -37,6 +39,21 @@ function getExtension(filePath: string): string {
 /**
  * Insignia interactiva para menciones de contexto '@archivo' en Composer y Chat (HELM-05).
  * Detecta tipos de archivo, provee vista previa contextual y permite apertura directa en Canvas.
+ *
+ * ## Migración al design system (FASE 1)
+ * - La insignia ya no reimplementa el primitive `Badge`: usa el del kit con su
+ *   tono semántico (`warn` = imagen, `info` = código, `ok` = documento, `dim` =
+ *   genérico). Antes cada tipo pintaba su propia paleta cruda
+ *   (`text-amber-400` + `bg-amber-950/20`…), que no tematiza con los presets.
+ * - El tooltip hand-rolled (`onMouseEnter`/`onMouseLeave` + un `<span>`
+ *   posicionado a mano) se sustituye por el primitive `Tooltip` del kit
+ *   (Radix): el panel se posiciona solo, respeta `prefers-reduced-motion` y
+ *   asocia el contenido al trigger por `aria-describedby`.
+ * - Los dos micro-controles (abrir / quitar) siguen siendo `<button>` nativos:
+ *   la densidad mínima del `Button` del kit (28 px / 44 px) no cabe dentro de
+ *   una insignia inline de 24 px sin romper el layout del composer. Se
+ *   documenta como hueco de API (§f del informe): falta un botón-icono
+ *   compacto en el kit.
  */
 export const FileMentionBadge: React.FC<FileMentionBadgeProps> = ({
   path,
@@ -46,7 +63,6 @@ export const FileMentionBadge: React.FC<FileMentionBadgeProps> = ({
   onOpen,
   className = "",
 }) => {
-  const [showTooltip, setShowTooltip] = useState(false);
   const basename = getBasename(path);
   const ext = getExtension(path);
 
@@ -54,81 +70,74 @@ export const FileMentionBadge: React.FC<FileMentionBadgeProps> = ({
   const isCode = CODE_EXTENSIONS.has(ext);
   const isDoc = DOC_EXTENSIONS.has(ext);
 
-  // Icono y color semántico según la naturaleza del recurso
+  // Icono y tono semántico según la naturaleza del recurso. El color lo pone
+  // el primitive `Badge`; el icono hereda el tono (sin clases de paleta cruda).
   let IconComponent = GenericFileIcon;
-  let iconColor = "text-faint";
-  let badgeBorder = "border-hairline";
-  let badgeBg = "bg-raised/70";
+  let tone: "ok" | "warn" | "risk" | "info" | "dim" = "dim";
 
   if (isImage) {
     IconComponent = ImageIcon;
-    iconColor = "text-amber-400";
-    badgeBorder = "border-amber-500/20";
-    badgeBg = "bg-amber-950/20";
+    tone = "warn";
   } else if (isCode) {
     IconComponent = CodeIcon;
-    iconColor = "text-cyan-400";
-    badgeBorder = "border-cyan-500/20";
-    badgeBg = "bg-cyan-950/20";
+    tone = "info";
   } else if (isDoc) {
     IconComponent = FileText;
-    iconColor = "text-emerald-400";
-    badgeBorder = "border-emerald-500/20";
-    badgeBg = "bg-emerald-950/20";
+    tone = "ok";
   }
 
   return (
-    <span
-      className={`relative inline-flex items-center gap-1.5 rounded-md border font-mono transition-colors select-none ${badgeBg} ${badgeBorder} ${
-        compact ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"
-      } ${className}`}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
-      <IconComponent size={compact ? 12 : 14} className={`${iconColor} shrink-0`} weight="bold" />
-
-      <span
-        className={`truncate max-w-[160px] text-ink font-medium ${
-          onOpen ? "cursor-pointer hover:underline" : ""
-        }`}
-        onClick={() => onOpen?.(path)}
-        title={path}
-      >
-        {basename}
-      </span>
-
-      {onOpen && (
-        <button
-          type="button"
-          onClick={() => onOpen(path)}
-          className="text-dim hover:text-ink transition-colors p-0.5 rounded hover:bg-raised"
-          aria-label={`Abrir ${basename}`}
-        >
-          <ArrowSquareOut size={compact ? 10 : 12} />
-        </button>
-      )}
-
-      {removable && onRemove && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="text-dim hover:text-rose-400 transition-colors p-0.5 rounded hover:bg-raised"
-          aria-label={`Quitar ${basename}`}
-        >
-          <X size={compact ? 10 : 12} />
-        </button>
-      )}
-
-      {/* Tooltip con ruta completa */}
-      {showTooltip && (
-        <span className="absolute bottom-full left-0 mb-1 z-50 whitespace-nowrap rounded bg-raised border border-hairline px-2 py-1 text-[10px] text-ink shadow-lg pointer-events-none">
+    // El trigger del `Tooltip` debe ser un elemento nativo que acepte `ref`
+    // (Radix lo necesita para anclar el panel): por eso el `span` envolvente.
+    <Tooltip
+      content={
+        <span>
           <span className="text-dim">Ruta: </span>
-          <span className="text-ink font-semibold">{path}</span>
+          <span className="font-semibold text-ink">{path}</span>
         </span>
-      )}
-    </span>
+      }
+    >
+      <span className="inline-flex">
+        <Badge tone={tone} className={`${compact ? "px-1.5 text-xs" : "text-xs"} ${className}`}>
+          <span className="flex items-center gap-1">
+            <IconComponent size={compact ? 12 : 14} className="shrink-0" weight="bold" />
+
+            <span
+              className={`truncate max-w-[160px] font-medium text-ink ${
+                onOpen ? "cursor-pointer hover:underline" : ""
+              }`}
+              onClick={() => onOpen?.(path)}
+            >
+              {basename}
+            </span>
+
+            {onOpen && (
+              <button
+                type="button"
+                onClick={() => onOpen(path)}
+                className="rounded-md p-0.5 text-dim transition-colors hover:bg-raised hover:text-ink"
+                aria-label={`Abrir ${basename}`}
+              >
+                <ArrowSquareOut size={compact ? 10 : 12} />
+              </button>
+            )}
+
+            {removable && onRemove && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove();
+                }}
+                className="rounded-md p-0.5 text-dim transition-colors hover:bg-raised hover:text-error"
+                aria-label={`Quitar ${basename}`}
+              >
+                <X size={compact ? 10 : 12} />
+              </button>
+            )}
+          </span>
+        </Badge>
+      </span>
+    </Tooltip>
   );
 };

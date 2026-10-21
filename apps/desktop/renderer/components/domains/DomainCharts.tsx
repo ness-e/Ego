@@ -22,6 +22,9 @@ export interface TelemetryChartProps {
  *
  * T-contraste: strokes/fondos vía `var(--color-*, fallback)` — el hex queda
  * como fallback (render idéntico sin tokens) y el token manda con tema.
+ * El radio del tooltip usa el token del sistema (`--radius-card`), no un
+ * valor fijo, para que el tooltip siga la geometría canónica de la app.
+ * Los `fontSize` del SVG siguen la escala tipográfica (12 px = `text-xs`).
  */
 export function TelemetryChart({ data, xKey, yKey, gradientId, stroke = "var(--color-success, #10b981)" }: TelemetryChartProps) {
   return (
@@ -34,11 +37,15 @@ export function TelemetryChart({ data, xKey, yKey, gradientId, stroke = "var(--c
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-hairline, #262626)" vertical={false} />
-        <XAxis dataKey={xKey} stroke="var(--color-dim, #737373)" fontSize={10} tickLine={false} />
-        <YAxis stroke="var(--color-dim, #737373)" fontSize={10} tickLine={false} axisLine={false} />
+        <XAxis dataKey={xKey} stroke="var(--color-dim, #737373)" fontSize={12} tickLine={false} />
+        <YAxis stroke="var(--color-dim, #737373)" fontSize={12} tickLine={false} axisLine={false} />
         <Tooltip
-          contentStyle={{ backgroundColor: "var(--color-raised, #171717)", borderColor: "var(--color-hairline, #262626)", borderRadius: "8px" }}
-          labelStyle={{ color: "var(--color-faint, #a3a3a3)", fontSize: "11px" }}
+          contentStyle={{
+            backgroundColor: "var(--color-raised, #171717)",
+            borderColor: "var(--color-hairline, #262626)",
+            borderRadius: "var(--radius-card, 8px)",
+          }}
+          labelStyle={{ color: "var(--color-faint, #a3a3a3)", fontSize: "12px" }}
         />
         <Area
           type="monotone"

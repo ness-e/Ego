@@ -93,9 +93,16 @@ function el(tag: string, cls?: string, text?: string): HTMLElement {
   return node;
 }
 
+/**
+ * Botón de la isla. `kind` replica las variantes del kit
+ * (`components/ui-kit/Button.tsx`): `primary` (acción principal),
+ * `secondary` (secundaria) y `danger` (rechazo/ destructiva). El estilo
+ * vive en `floating.css` sobre los tokens del sistema; aquí solo se
+ * compone el DOM.
+ */
 function btn(
   label: string,
-  kind: "primary" | "secondary",
+  kind: "primary" | "secondary" | "danger",
   cls: string,
   onClick: () => void,
   kbd?: string,
@@ -110,10 +117,14 @@ function btn(
   return b;
 }
 
+/**
+ * Punto de color. El tamaño va en `data-size` (lo resuelve `floating.css`)
+ * y el color es una referencia a token del sistema (`var(--color-*)`), no un
+ * hex propio: la isla no define su propia paleta.
+ */
 function dot(color: string, size: number): HTMLElement {
   const d = el("span", "ego-dot");
-  d.style.width = `${size}px`;
-  d.style.height = `${size}px`;
+  d.dataset.size = String(size);
   d.style.background = color;
   return d;
 }
@@ -129,15 +140,18 @@ export function buildPill(
   opts: { focused: boolean; onFocus: (id: string) => void },
 ): HTMLElement {
   const pill = el("div", "ego-pill");
-  pill.style.borderColor = `${task.color}24`;
+  // El borde de la píldora lo resuelve `floating.css` con el token
+  // `hairline`; el color de la tarea se marca solo con el punto, para no
+  // inventar un borde cromático fuera del sistema.
   pill.append(dot(task.color, 8), el("span", "ego-pill-label", task.name));
   pill.addEventListener("click", () => opts.onFocus(task.id));
   // Suprimida en foco: evita ruido sobre la tarea que ya se está mirando.
   if (task.pillBadge && !opts.focused) {
-    const colors = { approval: "#F5A524", finished: "#22C55E", error: "#F4505E" } as const;
     const badge = el("div", "ego-pill-badge");
     const inner = el("i", undefined, task.pillBadge === "approval" ? "!" : task.pillBadge === "finished" ? "✓" : "×");
-    inner.style.background = colors[task.pillBadge];
+    // El tono (aprobación / finalizado / error) lo mapea `floating.css` a
+    // los tokens `--color-brand` / `--color-success` / `--color-error`.
+    inner.dataset.tone = task.pillBadge;
     badge.append(inner);
     pill.append(badge);
   }
@@ -334,12 +348,19 @@ export function buildApproval(
         builtFor = data.approvalId;
         decided = false;
         clear(row);
-        denyBtn = btn("Denegar", "secondary", "ego-deny-btn", () => decide("deny"), "N");
-        allowBtn = btn("Permitir", "primary", "ego-approve-btn", () => decide("allow"), "Y");
+        // Denegar = acción destructiva (`danger`), Permitir = acción
+        // principal (`primary`): el botón más luminoso es el que concede
+        // el permiso, y el rojo queda para el rechazo.
+        //
+        // El atajo que se muestra es el REAL (Enter aprueba, ver
+        // `floating.tsx` FIND-12-02): los hinted "Y"/"N" de coukou no
+        // existen como binding en Ego y además desbordaban la tarjeta.
+        denyBtn = btn("Denegar", "danger", "ego-deny-btn", () => decide("deny"));
+        allowBtn = btn("Permitir", "primary", "ego-approve-btn", () => decide("allow"), "↵");
         row.append(denyBtn, allowBtn);
       }
       clear(who);
-      who.append(dot("#F5A524", 8), el("span", "ego-who-name", data.taskName ?? data.toolName));
+      who.append(dot("var(--color-brand)", 8), el("span", "ego-who-name", data.taskName ?? data.toolName));
       who.append(el("span", "ego-who-label", "necesita permiso"));
       // La línea que se autoriza: comando/path/URL exacto, no solo el tool.
       code.textContent = data.command || data.toolName || "…";

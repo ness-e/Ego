@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Question, Database, ShieldCheck } from "@phosphor-icons/react";
 import type { ComponentMetadata } from "@ego/ui-runtime";
 import { Modal } from "../ui-kit/Modal.js";
+import { Button } from "../ui-kit/Button.js";
 
 export interface WhyButtonProps {
   why?: ComponentMetadata["why"];
@@ -9,6 +10,13 @@ export interface WhyButtonProps {
   className?: string;
 }
 
+/**
+ * Botón de explicabilidad contextual («¿Por qué?»).
+ *
+ * FASE 1 (design system): el control pasa por el `Button` del kit (9 estados +
+ * anillo de foco visible) y las tarjetas de nivel usan los tokens canónicos
+ * (radio del sistema, escala tipográfica de 3 tamaños).
+ */
 export const WhyButton: React.FC<WhyButtonProps> = ({
   why,
   title = "Explicabilidad de la Decisión",
@@ -20,20 +28,21 @@ export const WhyButton: React.FC<WhyButtonProps> = ({
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        size="md"
+        variant="secondary"
+        icon={<Question size={12} weight="bold" className="text-brand" />}
         onClick={(e) => {
           e.stopPropagation();
           setIsOpen(true);
         }}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-dim hover:text-ink bg-raised hover:bg-hairline border border-hairline transition-colors ${className}`}
+        className={className}
         title="¿Por qué este componente o decisión?"
       >
-        <Question size={11} weight="bold" className="text-amber-400" />
-        <span>¿Por qué?</span>
-      </button>
+        ¿Por qué?
+      </Button>
 
       <Modal
         open={isOpen}
@@ -44,9 +53,9 @@ export const WhyButton: React.FC<WhyButtonProps> = ({
         {/* Niveles de Explicabilidad (Decisión P11) */}
         <div className="space-y-3 text-xs">
           {/* Nivel 1: Causa Directa */}
-          <div className="rounded-lg bg-raised p-3 border border-hairline">
+          <div className="rounded-[var(--radius-card)] bg-raised p-3 border border-hairline">
             <div className="flex items-center gap-1.5 font-semibold text-ink mb-1">
-              <span className="h-2 w-2 rounded-full bg-cyan-400" />
+              <span className="h-2 w-2 rounded-full bg-brand" />
               <span>Nivel 1: Causa Directa</span>
             </div>
             <p className="text-dim leading-relaxed">
@@ -55,13 +64,13 @@ export const WhyButton: React.FC<WhyButtonProps> = ({
           </div>
 
           {/* Nivel 2: Fuentes y Memoria VantaDB */}
-          <div className="rounded-lg bg-raised p-3 border border-hairline">
+          <div className="rounded-[var(--radius-card)] bg-raised p-3 border border-hairline">
             <div className="flex items-center gap-1.5 font-semibold text-ink mb-1">
-              <Database size={13} className="text-emerald-400" />
+              <Database size={13} className="text-success" />
               <span>Nivel 2: Fuentes y Memoria VantaDB</span>
             </div>
             {why.vantaSources && why.vantaSources.length > 0 ? (
-              <ul className="list-disc list-inside space-y-0.5 text-dim font-mono text-[11px] pl-1">
+              <ul className="list-disc list-inside space-y-0.5 text-dim font-mono text-xs pl-1">
                 {why.vantaSources.map((source, idx) => (
                   <li key={idx} className="truncate">
                     {source}
@@ -69,17 +78,17 @@ export const WhyButton: React.FC<WhyButtonProps> = ({
                 ))}
               </ul>
             ) : (
-              <p className="text-faint text-[11px]">Sin fuentes específicas vinculadas.</p>
+              <p className="text-faint text-xs">Sin fuentes específicas vinculadas.</p>
             )}
           </div>
 
           {/* Nivel 3: Trazabilidad Técnica */}
-          <div className="rounded-lg bg-raised p-3 border border-hairline">
+          <div className="rounded-[var(--radius-card)] bg-raised p-3 border border-hairline">
             <div className="flex items-center gap-1.5 font-semibold text-ink mb-1">
-              <ShieldCheck size={13} className="text-amber-400" />
+              <ShieldCheck size={13} className="text-brand" />
               <span>Nivel 3: Auditoría & Telemetría</span>
             </div>
-            <p className="text-dim font-mono text-[10px] break-all">
+            <p className="text-dim font-mono text-xs break-all">
               {why.auditTrace || "audit:trace:verified:vanta-l0-l3:auto"}
             </p>
           </div>
@@ -87,13 +96,9 @@ export const WhyButton: React.FC<WhyButtonProps> = ({
 
         {/* Pie */}
         <div className="flex justify-end pt-3 border-t border-hairline">
-          <button
-            type="button"
-            onClick={() => setIsOpen(false)}
-            className="px-3 py-1 rounded bg-raised text-xs text-ink hover:bg-hairline transition-colors"
-          >
+          <Button size="md" variant="secondary" onClick={() => setIsOpen(false)}>
             Cerrar
-          </button>
+          </Button>
         </div>
       </Modal>
     </>

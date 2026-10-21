@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { BookBookmark, FloppyDisk, Sparkle, Eye, PencilSimple } from "@phosphor-icons/react";
+import { Button } from "../ui-kit/Button.js";
+import { Textarea } from "../ui-kit/Textarea.js";
 
 export interface JournalViewProps {
   date: string;
@@ -80,68 +82,66 @@ export function JournalView({
   };
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-xl border border-hairline/80 bg-raised/40 p-4 shadow-xs">
+    <div className="flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
       <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <BookBookmark size={16} className="text-dim shrink-0" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-ink truncate">
+          <h3 className="text-sm font-semibold text-ink truncate">
             Journal Personal & Notas ({date})
           </h3>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Toggle de Modo Edición / Vista Previa Markdown */}
-          <div className="flex items-center bg-panel border border-hairline rounded p-0.5 text-[10px]">
-            <button
-              type="button"
+          <div className="flex items-center gap-0.5 rounded-[var(--radius-card)] border border-hairline bg-panel p-0.5">
+            <Button
+              size="md"
+              variant={!previewMode ? "secondary" : "ghost"}
               onClick={() => setPreviewMode(false)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                !previewMode ? "bg-raised text-ink font-semibold" : "text-dim hover:text-ink"
-              }`}
               title="Modo Edición"
+              aria-pressed={!previewMode}
             >
-              <PencilSimple size={10} />
+              <PencilSimple size={12} />
               <span>Editar</span>
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="md"
+              variant={previewMode ? "secondary" : "ghost"}
               onClick={() => setPreviewMode(true)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                previewMode ? "bg-raised text-ink font-semibold" : "text-dim hover:text-ink"
-              }`}
               title="Vista Previa Markdown"
+              aria-pressed={previewMode}
             >
-              <Eye size={10} />
+              <Eye size={12} />
               <span>Preview</span>
-            </button>
+            </Button>
           </div>
 
           {onInsertDailyDecisions && (
-            <button
-              type="button"
+            <Button
+              size="md"
+              variant="secondary"
               onClick={handleInsertDecisions}
-              className="flex items-center gap-1 rounded bg-raised px-2 py-0.5 text-[10px] font-medium text-ink border border-hairline hover:bg-panel hover:text-ink transition-colors cursor-pointer"
               title="Insertar decisiones acordadas en el texto"
             >
-              <Sparkle size={11} className="text-amber-400" />
+              <Sparkle size={12} className="text-brand" />
               <span>Decisiones</span>
-            </button>
+            </Button>
           )}
 
-          <button
-            type="button"
+          <Button
+            size="md"
+            variant="ghost"
             onClick={handleManualSave}
             disabled={saveStatus === "saving"}
-            className="flex items-center gap-1 rounded bg-raised px-2 py-0.5 text-[10px] font-mono text-dim hover:text-ink transition-colors cursor-pointer"
           >
-            <FloppyDisk size={11} />
+            <FloppyDisk size={12} />
             <span>{saveStatus === "saving" ? "Guardando..." : saveStatus === "unsaved" ? "Modificado" : "Guardado"}</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {previewMode ? (
-        <div className="w-full h-36 overflow-y-auto rounded-lg border border-hairline bg-panel/90 p-3 font-mono text-xs text-ink leading-relaxed select-text space-y-1">
+        <div className="w-full h-36 overflow-y-auto rounded-[var(--radius-card)] border border-hairline bg-panel p-3 font-mono text-xs text-ink leading-relaxed select-text space-y-1">
           {content.trim() ? (
             content.split("\n").map((line, i) => {
               if (line.startsWith("### ")) return <h4 key={i} className="font-bold text-ink text-xs mt-1.5">{line.slice(4)}</h4>;
@@ -156,11 +156,12 @@ export function JournalView({
           )}
         </div>
       ) : (
-        <textarea
+        <Textarea
           value={content}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="Escribe tus notas, prioridades o reflexiones de la jornada en Markdown..."
-          className="w-full h-36 resize-y rounded-lg border border-hairline bg-panel p-2.5 font-mono text-xs text-ink placeholder:text-faint focus:outline-hidden focus:border-dim"
+          rows={8}
+          className="h-36 resize-y font-mono"
         />
       )}
     </div>

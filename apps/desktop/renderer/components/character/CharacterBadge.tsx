@@ -32,6 +32,14 @@ export interface CharacterBadgeProps {
   className?: string;
   title?: string;
   mode?: "svg" | "studio";
+  /**
+   * Modo del rig de manos flotantes articuladas (5 dedos) del Robot Studio.
+   * - `always` → siempre visibles (por defecto: el avatar de la app es el de
+   *   las manos).
+   * - `auto`   → solo tras una interacción (comportamiento original del motor).
+   * - `hidden` → nunca.
+   */
+  hands?: "always" | "auto" | "hidden";
   onClick?: (e: React.MouseEvent<HTMLSpanElement>) => void;
 }
 
@@ -83,6 +91,12 @@ export function mapCharacterStateToAvatarState(state?: CharacterState | string):
       return "finished";
     case "error":
       return "error";
+    // E6/Ola 2 (A4): `warning` = degradación tolerable: algo falló pero el
+    // turno continúa (p. ej. una tool que devuelve error). El motor lo pinta
+    // en amarillo-caution con un triángulo; sin esta rama caería en el
+    // `idle` de reserva y el aviso se perdería en silencio.
+    case "warning":
+      return "warning";
     case "ratelimit":
       return "ratelimit";
     case "sleeping":
@@ -104,6 +118,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   className = "",
   title,
   mode,
+  hands = "always",
   onClick,
 }) => {
   const avatarRef = useRef<HTMLElement | null>(null);
@@ -181,11 +196,19 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
       transition={reduceMotion ? { duration: 0 } : { duration: MOTION.surface }}
       role="img"
       aria-label={badgeTitle}
-      className={`inline-flex items-center justify-center shrink-0 select-none cursor-pointer rounded-xl bg-[#11131a]/90 border border-white/[0.08] shadow-inner overflow-visible p-0.5 ${className}`}
+      // R11: la superficie del badge es `bg-panel` SÓLIDO. `bg-panel/90`
+      // era una superficie derivada con alfa: un color distinto que no se
+      // puede comparar con los otros niveles de la rampa (paper/panel/
+      // raised) y que además "fantasmaba" el fondo al moverse.
+      className={`inline-flex items-center justify-center shrink-0 select-none cursor-pointer rounded-[var(--radius-card)] bg-panel border border-hairline overflow-visible p-0.5 ${className}`}
       title={badgeTitle}
       data-morph="wrapped"
       onClick={handleClick}
       style={
+        // Excepción estructural documentada (patrón equivalente al de
+        // `canvas/SelectionToolbar.tsx`): el tamaño del badge es un dato
+        // calculado en runtime (`size` es un prop numérico), así que Tailwind
+        // no puede expresar el valor. NO es un color suelto: sólo dimensiones.
         reduceMotion
           ? { width: `${displaySize}px`, height: `${displaySize}px`, animation: "none" }
           : { width: `${displaySize}px`, height: `${displaySize}px` }
@@ -200,6 +223,10 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
         preset: studioPreset,
         "pointer-follow": animated ? "true" : "false",
         sound: "false",
+        // Rig de manos flotantes articuladas (5 dedos) del Robot Studio: el
+        // atributo `hands` es la vía que el motor expone para encenderlo (sin
+        // él queda en `auto`: 10 s tras una interacción, nunca en reposo).
+        hands,
         motion: reduceMotion || !animated ? "reduce" : "auto",
         style: {
           width: "100%",

@@ -10,6 +10,8 @@ import {
   type ShortcutAction,
 } from "./workbench-guards.js";
 import { Select } from "../ui-kit/Select.js";
+import { Input } from "../ui-kit/Input.js";
+import { Button } from "../ui-kit/Button.js";
 
 /**
  * CFG-13 — Atajos custom (renderer-only, sin IPC).
@@ -98,74 +100,74 @@ export const ShortcutsPanel: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
+      <h3 className="mb-3 border-b border-hairline pb-3 text-sm font-semibold text-ink">
+        Atajos Personalizados
+      </h3>
       <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="cfg13-sc-label" className="text-[10px] text-faint">Nombre</label>
-          <input
+        <div className="flex w-40 flex-col gap-1">
+          <label htmlFor="cfg13-sc-label" className="text-xs text-faint">Nombre</label>
+          <Input
             id="cfg13-sc-label"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Abrir navegador"
-            className="w-40 rounded border border-hairline bg-raised px-2 py-1 text-[11px] text-ink focus:outline-none"
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="cfg13-sc-keys" className="text-[10px] text-faint">Teclas</label>
-          <input
+        <div className="flex w-36 flex-col gap-1">
+          <label htmlFor="cfg13-sc-keys" className="text-xs text-faint">Teclas</label>
+          <Input
             id="cfg13-sc-keys"
             value={keys}
             onChange={(e) => setKeys(e.target.value)}
             placeholder="ctrl+shift+b"
             spellCheck={false}
             autoComplete="off"
-            className="w-36 rounded border border-hairline bg-raised px-2 py-1 font-mono text-[11px] text-ink focus:outline-none"
+            className="font-mono"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="cfg13-sc-action" className="text-[10px] text-faint">Acción</label>
+          <label htmlFor="cfg13-sc-action" className="text-xs text-faint">Acción</label>
           <Select
             id="cfg13-sc-action"
             ariaLabel="Acción"
             value={action}
             onValueChange={(v) => setAction(v as ShortcutAction)}
             options={SHORTCUT_ACTIONS.map((a) => ({ value: a, label: a }))}
-            triggerClassName="rounded border border-hairline bg-raised px-2 py-1 text-[11px] text-ink"
           />
         </div>
-        <button
-          type="submit"
-          className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] font-medium text-ink"
-        >
+        <Button type="submit" variant="primary" size="md">
           Agregar
-        </button>
+        </Button>
       </form>
       {formError !== null && (
-        <p role="alert" className="text-[11px] text-error">{formError}</p>
+        <p role="alert" className="mt-2 text-xs text-error">{formError}</p>
       )}
       {shortcuts.length === 0 ? (
-        <p role="status" className="text-[11px] text-faint">
+        <p role="status" className="mt-2 text-xs text-faint">
           Sin atajos custom. Reservadas: Ctrl+K, Ctrl+I, Ctrl+,.
         </p>
       ) : (
-        <ul className="flex flex-col gap-1.5">
+        <ul className="mt-2 flex flex-col gap-1.5">
           {shortcuts.map((s) => (
             <li
               key={s.id}
-              className="flex items-center justify-between gap-2 rounded border border-hairline bg-paper px-2 py-1.5"
+              className="flex items-center justify-between gap-2 rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-1.5"
             >
               <div className="min-w-0">
-                <p className="truncate text-[11px] text-ink">{s.label}</p>
-                <p className="font-mono text-[10px] text-faint">{s.keys} → {s.action}</p>
+                <p className="truncate text-xs text-ink">{s.label}</p>
+                <p className="font-mono text-xs text-faint">{s.keys} → {s.action}</p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setShortcuts((prev) => prev.filter((x) => x.id !== s.id))}
                 aria-label={`Eliminar atajo ${s.label}`}
-                className="shrink-0 rounded border border-hairline bg-raised px-2 py-0.5 text-[11px] text-dim hover:text-ink"
+                className="shrink-0"
               >
                 Eliminar
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

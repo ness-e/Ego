@@ -10,10 +10,24 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { CaretUp, CaretDown, ArrowsDownUp } from "@phosphor-icons/react";
+import { Badge } from "../ui-kit/Badge.js";
+import { Button } from "../ui-kit/Button.js";
 
 interface TableViewProps {
   props: TableProps;
   onAction?: (actionId: string, payload?: Record<string, unknown>) => void;
+}
+
+/**
+ * Traduce el `variant` declarativo del contrato (`@ego/ui-runtime`) al
+ * `variant` del `Button` del kit (única fuente de estilos de botón).
+ */
+function actionVariant(
+  variant: "default" | "primary" | "danger" | "outline"
+): "primary" | "secondary" | "danger" {
+  if (variant === "primary") return "primary";
+  if (variant === "danger") return "danger";
+  return "secondary";
 }
 
 export const TableView: React.FC<TableViewProps> = ({ props, onAction }) => {
@@ -28,15 +42,11 @@ export const TableView: React.FC<TableViewProps> = ({ props, onAction }) => {
       cell: ({ getValue }) => {
         const val = getValue();
         if (col.type === "badge") {
-          return (
-            <span className="inline-block rounded px-1.5 py-0.5 text-[10px] uppercase font-semibold bg-raised text-dim border border-hairline">
-              {String(val ?? "")}
-            </span>
-          );
+          return <Badge tone="info">{String(val ?? "")}</Badge>;
         }
         if (col.type === "boolean") {
           return (
-            <span className={val ? "text-emerald-400" : "text-dim"}>
+            <span className={val ? "text-success" : "text-dim"}>
               {val ? "✓ Sí" : "✗ No"}
             </span>
           );
@@ -65,27 +75,21 @@ export const TableView: React.FC<TableViewProps> = ({ props, onAction }) => {
   });
 
   return (
-    <div className="rounded-xl border border-hairline bg-panel p-4 shadow-xs select-text">
+    <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)] select-text">
       {/* Cabecera de la tabla */}
-      <div className="flex items-center justify-between pb-3 border-b border-hairline mb-3">
-        <h3 className="font-semibold text-sm text-ink">{props.title || "Datos Estructurados"}</h3>
+      <div className="mb-3 flex items-center justify-between border-b border-hairline pb-3">
+        <h3 className="text-sm font-semibold text-ink">{props.title || "Datos Estructurados"}</h3>
         {props.actions && props.actions.length > 0 && (
           <div className="flex items-center gap-2">
             {props.actions.map((act) => (
-              <button
+              <Button
                 key={act.actionId}
-                type="button"
+                variant={actionVariant(act.variant)}
+                size="sm"
                 onClick={() => onAction?.(act.actionId, { tableId: props.id })}
-                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                  act.variant === "primary"
-                    ? "bg-ink text-paper hover:opacity-90"
-                    : act.variant === "danger"
-                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30"
-                    : "bg-raised text-ink hover:bg-hairline border border-hairline"
-                }`}
               >
                 {act.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -104,20 +108,20 @@ export const TableView: React.FC<TableViewProps> = ({ props, onAction }) => {
                     <th
                       key={header.id}
                       onClick={header.column.getToggleSortingHandler()}
-                      className={`py-2 px-3 font-medium ${
-                        isSortable ? "cursor-pointer hover:text-ink select-none" : ""
+                      className={`px-3 py-2 font-medium ${
+                        isSortable ? "cursor-pointer select-none hover:text-ink" : ""
                       }`}
                     >
                       <div className="flex items-center gap-1">
                         <span>{flexRender(header.column.columnDef.header, header.getContext())}</span>
                         {isSortable && (
-                          <span className="text-[10px]">
+                          <span className="text-xs">
                             {sortDirection === "asc" ? (
                               <CaretUp size={11} />
                             ) : sortDirection === "desc" ? (
                               <CaretDown size={11} />
                             ) : (
-                              <ArrowsDownUp size={11} className="opacity-40" />
+                              <ArrowsDownUp size={11} className="text-faint" />
                             )}
                           </span>
                         )}
@@ -137,9 +141,9 @@ export const TableView: React.FC<TableViewProps> = ({ props, onAction }) => {
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="hover:bg-raised/40 transition-colors">
+                <tr key={row.id} className="transition-colors hover:bg-raised">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="py-2.5 px-3 font-mono">
+                    <td key={cell.id} className="px-3 py-2.5 font-mono">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -152,26 +156,28 @@ export const TableView: React.FC<TableViewProps> = ({ props, onAction }) => {
 
       {/* Paginador TanStack */}
       {props.pagination && (
-        <div className="flex items-center justify-between pt-3 border-t border-hairline mt-3 text-xs text-dim">
+        <div className="mt-3 flex items-center justify-between border-t border-hairline pt-3 text-xs text-dim">
           <span>
             Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} (
             {table.getFilteredRowModel().rows.length} elementos)
           </span>
           <div className="flex items-center gap-1">
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={!table.getCanPreviousPage()}
               onClick={() => table.previousPage()}
-              className="rounded bg-raised px-2 py-1 text-xs disabled:opacity-40 hover:bg-hairline"
             >
               Anterior
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={!table.getCanNextPage()}
               onClick={() => table.nextPage()}
-              className="rounded bg-raised px-2 py-1 text-xs disabled:opacity-40 hover:bg-hairline"
             >
               Siguiente
-            </button>
+            </Button>
           </div>
         </div>
       )}

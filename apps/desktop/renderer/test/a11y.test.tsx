@@ -263,11 +263,45 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
     expect(html).toMatch(/<title>[^<]+<\/title>/);
   });
 
-  const lum = (hex: string): number => {
-    const c = [1, 3, 5]
-      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
-      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+  /**
+   * Luminancia relativa WCAG 2.2 de un color.
+   *
+   * Acepta **HEX sRGB y OKLCH**: los presets del `DesignSystemProvider`
+   * están declarados en OKLCH (T14), así que parsearlos como HEX devolvía
+   * `NaN` y los asserts de contraste comparaban `NaN` (fallaban siempre, sin
+   * decir por qué). La conversión OKLCH → sRGB lineal es la de Ottosson
+   * (la misma que usa `apps/desktop/scripts/srgb-to-oklch.cjs` al revés).
+   */
+  const lum = (color: string): number => {
+    const c = color.trim().startsWith("#")
+      ? [1, 3, 5]
+          .map((i) => parseInt(color.slice(i, i + 2), 16) / 255)
+          .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)))
+      : oklchToLinearRgb(color);
     return 0.2126 * (c[0] ?? 0) + 0.7152 * (c[1] ?? 0) + 0.0722 * (c[2] ?? 0);
+  };
+
+  /** OKLCH → sRGB lineal (0..1, sin clampear). */
+  const oklchToLinearRgb = (value: string): [number, number, number] => {
+    const match = value.trim().match(/^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)$/);
+    if (!match) throw new Error(`color no soportado por lum(): ${value}`);
+    const L = Number(match[1]);
+    const C = Number(match[2]);
+    const H = Number(match[3]);
+    const rad = (H * Math.PI) / 180;
+    const a = C * Math.cos(rad);
+    const b = C * Math.sin(rad);
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+    const l = l_ * l_ * l_;
+    const m = m_ * m_ * m_;
+    const s = s_ * s_ * s_;
+    return [
+      4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+      -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+      -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+    ];
   };
 
   const wcagRatio = (a: string, b: string): number => {
@@ -405,22 +439,22 @@ describe("T07 UI-04: axe WCAG AA (bloquea CI)", () => {
       }
     });
 
-    it("midnight-cyan: fixed dim #8a8a92 sobre raised #1a2536 cumple >= 4.5:1 (4.50:1, FIND-A11Y-04 corregido)", () => {      expect(wcagRatio("#8a8a92", PRESET_THEMES["midnight-cyan"]!.colors.raised)).toBeGreaterThanOrEqual(4.5);
+    it("midnight-cyan: fixed dim #8a8a92 sobre raised #192436 cumple >= 4.5:1 (4.50:1, FIND-A11Y-04 corregido)", () => {      expect(wcagRatio("#8a8a92", PRESET_THEMES["midnight-cyan"]!.colors.raised)).toBeGreaterThanOrEqual(4.5);
     });
 
-    it("emerald-terminal: fixed dim #8a8a92 sobre panel #002b1b cumple >= 4.5:1 (4.50:1, FIND-A11Y-05 corregido)", () => {
+    it("emerald-terminal: fixed dim #8a8a92 sobre panel #001a0e cumple >= 4.5:1 (4.50:1, FIND-A11Y-05 corregido)", () => {
       expect(wcagRatio("#8a8a92", PRESET_THEMES["emerald-terminal"]!.colors.panel)).toBeGreaterThanOrEqual(4.5);
     });
 
-    it("emerald-terminal: fixed borderStrong #71717a sobre panel #002b1b cumple >= 3:1 (3.19:1, FIND-A11Y-02 corregido)", () => {
+    it("emerald-terminal: fixed borderStrong #71717a sobre panel #001a0e cumple >= 3:1 (3.77:1, FIND-A11Y-02 corregido)", () => {
       expect(wcagRatio("#71717a", PRESET_THEMES["emerald-terminal"]!.colors.panel)).toBeGreaterThanOrEqual(3.0);
     });
 
-    it("amber-warm: fixed dim #8a8a92 sobre panel #272323 cumple >= 4.5:1 (4.54:1, FIND-A11Y-06 corregido)", () => {
+    it("amber-warm: fixed dim #8a8a92 sobre panel #171413 cumple >= 4.5:1 (5.35:1, FIND-A11Y-06 corregido)", () => {
       expect(wcagRatio("#8a8a92", PRESET_THEMES["amber-warm"]!.colors.panel)).toBeGreaterThanOrEqual(4.5);
     });
 
-    it("amber-warm: fixed borderStrong #71717a sobre raised #2c2825 cumple >= 3:1 (3.02:1, FIND-A11Y-03 corregido)", () => {
+    it("amber-warm: fixed borderStrong #71717a sobre raised #272320 cumple >= 3:1 (3.22:1, FIND-A11Y-03 corregido)", () => {
       expect(wcagRatio("#71717a", PRESET_THEMES["amber-warm"]!.colors.raised)).toBeGreaterThanOrEqual(3.0);
     });
   });

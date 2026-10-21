@@ -102,12 +102,12 @@ export function Modal({
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={transition}
                   className={cn(
-                    "flex max-h-[85vh] w-full flex-col overflow-hidden rounded-[var(--radius-card)] border border-hairline bg-panel text-ink shadow-2xl",
+                    "flex max-h-[85vh] w-full flex-col overflow-hidden rounded-[var(--radius-card)] border border-hairline bg-panel text-ink shadow-[var(--ego-elevation-l3)]",
                     "focus:outline-2 focus:outline-offset-2 focus:outline-brand",
                     wide ? "max-w-4xl" : "max-w-lg",
                   )}
                 >
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-hairline bg-paper px-4">
+            <div className="flex h-11 shrink-0 items-center justify-between border-b border-hairline bg-paper px-4">
               <div className="flex min-w-0 items-center gap-2">
                 <Dialog.Title className="truncate text-xs font-semibold">
                   {title}
@@ -117,20 +117,20 @@ export function Modal({
                 <button
                   type="button"
                   aria-label="Cerrar diálogo"
-                  className="rounded p-1.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-faint transition-colors hover:bg-raised hover:text-ink active:scale-95 focus-visible:outline-2 focus-visible:outline-brand"
+                  className="rounded-[var(--radius-card)] p-1.5 min-h-11 min-w-11 inline-flex items-center justify-center text-faint transition-colors hover:bg-raised hover:text-ink active:scale-95 focus-visible:outline-2 focus-visible:outline-brand"
                 >
                   <X size={15} />
                 </button>
               </Dialog.Close>
             </div>
             {description && (
-              <Dialog.Description className="shrink-0 border-b border-hairline bg-paper/60 px-4 py-2 text-[11px] text-faint">
+              <Dialog.Description className="shrink-0 border-b border-hairline bg-paper px-4 py-2 text-xs text-faint">
                 {description}
               </Dialog.Description>
             )}
             {loading && (
               <div
-                className="flex shrink-0 items-center gap-2 border-b border-hairline px-4 py-2 text-[11px] text-dim"
+                className="flex shrink-0 items-center gap-2 border-b border-hairline px-4 py-2 text-xs text-dim"
                 aria-live="polite"
               >
                 <CircleNotch size={13} className="animate-spin" aria-hidden />
@@ -140,7 +140,7 @@ export function Modal({
             {error && (
               <div
                 role="alert"
-                className="flex shrink-0 items-center gap-2 border-b border-red-800/40 bg-red-950/40 px-4 py-2 text-[11px] text-red-300"
+                className="flex shrink-0 items-center gap-2 border-b border-error/40 bg-error/10 px-4 py-2 text-xs text-error"
               >
                 <WarningCircle size={14} className="shrink-0" aria-hidden />
                 <span>{error}</span>
@@ -148,7 +148,7 @@ export function Modal({
             )}
             <div className="min-h-0 flex-1 overflow-y-auto p-4 text-xs">
               {empty && !loading ? (
-                <div className="flex h-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-hairline text-center">
+                <div className="flex h-24 flex-col items-center justify-center gap-1 rounded-[var(--radius-card)] border border-dashed border-hairline text-center">
                   <p className="font-medium text-ink">{empty}</p>
                 </div>
               ) : (

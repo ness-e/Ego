@@ -27,6 +27,9 @@ import {
 import { ego } from "../../lib/ego.js";
 import { SmartList } from "../SmartList.js";
 import { Select } from "../ui-kit/Select.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
+import { Textarea } from "../ui-kit/Textarea.js";
 
 // T08: recharts (~384KB) fuera del arranque — lazy tras la primera pintura.
 const LazyTelemetryChart = React.lazy(() =>
@@ -35,11 +38,12 @@ const LazyTelemetryChart = React.lazy(() =>
 
 function ChartFallback() {
   return (
-    <div className="flex h-full w-full items-center justify-center font-mono text-[11px] text-dim">
+    <div className="flex h-full w-full items-center justify-center font-mono text-xs text-dim">
       Cargando telemetría…
     </div>
   );
 }
+
 import {
   flatMapValid,
   isRecord,
@@ -56,6 +60,32 @@ import {
   type CrmDealItem,
   type CrmSummary,
 } from "./types.js";
+
+/**
+ * Cáscara canónica de vista de dominio.
+ *
+ * Antes cada vista de dominio usaba su propia gramática de superficie (una
+ * superficie translucida y un título de nivel 2), que era distinta de la del
+ * Canvas (`components/canvas/CardView.tsx`): de ahí la incoherencia que
+ * detectó la auditoría de diseño. Ahora TODAS las vistas comparten la misma
+ * cáscara (superficie `bg-panel`, borde hairline, radio del sistema, elevación
+ * L1) y el mismo nivel de título (`h3 text-sm`) con su subtítulo
+ * (`text-xs text-faint`).
+ */
+const DOMAIN_VIEW_SHELL =
+  "space-y-4 rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]";
+
+/**
+ * Tarjeta interna de una vista de dominio: superficie elevada (`bg-raised`)
+ * sobre la cáscara `bg-panel`, con el mismo radio del sistema.
+ */
+const DOMAIN_CARD = "rounded-[var(--radius-card)] border border-hairline bg-raised p-4";
+
+/**
+ * Fila de contenido dentro de una tarjeta: superficie hundida (`bg-panel`)
+ * sobre la tarjeta elevada `bg-raised`.
+ */
+const DOMAIN_ROW = "rounded-[var(--radius-card)] border border-hairline bg-panel";
 
 /**
  * T4 (VERDICT R3) — Vista de engineering (componentKind `engineering_status`).
@@ -124,50 +154,56 @@ export function EngineeringStatusView() {
 
 
   return (
-    <div className="space-y-4">
+    <div className={DOMAIN_VIEW_SHELL}>
       {loading && (
-        <div className="text-[10px] text-dim font-mono animate-pulse">
+        <div className="text-xs text-dim font-mono animate-pulse">
           Sincronizando estado de engineering...
         </div>
       )}
       {uiError && (
-        <div role="alert" className="text-[11px] font-mono text-rose-300 border border-rose-500/30 bg-rose-950/30 rounded-lg px-3 py-2">
+        <div role="alert" className="text-xs font-mono text-error border border-error/30 bg-error/10 rounded-[var(--radius-card)] px-3 py-2">
           {uiError} — sin datos inventados como sustituto.
         </div>
       )}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-hairline pb-3">
-              <div className="flex items-center gap-2">
-                <Code size={20} className="text-cyan-400" />
-                <h2 className="text-base font-semibold">Workspace de Ingeniería (ego.dev)</h2>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-hairline pb-3">
+              <div className="min-w-0 flex-1 basis-64">
+                <div className="flex items-center gap-2">
+                  <Code size={20} className="shrink-0 text-brand" />
+                  <h3 className="text-sm font-semibold text-ink">Workspace de Ingeniería (ego.dev)</h3>
+                </div>
+                {/* Subtítulo de la vista: mismo nivel que el Canvas (`text-xs text-faint`). */}
+                <p className="mt-0.5 text-xs text-faint">
+                  Rama activa, estado del working tree y worktrees aislados.
+                </p>
               </div>
-              <div className="flex items-center gap-2 text-xs bg-raised border border-hairline px-2.5 py-1 rounded-md font-mono text-cyan-300">
+              <div className="flex shrink-0 items-center gap-2 text-xs bg-raised border border-hairline px-2.5 py-1 rounded-md font-mono text-brand">
                 <GitBranch size={14} />
                 {engData.branch === null ? (
                   <span className="animate-pulse text-faint">leyendo rama…</span>
                 ) : (
                   <span>{engData.branch}</span>
                 )}
-                <span className={`w-2 h-2 rounded-full ${engData.clean ? "bg-emerald-500" : "bg-amber-500"}`} />
+                <span className={`w-2 h-2 rounded-full ${engData.clean ? "bg-success" : "bg-warning"}`} />
               </div>
             </div>
       
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Estado de Git */}
-              <div className="bg-raised/60 border border-hairline rounded-xl p-4">
-                <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">
+              <div className={DOMAIN_CARD}>
+                <h4 className="text-xs font-semibold text-dim uppercase tracking-wider mb-2">
                   Estado del Working Tree
-                </h3>
+                </h4>
                 <div className="text-sm">
                   {engData.clean ? (
-                    <div className="flex items-center gap-2 text-emerald-400 py-2">
+                    <div className="flex items-center gap-2 text-success py-2">
                       <CheckCircle size={18} />
                       <span>Directorio de trabajo limpio. Sin mutaciones pendientes.</span>
                     </div>
                   ) : (
                     <div className="space-y-1 font-mono text-xs">
                       {engData.unstaged.map((f, i) => (
-                        <div key={i} className="text-amber-400 truncate">
+                        <div key={i} className="text-warning truncate">
                           M {f}
                         </div>
                       ))}
@@ -177,13 +213,13 @@ export function EngineeringStatusView() {
               </div>
       
               {/* Worktrees aislados (HERM-17) */}
-              <div className="bg-raised/60 border border-hairline rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-semibold text-faint uppercase tracking-wider flex items-center gap-1.5">
-                    <ShieldCheck size={16} className="text-cyan-400" />
-                    <span>Worktrees Aislados (HERM-17)</span>
-                  </h3>
-                  <span className="text-xs text-faint">
+              <div className={DOMAIN_CARD}>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h4 className="min-w-0 text-xs font-semibold text-ink uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck size={16} className="shrink-0 text-brand" />
+                    <span className="truncate">Worktrees Aislados (HERM-17)</span>
+                  </h4>
+                  <span className="shrink-0 text-xs text-faint">
                     {engData.worktrees.length} activos
                   </span>
                 </div>
@@ -194,10 +230,10 @@ export function EngineeringStatusView() {
                   {engData.worktrees.map((wt, i) => (
                     <div
                       key={i}
-                      className="flex items-center justify-between text-xs bg-paper/80 border border-hairline px-3 py-2 rounded-lg font-mono"
+                      className="flex items-center justify-between text-xs bg-panel border border-hairline px-3 py-2 rounded-[var(--radius-card)] font-mono"
                     >
-                      <span className="text-cyan-300 truncate max-w-[200px]">{wt.branch}</span>
-                      <span className="text-[10px] text-faint">{wt.isMain ? "Principal" : "Aislado"}</span>
+                      <span className="text-brand truncate max-w-[200px]">{wt.branch}</span>
+                      <span className="text-xs text-faint">{wt.isMain ? "Principal" : "Aislado"}</span>
                     </div>
                   ))}
                 </div>
@@ -289,52 +325,62 @@ const handleCreateProductItem = async (e: React.FormEvent) => {
 };
 
   return (
-    <div className="space-y-4">
+    <div className={DOMAIN_VIEW_SHELL}>
       {loading && (
-        <div className="text-[10px] text-dim font-mono animate-pulse">
+        <div className="text-xs text-dim font-mono animate-pulse">
           Sincronizando estado de product...
         </div>
       )}
       {uiError && (
-        <div role="alert" className="text-[11px] font-mono text-rose-300 border border-rose-500/30 bg-rose-950/30 rounded-lg px-3 py-2">
+        <div role="alert" className="text-xs font-mono text-error border border-error/30 bg-error/10 rounded-[var(--radius-card)] px-3 py-2">
           {uiError} — sin datos inventados como sustituto.
         </div>
       )}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-hairline pb-3">
-              <div className="flex items-center gap-2">
-                <Kanban size={20} className="text-amber-400" />
-                <h2 className="text-base font-semibold">Tablero de Producto & Backlog (ego.product)</h2>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-hairline pb-3">
+              <div className="min-w-0 flex-1 basis-64">
+                <div className="flex items-center gap-2">
+                  <Kanban size={20} className="shrink-0 text-warning" />
+                  <h3 className="text-sm font-semibold text-ink">Tablero de Producto & Backlog (ego.product)</h3>
+                </div>
+                {/* Subtítulo de la vista: mismo nivel que el Canvas (`text-xs text-faint`). */}
+                <p className="mt-0.5 text-xs text-faint">
+                  Backlog de producto agrupado por columna y prioridad.
+                </p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="accent"
+                size="md"
                 onClick={() => setShowProductForm(!showProductForm)}
-                className="flex items-center gap-1.5 text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-lg font-medium hover:bg-amber-500/30 transition-colors cursor-pointer"
+                className="shrink-0"
               >
                 <Plus size={14} />
                 <span>{showProductForm ? "Cerrar" : "Nuevo Ítem"}</span>
-              </button>
+              </Button>
             </div>
-      
+  
             {showProductForm && (
               <form
                 onSubmit={handleCreateProductItem}
-                className="bg-raised/80 border border-amber-500/30 rounded-xl p-3 text-xs flex flex-col gap-2"
+                className="bg-raised border border-hairline rounded-[var(--radius-card)] p-3 text-xs flex flex-col gap-2"
               >
                 <span className="font-semibold text-ink">Nuevo Ítem del Backlog</span>
                 <div className="flex flex-col gap-1">
-                  <input
+                  <label htmlFor="product-item-title" className="text-xs text-faint">
+                    Título del ítem o historia de usuario
+                  </label>
+                  <Input
+                    id="product-item-title"
                     type="text"
                     placeholder="Título del ítem o historia de usuario..."
                     value={newProductTitle}
                     onChange={(e) => setNewProductTitle(e.target.value)}
-                    className="rounded border border-hairline bg-paper px-2.5 py-1 text-xs text-ink placeholder:text-faint focus:outline-hidden"
                     required
                   />
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1">
-                    <label className="text-[10px] text-faint">Prioridad:</label>
+                    <span className="text-xs text-faint">Prioridad:</span>
                     <Select
                       ariaLabel="Prioridad"
                       value={newProductPriority}
@@ -344,11 +390,11 @@ const handleCreateProductItem = async (e: React.FormEvent) => {
                         { value: "medium", label: "Media" },
                         { value: "low", label: "Baja" },
                       ]}
-                      triggerClassName="rounded border border-hairline bg-paper px-2 py-0.5 text-xs text-ink"
+                      triggerClassName="bg-panel"
                     />
                   </div>
                   <div className="flex items-center gap-1">
-                    <label className="text-[10px] text-faint">Columna:</label>
+                    <span className="text-xs text-faint">Columna:</span>
                     <Select
                       ariaLabel="Columna"
                       value={newProductStatus}
@@ -359,16 +405,18 @@ const handleCreateProductItem = async (e: React.FormEvent) => {
                         { value: "review", label: "Revisión / QA" },
                         { value: "done", label: "Completado" },
                       ]}
-                      triggerClassName="rounded border border-hairline bg-paper px-2 py-0.5 text-xs text-ink"
+                      triggerClassName="bg-panel"
                     />
                   </div>
-                  <button
+                  <Button
                     type="submit"
+                    variant="accent"
+                    size="md"
                     disabled={!newProductTitle.trim()}
-                    className="ml-auto rounded border border-hairline bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                    className="ml-auto"
                   >
                     Guardar Ítem
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
@@ -391,12 +439,12 @@ const handleCreateProductItem = async (e: React.FormEvent) => {
                 const colItems = productData.items.filter((i) => i.status === col);
       
                 return (
-                  <div key={col} className="bg-raised/60 border border-hairline/80 rounded-xl p-3 flex flex-col min-h-[220px]">
+                  <div key={col} className="bg-raised border border-hairline rounded-[var(--radius-card)] p-3 flex flex-col min-h-[220px]">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold text-ink uppercase tracking-wider">
                         {colTitles[col]}
                       </span>
-                      <span className="text-[10px] bg-raised text-faint px-1.5 py-0.5 rounded-full font-mono">
+                      <span className="text-xs bg-panel text-faint px-1.5 py-0.5 rounded-full font-mono">
                         {colItems.length}
                       </span>
                     </div>
@@ -404,11 +452,11 @@ const handleCreateProductItem = async (e: React.FormEvent) => {
                       {colItems.map((item) => (
                         <div
                           key={item.id}
-                          className="bg-paper/80 border border-hairline/80 rounded-lg p-2.5 shadow-xs hover:border-dim transition-colors"
+                          className={`${DOMAIN_ROW} p-2.5 shadow-[var(--ego-elevation-l1)] hover:border-strong transition-colors`}
                         >
                           <div className="text-xs font-medium text-ink">{item.title}</div>
-                          <div className="flex items-center justify-between mt-2 text-[10px] text-faint">
-                            <span className="uppercase font-mono text-amber-400">{item.priority}</span>
+                          <div className="flex items-center justify-between mt-2 text-xs text-faint">
+                            <span className="uppercase font-mono text-warning">{item.priority}</span>
                             <span className="text-faint">#item_{item.id}</span>
                           </div>
                         </div>
@@ -558,102 +606,128 @@ const handleIngest = async (e: React.FormEvent) => {
 };
 
   return (
-    <div className="space-y-4">
+    <div className={DOMAIN_VIEW_SHELL}>
       {loading && (
-        <div className="text-[10px] text-dim font-mono animate-pulse">
+        <div className="text-xs text-dim font-mono animate-pulse">
           Sincronizando estado de knowledge...
         </div>
       )}
       {uiError && (
-        <div role="alert" className="text-[11px] font-mono text-rose-300 border border-rose-500/30 bg-rose-950/30 rounded-lg px-3 py-2">
+        <div role="alert" className="text-xs font-mono text-error border border-error/30 bg-error/10 rounded-[var(--radius-card)] px-3 py-2">
           {uiError} — sin datos inventados como sustituto.
         </div>
       )}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-hairline pb-3">
-              <div className="flex items-center gap-2">
-                <BookOpen size={20} className="text-purple-400" />
-                <h2 className="text-base font-semibold">GraphRAG & Base de Conocimiento (ego.researcher)</h2>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-hairline pb-3">
+              <div className="min-w-0 flex-1 basis-64">
+                <div className="flex items-center gap-2">
+                  <BookOpen size={20} className="shrink-0 text-chart-violet" />
+                  <h3 className="text-sm font-semibold text-ink">GraphRAG & Base de Conocimiento (ego.researcher)</h3>
+                </div>
+                {/* Subtítulo de la vista: mismo nivel que el Canvas (`text-xs text-faint`). */}
+                <p className="mt-0.5 text-xs text-faint">
+                  Hechos verificados en VantaDB, grafo conceptual y bandeja de cuarentena.
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="accent"
+                  size="md"
                   onClick={() => setShowIngestForm(!showIngestForm)}
-                  className="flex items-center gap-1 text-xs bg-purple-500/20 text-purple-300 border border-purple-500/40 px-3 py-1.5 rounded-lg font-medium hover:bg-purple-500/30 transition-colors cursor-pointer"
                 >
                   <Plus size={14} />
                   <span>{showIngestForm ? "Cerrar" : "+ Ingerir Documento"}</span>
-                </button>
+                </Button>
                 <div className="relative w-64">
-                  <MagnifyingGlass size={14} className="absolute left-2.5 top-2.5 text-faint" />
-                  <input
+                  <MagnifyingGlass
+                    size={14}
+                    className="pointer-events-none absolute left-2.5 top-2.5 text-faint"
+                    aria-hidden
+                  />
+                  <Input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Buscar facts o conceptos..."
-                    className="w-full bg-raised border border-hairline rounded-lg pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-hidden focus:border-brand"
+                    className="pl-8"
                   />
                 </div>
               </div>
             </div>
-      
+  
             {showIngestForm && (
               <form
                 onSubmit={handleIngest}
-                className="bg-raised/80 border border-purple-500/30 rounded-xl p-3.5 text-xs flex flex-col gap-2.5"
+                className="bg-raised border border-hairline rounded-[var(--radius-card)] p-3.5 text-xs flex flex-col gap-2.5"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-ink">Ingerir Documento en VantaDB</span>
                   {ingestMessage && (
-                    <span className="text-[11px] text-emerald-400 font-medium">{ingestMessage}</span>
+                    <span className="text-xs text-success font-medium">{ingestMessage}</span>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Título del documento o nota técnica..."
-                    value={ingestTitle}
-                    onChange={(e) => setIngestTitle(e.target.value)}
-                    className="flex-1 rounded border border-hairline bg-paper px-2.5 py-1 text-xs text-ink placeholder:text-faint focus:outline-hidden"
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <label htmlFor="ingest-title" className="text-xs text-faint">
+                      Título del documento o nota técnica
+                    </label>
+                    <Input
+                      id="ingest-title"
+                      type="text"
+                      placeholder="Título del documento o nota técnica..."
+                      value={ingestTitle}
+                      onChange={(e) => setIngestTitle(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="w-40">
+                    <span className="text-xs text-faint">Tipo</span>
+                    <Select
+                      ariaLabel="Tipo de documento"
+                      value={ingestType}
+                      onValueChange={(v) => setIngestType(v as "markdown" | "text" | "code")}
+                      options={[
+                        { value: "markdown", label: "Markdown" },
+                        { value: "text", label: "Texto Plano" },
+                        { value: "code", label: "Código" },
+                      ]}
+                      triggerClassName="bg-panel"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="ingest-content" className="text-xs text-faint">
+                    Contenido a persistir e indexar para RAG semántico e híbrido en VantaDB
+                  </label>
+                  <Textarea
+                    id="ingest-content"
+                    placeholder="Contenido a persistir e indexar para RAG semántico e híbrido en VantaDB..."
+                    value={ingestContent}
+                    onChange={(e) => setIngestContent(e.target.value)}
+                    rows={3}
+                    className="font-mono"
                     required
                   />
-                  <Select
-                    ariaLabel="Tipo de documento"
-                    value={ingestType}
-                    onValueChange={(v) => setIngestType(v as "markdown" | "text" | "code")}
-                    options={[
-                      { value: "markdown", label: "Markdown" },
-                      { value: "text", label: "Texto Plano" },
-                      { value: "code", label: "Código" },
-                    ]}
-                    triggerClassName="rounded border border-hairline bg-paper px-2 py-1 text-xs text-ink"
-                  />
                 </div>
-                <textarea
-                  placeholder="Contenido a persistir e indexar para RAG semántico e híbrido en VantaDB..."
-                  value={ingestContent}
-                  onChange={(e) => setIngestContent(e.target.value)}
-                  rows={3}
-                  className="w-full rounded border border-hairline bg-paper p-2 font-mono text-xs text-ink placeholder:text-faint focus:outline-hidden resize-y"
-                  required
-                />
                 <div className="flex justify-end">
-                  <button
+                  <Button
                     type="submit"
-                    disabled={ingesting || !ingestTitle.trim() || !ingestContent.trim()}
-                    className="rounded border border-hairline bg-purple-600 px-3.5 py-1 text-xs font-semibold text-white hover:bg-purple-500 transition-colors disabled:opacity-50 cursor-pointer"
+                    variant="accent"
+                    size="md"
+                    loading={ingesting}
+                    disabled={!ingestTitle.trim() || !ingestContent.trim()}
                   >
                     {ingesting ? "Ingiriendo en VantaDB..." : "Ingerir en VantaDB"}
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
       
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-raised/60 border border-hairline rounded-xl p-4">
-                <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">
+              <div className={DOMAIN_CARD}>
+                <h4 className="text-xs font-semibold text-dim uppercase tracking-wider mb-3">
                   Hechos Verificados en VantaDB (kb/facts)
-                </h3>
+                </h4>
                 <div className="max-h-[300px] overflow-y-auto">
                   <SmartList
                     items={knowledgeData}
@@ -666,11 +740,11 @@ const handleIngest = async (e: React.FormEvent) => {
                     }
                     renderItem={(fact) => (
                       <div
-                        className="bg-paper/80 border border-hairline/80 rounded-lg p-2.5 text-xs"
+                        className={`${DOMAIN_ROW} p-2.5 text-xs`}
                       >
                         <div className="font-medium text-ink">{fact.claim}</div>
-                        <div className="mt-2 flex items-center justify-between text-[10px] text-faint">
-                          <span className="max-w-[200px] truncate font-mono text-purple-400">
+                        <div className="mt-2 flex items-center justify-between text-xs text-faint">
+                          <span className="max-w-[200px] truncate font-mono text-chart-violet">
                             Fuente: {fact.source}
                           </span>
                           <span>Confianza: {Math.round(fact.confidence * 100)}%</span>
@@ -682,35 +756,35 @@ const handleIngest = async (e: React.FormEvent) => {
               </div>
       
               {graphRagAvailable ? (
-                <div className="bg-raised/60 border border-hairline rounded-xl p-4 flex flex-col justify-between">
+                <div className={`${DOMAIN_CARD} flex flex-col justify-between`}>
                   <div>
-                    <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-2">
+                    <h4 className="text-xs font-semibold text-dim uppercase tracking-wider mb-2">
                       Grafo Conceptual GraphRAG
-                    </h3>
+                    </h4>
                     {graphNodes.length > 0 ? (
                       <div className="space-y-3">
                         <div className="flex flex-wrap gap-1.5">
                           {graphNodes.map((node) => (
                             <div
                               key={node.id}
-                              className="flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-950/20 px-2.5 py-1 text-xs"
+                              className="flex items-center gap-1.5 rounded-[var(--radius-card)] border border-hairline bg-raised px-2.5 py-1 text-xs"
                             >
-                              <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-chart-violet" />
                               <span className="font-medium text-ink">{node.label}</span>
-                              <span className="text-[9px] text-faint font-mono">({node.type})</span>
+                              <span className="text-xs text-faint font-mono">({node.type})</span>
                             </div>
                           ))}
                         </div>
                         {graphEdges.length > 0 && (
                           <div className="pt-2 border-t border-hairline space-y-1">
-                            <span className="text-[10px] text-faint font-semibold uppercase tracking-wider">
+                            <span className="text-xs text-faint font-semibold uppercase tracking-wider">
                               Relaciones detectadas
                             </span>
                             {graphEdges.map((edge, i) => (
-                              <div key={i} className="flex items-center gap-1.5 text-[10px] font-mono text-dim">
-                                <span className="text-purple-300">{edge.source}</span>
+                              <div key={i} className="flex items-center gap-1.5 text-xs font-mono text-dim">
+                                <span className="text-chart-violet">{edge.source}</span>
                                 <span className="text-faint">──[{edge.relation}]──▶</span>
-                                <span className="text-purple-300">{edge.target}</span>
+                                <span className="text-chart-violet">{edge.target}</span>
                               </div>
                             ))}
                           </div>
@@ -728,15 +802,15 @@ const handleIngest = async (e: React.FormEvent) => {
             </div>
       
             {/* Bandeja de Cuarentena (SEC-09) */}
-            <div className="bg-raised/60 border border-hairline rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-amber-400" />
-                  <h3 className="text-xs font-semibold text-ink uppercase tracking-wider">
+            <div className={DOMAIN_CARD}>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <ShieldCheck size={16} className="shrink-0 text-warning" />
+                  <h4 className="truncate text-xs font-semibold text-ink uppercase tracking-wider">
                     Bandeja de Cuarentena (SEC-09)
-                  </h3>
+                  </h4>
                 </div>
-                <span className="text-[10px] text-faint font-mono">
+                <span className="shrink-0 text-xs text-faint font-mono">
                   {quarantineItems.length} artefactos aislados
                 </span>
               </div>
@@ -749,13 +823,13 @@ const handleIngest = async (e: React.FormEvent) => {
                   {quarantineItems.map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between bg-paper/80 border border-amber-500/30 rounded-lg p-2.5 text-xs"
+                      className={`flex items-center justify-between ${DOMAIN_ROW} p-2.5 text-xs`}
                     >
                       <div>
-                        <span className="font-mono text-amber-300 font-medium">{item.key}</span>
-                        <p className="text-[10px] text-faint mt-0.5">{item.notice}</p>
+                        <span className="font-mono text-warning font-medium">{item.key}</span>
+                        <p className="text-xs text-faint mt-0.5">{item.notice}</p>
                       </div>
-                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+                      <span className="text-xs uppercase px-1.5 py-0.5 rounded-md bg-warning/10 text-warning border border-warning/30 font-mono">
                         {item.kind || "Aislado"}
                       </span>
                     </div>
@@ -821,30 +895,36 @@ export function AnalyticsTelemetryView() {
 
 
   return (
-    <div className="space-y-4">
+    <div className={DOMAIN_VIEW_SHELL}>
       {loading && (
-        <div className="text-[10px] text-dim font-mono animate-pulse">
+        <div className="text-xs text-dim font-mono animate-pulse">
           Sincronizando estado de analytics...
         </div>
       )}
       {uiError && (
-        <div role="alert" className="text-[11px] font-mono text-rose-300 border border-rose-500/30 bg-rose-950/30 rounded-lg px-3 py-2">
+        <div role="alert" className="text-xs font-mono text-error border border-error/30 bg-error/10 rounded-[var(--radius-card)] px-3 py-2">
           {uiError} — sin datos inventados como sustituto.
         </div>
       )}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-hairline pb-3">
-              <div className="flex items-center gap-2">
-                <ChartBar size={20} className="text-emerald-400" />
-                <h2 className="text-base font-semibold">Telemetría y Métricas de Inferencia (ego.analyst)</h2>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-hairline pb-3">
+              <div className="min-w-0 flex-1 basis-64">
+                <div className="flex items-center gap-2">
+                  <ChartBar size={20} className="shrink-0 text-success" />
+                  <h3 className="text-sm font-semibold text-ink">Telemetría y Métricas de Inferencia (ego.analyst)</h3>
+                </div>
+                {/* Subtítulo de la vista: mismo nivel que el Canvas (`text-xs text-faint`). */}
+                <p className="mt-0.5 text-xs text-faint">
+                  Consumo de tokens por jornada durante los últimos 7 días.
+                </p>
               </div>
-              <span className="text-xs text-faint font-mono">Últimos 7 días</span>
+              <span className="shrink-0 text-xs text-faint font-mono">Últimos 7 días</span>
             </div>
-      
-            <div className="bg-raised/60 border border-hairline rounded-xl p-4">
-              <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">
+  
+            <div className={DOMAIN_CARD}>
+              <h4 className="text-xs font-semibold text-dim uppercase tracking-wider mb-3">
                 Consumo de Tokens por Jornada
-              </h3>
+              </h4>
               <div className="h-56 w-full">
                 <Suspense fallback={<ChartFallback />}>
                   <LazyTelemetryChart
@@ -936,26 +1016,32 @@ const handleUpdateDealStage = async (dealId: string, nextStage: string) => {
 };
 
   return (
-    <div className="space-y-4">
+    <div className={DOMAIN_VIEW_SHELL}>
       {loading && (
-        <div className="text-[10px] text-dim font-mono animate-pulse">
+        <div className="text-xs text-dim font-mono animate-pulse">
           Sincronizando estado de crm...
         </div>
       )}
       {uiError && (
-        <div role="alert" className="text-[11px] font-mono text-rose-300 border border-rose-500/30 bg-rose-950/30 rounded-lg px-3 py-2">
+        <div role="alert" className="text-xs font-mono text-error border border-error/30 bg-error/10 rounded-[var(--radius-card)] px-3 py-2">
           {uiError} — sin datos inventados como sustituto.
         </div>
       )}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-hairline pb-3">
-              <div className="flex items-center gap-2">
-                <Users size={20} className="text-rose-400" />
-                <h2 className="text-base font-semibold">CRM & Pipeline de Ventas (ego.crm)</h2>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-hairline pb-3">
+              <div className="min-w-0 flex-1 basis-64">
+                <div className="flex items-center gap-2">
+                  <Users size={20} className="shrink-0 text-error" />
+                  <h3 className="text-sm font-semibold text-ink">CRM & Pipeline de Ventas (ego.crm)</h3>
+                </div>
+                {/* Subtítulo de la vista: mismo nivel que el Canvas (`text-xs text-faint`). */}
+                <p className="mt-0.5 text-xs text-faint">
+                  Deals por etapa con valor total y valor ponderado por probabilidad.
+                </p>
               </div>
-              <div className="flex items-center gap-4 text-xs font-mono">
+              <div className="flex shrink-0 items-center gap-4 text-xs font-mono">
                 <div className="flex items-center gap-1 text-ink">
-                  <CurrencyDollar size={16} className="text-emerald-400" />
+                  <CurrencyDollar size={16} className="text-success" />
                   <span>Total: ${crmData.summary.totalPipelineUsd.toLocaleString()} USD</span>
                 </div>
                 <div className="text-faint">
@@ -977,16 +1063,16 @@ const handleUpdateDealStage = async (dealId: string, nextStage: string) => {
                 return (
                   <div
                     key={deal.id}
-                    className={`bg-raised/60 border rounded-xl p-4 flex flex-col justify-between transition-colors ${
-                      isExpanded ? "border-rose-400/50 bg-raised/90" : "border-hairline"
+                    className={`rounded-[var(--radius-card)] border p-4 flex flex-col justify-between transition-colors ${
+                      isExpanded ? "border-brand bg-raised" : "border-hairline bg-raised"
                     }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-mono uppercase text-rose-400 font-semibold">
+                        <span className="text-xs font-mono uppercase text-error font-semibold">
                           {deal.stage}
                         </span>
-                        <span className="text-[10px] text-faint">
+                        <span className="text-xs text-faint">
                           {deal.probabilityPct}% prob
                         </span>
                       </div>
@@ -994,29 +1080,27 @@ const handleUpdateDealStage = async (dealId: string, nextStage: string) => {
                     </div>
       
                     {isExpanded && (
-                      <div className="mt-3 pt-3 border-t border-hairline/80 space-y-2 text-xs">
-                        <div className="flex items-center justify-between text-[11px] text-faint">
+                      <div className="mt-3 pt-3 border-t border-hairline space-y-2 text-xs">
+                        <div className="flex items-center justify-between text-xs text-faint">
                           <span>Ponderado:</span>
                           <span className="font-mono text-ink">
                             ${Math.round((deal.valueUsd * deal.probabilityPct) / 100).toLocaleString()} USD
                           </span>
                         </div>
                         <div className="flex flex-col gap-1">
-                          <span className="text-[10px] text-faint">Cambiar Etapa:</span>
+                          <span className="text-xs text-faint">Cambiar Etapa:</span>
                           <div className="flex flex-wrap gap-1">
                             {["qualified", "proposal", "negotiation", "closed_won"].map((stage) => (
-                              <button
+                              <Button
                                 key={stage}
-                                type="button"
+                                size="md"
+                                variant={deal.stage === stage ? "accent" : "secondary"}
                                 onClick={() => handleUpdateDealStage(deal.id, stage)}
-                                className={`rounded px-1.5 py-0.5 text-[9px] font-mono uppercase transition-colors cursor-pointer ${
-                                  deal.stage === stage
-                                    ? "bg-rose-500/30 text-rose-300 font-bold border border-rose-500/50"
-                                    : "bg-paper text-dim hover:text-ink border border-hairline"
-                                }`}
+                                truncate
+                                className="font-mono uppercase"
                               >
                                 {stage}
-                              </button>
+                              </Button>
                             ))}
                           </div>
                         </div>
@@ -1024,18 +1108,21 @@ const handleUpdateDealStage = async (dealId: string, nextStage: string) => {
                     )}
       
                     <div className="mt-4 pt-3 border-t border-hairline flex items-center justify-between">
-                      <span className="text-sm font-mono font-bold text-emerald-400">
+                      <span className="text-sm font-mono font-bold text-success">
                         ${deal.valueUsd.toLocaleString()} USD
                       </span>
-                      <button
-                        type="button"
+                      <Button
+                        size="icon"
+                        variant="ghost"
                         onClick={() => setSelectedDealId(isExpanded ? null : deal.id)}
                         aria-label={`Detalle de ${deal.title}`}
                         title={isExpanded ? "Ocultar detalle" : "Ver detalle"}
-                        className="p-1 rounded text-dim hover:text-ink transition-colors cursor-pointer"
                       >
-                        <ArrowRight size={14} className={isExpanded ? "rotate-90 transition-transform" : "transition-transform"} />
-                      </button>
+                        <ArrowRight
+                          size={14}
+                          className={isExpanded ? "rotate-90 transition-transform" : "transition-transform"}
+                        />
+                      </Button>
                     </div>
                   </div>
                 );

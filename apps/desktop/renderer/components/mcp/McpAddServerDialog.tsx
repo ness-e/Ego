@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Warning } from "@phosphor-icons/react";
 import { Modal } from "../ui-kit/Modal.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
+import { Textarea } from "../ui-kit/Textarea.js";
 
 interface McpAddServerDialogProps {
   isOpen: boolean;
@@ -165,21 +168,22 @@ export function McpAddServerDialog({ isOpen, onClose, onSubmit }: McpAddServerDi
       description="Subproceso local para el Tool Registry de Ego (Nivel B). Esc para salir."
     >
       {/* Plantillas Rápidas (1-Clic) */}
-      <div className="mb-3 space-y-1.5 rounded-lg border border-hairline bg-paper/60 p-2.5">
-        <span className="block text-[10px] font-semibold tracking-wider uppercase text-dim/80">
+      <div className="mb-3 space-y-1.5 rounded-[var(--radius-card)] border border-hairline bg-raised p-2.5">
+        <span className="block text-xs font-semibold tracking-wider uppercase text-dim">
           Plantillas Rápidas (1-Clic)
         </span>
         <div className="flex flex-wrap gap-1.5">
           {MCP_PRESETS.map((p) => (
-            <button
+            <Button
               key={p.label}
-              type="button"
+              size="md"
+              variant="secondary"
               onClick={() => applyPreset(p)}
-              className="rounded-full border border-hairline bg-raised hover:bg-raised/80 hover:border-strong px-2.5 py-0.5 text-[11px] font-mono text-ink transition-colors cursor-pointer shadow-2xs"
               title={`Autocompletar configuración para ${p.name}`}
+              className="whitespace-nowrap font-mono"
             >
               + {p.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -189,129 +193,130 @@ export function McpAddServerDialog({ isOpen, onClose, onSubmit }: McpAddServerDi
         {error && (
           <div
             role="alert"
-            className="flex items-center gap-2 rounded border border-rose-500/40 bg-rose-950/30 p-2.5 text-rose-300"
+            className="flex items-center gap-2 rounded-[var(--radius-card)] border border-error/40 bg-error/10 p-2.5 text-error"
           >
-            <Warning size={14} className="shrink-0 text-rose-400" />
+            <Warning size={14} className="shrink-0 text-error" />
             <span>{error}</span>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="mcp-srv-id" className="block text-[11px] font-medium text-dim mb-1">
+            <label htmlFor="mcp-srv-id" className="block text-xs font-medium text-dim mb-1">
               ID Único (slug)
             </label>
-            <input
+            <Input
               id="mcp-srv-id"
               type="text"
               placeholder="ej. github-mcp"
               value={id}
               onChange={(e) => setId(e.target.value)}
-              className="w-full rounded border border-hairline bg-paper px-2.5 py-1.5 text-xs text-ink placeholder:text-dim/60 focus:border-ink/50 focus:outline-hidden"
             />
           </div>
           <div>
-            <label htmlFor="mcp-srv-name" className="block text-[11px] font-medium text-dim mb-1">
+            <label htmlFor="mcp-srv-name" className="block text-xs font-medium text-dim mb-1">
               Nombre Descriptivo
             </label>
-            <input
+            <Input
               id="mcp-srv-name"
               type="text"
               placeholder="ej. GitHub Oficial"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded border border-hairline bg-paper px-2.5 py-1.5 text-xs text-ink placeholder:text-dim/60 focus:border-ink/50 focus:outline-hidden"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2">
-            <label htmlFor="mcp-srv-command" className="block text-[11px] font-medium text-dim mb-1">
+            <label htmlFor="mcp-srv-command" className="block text-xs font-medium text-dim mb-1">
               Comando Ejecutable
             </label>
-            <input
+            <Input
               id="mcp-srv-command"
               type="text"
               placeholder="ej. npx, python, node, uvx"
               value={command}
               onChange={(e) => setCommand(e.target.value)}
-              className="w-full rounded border border-hairline bg-paper px-2.5 py-1.5 text-xs text-ink placeholder:text-dim/60 font-mono focus:border-ink/50 focus:outline-hidden"
+              className="font-mono"
             />
           </div>
           <div>
-            <label htmlFor="mcp-srv-prefix" className="block text-[11px] font-medium text-dim mb-1">
+            <label htmlFor="mcp-srv-prefix" className="block text-xs font-medium text-dim mb-1">
               Prefijo de Herramientas
             </label>
-            <input
+            <Input
               id="mcp-srv-prefix"
               type="text"
               placeholder="ej. gh"
               value={toolPrefix}
               onChange={(e) => setToolPrefix(e.target.value)}
-              className="w-full rounded border border-hairline bg-paper px-2.5 py-1.5 text-xs text-ink placeholder:text-dim/60 font-mono focus:border-ink/50 focus:outline-hidden"
+              className="font-mono"
             />
           </div>
         </div>
 
         <div>
-          <label htmlFor="mcp-srv-args" className="block text-[11px] font-medium text-dim mb-1">
+          <label htmlFor="mcp-srv-args" className="block text-xs font-medium text-dim mb-1">
             Argumentos del Subproceso (separados por espacio)
           </label>
-          <input
+          <Input
             id="mcp-srv-args"
             type="text"
             placeholder="-y @modelcontextprotocol/server-github"
             value={argsRaw}
             onChange={(e) => setArgsRaw(e.target.value)}
-            className="w-full rounded border border-hairline bg-paper px-2.5 py-1.5 text-xs text-ink placeholder:text-dim/60 font-mono focus:border-ink/50 focus:outline-hidden"
+            className="font-mono"
           />
         </div>
 
         <div>
-          <label htmlFor="mcp-srv-env" className="block text-[11px] font-medium text-dim mb-1">
+          <label htmlFor="mcp-srv-env" className="block text-xs font-medium text-dim mb-1">
             Variables de Entorno (formato CLAVE=VALOR, una por línea)
           </label>
-          <textarea
+          <Textarea
             id="mcp-srv-env"
             rows={3}
             placeholder="GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx"
             value={envRaw}
             onChange={(e) => setEnvRaw(e.target.value)}
-            className="w-full rounded border border-hairline bg-paper p-2 text-xs text-ink placeholder:text-dim/60 font-mono focus:border-ink/50 focus:outline-hidden resize-none"
+            className="resize-none font-mono"
           />
         </div>
 
         <div>
-          <label htmlFor="mcp-srv-timeout" className="block text-[11px] font-medium text-dim mb-1">
+          <label htmlFor="mcp-srv-timeout" className="block text-xs font-medium text-dim mb-1">
             Timeout de Invocación (ms)
           </label>
-          <input
-            id="mcp-srv-timeout"
-            type="number"
-            value={timeoutMs}
-            onChange={(e) => setTimeoutMs(e.target.value)}
-            className="w-32 rounded border border-hairline bg-paper px-2.5 py-1.5 text-xs text-ink placeholder:text-dim/60 font-mono focus:border-ink/50 focus:outline-hidden"
-          />
+          <div className="w-32">
+            <Input
+              id="mcp-srv-timeout"
+              type="number"
+              value={timeoutMs}
+              onChange={(e) => setTimeoutMs(e.target.value)}
+              className="font-mono"
+            />
+          </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-hairline">
-          <button
-            type="button"
+          <Button
+            size="md"
+            variant="ghost"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded px-3 py-1.5 text-xs text-faint hover:bg-raised hover:text-ink transition-colors"
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            disabled={isSubmitting}
-            className="rounded bg-ink px-4 py-1.5 text-xs font-semibold text-paper hover:opacity-90 transition-opacity disabled:opacity-50"
+            size="md"
+            variant="accent"
+            loading={isSubmitting}
           >
             {isSubmitting ? "Conectando..." : "Guardar y Conectar"}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

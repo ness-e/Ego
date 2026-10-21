@@ -6,13 +6,24 @@ import {
   ListBullets,
   CheckCircle,
 } from "@phosphor-icons/react";
-import { MetricsConsole } from "./MetricsConsole";
-import { PendingApprovals, PendingApprovalItem } from "./PendingApprovals";
-import { JournalView } from "./JournalView";
-import { ego as egoBridge } from "../../lib/ego";
-import type { DailySummaryPayload, DailyDecisionEntry, PendingApprovalInfo } from "../../lib/ego";
+import { MetricsConsole } from "./MetricsConsole.js";
+import { PendingApprovals, PendingApprovalItem } from "./PendingApprovals.js";
+import { JournalView } from "./JournalView.js";
+import { Button } from "../ui-kit/Button.js";
+import { Badge } from "../ui-kit/Badge.js";
+import { ego as egoBridge } from "../../lib/ego.js";
+import type { DailySummaryPayload, DailyDecisionEntry, PendingApprovalInfo } from "../../lib/ego.js";
 import { dailyReportTemplate } from "@ego/ui-runtime";
 import { getSharedCanvasBridge } from "../../lib/canvasBridgeSingleton.js";
+
+/**
+ * Cáscara canónica de superficie (misma que el Canvas y las vistas de
+ * dominio): superficie `bg-panel`, borde hairline, radio del sistema y
+ * elevación L1. Antes esta vista mezclaba superficies translúcidas y
+ * bordes crudos: de ahí la incoherencia que detectó la auditoría.
+ */
+const SURFACE =
+  "rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]";
 
 export interface DailyDashboardProps {
   onNavigateToCanvas: () => void;
@@ -404,7 +415,7 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
     return (
       <div className="flex h-full w-full items-center justify-center p-8">
         <div className="flex items-center gap-2 text-xs font-mono text-dim">
-          <div className="h-2 w-2 rounded-full bg-blue-500 animate-ping" />
+          <div className="h-2 w-2 rounded-full bg-brand animate-ping" />
           <span>Sintetizando estado operativo de la jornada...</span>
         </div>
       </div>
@@ -412,28 +423,34 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-2 max-w-6xl mx-auto pb-10">
+    // `@container`: el reparto en columnas del briefing lo decide el ancho
+    // REAL del panel, no el del viewport. Antes `lg:grid-cols-2` partía en
+    // dos columnas aunque el panel midiera 200 px (el workspace es una
+    // columna estrecha junto al chat), y la Consola de Consumo quedaba
+    // con 91 px: sus 4 tarjetas de KPI se esprimían hasta cortar las
+    // etiquetas a media palabra.
+    <div className="@container mx-auto flex max-w-6xl flex-col gap-5 p-2 pb-10">
       {/* T12: error honesto visible en vez de datos inventados. */}
       {dailyError && (
         <div
           role="alert"
-          className="rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 font-mono text-[11px] text-rose-300"
+          className="rounded-[var(--radius-card)] border border-error/30 bg-error/10 px-3 py-2 font-mono text-xs text-error"
         >
           {dailyError}
         </div>
       )}
       {/* 1. Header de Bienvenida & Ritual Matutino en Tarjeta Bento */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-hairline/80 bg-gradient-to-r from-blue-950/30 via-panel to-panel p-5 shadow-xs">
+      <div className={`${SURFACE} p-5`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-xs">
+            <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-card)] bg-raised text-brand border border-hairline">
               <Sun size={20} weight="bold" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-ink tracking-tight">
+              <h2 className="text-base font-semibold text-ink tracking-tight">
                 Briefing Diario · {summary?.date || "Jornada Actual"}
               </h2>
-              <span className="text-[11px] text-faint">
+              <span className="text-xs text-faint">
                 {isFirstLaunch
                   ? "Primer inicio de la jornada — Reconstrucción de contexto activa"
                   : "Sesión operativa en curso — Snapshots sincronizados con VantaDB"}
@@ -442,63 +459,68 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
+            {/* La flecha va DESPUÉS de la etiqueta a propósito: es una
+                señal de "continúa en…" (hacia el Canvas), no un icono
+                representativo de la acción. Por eso no usa la prop `icon`
+                (que dibuja un icono PRECEDENTE). */}
+            <Button
+              variant="accent"
+              size="md"
               onClick={handleSaveDailySnapshot}
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500 transition-colors cursor-pointer"
+              className="shrink-0 whitespace-nowrap"
             >
-              <span>Ir al Canvas</span>
+              Ir al Canvas
               <ArrowRight size={14} weight="bold" />
-            </button>
+            </Button>
           </div>
         </div>
 
-        {/* 2. Objetivos sugeridos para la jornada */}
-        <div className="mt-1 rounded-xl border border-hairline/70 bg-panel/80 p-3.5">
+        {/* 2. Objetivos sugeridos para la jornada — "well" hundido
+            (`bg-paper`) dentro de la tarjeta `bg-panel`. */}
+        <div className="mt-1 rounded-[var(--radius-card)] border border-hairline bg-paper p-3.5">
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2">
               <ListBullets size={15} className="text-dim" />
-              <span className="text-xs font-semibold text-ink uppercase tracking-wider">
+              <h3 className="text-sm font-semibold text-ink">
                 Priorización de Objetivos del Día
-              </span>
+              </h3>
             </div>
 
-            <button
+            <Button
+              variant="secondary"
+              size="md"
+              icon={<Sparkle size={13} className="text-brand" />}
               onClick={handleRefineGoalsWithAI}
               disabled={isRefiningGoals}
-              className="flex items-center gap-1.5 rounded-lg bg-raised px-2.5 py-1 text-[11px] font-medium text-ink border border-hairline hover:bg-panel transition-colors disabled:opacity-50 cursor-pointer"
               title="Gastar inferencia para sintetizar recomendaciones de alto nivel"
+              className="shrink-0 whitespace-nowrap"
             >
-              <Sparkle size={13} className="text-amber-400" />
               {isRefiningGoals ? "Refinando con IA..." : "Refinar con IA"}
-            </button>
+            </Button>
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2.5 @[480px]:grid-cols-2">
             {asSuggestedGoals(summary?.suggestedGoals).length === 0 && (
-              <p className="text-[11px] text-faint italic py-1">
+              <p className="text-xs text-faint italic py-1">
                 Sin objetivos sugeridos — el backend no devolvió metas (vacío honesto).
               </p>
             )}
             {asSuggestedGoals(summary?.suggestedGoals).map((goal) => (
               <div
                 key={goal.id}
-                className="flex items-start gap-2.5 rounded-lg border border-white/5 bg-raised/30 p-2.5 hover:border-white/10 hover:bg-raised/50 transition-colors"
+                className="flex items-start gap-2.5 rounded-[var(--radius-card)] border border-hairline bg-raised p-2.5 hover:border-strong transition-colors"
               >
                 <CheckCircle
                   size={16}
-                  className={goal.priority === "high" ? "text-amber-400 mt-0.5" : "text-dim mt-0.5"}
+                  className={goal.priority === "high" ? "text-brand mt-0.5" : "text-dim mt-0.5"}
                   weight={goal.priority === "high" ? "bold" : "regular"}
                 />
                 <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-ink truncate">{goal.title}</span>
-                    {goal.priority === "high" && (
-                      <span className="rounded bg-amber-500/10 px-1.5 py-0.2 text-[9px] font-bold uppercase text-amber-400 border border-amber-500/20">
-                        Alta
-                      </span>
-                    )}
+                    {goal.priority === "high" && <Badge tone="warn">Alta</Badge>}
                   </div>
-                  <span className="text-[10px] text-faint mt-0.5 leading-normal">{goal.reason}</span>
+                  <span className="text-xs text-faint mt-0.5 leading-normal">{goal.reason}</span>
                 </div>
               </div>
             ))}
@@ -506,20 +528,22 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
         </div>
       </div>
 
-      {/* 3. Grid de dos columnas principales */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      {/* 3. Grid de dos columnas principales. El corte a 2 columnas es de
+          CONTENEDOR (≥ 720 px): por debajo, el briefing se apila en una
+          sola columna para que cada bloque conserve un ancho legible. */}
+      <div className="grid grid-cols-1 gap-5 @[720px]:grid-cols-2">
         {/* Columna Izquierda: Decisiones Feed & Journal */}
         <div className="flex flex-col gap-4">
           {/* Feed de Decisiones Flat (sin box-in-box y con deduplicación visual) */}
-          <div className="flex flex-col gap-2 rounded-xl border border-white/5 bg-raised/30 p-4 shadow-xs">
-            <div className="flex items-center justify-between pb-2 border-b border-white/5">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-ink font-sans">
+          <div className={SURFACE}>
+            <div className="flex items-center justify-between pb-2 border-b border-hairline">
+              <h3 className="text-sm font-semibold text-ink">
                 Decisiones Acordadas Recientes ({decisions.length})
               </h3>
-              <span className="font-mono text-[10px] text-faint">gov/audit · Inmutable</span>
+              <span className="font-mono text-xs text-faint">gov/audit · Inmutable</span>
             </div>
 
-            <div className="divide-y divide-white/5 max-h-56 overflow-y-auto">
+            <div className="divide-y divide-hairline max-h-56 overflow-y-auto">
               {decisions.length === 0 ? (
                 <div className="text-xs text-faint italic p-3 text-center font-sans">
                   No se registran decisiones recientes en el proyecto actual.
@@ -528,26 +552,26 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
                 groupConsecutiveDecisions(decisions).map((d) => (
                   <div
                     key={d.id}
-                    className="flex items-center justify-between gap-2 py-2 px-1 text-xs hover:bg-white/[0.02] transition-colors"
+                    className="flex items-center justify-between gap-2 py-2 px-1 text-xs hover:bg-raised transition-colors"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[10px] text-dim shrink-0">
+                      <span className="font-mono text-xs text-dim shrink-0">
                         {new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
-                      <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-blue-400 shrink-0">
+                      <span className="rounded-md bg-raised px-1.5 py-0.5 font-mono text-xs text-dim shrink-0">
                         {d.subEgoId}
                       </span>
                       <span className="text-xs text-ink truncate font-sans font-medium">
                         {d.formattedTitle}
                       </span>
                       {d.count > 1 && (
-                        <span className="rounded-full bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.2 font-mono text-[9px] font-bold text-blue-300 shrink-0">
+                        <span className="rounded-full bg-raised border border-hairline px-1.5 py-0.5 font-mono text-xs font-bold text-dim shrink-0">
                           ×{d.count}
                         </span>
                       )}
                     </div>
                     {d.impact && (
-                      <span className="text-[10px] text-faint shrink-0 font-sans">
+                      <span className="text-xs text-faint shrink-0 font-sans">
                         {d.impact}
                       </span>
                     )}

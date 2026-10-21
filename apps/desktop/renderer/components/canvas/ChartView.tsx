@@ -50,7 +50,9 @@ export function computePieSlices(
       fraction,
       startAngle,
       endAngle,
-      color: PALETTE[idx % PALETTE.length] ?? PALETTE[0] ?? "#818cf8",
+      // El fallback también es un token: un hex suelto aquí rompería R1
+      // (design-system.md §1) y además congelaría la paleta fuera de tema.
+      color: PALETTE[idx % PALETTE.length] ?? "var(--color-chart-indigo, #818cf8)",
     };
   });
 }
@@ -76,16 +78,23 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
   const pieSlices = chartType === "pie" ? computePieSlices(data, xKey, yKeys) : [];
 
   return (
-    <div className="rounded-xl border border-hairline bg-panel p-4 shadow-xs select-text">
-      <div className="flex items-center justify-between pb-3 border-b border-hairline mb-3">
-        <h3 className="font-semibold text-sm text-ink">{title}</h3>
+    <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)] select-text">
+      <div className="mb-3 flex items-center justify-between border-b border-hairline pb-3">
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
         {legend && (
-          <div className="flex items-center gap-3 text-[11px] font-mono">
+          <div className="flex items-center gap-3 font-mono text-xs">
             {yKeys.map((key, idx) => (
               <div key={key} className="flex items-center gap-1.5">
                 <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: PALETTE[idx % PALETTE.length] }}
+                  className="h-2.5 w-2.5 rounded-full bg-[var(--legend-color)]"
+                  // El color de la leyenda es dinámico (paleta de charts por
+                  // serie): Tailwind no puede generar una clase para un valor
+                  // runtime. Se inyecta como variable CSS para que el `style`
+                  // siga siendo un token, no un color suelto.
+                  // design-lint: allow
+                  style={
+                    { "--legend-color": PALETTE[idx % PALETTE.length] } as React.CSSProperties
+                  }
                 />
                 <span className="text-dim">{key}</span>
               </div>
@@ -100,7 +109,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
             viewBox="0 0 200 200"
             role="img"
             aria-label={title}
-            className="w-full max-w-[260px] h-auto overflow-visible font-mono text-[10px]"
+            className="h-auto w-full max-w-[260px] overflow-visible font-mono text-xs"
           >
             {pieSlices.length === 0 ? (
               <text x={100} y={100} textAnchor="middle" className="fill-dim">
@@ -126,7 +135,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
         ) : (
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="w-full max-w-[500px] h-auto overflow-visible font-mono text-[10px]"
+          className="h-auto w-full max-w-[500px] overflow-visible font-mono text-xs"
         >
           {/* Ejes y líneas de fondo */}
           <line
@@ -183,7 +192,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
                     x={groupX + groupWidth / 2}
                     y={svgHeight - padding + 15}
                     textAnchor="middle"
-                    className="fill-dim text-[10px]"
+                    className="fill-dim text-xs"
                   >
                     <title>{String(d[xKey])}</title>
                     {String(d[xKey]).slice(0, 8)}
@@ -230,7 +239,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ props }) => {
                       cy={pt.y}
                       r="3.5"
                       fill={color}
-                      className="hover:r-5 transition-[r] cursor-pointer"
+                      className="cursor-pointer transition-[r] hover:r-5"
                     >
                       <title>{`${pt.label} - ${yKey}: ${pt.val}`}</title>
                     </circle>

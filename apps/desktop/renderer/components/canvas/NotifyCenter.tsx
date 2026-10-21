@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ego } from "../../lib/ego.js";
+import { Button } from "../ui-kit/Button.js";
 
 /**
  * CFG-13 — Notificaciones vía IPC existente (cero canales nuevos).
@@ -90,40 +91,45 @@ export const NotifyCenter: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-faint">
-          {notices.length === 0
-            ? "Sin avisos. Las alertas del sistema y de tareas aparecen aquí."
-            : `${notices.length} aviso(s) recientes.`}
-        </p>
-        <button
-          type="button"
-          onClick={() => void handleToggleOs()}
-          aria-pressed={osEnabled}
-          title={
-            permission === "unsupported"
-              ? "Notificaciones OS no disponibles en este entorno"
-              : `Permiso OS: ${permission}`
-          }
-          className="shrink-0 rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-dim transition-colors hover:text-ink"
-        >
-          {osEnabled ? "Avisos OS: sí" : "Avisos OS: no"}
-        </button>
+    <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
+      <h3 className="mb-3 border-b border-hairline pb-3 text-sm font-semibold text-ink">Avisos</h3>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-faint">
+            {notices.length === 0
+              ? "Sin avisos. Las alertas del sistema y de tareas aparecen aquí."
+              : `${notices.length} aviso(s) recientes.`}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => void handleToggleOs()}
+            aria-pressed={osEnabled}
+            title={
+              permission === "unsupported"
+                ? "Notificaciones OS no disponibles en este entorno"
+                : `Permiso OS: ${permission}`
+            }
+            className="shrink-0"
+          >
+            {osEnabled ? "Avisos OS: sí" : "Avisos OS: no"}
+          </Button>
+        </div>
+        {notices.length > 0 && (
+          <ul className="flex flex-col gap-1.5" role="status" aria-live="polite">
+            {notices.map((n) => (
+              <li
+                key={n.id}
+                className="rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-1.5"
+              >
+                <p className="font-mono text-xs text-faint">{n.title}</p>
+                <p className="mt-0.5 text-xs text-ink">{n.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {notices.length > 0 && (
-        <ul className="flex flex-col gap-1.5" role="status" aria-live="polite">
-          {notices.map((n) => (
-            <li
-              key={n.id}
-              className="rounded border border-hairline bg-paper px-2 py-1.5"
-            >
-              <p className="font-mono text-[10px] text-faint">{n.title}</p>
-              <p className="mt-0.5 text-[11px] text-ink">{n.body}</p>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 };

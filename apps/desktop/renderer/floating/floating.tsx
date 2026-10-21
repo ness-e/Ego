@@ -1,5 +1,6 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import { ArrowUpRight, SpeakerHigh, SpeakerSlash } from "@phosphor-icons/react";
 import { FloatingAvatar } from "./floating-avatar.js";
 import "./floating.css";
 import type { EgoFloatingBridge, FloatingStateSnapshot } from "../../src/preload";
@@ -88,12 +89,14 @@ const PREVIEW_QUESTION: QuestionData = {
   ],
 };
 
+/** Sub-Egos de la isla. `tone` es el SEMÁNTICO del color (lo traduce
+ *  `floating.css` a los tokens del sistema): la isla no declara hex. */
 const SUB_EGOS = [
-  { id: "researcher", name: "Investigador", role: "Discovery", color: "#34d399" },
-  { id: "architect", name: "Arquitecto", role: "Estructura", color: "#f59e0b" },
-  { id: "strategist", name: "Estratega", role: "Planificación", color: "#818cf8" },
-  { id: "analyst", name: "Analista", role: "Auditoría", color: "#f472b6" },
-];
+  { id: "researcher", name: "Investigador", role: "Discovery", tone: "success" },
+  { id: "architect", name: "Arquitecto", role: "Estructura", tone: "brand" },
+  { id: "strategist", name: "Estratega", role: "Planificación", tone: "indigo" },
+  { id: "analyst", name: "Analista", role: "Auditoría", tone: "violet" },
+] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -233,7 +236,9 @@ export function FloatingApp() {
         getFocus: () => {
           const s = stepsRef.current;
           if (s.steps.length === 0) return null;
-          return { id: "drop-queue", name: "Subidas", color: "#34D399", steps: s.steps, stepIndex: s.index };
+          // El color es una referencia al token del sistema, no un hex: la
+          // vista del overview se pinta con la paleta del design system.
+          return { id: "drop-queue", name: "Subidas", color: "var(--color-success)", steps: s.steps, stepIndex: s.index };
         },
         getOthers: () => [],
         onFocus: noop,
@@ -505,7 +510,8 @@ export function FloatingApp() {
               void readFloatingBridge()?.restoreMain?.();
             }}
           >
-            Abrir Ego ↗
+            Abrir Ego
+            <ArrowUpRight size={12} weight="bold" aria-hidden />
           </button>
           <button
             type="button"
@@ -529,7 +535,9 @@ export function FloatingApp() {
               id="avatar-stage"
               role="button"
               tabIndex={0}
-              style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
+              // El cursor lo decide la interactividad REAL (solo `compact`
+              // amplía la vista); el atributo lo traduce `floating.css`.
+              data-interactive={snapshot.attentionState === "compact"}
               onClick={() => {
                 if (snapshot.attentionState === "compact") {
                   void readFloatingBridge()?.toggleExpand?.("expanded");
@@ -611,7 +619,7 @@ export function FloatingApp() {
                 id="status-pill"
                 role="button"
                 tabIndex={0}
-                style={{ cursor: snapshot.attentionState === "compact" ? "pointer" : "default" }}
+                data-interactive={snapshot.attentionState === "compact"}
                 onClick={() => {
                   if (snapshot.attentionState === "compact") {
                     void readFloatingBridge()?.toggleExpand?.("expanded");
@@ -626,18 +634,15 @@ export function FloatingApp() {
                   }
                 }}
               >
+                {/* El tono del punto lo traduce `floating.css` a los tokens
+                    del sistema (éxito / ámbar de atención / error). */}
                 <span
                   className="ego-status-dot"
-                  style={{
-                    background:
-                      snapshot.attentionState === "hitl_approval" || snapshot.attentionState === "alert"
-                        ? "#f59e0b"
-                        : "#22c55e",
-                    boxShadow:
-                      snapshot.attentionState === "hitl_approval" || snapshot.attentionState === "alert"
-                        ? "0 0 8px #f59e0b"
-                        : "0 0 8px #22c55e",
-                  }}
+                  data-tone={
+                    snapshot.attentionState === "hitl_approval" || snapshot.attentionState === "alert"
+                      ? "warn"
+                      : "ok"
+                  }
                 />
                 {labelFor(snapshot.attentionState)}
               </div>
@@ -649,6 +654,7 @@ export function FloatingApp() {
                 onClick={toggleMute}
                 aria-pressed={snapshot.muted}
               >
+                {snapshot.muted ? <SpeakerSlash size={12} weight="bold" aria-hidden /> : <SpeakerHigh size={12} weight="bold" aria-hidden />}
                 {snapshot.muted ? "Silenciado" : "Sonido"}
               </button>
 
@@ -659,7 +665,8 @@ export function FloatingApp() {
                   void readFloatingBridge()?.restoreMain?.();
                 }}
               >
-                Abrir Ego ↗
+                Abrir Ego
+                <ArrowUpRight size={12} weight="bold" aria-hidden />
               </button>
             </div>
           </div>
@@ -678,10 +685,9 @@ export function FloatingApp() {
               title={`Abrir Sub-Ego ${sub.name}`}
             >
               <div className="ego-subego-pill-head">
-                <span
-                  className="ego-subego-dot"
-                  style={{ background: sub.color, boxShadow: `0 0 6px ${sub.color}` }}
-                />
+                {/* El color del Sub-Ego es un TONO, no un hex: `floating.css`
+                    lo traduce a los tokens del sistema. */}
+                <span className="ego-subego-dot" data-tone={sub.tone} />
                 <span className="ego-subego-name">{sub.name}</span>
               </div>
               <span className="ego-subego-desc">{sub.role}</span>

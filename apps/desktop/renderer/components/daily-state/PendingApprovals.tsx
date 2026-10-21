@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { ShieldCheck, Check, X, ShieldWarning } from "@phosphor-icons/react";
+import { Button } from "../ui-kit/Button.js";
+import { Badge } from "../ui-kit/Badge.js";
 
 export interface PendingApprovalItem {
   approvalId: string;
@@ -57,10 +59,10 @@ export function PendingApprovals({
 
   if (approvals.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-hairline bg-raised/20 p-6 text-center">
-        <ShieldCheck size={28} className="text-emerald-500 mb-1.5" />
+      <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-hairline bg-raised p-6 text-center">
+        <ShieldCheck size={28} className="text-success mb-1.5" />
         <span className="text-xs font-medium text-ink">Bandeja de Aprobaciones Despejada</span>
-        <span className="text-[11px] text-faint">
+        <span className="text-xs text-faint">
           No hay solicitudes de gobernanza humana (HITL) pendientes de autorización.
         </span>
       </div>
@@ -68,33 +70,37 @@ export function PendingApprovals({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-raised/30 p-4">
+    <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ShieldWarning size={16} className="text-amber-400" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-ink">
+          <ShieldWarning size={16} className="text-brand" />
+          <h3 className="text-sm font-semibold text-ink">
             Aprobaciones Pendientes ({approvals.length})
           </h3>
         </div>
 
         {/* Acciones en lote */}
         <div className="flex items-center gap-1.5">
-          <button
+          <Button
+            size="md"
+            variant="secondary"
+            icon={<Check size={12} />}
             onClick={handleApproveAllSafe}
             disabled={isBatchBusy}
-            className="flex items-center gap-1 rounded bg-raised px-2 py-0.5 text-[10px] font-medium text-ink border border-hairline hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors disabled:opacity-50"
+            className="whitespace-nowrap hover:bg-success/10 hover:text-success"
           >
-            <Check size={11} />
             Aprobar no críticas
-          </button>
-          <button
+          </Button>
+          <Button
+            size="md"
+            variant="secondary"
+            icon={<X size={12} />}
             onClick={handleRejectAll}
             disabled={isBatchBusy}
-            className="flex items-center gap-1 rounded bg-raised px-2 py-0.5 text-[10px] font-medium text-ink border border-hairline hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+            className="whitespace-nowrap hover:bg-error/10 hover:text-error"
           >
-            <X size={11} />
             Rechazar todas
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -107,52 +113,55 @@ export function PendingApprovals({
           return (
             <div
               key={appr.approvalId}
-              className="flex items-center justify-between gap-3 rounded border border-hairline bg-panel p-2.5 transition-colors"
+              className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-hairline bg-raised p-2.5 transition-colors"
             >
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`rounded px-1.5 py-0.2 text-[9px] font-semibold uppercase ${
-                      isCritical
-                        ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                        : isSensitive
-                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                        : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                    }`}
+                  {/* D3: el nivel de riesgo es una PÍLDORA de estado → la
+                      primitive `Badge` del kit (tono semántico), no un
+                      `<span>` con su propia caja y su propia paleta. */}
+                  <Badge
+                    tone={isCritical ? "risk" : isSensitive ? "warn" : "dim"}
+                    className="shrink-0 uppercase"
                   >
                     {appr.riskLevel}
-                  </span>
-                  <span className="font-mono text-xs font-medium text-ink truncate">
+                  </Badge>
+                  <span className="truncate font-mono text-xs font-medium text-ink">
                     {appr.toolName || appr.action}
                   </span>
                 </div>
                 {appr.details && (
-                  <span className="mt-1 font-mono text-[10px] text-faint truncate">
+                  <span className="mt-1 font-mono text-xs text-faint truncate">
                     {JSON.stringify(appr.details)}
                   </span>
                 )}
               </div>
 
-              {/* Botones individuales (WCAG 2.2 AA: nombre accesible + 24px) */}
+              {/* Botones individuales: son SÓLO-icono, luego el target táctil
+                  obligatorio es 44×44 (`size="icon"` del kit). Además llevan
+                  nombre accesible (`aria-label`) para lectores de pantalla. */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <button
+                <Button
+                  size="icon"
+                  variant="secondary"
                   onClick={() => handleResolve(appr.approvalId, true)}
                   disabled={isProcessing || isBatchBusy}
                   aria-label={`Aprobar ${appr.toolName || appr.action}`}
-                  className="flex items-center justify-center h-6 w-6 min-h-[24px] min-w-[24px] rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                   title="Aprobar ejecución"
+                  className="border-success/40 bg-success/10 text-success hover:bg-success/20"
                 >
-                  <Check size={12} weight="bold" />
-                </button>
-                <button
+                  <Check size={13} weight="bold" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="danger"
                   onClick={() => handleResolve(appr.approvalId, false)}
                   disabled={isProcessing || isBatchBusy}
                   aria-label={`Rechazar ${appr.toolName || appr.action}`}
-                  className="flex items-center justify-center h-6 w-6 min-h-[24px] min-w-[24px] rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
                   title="Rechazar ejecución"
                 >
-                  <X size={12} weight="bold" />
-                </button>
+                  <X size={13} weight="bold" />
+                </Button>
               </div>
             </div>
           );

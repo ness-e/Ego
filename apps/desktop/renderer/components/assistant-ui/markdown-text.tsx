@@ -172,7 +172,7 @@ function ExplainabilityAccordion({ content }: { content: string }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="my-2 rounded-lg border border-hairline bg-raised/50 text-xs">
+    <div className="my-2 rounded-[var(--radius-card)] border border-hairline bg-raised text-xs">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -189,7 +189,7 @@ function ExplainabilityAccordion({ content }: { content: string }) {
       </button>
 
       {isOpen && (
-        <div className="border-t border-hairline px-3 py-2.5 text-[11px] text-faint font-mono whitespace-pre-wrap leading-relaxed">
+        <div className="border-t border-hairline px-3 py-2.5 text-xs text-faint font-mono whitespace-pre-wrap leading-relaxed">
           {content}
         </div>
       )}
@@ -241,19 +241,19 @@ const CodeBlock = memo(
   };
 
   return (
-    <div className="my-2 rounded-lg border border-hairline bg-raised overflow-hidden text-xs">
-      <div className="flex items-center justify-between border-b border-hairline px-3 py-1 bg-panel text-[10px] text-faint font-mono">
+    <div className="my-2 rounded-[var(--radius-card)] border border-hairline bg-raised overflow-hidden text-xs">
+      <div className="flex items-center justify-between border-b border-hairline px-3 py-1 bg-panel text-xs text-faint font-mono">
         <span>{language || "code"}</span>
         <button
           type="button"
           onClick={handleCopy}
           className="flex items-center gap-1 text-faint hover:text-ink transition-colors"
         >
-          {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+          {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
           <span>{copied ? "Copiado" : "Copiar"}</span>
         </button>
       </div>
-      <div className="p-3 overflow-x-auto font-mono text-[11px] leading-relaxed">
+      <div className="p-3 overflow-x-auto font-mono text-xs leading-relaxed">
         {isTerminal ? (
           <AnsiText text={code} />
         ) : useShiki ? (
@@ -348,7 +348,7 @@ function MarkdownTextInner({
             return (
               <p
                 key={`text-${index}`}
-                className="m-0 whitespace-pre-wrap break-words text-[13px] leading-relaxed"
+                className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed"
               >
                 {block.content}
               </p>

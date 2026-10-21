@@ -12,6 +12,14 @@ import { VList } from "virtua";
  * que insertar/append no re-monte filas ni rompa el ancla de scroll.
  * Follow-on-append: si el usuario está al fondo (stick <64px), el contenedor
  * sigue al último ítem vía rAF; si subió, se preserva su posición y no salta.
+ *
+ * ## Estilos inline (R2) — excepción acotada y justificada
+ * Los 4 `style={{...}}` de este fichero son de virtualización: `maxHeight` es
+ * un valor DINÁMICO (prop del componente) y `content-visibility` /
+ * `contain-intrinsic-size` no son expresables en Tailwind (son la
+ * virtualización barata del navegador). Cada uno lleva su escape hatch
+ * `// design-lint: allow` en la línea inmediatamente anterior, que es lo que
+ * la puerta de calidad exige (`docs/design/design-system.md` §1).
  */
 export interface SmartListProps<T> {
   items: T[];
@@ -78,17 +86,11 @@ export function SmartList<T>({
     typeof window.ResizeObserver !== "undefined";
   if (!canVirtualize) {
     return (
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        aria-label={ariaLabel}
-        style={{ maxHeight, overflowY: "auto", overflowAnchor: "auto" }}
-      >
+      // design-lint: allow — `maxHeight` es dinámico (prop): ver cabecera.
+      <div style={{ maxHeight }} ref={scrollRef} onScroll={handleScroll} aria-label={ariaLabel} className="overflow-y-auto overflow-anchor-auto">
         {items.map((item, i) => (
-          <div
-            key={keyOf(item, i)}
-            style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${estimatedItemHeight}px` }}
-          >
+          // design-lint: allow — virtualización barata del navegador.
+          <div key={keyOf(item, i)} style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${estimatedItemHeight}px` }}>
             {renderItem(item, i)}
           </div>
         ))}
@@ -98,16 +100,11 @@ export function SmartList<T>({
   // Un único contenedor de scroll (VList). Sin wrapper con overflow anidado:
   // el doble scroll rompía el ancla y duplicaba mediciones de layout.
   return (
-    <VList
-      style={{ maxHeight }}
-      itemSize={estimatedItemHeight}
-      aria-label={ariaLabel}
-    >
+    // design-lint: allow — `maxHeight` es dinámico (prop): ver cabecera.
+    <VList style={{ maxHeight }} itemSize={estimatedItemHeight} aria-label={ariaLabel}>
       {items.map((item, i) => (
-        <div
-          key={keyOf(item, i)}
-          style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${estimatedItemHeight}px` }}
-        >
+        // design-lint: allow — virtualización barata del navegador.
+        <div key={keyOf(item, i)} style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${estimatedItemHeight}px` }}>
           {renderItem(item, i)}
         </div>
       ))}

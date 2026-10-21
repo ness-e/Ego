@@ -104,6 +104,12 @@ export function FloatingAvatar({
     motion,
     mode,
     preset,
+    // Rig de manos flotantes articuladas (5 dedos) del Robot Studio. El
+    // atributo `hands` es la vía que el motor expone para encenderlas: sin
+    // él el rig queda en modo `auto` (solo visible durante los 10 s que dura
+    // el temporizador de una interacción) y en la app nunca se ve.
+    // `always` → siempre visibles.
+    hands: "always",
     "pointer-follow": "false",
     sound: "false",
     "data-attention": attentionState,

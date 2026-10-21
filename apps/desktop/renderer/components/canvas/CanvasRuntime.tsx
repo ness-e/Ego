@@ -6,6 +6,7 @@ import { SquaresFour, Sparkle } from "@phosphor-icons/react";
 import { useCanvasBridge } from "../../hooks/useCanvasBridge";
 import { getSharedCanvasBridge } from "../../lib/canvasBridgeSingleton.js";
 import { ego } from "../../lib/ego";
+import { Button } from "../ui-kit/Button.js";
 
 export interface CanvasRuntimeProps {
   projectId?: string;
@@ -105,60 +106,50 @@ export const CanvasRuntime: React.FC<CanvasRuntimeProps> = ({
     return true;
   });
 
+  const FILTERS: ReadonlyArray<{ id: typeof activeFilter; label: string }> = [
+    { id: "all", label: "Todo" },
+    { id: "boards", label: "Tableros" },
+    { id: "code", label: "Código & Diffs" },
+    { id: "metrics", label: "Métricas" },
+  ];
+
   return (
-    <div className="flex flex-col h-full w-full gap-4 select-text">
+    <div className="flex h-full w-full flex-col gap-4 select-text">
       {/* Barra de control del Canvas */}
-      <div className="flex items-center justify-between pb-2 border-b border-hairline shrink-0">
+      <div className="flex shrink-0 items-center justify-between border-b border-hairline pb-2">
         <div className="flex items-center gap-2">
           <SquaresFour size={16} className="text-ink" />
-          <span className="font-semibold text-xs text-ink">Superficie Generativa</span>
-          <span className="text-[11px] text-faint">· Proyecto: {projectId}</span>
+          <span className="text-xs font-semibold text-ink">Superficie Generativa</span>
+          <span className="text-xs text-faint">· Proyecto: {projectId}</span>
         </div>
 
         {/* Filtros de vista */}
-        <div className="flex items-center gap-1 bg-panel border border-hairline rounded-lg p-0.5 text-xs">
-          <button
-            onClick={() => setActiveFilter("all")}
-            className={`px-2.5 py-0.5 rounded text-[11px] font-medium transition-colors ${
-              activeFilter === "all" ? "bg-raised text-ink font-semibold" : "text-dim hover:text-ink"
-            }`}
-          >
-            Todo
-          </button>
-          <button
-            onClick={() => setActiveFilter("boards")}
-            className={`px-2.5 py-0.5 rounded text-[11px] font-medium transition-colors ${
-              activeFilter === "boards" ? "bg-raised text-ink font-semibold" : "text-dim hover:text-ink"
-            }`}
-          >
-            Tableros
-          </button>
-          <button
-            onClick={() => setActiveFilter("code")}
-            className={`px-2.5 py-0.5 rounded text-[11px] font-medium transition-colors ${
-              activeFilter === "code" ? "bg-raised text-ink font-semibold" : "text-dim hover:text-ink"
-            }`}
-          >
-            Código & Diffs
-          </button>
-          <button
-            onClick={() => setActiveFilter("metrics")}
-            className={`px-2.5 py-0.5 rounded text-[11px] font-medium transition-colors ${
-              activeFilter === "metrics" ? "bg-raised text-ink font-semibold" : "text-dim hover:text-ink"
-            }`}
-          >
-            Métricas
-          </button>
+        <div className="flex items-center gap-1 rounded-[var(--radius-card)] border border-hairline bg-panel p-0.5 text-xs">
+          {FILTERS.map((f) => (
+            <Button
+              key={f.id}
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-pressed={activeFilter === f.id}
+              onClick={() => setActiveFilter(f.id)}
+              className={
+                activeFilter === f.id ? "bg-raised font-semibold text-ink" : "text-dim"
+              }
+            >
+              {f.label}
+            </Button>
+          ))}
         </div>
       </div>
 
       {/* Grid de componentes generativos */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+      <div className="flex-1 space-y-4 overflow-y-auto pr-1">
         {filteredComponents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center text-dim border border-dashed border-hairline rounded-2xl p-8">
-            <Sparkle size={24} className="text-dim mb-2" />
-            <h4 className="font-medium text-xs text-ink">Espacio de trabajo vacío</h4>
-            <p className="text-[11px] text-faint max-w-xs mt-1">
+          <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-hairline p-8 text-center text-dim">
+            <Sparkle size={24} className="mb-2 text-dim" />
+            <h4 className="text-sm font-medium text-ink">Espacio de trabajo vacío</h4>
+            <p className="mt-1 max-w-xs text-xs text-faint">
               Los Sub-Egos proyectarán tablas, diffs y artefactos estructurados aquí a medida que
               ejecuten tareas en el Chat.
             </p>

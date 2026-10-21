@@ -9,11 +9,12 @@ import {
   type McpServerInfo,
   type ToolSummaryInfo,
   type ScannedSkillInfo,
-} from "../../lib/ego";
+} from "../../lib/ego.js";
 import { Modal } from "../ui-kit/Modal.js";
-import { McpServerList } from "./McpServerList";
-import { ToolCatalogView } from "./ToolCatalogView";
-import { SkillsCatalogView } from "./SkillsCatalogView";
+import { Button } from "../ui-kit/Button.js";
+import { McpServerList } from "./McpServerList.js";
+import { ToolCatalogView } from "./ToolCatalogView.js";
+import { SkillsCatalogView } from "./SkillsCatalogView.js";
 
 interface McpManagerModalProps {
   isOpen: boolean;
@@ -23,8 +24,10 @@ interface McpManagerModalProps {
 
 /**
  * T07 (UI-04): sobre ui-kit `Modal` (Radix Dialog — trap de foco + Escape +
- * `role="dialog"` + `aria-modal` nativos). Las pestañas de vista llevan
- * `aria-pressed` (son conmutadores con texto visible, no tabs con panel).
+ * `role="dialog"` + `aria-modal` nativos). Las pestañas de vista usan
+ * `aria-pressed` (son conmutadores con texto visible, no tabs con panel) y
+ * se construyen con el `Button` del kit, que aporta los 9 estados y el
+ * anillo de foco visible.
  */
 export function McpManagerModal({
   isOpen,
@@ -84,23 +87,19 @@ export function McpManagerModal({
     label: string,
     count: number
   ) => (
-    <button
+    <Button
       key={id}
-      type="button"
+      size="md"
+      variant={activeTab === id ? "secondary" : "ghost"}
       onClick={() => setActiveTab(id)}
       aria-pressed={activeTab === id}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-colors ${
-        activeTab === id
-          ? "bg-raised text-ink font-medium"
-          : "text-faint hover:text-ink hover:bg-raised/40"
-      }`}
     >
       {icon}
       <span>{label}</span>
-      <span className="font-mono text-[10px] bg-paper px-1.5 py-0.2 rounded text-dim border border-hairline">
+      <span className="font-mono text-xs bg-raised px-1.5 py-0.5 rounded-md text-dim border border-hairline">
         {count}
       </span>
-    </button>
+    </Button>
   );
 
   return (
@@ -147,17 +146,14 @@ export function McpManagerModal({
 
       {/* Footer */}
       <div className="flex shrink-0 items-center justify-between border-t border-hairline pt-2 text-xs text-dim">
-        <div className="flex items-center gap-2 font-mono text-[10px]">
+        <div className="flex items-center gap-2 font-mono text-xs">
           <span>Local Sovereign Runtime</span>
           <span>·</span>
           <span>SafeConfigMutation (COUC-10)</span>
         </div>
-        <button
-          onClick={onClose}
-          className="rounded bg-ink px-3 py-1 text-xs font-semibold text-paper hover:opacity-90 transition-opacity"
-        >
+        <Button size="md" variant="primary" onClick={onClose}>
           Cerrar
-        </button>
+        </Button>
       </div>
     </Modal>
   );

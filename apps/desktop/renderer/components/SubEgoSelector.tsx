@@ -1,11 +1,33 @@
 // SubEgoSelector.tsx — Selector de Sub-Ego Activo con Mini-Avatar y Badge de Dominio (CHAR-08 / SUB-08)
 // Proporciona conmutación explícita de especialista y control visual de orador.
+//
+// ## Migración al design system (FASE 1)
+// El desplegable era 100 % ad-hoc: un `<button>` con `border-hairline` (borde
+// invisible, ≈1.1:1) que se cerraba con un `mousedown` global fuera del
+// contenedor. No había `FocusScope`, ni roles `menu`/`menuitem`, ni
+// navegación por teclado: era exactamente la deuda que
+// `docs/design/design-system.md` §8.2 tenía inventariada ("Dropdown /
+// outside-click — propia con motivo provisional → candidata a migración").
+//
+// Ahora usa el primitive `Menu` del kit (Radix DropdownMenu): teclado
+// (flechas, Inicio/Fin, Escape, type-ahead), roles ARIA, retorno del foco al
+// trigger y panel portaleado (nunca recortado por un ancestro con
+// `overflow: hidden`).
+//
+// ## Huecos de API del primitive (documentados, no inventados)
+// - `MenuItem.label` es texto plano: no admite la sub-línea de rol. El rol se
+//   muestra en el slot `shortcut` (texto informativo a la derecha, que es lo
+//   que ese slot documenta).
+// - El primitive no expone estado "seleccionado" (Radix usaría `RadioItem`):
+//   el especialista activo se marca con un check Phosphor en el slot `icon`.
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { CaretDown, Check } from "@phosphor-icons/react";
 import { CharacterBadge } from "./character/CharacterBadge.js";
 import { TraitRegistry } from "./character/traits/TraitRegistry.js";
 import { ego, type SubEgoDetailInfo } from "../lib/ego.js";
+import { Button } from "./ui-kit/Button.js";
+import { Menu, type MenuItem } from "./ui-kit/Menu.js";
 
 export interface SubEgoSelectorProps {
   activeSubEgoId: string;
@@ -14,15 +36,18 @@ export interface SubEgoSelectorProps {
   className?: string;
 }
 
+/** Recorta el rol para que no desborde el panel del menú (slot `shortcut`). */
+function clampRole(role: string, max = 22): string {
+  return role.length > max ? `${role.slice(0, max - 1)}…` : role;
+}
+
 export const SubEgoSelector: React.FC<SubEgoSelectorProps> = ({
   activeSubEgoId,
   onSelectSubEgo,
   disabled = false,
   className = "",
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [subEgos, setSubEgos] = useState<SubEgoDetailInfo[]>([]);
-  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Cargar lista viva de Sub-Egos de VantaDB
   useEffect(() => {
@@ -49,103 +74,66 @@ export const SubEgoSelector: React.FC<SubEgoSelectorProps> = ({
     };
   }, []);
 
-  // Cerrar dropdown al hacer clic fuera
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    if (isOpen) {
-      document.addEventListener("mousedown", handleOutsideClick);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, [isOpen]);
-
   const activePreset = TraitRegistry.getPreset(activeSubEgoId);
   const activeSubEgoObj = subEgos.find((s) => s.id === activeSubEgoId);
   const displayName = activeSubEgoObj?.name || (activeSubEgoId === "ego.nucleus" ? "Ego Core" : activePreset.name);
   const displayRole = activeSubEgoObj?.role || activePreset.domain;
 
+  // Avatar + check de "activo" en el slot `icon` del primitive.
+  const iconFor = (id: string) => (
+    <span className="flex items-center gap-1">
+      <CharacterBadge subEgoId={id} size={18} state="idle" />
+      {id === activeSubEgoId && <Check size={12} weight="bold" />}
+    </span>
+  );
+
+  const items: MenuItem[] = [
+    {
+      label: "Ego Core",
+      icon: iconFor("ego.nucleus"),
+      shortcut: "Coordinador general",
+      onSelect: () => onSelectSubEgo("ego.nucleus"),
+    },
+    ...subEgos
+      .filter((s) => s.id !== "ego.nucleus")
+      .map((sub) => ({
+        label: sub.name,
+        icon: iconFor(sub.id),
+        shortcut: clampRole(sub.role),
+        onSelect: () => onSelectSubEgo(sub.id),
+      })),
+  ];
+
   return (
-    <div ref={containerRef} className={`relative inline-block ${className}`}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 rounded-full border border-hairline bg-raised/70 px-2.5 py-1 text-xs text-ink hover:bg-raised transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
-        title={`Especialista activo: ${displayName} (${displayRole})`}
-      >
-        <CharacterBadge subEgoId={activeSubEgoId} size={18} state="idle" />
-        <span className="font-medium text-xs truncate max-w-[120px]">{displayName}</span>
-        <CaretDown size={11} className={`text-faint transition-transform ${isOpen ? "rotate-180" : ""}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 mt-1.5 w-60 rounded-xl border border-hairline bg-panel p-1.5 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-dim uppercase border-b border-hairline mb-1">
-            Especialistas Disponibles
-          </div>
-
-          <div className="max-h-64 overflow-y-auto space-y-0.5">
-            {/* 1. Opción Núcleo Coordinador */}
-            <button
-              type="button"
-              onClick={() => {
-                onSelectSubEgo("ego.nucleus");
-                setIsOpen(false);
-              }}
-              className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
-                activeSubEgoId === "ego.nucleus"
-                  ? "bg-raised font-semibold text-ink"
-                  : "text-faint hover:bg-raised/60 hover:text-ink"
-              }`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <CharacterBadge subEgoId="ego.nucleus" size={20} state="idle" />
-                <div className="truncate">
-                  <div className="text-xs text-ink">Ego Core</div>
-                  <div className="text-[10px] text-dim">Coordinador general</div>
-                </div>
-              </div>
-              {activeSubEgoId === "ego.nucleus" && <Check size={13} className="text-ink shrink-0" />}
-            </button>
-
-            {/* 2. Sub-Egos Registrados en VantaDB */}
-            {subEgos
-              .filter((s) => s.id !== "ego.nucleus")
-              .map((sub) => {
-                const isSelected = activeSubEgoId === sub.id;
-                return (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={() => {
-                      onSelectSubEgo(sub.id);
-                      setIsOpen(false);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
-                      isSelected
-                        ? "bg-raised font-semibold text-ink"
-                        : "text-faint hover:bg-raised/60 hover:text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <CharacterBadge subEgoId={sub.id} size={20} state="idle" />
-                      <div className="truncate">
-                        <div className="text-xs text-ink truncate">{sub.name}</div>
-                        <div className="text-[10px] text-dim truncate">{sub.role}</div>
-                      </div>
-                    </div>
-                    {isSelected && <Check size={13} className="text-ink shrink-0" />}
-                  </button>
-                );
-              })}
-          </div>
-        </div>
-      )}
+    <div className={`inline-block ${className}`}>
+      <Menu
+        ariaLabel="Especialistas disponibles"
+        align="start"
+        side="bottom"
+        contentClassName="w-64"
+        items={items}
+        trigger={
+          // `group` + `data-state` (Radix) permiten rotar el caret al abrir
+          // sin gestionar estado de apertura propio.
+          <Button
+            variant="secondary"
+            size="md"
+            disabled={disabled}
+            title={`Especialista activo: ${displayName} (${displayRole})`}
+            className="group max-w-[180px] rounded-full"
+          >
+            <span className="flex min-w-0 items-center gap-1.5">
+              <CharacterBadge subEgoId={activeSubEgoId} size={18} state="idle" />
+              <span className="min-w-0 truncate font-medium">{displayName}</span>
+              <CaretDown
+                size={11}
+                aria-hidden
+                className="shrink-0 text-faint transition-transform group-data-[state=open]:rotate-180"
+              />
+            </span>
+          </Button>
+        }
+      />
     </div>
   );
 };

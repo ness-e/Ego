@@ -14,11 +14,16 @@ import {
   PencilSimple,
   Trash,
 } from "@phosphor-icons/react";
-import { ego, SubEgoDetailInfo, DomainTemplateInfo } from "../lib/ego";
+import { ego } from "../lib/ego.js";
+import type { SubEgoDetailInfo, DomainTemplateInfo } from "../lib/ego.js";
 import { CharacterBadge } from "./character/CharacterBadge.js";
 import { WardrobeSelector } from "./character/wardrobe/WardrobeSelector.js";
 import { Modal } from "./ui-kit/Modal.js";
 import { Tabs } from "./ui-kit/Tabs.js";
+import { Button } from "./ui-kit/Button.js";
+import { Input } from "./ui-kit/Input.js";
+import { Textarea } from "./ui-kit/Textarea.js";
+import { Badge } from "./ui-kit/Badge.js";
 
 /** T06: los catch sin anotación ya son `unknown` en strict; centraliza el mensaje. */
 function toMessage(err: unknown, fallback: string): string {
@@ -290,84 +295,97 @@ export function SubEgosView() {
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) || templates[0];
 
   return (
-    <div className="flex flex-col gap-6 select-none">
+    // D9: la retícula se dimensiona por el ANCHO DEL CONTENEDOR (container
+    // query), no por el del viewport. La vista vive en el panel de
+    // Workspace, que es redimensionable: con `lg:grid-cols-3` (breakpoint de
+    // viewport) un panel de 560 px repartía 3 columnas de 175 px y la 3ª
+    // tarjeta se salía de su celda. `@lg:grid-cols-2` (512 px) da 2 columnas
+    // de 271 px y `@4xl:grid-cols-3` (896 px) sólo entra cuando hay sitio
+    // de verdad para 3.
+    <div className="@container flex select-none flex-col gap-6">
       {/* Cabecera del Panel */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-hairline pb-4">
+      <div className="flex flex-col gap-3 border-b border-hairline pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Cpu size={22} className="text-amber-400" />
-            <h1 className="text-lg font-bold tracking-tight text-ink">Roster & Fábrica de Sub-Egos</h1>
+            <Cpu size={22} className="text-brand" />
+            <h1 className="text-base font-bold tracking-tight text-ink">Roster &amp; Fábrica de Sub-Egos</h1>
           </div>
-          <p className="text-xs text-faint leading-relaxed mt-1">
+          <p className="mt-1 text-xs leading-relaxed text-faint">
             Especialistas cognitivos con memoria soberana en VantaDB (<span className="font-mono text-dim">egos/&lt;id&gt;/*</span>), gobernanza HITL y límites contables.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Selector de Filtro de Estado */}
-          <div className="flex items-center rounded border border-hairline bg-paper p-0.5 text-xs">
-            <button
+          <div className="flex items-center gap-0.5 rounded-[var(--radius-card)] border border-hairline bg-paper p-0.5 text-xs">
+            <Button
+              variant="ghost"
+              size="md"
+              aria-pressed={filterState === "all"}
               onClick={() => setFilterState("all")}
-              className={`rounded px-2 py-1 transition-colors ${
-                filterState === "all" ? "bg-raised text-ink font-semibold" : "text-faint hover:text-ink"
-              }`}
+              className={filterState === "all" ? "bg-raised font-semibold text-ink" : "text-faint"}
             >
               Todos ({subEgos.length})
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              aria-pressed={filterState === "active"}
               onClick={() => setFilterState("active")}
-              className={`rounded px-2 py-1 transition-colors ${
-                filterState === "active" ? "bg-raised text-emerald-400 font-semibold" : "text-faint hover:text-ink"
-              }`}
+              className={filterState === "active" ? "bg-raised font-semibold text-success" : "text-faint"}
             >
               Activos ({subEgos.filter((s) => s.state === "active").length})
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              aria-pressed={filterState === "paused"}
               onClick={() => setFilterState("paused")}
-              className={`rounded px-2 py-1 transition-colors ${
-                filterState === "paused" ? "bg-raised text-amber-400 font-semibold" : "text-faint hover:text-ink"
-              }`}
+              className={filterState === "paused" ? "bg-raised font-semibold text-warning" : "text-faint"}
             >
               Pausados ({subEgos.filter((s) => s.state === "paused").length})
-            </button>
+            </Button>
           </div>
 
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="md"
             onClick={() => setWardrobeSubEgoId("ego.nucleus")}
-            className="flex items-center gap-1.5 rounded border border-hairline bg-paper px-3 py-1.5 text-xs font-semibold text-ink hover:bg-raised transition-colors shadow-xs"
+            icon={<Sparkle size={14} className="text-brand" />}
           >
-            <Sparkle size={14} className="text-amber-400" />
             <span>Personalizar Avatar de Ego</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="primary"
+            size="md"
             onClick={() => {
               setModalError(null);
               setShowModal(true);
             }}
-            className="flex items-center gap-1.5 rounded bg-ink px-3 py-1.5 text-xs font-semibold text-paper shadow-sm transition-opacity hover:opacity-90"
+            icon={<Plus size={14} weight="bold" />}
           >
-            <Plus size={14} weight="bold" />
             <span>Crear Sub-Ego</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Banner de Feedback Global */}
       {feedback && (
-        <div className="flex items-center justify-between rounded border border-emerald-800/40 bg-emerald-950/40 p-2.5 text-xs text-emerald-300">
+        <div className="flex items-center justify-between gap-2 rounded-[var(--radius-card)] border border-success/30 bg-success/10 p-2 text-xs text-success">
           <div className="flex items-center gap-2">
-            <CheckCircle size={15} />
+            <CheckCircle size={15} className="shrink-0" />
             <span>{feedback}</span>
           </div>
-          <button
-            onClick={() => setFeedback(null)}
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label="Descartar aviso"
-            className="text-emerald-400 hover:text-white"
+            onClick={() => setFeedback(null)}
+            className="text-success hover:text-ink"
           >
             <X size={14} />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -377,13 +395,18 @@ export function SubEgosView() {
           <span>Cargando catálogo desde VantaDB (gov/sub_egos)...</span>
         </div>
       ) : filteredSubEgos.length === 0 ? (
-        <div className="flex h-36 flex-col items-center justify-center rounded-lg border border-dashed border-hairline p-6 text-center text-xs text-dim">
+        <div className="flex h-36 flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-hairline p-6 text-center text-xs text-dim">
           <Robot size={24} className="mb-2 text-faint" />
           <p className="font-medium text-ink">No hay Sub-Egos en esta categoría.</p>
-          <p className="text-faint mt-1">Crea un especialista nuevo desde plantillas oficiales o de forma personalizada.</p>
+          <p className="mt-1 text-faint">Crea un especialista nuevo desde plantillas oficiales o de forma personalizada.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        /* D9: retícula RESPONSIVE por CONTAINER QUERY (ver el `@container`
+           de la raíz): 1 columna por defecto, 2 a partir de 512 px de ancho
+           de panel y 3 a partir de 896 px. El interior de cada celda lleva
+           `min-w-0` + `truncate` para que NADA se desborde, por estrecho
+           que sea el panel. */
+        <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @4xl:grid-cols-3">
           {filteredSubEgos.map((se) => {
             const isNucleus = se.id === "ego.nucleus";
             const isActive = se.state === "active";
@@ -391,117 +414,147 @@ export function SubEgosView() {
             return (
               <div
                 key={se.id}
-                className="flex flex-col justify-between rounded-xl border border-hairline bg-panel p-4.5 transition-colors hover:border-ink/40 hover:shadow-md shadow-xs group"
+                className="group flex min-w-0 flex-col justify-between rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)] transition-colors hover:border-strong hover:shadow-[var(--ego-elevation-l2)]"
               >
-                <div>
-                  <div className="mb-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-2xl bg-[#0d0f17] border border-white/10 shadow-inner flex items-center justify-center shrink-0">
+                <div className="min-w-0">
+                  <div className="mb-2.5 flex items-center justify-between gap-2">
+                    {/* `min-w-0` en el grupo izquierdo: sin él, el avatar +
+                        nombre + badge no pueden encogerse y empujan hacia
+                        fuera el badge de estado (D9). */}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[var(--radius-card)] border border-hairline bg-raised shadow-[var(--ego-elevation-l1)]">
                         <CharacterBadge subEgoId={se.id} size={56} state="idle" animated={true} />
                       </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5">
-                          <h3 className="font-semibold text-ink text-xs leading-tight">{se.name}</h3>
-                          <span className="font-mono text-[9px] uppercase tracking-wider text-dim bg-raised px-1 py-0.2 rounded border border-hairline">
+                      <div className="flex min-w-0 flex-col">
+                        {/* `flex-wrap`: si el nombre largo no deja sitio al
+                            badge, el badge BAJA a la línea siguiente en vez de
+                            aplastarse contra 0 px. Con `truncate` en ambos,
+                            ningún texto se sale de la tarjeta (D9). */}
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <h3 className="min-w-0 truncate text-xs font-semibold leading-tight text-ink">{se.name}</h3>
+                          <Badge
+                            tone="dim"
+                            className="min-w-0 shrink uppercase"
+                            overflow={isNucleus ? "NÚCLEO" : "ESPECIALISTA"}
+                          >
                             {isNucleus ? "NÚCLEO" : "ESPECIALISTA"}
-                          </span>
+                          </Badge>
                         </div>
-                        <span className="font-mono text-[10px] text-dim">{se.id}</span>
+                        <span className="min-w-0 truncate font-mono text-xs text-dim">{se.id}</span>
                       </div>
                     </div>
+                    {/* Indicador de estado: punto + texto, NO un segundo
+                        `Badge`. La cabecera ya lleva el `Badge` de rol y, con
+                        dos chips, la columna de texto se quedaba en 82 px:
+                        el nombre y el id salían truncados. Además el `Badge`
+                        del kit pinta con paleta cruda (`emerald-950`/
+                        `amber-950`) mientras que aquí se usan los tokens
+                        semánticos (`success`/`warning`). Es el mismo
+                        indicador de punto que usa el roster del sidebar. */}
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold border ${
-                        isActive
-                          ? "bg-emerald-950/60 text-emerald-400 border-emerald-800/40"
-                          : "bg-amber-950/60 text-amber-400 border-amber-800/40"
+                      title={isActive ? "Sub-Ego activo" : "Sub-Ego pausado"}
+                      className={`flex shrink-0 items-center gap-1.5 text-xs font-medium ${
+                        isActive ? "text-success" : "text-warning"
                       }`}
                     >
-                      <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-amber-400"}`} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
                       {isActive ? "Activo" : "Pausado"}
                     </span>
                   </div>
 
-                  <p className="mb-1 font-mono text-[11px] text-dim font-medium">Rol: {se.role}</p>
-                  <p className="text-xs text-faint line-clamp-2 leading-relaxed">{se.description}</p>
+                  <p className="mb-1 font-mono text-xs font-medium text-dim">Rol: {se.role}</p>
+                  <p className="line-clamp-2 text-xs leading-relaxed text-faint">{se.description}</p>
 
                   {/* Herramientas y Presupuesto */}
-                  <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
+                  <div className="mt-3 flex flex-wrap gap-1.5">
                     {se.tools && se.tools.slice(0, 3).map((t) => (
-                      <span key={t} className="rounded bg-raised px-1.5 py-0.5 font-mono text-dim border border-hairline">
+                      <Badge key={t} tone="dim">
                         {t}
-                      </span>
+                      </Badge>
                     ))}
                     {se.tools && se.tools.length > 3 && (
-                      <span className="rounded bg-raised px-1.5 py-0.5 font-mono text-faint">
-                        +{se.tools.length - 3}
-                      </span>
+                      <Badge tone="dim">+{se.tools.length - 3}</Badge>
                     )}
                   </div>
 
                   {se.budget && (
-                    <div className="mt-2.5 flex items-center gap-1 text-[10px] font-mono text-dim">
-                      <CurrencyDollar size={12} className="text-amber-400" />
+                    <div className="mt-2.5 flex items-center gap-1 font-mono text-xs text-dim">
+                      <CurrencyDollar size={12} className="text-brand" />
                       <span>Límite diario: ${se.budget.maxDailyCostUsd ?? 2.0} USD</span>
-                      <span className="text-hairline">|</span>
+                      <span>|</span>
                       <span>{se.budget.maxTokensPerCall ?? 4000} tok/turno</span>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-hairline pt-3 text-[10px]">
-                  <span className="font-mono text-dim truncate max-w-[120px]">
+                {/* Pie de tarjeta: 4 acciones repetidas en cada tarjeta. Van a
+                    `size="md"` (32 px) porque la política de target size
+                    (WCAG 2.2) prohíbe cualquier control por debajo de 32 px
+                    (`test/Targets44.test.tsx`). `flex-wrap` deja que el grupo
+                    de acciones repose en 2 filas cuando la retícula de 3
+                    columnas aprieta, en vez de desbordar la tarjeta. */}
+                <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-hairline pt-3 text-xs">
+                  <span className="max-w-[120px] truncate font-mono text-dim">
                     egos/{se.id.replace(/^ego\./, "")}/*
                   </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
+                  <div className="flex min-w-0 flex-wrap items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="md"
                       onClick={() => setWardrobeSubEgoId(se.id)}
                       title="Personalizar Avatar de este Sub-Ego"
-                      className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-dim hover:bg-raised/80 hover:text-ink transition-colors border border-hairline"
+                      icon={<Sparkle size={12} className="text-brand" />}
                     >
-                      <Sparkle size={12} className="text-amber-400" />
                       <span>Personalizar Avatar</span>
-                    </button>
+                    </Button>
 
                     {!isNucleus && (
                       <>
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="md"
                           onClick={() => handleOpenEdit(se)}
                           title="Editar Sub-Ego"
-                          className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-dim hover:bg-raised/80 hover:text-ink transition-colors border border-hairline"
+                          icon={<PencilSimple size={12} />}
                         >
-                          <PencilSimple size={12} />
                           <span>Editar</span>
-                        </button>
+                        </Button>
 
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="md"
                           onClick={() => handleDeleteSubEgo(se)}
                           title="Eliminar Sub-Ego"
-                          className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition-colors border border-hairline"
+                          className="text-error hover:bg-error/10 hover:text-error"
+                          icon={<Trash size={12} />}
                         >
-                          <Trash size={12} />
                           <span>Eliminar</span>
-                        </button>
+                        </Button>
 
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="md"
                           onClick={() => handleToggleState(se)}
                           title={isActive ? "Pausar Sub-Ego" : "Activar Sub-Ego"}
-                          className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-dim hover:bg-raised/80 hover:text-ink transition-colors border border-hairline"
+                          icon={
+                            isActive ? (
+                              <Pause size={12} />
+                            ) : (
+                              <Play size={12} className="text-success" />
+                            )
+                          }
                         >
-                          {isActive ? <Pause size={12} /> : <Play size={12} className="text-emerald-400" />}
                           <span>{isActive ? "Pausar" : "Activar"}</span>
-                        </button>
+                        </Button>
                       </>
                     )}
 
                     {isNucleus && (
                       <span
                         title="Identidad protegida e inmutable del sistema"
-                        className="flex items-center gap-1 text-dim font-mono text-[9px]"
+                        className="flex items-center gap-1 font-mono text-xs text-dim"
                       >
-                        <ShieldCheck size={12} className="text-emerald-400" />
+                        <ShieldCheck size={12} className="text-success" />
                         Inmutable
                       </span>
                     )}
@@ -535,108 +588,109 @@ export function SubEgosView() {
                 label: "Plantillas de Dominio",
                 content: (
                   <div className="space-y-3">
-                  <p className="text-faint leading-relaxed">
-                    Instancia un Sub-Ego verificado con prompt de sistema, herramientas nativas y capacidades preconfiguradas por dominio.
-                  </p>
+                    <p className="leading-relaxed text-faint">
+                      Instancia un Sub-Ego verificado con prompt de sistema, herramientas nativas y capacidades preconfiguradas por dominio.
+                    </p>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {templates.map((tpl) => {
-                      const isSelected = selectedTemplateId === tpl.id;
-                      return (
-                        <button
-                          key={tpl.id || tpl.templateId}
-                          type="button"
-                          aria-pressed={isSelected}
-                          onClick={() => setSelectedTemplateId(tpl.id || tpl.templateId || "")}
-                          className={`flex flex-col text-left rounded-lg border p-3 transition-colors ${
-                            isSelected
-                              ? "border-ink bg-raised text-ink shadow-xs"
-                              : "border-hairline bg-paper text-faint hover:border-hairline/80 hover:text-ink"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <CharacterBadge subEgoId={tpl.id || tpl.templateId} size={20} state="idle" />
-                            <span className="font-semibold text-xs text-ink">{tpl.name}</span>
-                            <span className="ml-auto font-mono text-[9px] rounded bg-raised px-1 py-0.2 uppercase text-dim">
-                              {tpl.domain}
-                            </span>
-                          </div>
-                          <span className="font-mono text-[10px] text-dim">{tpl.role}</span>
-                          <p className="mt-1.5 text-[11px] text-faint line-clamp-2">{tpl.description}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {selectedTemplate && (
-                    <div className="rounded border border-hairline bg-paper p-3 space-y-2 mt-2">
-                      <div className="flex items-center justify-between font-medium text-ink">
-                        <span>Detalles de Plantilla: {selectedTemplate.name}</span>
-                        <span className="font-mono text-[10px] text-dim">
-                          Autonomía: {selectedTemplate.autonomy}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-faint leading-relaxed font-mono">
-                        {selectedTemplate.instructions}
-                      </p>
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {selectedTemplate.recommendedTools.map((t) => (
-                          <span key={t} className="rounded bg-raised px-1.5 py-0.5 font-mono text-[9px] text-dim">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
+                    {/* La tarjeta de plantilla se queda como `<button aria-pressed>`:
+                        el kit no tiene primitive de "botón-tarjeta" y el `Button`
+                        del kit no admite contenido en bloque (envuelve los hijos
+                        en un span), así que mantiene `<button>` con tokens. */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {templates.map((tpl) => {
+                        const isSelected = selectedTemplateId === tpl.id;
+                        return (
+                          <button
+                            key={tpl.id || tpl.templateId}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => setSelectedTemplateId(tpl.id || tpl.templateId || "")}
+                            className={`flex cursor-pointer flex-col rounded-[var(--radius-card)] border p-3 text-left transition-colors ${
+                              isSelected
+                                ? "border-brand bg-raised text-ink shadow-[var(--ego-elevation-l1)]"
+                                : "border-hairline bg-paper text-faint hover:border-strong hover:text-ink"
+                            }`}
+                          >
+                            <div className="mb-1 flex items-center gap-2">
+                              <CharacterBadge subEgoId={tpl.id || tpl.templateId} size={20} state="idle" />
+                              <span className="text-xs font-semibold text-ink">{tpl.name}</span>
+                              <Badge tone="dim" className="ml-auto uppercase">
+                                {tpl.domain}
+                              </Badge>
+                            </div>
+                            <span className="font-mono text-xs text-dim">{tpl.role}</span>
+                            <p className="mt-1.5 line-clamp-2 text-xs text-faint">{tpl.description}</p>
+                          </button>
+                        );
+                      })}
                     </div>
-                  )}
+
+                    {selectedTemplate && (
+                      <div className="mt-2 space-y-2 rounded-[var(--radius-card)] border border-hairline bg-paper p-3">
+                        <div className="flex items-center justify-between font-medium text-ink">
+                          <span>Detalles de Plantilla: {selectedTemplate.name}</span>
+                          <span className="font-mono text-xs text-dim">
+                            Autonomía: {selectedTemplate.autonomy}
+                          </span>
+                        </div>
+                        <p className="font-mono text-xs leading-relaxed text-faint">
+                          {selectedTemplate.instructions}
+                        </p>
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {selectedTemplate.recommendedTools.map((t) => (
+                            <Badge key={t} tone="dim">
+                              {t}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     </div>
                   ),
                 },
-                {
-                  value: "custom",
-                  label: "Formulario Personalizado",
-                  content: (
+              {
+                value: "custom",
+                label: "Formulario Personalizado",
+                content: (
                     <form id="customSubEgoForm" onSubmit={handleCreateCustom} className="space-y-3">
                   <div className="space-y-1">
                     <label htmlFor="custom-subeego-name" className="font-medium text-ink">Nombre del Especialista</label>
-                    <input
+                    <Input
                       id="custom-subeego-name"
                       required
                       value={customName}
                       onChange={(e) => setCustomName(e.target.value)}
                       placeholder="Ej. Ego Revisor de Arquitectura"
-                      className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-dim focus:outline-none"
                     />
                   </div>
 
                   <div className="space-y-1">
                     <label htmlFor="custom-subeego-role" className="font-medium text-ink">Rol Operativo</label>
-                    <input
+                    <Input
                       id="custom-subeego-role"
                       required
                       value={customRole}
                       onChange={(e) => setCustomRole(e.target.value)}
                       placeholder="Ej. Auditor de Calidad y Principios Innegociables"
-                      className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-dim focus:outline-none"
                     />
                   </div>
 
                   <div className="space-y-1">
                     <label htmlFor="custom-subeego-instructions" className="font-medium text-ink">Instrucciones del Sistema (System Prompt)</label>
-                    <textarea
+                    <Textarea
                       id="custom-subeego-instructions"
                       required
                       rows={5}
                       value={customInstructions}
                       onChange={(e) => setCustomInstructions(e.target.value)}
                       placeholder="Define directrices de razonamiento, tono analítico y restricciones duras..."
-                      className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-dim focus:outline-none"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div className="space-y-1">
                       <label htmlFor="custom-subeego-cost" className="font-medium text-ink">Límite Diario de Costo ($ USD)</label>
-                      <input
+                      <Input
                         id="custom-subeego-cost"
                         type="number"
                         step="0.5"
@@ -644,12 +698,12 @@ export function SubEgosView() {
                         max="50"
                         value={maxDailyCostUsd}
                         onChange={(e) => setMaxDailyCostUsd(e.target.value)}
-                        className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink font-mono focus:outline-none"
+                        className="font-mono"
                       />
                     </div>
                     <div className="space-y-1">
                       <label className="font-medium text-ink">Aislamiento de Memoria</label>
-                      <div className="rounded border border-hairline bg-raised p-2 font-mono text-[10px] text-dim">
+                      <div className="rounded-[var(--radius-card)] border border-hairline bg-raised p-2 font-mono text-xs text-dim">
                         egos/{customName ? customName.toLowerCase().replace(/[^a-z0-9]+/g, "-") : "&lt;id&gt;"}/*
                       </div>
                     </div>
@@ -657,89 +711,92 @@ export function SubEgosView() {
                 </form>
                   ),
                 },
-                {
-                  value: "declaration",
-                  label: "Declaración JSON / YAML",
-                  content: (
+              {
+                value: "declaration",
+                label: "Declaración JSON / YAML",
+                content: (
                     <form id="declSubEgoForm" onSubmit={handleCreateDeclaration} className="space-y-3">
                   <div className="flex items-center justify-between">
                     <label htmlFor="decl-subeego-raw" className="text-faint">Pega o edita el manifiesto declarativo:</label>
-                    <div className="flex rounded border border-hairline bg-paper p-0.5 text-[10px] font-mono">
-                      <button
-                        type="button"
+                    <div className="flex gap-0.5 rounded-[var(--radius-card)] border border-hairline bg-paper p-0.5">
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        aria-pressed={declarationFormat === "json"}
                         onClick={() => setDeclarationFormat("json")}
-                        className={`rounded px-2 py-0.5 ${
-                          declarationFormat === "json" ? "bg-raised text-ink font-bold" : "text-faint"
-                        }`}
+                        className={
+                          declarationFormat === "json" ? "bg-raised font-bold text-ink" : "text-faint"
+                        }
                       >
                         JSON
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        aria-pressed={declarationFormat === "yaml"}
                         onClick={() => setDeclarationFormat("yaml")}
-                        className={`rounded px-2 py-0.5 ${
-                          declarationFormat === "yaml" ? "bg-raised text-ink font-bold" : "text-faint"
-                        }`}
+                        className={
+                          declarationFormat === "yaml" ? "bg-raised font-bold text-ink" : "text-faint"
+                        }
                       >
                         YAML
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
-                  <textarea
+                  <Textarea
                     id="decl-subeego-raw"
                     rows={12}
                     value={declarationRaw}
                     onChange={(e) => setDeclarationRaw(e.target.value)}
-                    className="w-full rounded border border-hairline bg-paper p-3 text-xs text-ink font-mono leading-relaxed focus:outline-none"
+                    className="font-mono leading-relaxed"
                   />
                     </form>
                   ),
                 },
-              ]}
-            />
+            ]}
+          />
 
             {/* Footer Modal */}
             <div className="flex items-center justify-end gap-2 border-t border-hairline pt-3">
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="rounded px-3 py-1 text-xs text-faint hover:text-ink transition-colors"
-              >
+              <Button variant="ghost" size="md" onClick={() => setShowModal(false)}>
                 Cancelar
-              </button>
+              </Button>
 
               {creationTab === "template" && (
-                <button
-                  type="button"
-                  disabled={isSubmitting || !selectedTemplate}
+                <Button
+                  variant="primary"
+                  size="md"
+                  disabled={!selectedTemplate}
+                  loading={isSubmitting}
                   onClick={() => selectedTemplate && handleCreateFromTemplate(selectedTemplate.id || selectedTemplate.templateId || "")}
-                  className="rounded bg-ink px-4 py-1.5 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50 transition-opacity"
                 >
                   {isSubmitting ? "Instanciando..." : `Instanciar ${selectedTemplate?.name || "Plantilla"}`}
-                </button>
+                </Button>
               )}
 
               {creationTab === "custom" && (
-                <button
+                <Button
                   type="submit"
                   form="customSubEgoForm"
-                  disabled={isSubmitting}
-                  className="rounded bg-ink px-4 py-1.5 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  variant="primary"
+                  size="md"
+                  loading={isSubmitting}
                 >
                   {isSubmitting ? "Creando..." : "Crear Sub-Ego en VantaDB"}
-                </button>
+                </Button>
               )}
 
               {creationTab === "declaration" && (
-                <button
+                <Button
                   type="submit"
                   form="declSubEgoForm"
-                  disabled={isSubmitting}
-                  className="rounded bg-ink px-4 py-1.5 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  variant="primary"
+                  size="md"
+                  loading={isSubmitting}
                 >
                   {isSubmitting ? "Importando..." : "Validar e Importar"}
-                </button>
+                </Button>
               )}
             </div>
           </Modal>
@@ -783,64 +840,61 @@ export function SubEgosView() {
         >
           <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
             <div>
-              <label htmlFor="edit-name" className="block text-[11px] font-semibold text-dim mb-1">
+              <label htmlFor="edit-name" className="mb-1 block font-semibold text-dim">
                 Nombre del Sub-Ego
               </label>
-              <input
+              <Input
                 id="edit-name"
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 required
-                className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink focus:outline-none focus:border-ink"
               />
             </div>
 
             <div>
-              <label htmlFor="edit-role" className="block text-[11px] font-semibold text-dim mb-1">
+              <label htmlFor="edit-role" className="mb-1 block font-semibold text-dim">
                 Rol o Especialidad
               </label>
-              <input
+              <Input
                 id="edit-role"
                 type="text"
                 value={editRole}
                 onChange={(e) => setEditRole(e.target.value)}
                 required
-                className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink focus:outline-none focus:border-ink"
               />
             </div>
 
             <div>
-              <label htmlFor="edit-desc" className="block text-[11px] font-semibold text-dim mb-1">
+              <label htmlFor="edit-desc" className="mb-1 block font-semibold text-dim">
                 Descripción
               </label>
-              <input
+              <Input
                 id="edit-desc"
                 type="text"
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
-                className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink focus:outline-none focus:border-ink"
               />
             </div>
 
             <div>
-              <label htmlFor="edit-inst" className="block text-[11px] font-semibold text-dim mb-1">
+              <label htmlFor="edit-inst" className="mb-1 block font-semibold text-dim">
                 Instrucciones Operativas / Prompt del Sistema
               </label>
-              <textarea
+              <Textarea
                 id="edit-inst"
                 rows={4}
                 value={editInstructions}
                 onChange={(e) => setEditInstructions(e.target.value)}
-                className="w-full rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink font-mono focus:outline-none focus:border-ink"
+                className="font-mono"
               />
             </div>
 
             <div>
-              <label htmlFor="edit-cost" className="block text-[11px] font-semibold text-dim mb-1">
+              <label htmlFor="edit-cost" className="mb-1 block font-semibold text-dim">
                 Presupuesto Diario Máximo (USD)
               </label>
-              <input
+              <Input
                 id="edit-cost"
                 type="number"
                 step="0.5"
@@ -848,25 +902,17 @@ export function SubEgosView() {
                 max="50"
                 value={editMaxDailyCost}
                 onChange={(e) => setEditMaxDailyCost(e.target.value)}
-                className="w-32 rounded border border-hairline bg-paper px-3 py-1.5 text-xs text-ink font-mono focus:outline-none focus:border-ink"
+                className="w-32 font-mono"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-hairline pt-3 mt-4">
-              <button
-                type="button"
-                onClick={() => setEditingSubEgo(null)}
-                className="rounded px-3 py-1 text-xs text-faint hover:text-ink transition-colors"
-              >
+            <div className="mt-4 flex items-center justify-end gap-2 border-t border-hairline pt-3">
+              <Button variant="ghost" size="md" onClick={() => setEditingSubEgo(null)}>
                 Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded bg-ink px-4 py-1.5 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50 transition-opacity"
-              >
+              </Button>
+              <Button type="submit" variant="primary" size="md" loading={isSubmitting}>
                 {isSubmitting ? "Guardando..." : "Guardar Cambios"}
-              </button>
+              </Button>
             </div>
           </form>
         </Modal>

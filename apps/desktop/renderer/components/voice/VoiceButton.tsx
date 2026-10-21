@@ -1,10 +1,15 @@
 import type { VoiceCaptureState } from "./useVoice.js";
 import { VOICE_PRIVACY_NOTICE } from "./useVoice.js";
+import { Button } from "../ui-kit/Button.js";
 
 /**
  * VOICE-01 — Botón mic + notice de privacidad (presentación pura).
  * ≥44px, `aria-label` por estado, `aria-pressed` en recording.
  * Sin secretos, sin mic real: el dictado lo gobierna `useVoice`.
+ *
+ * FASE 1 (design system): el control es el `Button` del kit (`size="icon"`),
+ * con el mínimo táctil de 44 px declarado explícitamente porque lo verifica
+ * `test/voice-cfg.test.tsx` (`min-h-[44px]` / `min-w-[44px]`).
  */
 
 export interface VoiceButtonProps {
@@ -21,18 +26,20 @@ export function VoiceButton({ captureState, disabled, onToggleDictation }: Voice
       ? "Detener dictado"
       : "Dictar por voz";
   return (
-    <button
+    <Button
       type="button"
+      size="icon"
+      variant="secondary"
       onClick={onToggleDictation}
       disabled={disabled}
       aria-label={label}
       aria-pressed={recording}
       title={disabled ? "Voz deshabilitada (kill switch o sin soporte)" : "Dictar al composer (WebSpeech local)"}
       data-testid="composer-voice-button"
-      className="min-h-[44px] min-w-[44px] px-3 py-2.5 bg-panel border border-hairline rounded-card text-[15px] text-ink cursor-pointer transition-colors hover:bg-raised disabled:opacity-50 disabled:cursor-not-allowed"
+      className="min-h-[44px] min-w-[44px] text-base"
     >
       {recording ? "⏺" : "🎙"}
-    </button>
+    </Button>
   );
 }
 
@@ -41,7 +48,7 @@ export function VoicePrivacyNotice() {
     <p
       data-testid="voice-privacy-notice"
       role="note"
-      className="font-mono text-[11px] text-dim px-3 pt-1"
+      className="font-mono text-xs text-dim px-3 pt-1"
     >
       🎙 {VOICE_PRIVACY_NOTICE}
     </p>

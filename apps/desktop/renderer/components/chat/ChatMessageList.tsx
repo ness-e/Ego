@@ -108,6 +108,9 @@ function ChatMessageListInner({
             data-testid="chat-message-turn"
             data-message-id={messageId}
             data-role={role}
+            // `contentVisibility`/`containIntrinsicSize` son propiedades CSS de
+            // virtualización: no existen como utilidad Tailwind v4.3.3.
+            // design-lint: allow
             style={{
               contentVisibility: "auto",
               containIntrinsicSize: role === "user" ? "auto 96px" : "auto 140px",

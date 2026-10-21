@@ -2,6 +2,9 @@ import { useState, useMemo, useEffect, memo } from "react";
 import { MagnifyingGlass, Check, Sparkle, X, Cpu } from "@phosphor-icons/react";
 import { fuzzyRank } from "@ego/ui-runtime";
 import { Modal } from "./ui-kit/Modal.js";
+import { Input } from "./ui-kit/Input.js";
+import { Button } from "./ui-kit/Button.js";
+import { Badge } from "./ui-kit/Badge.js";
 import { ego, type CatalogProviderId } from "../lib/ego.js";
 
 export type ModelOptionProvider = "anthropic" | "openai" | "google" | "deepseek" | "local" | "mock" | "vantadb";
@@ -171,26 +174,27 @@ export const ModelPicker = memo(function ModelPicker({
       title="Selector de Modelos"
       description="Model Router · Multi-Provider · Esc para salir"
     >
-      {/* Buscador */}
-      <div className="flex items-center gap-2 border-b border-hairline px-1 pb-2.5">
-        <MagnifyingGlass size={15} className="text-faint shrink-0" aria-hidden />
-        <input
+      {/* Buscador: `Input` del kit (borde `border-strong` + anillo de marca).
+          Antes era un subrayado `border-b border-hairline`: el input más débil
+          de la app (≈1.1:1 de contraste, sin segundo indicador). */}
+      <div className="flex items-center gap-2">
+        <MagnifyingGlass size={15} className="shrink-0 text-faint" aria-hidden />
+        <Input
           type="text"
           aria-label="Buscar modelo por nombre, proveedor o capacidad"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar modelo o proveedor (ej: sonnet, 4o, local, 1M)…"
-          className="flex-1 bg-transparent text-xs text-ink placeholder:text-faint focus:outline-none"
         />
         {search && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label="Limpiar búsqueda de modelos"
             onClick={() => setSearch("")}
-            className="rounded p-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-faint hover:text-ink hover:bg-raised transition-colors"
           >
             <X size={14} />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -204,6 +208,8 @@ export const ModelPicker = memo(function ModelPicker({
           rankedModels.map(({ item }) => {
             const isSelected = item.id === activeModelId;
             return (
+              // Opción de listbox: el kit no tiene primitive listbox/option y
+              // el `<button role="option">` es lo que exige el patrón ARIA.
               <button
                 key={item.id}
                 type="button"
@@ -213,38 +219,35 @@ export const ModelPicker = memo(function ModelPicker({
                   onSelectModel(item);
                   onClose();
                 }}
-                className={`flex w-full items-start justify-between p-3 cursor-pointer transition-colors text-left ${
-                  isSelected ? "bg-raised/80" : "hover:bg-raised/40"
+                className={`flex w-full cursor-pointer items-start justify-between p-3 text-left transition-colors ${
+                  isSelected ? "bg-raised" : "hover:bg-raised"
                 }`}
               >
-                <div className="flex items-start gap-2.5 min-w-0 pr-2">
-                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded border border-hairline bg-panel text-faint">
+                <div className="flex min-w-0 items-start gap-2.5 pr-2">
+                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-hairline bg-panel text-faint">
                     {item.provider === "local" ? <Cpu size={13} /> : <Sparkle size={13} />}
                   </div>
 
-                  <div className="flex flex-col min-w-0">
+                  <div className="flex min-w-0 flex-col">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-ink truncate">{item.name}</span>
-                      <span className="rounded bg-panel px-1 py-0.2 text-[9px] font-mono text-faint border border-hairline uppercase">
+                      <span className="truncate font-semibold text-ink">{item.name}</span>
+                      <Badge tone="dim" className="uppercase">
                         {item.provider}
-                      </span>
-                      <span className="text-[10px] text-faint font-mono">
+                      </Badge>
+                      <span className="font-mono text-xs text-faint">
                         {item.contextWindow}
                       </span>
                     </div>
 
-                    <p className="mt-0.5 text-[11px] text-faint leading-snug line-clamp-2">
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-faint">
                       {item.description}
                     </p>
 
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {item.capabilities.map((cap) => (
-                        <span
-                          key={cap}
-                          className="rounded bg-raised/70 px-1.5 py-0.2 text-[9px] font-mono text-dim border border-hairline/60"
-                        >
+                        <Badge key={cap} tone="dim">
                           {cap}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   </div>

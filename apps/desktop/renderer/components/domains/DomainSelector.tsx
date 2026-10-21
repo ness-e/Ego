@@ -24,11 +24,11 @@ interface DomainSelectorProps {
 }
 
 const DOMAIN_ICONS: Record<string, React.ReactNode> = {
-  engineering: <Code size={16} weight="bold" className="text-cyan-400" />,
-  product: <Kanban size={16} weight="bold" className="text-amber-400" />,
-  knowledge: <BookOpen size={16} weight="bold" className="text-purple-400" />,
-  analytics: <ChartBar size={16} weight="bold" className="text-emerald-400" />,
-  crm: <Users size={16} weight="bold" className="text-rose-400" />,
+  engineering: <Code size={16} weight="bold" className="text-brand" />,
+  product: <Kanban size={16} weight="bold" className="text-warning" />,
+  knowledge: <BookOpen size={16} weight="bold" className="text-chart-violet" />,
+  analytics: <ChartBar size={16} weight="bold" className="text-success" />,
+  crm: <Users size={16} weight="bold" className="text-error" />,
 };
 
 /**
@@ -131,13 +131,19 @@ export const DomainSelector: React.FC<DomainSelectorProps> = ({
 
   return (
     <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
-      {/* Botón selector de dominio */}
+      {/* Botón selector de dominio.
+          NOTA: se mantiene como `<button>` nativo (no `Button` del kit) porque
+          este menu-button implementa el patrón WAI-APG con foco imperativo:
+          el `ref` del trigger y de cada opción es imprescindible para
+          devolver el foco al cerrar con Escape (WCAG 2.2 AA 2.4.11). El kit
+          `ui-kit/Button` no expone ese handle documentado, así que aquí se
+          replican sus clases canónicas en vez de inventar una API. */}
       <button
         ref={triggerRef}
         type="button"
         onClick={() => (isOpen ? close(false) : setIsOpen(true))}
         onKeyDown={onTriggerKeyDown}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-hairline bg-raised/80 hover:bg-raised text-sm font-medium text-ink transition-colors shadow-xs"
+        className="inline-flex min-h-8 items-center gap-2 rounded-[var(--radius-card)] border border-hairline bg-raised px-3 text-sm font-medium text-ink transition-colors hover:border-strong hover:bg-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-controls={menuId}
@@ -151,16 +157,16 @@ export const DomainSelector: React.FC<DomainSelectorProps> = ({
         <CaretDown size={14} className={`text-faint transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
-      {/* Menú desplegable */}
+      {/* Menú desplegable — un popover: elevación L2 (menú), no L1 (tarjeta). */}
       {isOpen && (
         <div
           id={menuId}
           role="menu"
           aria-label="Dominios funcionales"
           onKeyDown={onMenuKeyDown}
-          className="absolute left-0 mt-1 w-64 rounded-xl border border-hairline bg-raised backdrop-blur-md shadow-2xl z-50 py-1 focus:outline-hidden"
+          className="absolute left-0 mt-1 w-64 rounded-[var(--radius-card)] border border-hairline bg-panel backdrop-blur-md shadow-[var(--ego-elevation-l2)] z-50 py-1"
         >
-          <div className="px-3 py-1.5 border-b border-hairline text-[10px] font-semibold text-faint uppercase tracking-wider">
+          <div className="px-3 py-1.5 border-b border-hairline text-xs font-semibold text-faint uppercase tracking-wider">
             Dominios Funcionales (Fase 09)
           </div>
           {domains.map((dom, i) => {
@@ -176,7 +182,7 @@ export const DomainSelector: React.FC<DomainSelectorProps> = ({
                   onSelectDomain(dom.id);
                   close(true);
                 }}
-                className={`w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs transition-colors ${
+                className={`w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand ${
                   isSelected
                     ? "bg-raised text-ink font-medium"
                     : "text-faint hover:bg-raised hover:text-ink"
@@ -190,11 +196,11 @@ export const DomainSelector: React.FC<DomainSelectorProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="truncate">{dom.name}</span>
-                    <span className="text-[10px] text-faint font-mono">
+                    <span className="text-xs text-faint font-mono">
                       {dom.defaultSubEgoId}
                     </span>
                   </div>
-                  <p className="text-[11px] text-faint truncate mt-0.5">
+                  <p className="text-xs text-faint truncate mt-0.5">
                     {dom.description}
                   </p>
                 </div>

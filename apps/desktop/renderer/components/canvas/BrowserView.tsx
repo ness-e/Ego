@@ -4,6 +4,8 @@ import {
   blockReasonMessage,
   type BrowserBlockReason,
 } from "./workbench-guards.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
 
 /**
  * CFG-13 — Browser view solo-loopback (con guards navegación REV-02).
@@ -130,44 +132,37 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = "" }) => 
   };
 
   return (
-    <div className="flex h-full flex-col gap-2" data-browser-status={status}>
+    <div
+      className="flex h-full flex-col gap-3 rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]"
+      data-browser-status={status}
+    >
       <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2">
         <label htmlFor="cfg13-browser-url" className="sr-only">
           URL del dev-server (solo loopback)
         </label>
-        <input
-          id="cfg13-browser-url"
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="http://localhost:5173"
-          spellCheck={false}
-          autoComplete="off"
-          className="min-w-0 flex-1 rounded border border-hairline bg-raised px-2 py-1 font-mono text-[11px] text-ink focus:border-ink/50 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={!canLoad}
-          className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] font-medium text-ink transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <div className="min-w-0 flex-1">
+          <Input
+            id="cfg13-browser-url"
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="http://localhost:5173"
+            spellCheck={false}
+            autoComplete="off"
+            className="font-mono"
+          />
+        </div>
+        <Button type="submit" variant="primary" size="sm" disabled={!canLoad}>
           Cargar
-        </button>
+        </Button>
         {committed !== null && (
           <>
-            <button
-              type="button"
-              onClick={handleReload}
-              className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-dim transition-colors hover:text-ink"
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={handleReload}>
               Recargar
-            </button>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-dim transition-colors hover:text-ink"
-            >
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={handleClose}>
               Cerrar
-            </button>
+            </Button>
           </>
         )}
       </form>
@@ -176,7 +171,7 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = "" }) => 
         role="status"
         aria-live="polite"
         data-testid="browser-status"
-        className="shrink-0 text-[11px] text-faint"
+        className="shrink-0 text-xs text-faint"
       >
         {status === "empty" && "Sin URL: escribí un dev-server loopback (p. ej. http://localhost:5173)."}
         {status === "editing" && "URL loopback válida: lista para cargar."}
@@ -185,7 +180,7 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = "" }) => 
         )}
         {status === "loading" && "Cargando dev-server…"}
         {status === "ready" && (
-          <span className="font-mono text-[10px] text-dim">{committedAllowed}</span>
+          <span className="font-mono text-xs text-dim">{committedAllowed}</span>
         )}
         {status === "error" && "El iframe reportó un error de carga. Verificá que el dev-server esté corriendo."}
       </div>
@@ -198,19 +193,15 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = "" }) => 
           src={committedAllowed}
           sandbox="allow-scripts"
           referrerPolicy="no-referrer"
-          className="min-h-[320px] w-full flex-1 rounded border border-hairline bg-paper"
+          className="min-h-[320px] w-full flex-1 rounded-[var(--radius-card)] border border-hairline bg-paper"
         />
       )}
       {status === "error" && (
-        <div className="flex flex-col items-center gap-2 rounded border border-dashed border-hairline p-6 text-center">
-          <p className="text-[11px] text-faint">No se pudo cargar el contenido.</p>
-          <button
-            type="button"
-            onClick={handleReload}
-            className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] text-ink"
-          >
+        <div className="flex flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-hairline p-6 text-center">
+          <p className="text-xs text-faint">No se pudo cargar el contenido.</p>
+          <Button type="button" variant="secondary" size="sm" onClick={handleReload}>
             Reintentar
-          </button>
+          </Button>
         </div>
       )}
     </div>

@@ -26,6 +26,31 @@ export interface TabsProps {
   empty?: string;
   loading?: boolean;
   ariaLabel?: string;
+  /**
+   * Clases extra de la RAÍZ del componente (el `<div>` que envuelve la
+   * lista de pestañas y sus paneles).
+   *
+   * ## Por qué existe
+   * Antes el kit no ofrecía ningún punto de anclaje y quien necesitaba
+   * repartir el alto disponible tenía que acoplarse al DOM interno de Radix
+   * con selectores arbitrarios del tipo
+   * `[&>div>div>div[role=tabpanel]]:flex-1`. Con esta prop (y
+   * `contentClassName`) la cadena de layout se resuelve desde la API:
+   *
+   * ```tsx
+   * <Tabs className="min-h-0 flex-1" contentClassName="min-h-0 flex-1" … />
+   * ```
+   *
+   * La raíz del kit es una columna flex y la raíz de Radix que envuelve
+   * `tablist` + `tabpanel` también (ver `RadixTabs.Root` más abajo), así
+   * que el alto disponible se reparte sin selectores frágiles.
+   */
+  className?: string;
+  /**
+   * Clases extra del PANEL de la pestaña activa (el `div[role=tabpanel]`).
+   * Es el sitio donde el contenido crece (`flex-1 min-h-0`).
+   */
+  contentClassName?: string;
 }
 
 export function Tabs({
@@ -37,6 +62,8 @@ export function Tabs({
   empty,
   loading = false,
   ariaLabel = "Pestañas",
+  className,
+  contentClassName,
 }: TabsProps) {
   if (tabs.length === 0) {
     return (
@@ -46,11 +73,11 @@ export function Tabs({
     );
   }
   return (
-    <div className="flex flex-col gap-2">
+    <div className={cn("flex flex-col gap-2", className)}>
       {error && (
         <div
           role="alert"
-          className="flex items-center gap-2 rounded-[var(--radius-card)] border border-red-800/40 bg-red-950/40 px-3 py-1.5 text-[11px] text-red-300"
+          className="flex items-center gap-2 rounded-[var(--radius-card)] border border-error/40 bg-error/10 px-3 py-1.5 text-xs text-error"
         >
           <WarningCircle size={14} className="shrink-0" aria-hidden />
           <span>{error}</span>
@@ -60,6 +87,16 @@ export function Tabs({
         defaultValue={defaultValue ?? tabs[0]?.value}
         value={value}
         onValueChange={onValueChange}
+        // La raíz de Radix es una COLUMNA FLEX: es lo que permite que el
+        // `tabpanel` crezca con `contentClassName="flex-1"` cuando el
+        // contenedor tiene alto definido. Sin esto, el panel no hereda el
+        // alto del workspace y el consumidor tenía que forzar el layout
+        // con selectores arbitrarios sobre el DOM interno de Radix.
+        // `grow` (y no `flex-1`) evita colapsar la raíz cuando el
+        // contenedor NO tiene alto definido: `flex-1` implica
+        // `flex-basis: 0`, que en una columna de alto automático dejaría
+        // la raíz (y su contenido) sin altura.
+        className="flex grow min-h-0 flex-col"
       >
         <RadixTabs.List
           aria-label={ariaLabel}
@@ -88,7 +125,10 @@ export function Tabs({
           <RadixTabs.Content
             key={t.value}
             value={t.value}
-            className="min-h-0 focus-visible:outline-2 focus-visible:outline-brand"
+            className={cn(
+              "min-h-0 focus-visible:outline-2 focus-visible:outline-brand",
+              contentClassName,
+            )}
           >
             {t.content}
           </RadixTabs.Content>

@@ -68,6 +68,18 @@ const HITS_RAW = [
   },
 ];
 
+
+/**
+ * El objetivo tactil de 44 px se puede expresar con dos literales de Tailwind v4:
+ * `min-h-11` (= 2.75rem) o `min-h-[44px]`. El CONTRATO es el tamano, no la
+ * clase: se aceptan las dos formas para que migrar `min-h-[44px]` -> `min-h-11`
+ * (que es lo que hizo la ola 2026-10-20) no rompa la puerta.
+ */
+const expectMin44 = (el: Element | null, axis: "h" | "w") => {
+  const cls = el?.getAttribute("class") ?? "";
+  const ok = cls.includes(`min-${axis}-11`) || cls.includes(`min-${axis}-[44px]`);
+  expect(ok, `falta el min-${axis} de 44px en: ${cls}`).toBe(true);
+};
 describe("STAB-13: UX motion/Modal/composer/targets/omnibar", () => {
   afterEach(() => {
     cleanup();
@@ -81,8 +93,10 @@ describe("STAB-13: UX motion/Modal/composer/targets/omnibar", () => {
       '[role="dialog"] button[aria-label="Cerrar diálogo"]'
     ) as HTMLButtonElement;
     expect(close).not.toBeNull();
-    expect(close.className).toContain("min-h-[44px]");
-    expect(close.className).toContain("min-w-[44px]");
+    // `min-h-11` es 44 px en Tailwind v4 (spacing 0.25rem -> 2.75rem): el
+    // criterio es el TAMANO, no el literal de la clase.
+      expectMin44(close, "h");
+      expectMin44(close, "w");
     await user.keyboard("{Escape}");
     await waitFor(() => {
       expect(document.body.querySelector('[role="dialog"]')).toBeNull();
@@ -92,8 +106,8 @@ describe("STAB-13: UX motion/Modal/composer/targets/omnibar", () => {
   it("Composer: Enviar ≥44px + morph layoutId composer-action en fuente", async () => {
     render(<EgoChat />);
     const send = await screen.findByRole("button", { name: /enviar mensaje/i });
-    expect(send.className).toContain("min-h-[44px]");
-    expect(send.className).toContain("min-w-[44px]");
+    expectMin44(send, "h");
+    expectMin44(send, "w");
     const src = fs.readFileSync(HERE + "../components/ego-chat.tsx", "utf8");
     expect(src).toContain('layoutId="composer-action"');
     expect(src).toContain('<AnimatePresence mode="wait"');
@@ -113,7 +127,7 @@ describe("STAB-13: UX motion/Modal/composer/targets/omnibar", () => {
     render(<ApprovalCard request={mockRequest} onResolve={vi.fn()} />);
     for (const name of [/aprobar/i, /editar/i, /rechazar/i]) {
       const btn = screen.getByRole("button", { name });
-      expect(btn.className).toContain("min-h-[44px]");
+    expectMin44(btn, "h");
     }
   });
 
@@ -124,8 +138,8 @@ describe("STAB-13: UX motion/Modal/composer/targets/omnibar", () => {
     };
     bridge.emitApprovalRequest({ ...mockRequest, approvalId: "app-stab13-2" });
     const reviewBtn = await screen.findByText("Revisar");
-    expect((reviewBtn as HTMLElement).className).toContain("min-h-[44px]");
-    expect((reviewBtn as HTMLElement).className).toContain("min-w-[44px]");
+      expectMin44(reviewBtn as HTMLElement, "h");
+      expectMin44(reviewBtn as HTMLElement, "w");
   });
 
   it("Omnibar navegable: ↓↑ + activedescendant + aria-selected + Enter elige", async () => {

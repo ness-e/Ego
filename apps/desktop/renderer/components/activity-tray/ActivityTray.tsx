@@ -10,7 +10,9 @@ import {
   CaretDown,
   GitBranch,
 } from "@phosphor-icons/react";
-import { ego, type BackgroundTaskInfo } from "../../lib/ego";
+import { ego, type BackgroundTaskInfo } from "../../lib/ego.js";
+import { Button } from "../ui-kit/Button.js";
+import { Badge } from "../ui-kit/Badge.js";
 
 export interface TaskItem {
   id: string;
@@ -219,28 +221,31 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
   const latestRunning = activeTasks[0];
 
   const statusChips = (
-    <div className="flex items-center gap-1.5 shrink-0">
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-panel border border-hairline text-dim">
-        <GitBranch size={11} className="text-brand shrink-0" />
-        <span>{gitBranch}</span>
-      </span>
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-panel border border-hairline text-emerald-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-        <span>VantaDB LSM OK</span>
-      </span>
+    <div className="flex shrink-0 items-center gap-1.5">
+      {/* Los chips de estado son `Badge` del kit (primitiva de píldora): así
+          comparten radio, tipografía y los 9 estados con el resto de la app
+          en vez de ser `<span>` mauales con su propia caja. */}
+      <Badge tone="dim" className="font-mono">
+        <GitBranch size={11} className="shrink-0 text-brand" />
+        {gitBranch}
+      </Badge>
+      <Badge tone="ok" className="font-mono">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+        VantaDB LSM OK
+      </Badge>
     </div>
   );
 
   if (activeTasks.length === 0 && pausedTasks.length === 0 && !isExpanded) {
     return (
-      <footer className="flex h-6 shrink-0 items-center justify-between border-t border-hairline bg-raised px-3 text-[11px] text-faint">
+      <footer className="flex h-6 shrink-0 items-center justify-between border-t border-hairline bg-raised px-3 text-xs text-faint">
         <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
-          <span className="font-mono text-[10px]">Sistema en Reposo · 0 tareas en segundo plano</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-success" />
+          <span className="font-mono text-xs">Sistema en Reposo · 0 tareas en segundo plano</span>
         </div>
         <div className="flex items-center gap-2.5">
           {statusChips}
-          <span className="font-mono text-[10px] text-dim hidden sm:inline">Ego Background Engine</span>
+          <span className="font-mono text-xs text-dim hidden sm:inline">Ego Background Engine</span>
         </div>
       </footer>
     );
@@ -260,41 +265,46 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
               <span className="font-medium truncate max-w-[240px]">
                 {latestRunning.title}
               </span>
-              <span className="font-mono text-[10px] text-faint shrink-0">
+              <span className="font-mono text-xs text-faint shrink-0">
                 [{latestRunning.progress}%]
               </span>
               {latestRunning.progressMessage && (
-                <span className="text-[10px] text-dim truncate max-w-[280px]">
+                <span className="text-xs text-dim truncate max-w-[280px]">
                   · {latestRunning.progressMessage}
                 </span>
               )}
             </>
           ) : (
             <>
-              <Pause size={13} className="text-amber-500 shrink-0" />
+              <Pause size={13} className="text-brand shrink-0" />
               <span className="text-faint">{pausedTasks.length} tarea(s) pausada(s)</span>
             </>
           )}
 
           {activeTasks.length > 1 && (
-            <span className="rounded-full bg-panel px-1.5 py-0.2 font-mono text-[10px] text-dim border border-hairline">
+            <Badge tone="dim" className="shrink-0 font-mono">
               +{activeTasks.length - 1} más
-            </span>
+            </Badge>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           {statusChips}
+          {/* El trigger de la cola conserva el `<button>` nativo porque su
+              contrato de foco (Escape devuelve el foco al trigger, WCAG 2.2 AA
+              2.4.11) depende de un handle imperativo que el `Button` del kit
+              no expone. Sus clases replican las canónicas del kit. */}
           <button
             ref={toggleRef}
+            type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             aria-expanded={isExpanded}
             aria-controls="activity-tray-panel"
             aria-label={isExpanded ? "Ocultar cola de tareas" : "Ver cola de tareas"}
-            className="flex min-h-[44px] min-w-[44px] items-center gap-1 rounded px-2 py-1 text-[11px] text-dim hover:text-ink hover:bg-panel transition-colors"
+            className="flex min-h-11 min-w-11 items-center gap-1 rounded-[var(--radius-card)] px-2 text-xs text-faint transition-colors hover:bg-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand font-mono"
             title="Ver cola de tareas"
           >
-            <span className="font-mono">Cola ({tasks.length})</span>
+            <span>Cola ({tasks.length})</span>
             {isExpanded ? <CaretDown size={11} /> : <CaretUp size={11} />}
           </button>
         </div>
@@ -310,25 +320,25 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
           className="max-h-48 overflow-y-auto border-t border-hairline bg-panel p-2 space-y-1.5"
         >
           {tasks.length === 0 ? (
-            <p className="text-[11px] text-faint p-2">No hay tareas registradas.</p>
+            <p className="text-xs text-faint p-2">No hay tareas registradas.</p>
           ) : (
             tasks.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center justify-between rounded bg-raised p-2 text-xs border border-hairline"
+                className="flex items-center justify-between rounded-[var(--radius-card)] bg-raised p-2 text-xs border border-hairline"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   {task.status === "running" && (
                     <CircleNotch size={12} className="animate-spin text-ink shrink-0" />
                   )}
                   {task.status === "paused" && (
-                    <Pause size={12} className="text-amber-500 shrink-0" />
+                    <Pause size={12} className="text-brand shrink-0" />
                   )}
                   {task.status === "completed" && (
-                    <CheckCircle size={12} className="text-emerald-500 shrink-0" />
+                    <CheckCircle size={12} className="text-success shrink-0" />
                   )}
                   {task.status === "cancelled" && (
-                    <XCircle size={12} className="text-rose-500 shrink-0" />
+                    <XCircle size={12} className="text-error shrink-0" />
                   )}
                   {task.status === "queued" && (
                     <Gear size={12} className="text-dim shrink-0" />
@@ -336,44 +346,50 @@ export const ActivityTray: React.FC<ActivityTrayProps> = ({
                   <span className="font-medium truncate max-w-[280px]">
                     {task.title}
                   </span>
-                  <span className="font-mono text-[10px] text-dim shrink-0">
+                  <span className="font-mono text-xs text-dim shrink-0">
                     ({task.status})
                   </span>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="font-mono text-[10px] text-faint mr-2">
+                  <span className="font-mono text-xs text-faint mr-2">
                     {task.progress}%
                   </span>
                   {task.status === "running" && onPauseTask && (
-                    <button
+                    <Button
+                      size="icon"
+                      variant="ghost"
                       onClick={() => onPauseTask(task.id)}
                       aria-label={`Pausar tarea ${task.title}`}
-                      className="rounded p-1.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-dim hover:text-ink hover:bg-raised"
                       title="Pausar"
+                      className="text-dim hover:text-ink"
                     >
                       <Pause size={12} />
-                    </button>
+                    </Button>
                   )}
                   {task.status === "paused" && onResumeTask && (
-                    <button
+                    <Button
+                      size="icon"
+                      variant="ghost"
                       onClick={() => onResumeTask(task.id)}
                       aria-label={`Reanudar tarea ${task.title}`}
-                      className="rounded p-1.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-dim hover:text-ink hover:bg-raised"
                       title="Reanudar"
+                      className="text-dim hover:text-ink"
                     >
                       <Play size={12} />
-                    </button>
+                    </Button>
                   )}
                   {(task.status === "running" || task.status === "queued") && (
-                    <button
+                    <Button
+                      size="icon"
+                      variant="ghost"
                       onClick={() => handleCancel(task.id)}
                       aria-label={`Cancelar tarea ${task.title}`}
-                      className="rounded p-1.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-rose-500/80 hover:text-rose-500 hover:bg-raised"
                       title="Cancelar"
+                      className="text-error hover:bg-error/10 hover:text-error"
                     >
                       <XCircle size={12} />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

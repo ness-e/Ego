@@ -10,8 +10,12 @@ import {
   Clock,
   ArrowCounterClockwise
 } from "@phosphor-icons/react";
-import type { PendingApprovalInfo } from "../../lib/ego";
+import type { PendingApprovalInfo } from "../../lib/ego.js";
 import { DiffView } from "../canvas/DiffView.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
+import { Textarea } from "../ui-kit/Textarea.js";
+import { Badge } from "../ui-kit/Badge.js";
 
 export interface ApprovalCardProps {
   request: PendingApprovalInfo;
@@ -27,6 +31,12 @@ export interface ApprovalCardProps {
  *
  * Implementa la compuerta HERM-03 (ask-directive visual) y OCLW-08 (diff preview).
  * Permite al usuario aprobar, rechazar o editar parámetros antes de autorizar.
+ *
+ * FASE 1 (design system): los controles pasan por el kit `ui-kit` (Button /
+ * Input / Textarea / Badge) y toda la superficie usa los tokens canónicos
+ * (radio del sistema, elevación L1, escala tipográfica de 3 tamaños). El
+ * bloque de código usa la superficie `bg-paper` (token) en vez de negro
+ * translúcido.
  */
 export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -134,37 +144,36 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
   // Si ya fue resuelta, renderizar estado resuelto compacto
   if (resolvedStatus) {
     const wasApproved = resolvedStatus === "approved";
+    const surfaceClass = wasApproved
+      ? "border-success/30 bg-success/10 text-success"
+      : "border-hairline bg-raised text-faint";
     return (
       <div
-        className={`my-3 rounded-lg border p-3 text-xs flex items-center justify-between ${
-          wasApproved
-            ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-200"
-            : "border-hairline bg-raised/40 text-faint"
-        }`}
+        className={`my-3 rounded-[var(--radius-card)] border p-3 text-xs flex items-center justify-between ${surfaceClass}`}
       >
         <div className="flex items-center gap-2">
           {wasApproved ? (
-            <Check size={16} className="text-emerald-400 shrink-0" weight="bold" />
+            <Check size={16} className="text-success shrink-0" weight="bold" />
           ) : (
-            <X size={16} className="text-rose-400 shrink-0" weight="bold" />
+            <X size={16} className="text-error shrink-0" weight="bold" />
           )}
           <span>
             {wasApproved ? "Acción autorizada por el usuario:" : "Acción denegada por el usuario:"}{" "}
             <strong className="font-mono text-ink">{request.toolName}</strong>
           </span>
         </div>
-        <span className="font-mono text-[10px] text-dim">ID: {request.approvalId.slice(0, 14)}…</span>
+        <span className="font-mono text-xs text-dim">ID: {request.approvalId.slice(0, 14)}…</span>
       </div>
     );
   }
 
+  const cardClass = isDestructive
+    ? "border-error/40 bg-error/10 text-ink"
+    : "border-warning/40 bg-warning/10 text-ink";
+
   return (
     <div
-      className={`my-3 rounded-xl border p-4 shadow-lg transition-colors ${
-        isDestructive
-          ? "border-rose-500/40 bg-rose-950/40 text-rose-50 shadow-rose-950/20"
-          : "border-amber-500/40 bg-amber-950/40 text-amber-50 shadow-amber-950/20"
-      }`}
+      className={`my-3 rounded-[var(--radius-card)] border p-4 shadow-[var(--ego-elevation-l1)] transition-colors ${cardClass}`}
     >
       {/* Header con badge y metadatos */}
       <div className="flex items-center justify-between gap-2 border-b border-hairline pb-2.5 mb-3">
@@ -172,37 +181,29 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
           <ShieldWarning
             size={18}
             weight="fill"
-            className={isDestructive ? "text-rose-400 shrink-0" : "text-amber-400 shrink-0"}
+            className={isDestructive ? "text-error shrink-0" : "text-brand shrink-0"}
           />
           <div className="truncate">
             <span className="font-semibold text-xs text-ink">Autorización Requerida (HITL)</span>
             <span className="mx-1.5 text-dim">•</span>
-            <span className="font-mono text-[11px] text-ink">{request.toolName}</span>
+            <span className="font-mono text-xs text-ink">{request.toolName}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider border ${
-              isDestructive
-                ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
-                : "bg-amber-500/20 text-amber-300 border-amber-500/30"
-            }`}
-          >
-            {request.riskLevel}
-          </span>
+          <Badge tone={isDestructive ? "risk" : "warn"}>{request.riskLevel}</Badge>
         </div>
       </div>
 
       {/* Previsualización de Acción (Comandos o Diffs) */}
       <div className="space-y-2 mb-3.5">
         {terminalCommand && (
-          <div className="rounded-lg bg-black/60 border border-hairline p-2.5 font-mono text-xs text-emerald-400">
-            <div className="flex items-center gap-1.5 text-[10px] text-dim mb-1">
+          <div className="rounded-[var(--radius-card)] bg-paper border border-hairline p-2.5 font-mono text-xs text-success">
+            <div className="flex items-center gap-1.5 text-xs text-dim mb-1">
               <Terminal size={12} />
               <span>Comando a ejecutar en host:</span>
             </div>
-            <div className="overflow-x-auto whitespace-pre selection:bg-emerald-900">
+            <div className="overflow-x-auto whitespace-pre selection:bg-success/20">
               <span className="text-dim select-none mr-2">$</span>
               <span>{terminalCommand}</span>
             </div>
@@ -210,8 +211,8 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
         )}
 
         {filePath && (
-          <div className="rounded-lg bg-black/60 border border-hairline p-2.5 font-mono text-xs">
-            <div className="flex items-center gap-1.5 text-[10px] text-dim mb-1">
+          <div className="rounded-[var(--radius-card)] bg-paper border border-hairline p-2.5 font-mono text-xs">
+            <div className="flex items-center gap-1.5 text-xs text-dim mb-1">
               <FileText size={12} />
               <span>Archivo de destino:</span>
               <span className="text-ink truncate">{filePath}</span>
@@ -230,7 +231,7 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
                   />
                 </div>
               ) : (
-                <div className="mt-2 max-h-48 overflow-y-auto rounded bg-paper/80 p-2 text-[11px] text-ink border border-hairline whitespace-pre-wrap font-mono">
+                <div className="mt-2 max-h-48 overflow-y-auto rounded-[var(--radius-card)] bg-raised p-2 text-xs text-ink border border-hairline whitespace-pre-wrap font-mono">
                   {fileContent}
                 </div>
               ))}
@@ -238,9 +239,9 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
         )}
 
         {!terminalCommand && !filePath && (
-          <div className="rounded-lg bg-black/60 border border-hairline p-2.5 font-mono text-xs">
-            <div className="text-[10px] text-dim mb-1">Parámetros solicitados:</div>
-            <pre className="max-h-40 overflow-y-auto text-[11px] text-ink whitespace-pre-wrap">
+          <div className="rounded-[var(--radius-card)] bg-paper border border-hairline p-2.5 font-mono text-xs">
+            <div className="text-xs text-dim mb-1">Parámetros solicitados:</div>
+            <pre className="max-h-40 overflow-y-auto text-xs text-ink whitespace-pre-wrap">
               {JSON.stringify(request.arguments, null, 2)}
             </pre>
           </div>
@@ -249,91 +250,107 @@ export function ApprovalCard({ request, onResolve }: ApprovalCardProps) {
         {/* Editor de Parámetros Inline */}
         {isEditing && (
           <div className="mt-2 space-y-1">
-            <label className="block text-[11px] text-faint font-medium">
+            <label htmlFor="approval-args-editor" className="block text-xs text-faint font-medium">
               Editar parámetros JSON antes de autorizar:
             </label>
-            <textarea
+            <Textarea
+              id="approval-args-editor"
               value={editedArgsText}
               onChange={(e) => setEditedArgsText(e.target.value)}
               rows={4}
-              className="w-full rounded-md bg-paper border border-hairline p-2 font-mono text-xs text-ink focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="font-mono"
             />
-            {jsonError && <p className="text-[11px] text-rose-400 font-mono">{jsonError}</p>}
+            {jsonError && <p className="text-xs text-error font-mono">{jsonError}</p>}
           </div>
         )}
 
         {/* Input de motivo de rechazo opcional */}
         {showRejectInput && (
           <div className="mt-2">
-            <input
+            <label htmlFor="approval-reject-reason" className="sr-only">
+              Motivo del rechazo (opcional)
+            </label>
+            <Input
+              id="approval-reject-reason"
               type="text"
               placeholder="Motivo del rechazo (opcional)…"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              className="w-full rounded-md bg-paper border border-hairline px-2.5 py-1 text-xs text-ink placeholder:text-dim focus:outline-none"
             />
           </div>
         )}
 
         {/* Error de identidad R10b (visible siempre, no solo en edición) */}
         {digestError && (
-          <p className="mt-2 text-[11px] text-rose-400 font-mono">{digestError}</p>
+          <p className="mt-2 text-xs text-error font-mono">{digestError}</p>
         )}
       </div>
 
       {/* Footer con controles y ActionIdentity */}
       <div className="flex items-center justify-between gap-3 pt-1 border-t border-hairline">
-        <div className="flex items-center gap-1.5 text-[10px] font-mono text-dim truncate">
+        <div className="flex items-center gap-1.5 text-xs font-mono text-dim truncate">
           <Clock size={11} className="shrink-0" />
           <span className="truncate" title={request.action.inputDigest}>
             Digest: {request.action.inputDigest.slice(0, 10)}…
           </span>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Los tres controles HITL declaran explícitamente el target táctil
+              de 44 px (`min-h-[44px]`): es el contrato que verifica la puerta
+              STAB-13 (`test/Stab13UxMotion.test.tsx`). El icono va por la prop
+              `icon` del kit (hermano del `<span>` de contenido), así el
+              `gap-1.5` del base separa icono y etiqueta sin selectores
+              arbitrarios sobre el DOM interno del kit. */}
+          <Button
+            size="md"
+            variant="secondary"
+            icon={<PencilSimple size={12} />}
             onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-1 rounded bg-raised hover:bg-raised px-2 py-1 min-h-[44px] text-[11px] font-medium text-ink transition-colors"
+            className="min-h-[44px] whitespace-nowrap"
           >
-            <PencilSimple size={12} />
-            <span>{isEditing ? "Cancelar edición" : "Editar"}</span>
-          </button>
+            {isEditing ? "Cancelar edición" : "Editar"}
+          </Button>
 
           {!showRejectInput ? (
-            <button
-              type="button"
+            <Button
+              size="md"
+              variant="danger"
+              icon={<X size={12} weight="bold" />}
               onClick={() => setShowRejectInput(true)}
-              className="flex items-center gap-1 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/20 px-2.5 py-1 min-h-[44px] text-[11px] font-semibold text-rose-300 transition-colors"
+              className="min-h-[44px] whitespace-nowrap"
             >
-              <X size={12} weight="bold" />
-              <span>Rechazar</span>
-            </button>
+              Rechazar
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              size="md"
+              variant="danger"
+              icon={<X size={12} weight="bold" />}
               disabled={isSubmitting}
               onClick={handleReject}
-              className="flex items-center gap-1 rounded bg-rose-600 hover:bg-rose-500 px-2.5 py-1 min-h-[44px] text-[11px] font-semibold text-white transition-colors disabled:opacity-50"
+              className="min-h-[44px] whitespace-nowrap"
             >
-              <X size={12} weight="bold" />
-              <span>Confirmar Rechazo</span>
-            </button>
+              Confirmar Rechazo
+            </Button>
           )}
 
-          <button
-            type="button"
+          <Button
+            size="md"
+            variant="accent"
+            icon={
+              isSubmitting ? (
+                <ArrowCounterClockwise size={12} className="animate-spin" />
+              ) : (
+                <Check size={12} weight="bold" />
+              )
+            }
             disabled={isSubmitting}
             onClick={handleApprove}
-            className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1 min-h-[44px] text-[11px] font-semibold text-white shadow transition-colors disabled:opacity-50"
+            className="min-h-[44px] whitespace-nowrap"
           >
-            {isSubmitting ? (
-              <ArrowCounterClockwise size={12} className="animate-spin" />
-            ) : (
-              <Check size={12} weight="bold" />
-            )}
-            <span>Aprobar</span>
-          </button>
+            Aprobar
+          </Button>
         </div>
       </div>
     </div>

@@ -1,44 +1,81 @@
-// T14 (EGO-FIND-60): las paletas canónicas se declaran en OKLCH.
+// T14 (EGO-FIND-60/72) + owner 2026-10-20: las paletas canónicas en OKLCH.
 //
-// RED: antes de la migración, `theme-tokens.css` declara las 4 paletas en
-// HEX sRGB. OKLCH da percepción uniforme: la misma diferencia de `L`
-// produce el mismo salto de luminosidad en cualquier matiz, y la
-// cromancia es independiente de la luminosidad (mismo `C` = mismo color a
-// cualquier `L`). Sin esto, "elevar un nivel de superficie" cambia el
-// matiz perceived en las paletas frías y calurosas.
+// POR QUÉ este test lee el PROVIDER y no el CSS:
+// Antes (2026-10-20) las 4 paletas vivían en `theme-tokens.css` bajo
+// `[data-palette="…"]`, pero NINGÚN componente asignaba ese atributo: eran
+// código muerto. La paleta que realmente corría la aplicaba el
+// `DesignSystemProvider` con valores HEX distintos — dos fuentes de verdad,
+// una muerta, y el test validaba un fichero que no afectaba al producto.
 //
-// El contraste se calcula CONVERTIENDO el OKLCH de vuelta a sRGB y
-// aplicando la fórmula de luminancia relativa de WCAG 2.2: es un contrato
-// real (4.5:1 texto, 3:1 borde), no una heurística.
+// Ahora el provider es la fuente ÚNICA y este test lee ESE fichero: lo que
+// verifica es exactamente lo que la app pinta. El contraste se calcula
+// CONVERTIENDO el OKLCH de vuelta a sRGB y aplicando la fórmula de
+// luminancia relativa de WCAG 2.2: es un contrato real, no una heurística.
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-const TOKENS = join(process.cwd(), "src", "styles", "theme-tokens.css");
-const css = existsSync(TOKENS) ? readFileSync(TOKENS, "utf8") : "";
+const PROVIDER = join(
+  process.cwd(),
+  "components",
+  "canvas",
+  "DesignSystemProvider.tsx",
+);
+const providerSrc = existsSync(PROVIDER) ? readFileSync(PROVIDER, "utf8") : "";
 
-const PALETTES = [
-  "dark-graphite",
+const PRESET_KEYS = [
+  "default-dark",
   "midnight-cyan",
-  "warm-sepia",
-  "high-contrast",
+  "emerald-terminal",
+  "amber-warm",
 ];
 
-/** Extrae el valor de una variable CSS dentro de un bloque de paleta. */
-function paletteVars(palette: string): Record<string, string> {
-  const re = new RegExp(
-    `\\[data-palette="${palette}"\\][^{]*\\{([\\s\\S]*?)\\n\\}`,
-    "m"
-  );
-  const m = css.match(re);
+/** Tokens FIJOS del sistema (no derivan del preset) — ver DesignSystemProvider. */
+const FIXED_DIM = "#8a8a92"; // ≈5.8:1 sobre paper (AA texto)
+const FIXED_BORDER_STRONG = "#71717a"; // >= 3.2:1 sobre panel (UI)
+const FIXED_TEXT_ON_BRAND = "#0a0a0b"; // 9.2:1 sobre ámbar (AA texto)
+
+/** Extrae el bloque `colors: { … }` que sigue a un ancla en el fuente. */
+function colorsBlockAt(src: string, from: number): Record<string, string> {
+  const start = src.indexOf("colors:", from);
+  if (start === -1) return {};
+  const open = src.indexOf("{", start);
+  const close = src.indexOf("}", open);
+  if (open === -1 || close === -1) return {};
+  const body = src.slice(open + 1, close);
   const out: Record<string, string> = {};
-  if (!m || m[1] === undefined) return out;
-  for (const line of m[1].split(/\r?\n/)) {
-    const v = line.match(/^\s*(--[a-z0-9-]+)\s*:\s*(.+?);\s*$/i);
-    if (v && v[1] !== undefined && v[2] !== undefined) out[v[1]] = v[2].trim();
+  for (const line of body.split(/\r?\n/)) {
+    const m = line.match(/^\s*([a-zA-Z]+)\s*:\s*"([^"]+)"\s*,?\s*$/);
+    if (m && m[1] !== undefined && m[2] !== undefined) out[m[1]] = m[2];
   }
   return out;
 }
+
+/** Los 4 presets reales, leídos del provider (fuente única). */
+function readPresets(): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  // `default-dark` es `DEFAULT_DESIGN_TOKENS` (constante propia).
+  const defIdx = providerSrc.indexOf("export const DEFAULT_DESIGN_TOKENS");
+  if (defIdx !== -1) out["default-dark"] = colorsBlockAt(providerSrc, defIdx);
+  // El resto: bloques `  "<clave>": { id: …, colors: { … } }`.
+  const re =
+    /"([a-z0-9-]+)":\s*\{\s*\n\s*id:[\s\S]*?colors:\s*\{([\s\S]*?)\n\s*\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(providerSrc)) !== null) {
+    const key = m[1];
+    const body = m[2];
+    if (key === undefined || body === undefined) continue;
+    const vars: Record<string, string> = {};
+    for (const line of body.split(/\r?\n/)) {
+      const kv = line.match(/^\s*([a-zA-Z]+)\s*:\s*"([^"]+)"\s*,?\s*$/);
+      if (kv && kv[1] !== undefined && kv[2] !== undefined) vars[kv[1]] = kv[2];
+    }
+    if (Object.keys(vars).length > 0) out[key] = vars;
+  }
+  return out;
+}
+
+const PRESETS = readPresets();
 
 /** Parsea `oklch(L C H)`. */
 function parseOklch(value: string): { L: number; C: number; H: number } {
@@ -48,8 +85,8 @@ function parseOklch(value: string): { L: number; C: number; H: number } {
 }
 
 /** OKLCH → sRGB lineal (0..1, sin clampear). */
-function oklchToLinearRgb(v: string): [number, number, number] {
-  const { L, C, H } = parseOklch(v);
+function oklchToLinearRgb(value: string): [number, number, number] {
+  const { L, C, H } = parseOklch(value);
   const rad = (H * Math.PI) / 180;
   const a = C * Math.cos(rad);
   const b = C * Math.sin(rad);
@@ -66,13 +103,29 @@ function oklchToLinearRgb(v: string): [number, number, number] {
   ];
 }
 
-/** Luminancia relativa WCAG 2.2 a partir del sRGB lineal. */
-function relativeLuminance(value: string): number {
-  const [r, g, b] = oklchToLinearRgb(value);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+/** HEX sRGB → sRGB lineal. */
+function hexToLinearRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const toLin = (c: number): number => {
+    const v = c / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  return [
+    toLin(parseInt(h.slice(0, 2), 16)),
+    toLin(parseInt(h.slice(2, 4), 16)),
+    toLin(parseInt(h.slice(4, 6), 16)),
+  ];
 }
 
-/** Ratio de contraste WCAG 2.2 entre dos tokens OKLCH. */
+/** Luminancia relativa WCAG 2.2 (acepta OKLCH o HEX). */
+function relativeLuminance(value: string): number {
+  const rgb = value.startsWith("#")
+    ? hexToLinearRgb(value)
+    : oklchToLinearRgb(value);
+  return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+}
+
+/** Ratio de contraste WCAG 2.2 entre dos tokens (OKLCH o HEX). */
 function contrast(a: string, b: string): number {
   const la = relativeLuminance(a);
   const lb = relativeLuminance(b);
@@ -81,112 +134,116 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** L de un token (para la monotonía de la rampa). */
+/** L de un token OKLCH (monotonía de la rampa). */
 function lightness(token: string): number {
   return parseOklch(token).L;
 }
 
-describe("T14: tokens de color en OKLCH (percepción uniforme)", () => {
-  it("las 4 paletas canónicas están declaradas", () => {
-    for (const p of PALETTES) {
-      expect(css).toContain(`[data-palette="${p}"]`);
-    }
+describe("T14: los 4 presets reales se declaran en OKLCH (percepción uniforme)", () => {
+  it("el provider expone los 4 presets y el test los encuentra", () => {
+    expect(Object.keys(PRESETS).sort()).toEqual([...PRESET_KEYS].sort());
   });
 
-  it("ninguna paleta canónica usa HEX sRGB", () => {
-    for (const p of PALETTES) {
-      const vars = paletteVars(p);
-      expect(Object.keys(vars).length).toBeGreaterThan(0);
+  it("ningún color de preset usa HEX sRGB", () => {
+    for (const [preset, vars] of Object.entries(PRESETS)) {
       for (const [name, value] of Object.entries(vars)) {
         expect(
           value,
-          `${p} → ${name} debe estar en oklch(), no en hex`
+          `${preset} → ${name} debe estar en oklch(), no en hex`,
         ).toMatch(/^oklch\(/);
-        expect(value, `${p} → ${name} no debe usar hex`).not.toMatch(
-          /^#[0-9a-f]{3,8}$/i
+        expect(value, `${preset} → ${name} no debe usar hex`).not.toMatch(
+          /^#[0-9a-f]{3,8}$/i,
         );
       }
     }
   });
 
-  it("cada paleta mantiene su rampa de superficie en OKLCH con L monótona", () => {
-    for (const p of PALETTES) {
-      const v = paletteVars(p);
-      const bg = lightness(v["--ego-color-bg"]!);
-      const panel = lightness(v["--ego-color-panel"]!);
-      const raised = lightness(v["--ego-color-raised"]!);
-      const text = lightness(v["--ego-color-text"]!);
-      // Rampa de superficie: bg < panel < raised < text (monótona en L).
-      expect(panel, `${p}: panel debe ser más claro que bg`).toBeGreaterThan(bg);
-      expect(raised, `${p}: raised debe ser más claro que panel`).toBeGreaterThan(panel);
-      expect(text, `${p}: text debe ser más claro que raised`).toBeGreaterThan(raised);
+  it("cada preset mantiene su rampa de superficie con L monótona", () => {
+    for (const [preset, vars] of Object.entries(PRESETS)) {
+      const bg = lightness(vars["background"]!);
+      const panel = lightness(vars["panel"]!);
+      const raised = lightness(vars["raised"]!);
+      const text = lightness(vars["text"]!);
+      expect(panel, `${preset}: panel debe ser más claro que bg`).toBeGreaterThan(bg);
+      expect(
+        raised,
+        `${preset}: raised debe ser más claro que panel`,
+      ).toBeGreaterThan(panel);
+      expect(text, `${preset}: text debe ser más claro que raised`).toBeGreaterThan(
+        raised,
+      );
     }
   });
 
-  it("el texto conserva contraste AA (>= 4.5:1) contra la superficie", () => {
-    for (const p of PALETTES) {
-      const v = paletteVars(p);
-      const ratio = contrast(v["--ego-color-text"]!, v["--ego-color-bg"]!);
+  it("el texto conserva contraste AA (>= 4.5:1) contra las 3 superficies", () => {
+    for (const [preset, vars] of Object.entries(PRESETS)) {
+      for (const surface of ["background", "panel", "raised"] as const) {
+        const ratio = contrast(vars["text"]!, vars[surface]!);
+        expect(
+          ratio,
+          `${preset}: texto vs ${surface} = ${ratio.toFixed(2)}:1 (AA requiere >= 4.5:1)`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("el muted conserva >= 4.5:1 contra la superficie elevada", () => {
+    for (const [preset, vars] of Object.entries(PRESETS)) {
+      const ratio = contrast(vars["muted"]!, vars["raised"]!);
       expect(
         ratio,
-        `${p}: texto vs fondo = ${ratio.toFixed(2)}:1 (AA requiere >= 4.5:1)`
+        `${preset}: muted vs raised = ${ratio.toFixed(2)}:1 (AA requiere >= 4.5:1)`,
       ).toBeGreaterThanOrEqual(4.5);
     }
   });
 
-  it("el borde fuerte mantiene >= 3:1 de contraste no textual (WCAG 1.4.11)", () => {
-    for (const p of PALETTES) {
-      const v = paletteVars(p);
-      const ratio = contrast(
-        v["--ego-color-border-strong"]!,
-        v["--ego-color-bg"]!
-      );
-      expect(
-        ratio,
-        `${p}: borde fuerte vs fondo = ${ratio.toFixed(2)}:1 (UI requiere >= 3:1)`
-      ).toBeGreaterThanOrEqual(3);
-    }
-  });
-
-  it("EGO-FIND-71: el borde fuerte también alcanza 3:1 sobre la superficie elevada", () => {
-    // Este era el hueco de la paleta estática: `warm-sepia.raised` daba
-    // 2.14:1 con su propio `--ego-color-border-strong` (#78716c). Es el
-    // mismo contrato que exigen los presets del DesignSystemProvider.
-    for (const p of PALETTES) {
-      const v = paletteVars(p);
-      const ratio = contrast(
-        v["--ego-color-border-strong"]!,
-        v["--ego-color-raised"]!
-      );
-      expect(
-        ratio,
-        `${p}: borde fuerte vs raised = ${ratio.toFixed(2)}:1 (UI requiere >= 3:1)`
-      ).toBeGreaterThanOrEqual(3);
-    }
-  });
-
-  it("EGO-FIND-71: el dim fijo alcanza 4.5:1 sobre la superficie elevada", () => {
+  it("EGO-FIND-71: el dim fijo alcanza 4.5:1 sobre las 3 superficies", () => {
     // El dim del design system es FIJO (#8a8a92): las superficies de los
-    // presets se oscurecieron para que llegue a 4.5:1. La paleta estática
-    // debe cumplir el mismo contrato.
-    const DIM_FIJO = "oklch(0.657 0.014 286.1)"; // #8a8a92
-    for (const p of PALETTES) {
-      const v = paletteVars(p);
-      const ratio = contrast(DIM_FIJO, v["--ego-color-raised"]!);
-      expect(
-        ratio,
-        `${p}: dim fijo vs raised = ${ratio.toFixed(2)}:1 (texto requiere >= 4.5:1)`
-      ).toBeGreaterThanOrEqual(4.5);
+    // presets se resolvieron para que llegue a 4.5:1 (búsqueda numérica).
+    for (const [preset, vars] of Object.entries(PRESETS)) {
+      for (const surface of ["background", "panel", "raised"] as const) {
+        const ratio = contrast(FIXED_DIM, vars[surface]!);
+        expect(
+          ratio,
+          `${preset}: dim fijo vs ${surface} = ${ratio.toFixed(2)}:1 (texto requiere >= 4.5:1)`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 
-  it("el texto muted conserva >= 4.5:1 contra la superficie elevada", () => {
-    for (const p of PALETTES) {
-      const v = paletteVars(p);
-      const ratio = contrast(v["--ego-color-muted"]!, v["--ego-color-raised"]!);
+  it("el borde fuerte fijo mantiene >= 3:1 sobre las 3 superficies (WCAG 1.4.11)", () => {
+    for (const [preset, vars] of Object.entries(PRESETS)) {
+      for (const surface of ["background", "panel", "raised"] as const) {
+        const ratio = contrast(FIXED_BORDER_STRONG, vars[surface]!);
+        expect(
+          ratio,
+          `${preset}: borde fuerte vs ${surface} = ${ratio.toFixed(2)}:1 (UI requiere >= 3:1)`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it("el brand es usable como accent: >= 3:1 (UI) sobre fondo y panel", () => {
+    // Decisión owner 2026-10-20: el accent único de la app es el brand del
+    // preset, y el focus-ring ES el brand → un control nunca mezcla dos
+    // acentos (el bug anterior: borde cyan + foco ámbar).
+    for (const [preset, vars] of Object.entries(PRESETS)) {
+      for (const surface of ["background", "panel"] as const) {
+        const ratio = contrast(vars["brand"]!, vars[surface]!);
+        expect(
+          ratio,
+          `${preset}: brand vs ${surface} = ${ratio.toFixed(2)}:1 (UI requiere >= 3:1)`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it("el texto sobre brand alcanza AA (>= 4.5:1) en los 4 presets", () => {
+    for (const [preset, vars] of Object.entries(PRESETS)) {
+      const ratio = contrast(FIXED_TEXT_ON_BRAND, vars["brand"]!);
       expect(
         ratio,
-        `${p}: muted vs raised = ${ratio.toFixed(2)}:1 (AA requiere >= 4.5:1)`
+        `${preset}: text-on-brand vs brand = ${ratio.toFixed(2)}:1 (AA requiere >= 4.5:1)`,
       ).toBeGreaterThanOrEqual(4.5);
     }
   });

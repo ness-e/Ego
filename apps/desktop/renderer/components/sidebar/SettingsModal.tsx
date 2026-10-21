@@ -13,7 +13,29 @@ import {
 } from "@phosphor-icons/react";
 import { Modal } from "../ui-kit/Modal.js";
 import { Select } from "../ui-kit/Select.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
+import { Badge } from "../ui-kit/Badge.js";
 import { ego, type ModelConfigInfo, type StorageInfoResult, type GovPoliciesResult } from "../../lib/ego.js";
+
+/**
+ * El `Button` del kit envuelve los hijos en un `<span>` interno
+ * (`inline-flex min-w-0 items-center gap-1.5`).
+ *
+ * - El icono va por la prop `icon`: se renderiza como hermano ANTERIOR a
+ *   ese span, así que el `gap-1.5` del base separa icono y etiqueta sin
+ *   acoplar el consumidor al DOM interno del kit (nada de `[&>span]:flex`).
+ * - `BTN_LABEL_FULL` queda sólo para lo que de verdad necesita que el
+ *   contenido ocupe TODO el ancho: una etiqueta larga con `truncate`
+ *   necesita un ancho ACOTADO para que aparezca la elipsis. `inline-flex`
+ *   se ajusta al contenido (sin acotar → sin elipsis); `w-full` sí acota.
+ *   El selector apunta al span de CONTENIDO (el único sin `aria-hidden`):
+ *   con la prop `icon` el botón tiene DOS spans directos —el de icono
+ *   (`aria-hidden`) y el de contenido— y un `:last-child` o un `>span`
+ *   sin distinguir aplicaría al icono y empotraría la etiqueta fuera del
+ *   botón.
+ */
+const BTN_LABEL_FULL = "[&>span:not([aria-hidden])]:w-full";
 
 export interface SettingsModalProps {
   open: boolean;
@@ -274,6 +296,46 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     { id: "gov", label: "Gobernanza y HITL", icon: ShieldCheck },
   ];
 
+  /**
+   * Interruptor (switch) del panel: el `Button` del kit es el objetivo
+   * táctil de 44×44 TRANSPARENTE y la "pista" visible (24×44) va dentro,
+   * para que el área pulsable cumpla el mínimo sin engordar el control.
+   * El knob usa `bg-ink` (claro sobre superficie oscura) y la pista
+   * `bg-brand` encendida.
+   *
+   * D17: la pista apagada usaba `bg-strong`, que es el token de BORDE
+   * interactivo (`--color-strong` = #71717a) — un borde pintado como si
+   * fuera una superficie. Ahora usa `bg-panel` (como el `Switch` del kit)
+   * más un `border-hairline`, que es lo que hace legible una pista
+   * apagada sobre la tarjeta `bg-raised`.
+   */
+  const renderSwitch = (
+    checked: boolean,
+    onToggle: () => void,
+    label: string,
+  ) => (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={onToggle}
+      aria-pressed={checked}
+      aria-label={label}
+      className="shrink-0 rounded-full hover:bg-transparent"
+    >
+      <span
+        className={`flex h-6 w-11 items-center rounded-full border border-hairline p-0.5 transition-colors ${
+          checked ? "bg-brand" : "bg-panel"
+        }`}
+      >
+        <span
+          className={`h-5 w-5 rounded-full bg-ink shadow-[var(--ego-elevation-l1)] transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </span>
+    </Button>
+  );
+
   return (
     <Modal
       open={open}
@@ -284,27 +346,29 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     >
       <div className="flex h-[72vh] min-h-[480px] max-h-[720px] divide-x divide-hairline">
         {/* Barra Lateral Izquierda con Iconos */}
-        <div className="w-56 shrink-0 bg-panel/60 p-3 space-y-1">
+        <div className="w-56 shrink-0 bg-paper p-3 space-y-1">
           <div className="px-2.5 py-1.5 mb-1">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-dim">Preferencias</span>
+            <span className="font-mono text-xs uppercase tracking-wider text-dim">Preferencias</span>
           </div>
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
-              <button
+              <Button
                 key={item.id}
-                type="button"
+                variant="ghost"
+                size="md"
                 onClick={() => setActiveTab(item.id)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                aria-current={isActive ? "page" : undefined}
+                className={`${BTN_LABEL_FULL} w-full justify-start rounded-[var(--radius-card)] ${
                   isActive
-                    ? "bg-white/10 text-white shadow-xs font-semibold"
-                    : "text-dim hover:text-ink hover:bg-white/5"
+                    ? "bg-raised text-ink font-semibold"
+                    : "text-dim hover:bg-raised hover:text-ink"
                 }`}
+                icon={<Icon size={16} className={isActive ? "text-brand" : "text-dim"} />}
               >
-                <Icon size={16} className={isActive ? "text-brand" : "text-dim"} />
                 <span className="truncate">{item.label}</span>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -323,11 +387,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </div>
 
               {/* Tarjeta de Proveedor y Modelo */}
-              <div className="rounded-2xl border border-hairline bg-raised/40 p-4 space-y-4 divide-y divide-hairline">
+              <div className="rounded-[var(--radius-card)] border border-hairline bg-raised p-4 space-y-4 divide-y divide-hairline">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                   <div>
                     <label className="text-xs font-semibold text-ink">Proveedor Activo</label>
-                    <p className="text-[11px] text-dim">Selecciona el motor de inferencia principal</p>
+                    <p className="text-xs text-dim">Selecciona el motor de inferencia principal</p>
                   </div>
                   <Select
                     ariaLabel="Proveedor activo"
@@ -338,13 +402,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         activeProvider: val as ModelConfigInfo["activeProvider"],
                       }))
                     }
+                    // D12: etiqueta CORTA. El nombre largo ("OpenAI (GPT-4o /
+                    // GPT-4o-mini)") se partía en varias líneas dentro del
+                    // trigger de altura fija y empujaba la fila; el detalle
+                    // del modelo ya vive en el campo "ID de Modelo
+                    // Específico" de abajo.
                     options={[
-                      { value: "openai", label: "OpenAI (GPT-4o / GPT-4o-mini)" },
-                      { value: "anthropic", label: "Anthropic (Claude)" },
-                      { value: "google", label: "Google (Gemini)" },
-                      { value: "deepseek", label: "DeepSeek (DeepSeek-Chat / Coder)" },
-                      { value: "ollama", label: "Ollama Local (Offline)" },
-                      { value: "mock", label: "Mock Determinista (Pruebas sin coste)" },
+                      { value: "openai", label: "OpenAI" },
+                      { value: "anthropic", label: "Anthropic" },
+                      { value: "google", label: "Google" },
+                      { value: "deepseek", label: "DeepSeek" },
+                      { value: "ollama", label: "Ollama Local" },
+                      { value: "mock", label: "Mock Determinista" },
                     ]}
                     className="w-full sm:w-64 min-h-11 min-w-11"
                   />
@@ -353,18 +422,20 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
                   <div>
                     <label className="text-xs font-semibold text-ink">ID de Modelo Específico</label>
-                    <p className="text-[11px] text-dim">Vacío = el router decide por rol (ej: gemini-2.5-pro, claude-3-5-sonnet)</p>
+                    <p className="text-xs text-dim">Vacío = el router decide por rol (ej: gemini-2.5-pro, claude-3-5-sonnet)</p>
                   </div>
-                  <input
-                    type="text"
-                    aria-label="ID de modelo"
-                    placeholder="gemini-2.5-flash / gpt-4o"
-                    value={modelConfig.modelName ?? ""}
-                    onChange={(e) =>
-                      setModelConfig((prev) => ({ ...prev, modelName: e.target.value }))
-                    }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
-                  />
+                  <div className="w-full sm:w-64">
+                    <Input
+                      type="text"
+                      aria-label="ID de modelo"
+                      placeholder="gemini-2.5-flash / gpt-4o"
+                      value={modelConfig.modelName ?? ""}
+                      onChange={(e) =>
+                        setModelConfig((prev) => ({ ...prev, modelName: e.target.value }))
+                      }
+                      className="font-mono"
+                    />
+                  </div>
                 </div>
 
                 {/* API Keys */}
@@ -374,18 +445,20 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       <label className="text-xs font-semibold text-ink">
                         API Key ({modelConfig.activeProvider.toUpperCase()})
                       </label>
-                      <p className="text-[11px] text-dim">Clave de autenticación para el proveedor activo</p>
+                      <p className="text-xs text-dim">Clave de autenticación para el proveedor activo</p>
                     </div>
-                    <input
-                      type="password"
-                      aria-label={`API Key de ${modelConfig.activeProvider}`}
-                      placeholder={`sk-... (Clave de ${modelConfig.activeProvider})`}
-                      value={modelConfig[providerField] ?? ""}
-                      onChange={(e) =>
-                        setModelConfig((prev) => ({ ...prev, [providerField]: e.target.value }))
-                      }
-                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
-                    />
+                    <div className="w-full sm:w-64">
+                      <Input
+                        type="password"
+                        aria-label={`API Key de ${modelConfig.activeProvider}`}
+                        placeholder={`sk-... (Clave de ${modelConfig.activeProvider})`}
+                        value={modelConfig[providerField] ?? ""}
+                        onChange={(e) =>
+                          setModelConfig((prev) => ({ ...prev, [providerField]: e.target.value }))
+                        }
+                        className="font-mono"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -393,16 +466,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
                     <div>
                       <label className="text-xs font-semibold text-ink">API Key Genérica (Fallback)</label>
-                      <p className="text-[11px] text-dim">Clave alternativa si no se especifica la particular</p>
+                      <p className="text-xs text-dim">Clave alternativa si no se especifica la particular</p>
                     </div>
-                    <input
-                      type="password"
-                      aria-label="API Key genérica"
-                      placeholder="sk-... (Fallback)"
-                      value={modelConfig.apiKey ?? ""}
-                      onChange={(e) => setModelConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
-                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
-                    />
+                    <div className="w-full sm:w-64">
+                      <Input
+                        type="password"
+                        aria-label="API Key genérica"
+                        placeholder="sk-... (Fallback)"
+                        value={modelConfig.apiKey ?? ""}
+                        onChange={(e) => setModelConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
+                        className="font-mono"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -411,94 +486,103 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
                     <div>
                       <label className="text-xs font-semibold text-ink">Endpoint Base URL (Proxy)</label>
-                      <p className="text-[11px] text-dim">URL personalizada para enrutar llamadas</p>
+                      <p className="text-xs text-dim">URL personalizada para enrutar llamadas</p>
                     </div>
-                    <input
-                      type="text"
-                      aria-label="Endpoint base URL"
-                      placeholder={
-                        modelConfig.activeProvider === "ollama"
-                          ? "http://localhost:11434/v1"
-                          : modelConfig.activeProvider === "deepseek"
-                            ? "https://api.deepseek.com"
-                            : "https://api.openai.com/v1"
-                      }
-                      value={modelConfig.baseUrl ?? ""}
-                      onChange={(e) => setModelConfig((prev) => ({ ...prev, baseUrl: e.target.value }))}
-                      className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
-                    />
+                    <div className="w-full sm:w-64">
+                      <Input
+                        type="text"
+                        aria-label="Endpoint base URL"
+                        placeholder={
+                          modelConfig.activeProvider === "ollama"
+                            ? "http://localhost:11434/v1"
+                            : modelConfig.activeProvider === "deepseek"
+                              ? "https://api.deepseek.com"
+                              : "https://api.openai.com/v1"
+                        }
+                        value={modelConfig.baseUrl ?? ""}
+                        onChange={(e) => setModelConfig((prev) => ({ ...prev, baseUrl: e.target.value }))}
+                        className="font-mono"
+                      />
+                    </div>
                   </div>
                 )}
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
                   <div>
                     <label className="text-xs font-semibold text-ink">OpenAI Base URL</label>
-                    <p className="text-[11px] text-dim">URL del endpoint compatible con OpenAI</p>
+                    <p className="text-xs text-dim">URL del endpoint compatible con OpenAI</p>
                   </div>
-                  <input
-                    type="text"
-                    aria-label="OpenAI base URL"
-                    placeholder="https://api.openai.com/v1"
-                    value={modelConfig.openaiBaseURL ?? ""}
-                    onChange={(e) =>
-                      setModelConfig((prev) => ({ ...prev, openaiBaseURL: e.target.value }))
-                    }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
-                  />
+                  <div className="w-full sm:w-64">
+                    <Input
+                      type="text"
+                      aria-label="OpenAI base URL"
+                      placeholder="https://api.openai.com/v1"
+                      value={modelConfig.openaiBaseURL ?? ""}
+                      onChange={(e) =>
+                        setModelConfig((prev) => ({ ...prev, openaiBaseURL: e.target.value }))
+                      }
+                      className="font-mono"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
                   <div>
                     <label className="text-xs font-semibold text-ink">DeepSeek Base URL</label>
-                    <p className="text-[11px] text-dim">URL del endpoint de DeepSeek</p>
+                    <p className="text-xs text-dim">URL del endpoint de DeepSeek</p>
                   </div>
-                  <input
-                    type="text"
-                    aria-label="DeepSeek base URL"
-                    placeholder="https://api.deepseek.com"
-                    value={modelConfig.deepseekBaseURL ?? ""}
-                    onChange={(e) =>
-                      setModelConfig((prev) => ({ ...prev, deepseekBaseURL: e.target.value }))
-                    }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
-                  />
+                  <div className="w-full sm:w-64">
+                    <Input
+                      type="text"
+                      aria-label="DeepSeek base URL"
+                      placeholder="https://api.deepseek.com"
+                      value={modelConfig.deepseekBaseURL ?? ""}
+                      onChange={(e) =>
+                        setModelConfig((prev) => ({ ...prev, deepseekBaseURL: e.target.value }))
+                      }
+                      className="font-mono"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
                   <div>
                     <label className="text-xs font-semibold text-ink">Ollama Base URL</label>
-                    <p className="text-[11px] text-dim">Instancia local de Ollama en tu máquina</p>
+                    <p className="text-xs text-dim">Instancia local de Ollama en tu máquina</p>
                   </div>
-                  <input
-                    type="text"
-                    aria-label="Ollama base URL"
-                    placeholder="http://localhost:11434/v1"
-                    value={modelConfig.ollamaBaseURL ?? ""}
-                    onChange={(e) =>
-                      setModelConfig((prev) => ({ ...prev, ollamaBaseURL: e.target.value }))
-                    }
-                    className="w-full sm:w-64 rounded-xl border border-hairline bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-dim focus:border-brand focus:outline-none transition-colors shadow-2xs"
-                  />
+                  <div className="w-full sm:w-64">
+                    <Input
+                      type="text"
+                      aria-label="Ollama base URL"
+                      placeholder="http://localhost:11434/v1"
+                      value={modelConfig.ollamaBaseURL ?? ""}
+                      onChange={(e) =>
+                        setModelConfig((prev) => ({ ...prev, ollamaBaseURL: e.target.value }))
+                      }
+                      className="font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Botón Guardar y Notificaciones */}
               <div className="flex items-center justify-between pt-2">
-                <span className="font-mono text-[10px] text-dim">Persistencia en: gov/settings</span>
-                <button
-                  type="button"
+                <span className="font-mono text-xs text-dim">Persistencia en: gov/settings</span>
+                <Button
+                  variant="primary"
+                  size="md"
                   onClick={() => void handleSave()}
-                  disabled={saving}
-                  className="flex items-center gap-2 rounded-xl bg-ink px-4 py-2 text-xs font-semibold text-paper hover:opacity-90 disabled:opacity-50 transition-opacity shadow-sm cursor-pointer"
+                  loading={saving}
+                  className="font-semibold"
+                  icon={<FloppyDisk size={15} />}
                 >
-                  <FloppyDisk size={15} />
                   <span>{saving ? "Guardando..." : "Guardar Configuración"}</span>
-                </button>
+                </Button>
               </div>
 
               {success && (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs text-emerald-300 flex items-center gap-2">
-                  <Check size={16} className="text-emerald-400" />
+                <div className="flex items-center gap-2 rounded-[var(--radius-card)] border border-success/30 bg-success/10 p-3 text-xs text-success">
+                  <Check size={16} className="text-success" />
                   <span>{success}</span>
                 </div>
               )}
@@ -515,20 +599,23 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-hairline bg-raised/40 p-4 divide-y divide-hairline">
+              <div className="rounded-[var(--radius-card)] border border-hairline bg-raised p-4 divide-y divide-hairline">
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <h4 className="text-xs font-semibold text-ink">Tema y Apariencia</h4>
-                    <p className="text-[11px] text-dim">Modo oscuro adaptativo local de alto contraste</p>
+                    <p className="text-xs text-dim">Modo oscuro adaptativo local de alto contraste</p>
                   </div>
                   <Select
                     ariaLabel="Tema y Apariencia"
                     value={themeMode}
                     onValueChange={(val) => setThemeMode(val)}
+                    // D12: etiqueta CORTA. "Dark Sovereign (Predeterminado)"
+                    // (31 caracteres) ocupaba 3 líneas en el trigger; el
+                    // matiz va en la descripción de la fila.
                     options={[
-                      { value: "dark", label: "Dark Sovereign (Predeterminado)" },
-                      { value: "oled", label: "Pure OLED 0x000000" },
-                      { value: "graphite", label: "Graphite CX Studio" },
+                      { value: "dark", label: "Dark Sovereign" },
+                      { value: "oled", label: "Pure OLED" },
+                      { value: "graphite", label: "Graphite CX" },
                     ]}
                     className="w-full sm:w-64 min-h-11 min-w-11"
                   />
@@ -537,41 +624,25 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <h4 className="text-xs font-semibold text-ink">Iniciar al arrancar el sistema</h4>
-                    <p className="text-[11px] text-dim">Ejecutar el servicio de fondo en segundo plano</p>
+                    <p className="text-xs text-dim">Ejecutar el servicio de fondo en segundo plano</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setAutoStart(!autoStart)}
-                    className={`h-6 w-11 rounded-full p-0.5 transition-colors cursor-pointer ${
-                      autoStart ? "bg-emerald-500" : "bg-zinc-700"
-                    }`}
-                  >
-                    <div
-                      className={`h-5 w-5 rounded-full bg-white shadow-xs transition-transform ${
-                        autoStart ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                  {renderSwitch(
+                    autoStart,
+                    () => setAutoStart(!autoStart),
+                    "Iniciar al arrancar el sistema",
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <h4 className="text-xs font-semibold text-ink">Efectos de sonido de respuesta</h4>
-                    <p className="text-[11px] text-dim">Notificar mediante señales auditivas al terminar tareas</p>
+                    <p className="text-xs text-dim">Notificar mediante señales auditivas al terminar tareas</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSoundEnabled(!soundEnabled)}
-                    className={`h-6 w-11 rounded-full p-0.5 transition-colors cursor-pointer ${
-                      soundEnabled ? "bg-emerald-500" : "bg-zinc-700"
-                    }`}
-                  >
-                    <div
-                      className={`h-5 w-5 rounded-full bg-white shadow-xs transition-transform ${
-                        soundEnabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                  {renderSwitch(
+                    soundEnabled,
+                    () => setSoundEnabled(!soundEnabled),
+                    "Efectos de sonido de respuesta",
+                  )}
                 </div>
               </div>
             </div>
@@ -587,39 +658,31 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-hairline bg-raised/40 p-4 divide-y divide-hairline">
+              <div className="rounded-[var(--radius-card)] border border-hairline bg-raised p-4 divide-y divide-hairline">
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <h4 className="text-xs font-semibold text-ink">Dictado por Voz (Whisper Local / API)</h4>
-                    <p className="text-[11px] text-dim">Habilita el botón de micrófono en la barra de chat</p>
+                    <p className="text-xs text-dim">Habilita el botón de micrófono en la barra de chat</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setVoiceInputEnabled(!voiceInputEnabled)}
-                    className={`h-6 w-11 rounded-full p-0.5 transition-colors cursor-pointer ${
-                      voiceInputEnabled ? "bg-emerald-500" : "bg-zinc-700"
-                    }`}
-                  >
-                    <div
-                      className={`h-5 w-5 rounded-full bg-white shadow-xs transition-transform ${
-                        voiceInputEnabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                  {renderSwitch(
+                    voiceInputEnabled,
+                    () => setVoiceInputEnabled(!voiceInputEnabled),
+                    "Dictado por voz",
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <h4 className="text-xs font-semibold text-ink">Motor de Text-to-Speech (TTS)</h4>
-                    <p className="text-[11px] text-dim">Voz sintética para respuestas habladas</p>
+                    <p className="text-xs text-dim">Voz sintética para respuestas habladas</p>
                   </div>
                   <Select
                     ariaLabel="Motor de Text-to-Speech (TTS)"
                     defaultValue="system"
                     options={[
-                      { value: "system", label: "Voz Nativa del Sistema" },
-                      { value: "piper", label: "Piper Neural TTS (Local)" },
-                      { value: "openai", label: "OpenAI TTS-1 (Alloy/Echo)" },
+                      { value: "system", label: "Voz del Sistema" },
+                      { value: "piper", label: "Piper Neural" },
+                      { value: "openai", label: "OpenAI TTS-1" },
                     ]}
                     className="w-full sm:w-64 min-h-11 min-w-11"
                   />
@@ -645,24 +708,24 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               {storageError && (
                 <div
                   role="alert"
-                  className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-300"
+                  className="rounded-[var(--radius-card)] border border-error/30 bg-error/10 p-3 text-xs text-error"
                 >
                   {storageError}
                 </div>
               )}
 
               {storageInfo && !storageLoading && (
-                <div className="rounded-2xl border border-hairline bg-raised/40 p-4 space-y-3 font-mono text-xs">
+                <div className="space-y-3 rounded-[var(--radius-card)] border border-hairline bg-raised p-4 font-mono text-xs">
                   <div className="flex items-center justify-between border-b border-hairline/60 pb-2">
                     <span className="text-dim">Ruta en Disco:</span>
-                    <span className="truncate max-w-sm rounded bg-panel px-2 py-1 text-ink font-mono text-[11px]">
+                    <span className="truncate max-w-sm rounded-md bg-panel px-2 py-1 text-ink font-mono text-xs">
                       {storageInfo.dbPath ?? storageInfo.userDataDir ?? "No disponible"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between border-b border-hairline/60 pb-2">
                     <span className="text-dim">Namespaces Activos ({storageInfo.namespaces?.length ?? 0}):</span>
-                    <span className="text-emerald-400 font-semibold">
+                    <span className="text-success font-semibold">
                       {storageInfo.namespaces && storageInfo.namespaces.length > 0
                         ? storageInfo.namespaces.join(", ")
                         : "Sin namespaces visibles"}
@@ -670,9 +733,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   </div>
 
                   {(storageInfo.platform || typeof storageInfo.operational === "boolean") && (
-                    <div className="flex items-center justify-between text-dim text-[11px]">
+                    <div className="flex items-center justify-between text-dim text-xs">
                       <span>{storageInfo.platform ? `Plataforma: ${storageInfo.platform}` : ""}</span>
-                      <span className="text-emerald-400">
+                      <span className="text-success">
                         {typeof storageInfo.operational === "boolean"
                           ? `Estado Operativo: ${storageInfo.operational ? "Online (LSM Fjall)" : "Desconectado"}`
                           : ""}
@@ -683,33 +746,39 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               )}
 
               {/* Tarjeta de Respaldo Soberano y Portabilidad */}
-              <div className="rounded-2xl border border-hairline bg-raised/40 p-4 space-y-3">
+              <div className="space-y-3 rounded-[var(--radius-card)] border border-hairline bg-raised p-4">
                 <h4 className="text-xs font-semibold text-ink">Respaldo Soberano y Portabilidad (Export / Import)</h4>
-                <p className="text-[11px] leading-relaxed text-dim">
+                <p className="text-xs leading-relaxed text-dim">
                   Exporta o restaura snapshots completos de memoria y configuración de Ego en formato JSON portable.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="md"
                     onClick={() => void handleExportBackup()}
                     disabled={isExporting}
-                    className="flex items-center gap-1.5 rounded-xl border border-hairline bg-panel px-3 py-1.5 text-xs font-medium text-ink hover:bg-raised transition-colors cursor-pointer disabled:opacity-50"
+                    className="font-medium"
+                    icon={<FileArrowDown size={14} />}
                   >
-                    <FileArrowDown size={14} />
                     <span>{isExporting ? "Exportando..." : "Exportar Snapshot JSON"}</span>
-                  </button>
+                  </Button>
 
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="md"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isImporting}
-                    className="flex items-center gap-1.5 rounded-xl border border-hairline bg-panel px-3 py-1.5 text-xs font-medium text-ink hover:bg-raised transition-colors cursor-pointer disabled:opacity-50"
+                    className="font-medium"
+                    icon={<FileArrowUp size={14} />}
                   >
-                    <FileArrowUp size={14} />
                     <span>{isImporting ? "Importando..." : "Importar Snapshot JSON"}</span>
-                  </button>
+                  </Button>
 
+                  {/* El `<input type="file">` es un control NATIVO por
+                      naturaleza: el `Input` del kit es para campos de texto
+                      y envolvolverlo aquí mostraría una caja visible. Se
+                      mantiene oculto y sólo actúa como selector de archivo. */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -736,38 +805,33 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-hairline bg-raised/40 p-4 divide-y divide-hairline">
+              <div className="rounded-[var(--radius-card)] border border-hairline bg-raised p-4 divide-y divide-hairline">
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <h4 className="text-xs font-semibold text-ink">Visibilidad de la Isla</h4>
-                    <p className="text-[11px] text-dim">Muestra la ventana transparente sobre otras apps (Alt+Win+P)</p>
+                    <p className="text-xs text-dim">Muestra la ventana transparente sobre otras apps (Alt+Win+P)</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      (window as any).ego?.floating?.toggleFloating?.();
+                  {renderSwitch(
+                    petFloatingVisible,
+                    () => {
+                      const bridge = (
+                        window.ego as unknown as {
+                          floating?: { toggleFloating?: () => void };
+                        }
+                      ).floating;
+                      bridge?.toggleFloating?.();
                       setPetFloatingVisible(!petFloatingVisible);
-                    }}
-                    className={`h-6 w-11 rounded-full p-0.5 transition-colors cursor-pointer ${
-                      petFloatingVisible ? "bg-emerald-500" : "bg-zinc-700"
-                    }`}
-                  >
-                    <div
-                      className={`h-5 w-5 rounded-full bg-white shadow-xs transition-transform ${
-                        petFloatingVisible ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                    },
+                    "Visibilidad de la Isla Flotante",
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <h4 className="text-xs font-semibold text-ink">Reacción a eventos del sistema</h4>
-                    <p className="text-[11px] text-dim">La mascota muestra gestos al compilar, pensar o recibir mensajes</p>
+                    <p className="text-xs text-dim">La mascota muestra gestos al compilar, pensar o recibir mensajes</p>
                   </div>
-                  <span className="font-mono text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded">
-                    Activado
-                  </span>
+                  <Badge tone="ok">Activado</Badge>
                 </div>
               </div>
             </div>
@@ -791,14 +855,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               {govError && (
                 <div
                   role="alert"
-                  className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-300"
+                  className="rounded-[var(--radius-card)] border border-error/30 bg-error/10 p-3 text-xs text-error"
                 >
                   {govError}
                 </div>
               )}
 
               {govPolicies && !govLoading && (
-                <div className="rounded-2xl border border-hairline bg-raised/40 p-4 space-y-2.5">
+                <div className="space-y-2.5 rounded-[var(--radius-card)] border border-hairline bg-raised p-4">
                   {govPolicies.policies.length === 0 ? (
                     <p className="text-xs text-dim italic">
                       Sin políticas registradas en `gov/policies` (vacío honesto).
@@ -807,7 +871,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     govPolicies.policies.map((p) => (
                       <div key={p.key} className="flex flex-col gap-0.5 border-b border-hairline/60 pb-2 text-xs">
                         <span className="font-mono font-medium text-ink">{p.key}</span>
-                        <span className="truncate font-mono text-[10px] text-dim">
+                        <span className="truncate font-mono text-xs text-dim">
                           {JSON.stringify(p.payload)?.slice(0, 160) ?? ""}
                         </span>
                       </div>

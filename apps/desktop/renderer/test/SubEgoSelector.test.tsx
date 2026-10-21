@@ -60,17 +60,26 @@ describe("CANV-12: SubEgoSelector — Prueba de Componente UI en Happy-DOM", () 
     const triggerButton = container.querySelector("button");
     expect(triggerButton).not.toBeNull();
 
-    // Click para abrir dropdown
+    // El dropdown es el primitive `Menu` del kit (Radix DropdownMenu), que
+    // aporta teclado, roles `menu`/`menuitem` y retorno del foco. Dos
+    // consecuencias para el test:
+    //  1. abre con `pointerdown` (no con `click`);
+    //  2. el panel se PORTALEA a `document.body`, así que se busca fuera
+    //     del `container` de React.
     await act(async () => {
-      triggerButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      triggerButton?.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, button: 0 }),
+      );
     });
 
     // Debe mostrar la lista de Sub-Egos (por ejemplo "Ego Dev")
-    expect(container.textContent).toContain("Ego Dev");
+    expect(document.body.textContent).toContain("Ego Dev");
 
     // Click en la opción Ego Dev
-    const items = container.querySelectorAll("button");
-    const devItem = Array.from(items).find((btn) => btn.textContent?.includes("Ego Dev"));
+    const items = document.body.querySelectorAll("[role='menuitem']");
+    const devItem = Array.from(items).find((btn) =>
+      btn.textContent?.includes("Ego Dev"),
+    );
     expect(devItem).toBeDefined();
 
     await act(async () => {

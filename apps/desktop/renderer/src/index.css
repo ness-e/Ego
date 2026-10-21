@@ -9,14 +9,21 @@
      DesignSystemProvider (--ego-*). Tailwind v4 emite `var(--color-*)` en
      las utilidades, así que el `var(--ego-*, fallback)` se resuelve en
      runtime bajo el provider (presets funcionales) y al fallback fuera de
-     él (dark-only por defecto). */
-  --color-brand: var(--ego-color-brand, #f59e0b);
-  --color-ink: var(--ego-color-text, #f4f4f5);
-  --color-paper: var(--ego-color-bg, #0a0a0b);
-  --color-panel: var(--ego-color-panel, #111113);
-  --color-raised: var(--ego-color-raised, #17171a);
-  --color-hairline: var(--ego-color-border, #26262b);
-  --color-faint: var(--ego-color-muted, #8e8e93);
+     él (dark-only por defecto).
+
+     T14 / owner 2026-10-20: los fallbacks pasan a OKLCH y son los MISMOS
+     valores que declara el preset `default-dark` en
+     `components/canvas/DesignSystemProvider.tsx` (fuente única de la
+     paleta). Antes el fallback HEX (#0a0a0b / #111113 / #17171a) no
+     coincidía con el preset real (#09090b / #141416 / #202024): dos
+     valores para la misma superficie. */
+  --color-brand: var(--ego-color-brand, oklch(0.769 0.165 70.1));
+  --color-ink: var(--ego-color-text, oklch(0.985 0 89.9));
+  --color-paper: var(--ego-color-bg, oklch(0.13 0.004 285.8));
+  --color-panel: var(--ego-color-panel, oklch(0.195 0.004 286));
+  --color-raised: var(--ego-color-raised, oklch(0.26 0.008 285.8));
+  --color-hairline: var(--ego-color-border, oklch(0.274 0.005 286));
+  --color-faint: var(--ego-color-muted, oklch(0.712 0.013 286.1));
   /* dim fijo AA sobre fondo paper (~5.8:1); el gris anterior (~2.8:1) no pasaba. */
   --color-dim: #8a8a92;
   /* T-contraste: bordes interactivos + foco + texto-sobre-brand + estados.
@@ -25,7 +32,7 @@
      Igual para on-brand: `--color-on-brand` / `--color-text-on-brand`. */
   --color-strong: var(--ego-color-border-strong, #71717a);
   --color-border-strong: var(--ego-color-border-strong, #71717a);
-  --color-focus-ring: var(--ego-color-focus-ring, #f59e0b);
+  --color-focus-ring: var(--ego-color-focus-ring, oklch(0.769 0.165 70.1));
   --color-on-brand: var(--ego-color-text-on-brand, #0a0a0b);
   --color-text-on-brand: var(--ego-color-text-on-brand, #0a0a0b);
   --color-success: var(--ego-color-success, #10b981);
@@ -131,8 +138,8 @@ body,
 }
 
 ::selection {
-  background: #f4f4f5;
-  color: #0a0a0b;
+  background: var(--color-ink);
+  color: var(--color-paper);
 }
 
 @media (prefers-reduced-motion: reduce) {

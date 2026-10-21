@@ -184,6 +184,13 @@ export function SplitPane({
         data-pane-id={id}
         aria-hidden="true"
         inert
+        // STAB-13: el pane colapsado sigue en el DOM pero oculto y fuera del
+        // árbol de accesibilidad. `visibility: hidden` + `width: 0` se
+        // declaran en línea (y no como clases `w-0 invisible`) porque el
+        // contrato de regresión `test/Stab13UxMotion.test.tsx` verifica la
+        // visibilidad inline: en jsdom no hay CSS de Tailwind, así que una
+        // clase dejaría la garantía "oculto" sin poder comprobar.
+        // design-lint: allow
         style={{ width: 0, visibility: "hidden" }}
         className="relative h-full shrink-0 overflow-hidden"
       >
@@ -194,6 +201,9 @@ export function SplitPane({
 
   return (
     <div
+      // El ancho lo calcula el divisor (arrastre con ratón o teclado) y se
+      // persiste en localStorage: es un valor de runtime, no una clase fija.
+      // design-lint: allow
       style={{ width }}
       className={`relative flex h-full shrink-0 flex-col overflow-hidden bg-panel transition-[width] duration-75 ${className}`}
       data-pane-id={id}

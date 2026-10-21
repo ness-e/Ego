@@ -9,7 +9,9 @@ import {
   XCircle,
   Tag,
 } from "@phosphor-icons/react";
-import type { ScannedSkillInfo } from "../../lib/ego";
+import type { ScannedSkillInfo } from "../../lib/ego.js";
+import { Button } from "../ui-kit/Button.js";
+import { Badge } from "../ui-kit/Badge.js";
 
 interface SkillsCatalogViewProps {
   skills: ScannedSkillInfo[];
@@ -34,19 +36,23 @@ export function SkillsCatalogView({ skills, isLoading, onRefresh }: SkillsCatalo
       {/* Barra de Acciones Superior */}
       <div className="flex items-center justify-between pb-2 border-b border-hairline">
         <div>
-          <h2 className="text-sm font-semibold text-ink">Skills Locales & Linter AST (HERM-19)</h2>
-          <p className="text-[11px] text-faint">
+          <h3 className="text-sm font-semibold text-ink">Skills Locales & Linter AST (HERM-19)</h3>
+          <p className="text-xs text-faint">
             Habilidades descubiertas en `.ego/skills/` y `~/.ego/skills/` auditadas estáticamente antes de su ejecución.
           </p>
         </div>
-        <button
+        <Button
+          size="md"
+          variant="secondary"
+          icon={
+            <ArrowClockwise size={14} className={refreshing || isLoading ? "animate-spin" : ""} />
+          }
           onClick={handleRefresh}
           disabled={refreshing || isLoading}
-          className="flex items-center gap-1.5 rounded bg-raised px-3 py-1.5 text-xs text-ink hover:bg-hairline transition-colors disabled:opacity-50"
+          className="shrink-0 whitespace-nowrap"
         >
-          <ArrowClockwise size={14} className={refreshing || isLoading ? "animate-spin" : ""} />
-          <span>Re-escanear Carpetas</span>
-        </button>
+          Re-escanear Carpetas
+        </Button>
       </div>
 
       {/* Lista de Skills */}
@@ -56,10 +62,10 @@ export function SkillsCatalogView({ skills, isLoading, onRefresh }: SkillsCatalo
             Escaneando carpetas de skills locales...
           </div>
         ) : skills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 border border-dashed border-hairline rounded-lg p-6 text-center space-y-2">
+          <div className="flex flex-col items-center justify-center h-48 border border-dashed border-hairline rounded-[var(--radius-card)] p-6 text-center space-y-2">
             <Sparkle size={26} className="text-dim" />
             <span className="text-xs font-medium text-ink">No se encontraron skills locales</span>
-            <p className="text-[11px] text-faint max-w-sm">
+            <p className="text-xs text-faint max-w-sm">
               Crea una carpeta en `.ego/skills/mi-skill/` con un archivo `SKILL.md` o `skill.json` para definir
               capacidades especializadas para tus Sub-Egos.
             </p>
@@ -73,59 +79,54 @@ export function SkillsCatalogView({ skills, isLoading, onRefresh }: SkillsCatalo
             return (
               <div
                 key={skill.id}
-                className="flex flex-col rounded-lg border border-hairline bg-paper/50 p-3.5 space-y-2 hover:border-ink/20 transition-colors"
+                className="flex flex-col rounded-[var(--radius-card)] border border-hairline bg-raised p-3.5 space-y-2 hover:border-strong transition-colors"
               >
                 {/* Cabecera de la Skill */}
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-ink">{skill.name}</span>
-                      <span className="font-mono text-[10px] text-dim bg-raised px-1.5 py-0.2 rounded">
+                      <span className="font-mono text-xs text-dim bg-panel px-1.5 py-0.5 rounded-md">
                         {skill.id}
                       </span>
                       {skill.version && (
-                        <span className="font-mono text-[10px] text-dim">v{skill.version}</span>
+                        <span className="font-mono text-xs text-dim">v{skill.version}</span>
                       )}
                     </div>
-                    <p className="text-[11px] text-faint mt-1 leading-relaxed">
+                    <p className="text-xs text-faint mt-1 leading-relaxed">
                       {skill.description}
                     </p>
                   </div>
 
-                  {/* Badge de Auditoría AST HERM-19 */}
-                  <div
-                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium shrink-0 ${
-                      isSafe
-                        ? "bg-emerald-950/60 text-emerald-300 border border-emerald-900/40"
-                        : isWarning
-                        ? "bg-amber-950/60 text-amber-300 border border-amber-900/40"
-                        : "bg-rose-950/60 text-rose-300 border border-rose-900/40"
-                    }`}
+                  {/* Badge de Auditoría AST HERM-19 (kit) */}
+                  <Badge
+                    tone={isSafe ? "ok" : isWarning ? "warn" : "risk"}
+                    className="shrink-0"
                   >
-                    {isSafe && <ShieldCheck size={13} className="text-emerald-400" />}
-                    {isWarning && <Warning size={13} className="text-amber-400" />}
-                    {isDangerous && <Flame size={13} className="text-rose-400" />}
+                    {isSafe && <ShieldCheck size={11} />}
+                    {isWarning && <Warning size={11} />}
+                    {isDangerous && <Flame size={11} />}
                     <span>
                       {isSafe ? "AST SEGURO" : isWarning ? "CON ADVERTENCIAS" : "BLOQUEADA (PELIGRO)"}
                     </span>
-                  </div>
+                  </Badge>
                 </div>
 
                 {/* Ruta de origen */}
-                <div className="flex items-center gap-1 text-[10px] font-mono text-dim">
+                <div className="flex items-center gap-1 text-xs font-mono text-dim">
                   <Folder size={11} className="shrink-0" />
                   <span className="truncate">{skill.manifestPath}</span>
                 </div>
 
                 {/* Errores o Violaciones del Linter */}
                 {skill.errors.length > 0 && (
-                  <div className="rounded border border-rose-500/30 bg-rose-950/20 p-2 space-y-1">
-                    <div className="flex items-center gap-1 text-[10px] font-semibold text-rose-400">
+                  <div className="rounded-[var(--radius-card)] border border-error/30 bg-error/10 p-2 space-y-1">
+                    <div className="flex items-center gap-1 text-xs font-semibold text-error">
                       <XCircle size={12} />
                       <span>Violaciones detectadas por el Linter AST:</span>
                     </div>
                     {skill.errors.map((err, i) => (
-                      <div key={i} className="text-[10px] text-rose-300 pl-4 font-mono">
+                      <div key={i} className="text-xs text-error pl-4 font-mono">
                         • {err}
                       </div>
                     ))}
@@ -134,13 +135,13 @@ export function SkillsCatalogView({ skills, isLoading, onRefresh }: SkillsCatalo
 
                 {/* Advertencias */}
                 {skill.warnings.length > 0 && (
-                  <div className="rounded border border-amber-500/30 bg-amber-950/20 p-2 space-y-1">
-                    <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-400">
+                  <div className="rounded-[var(--radius-card)] border border-warning/30 bg-warning/10 p-2 space-y-1">
+                    <div className="flex items-center gap-1 text-xs font-semibold text-warning">
                       <Warning size={12} />
                       <span>Advertencias operacionales:</span>
                     </div>
                     {skill.warnings.map((w, i) => (
-                      <div key={i} className="text-[10px] text-amber-300 pl-4">
+                      <div key={i} className="text-xs text-warning pl-4">
                         • {w}
                       </div>
                     ))}
@@ -148,18 +149,18 @@ export function SkillsCatalogView({ skills, isLoading, onRefresh }: SkillsCatalo
                 )}
 
                 {/* Herramientas, Permisos y Tags */}
-                <div className="pt-2 border-t border-hairline/60 flex flex-wrap items-center gap-3 text-[10px] text-dim">
+                <div className="pt-2 border-t border-hairline flex flex-wrap items-center gap-3 text-xs text-dim">
                   {skill.tools.length > 0 && (
                     <div className="flex items-center gap-1">
                       <span className="text-ink font-medium">Tools:</span>
-                      <span className="font-mono text-emerald-400">{skill.tools.join(", ")}</span>
+                      <span className="font-mono text-success">{skill.tools.join(", ")}</span>
                     </div>
                   )}
 
                   {skill.permissions.length > 0 && (
                     <div className="flex items-center gap-1">
                       <span className="text-ink font-medium">Permisos:</span>
-                      <span className="font-mono text-amber-400">{skill.permissions.join(", ")}</span>
+                      <span className="font-mono text-warning">{skill.permissions.join(", ")}</span>
                     </div>
                   )}
 

@@ -48,9 +48,13 @@ describe("T16 FIND-12: Button — 9 estados P22", () => {
     expect(el.querySelector("button")?.className).toContain("bg-ink");
   });
 
-  it("hover: expone clase hover:opacity-90", async () => {
+  it("hover: expone clase hover:bg-ink/90 (alpha SOLO en el fondo)", async () => {
+    // `hover:opacity-90` atenuaría también el TEXTO del botón y rompería el
+    // contraste AA; la alpha va únicamente en el fondo.
     const el = await mount(<Button variant="primary">Crear</Button>);
-    expect(el.querySelector("button")?.className).toContain("hover:opacity-90");
+    const cls = el.querySelector("button")?.className ?? "";
+    expect(cls).toContain("hover:bg-ink/90");
+    expect(cls).not.toContain("hover:opacity-90");
   });
 
   it("active: expone clase active:scale", async () => {
@@ -78,7 +82,7 @@ describe("T16 FIND-12: Button — 9 estados P22", () => {
 
   it("error: variante danger mapea el estado error", async () => {
     const el = await mount(<Button variant="danger">Borrar</Button>);
-    expect(el.querySelector("button")?.className).toContain("bg-red-950");
+    expect(el.querySelector("button")?.className).toContain("bg-error/10");
   });
 
   it("empty: sin children mantiene altura mínima (>=44px, objetivo táctil)", async () => {
@@ -355,7 +359,7 @@ describe("T16 FIND-12: Badge — 9 estados P22", () => {
 
   it("error: tono risk mapea el estado error", async () => {
     const el = await mount(<Badge tone="risk">Falló</Badge>);
-    expect(el.querySelector("span")?.className).toContain("text-red-300");
+    expect(el.querySelector("span")?.className).toContain("text-error");
   });
 
   it("empty: sin children muestra placeholder —", async () => {

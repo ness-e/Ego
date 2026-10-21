@@ -30,7 +30,7 @@ export const DomainCanvasView: React.FC<DomainCanvasViewProps> = ({ domainId }) 
         role="alert"
         className="flex-1 flex flex-col h-full bg-paper text-ink p-4"
       >
-        <div className="text-[11px] font-mono text-rose-300 border border-rose-500/30 bg-rose-950/30 rounded-lg px-3 py-2">
+        <div className="text-xs font-mono text-error border border-error/30 bg-error/10 rounded-[var(--radius-card)] px-3 py-2">
           {`Dominio «${domainId}» sin vista registrada${
             componentKind ? ` (componentKind «${componentKind}»)` : ""
           }.`}{" "}

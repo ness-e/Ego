@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { DesignSystemTokensSchema } from "@ego/ui-runtime";
 import { useDesignSystem } from "./DesignSystemProvider.js";
+import { Button } from "../ui-kit/Button.js";
 
 /**
  * CFG-13 — Temas JSON portables (import/export validados con Zod).
@@ -69,44 +70,46 @@ export const ThemeIO: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={handleExport}
-          className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] font-medium text-ink transition-colors hover:text-ink"
-        >
-          Exportar tema actual
-        </button>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="rounded border border-hairline bg-raised px-2.5 py-1 text-[11px] font-medium text-ink transition-colors hover:text-ink"
-        >
-          Importar tema JSON
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          aria-label="Importar archivo de tema JSON"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) void handleImportFile(file);
-          }}
-        />
-      </div>
-      <p className="text-[11px] text-faint">
-        Activo: <span className="font-mono text-dim">{tokens.id}</span> — la
-        importación se valida con el contrato Zod y rechaza lo inválido.
-      </p>
-      {message !== null && (
-        <p role={isError ? "alert" : "status"} className={`text-[11px] ${isError ? "text-error" : "text-dim"}`}>
-          {message}
+    <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]">
+      <h3 className="mb-3 border-b border-hairline pb-3 text-sm font-semibold text-ink">
+        Temas JSON
+      </h3>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={handleExport}>
+            Exportar tema actual
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => fileRef.current?.click()}
+          >
+            Importar tema JSON
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            aria-label="Importar archivo de tema JSON"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void handleImportFile(file);
+            }}
+          />
+        </div>
+        <p className="text-xs text-faint">
+          Activo: <span className="font-mono text-dim">{tokens.id}</span> — la
+          importación se valida con el contrato Zod y rechaza lo inválido.
         </p>
-      )}
+        {message !== null && (
+          <p role={isError ? "alert" : "status"} className={`text-xs ${isError ? "text-error" : "text-dim"}`}>
+            {message}
+          </p>
+        )}
+      </div>
     </div>
   );
 };

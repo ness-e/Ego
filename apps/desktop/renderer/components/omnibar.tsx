@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKe
 import { MagnifyingGlass, X } from "@phosphor-icons/react";
 import { ego } from "../lib/ego.js";
 import { Modal } from "./ui-kit/Modal.js";
+import { Button } from "./ui-kit/Button.js";
 
 /** Corte de confianza federada (decisión owner: omnibar federado con corte). */
 export const OMNIBAR_CONFIDENCE_CUTOFF = 0.3;
@@ -212,12 +213,20 @@ export function Omnibar() {
       description="Memoria VantaDB vía searchMulti · corte de confianza 0.3"
     >
       <div role="search">
-        <div className="flex items-center gap-2 rounded-md border border-hairline bg-raised px-2.5 py-2">
+        {/* El campo no puede usar el `Input` del kit (necesita el icono de
+            búsqueda dentro y el combobox es propio, ver §4.1 del doc), pero sí
+            sus REGLAS: borde `border-strong` (nunca hairline como único
+            indicador) + anillo de foco de marca.
+
+            El foco lo pone el `Modal` del kit (`onOpenAutoFocus` busca el
+            primer input y lo enfoca): el `autoFocus` nativo está PROHIBIDO
+            en los consumidores del kit, porque provocaba un doble focus
+            (nativo + Radix) y un salto de scroll al abrir. */}
+        <div className="flex items-center gap-2 rounded-[var(--radius-card)] border border-strong bg-raised px-2.5 py-2 transition-colors focus-within:border-brand focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-brand">
           <MagnifyingGlass size={15} className="shrink-0 text-dim" aria-hidden />
           <input
             type="text"
             role="combobox"
-            autoFocus
             aria-expanded={hits.length > 0}
             aria-controls={listboxId}
             aria-label="Buscar en memoria federada"
@@ -226,31 +235,35 @@ export function Omnibar() {
             placeholder="Buscar recuerdos, docs, decisiones… (mín. 2 caracteres)"
             value={query}
             onChange={(e) => handleChange(e.target.value)}
-            className="w-full bg-transparent text-xs text-ink placeholder:text-dim focus:outline-none"
+            className="w-full bg-transparent text-xs text-ink placeholder:text-faint focus:outline-none"
           />
           {query && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               aria-label="Limpiar búsqueda"
               onClick={() => handleChange("")}
-              className="rounded p-1.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-dim hover:text-ink"
             >
               <X size={13} />
-            </button>
+            </Button>
           )}
         </div>
         <div className="mt-2" id={listboxId} role="listbox" aria-label="Resultados federados">
           {searching && (
-            <p className="px-1 py-3 text-center font-mono text-[11px] text-dim" role="status">
+            <p className="px-1 py-3 text-center font-mono text-xs text-dim" role="status">
               Buscando en memoria…
             </p>
           )}
           {!searching && query.trim().length >= 2 && hits.length === 0 && (
-            <p className="px-1 py-3 text-center text-[11px] text-faint" role="status">
+            <p className="px-1 py-3 text-center text-xs text-faint" role="status">
               Sin resultados sobre el corte de confianza 0.3.
             </p>
           )}
           {hits.map((h, i) => (
+            // Opciones del combobox propio: el kit no tiene primitive
+            // listbox/option (el combobox con fuzzy match es propio y está
+            // documentado en §4.1 y §8.2 del design system), así que el
+            // `<button role="option">` se queda, pero con tokens del sistema.
             <button
               key={`${h.namespace}/${h.key}`}
               id={optionId(i)}
@@ -259,15 +272,15 @@ export function Omnibar() {
               aria-selected={i === safeActiveIndex}
               onClick={() => handleSelectHit(h)}
               title={`Abrir ${h.namespace}/${h.key}`}
-              className="mt-1 w-full cursor-pointer rounded-md border border-hairline bg-panel px-2.5 py-2 text-left transition-colors hover:border-dim"
+              className="mt-1 w-full cursor-pointer rounded-[var(--radius-card)] border border-transparent bg-panel px-2.5 py-2 text-left transition-colors hover:border-hairline hover:bg-raised aria-selected:border-brand aria-selected:bg-raised"
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="truncate text-xs font-medium text-ink">{h.title}</span>
-                <span className="shrink-0 font-mono text-[10px] text-dim">
+                <span className="shrink-0 font-mono text-xs text-dim">
                   {Math.round(h.score * 100)}% · {h.namespace}
                 </span>
               </span>
-              {h.snippet && <span className="mt-0.5 block truncate text-[11px] text-faint">{h.snippet}</span>}
+              {h.snippet && <span className="mt-0.5 block truncate text-xs text-faint">{h.snippet}</span>}
             </button>
           ))}
         </div>

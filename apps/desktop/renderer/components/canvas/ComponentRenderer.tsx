@@ -25,12 +25,12 @@ export const ComponentRenderer: React.FC<ComponentRendererProps> = ({
 
   if (!validation.success) {
     return (
-      <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-xs text-rose-200">
-        <div className="flex items-center gap-2 mb-1.5 font-semibold text-rose-300">
+      <div className="rounded-[var(--radius-card)] border border-error/30 bg-error/10 p-4 text-xs text-error">
+        <div className="mb-1.5 flex items-center gap-2 font-semibold text-error">
           <WarningCircle size={16} />
           <span>Contrato de Componente Inválido</span>
         </div>
-        <p className="font-mono text-[11px] text-rose-400">
+        <p className="font-mono text-xs text-error">
           {validation.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(" | ")}
         </p>
       </div>
@@ -42,7 +42,7 @@ export const ComponentRenderer: React.FC<ComponentRendererProps> = ({
 
   if (!Renderer) {
     return (
-      <div className="rounded-xl border border-hairline bg-panel p-4 text-xs text-dim font-mono">
+      <div className="rounded-[var(--radius-card)] border border-hairline bg-panel p-4 font-mono text-xs text-dim shadow-[var(--ego-elevation-l1)]">
         Tipo de componente desconocido: {validManifest.type}
       </div>
     );
@@ -52,8 +52,8 @@ export const ComponentRenderer: React.FC<ComponentRendererProps> = ({
     <div
       data-component-id={validManifest.id}
       onClick={() => onSelect?.(validManifest.id)}
-      className={`group relative rounded-2xl transition-colors transition-shadow ${
-        isSelected ? "ring-2 ring-ink shadow-md" : "hover:border-ink/20"
+      className={`group relative rounded-[var(--radius-card)] transition-colors transition-shadow ${
+        isSelected ? "ring-2 ring-brand shadow-[var(--ego-elevation-l2)]" : "hover:border-strong"
       }`}
     >
       {/* Presencia contextual del Sub-Ego con avatar y botón ¿Por qué? (CANV-07 / CANV-08) */}

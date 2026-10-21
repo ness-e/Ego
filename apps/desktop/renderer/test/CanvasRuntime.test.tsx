@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CanvasRuntime } from "../components/canvas/CanvasRuntime";
-import { DesignSystemProvider, useDesignSystem } from "../components/canvas/DesignSystemProvider";
+import { DesignSystemProvider, PRESET_THEMES, useDesignSystem } from "../components/canvas/DesignSystemProvider";
 import type { CanvasComponentManifest } from "@ego/ui-runtime";
 
 // STAB-08: migrado de createRoot+act+querySelector a RTL por
@@ -106,12 +106,12 @@ describe("CANV-02: Canvas Generative Runtime & DesignSystemProvider", () => {
 
     const rootElem = document.querySelector("#ego-design-system-root") as HTMLElement;
     expect(rootElem).not.toBeNull();
-    expect(rootElem.style.getPropertyValue("--ego-color-bg")).toBe("#09090b");
+    expect(rootElem.style.getPropertyValue("--ego-color-bg")).toBe(PRESET_THEMES["default-dark"]!.colors.background);
 
     await user.click(screen.getByTestId("btn-preset-cyan"));
 
     expect(screen.getByTestId("current-theme-name")).toHaveTextContent(/Medianoche Cyan/);
-    expect(rootElem.style.getPropertyValue("--ego-color-bg")).toBe("#030712");
-    expect(rootElem.style.getPropertyValue("--ego-color-brand")).toBe("#06b6d4");
+    expect(rootElem.style.getPropertyValue("--ego-color-bg")).toBe(PRESET_THEMES["midnight-cyan"]!.colors.background);
+    expect(rootElem.style.getPropertyValue("--ego-color-brand")).toBe(PRESET_THEMES["midnight-cyan"]!.colors.brand);
   });
 });

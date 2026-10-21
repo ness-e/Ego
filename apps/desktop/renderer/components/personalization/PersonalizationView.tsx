@@ -15,10 +15,35 @@ import {
   Clock,
   Terminal,
   Gear,
+  Island,
 } from "@phosphor-icons/react";
 import { ego, type McpServerInfo } from "../../lib/ego.js";
 import { McpAddServerDialog } from "../mcp/McpAddServerDialog.js";
 import { WardrobeSelector } from "../character/wardrobe/WardrobeSelector.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
+import { Badge } from "../ui-kit/Badge.js";
+
+/**
+ * El puente `window.ego` tipado (`EgoBridge`) todavía no expone el canal
+ * `floating`; se accede con un tipo estructural mínimo en lugar de `any`
+ * (la regla del repo prohíbe `any`). Mismo patrón que `src/App.tsx`.
+ */
+interface FloatingChannel {
+  toggleFloating?: () => void;
+}
+
+function toggleFloatingCompanion(): void {
+  const floating = (window.ego as unknown as { floating?: FloatingChannel }).floating;
+  floating?.toggleFloating?.();
+}
+
+/**
+ * Cáscara canónica de tarjeta (misma que el Canvas y las vistas de dominio):
+ * superficie `bg-panel`, borde hairline, radio del sistema y elevación L1.
+ */
+const CARD =
+  "rounded-[var(--radius-card)] border border-hairline bg-panel p-4 shadow-[var(--ego-elevation-l1)]";
 
 type PersonalizationTab = "skills" | "mcp" | "avatar";
 
@@ -272,86 +297,92 @@ export function PersonalizationView() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-6 text-ink select-none">
+    <div className="flex h-full w-full flex-col overflow-y-auto bg-paper p-6 text-ink select-none">
       {/* 1. Header Principal con Sub-Pestañas y Buscador */}
       <div className="flex flex-col gap-4 border-b border-hairline pb-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-ink">Personalización</h1>
+            <h1 className="text-base font-semibold tracking-tight text-ink">Personalización</h1>
             <p className="mt-0.5 text-xs text-dim">
               Amplía las habilidades cognitivas de Ego con Skills procedurales, Conectores MCP y personalización del avatar.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+          <div className="flex shrink-0 items-center gap-2">
+            {/* D10: el CTA no puede partir su etiqueta. El `Button` del kit
+                envuelve los hijos en un `<span class="inline-flex min-w-0">`
+                que SÍ encoge: sin `whitespace-nowrap` la etiqueta se partía
+                en dos líneas dentro de un botón de 32 px con
+                `overflow-hidden` ("Agregar Preset" → "Prese|t"). El icono
+                va por la prop `icon` (hermano del `<span>`, no dentro), y
+                `shrink-0` impide que el flex padre lo estruje. */}
+            <Button
+              size="md"
+              variant="primary"
+              icon={<Plus size={14} weight="bold" />}
               onClick={() => {
                 if (activeTab === "mcp") setIsAddServerOpen(true);
                 else if (activeTab === "skills") {
                   alert("Para agregar una skill propia, ubica tu carpeta en .agents/skills/ o instálala vía MCP.");
                 }
               }}
-              className="flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-1.5 text-xs font-semibold text-paper shadow-sm transition-opacity hover:opacity-90 cursor-pointer"
+              className="shrink-0 whitespace-nowrap"
             >
-              <Plus size={14} weight="bold" />
-              <span>Agregar {activeTab === "mcp" ? "Conector" : activeTab === "skills" ? "Skill" : "Preset"}</span>
-            </button>
+              Agregar {activeTab === "mcp" ? "Conector" : activeTab === "skills" ? "Skill" : "Preset"}
+            </Button>
           </div>
         </div>
 
         {/* Barra de Controles: Segmented Pills + Buscador */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <nav aria-label="Categorías de personalización" className="flex items-center gap-1 rounded-xl bg-raised/80 p-1 border border-hairline">
-            <button
-              type="button"
+          <nav aria-label="Categorías de personalización" className="flex items-center gap-1 rounded-[var(--radius-card)] bg-panel p-1 border border-hairline">
+            <Button
+              size="md"
+              variant={activeTab === "skills" ? "secondary" : "ghost"}
+              icon={<PuzzlePiece size={15} />}
               onClick={() => setActiveTab("skills")}
-              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
-                activeTab === "skills"
-                  ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
-                  : "text-dim hover:text-ink hover:bg-panel/40"
-              }`}
+              aria-pressed={activeTab === "skills"}
+              className="whitespace-nowrap"
             >
-              <PuzzlePiece size={15} />
-              <span>Skills ({SYSTEM_SKILLS.length})</span>
-            </button>
+              Skills ({SYSTEM_SKILLS.length})
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              size="md"
+              variant={activeTab === "mcp" ? "secondary" : "ghost"}
+              icon={<PlugsConnected size={15} />}
               onClick={() => setActiveTab("mcp")}
-              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
-                activeTab === "mcp"
-                  ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
-                  : "text-dim hover:text-ink hover:bg-panel/40"
-              }`}
+              aria-pressed={activeTab === "mcp"}
+              className="whitespace-nowrap"
             >
-              <PlugsConnected size={15} />
-              <span>Conectores MCP ({MCP_CATALOG.length})</span>
-            </button>
+              Conectores MCP ({MCP_CATALOG.length})
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              size="md"
+              variant={activeTab === "avatar" ? "secondary" : "ghost"}
+              icon={<Sparkle size={15} />}
               onClick={() => setActiveTab("avatar")}
-              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
-                activeTab === "avatar"
-                  ? "bg-panel text-ink shadow-xs border border-hairline/80 font-semibold"
-                  : "text-dim hover:text-ink hover:bg-panel/40"
-              }`}
+              aria-pressed={activeTab === "avatar"}
+              className="whitespace-nowrap"
             >
-              <Sparkle size={15} />
-              <span>Avatares y Mascota</span>
-            </button>
+              Avatares y Mascota
+            </Button>
           </nav>
 
           {activeTab !== "avatar" && (
             <div className="relative flex items-center min-w-[240px]">
-              <MagnifyingGlass size={14} className="absolute left-3 text-dim pointer-events-none" />
-              <input
+              <MagnifyingGlass
+                size={14}
+                className="absolute left-2.5 top-2.5 text-dim pointer-events-none"
+                aria-hidden
+              />
+              <Input
                 type="text"
                 placeholder={`Buscar en ${activeTab === "skills" ? "skills" : "conectores"}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-hairline bg-raised/70 pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-dim focus:border-strong focus:outline-none transition-colors shadow-2xs"
+                className="pl-8"
               />
             </div>
           )}
@@ -364,18 +395,16 @@ export function PersonalizationView() {
         {activeTab === "skills" && (
           <div className="space-y-6">
             {/* Banner Destacado Estilo "Data — From Ego Core" */}
-            <div className="relative overflow-hidden rounded-2xl border border-brand/30 bg-gradient-to-r from-brand/10 via-raised to-panel p-5 shadow-xs">
+            <div className={`${CARD} border-brand/40 p-5`}>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-3.5">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand/20 border border-brand/30 text-brand">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--radius-card)] bg-brand/20 border border-brand/30 text-brand">
                     <Sparkle size={24} weight="fill" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm text-ink">Data Analysis & Visual Synthesis</span>
-                      <span className="rounded-full bg-brand/20 px-2 py-0.5 font-mono text-[9px] font-semibold text-brand">
-                        Recomendada por Ego Core
-                      </span>
+                      <Badge tone="warn">Recomendada por Ego Core</Badge>
                     </div>
                     <p className="mt-1 text-xs text-dim leading-relaxed max-w-xl">
                       Motor de renderizado reactivo para el Dynamic Workspace. Ejecuta código, analiza modelos de datos y proyecta artefactos interactivos directamente en el Canvas.
@@ -383,10 +412,14 @@ export function PersonalizationView() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="flex items-center gap-1 font-mono text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2.5 py-1 rounded-lg">
-                    <Check size={13} weight="bold" /> Activa por defecto
-                  </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  {/* D3: los pills de estado son `Badge` del kit, no
+                      `<span>` mauales: así comparten radio, tipografía y
+                      los 9 estados con el resto de la app. */}
+                  <Badge tone="ok">
+                    <Check size={12} weight="bold" />
+                    Activa por defecto
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -394,10 +427,10 @@ export function PersonalizationView() {
             {/* Grid de 2 Columnas de Skills */}
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-xs font-semibold tracking-wider uppercase text-dim">
+                <h3 className="text-sm font-semibold text-dim">
                   Skills de Sistema & Cognitivas ({filteredSkills.length})
-                </h2>
-                <span className="font-mono text-[10px] text-faint">Totalmente compatibles con Cognitive Runtime</span>
+                </h3>
+                <span className="font-mono text-xs text-faint">Totalmente compatibles con Cognitive Runtime</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -407,42 +440,48 @@ export function PersonalizationView() {
                   return (
                     <div
                       key={s.id}
-                      className="group flex flex-col justify-between rounded-2xl border border-hairline bg-raised/50 hover:bg-raised p-4 transition-colors duration-150 shadow-2xs hover:border-strong/60"
+                      className={`${CARD} group flex flex-col justify-between bg-raised hover:bg-raised transition-colors duration-150 hover:border-strong`}
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2 mb-2.5">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-panel border border-hairline text-ink shadow-xs group-hover:border-brand/40 group-hover:text-brand transition-colors">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-card)] bg-panel border border-hairline text-ink shadow-[var(--ego-elevation-l1)] group-hover:border-brand/40 group-hover:text-brand transition-colors">
                               <Icon size={18} />
                             </div>
                             <div>
-                              <h3 className="text-xs font-semibold text-ink leading-snug">{s.name}</h3>
-                              <span className="text-[10px] text-dim">{s.category}</span>
+                              <h4 className="text-sm font-semibold text-ink leading-snug">{s.name}</h4>
+                              <span className="text-xs text-dim">{s.category}</span>
                             </div>
                           </div>
-                          {s.badge && (
-                            <span className="rounded-md border border-hairline bg-panel px-1.5 py-0.5 font-mono text-[9px] text-dim">
-                              {s.badge}
-                            </span>
-                          )}
+                          {s.badge && <Badge tone="info">{s.badge}</Badge>}
                         </div>
-                        <p className="text-[11px] text-faint leading-relaxed">{s.description}</p>
+                        <p className="text-xs text-faint leading-relaxed">{s.description}</p>
                       </div>
 
-                      <div className="mt-4 flex items-center justify-between border-t border-hairline/60 pt-3">
-                        <button
-                          type="button"
+                      <div className="mt-4 flex items-center justify-between gap-2 border-t border-hairline pt-3">
+                        <Button
+                          size="md"
+                          variant="ghost"
+                          icon={
+                            <Play
+                              size={12}
+                              weight="fill"
+                              className={isTesting ? "animate-spin text-brand" : ""}
+                            />
+                          }
                           onClick={() => handleTestSkill(s.id)}
-                          className="flex items-center gap-1.5 text-[11px] font-medium text-dim hover:text-ink transition-colors cursor-pointer"
+                          className="whitespace-nowrap"
                         >
-                          <Play size={11} weight="fill" className={isTesting ? "text-brand animate-spin" : ""} />
-                          <span>{isTesting ? "Validando sintaxis..." : "Probar Skill"}</span>
-                        </button>
+                          {isTesting ? "Validando sintaxis..." : "Probar Skill"}
+                        </Button>
 
-                        <div className="flex items-center gap-1 font-mono text-[10px] text-emerald-400">
+                        {/* D3: el "✓ Activa" era un glifo de texto dentro de
+                            un div (tipografía y radio propios). Ahora es un
+                            `Badge` del kit con icono Phosphor. */}
+                        <Badge tone="ok" className="shrink-0">
                           <Check size={12} weight="bold" />
-                          <span>✓ Activa</span>
-                        </div>
+                          Activa
+                        </Badge>
                       </div>
                     </div>
                   );
@@ -455,30 +494,31 @@ export function PersonalizationView() {
         {/* PESTAÑA 2: CONECTORES MCP */}
         {activeTab === "mcp" && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between rounded-xl border border-hairline bg-raised/40 p-4">
-              <div>
-                <h2 className="text-xs font-semibold text-ink">Protocolo de Contexto de Modelo (MCP)</h2>
-                <p className="mt-0.5 text-[11px] text-dim">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-hairline bg-raised p-4">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-ink">Protocolo de Contexto de Modelo (MCP)</h3>
+                <p className="mt-0.5 text-xs text-dim">
                   Conecta Ego a fuentes de datos externas y herramientas del sistema mediante servidores MCP estandarizados.
                 </p>
               </div>
-              <button
-                type="button"
+              <Button
+                size="md"
+                variant="secondary"
+                icon={<Plus size={13} weight="bold" />}
                 onClick={() => setIsAddServerOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-hairline bg-panel hover:bg-raised px-3 py-1.5 text-xs font-medium text-ink transition-colors cursor-pointer"
+                className="shrink-0 whitespace-nowrap"
               >
-                <Plus size={13} weight="bold" />
-                <span>Configurar Servidor Propio</span>
-              </button>
+                Configurar Servidor Propio
+              </Button>
             </div>
 
             {/* Catálogo de Conectores Oficiales */}
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-xs font-semibold tracking-wider uppercase text-dim">
+                <h3 className="text-sm font-semibold text-dim">
                   Conectores Disponibles en el Catálogo ({filteredMcp.length})
                 </h3>
-                <span className="font-mono text-[10px] text-faint">
+                <span className="font-mono text-xs text-faint">
                   {installedServers.length} instalados actualmente
                 </span>
               </div>
@@ -490,50 +530,50 @@ export function PersonalizationView() {
                   return (
                     <div
                       key={m.id}
-                      className="group flex flex-col justify-between rounded-2xl border border-hairline bg-raised/50 hover:bg-raised p-4 transition-colors duration-150 shadow-2xs hover:border-strong/60"
+                      className={`${CARD} group flex flex-col justify-between bg-raised hover:bg-raised transition-colors duration-150 hover:border-strong`}
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2 mb-2.5">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-panel border border-hairline text-ink shadow-xs">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-card)] bg-panel border border-hairline text-ink">
                               <Icon size={18} />
                             </div>
                             <div>
-                              <h4 className="text-xs font-semibold text-ink leading-snug">{m.name}</h4>
-                              <span className="text-[10px] text-dim">{m.category}</span>
+                              <h4 className="text-sm font-semibold text-ink leading-snug">{m.name}</h4>
+                              <span className="text-xs text-dim">{m.category}</span>
                             </div>
                           </div>
                           {isInstalled ? (
-                            <span className="flex items-center gap-1 rounded-full border border-emerald-800/40 bg-emerald-950/80 px-2 py-0.5 font-sans text-[9px] text-emerald-400">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <Badge tone="ok">
+                              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                               Conectado
-                            </span>
+                            </Badge>
                           ) : (
-                            <span className="rounded-md border border-hairline bg-panel px-1.5 py-0.5 font-mono text-[9px] text-dim">
-                              Disponible
-                            </span>
+                            <Badge tone="dim">Disponible</Badge>
                           )}
                         </div>
-                        <p className="text-[11px] text-faint leading-relaxed">{m.description}</p>
+                        <p className="text-xs text-faint leading-relaxed">{m.description}</p>
                       </div>
 
-                      <div className="mt-4 flex items-center justify-between border-t border-hairline/60 pt-3">
-                        <span className="font-mono text-[10px] text-dim truncate max-w-[150px]">
+                      <div className="mt-4 flex items-center justify-between border-t border-hairline pt-3">
+                        <span className="font-mono text-xs text-dim truncate max-w-[150px]">
                           {m.defaultConfig ? `${m.defaultConfig.command} ${m.defaultConfig.args?.join(" ") ?? ""}` : "Estándar stdio"}
                         </span>
 
                         {isInstalled ? (
-                          <button
-                            type="button"
+                          <Button
+                            size="md"
+                            variant="ghost"
+                            icon={<Gear size={12} />}
                             onClick={() => setIsAddServerOpen(true)}
-                            className="flex items-center gap-1 text-[11px] font-medium text-dim hover:text-ink transition-colors cursor-pointer"
+                            className="shrink-0 whitespace-nowrap"
                           >
-                            <Gear size={12} />
-                            <span>Configurar</span>
-                          </button>
+                            Configurar
+                          </Button>
                         ) : (
-                          <button
-                            type="button"
+                          <Button
+                            size="md"
+                            variant="primary"
                             onClick={() => {
                               if (m.defaultConfig) {
                                 void handleAddServerSubmit({
@@ -548,10 +588,10 @@ export function PersonalizationView() {
                                 setIsAddServerOpen(true);
                               }
                             }}
-                            className="rounded-lg bg-ink px-2.5 py-1 text-[11px] font-medium text-paper hover:opacity-90 transition-opacity cursor-pointer"
+                            className="shrink-0 whitespace-nowrap"
                           >
                             Conectar en 1 Clic
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -566,36 +606,51 @@ export function PersonalizationView() {
         {activeTab === "avatar" && (
           <div className="space-y-6">
             {/* Banner de Control de Mascota / Isla Flotante */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-hairline bg-raised/60 p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-panel border border-hairline text-xl">
-                  🏝️
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-[var(--radius-card)] border border-hairline bg-raised p-4">
+              <div className="flex min-w-0 items-center gap-3">
+                {/* D18: el emoji 🏝️ se pintaba como "caja negra" (tofu) en
+                    el tema dark-only y rompía la escala tipográfica. Ahora
+                    es un icono Phosphor (`Island`). */}
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-card)] bg-panel border border-hairline text-brand">
+                  <Island size={20} />
                 </div>
-                <div>
-                  <h2 className="text-xs font-semibold text-ink">Compañero Desktop — Isla Flotante</h2>
-                  <p className="text-[11px] text-dim">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-ink">Compañero Desktop — Isla Flotante</h3>
+                  <p className="text-xs text-dim">
                     Mascota viva 2.5D desacoplada en la pantalla que reacciona a tus estados y tareas en segundo plano.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => (window as any).ego?.floating?.toggleFloating?.()}
-                  className="flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-1.5 text-xs font-semibold text-paper shadow-xs hover:opacity-90 transition-opacity cursor-pointer"
+              <div className="flex shrink-0 items-center gap-2">
+                {/* D10: el botón llevaba el emoji DENTRO de la etiqueta y el
+                    `<kbd>` también dentro del `<span>` interno del kit, así
+                    que el contenido medía 48 px de alto dentro de un botón
+                    de 32 px con `overflow-hidden`: "Conmutar" / "Isla" y la
+                    mitad inferior recortada. Ahora el icono va por la prop
+                    `icon`, la etiqueta no se parte (`whitespace-nowrap`) y
+                    el atajo de teclado sale del botón: un `<kbd>` dentro
+                    de un `<button>` es ruido para el lector de pantalla. */}
+                <Button
+                  size="md"
+                  variant="primary"
+                  icon={<Island size={14} />}
+                  onClick={toggleFloatingCompanion}
+                  className="shrink-0 whitespace-nowrap"
                 >
-                  <span>🏝️ Conmutar Isla</span>
-                  <kbd className="rounded bg-white/20 px-1 py-0.2 font-mono text-[9px]">Alt+Win+P</kbd>
-                </button>
+                  Conmutar Isla
+                </Button>
+                <kbd className="rounded-md border border-hairline bg-panel px-1.5 py-0.5 font-mono text-xs text-dim">
+                  Alt+Win+P
+                </kbd>
               </div>
             </div>
 
             {/* Estudio de Personalización de Avatar */}
-            <div className="rounded-2xl border border-hairline bg-panel p-4 shadow-2xs">
+            <div className={CARD}>
               <div className="mb-4">
-                <h3 className="text-xs font-semibold text-ink">Estudio de Aspecto de Sub-Egos</h3>
-                <p className="text-[11px] text-dim">
+                <h3 className="text-sm font-semibold text-ink">Estudio de Aspecto de Sub-Egos</h3>
+                <p className="text-xs text-dim">
                   Configura la forma base, paleta de colores, forma de ojos y accesorios para los Sub-Egos de tu sistema.
                 </p>
               </div>

@@ -163,12 +163,15 @@ describe("T05: tokens reales + chat al design system", () => {
       //
       // EGO-FIND-71: el valor esperado se lee del PRESET (assert de
       // comportamiento: `:root` recibe el token del preset, no un hex fijado
-      // ni el fallback). El panel de emerald-terminal se oscureció a #002b1b
-      // para cumplir AA (>= 4.5:1) con los tokens fijos del sistema.
+      // ni el fallback).
+      // Owner 2026-10-20: los presets están en OKLCH → el assert compara
+      // contra el valor canónico del preset, no contra un hex literal.
       expect(docStyle().getPropertyValue("--color-panel")).toBe(
         PRESET_THEMES["emerald-terminal"]!.colors.panel
       );
-      expect(docStyle().getPropertyValue("--color-brand")).toBe("#10b981");
+      expect(docStyle().getPropertyValue("--color-brand")).toBe(
+        PRESET_THEMES["emerald-terminal"]!.colors.brand
+      );
       await act(async () => {
         btn("amber-warm").click();
       });
@@ -179,7 +182,60 @@ describe("T05: tokens reales + chat al design system", () => {
       await act(async () => {
         btn("default-dark").click();
       });
-      expect(docStyle().getPropertyValue("--color-panel")).toBe("#141416");
+      expect(docStyle().getPropertyValue("--color-panel")).toBe(
+        PRESET_THEMES["default-dark"]!.colors.panel
+      );
+    });
+
+    it("el focus-ring es el brand del preset (un único accent, owner 2026-10-20)", async () => {
+      // Antes coexistían DOS acentos vivos: el brand real en runtime era
+      // cyan (#38bdf8) y el focus-ring era ámbar fijo → un control podía
+      // tener borde cyan y foco ámbar. Ahora focus-ring == brand.
+      await act(async () => {
+        root.render(
+          <DesignSystemProvider>
+            <PresetCycler />
+          </DesignSystemProvider>
+        );
+      });
+      const docStyle = () => document.documentElement.style;
+      const btn = (k: string) =>
+        container.querySelector(`[data-testid="btn-${k}"]`) as HTMLButtonElement;
+      for (const key of PRESET_KEYS) {
+        await act(async () => {
+          btn(key).click();
+        });
+        expect(docStyle().getPropertyValue("--color-focus-ring")).toBe(
+          PRESET_THEMES[key]!.colors.brand
+        );
+        expect(docStyle().getPropertyValue("--ego-color-focus-ring")).toBe(
+          PRESET_THEMES[key]!.colors.brand
+        );
+      }
+      await act(async () => {
+        btn("default-dark").click();
+      });
+    });
+
+    it("expone data-palette en <html> (hook de CSS por preset)", async () => {
+      await act(async () => {
+        root.render(
+          <DesignSystemProvider>
+            <PresetCycler />
+          </DesignSystemProvider>
+        );
+      });
+      const btn = (k: string) =>
+        container.querySelector(`[data-testid="btn-${k}"]`) as HTMLButtonElement;
+      for (const key of PRESET_KEYS) {
+        await act(async () => {
+          btn(key).click();
+        });
+        expect(document.documentElement.getAttribute("data-palette")).toBe(key);
+      }
+      await act(async () => {
+        btn("default-dark").click();
+      });
     });
 
     it("resolvePresetKey mapea clave e id; desconocido no muta", async () => {
@@ -230,7 +286,9 @@ describe("T05: tokens reales + chat al design system", () => {
         });
         const themeId = container2.querySelector('[data-testid="theme-id"]');
         expect(themeId?.textContent).toBe("theme-midnight-cyan");
-        expect(document.documentElement.style.getPropertyValue("--color-panel")).toBe("#0f172a");
+        expect(document.documentElement.style.getPropertyValue("--color-panel")).toBe(
+          PRESET_THEMES["midnight-cyan"]!.colors.panel
+        );
         await act(async () => {
           root2.unmount();
         });

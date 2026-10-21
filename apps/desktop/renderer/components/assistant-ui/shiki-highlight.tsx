@@ -17,19 +17,6 @@ function normalizeLang(raw?: string): string {
   return l || "text";
 }
 
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener?.("change", onChange);
-    return () => mq.removeEventListener?.("change", onChange);
-  }, []);
-  return reduced;
-}
-
 // Pool / Singleton de Worker para evitar sobrecoste de instanciación
 let sharedWorker: Worker | null = null;
 const pendingRequests = new Map<
@@ -137,10 +124,16 @@ async function highlightOffMainThread(
 /**
  * ShikiHighlight — resaltado shiki ejecutado off-main-thread con Web Worker.
  * Solo diff/ts/tsx/typescript; resto cae a <pre>. Streaming o fallo → <pre> plano.
- * Reduced-motion → sin animación token.
+ *
+ * ## Reduced-motion
+ * Antes este componente inyectaba `style={{ animation: "none" }}` cuando el
+ * SO pedía `prefers-reduced-motion`. Ese estilo inline ad-hoc está
+ * prohibido por el design system (§1) y además era REDUNDANTE: `index.css`
+ * ya declara la regla global `@media (prefers-reduced-motion: reduce)` que
+ * anula `animation` y `transition` en todo el árbol. Se eliminó el estilo
+ * inline (y su listener de `matchMedia`) sin cambio de comportamiento.
  */
 export function ShikiHighlight({ code, language, streaming = false }: ShikiHighlightProps) {
-  const reducedMotion = usePrefersReducedMotion();
   const [html, setHtml] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [fallbackReason, setFallbackReason] = useState<string | null>(null);
@@ -185,7 +178,6 @@ export function ShikiHighlight({ code, language, streaming = false }: ShikiHighl
       className="shiki-static"
       data-shiki-fallback={fallbackReason ? "true" : undefined}
       data-shiki-fallback-reason={fallbackReason ?? undefined}
-      style={reducedMotion ? { animation: "none" } : undefined}
       // T3 (EGO-FIND-61): el HTML del worker pasa por la política defensiva
       // (sin `<script>`, sin handlers inline, sin cargas remotas) antes de
       // inyectarse en el DOM.

@@ -30,7 +30,7 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
   if (!combinedText) return null;
 
   return (
-    <div className="my-2 rounded-2xl border border-white/10 bg-[#161822]/70 overflow-hidden text-xs transition-colors hover:border-white/20 shadow-sm backdrop-blur-sm">
+    <div className="my-2 rounded-[var(--radius-card)] border border-hairline bg-panel overflow-hidden text-xs transition-colors hover:border-strong shadow-[var(--ego-elevation-l1)]">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -38,9 +38,9 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
         className="flex w-full items-center justify-between px-3.5 py-2 text-faint hover:text-ink cursor-pointer transition-colors select-none group"
       >
         <div className="flex items-center gap-2 font-medium">
-          <Sparkle size={13} className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
-          <span className="text-ink font-medium text-[11.5px]">Razonamiento del Sub-Ego</span>
-          <span className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[9.5px] text-faint font-mono">
+          <Sparkle size={13} className="text-brand shrink-0 group-hover:scale-110 transition-transform" />
+          <span className="text-ink font-medium text-sm">Razonamiento del Sub-Ego</span>
+          <span className="rounded-full bg-raised border border-hairline px-2 py-0.5 text-xs text-faint font-mono">
             {estimatedSeconds}s · {lineCount} {lineCount === 1 ? "línea" : "líneas"}
           </span>
         </div>
@@ -51,7 +51,7 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
       </button>
 
       {isOpen && (
-        <div className="border-t border-white/10 px-4 py-3 text-[11px] text-ink/80 font-mono whitespace-pre-wrap leading-relaxed bg-[#11121a]/80 max-h-80 overflow-y-auto">
+        <div className="border-t border-hairline px-4 py-3 text-xs text-ink font-mono whitespace-pre-wrap leading-relaxed bg-paper max-h-80 overflow-y-auto">
           {combinedText}
         </div>
       )}

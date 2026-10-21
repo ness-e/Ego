@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import type { DiffProps } from "@ego/ui-runtime";
 import { GitDiff, Columns, Rows, Check, X, Copy, CheckCircle } from "@phosphor-icons/react";
+import { Button } from "../ui-kit/Button.js";
 
 interface DiffViewProps {
   props: DiffProps;
@@ -10,6 +11,17 @@ interface HunkBlock {
   id: number;
   startIdx: number;
   endIdx: number;
+}
+
+/**
+ * Clases del botón de decisión de hunk. `decision` refleja el estado ya
+ * guardado: el color NO sustituye al estado, sólo lo refuerza (el texto
+ * "Aceptar"/"Rechazar" y el `aria-pressed` siguen siendo la señal primaria).
+ */
+function decisionClass(decision: "accepted" | "rejected" | undefined): string {
+  if (decision === "accepted") return "border-success text-success";
+  if (decision === "rejected") return "border-error text-error";
+  return "text-dim hover:text-ink";
 }
 
 export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
@@ -92,22 +104,22 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
   };
 
   return (
-    <div className="rounded-xl border border-hairline bg-panel shadow-xs overflow-hidden select-text">
+    <div className="overflow-hidden rounded-[var(--radius-card)] border border-hairline bg-panel shadow-[var(--ego-elevation-l1)] select-text">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-raised/80 border-b border-hairline text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline bg-raised px-3 py-2 text-xs">
         <div className="flex items-center gap-2">
-          <GitDiff size={14} className="text-amber-400" />
-          <span className="font-mono text-ink font-semibold">{props.filePath}</span>
-          <div className="flex items-center gap-1 font-mono text-[10px]">
-            <span className="text-emerald-400">
+          <GitDiff size={14} className="text-warning" />
+          <span className="font-mono font-semibold text-ink">{props.filePath}</span>
+          <div className="flex items-center gap-1 font-mono text-xs">
+            <span className="text-success">
               +{props.additionsCount ?? modLines.length}
             </span>
-            <span className="text-rose-400">
+            <span className="text-error">
               -{props.deletionsCount ?? origLines.length}
             </span>
           </div>
           {hunks.length > 0 && (
-            <span className="ml-2 font-mono text-[10px] text-faint bg-raised border border-hairline rounded px-1.5 py-0.2">
+            <span className="ml-2 rounded-md border border-hairline bg-panel px-1.5 py-0.5 font-mono text-xs text-faint">
               {hunks.length} {hunks.length === 1 ? "hunk" : "hunks"}
             </span>
           )}
@@ -115,16 +127,16 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
 
         <div className="flex items-center gap-2">
           {/* Botón Copiar resultado */}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={handleCopyResult}
-            className="flex items-center gap-1 rounded border border-hairline bg-raised px-2 py-0.5 text-[11px] text-dim hover:text-ink transition-colors cursor-pointer"
             title="Copiar resultado combinado al portapapeles"
           >
             {copied ? (
               <>
-                <CheckCircle size={12} className="text-emerald-400" />
-                <span className="text-emerald-400">¡Copiado!</span>
+                <CheckCircle size={12} className="text-success" />
+                <span className="text-success">¡Copiado!</span>
               </>
             ) : (
               <>
@@ -132,39 +144,43 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
                 <span>Copiar resultado</span>
               </>
             )}
-          </button>
+          </Button>
 
           {/* Switch split / unified */}
-          <div className="flex items-center gap-1 bg-panel border border-hairline rounded p-0.5">
-            <button
+          <div className="flex items-center gap-1 rounded-[var(--radius-card)] border border-hairline bg-panel p-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-pressed={viewMode === "split"}
+              aria-label="Vista dividida"
               onClick={() => setViewMode("split")}
-              className={`p-1 rounded text-xs transition-colors cursor-pointer ${
-                viewMode === "split" ? "bg-raised text-ink" : "text-dim hover:text-ink"
-              }`}
+              className={viewMode === "split" ? "bg-raised text-ink" : "text-dim hover:text-ink"}
               title="Vista Dividida"
             >
-              <Columns size={12} />
-            </button>
-            <button
+              <Columns size={14} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-pressed={viewMode === "unified"}
+              aria-label="Vista unificada"
               onClick={() => setViewMode("unified")}
-              className={`p-1 rounded text-xs transition-colors cursor-pointer ${
-                viewMode === "unified" ? "bg-raised text-ink" : "text-dim hover:text-ink"
-              }`}
+              className={viewMode === "unified" ? "bg-raised text-ink" : "text-dim hover:text-ink"}
               title="Vista Unificada"
             >
-              <Rows size={12} />
-            </button>
+              <Rows size={14} />
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Diff content */}
-      <div className="p-2 bg-paper overflow-x-auto max-h-[420px] font-mono text-[11px] leading-relaxed">
+      <div className="max-h-[420px] overflow-x-auto bg-paper p-2 font-mono text-xs leading-relaxed">
         {viewMode === "split" ? (
           <div className="grid grid-cols-2 divide-x divide-hairline">
             {/* Lado Original */}
             <div className="overflow-x-auto pr-2">
-              <div className="text-[10px] text-dim font-bold uppercase pb-1 mb-1 border-b border-hairline">
+              <div className="mb-1 border-b border-hairline pb-1 text-xs font-bold uppercase text-dim">
                 Original
               </div>
               {origLines.map((line, idx) => {
@@ -175,35 +191,31 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
                 return (
                   <React.Fragment key={idx}>
                     {isHunkStart && (
-                      <div className="flex items-center justify-between bg-raised/70 border border-hairline rounded px-2 py-0.5 my-1 text-[10px] select-none">
-                        <span className="text-faint font-semibold">
+                      <div className="my-1 flex select-none items-center justify-between rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-0.5 text-xs">
+                        <span className="font-semibold text-faint">
                           Hunk #{hunk.id + 1} (L{hunk.startIdx + 1}–L{hunk.endIdx + 1})
                         </span>
                         <div className="flex items-center gap-1">
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            aria-pressed={decision === "accepted"}
                             onClick={() => handleAcceptHunk(hunk.id)}
-                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer ${
-                              decision === "accepted"
-                                ? "bg-emerald-950 border-emerald-500 text-emerald-300 font-bold"
-                                : "border-hairline bg-panel text-dim hover:text-emerald-300"
-                            }`}
+                            className={decisionClass(decision)}
                             title="Aceptar este cambio"
                           >
-                            <Check size={10} className="inline mr-0.5" /> Aceptar
-                          </button>
-                          <button
-                            type="button"
+                            <Check size={12} /> Aceptar
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            aria-pressed={decision === "rejected"}
                             onClick={() => handleRejectHunk(hunk.id)}
-                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer ${
-                              decision === "rejected"
-                                ? "bg-rose-950 border-rose-500 text-rose-300 font-bold"
-                                : "border-hairline bg-panel text-dim hover:text-rose-300"
-                            }`}
+                            className={decisionClass(decision)}
                             title="Rechazar este cambio y conservar original"
                           >
-                            <X size={10} className="inline mr-0.5" /> Rechazar
-                          </button>
+                            <X size={12} /> Rechazar
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -211,12 +223,12 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
                       className={`flex items-start gap-2 ${
                         idx < modLines.length && line !== modLines[idx]
                           ? decision === "rejected"
-                            ? "bg-slate-800/40 text-slate-300 line-through opacity-70"
-                            : "bg-rose-950/40 text-rose-300"
+                            ? "bg-raised text-dim line-through"
+                            : "bg-error/10 text-error"
                           : "text-faint"
                       }`}
                     >
-                      <span className="w-6 text-right text-dim select-none text-[10px]">
+                      <span className="w-6 select-none text-right text-xs text-dim">
                         {idx + 1}
                       </span>
                       <span className="whitespace-pre">{line || " "}</span>
@@ -228,7 +240,7 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
 
             {/* Lado Modificado */}
             <div className="overflow-x-auto pl-2">
-              <div className="text-[10px] text-dim font-bold uppercase pb-1 mb-1 border-b border-hairline">
+              <div className="mb-1 border-b border-hairline pb-1 text-xs font-bold uppercase text-dim">
                 Modificado
               </div>
               {modLines.map((line, idx) => {
@@ -239,8 +251,8 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
                 return (
                   <React.Fragment key={idx}>
                     {isHunkStart && (
-                      <div className="flex items-center justify-between bg-raised/70 border border-hairline rounded px-2 py-0.5 my-1 text-[10px] select-none">
-                        <span className="text-faint font-semibold">
+                      <div className="my-1 flex select-none items-center justify-between rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-0.5 text-xs">
+                        <span className="font-semibold text-faint">
                           Estado: {decision === "accepted" ? "Aceptado" : decision === "rejected" ? "Rechazado" : "Pendiente"}
                         </span>
                       </div>
@@ -249,14 +261,14 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
                       className={`flex items-start gap-2 ${
                         idx < origLines.length && line !== origLines[idx]
                           ? decision === "accepted"
-                            ? "bg-emerald-950/70 text-emerald-200 font-semibold"
+                            ? "bg-success/10 font-semibold text-success"
                             : decision === "rejected"
-                              ? "bg-slate-900/40 text-slate-400 line-through opacity-50"
-                              : "bg-emerald-950/40 text-emerald-300"
+                              ? "bg-raised text-dim line-through"
+                              : "bg-success/10 text-success"
                           : "text-ink"
                       }`}
                     >
-                      <span className="w-6 text-right text-dim select-none text-[10px]">
+                      <span className="w-6 select-none text-right text-xs text-dim">
                         {idx + 1}
                       </span>
                       <span className="whitespace-pre">{line || " "}</span>
@@ -280,42 +292,38 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
                 return (
                   <React.Fragment key={idx}>
                     {isHunkStart && (
-                      <div className="flex items-center justify-between bg-raised/80 border border-hairline rounded px-2 py-0.5 my-1 text-[10px] select-none">
-                        <span className="text-faint font-semibold">
+                      <div className="my-1 flex select-none items-center justify-between rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-0.5 text-xs">
+                        <span className="font-semibold text-faint">
                           Hunk #{hunk.id + 1} (L{hunk.startIdx + 1}–L{hunk.endIdx + 1})
                         </span>
                         <div className="flex items-center gap-1">
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            aria-pressed={decision === "accepted"}
                             onClick={() => handleAcceptHunk(hunk.id)}
-                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer ${
-                              decision === "accepted"
-                                ? "bg-emerald-950 border-emerald-500 text-emerald-300 font-bold"
-                                : "border-hairline bg-panel text-dim hover:text-emerald-300"
-                            }`}
+                            className={decisionClass(decision)}
                           >
-                            <Check size={10} className="inline mr-0.5" /> Aceptar
-                          </button>
-                          <button
-                            type="button"
+                            <Check size={12} /> Aceptar
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            aria-pressed={decision === "rejected"}
                             onClick={() => handleRejectHunk(hunk.id)}
-                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer ${
-                              decision === "rejected"
-                                ? "bg-rose-950 border-rose-500 text-rose-300 font-bold"
-                                : "border-hairline bg-panel text-dim hover:text-rose-300"
-                            }`}
+                            className={decisionClass(decision)}
                           >
-                            <X size={10} className="inline mr-0.5" /> Rechazar
-                          </button>
+                            <X size={12} /> Rechazar
+                          </Button>
                         </div>
                       </div>
                     )}
                     {orig !== undefined && (
                       <div className={`flex items-start gap-2 px-1 ${
-                        decision === "rejected" ? "bg-slate-800/40 text-slate-300" : "bg-rose-950/40 text-rose-300"
+                        decision === "rejected" ? "bg-raised text-dim" : "bg-error/10 text-error"
                       }`}>
-                        <span className="w-4 text-center select-none text-rose-500 font-bold">-</span>
-                        <span className="w-6 text-right text-dim select-none text-[10px]">
+                        <span className="w-4 select-none text-center font-bold text-error">-</span>
+                        <span className="w-6 select-none text-right text-xs text-dim">
                           {idx + 1}
                         </span>
                         <span className="whitespace-pre">{orig || " "}</span>
@@ -323,10 +331,10 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
                     )}
                     {mod !== undefined && (
                       <div className={`flex items-start gap-2 px-1 ${
-                        decision === "accepted" ? "bg-emerald-950/70 text-emerald-200" : "bg-emerald-950/40 text-emerald-300"
+                        decision === "accepted" ? "bg-success/10 text-success" : "bg-success/10 text-success"
                       }`}>
-                        <span className="w-4 text-center select-none text-emerald-500 font-bold">+</span>
-                        <span className="w-6 text-right text-dim select-none text-[10px]">
+                        <span className="w-4 select-none text-center font-bold text-success">+</span>
+                        <span className="w-6 select-none text-right text-xs text-dim">
                           {idx + 1}
                         </span>
                         <span className="whitespace-pre">{mod || " "}</span>
@@ -337,9 +345,9 @@ export const DiffView: React.FC<DiffViewProps> = ({ props }) => {
               }
 
               return (
-                <div key={idx} className="flex items-start gap-2 text-faint px-1">
-                  <span className="w-4 text-center select-none text-dim"> </span>
-                  <span className="w-6 text-right text-dim select-none text-[10px]">
+                <div key={idx} className="flex items-start gap-2 px-1 text-faint">
+                  <span className="w-4 select-none text-center text-dim"> </span>
+                  <span className="w-6 select-none text-right text-xs text-dim">
                     {idx + 1}
                   </span>
                   <span className="whitespace-pre">{orig || " "}</span>

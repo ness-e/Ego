@@ -68,7 +68,7 @@ export const AskDirective = memo(function AskDirective({
 
   return (
     <div
-      className="my-3 flex flex-col gap-2 rounded-lg border border-hairline bg-panel p-3 text-xs"
+      className="my-3 flex flex-col gap-2 rounded-[var(--radius-card)] border border-hairline bg-panel p-3 text-xs"
       data-ego-directive="ask"
     >
       <div className="font-medium text-ink flex items-center gap-1.5">
@@ -85,12 +85,12 @@ export const AskDirective = memo(function AskDirective({
               type="button"
               disabled={isClosed || streaming}
               onClick={() => handleSelect(option)}
-              className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 isSelected
-                  ? "border-brand bg-brand text-paper font-semibold shadow-xs"
+                  ? "border-brand bg-brand text-on-brand font-semibold shadow-[var(--ego-elevation-l1)]"
                   : isClosed
-                  ? "border-hairline text-faint opacity-50 cursor-not-allowed"
-                  : "border-hairline bg-raised text-ink hover:border-dim hover:bg-panel cursor-pointer"
+                  ? "border-hairline text-dim cursor-not-allowed"
+                  : "border-hairline bg-raised text-ink hover:border-strong hover:bg-panel cursor-pointer"
               }`}
             >
               {option}

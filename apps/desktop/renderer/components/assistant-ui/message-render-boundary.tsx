@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from "react";
+import { Button } from "../ui-kit/Button.js";
 
 /**
  * Detecta errores de lookup transitorios en el almacén interno de `@assistant-ui/react`.
@@ -93,18 +94,19 @@ export class MessageRenderBoundary extends Component<
       }
 
       return (
-        <div className="my-2 rounded border border-rose-500/30 bg-rose-950/20 px-3 py-2 text-xs text-rose-300">
-          <div className="font-semibold text-rose-400">Error al renderizar mensaje</div>
-          <div className="mt-1 font-mono text-[11px] opacity-80">
+        <div className="my-2 rounded-[var(--radius-card)] border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">
+          <div className="font-semibold text-error">Error al renderizar mensaje</div>
+          <div className="mt-1 font-mono text-xs text-ink">
             {this.state.error.message || "Error desconocido en el árbol de componentes"}
           </div>
-          <button
-            type="button"
-            className="mt-2 rounded bg-rose-900/40 px-2 py-0.5 text-[10px] text-rose-200 hover:bg-rose-900/60 transition-colors"
+          <Button
+            variant="secondary"
+            size="md"
+            className="mt-2"
             onClick={() => this.setState({ error: null })}
           >
             Reintentar render
-          </button>
+          </Button>
         </div>
       );
     }

@@ -27,6 +27,7 @@ import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { Button } from "../ui-kit/Button.js";
 
 /**
  * T6 (EGO-FIND-57) — Editor de código CodeMirror 6 que EDITA de verdad.
@@ -89,31 +90,41 @@ function buildExtensions(
       if (!update.docChanged) return;
       onDocChange(update.state.doc.toString());
     }),
+    // CodeMirror no lee clases Tailwind: su tema se declara aquí. Aun así
+    // se apoya en los TOKENS del sistema (`--color-*`) para que el editor
+    // se tematice con el preset activo y no con colores congelados.
+    // Los velos sutiles (gutter/línea activa) se expresan con `color-mix`
+    // sobre `--color-ink` en vez de `rgba(255,255,255,…)` sueltos.
     CMView.theme({
       "&": {
         fontSize: "12px",
         fontFamily: "var(--font-mono, monospace)",
         backgroundColor: "transparent",
-        color: "var(--ego-color-ink, #f5f6f8)",
+        color: "var(--color-ink, #f4f4f5)",
         height: "100%",
         maxHeight: "420px",
       },
       ".cm-content": {
         padding: "8px 0",
-        caretColor: "#38bdf8",
+        // El cursor usa el accent del sistema (ámbar), no un cyan suelto.
+        caretColor: "var(--color-brand, #f59e0b)",
       },
       ".cm-gutters": {
-        backgroundColor: "rgba(255, 255, 255, 0.02)",
-        color: "var(--ego-color-dim, #71717a)",
-        borderRight: "1px solid rgba(255, 255, 255, 0.06)",
-        fontSize: "11px",
+        backgroundColor:
+          "color-mix(in oklab, var(--color-ink, #f4f4f5) 2%, transparent)",
+        color: "var(--color-dim, #8a8a92)",
+        borderRight:
+          "1px solid color-mix(in oklab, var(--color-ink, #f4f4f5) 6%, transparent)",
+        fontSize: "12px",
       },
       ".cm-activeLine": {
-        backgroundColor: "rgba(255, 255, 255, 0.04)",
+        backgroundColor:
+          "color-mix(in oklab, var(--color-ink, #f4f4f5) 4%, transparent)",
       },
       ".cm-activeLineGutter": {
-        backgroundColor: "rgba(255, 255, 255, 0.06)",
-        color: "var(--ego-color-ink, #ffffff)",
+        backgroundColor:
+          "color-mix(in oklab, var(--color-ink, #f4f4f5) 6%, transparent)",
+        color: "var(--color-ink, #f4f4f5)",
       },
     }),
   ];
@@ -221,37 +232,38 @@ export const EditorView: React.FC<EditorViewProps> = ({ props }) => {
   }, [props.readOnly]);
 
   return (
-    <div className="rounded-xl border border-hairline bg-panel shadow-xs overflow-hidden select-text">
+    <div className="overflow-hidden rounded-[var(--radius-card)] border border-hairline bg-panel shadow-[var(--ego-elevation-l1)] select-text">
       {/* Header (contrato intacto) */}
-      <div className="flex items-center justify-between px-3 py-2 bg-raised/80 border-b border-hairline text-xs">
+      <div className="flex items-center justify-between border-b border-hairline bg-raised px-3 py-2 text-xs">
         <div className="flex items-center gap-2">
-          <FileCode size={14} className="text-cyan-400" />
-          <span className="font-mono text-ink font-semibold">
+          <FileCode size={14} className="text-brand" />
+          <span className="font-mono font-semibold text-ink">
             {props.filePath || props.title || "editor"}
           </span>
-          <span className="rounded bg-hairline px-1.5 py-0.2 text-[10px] font-mono text-dim uppercase">
+          <span className="rounded-md border border-hairline bg-panel px-1.5 py-0.5 font-mono text-xs uppercase text-dim">
             {props.language}
           </span>
           {props.readOnly && (
-            <span className="text-[10px] text-faint font-mono">Solo lectura</span>
+            <span className="font-mono text-xs text-faint">Solo lectura</span>
           )}
         </div>
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleCopy}
           aria-label="Copiar contenido"
           data-testid="editor-copy-button"
-          className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-dim hover:text-ink hover:bg-hairline transition-colors"
           title="Copiar contenido"
         >
-          {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+          {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
           <span>{copied ? "Copiado" : "Copiar"}</span>
-        </button>
+        </Button>
       </div>
 
       {/* Cuerpo CodeMirror 6 profesional */}
       {!cmFailed ? (
-        <div className="relative bg-paper max-h-[420px] overflow-auto">
-          <div ref={mountRef} className="text-[12px] leading-relaxed" />
+        <div className="relative max-h-[420px] overflow-auto bg-paper">
+          <div ref={mountRef} className="text-xs leading-relaxed" />
           {/* Contenido oculto para lectores/tests que buscan texto plano */}
           <span className="sr-only">{props.code}</span>
         </div>
@@ -261,7 +273,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ props }) => {
           <div
             role="alert"
             data-editor-fallback="true"
-            className="flex items-center gap-2 border-b border-amber-800/40 bg-amber-950/30 px-3 py-2 text-[11px] text-amber-300"
+            className="flex items-center gap-2 border-b border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
           >
             <WarningCircle size={13} className="shrink-0" aria-hidden />
             <span>
@@ -269,13 +281,13 @@ export const EditorView: React.FC<EditorViewProps> = ({ props }) => {
               {cmError ? ` Detalle: ${cmError}` : ""}
             </span>
           </div>
-          <div className="p-3 bg-paper overflow-x-auto max-h-[420px] font-mono text-[12px] leading-relaxed text-ink">
+          <div className="max-h-[420px] overflow-x-auto bg-paper p-3 font-mono text-xs leading-relaxed text-ink">
             <table className="w-full border-collapse">
               <tbody>
                 {lines.map((line, idx) => (
                   <tr key={idx} className="hover:bg-raised">
                     {props.lineNumbers !== false && (
-                      <td className="w-8 pr-3 text-right text-dim select-none text-[11px]">
+                      <td className="w-8 select-none pr-3 text-right text-xs text-dim">
                         {idx + 1}
                       </td>
                     )}

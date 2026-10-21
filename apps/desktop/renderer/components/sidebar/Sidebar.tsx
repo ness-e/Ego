@@ -29,6 +29,64 @@ import { SettingsModal } from "./SettingsModal.js";
 import { ProjectsModal } from "./ProjectsModal.js";
 import { useDesignSystem, resolvePresetKey } from "../canvas/DesignSystemProvider.js";
 import { Select } from "../ui-kit/Select.js";
+import { Button } from "../ui-kit/Button.js";
+import { Menu } from "../ui-kit/Menu.js";
+import { Popover } from "../ui-kit/Popover.js";
+
+/**
+ * El `Button` del kit renderiza los hijos dentro de un `<span>` interno
+ * (`inline-flex min-w-0 items-center gap-1.5`).
+ *
+ * - Para un icono + etiqueta ya NO hace falta ningún selector arbitrario:
+ *   la prop `icon` renderiza el icono como hermano ANTERIOR a ese `<span>`,
+ *   de modo que el `gap-1.5` del base los separa sin acoplar el consumidor
+ *   al DOM interno del kit.
+ * - Para una fila con un atajo/insignia a la DERECHA (kbd, contador), el
+ *   `<span>` interno tiene que CRECER (`w-full`) para poder separar los dos
+ *   extremos con `justify-between`. Eso no es un hack de alineación sino una
+ *   necesidad estructural del DOM del kit, y por eso sigue siendo un
+ *   selector arbitrario — pero acotado a un único caso.
+ */
+const BTN_SPREAD =
+  "[&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:justify-between";
+
+/**
+ * Etiqueta CORTA de cada preset de tema.
+ *
+ * El nombre completo del preset ("Obsidian Graphite · Slate Oscuro", 32
+ * caracteres) no cabe en el trigger del selector: con el ancho máximo de
+ * 140 px el texto se partía en 2–3 líneas dentro de un trigger de altura
+ * FIJA (`h-8`), desbordándose verticalmente y ensanchando el popover de
+ * perfil. Aquí sólo se muestra el nombre corto; el nombre completo se
+ * conserva en el `title` del trigger para no perder información.
+ */
+const THEME_SHORT_LABELS: Record<string, string> = {
+  "default-dark": "Obsidian",
+  "midnight-cyan": "Midnight",
+  "emerald-terminal": "Emerald",
+  "amber-warm": "Sepia",
+};
+
+/** Nombre corto de un preset; si es desconocido, la parte antes del "·". */
+function shortThemeLabel(key: string, fullName: string): string {
+  const known = THEME_SHORT_LABELS[key];
+  if (known) return known;
+  const head = fullName.split("·")[0]?.trim();
+  return head && head.length > 0 ? head : key;
+}
+
+/**
+ * El puente `window.ego` tipado (`EgoBridge`) todavía no expone el canal
+ * `floating`; se accede con un tipo estructural mínimo en lugar de `any`.
+ */
+interface FloatingChannel {
+  toggleFloating?: () => void;
+}
+
+function toggleFloatingCompanion(): void {
+  const floating = (window.ego as unknown as { floating?: FloatingChannel }).floating;
+  floating?.toggleFloating?.();
+}
 
 export interface SidebarProps {
   activeProject: string;
@@ -60,10 +118,10 @@ function toSessionItem(s: SessionSummary): SessionItem | null {
 
 function VantaDbBadge() {
   return (
-    <div className="flex items-center justify-between px-2 py-1 font-mono text-[10px] text-dim">
+    <div className="flex items-center justify-between px-2 py-1 font-mono text-xs text-dim">
       <span>VantaDB 0.8.0</span>
-      <span className="flex items-center gap-1 font-semibold text-emerald-400">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+      <span className="flex items-center gap-1 font-semibold text-success">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
         LSM WAL
       </span>
     </div>
@@ -98,12 +156,6 @@ export function Sidebar({
   const [isMcpOpen, setIsMcpOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
 
-  // Popovers del primer Icon Rail
-  const [dotsMenuOpen, setDotsMenuOpen] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const dotsRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
-
   // Design system theme tokens (tolerante cuando se monta standalone en tests)
   let designSystem: ReturnType<typeof useDesignSystem> | null = null;
   try {
@@ -112,19 +164,12 @@ export function Sidebar({
     designSystem = null;
   }
 
-  // Cerrar popovers al hacer click fuera
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (dotsRef.current && !dotsRef.current.contains(e.target as Node)) {
-        setDotsMenuOpen(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileMenuOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", handleOutsideClick);
-    return () => window.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
+  // D12: clave canónica del preset activo + su nombre COMPLETO (para el
+  // `title` del selector). El texto VISIBLE del selector es el nombre corto
+  // (ver `shortThemeLabel`): el completo no cabe en el trigger.
+  const activeThemeKey = resolvePresetKey(designSystem?.tokens?.id ?? "") ?? "default-dark";
+  const activeThemeFullName =
+    designSystem?.availablePresets?.[activeThemeKey]?.name ?? activeThemeKey;
 
   // Ctrl+, global abre ajustes
   useEffect(() => {
@@ -241,285 +286,268 @@ export function Sidebar({
     }
   }, []);
 
+  /**
+   * Estado visual de los botones del rail y de las filas de lista.
+   * La superficie activa sube a `raised` (tarjeta) con texto `ink`; en
+   * reposo el texto es `faint` y el hover revela la misma superficie.
+   */
+  const activeClass = "bg-raised text-ink";
+  const idleClass = "text-faint hover:bg-raised hover:text-ink";
+
   return (
-    <div className="flex h-full w-full select-none overflow-hidden bg-[#111113]">
+    <div className="flex h-full w-full select-none overflow-hidden bg-paper">
       {/* =========================================================================
           COLUMNA 1: Icon Rail Fijo (ChatGPT Desktop / Codex / Claude Desktop)
           ========================================================================= */}
       <nav
         aria-label="Icon Rail"
-        className="w-14 shrink-0 bg-[#111113] border-r border-white/[0.06] flex flex-col items-center py-3 justify-between z-20"
+        className="w-14 shrink-0 bg-panel border-r border-hairline flex flex-col items-center py-3 justify-between z-20"
       >
         {/* Parte Superior del Rail */}
         <div className="flex flex-col items-center gap-2">
           {/* Botón para expandir si el segundo sidebar está colapsado */}
           {isCollapsed && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => notifyCollapsed(false)}
               title="Expandir barra lateral (Ctrl+B)"
               aria-label="Expandir barra lateral"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer mb-1"
+              className={`${idleClass} mb-1`}
             >
               <SidebarSimple size={18} />
-            </button>
+            </Button>
           )}
 
           {/* 1. Inicio / Chat */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => {
               onCloseWorkspace?.();
             }}
             title="Inicio / Chat"
             aria-label="Inicio / Chat"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
-              !workspaceOpen
-                ? "bg-white/10 text-white shadow-xs"
-                : "text-zinc-400 hover:text-white hover:bg-white/5"
-            }`}
+            className={`${!workspaceOpen ? activeClass : idleClass}`}
           >
             <House size={20} />
-          </button>
+          </Button>
 
           {/* 2. Sub-Egos Fábrica */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => {
               onSelectWorkspaceTab?.("subegos");
             }}
             title="Sub-Egos Fábrica"
             aria-label="Sub-Egos Fábrica"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
-              workspaceOpen && activeWorkspaceTab === "subegos"
-                ? "bg-white/10 text-white shadow-xs"
-                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            className={`${
+              workspaceOpen && activeWorkspaceTab === "subegos" ? activeClass : idleClass
             }`}
           >
             <Robot size={20} />
-          </button>
+          </Button>
 
           {/* 3. Tareas e Historial (Workbench) */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => {
               onSelectWorkspaceTab?.("workbench");
             }}
             title="Tareas e Historial (Workbench)"
             aria-label="Tareas e Historial"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
-              workspaceOpen && activeWorkspaceTab === "workbench"
-                ? "bg-white/10 text-white shadow-xs"
-                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            className={`${
+              workspaceOpen && activeWorkspaceTab === "workbench" ? activeClass : idleClass
             }`}
           >
             <ClockCounterClockwise size={20} />
-          </button>
+          </Button>
 
           {/* 4. Conocimiento y Memoria (Dominio / GraphRAG) */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => {
               onSelectWorkspaceTab?.("domains");
             }}
             title="Conocimiento y Memoria"
             aria-label="Conocimiento y Memoria"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
-              workspaceOpen && activeWorkspaceTab === "domains"
-                ? "bg-white/10 text-white shadow-xs"
-                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            className={`${
+              workspaceOpen && activeWorkspaceTab === "domains" ? activeClass : idleClass
             }`}
           >
             <Books size={20} />
-          </button>
+          </Button>
 
           {/* 5. Personalización (Skills, MCP y Avatares) */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => {
               onSelectWorkspaceTab?.("personalization");
             }}
             title="Personalización (Skills y Complementos MCP)"
             aria-label="Personalización"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
-              workspaceOpen && activeWorkspaceTab === "personalization"
-                ? "bg-white/10 text-white shadow-xs"
-                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            className={`${
+              workspaceOpen && activeWorkspaceTab === "personalization" ? activeClass : idleClass
             }`}
           >
             <PuzzlePiece size={20} />
-          </button>
+          </Button>
 
-          {/* 6. Botón ••• (Popover con más herramientas) */}
-          <div className="relative" ref={dotsRef}>
-            <button
-              type="button"
-              onClick={() => setDotsMenuOpen(!dotsMenuOpen)}
-              title="Más vistas y herramientas"
-              aria-label="Más vistas y herramientas"
-              className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors cursor-pointer ${
-                dotsMenuOpen
-                  ? "bg-white/15 text-white"
-                  : "text-zinc-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <DotsThree size={20} weight="bold" />
-            </button>
-
-            {/* Popover Flotante de los 3 Puntos */}
-            {dotsMenuOpen && (
-              <div className="absolute left-14 top-0 z-50 w-56 rounded-2xl bg-[#1e1e22] border border-white/10 p-2 shadow-2xl text-xs space-y-1 backdrop-blur-xl animate-in fade-in-50 zoom-in-95">
-                <div className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                  Espacio de Trabajo
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectWorkspaceTab?.("domains");
-                    setDotsMenuOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
-                >
-                  <FolderSimple size={16} className="text-zinc-400" />
-                  <span>Proyectos y Dominios</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectWorkspaceTab?.("daily");
-                    setDotsMenuOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
-                >
-                  <ChartBar size={16} className="text-zinc-400" />
-                  <span>Resumen Diario (Daily State)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectWorkspaceTab?.("workbench");
-                    setDotsMenuOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
-                >
-                  <ClockCounterClockwise size={16} className="text-zinc-400" />
-                  <span>Revisión de código & Terminal</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectWorkspaceTab?.("canvas");
-                    setDotsMenuOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
-                >
-                  <Sparkle size={16} className="text-zinc-400" />
-                  <span>Canvas Dinámico</span>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* 6. Botón ••• (Menú Radix con más herramientas) */}
+          <Menu
+            ariaLabel="Más vistas y herramientas"
+            side="right"
+            align="start"
+            // `data-[state=open]` lo pone Radix en el trigger: el menú
+            // abierto se ve activo sin estado propio en React.
+            className="data-[state=open]:bg-raised data-[state=open]:text-ink"
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Más vistas y herramientas"
+                aria-label="Más vistas y herramientas"
+                className={idleClass}
+              >
+                <DotsThree size={20} weight="bold" />
+              </Button>
+            }
+            items={[
+              {
+                label: "Proyectos y Dominios",
+                icon: <FolderSimple size={16} />,
+                onSelect: () => onSelectWorkspaceTab?.("domains"),
+              },
+              {
+                label: "Resumen Diario (Daily State)",
+                icon: <ChartBar size={16} />,
+                onSelect: () => onSelectWorkspaceTab?.("daily"),
+              },
+              {
+                label: "Revisión de código & Terminal",
+                icon: <ClockCounterClockwise size={16} />,
+                onSelect: () => onSelectWorkspaceTab?.("workbench"),
+              },
+              {
+                label: "Canvas Dinámico",
+                icon: <Sparkle size={16} />,
+                onSelect: () => onSelectWorkspaceTab?.("canvas"),
+              },
+            ]}
+          />
         </div>
 
         {/* Parte Inferior del Rail: Avatar de Usuario + Popover de Perfil */}
-        <div className="relative flex flex-col items-center gap-2" ref={profileRef}>
-          <button
-            type="button"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            title="Perfil de Eros · Soberano Local"
-            aria-label="Perfil de usuario y configuración"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-zinc-700/80 hover:bg-zinc-600 text-xs font-semibold text-white transition-colors cursor-pointer shadow-xs border border-white/10"
-          >
-            EN
-          </button>
-
-          {/* Popover Flotante de Perfil */}
-          {profileMenuOpen && (
-            <div className="absolute left-14 bottom-0 z-50 w-64 rounded-2xl bg-[#1e1e22] border border-white/10 p-2.5 shadow-2xl text-xs space-y-2 backdrop-blur-xl animate-in fade-in-50 zoom-in-95">
-              <div className="flex items-center gap-2.5 border-b border-white/[0.08] pb-2.5 px-1">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700 font-bold text-white text-xs border border-white/10">
+        <Popover
+          side="right"
+          align="end"
+          ariaLabel="Perfil de usuario y configuración"
+          contentClassName="w-64 p-2.5"
+          trigger={
+            <Button
+              variant="secondary"
+              size="icon"
+              title="Perfil de Eros · Soberano Local"
+              aria-label="Perfil de usuario y configuración"
+              className="rounded-full border border-hairline bg-raised font-semibold text-ink hover:bg-panel"
+            >
+              EN
+            </Button>
+          }
+          content={
+            <div className="space-y-2">
+              <div className="flex items-center gap-2.5 border-b border-hairline pb-2.5 px-1">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-raised font-bold text-ink text-xs">
                   EN
                 </div>
                 <div className="flex flex-col truncate">
-                  <span className="font-semibold text-white leading-tight">Eros Nessy</span>
-                  <span className="text-[10px] text-zinc-400 font-mono">Soberano Local · Ego Core</span>
+                  <span className="font-semibold text-ink leading-tight">Eros Nessy</span>
+                  <span className="font-mono text-xs text-faint">Soberano Local · Ego Core</span>
                 </div>
               </div>
 
               <div className="space-y-0.5">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => {
                     onSelectWorkspaceTab?.("daily");
-                    setProfileMenuOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                  className="w-full justify-start rounded-[var(--radius-card)] text-ink hover:bg-raised"
+                  icon={<ChartBar size={15} className="text-faint" />}
                 >
-                  <ChartBar size={15} className="text-zinc-400" />
                   <span>Uso y telemetría</span>
-                </button>
+                </Button>
 
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => {
-                    (window as any).ego?.floating?.toggleFloating?.();
-                    setProfileMenuOpen(false);
+                    toggleFloatingCompanion();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                  className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] text-ink hover:bg-raised`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Sparkle size={15} className="text-zinc-400" />
-                    <span>Mostrar mascota (Isla Flotante)</span>
-                  </div>
-                  <kbd className="rounded bg-white/10 px-1 py-0.2 font-mono text-[9px] text-zinc-400">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Sparkle size={15} className="shrink-0 text-faint" />
+                    <span className="truncate">Mostrar mascota (Isla Flotante)</span>
+                  </span>
+                  <kbd className="shrink-0 rounded-md bg-raised px-1 py-0.5 font-mono text-xs text-dim">
                     Alt+Win+P
                   </kbd>
-                </button>
+                </Button>
 
-                {/* Selector rápido de Tema */}
-                <div className="flex items-center justify-between px-2.5 py-1.5 text-zinc-300">
+                {/* Selector rápido de Tema. D12: el nombre visible del preset
+                    es CORTO ("Obsidian"); el nombre completo ("Obsidian
+                    Graphite · Slate Oscuro", 32 chars) se-partía en varias
+                    líneas dentro del trigger de altura fija `h-8` y
+                    desbordaba la caja. El `title` conserva el nombre
+                    completo para no perder información. */}
+                <div className="flex items-center justify-between px-2.5 py-1.5 text-ink">
                   <div className="flex items-center gap-2">
-                    <PaintBrush size={15} className="text-zinc-400" />
+                    <PaintBrush size={15} className="text-faint" />
                     <span>Apariencia</span>
                   </div>
                   <Select
                     ariaLabel="Tema de apariencia"
-                    value={
-                      resolvePresetKey(designSystem?.tokens?.id ?? "") ?? "default-dark"
-                    }
+                    value={activeThemeKey}
+                    title={activeThemeFullName}
                     onValueChange={(val) => designSystem?.applyPreset?.(val)}
                     options={
                       designSystem?.availablePresets
                         ? Object.keys(designSystem.availablePresets).map((k) => ({
                             value: k,
-                            label: designSystem.availablePresets[k]?.name ?? k,
+                            label: shortThemeLabel(k, designSystem.availablePresets[k]?.name ?? k),
                           }))
-                        : [{ value: "default-dark", label: "Default Dark" }]
+                        : [{ value: "default-dark", label: "Obsidian" }]
                     }
-                    className="min-h-11 min-w-11 max-w-[140px] text-[10px]"
+                    className="max-w-[140px] text-xs"
                   />
                 </div>
 
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => {
                     setIsSettingsOpen(true);
-                    setProfileMenuOpen(false);
                   }}
-                  className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                  className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] text-ink hover:bg-raised`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Gear size={15} className="text-zinc-400" />
-                    <span>Configuración</span>
-                  </div>
-                  <kbd className="rounded bg-white/10 px-1 py-0.2 font-mono text-[9px] text-zinc-400">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Gear size={15} className="shrink-0 text-faint" />
+                    <span className="truncate">Configuración</span>
+                  </span>
+                  <kbd className="shrink-0 rounded-md bg-raised px-1 py-0.5 font-mono text-xs text-dim">
                     Ctrl+,
                   </kbd>
-                </button>
+                </Button>
               </div>
             </div>
-          )}
-        </div>
+          }
+        />
       </nav>
 
       {/* =========================================================================
@@ -528,118 +556,128 @@ export function Sidebar({
       {!isCollapsed && (
         <aside
           aria-label="Navegación principal"
-          className="w-60 shrink-0 bg-[#161618] border-r border-white/[0.06] flex flex-col h-full min-w-0 flex-1 select-none"
+          className="w-60 shrink-0 bg-panel border-r border-hairline flex flex-col h-full min-w-0 flex-1 select-none"
         >
           {/* Cabecera Superior: Ego Core ⌄ + Buscador + Colapsar */}
-          <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
+          <div className="flex h-11 shrink-0 items-center justify-between border-b border-hairline px-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold tracking-tight text-white flex items-center gap-1">
+              <span className="text-xs font-semibold tracking-tight text-ink flex items-center gap-1">
                 Ego Core
-                <CaretDown size={12} className="text-zinc-400" />
+                <CaretDown size={12} className="text-faint" />
               </span>
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={requestOpenOmnibar}
                 title="Buscar en memoria (Ctrl+K)"
                 aria-label="Buscar en memoria (Ctrl+K)"
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className={idleClass}
               >
                 <MagnifyingGlass size={15} />
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => notifyCollapsed(true)}
                 title="Colapsar panel (Ctrl+B)"
                 aria-label="Colapsar panel"
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className={idleClass}
               >
                 <SidebarSimple size={15} />
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* Botón Nueva Sesión / Chat Nuevo (Fila limpia estilo ChatGPT) */}
           <div className="p-2.5 pb-1">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
               onClick={onNewSession}
               title="Nueva conversación (Ctrl+N)"
-              className="flex w-full items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] px-3 py-2 text-xs font-medium text-white transition-colors cursor-pointer shadow-xs border border-white/[0.04]"
+              className="w-full justify-start rounded-[var(--radius-card)] font-medium"
+              icon={<Plus size={14} weight="bold" className="text-faint" />}
             >
-              <Plus size={14} weight="bold" className="text-zinc-300" />
               <span>Nueva sesión</span>
-            </button>
+            </Button>
           </div>
 
           {/* Buscador de Recuerdos explícito (para tests y accesibilidad) */}
           <div className="px-2.5 py-1">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
               onClick={requestOpenOmnibar}
               title="Búsqueda federada (Ctrl+K)"
-              className="flex w-full items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.06] px-2.5 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer group shadow-2xs"
+              className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] font-normal text-faint hover:text-ink`}
             >
-              <div className="flex items-center gap-2 truncate">
-                <MagnifyingGlass size={13} className="text-zinc-500 group-hover:text-white transition-colors shrink-0" />
-                <span className="truncate text-[11px]">Buscar recuerdos (Ctrl+K)</span>
-              </div>
-              <kbd className="shrink-0 rounded bg-black/40 px-1.5 py-0.5 font-mono text-[9px] text-zinc-400 border border-white/10">
+              <span className="flex min-w-0 items-center gap-2">
+                <MagnifyingGlass size={13} className="shrink-0 text-dim" />
+                <span className="truncate">Buscar recuerdos (Ctrl+K)</span>
+              </span>
+              <kbd className="shrink-0 rounded-md border border-hairline bg-raised px-1.5 py-0.5 font-mono text-xs text-dim">
                 Ctrl+K
               </kbd>
-            </button>
+            </Button>
           </div>
 
           {/* Contenedor con Scroll de Proyectos, Sub-Egos y Recientes */}
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-2">
             {/* 1. SECCIÓN PROYECTOS */}
             <div id="sidebar-section-projects">
-              <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+              {/* D15: cabecera de sección de ALTURA FIJA (44 px). Antes era
+                  `min-h-11` + `pb-1`: con el botón `+` de 44 px dentro, la
+                  fila medía 48 px reales y rompía el ritmo de las cabeceras
+                  del resto de la app. `h-11` sin `pb-1` la deja en 44 px. */}
+              <div className="flex h-11 items-center justify-between px-2 text-xs font-semibold tracking-wider text-dim uppercase">
                 <span>Proyectos</span>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setIsNewProjectModalOpen(true)}
                   title="Crear nuevo proyecto"
                   aria-label="Crear nuevo proyecto"
-                  className="flex items-center justify-center rounded p-1 text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
+                  className="-mr-3 text-dim hover:bg-raised hover:text-ink"
                 >
-                  <Plus size={12} />
-                </button>
+                  <Plus size={14} />
+                </Button>
               </div>
 
               <div className="space-y-0.5">
                 {projects.length === 0 && (
-                  <p className="px-2 py-1.5 text-[11px] text-zinc-500 italic">
+                  <p className="px-2 py-1.5 text-xs text-dim italic">
                     Sin proyectos — crea uno con +.
                   </p>
                 )}
                 {projects.map((p) => {
                   const isSelected = activeProject === p.id;
                   return (
-                    <button
+                    <Button
                       key={p.id}
-                      type="button"
+                      variant="ghost"
+                      size="md"
                       onClick={() => void handleSelectProject(p.id)}
-                      className={`flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs transition-colors cursor-pointer ${
+                      className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] ${
                         isSelected
-                          ? "bg-white/10 text-white font-medium border border-white/10"
-                          : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                          ? "bg-raised text-ink font-medium"
+                          : "text-faint hover:bg-raised hover:text-ink"
                       }`}
                     >
-                      <div className="flex items-center gap-2 truncate">
+                      <span className="flex min-w-0 items-center gap-2">
                         {isSelected ? (
-                          <FolderSimpleStar size={14} className="shrink-0 text-amber-400" />
+                          <FolderSimpleStar size={14} className="shrink-0 text-brand" />
                         ) : (
-                          <FolderSimple size={14} className="shrink-0 text-zinc-500" />
+                          <FolderSimple size={14} className="shrink-0 text-dim" />
                         )}
                         <span className="truncate text-left">{p.name}</span>
-                      </div>
+                      </span>
                       {isSelected && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
                       )}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -647,49 +685,51 @@ export function Sidebar({
 
             {/* 2. SECCIÓN SUB-EGOS CON CHARACTER BADGE 36PX */}
             <div id="sidebar-section-roster">
-              <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+              <div className="flex h-11 items-center justify-between px-2 text-xs font-semibold tracking-wider text-dim uppercase">
                 <span>Sub-Egos</span>
-                <span className="font-mono text-[10px] text-zinc-600">{roster.length}</span>
+                <span className="font-mono text-xs text-dim">{roster.length}</span>
               </div>
 
               <div className="space-y-1">
                 {roster.length === 0 && (
-                  <p className="px-2 py-1.5 text-[11px] text-zinc-500 italic">
+                  <p className="px-2 py-1.5 text-xs text-dim italic">
                     Sin Sub-Egos registrados.
                   </p>
                 )}
                 {roster.map((s) => {
                   const isSelected = activeSubEgo === s.id;
                   return (
-                    <button
+                    <Button
                       key={s.id}
-                      type="button"
+                      variant="ghost"
+                      size="md"
                       onClick={() => onSelectSubEgo(s.id)}
-                      className={`flex w-full items-center justify-between rounded-xl p-2 text-xs transition-colors cursor-pointer ${
+                      className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] ${
                         isSelected
-                          ? "bg-white/10 text-white font-medium border border-white/10 shadow-xs"
-                          : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                          ? "bg-raised text-ink font-medium"
+                          : "text-faint hover:bg-raised hover:text-ink"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/40 border border-white/[0.08] overflow-hidden">
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-hairline bg-paper">
                           <CharacterBadge subEgoId={s.id} size={36} state="idle" />
-                        </div>
-                        <div className="flex truncate flex-col text-left font-sans">
-                          <span className="truncate text-xs font-semibold text-white">{s.name}</span>
-                          <span className="truncate text-[10px] text-zinc-400">{s.role}</span>
-                        </div>
-                      </div>
-
+                        </span>
+                        <span className="flex min-w-0 flex-col text-left font-sans">
+                          <span className="truncate text-xs font-semibold text-ink">{s.name}</span>
+                          <span className="truncate text-xs text-faint">{s.role}</span>
+                        </span>
+                      </span>
                       <span
                         title={s.state === "active" ? "Sub-Ego Activo" : "En espera"}
+                        // D17: el punto de estado es una SUPERFICIE, no un
+                        // borde. `bg-strong` (`--color-strong` = #71717a) es el
+                        // token de borde interactivo; para el estado "en
+                        // espera" corresponde el token apagado `bg-dim`.
                         className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
-                          s.state === "active"
-                            ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"
-                            : "bg-zinc-600"
+                          s.state === "active" ? "bg-success" : "bg-dim"
                         }`}
                       />
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -697,45 +737,47 @@ export function Sidebar({
 
             {/* 3. SECCIÓN RECIENTES */}
             <div>
-              <div className="flex items-center justify-between px-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+              <div className="flex h-11 items-center justify-between px-2 text-xs font-semibold tracking-wider text-dim uppercase">
                 <span>Recientes</span>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => useUiStore.getState().openSessionPicker()}
                   title="Historial de sesiones"
-                  className="text-zinc-500 hover:text-white text-[10px] cursor-pointer"
+                  className="rounded-md px-1.5 font-normal normal-case text-faint hover:bg-raised hover:text-ink"
                 >
                   Ver todas
-                </button>
+                </Button>
               </div>
 
               <div className="space-y-0.5">
                 {sessions.length === 0 ? (
-                  <p className="px-2 py-1 text-[11px] text-zinc-600 italic">
+                  <p className="px-2 py-1 text-xs text-dim italic">
                     Sin sesiones recientes
                   </p>
                 ) : (
                   sessions.slice(0, 5).map((session) => {
                     const isCurrent = activeSessionId === session.id;
                     return (
-                      <button
+                      <Button
                         key={session.id}
-                        type="button"
+                        variant="ghost"
+                        size="md"
                         onClick={() => void handleResumeSession(session.id)}
-                        className={`flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs transition-colors cursor-pointer ${
+                        className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] ${
                           isCurrent
-                            ? "bg-white/10 text-white font-medium"
-                            : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                            ? "bg-raised text-ink font-medium"
+                            : "text-faint hover:bg-raised hover:text-ink"
                         }`}
                       >
-                        <div className="flex items-center gap-2 truncate">
-                          <ChatCircle size={13} className="shrink-0 text-zinc-500" />
-                          <span className="truncate text-left text-[11px]">{session.title}</span>
-                        </div>
-                        <span className="text-[10px] text-zinc-500 font-mono shrink-0">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <ChatCircle size={13} className="shrink-0 text-dim" />
+                          <span className="truncate text-left text-xs">{session.title}</span>
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-dim">
                           {session.preview}
                         </span>
-                      </button>
+                      </Button>
                     );
                   })
                 )}
@@ -744,36 +786,38 @@ export function Sidebar({
 
             {/* 4. HERRAMIENTAS Y MCP */}
             <div>
-              <div className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+              <div className="flex h-11 items-center px-2 text-xs font-semibold tracking-wider text-dim uppercase">
                 <span>Herramientas</span>
               </div>
               <div className="space-y-0.5">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => setIsMcpOpen(true)}
-                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left"
+                  className="w-full justify-start rounded-[var(--radius-card)] text-faint hover:bg-raised hover:text-ink"
+                  icon={<PlugsConnected size={14} className="text-dim" />}
                 >
-                  <PlugsConnected size={14} className="text-zinc-500" />
                   <span>MCP Servers & Tools</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
 
           {/* Footer del Contextual Sidebar */}
-          <div className="border-t border-white/[0.06] bg-[#121214] p-2 space-y-1">
+          <div className="border-t border-hairline bg-paper p-2 space-y-1">
             <VantaDbBadge />
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="md"
               onClick={() => setIsSettingsOpen(true)}
-              className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] text-faint hover:bg-raised hover:text-ink`}
             >
-              <div className="flex items-center gap-2">
-                <Gear size={15} />
+              <span className="flex min-w-0 items-center gap-2">
+                <Gear size={15} className="shrink-0 text-dim" />
                 <span>Configuración</span>
-              </div>
-              <span className="font-mono text-[10px] text-zinc-500">Ctrl+,</span>
-            </button>
+              </span>
+              <span className="shrink-0 font-mono text-xs text-dim">Ctrl+,</span>
+            </Button>
           </div>
         </aside>
       )}

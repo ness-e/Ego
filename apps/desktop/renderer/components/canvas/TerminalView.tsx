@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import type { TerminalProps } from "@ego/ui-runtime";
 import { Terminal, Circle } from "@phosphor-icons/react";
 import { ego } from "../../lib/ego";
+import { Button } from "../ui-kit/Button.js";
 
 export interface TerminalViewProps {
   props: TerminalProps;
@@ -144,27 +145,27 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ props, sessionId, on
   };
 
   return (
-    <div className="rounded-xl border border-hairline bg-panel shadow-xs overflow-hidden select-text">
+    <div className="overflow-hidden rounded-[var(--radius-card)] border border-hairline bg-panel shadow-[var(--ego-elevation-l1)] select-text">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-raised/80 border-b border-hairline text-xs font-mono">
+      <div className="flex items-center justify-between border-b border-hairline bg-raised px-3 py-2 font-mono text-xs">
         <div className="flex items-center gap-2">
-          <Terminal size={14} className="text-emerald-400" />
-          <span className="text-ink font-semibold">{props.title || "Terminal"}</span>
-          {props.cwd && <span className="text-dim text-[11px] truncate max-w-[200px]">({props.cwd})</span>}
+          <Terminal size={14} className="text-success" />
+          <span className="font-semibold text-ink">{props.title || "Terminal"}</span>
+          {props.cwd && <span className="max-w-[200px] truncate text-xs text-dim">({props.cwd})</span>}
         </div>
 
         <div className="flex items-center gap-2">
           {props.isRunning || isExecuting ? (
-            <div className="flex items-center gap-1.5 text-cyan-400 text-[10px]">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
+            <div className="flex items-center gap-1.5 text-xs text-brand">
+              <span className="h-1.5 w-1.5 animate-ping rounded-full bg-brand" />
               <span>Ejecutando</span>
             </div>
           ) : props.exitCode !== undefined && props.exitCode !== null ? (
             <span
-              className={`rounded px-1.5 py-0.2 text-[10px] font-bold ${
+              className={`rounded-md border px-1.5 py-0.5 font-bold text-xs ${
                 props.exitCode === 0
-                  ? "bg-emerald-950 text-emerald-300 border border-emerald-500/30"
-                  : "bg-rose-950 text-rose-300 border border-rose-500/30"
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-error/30 bg-error/10 text-error"
               }`}
             >
               Exit: {props.exitCode}
@@ -176,15 +177,15 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ props, sessionId, on
       {/* Output Console */}
       <div
         ref={scrollRef}
-        className="p-3 bg-black/90 font-mono text-[11px] leading-relaxed max-h-[360px] overflow-y-auto space-y-1"
+        className="max-h-[360px] space-y-1 overflow-y-auto bg-paper p-3 font-mono text-xs leading-relaxed"
       >
         {allLines.length === 0 ? (
-          <div className="text-dim italic select-none">Sin salida de terminal</div>
+          <div className="select-none italic text-faint">Sin salida de terminal</div>
         ) : (
           allLines.map((line, idx) => {
             if (typeof line === "string") {
               return (
-                <div key={idx} className="text-ink whitespace-pre-wrap break-all">
+                <div key={idx} className="whitespace-pre-wrap break-all text-ink">
                   {line}
                 </div>
               );
@@ -197,10 +198,10 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ props, sessionId, on
               <div
                 key={idx}
                 className={`flex items-start gap-2 whitespace-pre-wrap break-all ${
-                  isErr ? "text-rose-400" : isInfo ? "text-cyan-400" : "text-ink"
+                  isErr ? "text-error" : isInfo ? "text-brand" : "text-ink"
                 }`}
               >
-                <Circle size={6} weight="fill" className="mt-1.5 shrink-0 opacity-60" />
+                <Circle size={6} weight="fill" className="mt-1.5 shrink-0 text-dim" />
                 <span>{line.text}</span>
               </div>
             );
@@ -211,9 +212,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ props, sessionId, on
       {/* Barra de entrada de comandos interactiva (Helmor PTY / Workspace Runner) */}
       <form
         onSubmit={handleExecute}
-        className="flex items-center gap-2 border-t border-hairline bg-raised/80 px-3 py-2"
+        className="flex items-center gap-2 border-t border-hairline bg-raised px-3 py-2"
       >
-        <span aria-hidden className="font-mono text-[11px] text-emerald-400 font-bold">
+        <span aria-hidden className="font-mono text-xs font-bold text-success">
           $
         </span>
         <input
@@ -222,26 +223,30 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ props, sessionId, on
           onChange={(e) => setCommandInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ejecutar comando en el workspace (ej. git status, pnpm test)..."
-          className="flex-1 bg-transparent font-mono text-[11px] text-ink placeholder:text-dim focus:outline-hidden"
+          className="flex-1 bg-transparent font-mono text-xs text-ink placeholder:text-faint focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         />
-        <button
+        <Button
           type="submit"
+          variant="secondary"
+          size="sm"
           disabled={commandInput.trim().length === 0 || isExecuting}
-          className="rounded border border-hairline bg-panel px-2.5 py-1 font-mono text-[10px] text-ink transition-colors hover:bg-raised disabled:opacity-40 cursor-pointer"
+          className="font-mono"
         >
           {isExecuting ? "Ejecutando..." : "Ejecutar"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={handleClear}
-          className="rounded border border-hairline bg-panel px-2.5 py-1 font-mono text-[10px] text-dim transition-colors hover:text-ink hover:bg-raised cursor-pointer"
+          className="font-mono"
         >
           Limpiar
-        </button>
+        </Button>
       </form>
 
       {stdinError && (
-        <div role="alert" className="border-t border-rose-500/30 bg-rose-950/30 px-3 py-1.5 font-mono text-[10px] text-rose-300">
+        <div role="alert" className="border-t border-error/30 bg-error/10 px-3 py-1.5 font-mono text-xs text-error">
           {stdinError}
         </div>
       )}

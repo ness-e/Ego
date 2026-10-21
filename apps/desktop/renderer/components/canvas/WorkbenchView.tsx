@@ -14,6 +14,9 @@ import { CronPanel } from "./CronPanel.js";
 import { ShortcutsPanel } from "./ShortcutsPanel.js";
 import { NotifyCenter } from "./NotifyCenter.js";
 import { SHORTCUT_EVENT_NAME } from "./workbench-guards.js";
+import { Tabs, type KitTab } from "../ui-kit/Tabs.js";
+import { Button } from "../ui-kit/Button.js";
+import { Input } from "../ui-kit/Input.js";
 
 /**
  * CFG-13 — Workbench extendido (nueva vista del workspace, +1 sobre las 11
@@ -104,8 +107,7 @@ const DEFAULT_WORKSPACE_TREE: FileTreeNode[] = [
         type: "folder",
         children: [
           { name: "index.ts", path: "packages/tools/src/index.ts", type: "file" },
-          { name: "ToolRegistry.ts", path: "packages/tools/src/ToolRegistry.ts", type: "file" },
-          { name: "NativeFsTool.ts", path: "packages/tools/src/native/fs/NativeFsTool.ts", type: "file" },
+          { name: "NativeFsTool.ts", path: "packages/tools/src/native/NativeFsTool.ts", type: "file" },
         ],
       },
       {
@@ -189,7 +191,10 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
         <button
           type="button"
           onClick={() => onToggleFolder(node.path)}
-          className="flex items-center gap-1.5 py-1 px-1 rounded hover:bg-white/[0.04] text-dim hover:text-ink text-left w-full transition-colors cursor-pointer"
+          className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-dim transition-colors hover:bg-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          // La sangría depende de la profundidad del árbol (valor calculado en
+          // runtime): Tailwind no puede expresarlo.
+          // design-lint: allow
           style={{ paddingLeft: `${depth * 12 + 4}px` }}
         >
           {isExpanded ? (
@@ -198,11 +203,11 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
             <CaretRight size={12} className="shrink-0 text-faint" />
           )}
           {isExpanded ? (
-            <FolderOpen size={13} className="shrink-0 text-amber-400" />
+            <FolderOpen size={13} className="shrink-0 text-warning" />
           ) : (
-            <Folder size={13} className="shrink-0 text-amber-400/80" />
+            <Folder size={13} className="shrink-0 text-warning" />
           )}
-          <span className="truncate text-[11px] font-sans font-medium">{node.name}</span>
+          <span className="truncate font-sans text-xs font-medium">{node.name}</span>
         </button>
         {isExpanded && node.children && (
           <div className="flex flex-col">
@@ -228,15 +233,18 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
     <button
       type="button"
       onClick={() => onSelectFile(node.path)}
-      className={`flex items-center gap-1.5 py-1 px-1 rounded text-left w-full transition-colors cursor-pointer ${
+      className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
         isSelected
-          ? "bg-blue-500/15 text-blue-300 font-semibold"
-          : "hover:bg-white/[0.04] text-dim hover:text-ink"
+          ? "bg-brand/10 font-semibold text-brand"
+          : "text-dim hover:bg-raised hover:text-ink"
       }`}
+      // La sangría depende de la profundidad del árbol (valor calculado en
+      // runtime): Tailwind no puede expresarlo.
+      // design-lint: allow
       style={{ paddingLeft: `${depth * 12 + 16}px` }}
     >
-      <FileText size={13} className={`shrink-0 ${isSelected ? "text-blue-400" : "text-faint"}`} />
-      <span className="truncate text-[11px] font-mono">{node.name}</span>
+      <FileText size={13} className={`shrink-0 ${isSelected ? "text-brand" : "text-faint"}`} />
+      <span className="truncate font-mono text-xs">{node.name}</span>
     </button>
   );
 };
@@ -333,165 +341,190 @@ export const WorkbenchView: React.FC<WorkbenchViewProps> = ({
     });
   };
 
-  return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex shrink-0 items-center gap-1" role="tablist" aria-label="Workbench extendido">
-        {WORKBENCH_TABS.map((t) => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={`rounded px-2.5 py-0.5 text-xs transition-colors cursor-pointer ${
-              tab === t
-                ? "bg-raised text-ink font-semibold border border-hairline"
-                : "text-dim hover:text-ink"
-            }`}
+  const renderPreviewTab = () => (
+    <div className="flex h-full gap-3">
+      {/* Columna Izquierda: Explorador de Árbol (superficie propia) */}
+      <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[var(--radius-card)] border border-hairline bg-panel">
+        <div className="border-b border-hairline p-2">
+          <div
+            className="flex items-center gap-1.5 rounded-[var(--radius-card)] border border-strong bg-raised px-2 py-1 text-xs focus-within:border-brand focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-brand"
+            // Fila densa de toolbar: el botón de limpieza es sólo-icono y
+            // mide 32 px para no reventar la altura del campo de filtrado.
+            data-allow-small-targets="true"
           >
-            {TAB_LABELS[t]}
-          </button>
-        ))}
+            <MagnifyingGlass size={13} className="shrink-0 text-dim" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filtrar archivos..."
+              className="w-full bg-transparent text-xs text-ink placeholder:text-faint focus:outline-none"
+            />
+            {searchQuery && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setSearchQuery("")}
+                aria-label="Limpiar filtro de archivos"
+                className="-my-2 -mr-1 h-8 w-8 min-h-8 min-w-8"
+              >
+                ×
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 space-y-0.5 overflow-y-auto p-1.5">
+          {searchQuery.trim().length > 0 ? (
+            filteredFiles.length === 0 ? (
+              <div className="p-2 text-center font-sans text-xs italic text-faint">
+                Sin coincidencias
+              </div>
+            ) : (
+              filteredFiles.map((file) => (
+                <button
+                  key={file.path}
+                  type="button"
+                  onClick={() => handleLoadFile(file.path)}
+                  className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                    activeFile?.path === file.path
+                      ? "bg-brand/10 font-semibold text-brand"
+                      : "text-dim hover:bg-raised hover:text-ink"
+                  }`}
+                >
+                  <FileText size={13} className="shrink-0 text-faint" />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate font-mono text-xs">{file.name}</span>
+                    <span className="truncate font-mono text-xs text-faint">{file.path}</span>
+                  </div>
+                </button>
+              ))
+            )
+          ) : (
+            DEFAULT_WORKSPACE_TREE.map((node) => (
+              <FileTreeItem
+                key={node.path}
+                node={node}
+                activePath={activeFile?.path}
+                expandedFolders={expandedFolders}
+                onToggleFolder={toggleFolder}
+                onSelectFile={handleLoadFile}
+              />
+            ))
+          )}
+        </div>
       </div>
-      <div className="min-h-0 flex-1" role="tabpanel">
-        {tab === "browser" && <BrowserView />}
-        {tab === "preview" && (
-          <div className="flex h-full border border-hairline rounded-xl bg-panel overflow-hidden">
-            {/* Columna Izquierda (w-60 border-r border-white/5): Explorador de Árbol */}
-            <div className="w-60 border-r border-white/5 bg-raised/20 flex flex-col shrink-0">
-              <div className="p-2 border-b border-white/5">
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-panel rounded border border-white/5 text-xs">
-                  <MagnifyingGlass size={13} className="text-dim shrink-0" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Filtrar archivos..."
-                    className="w-full bg-transparent text-[11px] text-ink placeholder:text-faint focus:outline-hidden"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="text-dim hover:text-ink text-[10px] cursor-pointer"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </div>
 
-              <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
-                {searchQuery.trim().length > 0 ? (
-                  filteredFiles.length === 0 ? (
-                    <div className="text-[10px] text-faint p-2 text-center italic font-sans">
-                      Sin coincidencias
-                    </div>
-                  ) : (
-                    filteredFiles.map((file) => (
-                      <button
-                        key={file.path}
-                        type="button"
-                        onClick={() => handleLoadFile(file.path)}
-                        className={`flex items-center gap-1.5 py-1 px-2 rounded text-left w-full transition-colors cursor-pointer ${
-                          activeFile?.path === file.path
-                            ? "bg-blue-500/15 text-blue-300 font-semibold"
-                            : "hover:bg-white/[0.04] text-dim hover:text-ink"
-                        }`}
-                      >
-                        <FileText size={13} className="shrink-0 text-faint" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate text-[11px] font-mono">{file.name}</span>
-                          <span className="truncate text-[9px] text-faint font-mono">{file.path}</span>
-                        </div>
-                      </button>
-                    ))
-                  )
-                ) : (
-                  DEFAULT_WORKSPACE_TREE.map((node) => (
-                    <FileTreeItem
-                      key={node.path}
-                      node={node}
-                      activePath={activeFile?.path}
-                      expandedFolders={expandedFolders}
-                      onToggleFolder={toggleFolder}
-                      onSelectFile={handleLoadFile}
-                    />
-                  ))
-                )}
+      {/* Columna Derecha: Visor de Archivo */}
+      <div className="flex h-full min-w-0 flex-1 flex-col gap-2">
+        {activeFile ? (
+          <>
+            <div className="flex shrink-0 items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-medium text-ink">{activeFile.path}</span>
+                <span className="text-xs text-faint">· Vista previa activa</span>
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveFile(null)}
+              >
+                Cerrar visor
+              </Button>
             </div>
-
-            {/* Columna Derecha: Visor de Archivo */}
-            <div className="flex-1 min-w-0 p-3 flex flex-col h-full overflow-hidden">
-              {activeFile ? (
-                <div className="flex flex-col h-full gap-2">
-                  <div className="flex items-center justify-between border-b border-hairline pb-1.5 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-medium text-ink">{activeFile.path}</span>
-                      <span className="text-[10px] text-faint">· Vista previa activa</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveFile(null)}
-                      className="text-[10px] text-dim hover:text-ink border border-hairline rounded px-1.5 py-0.5 cursor-pointer"
-                    >
-                      Cerrar visor
-                    </button>
-                  </div>
-                  <div className="flex-1 min-h-0">
-                    <FilePreviewView filePath={activeFile.path} content={activeFile.content} />
-                  </div>
+            <div className="min-h-0 flex-1">
+              <FilePreviewView filePath={activeFile.path} content={activeFile.content} />
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p role="status" className="text-xs text-faint">
+              Sin archivo seleccionado: el preview read-only aparece cuando un
+              Sub-Ego o el inspector proveen `filePath` + contenido o seleccionas un archivo del árbol.
+            </p>
+            <div className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-hairline bg-panel p-3">
+              <span className="text-xs font-semibold text-ink">Archivos Rápidos del Proyecto</span>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_WORKSPACE_FILES.map((f) => (
+                  <Button
+                    key={f.path}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleLoadFile(f.path)}
+                  >
+                    {f.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    type="text"
+                    placeholder="Ruta relativa (ej. docs/PLAN-EGO.md)..."
+                    value={customPath}
+                    onChange={(e) => setCustomPath(e.target.value)}
+                  />
                 </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <p role="status" className="text-[11px] text-faint">
-                    Sin archivo seleccionado: el preview read-only aparece cuando un
-                    Sub-Ego o el inspector proveen `filePath` + contenido o seleccionas un archivo del árbol.
-                  </p>
-                  <div className="flex flex-col gap-2 rounded-lg border border-hairline bg-panel p-3">
-                    <span className="text-xs font-semibold text-ink">Archivos Rápidos del Proyecto</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {QUICK_WORKSPACE_FILES.map((f) => (
-                        <button
-                          key={f.path}
-                          type="button"
-                          onClick={() => handleLoadFile(f.path)}
-                          className="rounded border border-hairline bg-raised px-2 py-1 text-[11px] text-dim hover:text-ink transition-colors cursor-pointer"
-                        >
-                          {f.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="text"
-                        placeholder="Ruta relativa (ej. docs/PLAN-EGO.md)..."
-                        value={customPath}
-                        onChange={(e) => setCustomPath(e.target.value)}
-                        className="flex-1 rounded border border-hairline bg-raised px-2.5 py-1 text-xs text-ink placeholder:text-faint focus:outline-hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleLoadFile(customPath);
-                          setCustomPath("");
-                        }}
-                        className="rounded border border-hairline bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-500 transition-colors cursor-pointer"
-                      >
-                        Cargar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  onClick={() => {
+                    handleLoadFile(customPath);
+                    setCustomPath("");
+                  }}
+                >
+                  Cargar
+                </Button>
+              </div>
             </div>
           </div>
         )}
-        {tab === "themes" && <ThemeIO />}
-        {tab === "cron" && <CronPanel />}
-        {tab === "shortcuts" && <ShortcutsPanel />}
-        {tab === "notify" && <NotifyCenter />}
       </div>
+    </div>
+  );
+
+  // Pestañas del kit (Radix): roles `tablist`/`tab`/`tabpanel` nativos y
+  // navegación por teclado. El contenido de cada tab vive en `content`.
+  const tabs: KitTab[] = WORKBENCH_TABS.map((t) => ({
+    value: t,
+    label: TAB_LABELS[t],
+    content:
+      t === "browser" ? (
+        <BrowserView />
+      ) : t === "preview" ? (
+        renderPreviewTab()
+      ) : t === "themes" ? (
+        <ThemeIO />
+      ) : t === "cron" ? (
+        <CronPanel />
+      ) : t === "shortcuts" ? (
+        <ShortcutsPanel />
+      ) : (
+        <NotifyCenter />
+      ),
+  }));
+
+  return (
+    <div className="flex h-full flex-col gap-3">
+      {/*
+        El alto disponible se reparte por la API del kit, no por selectores
+        arbitrarios sobre el DOM interno de Radix. `className` ancla la raíz
+        del `Tabs` (columna flex que crece) y `contentClassName` ancla el
+        `div[role=tabpanel]`: sin esto el iframe del navegador se colapsaría
+        porque el panel no hereda el alto del workspace.
+      */}
+      <Tabs
+        tabs={tabs}
+        value={tab}
+        onValueChange={(v) => setTab(v as WorkbenchTab)}
+        ariaLabel="Workbench extendido"
+        className="min-h-0 flex-1"
+        contentClassName="min-h-0 flex-1"
+      />
     </div>
   );
 };

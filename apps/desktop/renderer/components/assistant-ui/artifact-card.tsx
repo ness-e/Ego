@@ -2,6 +2,7 @@ import { useState, useMemo, memo } from "react";
 import { Code, FileText, Globe, Image as ImageIcon, Copy, Check, ArrowSquareOut, Eye } from "@phosphor-icons/react";
 import { getSharedCanvasBridge } from "../../lib/canvasBridgeSingleton.js";
 import { sanitizeArtifactHtml } from "../../lib/sanitize-html.js";
+import { Button } from "../ui-kit/Button.js";
 
 export type ArtifactKind = "code" | "markdown" | "html" | "svg" | "diagram";
 
@@ -15,17 +16,25 @@ export interface ArtifactCardProps {
   onOpen?: (content: string, meta: { title: string; kind: ArtifactKind; language: string }) => void;
 }
 
+/**
+ * Icono del tipo de artefacto.
+ *
+ * Todos los tipos usan el MISMO token de texto (`text-dim`): el design system
+ * sólo admite un acento (`brand`) y la forma del icono ya distingue el tipo.
+ * Antes cada kind tenía su color de paleta crudo (amber/violet/sky/emerald),
+ * que además rompía la jerarquía: el acento debe marcar ACCIÓN, no decorative.
+ */
 function getArtifactKindIcon(kind: ArtifactKind, _language?: string) {
   switch (kind) {
     case "html":
-      return <Globe size={15} className="text-amber-500 shrink-0" />;
+      return <Globe size={15} className="text-dim shrink-0" />;
     case "svg":
-      return <ImageIcon size={15} className="text-violet-500 shrink-0" />;
+      return <ImageIcon size={15} className="text-dim shrink-0" />;
     case "markdown":
-      return <FileText size={15} className="text-sky-500 shrink-0" />;
+      return <FileText size={15} className="text-dim shrink-0" />;
     case "code":
     default:
-      return <Code size={15} className="text-emerald-500 shrink-0" />;
+      return <Code size={15} className="text-dim shrink-0" />;
   }
 }
 
@@ -168,13 +177,13 @@ export const ArtifactCard = memo(function ArtifactCard({
           handleOpen();
         }
       }}
-      className={`my-2 flex flex-col w-full max-w-lg rounded-xl border border-hairline bg-panel p-2.5 text-xs transition-colors ${
+      className={`my-2 flex flex-col w-full max-w-lg rounded-[var(--radius-card)] border border-hairline bg-panel p-2.5 text-xs transition-colors ${
         streaming ? "opacity-75 animate-pulse" : "hover:border-dim hover:bg-raised cursor-pointer"
       }`}
     >
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center gap-2.5 min-w-0 pr-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-raised border border-hairline">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-raised border border-hairline">
             {getArtifactKindIcon(kind, language)}
           </div>
 
@@ -182,12 +191,12 @@ export const ArtifactCard = memo(function ArtifactCard({
             <div className="flex items-center gap-1.5">
               <span className="truncate font-medium text-ink">{displayTitle}</span>
               {version > 1 && (
-                <span className="rounded bg-raised px-1 py-0.2 text-[9px] font-mono text-faint">
+                <span className="rounded-md bg-raised px-1 py-0.2 text-xs font-mono text-faint">
                   v{version}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-faint font-mono">
+            <div className="flex items-center gap-2 text-xs text-faint font-mono">
               <span>{language}</span>
               <span>·</span>
               <span>{lineCount} {lineCount === 1 ? "línea" : "líneas"}</span>
@@ -197,13 +206,13 @@ export const ArtifactCard = memo(function ArtifactCard({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {canPreview && (
-            <div className="flex items-center rounded-lg border border-hairline bg-panel/90 p-0.5 mr-1" onClick={(e) => e.stopPropagation()}>
+            <div className="mr-1 flex items-center rounded-md border border-hairline bg-panel p-0.5" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
                 onClick={() => setViewMode("code")}
                 title="Ver código fuente"
                 aria-pressed={viewMode === "code"}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono transition-colors ${
                   viewMode === "code" ? "bg-raised text-ink font-semibold" : "text-faint hover:text-ink"
                 }`}
               >
@@ -215,7 +224,7 @@ export const ArtifactCard = memo(function ArtifactCard({
                 onClick={() => setViewMode("preview")}
                 title="Ver vista previa en vivo"
                 aria-pressed={viewMode === "preview"}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono transition-colors ${
                   viewMode === "preview" ? "bg-raised text-ink font-semibold" : "text-faint hover:text-ink"
                 }`}
               >
@@ -225,28 +234,28 @@ export const ArtifactCard = memo(function ArtifactCard({
             </div>
           )}
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleCopy}
             title="Copiar contenido"
             aria-label="Copiar contenido"
-            className="rounded p-1 text-faint hover:text-ink hover:bg-raised transition-colors"
           >
-            {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-          </button>
+            {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={(e) => {
               e.stopPropagation();
               handleOpen();
             }}
             title="Abrir en Workspace"
             aria-label="Abrir en Workspace"
-            className="rounded p-1 text-faint hover:text-ink hover:bg-raised transition-colors"
           >
             <ArrowSquareOut size={14} />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -256,7 +265,7 @@ export const ArtifactCard = memo(function ArtifactCard({
           onClick={(e) => e.stopPropagation()}
         >
           {isHtmlOrSvg && (
-            <div className="rounded-lg overflow-hidden border border-hairline bg-white shadow-inner">
+            <div className="rounded-[var(--radius-card)] overflow-hidden border border-hairline bg-paper">
               <iframe
                 sandbox=""
                 srcDoc={sanitizedPreview}
@@ -266,8 +275,8 @@ export const ArtifactCard = memo(function ArtifactCard({
             </div>
           )}
           {isMermaid && (
-            <div className="rounded-lg border border-hairline bg-raised/40 p-3 font-mono text-[11px] text-ink overflow-x-auto">
-              <div className="text-[10px] text-faint mb-1.5 flex items-center gap-1">
+            <div className="overflow-x-auto rounded-[var(--radius-card)] border border-hairline bg-raised p-3 font-mono text-xs text-ink">
+              <div className="text-xs text-faint mb-1.5 flex items-center gap-1">
                 <span>Diagrama Mermaid</span>
               </div>
               <pre className="whitespace-pre m-0 text-faint leading-relaxed">{trimmed}</pre>
