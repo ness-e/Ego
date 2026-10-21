@@ -20,12 +20,16 @@
 //
 // USO:
 //   node scripts/prepare-vantadb-tarball.mjs \
-//     --source "C:/Users/Eros/VantaDB Proyect/VantaDB/vantadb-node" \
-//     --out "C:/Users/Eros/VantaDB Proyect/VantaDB/vantadb-node-0.8.0.tgz"
+//     --source "C:/Users/Eros/VantaDB Proyect/VantaDB/vantadb-node"
 //
-// La escritura del `.tgz` DENTRO del repo (`vendor/`) requiere una zona que
-// A7 no tiene → el handoff deja el destino y el hash; el orquestador (o el
-// owner) lo commitea.
+//   Sin `--out`, la ruta se DERIVA de la versión real del paquete fuente
+//   (`vantadb-node-<versión>.tgz`): un nombre fijo mentiría sobre el
+//   contenido (el checkout ya va por 0.9.0 mientras el repo declara 0.8.0).
+//   Con `--out` explícito manda el operador.
+//
+//   La escritura del `.tgz` DENTRO del repo (`vendor/`) requiere una zona que
+//   A7 no tiene → el handoff deja el destino y el hash; el orquestador (o el
+//   owner) lo commitea.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, mkdirSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -43,10 +47,6 @@ const SOURCE = opt(
   "--source",
   join(dirname(ROOT), "VantaDB", "vantadb-node"),
 );
-const OUT = opt(
-  "--out",
-  join(dirname(ROOT), "VantaDB", "vantadb-node-0.8.0.tgz"),
-);
 const REPO_DEST = opt("--repo-dest", "vendor/vantadb-node");
 
 if (!existsSync(SOURCE)) {
@@ -59,7 +59,20 @@ if (!existsSync(SOURCE)) {
 
 const pkg = JSON.parse(readFileSync(join(SOURCE, "package.json"), "utf8"));
 const version = pkg.version ?? "0.0.0";
+const packedName = `${pkg.name.replace(/^@/, "").replace("/", "-")}-${version}.tgz`;
+
+/**
+ * Ruta de salida por defecto: **derivada de la versión real del paquete**, no
+ * fijada a mano. Con un nombre fijo (`vantadb-node-0.8.0.tgz`) el fichero
+ * contenía la versión que hubiera en el checkout (hoy 0.9.0) → el NOMBRE
+ * mentía sobre el contenido, y publicar `npm publish vantadb-node-0.8.0.tgz`
+ * subiría un 0.9.0 con etiqueta de 0.8.0. Con `--out` explícito manda el
+ * operador (su responsabilidad).
+ */
+const OUT = opt("--out", join(dirname(ROOT), "VantaDB", packedName));
+
 console.log(`[prepare-vantadb-tarball] fuente: ${SOURCE} (${pkg.name}@${version})`);
+console.log(`[prepare-vantadb-tarball] salida: ${OUT}`);
 
 // ── 1. Empaquetado ─────────────────────────────────────────────────────────
 // `npm pack` produce el layout que npm/pnpm espera ("package/" en la raíz).
@@ -80,7 +93,6 @@ try {
   process.exit(1);
 }
 
-const packedName = `${pkg.name.replace(/^@/, "").replace("/", "-")}-${version}.tgz`;
 const produced = join(SOURCE, packedName);
 const tarball = existsSync(produced) ? produced : OUT;
 if (!existsSync(tarball)) {

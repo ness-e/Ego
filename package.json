@@ -16,8 +16,8 @@
     "build:verify": "pnpm --filter @ego/desktop build:verify",
     "dist": "pnpm --filter @ego/desktop dist && node scripts/generate-checksums.cjs apps/desktop/release",
     "typecheck": "pnpm -r typecheck",
-    "lint": "oxlint --ignore-path .gitignore apps packages tests scripts eval --max-warnings 310 && pnpm run typecheck",
-    "lint:oxlint": "oxlint --ignore-path .gitignore apps packages tests scripts eval --max-warnings 310",
+    "lint": "oxlint --ignore-path .gitignore apps packages tests scripts eval --max-warnings 296 && pnpm run typecheck",
+    "lint:oxlint": "oxlint --ignore-path .gitignore apps packages tests scripts eval --max-warnings 296",
     "test": "pnpm -r --no-bail --filter \"!@ego/avatar\" --filter \"!@ego/gui-tests\" --filter \"!@ego/recovery\" run test && pnpm --filter @ego/recovery exec vitest run --test-timeout=20000 && pnpm --filter @ego/avatar run test && pnpm --filter @ego/gui-tests run test",
     "test:memory": "pnpm --filter @ego/memory test",
     "test:e2e": "pnpm --filter @ego/e2e-tests test",
@@ -48,7 +48,6 @@
     "overrides": {
       "app-builder-lib": "26.15.3",
       "builder-util-runtime": "^9.7.0",
-      "vitest": "^3.2.7",
       "tinypool": "^2.2.0",
       "vitepress>vite": "^6.4.4"
     }

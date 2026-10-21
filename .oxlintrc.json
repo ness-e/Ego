@@ -1,5 +1,9 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [
+    "packages/avatar/vendor/**",
+    "apps/desktop/renderer/floating/vendor/**"
+  ],
   "rules": {
     "eslint/no-debugger": "deny",
     "eslint/no-duplicate-case": "deny",
@@ -8,14 +12,31 @@
     "eslint/no-sparse-arrays": "deny",
     "eslint/no-ex-assign": "deny",
     "eslint/no-fallthrough": "deny",
-
     "typescript/no-explicit-any": "warn",
     "no-empty": "warn",
-    "no-console": ["warn", { "allow": ["warn", "error", "info", "debug", "trace"] }]
+    "no-console": [
+      "warn",
+      {
+        "allow": [
+          "warn",
+          "error",
+          "info",
+          "debug",
+          "trace"
+        ]
+      }
+    ]
   },
   "overrides": [
     {
-      "files": ["scripts/**", "tests/**", "**/test/**", "**/*.test.ts", "**/*.spec.ts", "**/*.test.tsx"],
+      "files": [
+        "scripts/**",
+        "tests/**",
+        "**/test/**",
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/*.test.tsx"
+      ],
       "rules": {
         "no-console": "off",
         "typescript/no-explicit-any": "off"

@@ -111,6 +111,28 @@ jobs:
       - name: Run Linter (oxlint pinned via devDependencies)
         run: pnpm exec oxlint --ignore-path .gitignore apps packages tests scripts eval
 
+      - name: "Puerta de calidad del design system (design-lint)"
+        # Convierte la prosa de `docs/design/design-system.md` en ley: el
+        # design system ya no se DECLARA, se APLICA.
+        #
+        # `apps/desktop/scripts/design-lint.cjs` (sin dependencias: sólo
+        # `node:fs`/`node:path`) recorre el renderer y falla (exit 1) ante
+        # las reglas R1-R7:
+        #   R1 hex literal fuera de token · R2 `style={{}}` ad-hoc ·
+        #   R3 `text-[Npx]` arbitrario · R4 opacidad sobre texto dim/faint ·
+        #   R5 `border-hairline` como único indicador de input ·
+        #   R6 `<select>` nativo (ADR-0015) · R7 paleta cruda (white/black/zinc)
+        # R8 (recuento de controles nativos crudos) es MÉTRICA: avisa, no bloquea.
+        #
+        # BLOQUEANTE y fail-fast: se ejecuta antes del typecheck, los tests y
+        # el build, para que una violación de diseño no llegue a gastar un
+        # pipeline completo. La deuda preexistente está granfathered con
+        # motivo, fecha e ID (`EGO-DL-###`); una infracción NUEVA en un
+        # fichero no exento rompe la puerta.
+        # Contrato y excepciones: `docs/design/design-system.md` §10.
+        id: design-lint
+        run: node apps/desktop/scripts/design-lint.cjs
+
       - name: Run Typecheck
         run: pnpm typecheck
 

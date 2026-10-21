@@ -50,12 +50,35 @@ const GLOBS = opt("--globs", "docs/**/*.md");
 const BASELINE_PATH = join(ROOT, opt("--baseline", "scripts/docs-lint-baseline.json"));
 const WRITE_BASELINE = argv.includes("--write-baseline");
 
+/**
+ * Fichero de exclusiones que se pasa a markdownlint-cli2 con `--ignore-path`.
+ *
+ * QUIRK DEL LINTER (medido el 2026-10-20, markdownlint-cli2 0.15.0):
+ * `--ignore-path <fichero>` hace que el linter **incluya ese mismo fichero en
+ * el conjunto a lintar**, aunque el glob no lo mencione. Probado con un
+ * fichero de ignore de 2 líneas: "Linting: 2 file(s)" con `--ignore-path` y
+ * "Linting: 1 file(s)" sin él.
+ *
+ * Consecuencia en este repo: `.gitignore` (cuyo contenido son comentarios
+ * `# …`, que markdownlint lee como encabezados ATX) entraba en el conjunto y
+ * aportaba **43 violaciones espurias** a la línea base, más un fichero
+ * fantasma en el recuento. No es deuda de documentación: es un fichero que no
+ * es markdown.
+ *
+ * Se conservan las exclusiones (`.gitignore` es la ÚNICA fuente de verdad de
+ * qué se ignora: `docs/.vitepress/dist/`, las carpetas `archive` de
+ * `plans` y `tasks`, …) y se descarta en el parseo el fichero de ignore.
+ * Alternativa descartada: un `.markdownlint-cli2.jsonc` con `ignores` propio
+ * → duplicaría los patrones y se desincronizaría de `.gitignore`.
+ */
+const IGNORE_PATH = join(ROOT, ".gitignore");
+
 /** Ejecuta markdownlint y devuelve su salida (stdout+stderr). */
 function runMarkdownlint() {
   try {
     return execFileSync(
       "npx",
-      ["--yes", `markdownlint-cli2@${MARKDOWNLINT_VERSION}`, "--ignore-path", ".gitignore", GLOBS],
+      ["--yes", `markdownlint-cli2@${MARKDOWNLINT_VERSION}`, "--ignore-path", IGNORE_PATH, GLOBS],
       { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 128 * 1024 * 1024,
         // En Windows `npx` es un shim `.cmd`: sin `shell` no es resoluble
         // por `execFileSync` (ENOENT).
@@ -78,13 +101,19 @@ function runMarkdownlint() {
  * Parsea la salida de markdownlint-cli2 al formato:
  *   `<fichero>:<línea>[:<col>] <REGLA>/<nombre> <mensaje>`
  * Devuelve un mapa `fichero -> { regla: nº }`.
+ *
+ * Descarta el fichero de exclusiones (ver `IGNORE_PATH`): markdownlint-cli2
+ * lo linta como si fuera markdown, y no lo es.
  */
 export function parseViolations(output) {
   const perFile = new Map();
+  const ignoreKey = relative(ROOT, IGNORE_PATH).split(/[\\/]/).join("/");
   for (const line of output.split(/\r?\n/)) {
     const m = /^([^:\n]+):\d+(?::\d+)?\s+(MD\d+\/[a-z0-9-]+)\s/.exec(line);
     if (!m) continue;
     const file = m[1].trim();
+    const norm = file.split(/[\\/]/).join("/");
+    if (norm === ignoreKey || norm.endsWith("/" + ignoreKey)) continue;
     const rule = m[2];
     if (!perFile.has(file)) perFile.set(file, {});
     const rules = perFile.get(file);
