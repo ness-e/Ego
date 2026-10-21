@@ -43,7 +43,7 @@
     "geist": "^1.7.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "recharts": "^2.15.1",
+    "recharts": "^3.10.1",
     "shiki": "^4.5.0",
     "tailwind-merge": "^2.5.4",
     "virtua": "^0.53.5",
