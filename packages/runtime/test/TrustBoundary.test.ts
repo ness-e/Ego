@@ -6,7 +6,11 @@ import {
   assembleTrustedPrompt,
   filterTaintedForDestructiveAction,
   isTainted,
+  isTrustedNamespace,
+  selectTrustedForInjection,
   splitChannels,
+  trustedAllowPrefixes,
+  type MemoryProvenance,
 } from "../src/TrustBoundary.js";
 
 function msg(
@@ -93,5 +97,75 @@ describe("TrustBoundary — taint tracking + canal dual (T5 / EGO-FIND-60)", () 
     const assembled = assembleTrustedPrompt(messages);
     expect(assembled[0]?.role).toBe("system");
     expect(assembled[assembled.length - 1]?.trust).toBe("untrusted");
+  });
+});
+
+/**
+ * T2 (A2-bis) — El `TrustBoundary` gobierna el recall cognitivo (VDB-REQ-15).
+ *
+ * El motor (`memoryRecall({trust_aware:true})`) ofrece el re-rank compuesto
+ * con confianza; lo que Ego aporta es la **decisión de qué es confiable**:
+ * de ahí `trustedAllowPrefixes` (la lista que el motor usa como ACL de
+ * inyección) y `selectTrustedForInjection` (la puerta fina que decide qué
+ * se mete en el contexto).
+ */
+describe("TrustBoundary — procedencia de memoria y recall con confianza (T2 / VDB-REQ-15)", () => {
+  const provenance: MemoryProvenance[] = [
+    { namespace: "l1/sesion-de-confianza", trusted: true },
+    { namespace: "kb/docs", trusted: true },
+    { namespace: "web/externo", trusted: false },
+    { namespace: "l1/sesion-no-confiable", trusted: false },
+  ];
+
+  it("(7) trustedAllowPrefixes devuelve SOLO los prefijos de confianza", () => {
+    const prefixes = trustedAllowPrefixes(provenance);
+
+    expect(prefixes).toContain("l1/sesion-de-confianza");
+    expect(prefixes).toContain("kb/docs");
+    expect(prefixes).not.toContain("web/externo");
+    expect(prefixes).not.toContain("l1/sesion-no-confiable");
+    // Sin duplicados.
+    expect(new Set(prefixes).size).toBe(prefixes.length);
+  });
+
+  it("(8) trustedAllowPrefixes con memoria de confianza desconocida NO habilita nada (fail-closed)", () => {
+    expect(trustedAllowPrefixes([])).toEqual([]);
+    expect(
+      trustedAllowPrefixes([{ namespace: "web/externo", trusted: false }])
+    ).toEqual([]);
+  });
+
+  it("(9) isTrustedNamespace es boundary-aware (l1/sesion NO cubre l1/sesion-2)", () => {
+    const prefixes = trustedAllowPrefixes(provenance);
+
+    expect(isTrustedNamespace("l1/sesion-de-confianza", prefixes)).toBe(true);
+    expect(isTrustedNamespace("l1/sesion-de-confianza/sub", prefixes)).toBe(true);
+    expect(isTrustedNamespace("l1/sesion-no-confiable", prefixes)).toBe(false);
+    expect(isTrustedNamespace("l1/sesion-de-confianza-2", prefixes)).toBe(false);
+    expect(isTrustedNamespace("web/externo", prefixes)).toBe(false);
+  });
+
+  it("(10) isTrustedNamespace con lista vacía NO trusts nada (fail-closed, no allow-all)", () => {
+    // El motor trata una lista vacía como "allow-all"; Ego no. Su predicado
+    // es fail-closed: si nada es de confianza, nada se inyecta.
+    expect(isTrustedNamespace("l1/sesion-de-confianza", [])).toBe(false);
+  });
+
+  it("(11) selectTrustedForInjection deja fuera la memoria no confiable", () => {
+    const recalled = [
+      { source_namespace: "l1/sesion-de-confianza", content: "confiable" },
+      { source_namespace: "web/externo", content: "no confiable" },
+      { source_namespace: "l1/sesion-no-confiable", content: "no confiable" },
+    ];
+
+    const selected = selectTrustedForInjection(recalled, provenance);
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.content).toBe("confiable");
+  });
+
+  it("(12) selectTrustedForInjection con procedencia vacía no inyecta nada", () => {
+    const recalled = [{ source_namespace: "l1/sesion-de-confianza", content: "confiable" }];
+    expect(selectTrustedForInjection(recalled, [])).toEqual([]);
   });
 });

@@ -128,3 +128,94 @@ export function filterTaintedForDestructiveAction(
 export function markUntrusted(message: ModelMessage): ModelMessage {
   return { ...message, trust: "untrusted" };
 }
+
+/**
+ * Procedencia de un recuerdo de memoria (ADR-0019 + VDB-REQ-15).
+ *
+ * `namespace` es el namespace/procedencia del recuerdo (p. ej. `l1/sesion`,
+ * `kb/docs`, `web/externo`); `trusted` dice si su contenido es de confianza.
+ */
+export interface MemoryProvenance {
+  /** Namespace/procedencia del recuerdo (p. ej. "kb/docs", "web/x"). */
+  readonly namespace: string;
+  /** ¿El contenido es de confianza? */
+  readonly trusted: boolean;
+}
+
+/**
+ * Prefijos de memoria en los que SÍ se confianza (ADR-0019 + VDB-REQ-15).
+ *
+ * Se cruza el `TrustBoundary` de taint con la procedencia de cada recuerdo:
+ * un recuerdo cuyo origen está marcado como no confiable no entra en el
+ * `allow_prefixes` del recall, y el motor no lo pondera en el re-rank.
+ *
+ * El resultado se pasa al motor como `allow_prefixes` (ACL de inyección).
+ *
+ * ⚠️ El motor trata una lista **vacía** como "allow-all". Por eso la lista
+ * vacía significa aquí "nada es de confianza" y el llamador **no debe**
+ * enviar una lista vacía al motor: la puerta fina es `isTrustedNamespace` /
+ * `selectTrustedForInjection`, que son fail-closed.
+ */
+export function trustedAllowPrefixes(memories: readonly MemoryProvenance[]): string[] {
+  return [
+    ...new Set(
+      memories
+        .filter((m) => m.trusted)
+        .map((m) => m.namespace.split("/").slice(0, 2).join("/"))
+    ),
+  ];
+}
+
+/**
+ * Coincidencia de prefijo **boundary-aware** (la misma semántica que el
+ * motor): `l1/sesion` cubre `l1/sesion` y `l1/sesion/...`, pero NUNCA
+ * `l1/sesion-2`.
+ */
+function prefixMatches(prefix: string, namespace: string): boolean {
+  if (namespace === prefix) return true;
+  const rest = namespace.slice(prefix.length);
+  return rest.startsWith("/");
+}
+
+/**
+ * ¿El namespace está dentro de los prefijos de confianza?
+ *
+ * Fail-closed: una lista de prefijos **vacía** significa "nada es de
+ * confianza" ⇒ `false` (el motor, en cambio, interpretaría una lista vacía
+ * como allow-all; Ego no hereda ese fail-open).
+ */
+export function isTrustedNamespace(
+  namespace: string,
+  allowPrefixes: readonly string[]
+): boolean {
+  if (allowPrefixes.length === 0) return false;
+  return allowPrefixes.some((prefix) => prefixMatches(prefix, namespace));
+}
+
+/** Forma mínima de un recuerdo recallado para poder decidir su procedencia. */
+export interface RecalledMemoryLike {
+  /** Namespace del recuerdo (el motor lo llama `source_namespace`). */
+  readonly source_namespace?: string;
+  /** Alternativa admitida para los registros de Ego. */
+  readonly namespace?: string;
+}
+
+/**
+ * Puerta fina de inyección: de los recuerdos devueltos por el recall, sólo
+ * pasan los cuya procedencia es de confianza.
+ *
+ * Es la decisión que el `TrustBoundary` toma **al decidir qué inyectar en el
+ * contexto**: el motor no conoce la confianza de Ego, sólo sus namespaces.
+ */
+export function selectTrustedForInjection<T extends RecalledMemoryLike>(
+  items: readonly T[],
+  provenance: readonly MemoryProvenance[]
+): T[] {
+  if (provenance.length === 0) return [];
+  const trusted = provenance.filter((p) => p.trusted).map((p) => p.namespace);
+  return items.filter((item) => {
+    const namespace = item.source_namespace ?? item.namespace;
+    if (!namespace) return false;
+    return isTrustedNamespace(namespace, trusted);
+  });
+}
