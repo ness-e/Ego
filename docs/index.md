@@ -39,7 +39,7 @@
 
 **ADR** (decisiones de arquitectura — `docs/adr/`, numeración sin colisiones)
 
-- [`adr/README.md`](adr/README.md) — índice de las 19 decisiones con su estado y nivel jerárquico
+- [`adr/README.md`](adr/README.md) - índice de las 25 decisiones con su estado y nivel jerárquico
 - [`0001-electron-vite.md`](adr/0001-electron-vite.md) — Electron + Vite (**superseded** por `electron-vite` 5.x)
 - [`0002-vantadb-primero.md`](adr/0002-vantadb-primero.md) - VantaDB embebido in-process como única base local
 - [`0003-renderer-tonto.md`](adr/0003-renderer-tonto.md) - renderer solo presentación
@@ -66,6 +66,14 @@
   — motor de compactación: `ContextCompaction` (TS) canónico, nativo condicionado
 - [`0021-mcp-server-transporte-y-token.md`](adr/0021-mcp-server-transporte-y-token.md)
   — transporte HTTP loopback y política de token del MCP Server de Ego
+- [`0022-exportadores-de-artefactos.md`](adr/0022-exportadores-de-artefactos.md)
+  — exportadores de artefactos y REPL de expresiones: TypeScript puro, cero dependencias
+- [`0023-path-cognitivo-nativo.md`](adr/0023-path-cognitivo-nativo.md)
+  — path cognitivo nativo: el motor de VantaDB decide, con un puente de alcance explícito
+- [`0024-identidad-declarativa-y-presupuestos.md`](adr/0024-identidad-declarativa-y-presupuestos.md)
+  — identidad declarativa de Sub-Egos, presupuestos con circuit breaker y divulgación progresiva
+- [`0025-dos-planos-de-atribucion.md`](adr/0025-dos-planos-de-atribucion.md)
+  — dos planos de atribución: código realmente derivado vs. asimilación de patrón
 
 **Deployment** (fuente vigente)
 
