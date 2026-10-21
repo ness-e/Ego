@@ -1,34 +1,84 @@
-/* floating.css — Sistema de estilos Obsidian Coucou Dynamic Island para Ego Flotante */
+/* floating.css — Isla flotante de Ego, presentada sobre el design system.
+ *
+ * ## Por qué esta hoja NO usa Tailwind
+ * La ventana flotante es una MPA (`floating/floating.html`) que carga SOLO
+ * esta hoja: no entra `src/index.css`, así que aquí no existen las
+ * utilidades Tailwind ni el bloque `@theme` que las genera. Por eso la isla
+ * se presenta con clases `ego-*` y consume los MISMOS tokens semánticos del
+ * sistema por `var(--color-*)`.
+ *
+ * Consecuencia práctica: las primitivas de `components/ui-kit` (Button,
+ * Badge, …) NO son utilizables en esta ventana — están escritas con clases
+ * Tailwind que aquí no existen. Su lenguaje visual sí se replica aquí: los
+ * botones siguen la escala de densidad del kit (`sm` 28 px, `md` 32 px) y
+ * las tres elevaciones del sistema (`--ego-elevation-l1/l2/l3`).
+ *
+ * ## Tokens usados (docs/design/design-system.md §1 y §7)
+ * - Superficies: `--color-paper` (isla) · `--color-panel` (tarjeta) ·
+ *   `--color-raised` (control elevado).
+ * - Texto: `--color-ink` · `--color-faint` · `--color-dim` ·
+ *   `--color-on-brand`. Nunca `opacity` sobre texto (prohibida #1).
+ * - Bordes: `--color-hairline` (decorativo) · `--color-border-strong`
+ *   (interactivo: siempre acompañado de foco o de estado, nunca único).
+ * - Acento: `--color-brand` (ámbar). Estados: `--color-success`,
+ *   `--color-error`, `--color-warning`.
+ * - Elevación: `--ego-elevation-l1` (tarjeta) · `l2` (menú/popover) ·
+ *   `l3` (overlay: la isla).
+ * - Radio: `--radius-card` (8 px) para tarjetas; `999px` para píldoras.
+ */
+
+@import "../src/styles/theme-tokens.css";
 
 :root {
   color-scheme: dark;
 
+  /* ── Tipografías ─────────────────────────────────────────────────────── */
+
   --ego-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --ego-mono: "Cascadia Mono", "Consolas", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --ego-ink: #f5f6f8;
-  --ego-ink-2: #e5e7eb;
-  --ego-dim: #9398a1;
-  --ego-dim-2: #6b7079;
-  --ego-dim-3: #4b5563;
+  /* ── Puente de tokens semánticos ───────────────────────────────────────
+   *
+   * `src/index.css` declara estos tokens en su bloque `@theme` (que solo
+   * existe bajo Tailwind). La isla es una MPA sin Tailwind, así que aquí se
+   * reproduce el MISMO puente: `--color-*` → `--ego-color-*` (el canal que
+   * escribe `DesignSystemProvider`) → valor OKLCH del preset por defecto
+   * (`default-dark`; fuente única: `components/canvas/DesignSystemProvider.tsx`).
+   *
+   * Se replica en OKLCH (no en HEX) para que esta hoja no introduzca
+   * colores crudos: el sistema ya se mide en OKLCH, donde la luminancia
+   * (L) y la cromancia (C) son ejes independientes y un cambio de matiz no
+   * altera el contraste. Si algún día la isla monta el provider, hereda su
+   * paleta sin tocar este fichero.
+   */
 
-  --ego-island-bg: #0b0c10;
-  --ego-stage-bg: #14151b;
-  --ego-card-bg: #0e1015;
-  --ego-tab-on: #1d1f26;
+  --color-brand: var(--ego-color-brand, oklch(0.769 0.165 70.1));
+  --color-ink: var(--ego-color-text, oklch(0.985 0 89.9));
+  --color-paper: var(--ego-color-bg, oklch(0.13 0.004 285.8));
+  --color-panel: var(--ego-color-panel, oklch(0.195 0.004 286));
+  --color-raised: var(--ego-color-raised, oklch(0.26 0.008 285.8));
+  --color-hairline: var(--ego-color-border, oklch(0.274 0.005 286));
+  --color-faint: var(--ego-color-muted, oklch(0.712 0.013 286.1));
+  --color-dim: var(--ego-color-dim, oklch(0.636 0.0118 286.1));
+  --color-strong: var(--ego-color-border-strong, oklch(0.5517 0.0138 285.9));
+  --color-border-strong: var(--ego-color-border-strong, oklch(0.5517 0.0138 285.9));
+  --color-focus-ring: var(--ego-color-focus-ring, oklch(0.7686 0.1647 70.1));
+  --color-on-brand: var(--ego-color-text-on-brand, oklch(0.1452 0.0021 286.1));
+  --color-text-on-brand: var(--ego-color-text-on-brand, oklch(0.1452 0.0021 286.1));
+  --color-success: var(--ego-color-success, oklch(0.696 0.149 162.5));
+  --color-warning: var(--ego-color-warning, oklch(0.769 0.165 70.1));
+  --color-error: var(--ego-color-error, oklch(0.645 0.215 16.4));
+  --color-chart-indigo: var(--ego-color-chart-indigo, oklch(0.6801 0.1583 276.9));
+  --color-chart-violet: var(--ego-color-chart-violet, oklch(0.709 0.1592 293.5));
 
-  --ego-border-specular: rgba(255, 255, 255, 0.12);
-  --ego-border-subtle: rgba(255, 255, 255, 0.06);
+  /* Radio canónico de tarjeta (8 px). */
+  --radius-card: var(--ego-radius, 8px);
 
-  --ego-green: #22c55e;
-  --ego-green-bright: #34d399;
-  --ego-amber: #f59e0b;
-  --ego-amber-glow: #f5a524;
-  --ego-indigo: #818cf8;
-  --ego-pink: #f472b6;
-  --ego-red: #f4505e;
-  --ego-red-text: #ff8d97;
-  --ego-cyan: #22d3ee;
+  /* Movimiento: mismos valores fijos que `src/index.css` (no se derivan). */
+  --motion-duration-micro: 150ms;
+  --motion-duration-ui: 200ms;
+  --motion-duration-surface: 350ms;
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -46,11 +96,18 @@ body {
   background: transparent !important;
   overflow: hidden;
   font-family: var(--ego-font);
-  color: var(--ego-ink);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
+}
+
+/* Foco visible: la isla no carga `src/index.css`, así que el anillo global
+ * del sistema (WCAG 2.4.7) se replica aquí. Nunca se elimina el contorno. */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 #floating-root {
@@ -63,20 +120,22 @@ body {
 
 /* ── Shell Principal de la Isla Flotante ───────────────────────── */
 
+/* La isla es un OVERLAY sobre el escritorio: por eso lleva la elevación
+ * máxima del sistema (L3) y no una sombra hecha a mano. */
 main.ego-island-shell,
 main[data-attention] {
   position: relative;
-  background: var(--ego-island-bg) !important;
-  border: 1px solid var(--ego-border-specular);
-  border-radius: 26px;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.82), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  color: var(--ego-ink);
+  background: var(--color-paper) !important;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--ego-elevation-l3);
+  color: var(--color-ink);
   font-family: var(--ego-font);
   overflow: hidden;
   box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all var(--motion-duration-surface) var(--motion-ease-out);
 }
 
 /* ── Estado Hidden ─────────────────────────────────────────────── */
@@ -99,23 +158,25 @@ main[data-attention="compact"] {
   justify-content: space-between;
 }
 
+/* El escenario del avatar es un "pozo" iluminado: se lee con las tres
+ * superficies del sistema (raised en la luz, panel en la sombra). */
 main[data-attention="compact"] #avatar-stage {
   width: 136px;
   height: 136px;
-  border-radius: 22px;
-  background: radial-gradient(circle at 50% 35%, #1a1d28 0%, #101218 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-card);
+  background: radial-gradient(circle at 50% 35%, var(--color-raised) 0%, var(--color-panel) 100%);
+  border: 1px solid var(--color-hairline);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  transition: transform var(--motion-duration-ui) var(--motion-ease-out), box-shadow var(--motion-duration-ui) ease;
+  box-shadow: var(--ego-elevation-l1);
 }
 
 main[data-attention="compact"] #avatar-stage:hover {
   transform: scale(1.03);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  box-shadow: var(--ego-elevation-l2);
+  border-color: var(--color-border-strong);
 }
 
 main[data-attention="compact"] .ego-island-topbar {
@@ -167,7 +228,7 @@ main[data-attention="compact"] .ego-island-stage-info {
 
 main[data-attention="compact"] .ego-stage-quickactions {
   display: flex !important;
-  align-items: center !important;
+  align-items: center;
   justify-content: space-between !important;
   width: 100% !important;
   gap: 6px !important;
@@ -202,7 +263,7 @@ main[data-attention="alert"] {
   height: 34px;
   flex-shrink: 0;
   gap: 10px;
-  border-bottom: 1px solid var(--ego-border-subtle);
+  border-bottom: 1px solid var(--color-hairline);
   padding-bottom: 4px;
 }
 
@@ -235,28 +296,32 @@ main[data-attention="alert"] {
   gap: 5px;
 }
 
+/* Pestaña = píldora (radio lleno) con etiqueta `text-xs`. */
 .ego-tab {
-  padding: 4px 12px;
+  padding: 3px 12px;
   border-radius: 999px;
   background: transparent;
-  color: var(--ego-dim);
-  border: none;
-  font-size: 12px;
+  color: var(--color-dim);
+  border: 1px solid transparent;
+  font-size: 0.75rem;
   font-weight: 500;
   font-family: var(--ego-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background var(--motion-duration-micro) ease, color var(--motion-duration-micro) ease,
+    border-color var(--motion-duration-micro) ease;
 }
 
 .ego-tab:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--ego-ink);
+  background: var(--color-raised);
+  color: var(--color-ink);
 }
 
+/* La pestaña activa necesita un SEGUNDO indicador además del fondo:
+ * `border-hairline` por sí solo no distingue nada (§7, prohibida #4). */
 .ego-tab.on {
-  background: var(--ego-tab-on);
-  color: var(--ego-ink);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-raised);
+  color: var(--color-ink);
+  border-color: var(--color-border-strong);
 }
 
 .ego-header-actions {
@@ -268,61 +333,61 @@ main[data-attention="alert"] {
 
 .ego-sound-btn,
 .ego-settings-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
   font-family: var(--ego-font);
-  color: var(--ego-dim);
+  color: var(--color-dim);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background var(--motion-duration-micro) ease, color var(--motion-duration-micro) ease,
+    border-color var(--motion-duration-micro) ease;
 }
 
 .ego-sound-btn:hover,
 .ego-settings-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--ego-ink);
+  color: var(--color-ink);
+  border-color: var(--color-border-strong);
 }
 
+/* CTA de la isla: ámbar del sistema + texto de alto contraste (§7 #7). */
 .ego-btn-restore {
-  padding: 4px 12px;
-  background: rgba(245, 158, 11, 0.18);
-  color: #fde68a;
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 3px 12px;
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+  border: 1px solid var(--color-brand);
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   font-family: var(--ego-font);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  transition: all 0.15s ease;
+  transition: background var(--motion-duration-micro) ease, box-shadow var(--motion-duration-micro) ease;
 }
 
 .ego-btn-restore:hover {
-  background: rgba(245, 158, 11, 0.32);
-  color: #ffffff;
-  border-color: rgba(245, 158, 11, 0.55);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+  background: color-mix(in oklab, var(--color-brand) 90%, transparent);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--color-brand) 25%, transparent);
 }
 
 .ego-btn-minimize {
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--ego-dim);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 10px;
+  background: var(--color-raised);
+  color: var(--color-dim);
+  border: 1px solid var(--color-hairline);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 0.75rem;
   font-family: var(--ego-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--motion-duration-micro) ease, border-color var(--motion-duration-micro) ease;
 }
 
 .ego-btn-minimize:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--ego-ink);
+  color: var(--color-ink);
+  border-color: var(--color-border-strong);
 }
 
 /* ── Píldora de Estado (#status-pill) ──────────────────────────── */
@@ -332,59 +397,84 @@ main[data-attention="alert"] {
   align-items: center;
   gap: 6px;
   padding: 3px 10px;
-  border-radius: 9999px;
-  font-size: 11px;
+  border-radius: 999px;
+  font-size: 0.75rem;
   font-weight: 500;
   font-family: var(--ego-mono);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--ego-ink);
-  cursor: pointer;
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink);
+  cursor: default;
   letter-spacing: 0.02em;
-  transition: all 0.15s ease;
+  transition: background var(--motion-duration-micro) ease, border-color var(--motion-duration-micro) ease;
 }
 
 #status-pill:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--color-raised);
+  border-color: var(--color-border-strong);
 }
 
+/* Cursor según la interactividad REAL: la isla solo es pulsable en
+ * `compact` (el click amplía la vista). El atributo lo fija `floating.tsx`
+ * en vez de un estilo en línea, para que el estado viva en el CSS. */
+[data-interactive="true"] {
+  cursor: pointer;
+}
+
+[data-interactive="false"] {
+  cursor: default;
+}
+
+/* El tono del punto lo fija el ESTADO de atención, no un color en línea:
+ * el token se elige en CSS para que el tema siga siendo el del sistema. */
 .ego-status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--ego-green);
-  box-shadow: 0 0 8px var(--ego-green);
+  background: var(--ego-dot-color, var(--color-success));
+  box-shadow: 0 0 8px var(--ego-dot-color, var(--color-success));
   flex-shrink: 0;
+}
+
+.ego-status-dot[data-tone="ok"] {
+  --ego-dot-color: var(--color-success);
+}
+
+.ego-status-dot[data-tone="warn"] {
+  --ego-dot-color: var(--color-brand);
+}
+
+.ego-status-dot[data-tone="error"] {
+  --ego-dot-color: var(--color-error);
 }
 
 /* ── Botón Mute ────────────────────────────────────────────────── */
 
 button[data-mute] {
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 0.75rem;
   font-family: var(--ego-font);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--ego-dim);
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
+  color: var(--color-dim);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--motion-duration-micro) ease, border-color var(--motion-duration-micro) ease,
+    background var(--motion-duration-micro) ease;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
 button[data-mute]:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--ego-ink);
-  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--color-ink);
+  border-color: var(--color-border-strong);
 }
 
 button[data-mute][aria-pressed="true"] {
-  color: var(--ego-red-text);
-  border-color: rgba(244, 80, 94, 0.3);
-  background: rgba(244, 80, 94, 0.12);
+  color: var(--color-error);
+  border-color: color-mix(in oklab, var(--color-error) 40%, transparent);
+  background: color-mix(in oklab, var(--color-error) 14%, var(--color-paper));
 }
 
 /* ── Cuerpo Principal de 2 Columnas Coucou (.ego-island-body) ──── */
@@ -401,9 +491,9 @@ button[data-mute][aria-pressed="true"] {
 
 .ego-island-stage-card {
   flex: 1.35;
-  background: var(--ego-stage-bg);
-  border-radius: 18px;
-  border: 1px solid var(--ego-border-subtle);
+  background: var(--color-panel);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-hairline);
   padding: 12px;
   display: flex;
   align-items: center;
@@ -416,13 +506,13 @@ button[data-mute][aria-pressed="true"] {
   width: 132px;
   height: 132px;
   flex-shrink: 0;
-  border-radius: 16px;
-  background: var(--ego-card-bg);
-  border: 1px solid var(--ego-border-subtle);
+  border-radius: var(--radius-card);
+  background: radial-gradient(circle at 50% 35%, var(--color-raised) 0%, var(--color-panel) 100%);
+  border: 1px solid var(--color-hairline);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--ego-elevation-l1);
 }
 
 .ego-island-stage-info {
@@ -442,21 +532,21 @@ button[data-mute][aria-pressed="true"] {
 }
 
 .ego-stage-title {
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: var(--ego-ink);
+  color: var(--color-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .ego-stage-badge {
-  font-size: 10px;
-  color: var(--ego-dim);
-  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.75rem;
+  color: var(--color-dim);
+  background: var(--color-raised);
   padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-hairline);
   white-space: nowrap;
 }
 
@@ -464,8 +554,8 @@ button[data-mute][aria-pressed="true"] {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
-  color: var(--ego-green-bright);
+  font-size: 0.75rem;
+  color: var(--color-success);
   font-weight: 500;
 }
 
@@ -473,8 +563,8 @@ button[data-mute][aria-pressed="true"] {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--ego-green-bright);
-  box-shadow: 0 0 6px var(--ego-green-bright);
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
   flex-shrink: 0;
 }
 
@@ -485,12 +575,48 @@ button[data-mute][aria-pressed="true"] {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  /* Contexto de contenedor: la vista de overview es de DOS columnas, pero
+     se monta en esta columna estrecha. Con una container query la vista se
+     apila cuando el hueco es pequeño, en vez de recortarse. */
+  container-type: inline-size;
+}
+
+/* La columna de píldoras solo existe si HAY píldoras: si no, se retira
+ * para que el ticker ocupe todo el ancho (si no, deja una banda vacía
+ * debajo). `getOthers()` puede devolver la lista vacía. */
+.ego-overview .ego-right:not(:has(.ego-pill)) {
+  display: none;
+}
+
+/* Overview en hueco estrecho: el ticker arriba (a todo el ancho) y las
+ * píldoras debajo, en una sola fila, para que nada quede recortado. */
+@container (max-width: 460px) {
+  .ego-overview {
+    flex-direction: column;
+  }
+
+  .ego-overview .ego-left {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .ego-overview .ego-right {
+    flex: 0 0 auto;
+  }
+
+  .ego-pills {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .ego-stage-quickactions {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* La tira de estado + controles no cabe siempre en la columna estrecha:
+     que envuelva antes que recortar un control a media luna. */
+  flex-wrap: wrap;
+  row-gap: 6px;
   margin-top: 2px;
 }
 
@@ -498,9 +624,9 @@ button[data-mute][aria-pressed="true"] {
 
 .ego-island-subegos-card {
   flex: 1;
-  background: var(--ego-stage-bg);
-  border-radius: 18px;
-  border: 1px solid var(--ego-border-subtle);
+  background: var(--color-panel);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-hairline);
   padding: 12px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -508,24 +634,25 @@ button[data-mute][aria-pressed="true"] {
   align-content: center;
 }
 
+/* Tarjeta elevada: la superficie `raised` sobre un panel `panel`. */
 .ego-subego-pill {
-  background: var(--ego-card-bg);
-  border: 1px solid var(--ego-border-subtle);
-  border-radius: 12px;
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-card);
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform var(--motion-duration-ui) var(--motion-ease-out), border-color var(--motion-duration-ui) ease,
+    box-shadow var(--motion-duration-ui) ease;
   text-align: left;
 }
 
 .ego-subego-pill:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.18);
-  background: #181a24;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--ego-elevation-l1);
 }
 
 .ego-subego-pill-head {
@@ -538,21 +665,39 @@ button[data-mute][aria-pressed="true"] {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  background: var(--ego-dot-color, var(--color-brand));
+  box-shadow: 0 0 6px var(--ego-dot-color, var(--color-brand));
   flex-shrink: 0;
 }
 
+.ego-subego-dot[data-tone="success"] {
+  --ego-dot-color: var(--color-success);
+}
+
+.ego-subego-dot[data-tone="brand"] {
+  --ego-dot-color: var(--color-brand);
+}
+
+.ego-subego-dot[data-tone="indigo"] {
+  --ego-dot-color: var(--color-chart-indigo);
+}
+
+.ego-subego-dot[data-tone="violet"] {
+  --ego-dot-color: var(--color-chart-violet);
+}
+
 .ego-subego-name {
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--ego-ink);
+  color: var(--color-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .ego-subego-desc {
-  font-size: 10px;
-  color: var(--ego-dim);
+  font-size: 0.75rem;
+  color: var(--color-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -567,30 +712,52 @@ button[data-mute][aria-pressed="true"] {
 
 .ego-card {
   position: relative;
-  border-radius: 14px;
-  background: var(--ego-stage-bg);
-  border: 1px solid var(--ego-border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--color-panel);
+  border: 1px solid var(--color-hairline);
   overflow: hidden;
 }
 
+/* Los "washes" tiñen la tarjeta con el acento del estado. El tinte sale
+ * del token del sistema con `color-mix` (no de un hex propio). */
 .ego-wash-amber {
-  background: radial-gradient(circle at 80% 20%, rgba(245, 165, 36, 0.15) 0%, var(--ego-stage-bg) 80%);
+  background: radial-gradient(
+    circle at 80% 20%,
+    color-mix(in oklab, var(--color-brand) 15%, transparent) 0%,
+    var(--color-panel) 80%
+  );
 }
 
 .ego-wash-cyan {
-  background: radial-gradient(circle at 80% 20%, rgba(34, 211, 238, 0.15) 0%, var(--ego-stage-bg) 80%);
+  background: radial-gradient(
+    circle at 80% 20%,
+    color-mix(in oklab, var(--color-chart-indigo) 15%, transparent) 0%,
+    var(--color-panel) 80%
+  );
 }
 
 .ego-wash-red {
-  background: radial-gradient(circle at 80% 20%, rgba(244, 80, 94, 0.15) 0%, var(--ego-stage-bg) 80%);
+  background: radial-gradient(
+    circle at 80% 20%,
+    color-mix(in oklab, var(--color-error) 15%, transparent) 0%,
+    var(--color-panel) 80%
+  );
 }
 
 .ego-wash-green {
-  background: radial-gradient(circle at 80% 20%, rgba(34, 197, 94, 0.15) 0%, var(--ego-stage-bg) 80%);
+  background: radial-gradient(
+    circle at 80% 20%,
+    color-mix(in oklab, var(--color-success) 15%, transparent) 0%,
+    var(--color-panel) 80%
+  );
 }
 
 .ego-wash-pink {
-  background: radial-gradient(circle at 80% 20%, rgba(244, 114, 182, 0.15) 0%, var(--ego-stage-bg) 80%);
+  background: radial-gradient(
+    circle at 80% 20%,
+    color-mix(in oklab, var(--color-chart-violet) 15%, transparent) 0%,
+    var(--color-panel) 80%
+  );
 }
 
 .ego-row {
@@ -605,51 +772,94 @@ button[data-mute][aria-pressed="true"] {
   flex-shrink: 0;
 }
 
-/* Botones */
+/* El tamaño del punto lo fija CSS (datos, no estilos en línea). */
+.ego-dot[data-size="7"] {
+  width: 7px;
+  height: 7px;
+}
+
+.ego-dot[data-size="8"] {
+  width: 8px;
+  height: 8px;
+}
+
+.ego-dot[data-size="13"] {
+  width: 13px;
+  height: 13px;
+}
+
+/* Botones (variantes del kit `components/ui-kit/Button.tsx`) */
 
 .ego-btn {
   font-family: var(--ego-font);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
-  padding: 6px 14px;
+  min-height: 32px;
+  /* Padding lateral contenido: la fila "Denegar | Permitir" + su atajo de
+     teclado tiene que caber en la columna estrecha de la tarjeta HITL. */
+  padding: 4px 12px;
   border-radius: 999px;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: transform 0.08s ease, background 0.12s ease;
+  transition: transform 0.08s ease, background var(--motion-duration-micro) ease,
+    border-color var(--motion-duration-micro) ease, color var(--motion-duration-micro) ease;
 }
 
 .ego-btn:active {
   transform: scale(0.95);
 }
 
+.ego-btn:disabled {
+  cursor: not-allowed;
+  color: var(--color-dim);
+  background: var(--color-panel);
+  border-color: var(--color-hairline);
+}
+
+/* `primary` del kit: botón claro con texto oscuro (19:1 sobre `paper`). */
 .ego-btn.primary {
-  background: var(--ego-green);
-  color: #052e16;
+  background: var(--color-ink);
+  color: var(--color-paper);
   font-weight: 600;
 }
 
 .ego-btn.primary:hover {
-  background: var(--ego-green-bright);
+  background: color-mix(in oklab, var(--color-ink) 90%, transparent);
 }
 
+/* `secondary` del kit: borde hairline + superficie elevada. */
 .ego-btn.secondary {
-  background: rgba(244, 80, 94, 0.16);
-  color: var(--ego-red-text);
-  border: 1px solid rgba(244, 80, 94, 0.3);
+  background: var(--color-raised);
+  color: var(--color-ink);
+  border-color: var(--color-hairline);
 }
 
 .ego-btn.secondary:hover {
-  background: rgba(244, 80, 94, 0.28);
+  border-color: var(--color-border-strong);
+  background: var(--color-panel);
 }
 
+/* `danger` del kit: el texto de error necesita AA sobre su propio fondo,
+ * así que el tinte se mezcla sobre `panel` (no sobre `raised`). */
+.ego-btn.danger {
+  background: var(--color-panel);
+  color: var(--color-error);
+  border-color: color-mix(in oklab, var(--color-error) 40%, transparent);
+}
+
+.ego-btn.danger:hover {
+  background: color-mix(in oklab, var(--color-error) 14%, var(--color-panel));
+}
+
+/* Atajo de teclado: hereda el color del botón (sin `opacity`: atenuar el
+ * texto rompe el contraste AA, §7 prohibida #1). */
 .ego-kbd {
-  font-size: 10px;
+  font-size: 0.75rem;
   padding: 1px 4px;
   border-radius: 4px;
-  opacity: 0.7;
   border: 1px solid currentColor;
   margin-left: 2px;
 }
@@ -688,30 +898,31 @@ button[data-mute][aria-pressed="true"] {
   position: relative;
   height: 28px;
   border-radius: 999px;
-  background: var(--ego-card-bg);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 0 8px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color var(--motion-duration-micro) ease, background var(--motion-duration-micro) ease;
 }
 
 .ego-pill:hover {
-  background: #181a24;
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--color-border-strong);
 }
 
 .ego-pill-label {
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: #c5c8cd;
+  color: var(--color-faint);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* El badge "puncha" el borde de la píldora: usa la misma superficie que
+ * la isla para que se lea como un recorte, no como un cuadrado pegado. */
 .ego-pill-badge {
   position: absolute;
   top: -3px;
@@ -719,7 +930,7 @@ button[data-mute][aria-pressed="true"] {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--ego-island-bg);
+  background: var(--color-paper);
   display: grid;
   place-items: center;
 }
@@ -730,10 +941,22 @@ button[data-mute][aria-pressed="true"] {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 9px;
+  font-size: 0.75rem;
   font-weight: bold;
-  color: #000;
+  color: var(--color-paper);
   font-style: normal;
+}
+
+.ego-pill-badge i[data-tone="approval"] {
+  background: var(--color-brand);
+}
+
+.ego-pill-badge i[data-tone="finished"] {
+  background: var(--color-success);
+}
+
+.ego-pill-badge i[data-tone="error"] {
+  background: var(--color-error);
 }
 
 /* Ticker / Who */
@@ -746,25 +969,25 @@ button[data-mute][aria-pressed="true"] {
 }
 
 .ego-who-name {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--ego-ink);
+  color: var(--color-ink);
 }
 
 .ego-who-count {
-  font-size: 10px;
-  color: var(--ego-dim);
+  font-size: 0.75rem;
+  color: var(--color-dim);
   margin-left: auto;
 }
 
 .ego-who-idle {
-  font-size: 11px;
-  color: var(--ego-dim-2);
+  font-size: 0.75rem;
+  color: var(--color-dim);
 }
 
 .ego-who-label {
-  font-size: 11px;
-  color: var(--ego-dim);
+  font-size: 0.75rem;
+  color: var(--color-dim);
 }
 
 .ego-ticker-slot {
@@ -775,8 +998,10 @@ button[data-mute][aria-pressed="true"] {
   position: relative;
   height: 44px;
   overflow: hidden;
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+  /* Máscara de opacidad: el canal alfa es un ESTENCIL, no un color de
+     superficie, así que va en `rgb()` explícito y no en un hex. */
+  mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0) 15%, rgb(0 0 0) 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0) 15%, rgb(0 0 0) 85%, transparent 100%);
 }
 
 .ego-ticker-row {
@@ -787,14 +1012,47 @@ button[data-mute][aria-pressed="true"] {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: var(--ego-ink-2);
+  font-size: 0.75rem;
+  color: var(--color-ink);
 }
 
-.ego-ticker-row .ego-tick-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* El step en curso es el de mayor contraste; el completado baja a `dim`
+ * (sólido, nunca con `opacity`). */
+.ego-tick-mark {
+  color: var(--color-brand);
+}
+
+.ego-tick-done {
+  color: var(--color-success);
+}
+
+.ego-tick-current {
+  color: var(--color-ink);
+}
+
+.ego-tick-done-text {
+  color: var(--color-dim);
+}
+
+/* Botón de salto del overview (`.ego-jump`). */
+.ego-jump {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-card);
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
+  color: var(--color-dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color var(--motion-duration-micro) ease, border-color var(--motion-duration-micro) ease;
+}
+
+.ego-jump:hover {
+  color: var(--color-ink);
+  border-color: var(--color-border-strong);
 }
 
 /* Tarjeta Approval (HITL) */
@@ -811,11 +1069,11 @@ button[data-mute][aria-pressed="true"] {
 
 .ego-code {
   font-family: var(--ego-mono);
-  font-size: 11px;
-  color: #fde68a;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  font-size: 0.75rem;
+  color: var(--color-brand);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-card);
   padding: 6px 10px;
   white-space: nowrap;
   overflow: hidden;
@@ -843,9 +1101,14 @@ button[data-mute][aria-pressed="true"] {
 }
 
 .ego-title {
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: var(--ego-ink);
+  color: var(--color-ink);
+}
+
+.ego-sub {
+  font-size: 0.75rem;
+  color: var(--color-dim);
 }
 
 .ego-qlist {
@@ -861,8 +1124,8 @@ button[data-mute][aria-pressed="true"] {
 }
 
 .ego-qtext {
-  font-size: 11px;
-  color: var(--ego-dim);
+  font-size: 0.75rem;
+  color: var(--color-dim);
 }
 
 .ego-qopts {
@@ -872,22 +1135,26 @@ button[data-mute][aria-pressed="true"] {
 }
 
 .ego-qopt {
-  font-size: 11px;
+  font-size: 0.75rem;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--ego-ink);
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background var(--motion-duration-micro) ease, border-color var(--motion-duration-micro) ease,
+    color var(--motion-duration-micro) ease;
 }
 
 .ego-qopt:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.16);
+  border-color: var(--color-border-strong);
 }
 
+/* Deshabilitado = colores sólidos (nada de `opacity`: §7 prohibida #1). */
 .ego-qopt:disabled {
-  opacity: 0.5;
+  color: var(--color-dim);
+  background: var(--color-panel);
+  border-color: var(--color-hairline);
   cursor: default;
 }
 
@@ -898,8 +1165,8 @@ button[data-mute][aria-pressed="true"] {
 }
 
 .ego-detail {
-  font-size: 11px;
-  color: var(--ego-red-text);
+  font-size: 0.75rem;
+  color: var(--color-error);
   margin-top: 2px;
 }
 
@@ -913,8 +1180,8 @@ button[data-mute][aria-pressed="true"] {
 
 .ego-note {
   padding: 10px;
-  font-size: 12px;
-  color: var(--ego-dim);
+  font-size: 0.75rem;
+  color: var(--color-dim);
 }
 
 .ego-empty {
@@ -926,6 +1193,31 @@ button[data-mute][aria-pressed="true"] {
   flex-direction: column;
   gap: 6px;
   align-items: flex-start;
+}
+
+/* MiniGrid compacto 2x2 (`buildCompactMiniGrid`). */
+.ego-minigrid {
+  display: grid;
+  gap: 4px;
+}
+
+.ego-minigrid[data-cols="2"] {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.ego-minicell {
+  display: grid;
+  place-items: center;
+  height: 28px;
+  border-radius: var(--radius-card);
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
+  cursor: pointer;
+  transition: border-color var(--motion-duration-micro) ease;
+}
+
+.ego-minicell:hover {
+  border-color: var(--color-border-strong);
 }
 
 /* ── Countdown Bar (#countdown) ────────────────────────────────── */
@@ -945,9 +1237,9 @@ button[data-mute][aria-pressed="true"] {
 .ego-countdown-bar,
 .ego-countdown {
   height: 100%;
-  background: linear-gradient(90deg, var(--ego-green), var(--ego-green-bright));
+  background: linear-gradient(90deg, var(--color-success), color-mix(in oklab, var(--color-success) 55%, var(--color-ink)));
   border-radius: 999px;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--color-success) 60%, transparent);
   transition: width 0.1s linear;
 }
 
@@ -958,10 +1250,40 @@ button[data-mute][aria-pressed="true"] {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background var(--motion-duration-ui) ease, border-color var(--motion-duration-ui) ease;
 }
 
 [data-dropzone="true"][data-active="true"] {
-  background: rgba(34, 197, 94, 0.08);
-  border: 2px dashed rgba(34, 197, 94, 0.45);
+  background: color-mix(in oklab, var(--color-success) 8%, transparent);
+  border: 2px dashed color-mix(in oklab, var(--color-success) 45%, transparent);
+}
+
+/* ── Capa de drop (canvas 2D) ──────────────────────────────────── */
+
+/* El canvas no usa tokens CSS: los lee del sistema (ver `upload-canvas.ts`).
+ * Aquí solo se le da sitio y se posicionan las hit-areas invisibles. */
+#upload-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+#upload-canvas {
+  position: relative;
+}
+
+#upload-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.upload-hit {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
 }
