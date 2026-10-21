@@ -22,4 +22,6 @@ export const NATIVE_TOOL_NAMES: readonly string[] = Object.freeze([
   "git_session_diff",
   "terminal_exec",
   "canvas_render",
+  "export_artifact",
+  "eval_expression",
 ]);

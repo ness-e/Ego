@@ -15,8 +15,8 @@ import { TerminalCommandPolicy, sanitizeProcessEnv } from "./TerminalCommandPoli
  * `cmd /c`, `powershell -enc`, …).
  */
 const FORBIDDEN_COMMAND_PATTERNS = [
-  /rm\s+-rf\s+[\/\\]/i,
-  /rmdir\s+\/s\s+\/q\s+[a-zA-Z]:[\/\\]/i,
+  /rm\s+-rf\s+[/\\]/i,
+  /rmdir\s+\/s\s+\/q\s+[a-zA-Z]:[/\\]/i,
   /format\s+[a-zA-Z]:/i,
   /:(){ :|:& };:/, // Fork bomb
   /mkfs/i,

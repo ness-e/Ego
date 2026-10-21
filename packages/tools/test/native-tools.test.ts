@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { createTempWorkspace } from "../src/index.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -9,8 +10,6 @@ import {
   createFsReadFileTool,
   createFsWriteFileTool,
   GitParser,
-  createGitStatusTool,
-  createGitDiffTool,
   TerminalOutputBuffer,
   createTerminalExecTool,
   registerNativeTools,
@@ -20,7 +19,7 @@ describe("@ego/tools — Conectores Nivel A Nativos (ACT-04)", () => {
   let tempWorkspace: string;
 
   beforeEach(() => {
-    tempWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), "ego-native-test-"));
+    tempWorkspace = createTempWorkspace({ prefix: "ego-native-test-" }).path;
   });
 
   afterEach(() => {

@@ -9,6 +9,8 @@ import {
   createFsGrepTool,
 } from "./fs/NativeFsSearchTools.js";
 import { createFsEditPatchTool } from "./fs/NativeFsEditTool.js";
+import { createExportArtifactTool } from "../exporters/exportArtifactTool.js";
+import { createEvalExpressionTool } from "../repl/evalExpressionTool.js";
 import {
   createGitStatusTool,
   createGitDiffTool,
@@ -52,6 +54,16 @@ export interface NativeToolsOptions {
   enableGit?: boolean;
   enableTerminal?: boolean;
   enableCanvas?: boolean;
+  /**
+   * Exportadores de artefactos (E4): `export_artifact` genera PDF/DOCX/XLSX/PPTX
+   * sin dependencias externas.
+   */
+  enableExporters?: boolean;
+  /**
+   * REPL de expresiones (E4): `eval_expression` evalúa expresiones TypeScript
+   * en un intérprete seguro (sin `eval`, sin `vm`).
+   */
+  enableExpressionEval?: boolean;
   fsOptions?: NativeFsOptions;
   gitOptions?: NativeGitOptions;
   terminalOptions?: NativeTerminalOptions;
@@ -70,6 +82,8 @@ export function registerNativeTools(
   const enableGit = options.enableGit ?? true;
   const enableTerminal = options.enableTerminal ?? true;
   const enableCanvas = options.enableCanvas ?? false;
+  const enableExporters = options.enableExporters ?? true;
+  const enableExpressionEval = options.enableExpressionEval ?? true;
 
   if (enableFs) {
     registry.register(
@@ -100,6 +114,19 @@ export function registerNativeTools(
         defaultWorkspacePath: options.workspacePath,
       })
     );
+  }
+
+  // E4 (Ola 3): exportadores de artefactos + REPL de expresiones.
+  if (enableExporters) {
+    registry.register(
+      createExportArtifactTool({
+        defaultWorkspacePath: options.workspacePath,
+      })
+    );
+  }
+
+  if (enableExpressionEval) {
+    registry.register(createEvalExpressionTool());
   }
 
   if (enableGit) {

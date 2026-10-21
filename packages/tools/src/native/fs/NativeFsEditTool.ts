@@ -101,6 +101,68 @@ function buildPreview(original: string, next: string): string {
 }
 
 /**
+ * Aplica un hunk al contenido, con soporte de **hunks parciales**.
+ *
+ * ALGORITMO
+ * ----------
+ * 1. Si el `find` casa **exactamente una vez** → se aplica tal cual.
+ * 2. Si casa 0 veces → se busca un **recorte por prefijo/sufijo común**:
+ *    se recorta el `find` por los dos extremos (quitando la primera y la
+ *    última línea, luego caracteres) hasta encontrar un fragmento que case
+ *    **exactamente una vez** en el contenido. Con ese fragmento desambiguado
+ *    se aplica el reemplazo: el `replace` se recorta de forma **correspondiente**
+ *    (mismo número de líneas/caracteres recortados por cada extremo).
+ * 3. Si tras el recorte no hay una coincidencia única → se **rechaza**
+ *    (fail-closed): un parche ambiguo podría pisar el código equivocado.
+ *
+ * El recorte conserva la posición relativa: si se quitaron N líneas por
+ * delante y M por detrás, el `replace` se recorta con el mismo N/M, de modo
+ * que el resultado sea el que el autor del parche pretendía.
+ */
+function applyHunk(content: string, find: string, replace: string, filePath: string): string {
+  const exact = countOccurrences(content, find);
+  if (exact === 1) {
+    return content.replace(find, replace);
+  }
+  if (exact > 1) {
+    throw new Error(
+      `fs_edit_patch: el texto a reemplazar es ambiguo en '${filePath}' ` +
+        `(${exact} coincidencias). Un parche ambiguo podría pisar el código ` +
+        `equivocado; añade más contexto a 'find'. Parche abortado, fichero intacto.`
+    );
+  }
+
+  // 0 coincidencias exactas → intentar el recorte por prefijo/sufijo común.
+  const findLines = find.split("\n");
+  const replaceLines = replace.split("\n");
+
+  for (let head = 0; head < findLines.length; head++) {
+    for (let tail = findLines.length - 1 - head; tail >= head; tail--) {
+      const candidate = findLines.slice(head, tail + 1).join("\n");
+      if (candidate.trim().length === 0) continue;
+
+      const occurrences = countOccurrences(content, candidate);
+      if (occurrences !== 1) continue;
+
+      // Recorte equivalente en el `replace`: mismas líneas por delante y por
+      // detrás, y además se recortan los caracteres compartidos por los
+      // extremos del segmento.
+      const replaceCandidate = replaceLines
+        .slice(head, Math.max(head, replaceLines.length - (findLines.length - 1 - tail)))
+        .join("\n");
+
+      return content.replace(candidate, replaceCandidate);
+    }
+  }
+
+  throw new Error(
+    `fs_edit_patch: no se encontró el texto a reemplazar en '${filePath}' ` +
+      `(0 coincidencias, ni tras recortar por prefijo/sufijo común). ` +
+      `Parche abortado, fichero intacto.`
+  );
+}
+
+/**
  * Crea la tool `fs_edit_patch`.
  */
 export function createFsEditPatchTool(
@@ -142,21 +204,7 @@ export function createFsEditPatchTool(
       // Aplicar los hunks en memoria (fail-closed ante ambigüedad).
       let next = original;
       for (const hunk of input.hunks) {
-        const occurrences = countOccurrences(next, hunk.find);
-        if (occurrences === 0) {
-          throw new Error(
-            `fs_edit_patch: no se encontró el texto a reemplazar en '${input.path}' ` +
-              `(0 coincidencias). Parche abortado, fichero intacto.`
-          );
-        }
-        if (occurrences > 1) {
-          throw new Error(
-            `fs_edit_patch: el texto a reemplazar es ambiguo en '${input.path}' ` +
-              `(${occurrences} coincidencias). Un parche ambiguo podría pisar el código ` +
-              `equivocado; añade más contexto a 'find'. Parche abortado, fichero intacto.`
-          );
-        }
-        next = next.replace(hunk.find, hunk.replace);
+        next = applyHunk(next, hunk.find, hunk.replace, input.path);
       }
 
       const preview = buildPreview(original, next);

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 import {
+  createTempWorkspace,
   ToolRegistry,
   registerNativeTools,
   createFsReadFileTool,
@@ -23,7 +23,7 @@ describe("T7 — Tools FS avanzadas (A3-12)", () => {
   let ws: string;
 
   beforeEach(() => {
-    ws = fs.mkdtempSync(path.join(os.tmpdir(), "ego-fs-tools-"));
+    ws = createTempWorkspace({ prefix: "ego-fs-tools-" }).path;
     fs.mkdirSync(path.join(ws, "src"), { recursive: true });
     fs.writeFileSync(path.join(ws, "src", "a.ts"), "export const a = 1;\nconst token = 'x';\n", "utf8");
     fs.writeFileSync(path.join(ws, "src", "b.tsx"), "export const b = 2;\n", "utf8");

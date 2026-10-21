@@ -4,7 +4,6 @@ import {
   ToolRegistry,
   ToolDefinition,
   ToolExecutionContext,
-  zodToJsonSchema
 } from "../src/index.js";
 
 describe("@ego/tools — ToolRegistry (ACT-01)", () => {

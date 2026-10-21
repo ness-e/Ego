@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
-import { createFsEditPatchTool } from "../src/index.js";
+import { createTempWorkspace, createFsEditPatchTool } from "../src/index.js";
 
 /**
  * T5.2 (Ola 1b) — `fs_edit_patch` con dry-run.
@@ -34,7 +33,7 @@ describe("T5.2 — fs_edit_patch con dry-run", () => {
   let ws: string;
 
   beforeEach(() => {
-    ws = fs.mkdtempSync(path.join(os.tmpdir(), "ego-edit-patch-"));
+    ws = createTempWorkspace({ prefix: "ego-edit-patch-" }).path;
     fs.writeFileSync(
       path.join(ws, "code.ts"),
       "export const a = 1;\nexport const b = 2;\n",
@@ -166,5 +165,124 @@ describe("T5.2 — fs_edit_patch con dry-run", () => {
     const content = fs.readFileSync(path.join(ws, "code.ts"), "utf8");
     expect(content).toContain("a = 42");
     expect(content).toContain("b = 43");
+  });
+
+  // --- HUNKS PARCIALES (T3.3) -------------------------------------------
+  // El `find` puede traer contexto que NO casa exacto porque el fichero
+  // cambió. En vez de rendirse, se aplica el **mayor prefijo/sufijo común**:
+  // se recorta el `find` por los dos extremos hasta que la coincidencia es
+  // ÚNICA, y se aplica ese recorte.
+
+  it("hunk parcial: recorta el `find` hasta la coincidencia única (prefijo común)", async () => {
+    const tool = createFsEditPatchTool();
+    fs.writeFileSync(
+      path.join(ws, "code.ts"),
+      "export const a = 1;\n// comentario nuevo\n",
+      "utf8"
+    );
+
+    const res = await tool.execute(
+      {
+        path: "code.ts",
+        hunks: [
+          {
+            // El `find` NO casa exacto (el fichero tiene una línea más).
+            find: "export const a = 1;\n// comentario viejo\n",
+            replace: "export const a = 99;\n// comentario viejo\n",
+          },
+        ],
+      },
+      ctx()
+    );
+
+    const content = fs.readFileSync(path.join(ws, "code.ts"), "utf8");
+    expect(content).toContain("a = 99");
+    expect(content).toContain("comentario nuevo");
+    expect((res as { hunksApplied: number }).hunksApplied).toBe(1);
+  });
+
+  it("hunk parcial: recorta por el SUFIJO común", async () => {
+    const tool = createFsEditPatchTool();
+    fs.writeFileSync(
+      path.join(ws, "code.ts"),
+      "// cabecera\nconst b = 2;\n",
+      "utf8"
+    );
+
+    await tool.execute(
+      {
+        path: "code.ts",
+        hunks: [
+          {
+            find: "// cabecera vieja\nconst b = 2;\n",
+            replace: "// cabecera vieja\nconst b = 77;\n",
+          },
+        ],
+      },
+      ctx()
+    );
+
+    expect(fs.readFileSync(path.join(ws, "code.ts"), "utf8")).toContain("b = 77");
+  });
+
+  it("hunk parcial: `dryRun` previsualiza sin escribir", async () => {
+    const tool = createFsEditPatchTool();
+    const before = fs.readFileSync(path.join(ws, "code.ts"), "utf8");
+
+    const res = await tool.execute(
+      {
+        path: "code.ts",
+        hunks: [
+          {
+            find: "export const a = 1;\n// linea extra que no existe\n",
+            replace: "export const a = 5;\n// linea extra que no existe\n",
+          },
+        ],
+        dryRun: true,
+      },
+      ctx()
+    );
+
+    expect((res as { dryRun: boolean }).dryRun).toBe(true);
+    expect((res as { preview: string }).preview).toContain("a = 5");
+    expect(fs.readFileSync(path.join(ws, "code.ts"), "utf8")).toBe(before);
+  });
+
+  it("hunk parcial AMBIGUO: se rechaza y el fichero queda intacto (fail-closed)", async () => {
+    const tool = createFsEditPatchTool();
+    // Dos ocurrencias del prefijo común ⇒ el recorte no puede desambiguar.
+    fs.writeFileSync(path.join(ws, "code.ts"), "const x = 1;\nconst x = 1;\n", "utf8");
+    const before = fs.readFileSync(path.join(ws, "code.ts"), "utf8");
+
+    await expect(
+      tool.execute(
+        {
+          path: "code.ts",
+          hunks: [
+            {
+              find: "const x = 1;\ncontexto que no existe\n",
+              replace: "const x = 2;\ncontexto que no existe\n",
+            },
+          ],
+        },
+        ctx()
+      )
+    ).rejects.toThrow(/ambigu|coincidencias/i);
+
+    expect(fs.readFileSync(path.join(ws, "code.ts"), "utf8")).toBe(before);
+  });
+
+  it("hunk parcial: si el `find` no casa NADA, se rechaza", async () => {
+    const tool = createFsEditPatchTool();
+
+    await expect(
+      tool.execute(
+        {
+          path: "code.ts",
+          hunks: [{ find: "nada que ver aqui\n", replace: "x" }],
+        },
+        ctx()
+      )
+    ).rejects.toThrow(/no se encontró|coincidencias/i);
   });
 });
