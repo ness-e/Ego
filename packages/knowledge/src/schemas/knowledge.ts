@@ -2,7 +2,11 @@ import { z } from "zod";
 
 /**
  * Esquema tipado de fragmento de documento (DocumentChunk).
- * Implementa KHOJ-01 (hash SHA-256 de deduplicación) y KHOJ-02 (heading_path jerárquico).
+ * Implementa los patrones `KHOJ-01` (hash SHA-256 de deduplicación) y
+ * `KHOJ-02` (ruta de encabezados jerárquica) — **implementación propia de Ego**:
+ * el patrón se estudió en `repos-referencia/khoj` (AGPL-3.0) como referencia de
+ * diseño, sin traducción de código (khoj usa MD5 y no tiene ruta de
+ * encabezados). Ver `docs/extractions/khoj.md`.
  */
 export const DocumentChunkSchema = z.object({
   id: z.string().describe("Identificador canónico del fragmento (ej. doc_hash:chunk_0)"),

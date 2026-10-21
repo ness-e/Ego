@@ -1,6 +1,7 @@
 /**
  * Heurísticas deterministas de normalización y coerción de argumentos (OCLW-04).
- * Extraído y adaptado de OpenClaw packages/normalization-core.
+ * Extraído y adaptado de OpenClaw `packages/normalization-core`
+ * (MIT, Copyright (c) 2026 OpenClaw Foundation) - ver LICENSE.md.
  */
 
 /**

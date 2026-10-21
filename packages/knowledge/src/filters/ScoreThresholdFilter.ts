@@ -3,12 +3,18 @@ import { SearchHit } from "@ego/memory";
 export type ScoreThresholdMode = "normalized" | "absolute";
 
 export interface ScoreThresholdOptions {
-  minScore?: number; // Default 0.70 (KHOJ-03, calibrado ver docs abajo)
+  minScore?: number; // Default 0.70 — calibración propia de Ego (patrón KHOJ-03; ver docs abajo)
   mode?: ScoreThresholdMode; // Default "normalized"
 }
 
 /**
- * Filtro de umbral de score calibrado (KHOJ-03, H10).
+ * Filtro de umbral de score calibrado (patrón `KHOJ-03`, H10).
+ *
+ * El umbral 0.70 es una **calibración propia de Ego**; el patrón de filtrado por
+ * confianza se estudió en `repos-referencia/khoj` (AGPL-3.0) como referencia de
+ * diseño, sin traducción de código (allí el corte viene de
+ * `bi_encoder_confidence_threshold`, no de un 0.72 fijo). Ver
+ * `docs/extractions/khoj.md`.
  *
  * Calibración (H10): el umbral 0.70 nació para similitud coseno en [0,1],
  * pero los scores de recuperación BM25 no están acotados (típico 0..>10 según

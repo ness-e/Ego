@@ -8,10 +8,17 @@ export interface ChunkerOptions {
 }
 
 /**
- * Fragmentador adaptativo jerárquico basado en los patrones de Khoj (KHOJ-01, KHOJ-02).
- * - Segmentación en bloques de 256 tokens con solapamiento de 32-64 tokens.
- * - Extracción y propagación del árbol de encabezados (heading_path).
- * - Deduplicación criptográfica mediante SHA-256 (contentHash).
+ * Fragmentador adaptativo jerárquico — **implementación propia de Ego**
+ * (patrón estudiado en `KHOJ-01`/`KHOJ-02`; ver `docs/extractions/khoj.md`).
+ * - Segmentación en bloques de 256 tokens con solapamiento de 32 tokens.
+ * - Extracción y propagación de la ruta de encabezados (`headingPath`).
+ * - Deduplicación criptográfica mediante SHA-256 (`contentHash`).
+ *
+ * Procedencia: el patrón de fragmentación jerárquica se estudiará en
+ * `repos-referencia/khoj` (AGPL-3.0) como **referencia de diseño**; no se ha
+ * traducido código de ese proyecto. Sus parámetros reales difieren de los de
+ * aquí (khoj cuenta palabras, no tokens, y usa solapamiento 0 y MD5), por lo
+ * que la implementación es propia. Ver `docs/research/licencias-obligaciones.md`.
  */
 export class AdaptiveChunker {
   private readonly maxTokens: number;

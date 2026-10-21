@@ -1,6 +1,7 @@
 /**
  * Utilidades para extracción, balanceo y auto-cierre de fragmentos JSON (OCLW-03).
- * Extraído y adaptado de OpenClaw packages/normalization-core/balanced-json.ts.
+ * Extraído y adaptado de OpenClaw `packages/normalization-core/balanced-json.ts`
+ * (MIT, Copyright (c) 2026 OpenClaw Foundation) - ver LICENSE.md.
  */
 
 export interface BalancedJsonFragment {
