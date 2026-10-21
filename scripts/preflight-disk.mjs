@@ -70,13 +70,26 @@ const MARGIN_GB = 5;
 /** Antigüedad mínima para considerar un resto de %TEMP% "abandonado". */
 const STALE_MINUTES = 60;
 
-/** Patrones de restos de test en %TEMP%. */
+/**
+ * Patrones de restos de test en %TEMP%.
+ *
+ * Medidos en la Ola 8 (los tres primeros fallaban):
+ *   · `.tmpXXXX`   → el temporal de un proceso, CON punto delante: `^tmp` no lo
+ *                    cogía (hace falta `^\.?tmp`).
+ *   · `vdb517-XXXX`→ un store de VantaDB de los tests: `^vdb-` no lo cogía
+ *                    porque aquí no hay guion tras "vdb" (`^vdb`).
+ *   · `rep-island-ud-XXXX` → el perfil de usuario de Electron (el floating
+ *                    island): no estaba en la lista.
+ *   · `pytest-of-XXXX` → restos de pytest (10,9 GB en una limpieza previa).
+ */
 const LEFTOVER_PATTERNS = [
   /^ego-/,
-  /^vdb-/,
   /^ego-scratch/,
   /^ego-test-scratch/,
-  /^tmp/,
+  /^\.?tmp/,
+  /^vdb/,
+  /^rep-/,
+  /^pytest-of-/,
   /^vanta-cog-ckpt/,
   /^a7-/,
 ];

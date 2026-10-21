@@ -147,6 +147,31 @@ jobs:
       - name: Build Desktop and Renderer
         run: pnpm build
 
+      - name: "Procedencia de las extracciones (modo degradado, sin clones)"
+        # A5 (EGO-FIND-82): la puerta de procedencia de las 25 fichas.
+        #
+        # En CI **no existen** los clones de `repos-referencia/` (esto es un
+        # checkout del repo de Ego, no del upstream), así que la puerta corre en
+        # MODO DEGRADADO (`--sin-clones`): sigue comprobando la FORMA de la
+        # fila de procedencia, la coherencia de IDs entre ficha y backlog, que
+        # ninguna fila afirme derivación sin cabecera canónica y que ninguna
+        # acredite a `khoj` (AGPL-3.0) — pero NO contrasta upstream, licencia
+        # real, commit ni ruta de origen contra los clones (eso exige el clon).
+        #
+        # Es la opción (a) del encargo: la puerta sigue siendo ÚTIL en CI
+        # (detecta regresiones reales) sin depender de clones que CI no tiene.
+        # La verificación fuerte queda para local:
+        #   node scripts/verify-extraction-provenance.mjs      (con clones)
+        run: node scripts/verify-extraction-provenance.mjs --sin-clones
+
+      - name: Atribución del motor de avatar (cabeceras canónicas)
+        # A6: comprueba que los 63 ficheros derivados de `packages/avatar/`
+        # llevan su cabecera canónica y que NINGUNO de los 23 nativos la lleva,
+        # contra el `provenance.manifest.json` del propio paquete. No necesita
+        # clones: si `repos-referencia/avatar` no está, lo anota como "no
+        # comprobable" en lugar de fallar.
+        run: node scripts/verify-attribution.mjs
+
       - name: Run E2E and Resilience Suites
         run: pnpm test:e2e
 

@@ -3,6 +3,7 @@
   "MD003": { "style": "atx" },
   "MD013": { "line_length": 200, "tables": false },
   "MD033": {
+    "comment": "Los placeholders <upstream> (<LIC>) (<ruta>) son la forma canónica de la cabecera de atribución (A6) y aparecen en docs; markdownlint los marca como HTML inline incluso dentro de un code span, así que hay que permitir explícitamente esos nombres de placeholder. NO se permite ningún elemento real más de los listados.",
     "allowed_elements": [
       "b",
       "br",
@@ -11,7 +12,10 @@
       "kbd",
       "sub",
       "sup",
-      "summary"
+      "summary",
+      "upstream",
+      "LIC",
+      "ruta"
     ]
   },
   "MD046": { "style": "fenced" },

@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+// patrón de las secuencias ANSI sin escribir el carácter de control (no-control-regex)
+const ANSI_RE = new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "g");
 const ROOT = join(HERE, "..");
 const GATE = join(HERE, "verify-lint-budget.mjs");
 const { evaluateBudget } = await import(
@@ -105,7 +107,7 @@ for (const c of CASES) {
   console.log(`        función=${pure.ok ? "ok" : "KO"} · binario exit=${r.code} (esperado ${c.expect})`);
   if (!ok) {
     for (const l of r.out.split(/\r?\n/)) {
-      if (l.trim()) console.log(`        ${l.replace(/\x1b\[[0-9;]*m/g, "").slice(0, 170)}`);
+      if (l.trim()) console.log(`        ${l.replace(ANSI_RE, "").slice(0, 170)}`);
     }
   }
 }
