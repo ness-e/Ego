@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/mem0/` (Commit verificado: `0724291bd864cf807e88ee8981c8226644e8fb42`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/mem0/` (upstream `mem0ai/mem0`, commit `0724291`, origen `mem0/memory/main.py`) |
+| Licencia del origen | Apache-2.0 — mem0ai/mem0 |
+| Commit verificado | 0724291 |
+| Ruta de origen | `mem0/memory/main.py` |
 | Stack del Origen | Python 3.10–3.12 (SDK `mem0ai` 2.2.1, Pydantic v2) + TypeScript strict (SDK `mem0ai` 3.3.1, tsup/pnpm) + FastAPI self-hosted (`server/`) · Apache-2.0 |
 | Rol en Ego | Referencia de **capa de memoria conversacional**: extracción de recuerdos, deduplicación, arbitraje de mutación, scope y grafo de memorias |
 | Owner | ness-e |

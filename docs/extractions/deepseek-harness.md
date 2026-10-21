@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de capacidades |
-| Repositorio Origen | `repos-referencia/deepseek-harness/` — monorepo `@deepseek-ai/dsh-*`, clonado en profundidad 1 el 2026-10-20 |
+| Repositorio Origen | `repos-referencia/deepseek-harness/` (upstream `deepseek-ai/deepseek-harness`, commit `5badb15`, origen `packages/session/session-persistence-jsonl/package.json`) |
+| Licencia del origen | MIT — deepseek-ai/deepseek-harness |
+| Commit verificado | 5badb15 |
+| Ruta de origen | `packages/session/session-persistence-jsonl/package.json` |
 | Stack del Origen | Monorepo TypeScript ESM (pnpm workspaces) + Node ≥22.19 + Vitest + Oxlint + SQLite (`node:sqlite`) + logs de sesión JSONL/Zstd |
 | Rol en Ego | Referencia de Versionado de Sesiones, Patrón Supersede, Identificadores Opacos y Migraciones Aditivas |
 | Owner | ness-e |

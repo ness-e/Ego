@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/graphrag/` (microsoft/graphrag **v3.3.0**, MIT, commit `5faaaf4`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/graphrag/` (upstream `microsoft/graphrag`, commit `5faaaf4`, origen `packages/graphrag/graphrag/index/workflows/factory.py`) |
+| Licencia del origen | MIT — microsoft/graphrag |
+| Commit verificado | 5faaaf4 |
+| Ruta de origen | `packages/graphrag/graphrag/index/workflows/factory.py` |
 | Stack del Origen | Python ≥3.11 en monorepo de 8 paquetes (`graphrag`, `graphrag-cache`, `graphrag-chunking`, `graphrag-common`, `graphrag-input`, `graphrag-llm`, `graphrag-storage`, `graphrag-vectors`) + pandas/pyarrow + pydantic v2 + `graspologic-native` (binario nativo) + LiteLLM |
 | Rol en Ego | Referencia de diseño para la capa Knowledge/GraphRAG (Fase 06). No se porta código: se extraen patrones de pipeline, consulta, caché y configuración |
 | Owner | ness-e |

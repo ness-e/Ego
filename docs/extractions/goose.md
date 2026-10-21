@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/goose/` (Commit verificado: `9920efa`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/goose/` (upstream `aaif-goose/goose`, commit `9920efa`, origen `crates/goose/src/tool_inspection.rs`) |
+| Licencia del origen | Apache-2.0 — aaif-goose/goose |
+| Commit verificado | 9920efa |
+| Ruta de origen | `crates/goose/src/tool_inspection.rs` |
 | Stack del Origen | Rust (workspace Cargo, crates `goose`, `goose-agent`, `goose-mcp`, `goose-providers`, `goose-cli`, `goose-roaming`) + Electron/React (`ui/desktop/`) + TUI ACP (`ui/text/`) |
 | Rol en Ego | Referencia de **gobernanza de la ejecución**: cadena de inspectores de tool-call, almacén de permisos con caducidad, inspección de egreso, hooks de ciclo de vida, lease de catálogo y catálogo declarativo de providers |
 | Owner | ness-e |

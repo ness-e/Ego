@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/hermes-agent/` (Commit verificado: oct-2026) |
+| Repositorio Origen | `repos-referencia/hermes-agent/` (upstream `nousresearch/hermes-agent`, commit `4787e4d`, origen `apps/desktop/src/components/assistant-ui/ansi-text.tsx`) |
+| Licencia del origen | MIT — nousresearch/hermes-agent |
+| Commit verificado | 4787e4d |
+| Ruta de origen | `apps/desktop/src/components/assistant-ui/ansi-text.tsx` |
 | Stack del Origen | Electron 40 + React 19 + TypeScript + Vite + `@assistant-ui/react` + TailwindCSS + Python 3.11 Backend (FastAPI/JSON-RPC/SQLite) |
 | Rol en Ego | Gemelo de Stack Desktop / UI & Shell Reference |
 | Owner | ness-e |

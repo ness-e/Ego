@@ -1,8 +1,8 @@
 # Extracción Técnica: OpenHands (repos-referencia/openhands) #
 
-| Estado | Repositorio Origen | Stack del Origen | Rol en Ego | Owner | Fecha | Licencia |
-| --- | --- | --- | --- | --- | --- | --- |
-| Activo — ficha canónica de extracción y análisis de patrones | `repos-referencia/openhands/` (commit `8d39305`, rama `main`, profundidad 1) | Electron + React + Vite + React Router + Tailwind + TypeScript (MIT) | **Gemelo de stack Desktop (2º tras `hermes-agent`)** — shell Electron, preloads por ventana, router declarativo, canvas de agente y log de arranque | ness-e | 2026-10-20 | MIT (`package.json:5`, `LICENSE`) |
+| Estado | Repositorio Origen | Stack del Origen | Rol en Ego | Owner | Fecha | Licencia | Licencia del origen | Commit verificado | Ruta de origen |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Activo — ficha canónica de extracción y análisis de patrones | `repos-referencia/openhands/` (upstream `OpenHands/OpenHands`, commit `8d39305`, origen `src/types/agent-server/session-frames.ts`) | Electron + React + Vite + React Router + Tailwind + TypeScript (MIT) | **Gemelo de stack Desktop (2º tras `hermes-agent`)** — shell Electron, preloads por ventana, router declarativo, canvas de agente y log de arranque | ness-e | 2026-10-20 | MIT (`package.json:5`, `LICENSE`) | MIT — OpenHands/OpenHands | 8d39305 | `src/types/agent-server/session-frames.ts` |
 
 ---
 

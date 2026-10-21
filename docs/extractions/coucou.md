@@ -1,5 +1,11 @@
 # Coucou → Ego: expediente de extracción técnica
 
+| Campo | Valor |
+|---|---|
+| Licencia del origen | MIT — Louis-CFM/coucou |
+| Commit verificado | 595092b |
+| Ruta de origen | `NotchBuddy/Sources/App/HookServer.swift` |
+
 ## 0. Propósito
 
 Este documento define cómo estudiar y extraer de `Louis-CFM/coucou` las ideas, patrones, arquitectura, lógica y piezas de implementación que puedan integrarse en Ego sin convertir a Ego en un clon de Coucou.

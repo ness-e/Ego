@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/continue/` (Commit verificado: `5522c6f`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/continue/` (upstream `continuedev/continue`, commit `5522c6f`, origen `packages/config-yaml/src/schemas/models.ts`) |
+| Licencia del origen | Apache-2.0 — continuedev/continue |
+| Commit verificado | 5522c6f |
+| Ruta de origen | `packages/config-yaml/src/schemas/models.ts` |
 | Stack del Origen | TypeScript estricto + Node 22 + React 19 + Vite; monorepo pnpm con `core/` (runtime headless), `extensions/vscode`, `extensions/intellij`, `packages/config-yaml` (Zod), `packages/continue-sdk` |
 | Rol en Ego | Contrapunto *config-driven* del `ModelRouter` y contrato canónico de context providers |
 | Owner | ness-e |

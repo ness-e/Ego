@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/codex/` (Commit verificado: `0144894`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/codex/` (upstream `openai/codex`, commit `0144894`, origen `codex-rs/sandboxing/src/policy_transforms.rs`) |
+| Licencia del origen | Apache-2.0 — openai/codex |
+| Commit verificado | 0144894 |
+| Ruta de origen | `codex-rs/sandboxing/src/policy_transforms.rs` |
 | Stack del Origen | Rust (workspace Cargo, ~130 crates bajo `codex-rs/`) · TUI `ratatui`+`crossterm` · sandbox nativo del SO (Seatbelt macOS / bubblewrap+Landlock+seccomp Linux / MXC-RestrictedToken Windows) · MCP vía `rmcp` · Apache-2.0 |
 | Rol en Ego | Referencia de la capa de **Gobernanza de Ejecución**: política de permisos, decisión de aprobación, edición estructurada de ficheros y vocabulario de eventos |
 | Owner | ness-e |

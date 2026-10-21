@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/crush/` (Commit verificado: `8fa35a0f10e675aae222fe8626d2d13c2dcb49f5`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/crush/` (upstream `charmbracelet/crush`, commit `8fa35a0`, origen `internal/lsp/manager.go`) |
+| Licencia del origen | MIT — charmbracelet/crush |
+| Commit verificado | 8fa35a0 |
+| Ruta de origen | `internal/agent/tools/diagnostics.go` |
 | Stack del Origen | Go + Bubble Tea v2 / Lipgloss v2 / glamour v2 (TUI de terminal) + SQLite vía sqlc + `charm.land/fantasy` (abstracción multi-proveedor LLM) + `github.com/charmbracelet/x/powernap` (cliente LSP) |
 | Rol en Ego | Referencia de **ingeniería de código**: LSP como fuente de contexto, permisos por comando, hooks con pre-aprobación, sesión con puntero de resumen y bus de eventos con dos políticas de entrega |
 | Owner | ness-e |

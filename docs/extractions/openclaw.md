@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/openclaw/` (clonado en profundidad 1 el 2026-10-20; `node >=24.16.0 <25 \|\| >=26.1.0`, pnpm 12.5.1, ESM) |
+| Licencia del origen | MIT — openclaw/openclaw |
+| Commit verificado | 0c7a83d |
+| Ruta de origen | `src/agents/admitted-run-context.ts` |
+| Repositorio Origen | `repos-referencia/openclaw/` (upstream `openclaw/openclaw`, commit `0c7a83d`, origen `src/agents/admitted-run-context.ts`) |
 | Stack del Origen | 100% TypeScript (Node.js 24/26, pnpm workspaces, Vitest, tsdown) + Kysely SQLite |
 | Rol en Ego | Referencia de arquitectura de Gateway, Admisión de Runs, Tool Repair y Workers |
 | Owner | ness-e |

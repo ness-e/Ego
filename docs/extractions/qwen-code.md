@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/qwen-code/` (Commit verificado: `6ec1b83`, rama `main`, profundidad 1 — `.git/refs/heads/main` = `6ec1b830448793c4aef672340a44f488045bc962`) |
+| Repositorio Origen | `repos-referencia/qwen-code/` (upstream `QwenLM/qwen-code`, commit `6ec1b83`, origen `packages/core/src/subagents/agent-frontmatter-schema.test.ts`) |
+| Licencia del origen | Apache-2.0 — QwenLM/qwen-code |
+| Commit verificado | 6ec1b83 |
+| Ruta de origen | `packages/core/src/subagents/agent-frontmatter-schema.test.ts` |
 | Stack del Origen | TypeScript strict ESM (Node.js ≥22) + React 19.2 + Ink 7.0.3 (TUI) + pnpm workspaces (18 paquetes) + MCP cliente/servidor + memoria local en ficheros · Apache-2.0 · versión `0.25.3` |
 | Rol en Ego | Contrapunto directo del modelo de **Sub-Egos**: agente de código con sistema multi-agente y subagentes declarativos por fichero Markdown |
 | Owner | ness-e |

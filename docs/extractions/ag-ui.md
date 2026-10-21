@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones (1.ª revisión, repo nuevo) |
-| Repositorio Origen | `repos-referencia/ag-ui/` (Commit verificado: `3decbe8`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/ag-ui/` (upstream `ag-ui-protocol/ag-ui`, commit `3decbe8`, origen `sdks/typescript/packages/core/src/generated/types.ts`) |
+| Licencia del origen | MIT — ag-ui-protocol/ag-ui |
+| Commit verificado | 3decbe8 |
+| Ruta de origen | `sdks/typescript/packages/core/src/generated/types.ts` |
 | Stack del Origen | TypeScript 5.8 estricto + RxJS 7 (Observables) + Zod + Nx monorepo (pnpm workspaces) + spec 1.0 en Markdown (`docs/spec/1.0/`), SDKs TS/Python/.NET/Rust/Dart/Java + 23 integraciones de frameworks |
 | Rol en Ego | Contrapunto directo al borde agente↔UI de `packages/ui-runtime/` (CanvasBridge, A2UIAdapter, ComponentRegistry) y al bus canónico `packages/events/` (EventBus, EgoEvent) |
 | Owner | ness-e |

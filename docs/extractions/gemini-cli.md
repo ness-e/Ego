@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/gemini-cli/` (Commit verificado: `76e4d7c046c7dab5727787da378b9c06bf0948cf`, rama `main`, profundidad 1; `package.json` → `0.66.0-nightly.20261013.g204db94ae`) |
+| Repositorio Origen | `repos-referencia/gemini-cli/` (upstream `google-gemini/gemini-cli`, commit `76e4d7c`, origen `packages/core/src/policy/config.test.ts`) |
+| Licencia del origen | Apache-2.0 — google-gemini/gemini-cli |
+| Commit verificado | 76e4d7c |
+| Ruta de origen | `packages/core/src/policy/config.test.ts` |
 | Stack del Origen | Node.js ≥20 + TypeScript 5.8 (strict) + React 19 + Ink 6 (TUI) + `@modelcontextprotocol/sdk` 1.23 + Zod + `@iarna/toml` + `shell-quote` + `proper-lockfile` |
 | Rol en Ego | Referencia de **gobernanza de herramientas** (policy engine), sandbox de shell, contexto jerárquico de proyecto y confianza de workspace |
 | Owner | ness-e |

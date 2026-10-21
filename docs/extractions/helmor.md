@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de capacidades |
-| Repositorio Origen | `repos-referencia/helmor/` (commit `a76cda1`, verificado 2026-10-20) |
+| Repositorio Origen | `repos-referencia/helmor/` (upstream `dohooo/helmor`, commit `a76cda1`, origen `src/components/terminal-output-scheduler.ts`) |
+| Licencia del origen | Apache-2.0 — dohooo/helmor |
+| Commit verificado | a76cda1 |
+| Ruta de origen | `src/components/terminal-output-scheduler.ts` |
 | Stack del Origen | Tauri 2 (Rust) + React 19 + TypeScript strict + Bun + PTY + TailwindCSS + Biome |
 | Rol en Ego | Referencia de consola/PTY, coalescencia de salida y primitivas UI de Composer |
 | Owner | ness-e |

@@ -37,13 +37,14 @@ cableado y su responsable) · `⏳ Futura (fase)`. **Ninguna compuerta queda en 
 * [`backlog-coucou.md`](backlog-coucou.md): 29 tareas (`COUC-01..COUC-29`).
   12 ✅ · 12 🚫 · 4 🆕 · 1 ⏳. normalización en el borde, atención, HITL con ACK, ChangeSet, SafeConfigMutation.
 * [`backlog-khoj.md`](backlog-khoj.md): 13 tareas (`KHOJ-01..KHOJ-13`).
-  3 ✅ · 3 🚫 · 0 🆕 · 7 ⏳. chunking de 256 tokens con solapamiento y hash, filtrado de umbral, extracción de hechos.
+  0 ✅ · 6 🚫 · 0 🆕 · 7 ⏳. patrones **estudiados** en khoj como referencia de diseño, **sin traducción de código**
+  (`EGO-FIND-83`): chunking, filtrado de umbral, extracción de hechos y consolidación.
 * [`backlog-helmor.md`](backlog-helmor.md): 10 tareas (`HELM-01..HELM-10`).
   4 ✅ · 1 🚫 · 5 🆕 · 0 ⏳. terminal output scheduler (coalescencia 16 KB/tick, ring-buffer 2 MB), puente de UI.
 * [`backlog-career-ops.md`](backlog-career-ops.md): 8 tareas (`CARP-01..CARP-08`).
   2 ✅ · 3 🚫 · 2 🆕 · 1 ⏳. DATA_CONTRACT.md (User vs System), locks atómicos de filesystem, cuarentena.
 * [`backlog-deepseek-harness.md`](backlog-deepseek-harness.md): 12 tareas (`DSEK-01..DSEK-12`).
-  1 ✅ · 4 🚫 · 3 🆕 · 4 ⏳. sesiones versionadas, IDs opacos, patrón supersede sin borrado, migraciones aditivas.
+  0 ✅ · 5 🚫 · 3 🆕 · 4 ⏳. sesiones versionadas, IDs opacos, patrón supersede sin borrado, migraciones aditivas.
 * [`backlog-opencode.md`](backlog-opencode.md): 9 tareas (`OCDE-01..OCDE-09`).
   0 ✅ · 1 🚫 · 7 🆕 · 1 ⏳. motor de sesión/agente: permisos persistidos, compactación negociada, code mode, inbox de
   prompts.

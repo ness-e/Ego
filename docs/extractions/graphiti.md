@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/graphiti/` — `getzep/graphiti`, commit `6e3e3cb` (rama `main`, profundidad 1), paquete `graphiti-core` 0.31.1 (`repos-referencia/graphiti/pyproject.toml:1-12`) |
+| Repositorio Origen | `repos-referencia/graphiti/` (upstream `getzep/graphiti`, commit `6e3e3cb`, origen `graphiti_core/edges.py`) |
+| Licencia del origen | Apache-2.0 — getzep/graphiti |
+| Commit verificado | 6e3e3cb |
+| Ruta de origen | `graphiti_core/edges.py` |
 | Stack del Origen | Python ≥3.10 + Pydantic 2 + drivers de grafo externos (Neo4j, FalkorDB, Neptune, Kuzu) + clientes de embedding externos (OpenAI, Azure, Gemini, Voyage) + FastAPI (`server/`) + servidor MCP (`mcp_server/`) |
 | Rol en Ego | Referencia canónica del **modelo de datos temporal/bitemporal** y del pipeline de grafo de conocimiento (extracción de hechos, resolución de entidades, invalidación por contradicción) |
 | Owner | ness-e |

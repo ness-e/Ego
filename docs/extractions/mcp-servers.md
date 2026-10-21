@@ -1,8 +1,8 @@
 # Extracción Técnica: MCP Servers (repos-referencia/mcp-servers) #
 
-| Estado | Repositorio Origen | Stack del Origen | Rol en Ego | Owner | Fecha | Licencia |
-| --- | --- | --- | --- | --- | --- | --- |
-| Activo — ficha canónica de extracción y análisis de patrones | `repos-referencia/mcp-servers/` (commit `51b6382`, rama `main`, tag `v2.0.0`, profundidad 1) | TypeScript 5.8 + Node ≥24 + Zod 4 + `@modelcontextprotocol/server` 2.3 (4 servidores en npm workspaces) + Python ≥3.10 con `uv` (3 servidores en PyPI) | Referencia de **contrato de servidor MCP**: registro modular de tools/resources/prompts, anotaciones de riesgo, plantillas de recursos con variables, protocolo Roots y empaquetado de servidor | ness-e | 2026-10-20 | Transición MIT → Apache-2.0 (`LICENSE:1-3`): las contribuciones heredadas siguen bajo MIT, las nuevas bajo Apache-2.0 |
+| Estado | Repositorio Origen | Stack del Origen | Rol en Ego | Owner | Fecha | Licencia | Licencia del origen | Commit verificado | Ruta de origen |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Activo — ficha canónica de extracción y análisis de patrones | `repos-referencia/mcp-servers/` (upstream `modelcontextprotocol/servers`, commit `51b6382`, origen `src/everything/server/index.ts`) | TypeScript 5.8 + Node ≥24 + Zod 4 + `@modelcontextprotocol/server` 2.3 (4 servidores en npm workspaces) + Python ≥3.10 con `uv` (3 servidores en PyPI) | Referencia de **contrato de servidor MCP**: registro modular de tools/resources/prompts, anotaciones de riesgo, plantillas de recursos con variables, protocolo Roots y empaquetado de servidor | ness-e | 2026-10-20 | Transición MIT → Apache-2.0 (`LICENSE:1-3`): las contribuciones heredadas siguen bajo MIT, las nuevas bajo Apache-2.0 | Apache-2.0 — modelcontextprotocol/servers | 51b6382 | `src/everything/server/index.ts` |
 
 ---
 

@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/mini-swe-agent/` (Commit verificado: `04d809c`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/mini-swe-agent/` (upstream `SWE-agent/mini-swe-agent`, commit `04d809c`, origen `src/minisweagent/agents/default.py`) |
+| Licencia del origen | MIT — SWE-agent/mini-swe-agent |
+| Commit verificado | 04d809c |
+| Ruta de origen | `src/minisweagent/agents/default.py` |
 | Stack del Origen | Python 3.10+ · `litellm` (9 clases de proveedor) · `pydantic` v2 · `jinja2` · `typer` + `rich`/`textual` · `tenacity` · `datasets` (HF) · entornos Docker / Singularity / Contree / Bubblewrap / Modal |
 | Rol en Ego | Bucle mínimo de agente, presupuestos de turno, contrato de observación, caché de prefijo y configuración en capas |
 | Owner | ness-e |

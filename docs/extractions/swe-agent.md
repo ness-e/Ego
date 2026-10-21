@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/swe-agent/` (Commit verificado: `3ea751c`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/swe-agent/` (upstream `SWE-agent/SWE-agent`, commit `3ea751c`, origen `sweagent/tools/__init__.py`) |
+| Licencia del origen | MIT — SWE-agent/SWE-agent |
+| Commit verificado | 3ea751c |
+| Ruta de origen | `sweagent/tools/__init__.py` |
 | Stack del Origen | Python 3.11 + Pydantic v2 + pydantic-settings + Jinja2 + LiteLLM + SWE-ReX/Docker + Bash |
 | Rol en Ego | Referencia de diseño del ACI (Agent-Computer Interface) y del contrato tool↔modelo |
 | Owner | ness-e |

@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/opencode/` (Commit verificado: `db45c95`, rama `dev`, clon de profundidad 1) |
+| Repositorio Origen | `repos-referencia/opencode/` (upstream `sst/opencode`, commit `db45c95`, origen `packages/core/src/permission.ts`) |
+| Licencia del origen | MIT — sst/opencode |
+| Commit verificado | db45c95 |
+| Ruta de origen | `packages/core/src/permission/sql.ts` |
 | Stack del Origen | TypeScript estricto sobre **Effect + Schema** · runtime **Bun** · monorepo **turbo** · persistencia **SQLite/Drizzle** · desktop **Electron 44.4.5 + electron-vite 6** con renderer **Solid.js** · TUI OpenTUI · cliente MCP oficial · licencia MIT |
 | Rol en Ego | Referencia de **Runtime Cognitivo**: gobernanza de permisos, admisión idempotente de prompts, compactación de contexto, registro de tools, snapshots direccionados por contenido y aislación de Electron |
 | Owner | ness-e |

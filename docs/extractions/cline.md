@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/cline/` (Commit verificado: `ca7402c`, rama `main`, profundidad 1) |
+| Repositorio Origen | `repos-referencia/cline/` (upstream `cline/cline`, commit `ca7402c`, origen `sdk/packages/core/src/hooks/checkpoint-hooks.ts`) |
+| Licencia del origen | Apache-2.0 — cline/cline |
+| Commit verificado | ca7402c |
+| Ruta de origen | `sdk/packages/core/src/hooks/checkpoint-hooks.ts` |
 | Stack del Origen | Monorepo TypeScript (Bun 1.4.2) · SDK con paquetes `@cline/shared` / `@cline/llms` / `@cline/agents` / `@cline/core` · extensión VS Code (webview React + gRPC/proto) · CLI headless (Commander) · daemon `cline-hub` |
 | Rol en Ego | Motor de agente, snapshots de workspace, política de aprobación y guardas de seguridad del runtime |
 | Owner | ness-e |

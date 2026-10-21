@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/claude-squad/` (Commit verificado: `ce1ffb4392b01f38e2c4599c7c84d2a93973b138`, rama `main`, v1.0.20 — `main.go:22`) |
+| Repositorio Origen | `repos-referencia/claude-squad/` (upstream `smtg-ai/claude-squad`, commit `ce1ffb4`, origen `session/instance.go`) |
+| Licencia del origen | AGPL-3.0 — smtg-ai/claude-squad |
+| Commit verificado | ce1ffb4 |
+| Ruta de origen | `session/instance.go` |
 | Stack del Origen | Go 1.23 (`go.mod:3`) + Bubble Tea / Lip Gloss (TUI), `creack/pty` (PTY), `tmux` (multiplexor externo), Cobra (CLI), Next.js (`web/`) |
 | Rol en Ego | Referencia de orquestación multi-agente CLI: gestor de instancias con estado reanudable, aislamiento por `git worktree` y acotado de coste de diff |
 | Owner | ness-e |

@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de capacidades |
-| Repositorio Origen | `repos-referencia/career-ops/` (Commit verificado: oct-2026) |
+| Repositorio Origen | `repos-referencia/career-ops/` (upstream `career-ops-hq/career-ops`, commit `24745c5`, origen `DATA_CONTRACT.md`) |
+| Licencia del origen | MIT — career-ops-hq/career-ops |
+| Commit verificado | 24745c5 |
+| Ruta de origen | `DATA_CONTRACT.md` |
 | Stack del Origen | Node.js (ESM puro `.mjs`) + File System Local + Scripts de Integración |
 | Rol en Ego | Referencia de Gobernanza de Datos, Exclusión Mutua en Disco y Escritura Atómica |
 | Owner | ness-e |

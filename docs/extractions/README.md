@@ -128,10 +128,10 @@ Todo hallazgo de extracción debe cerrar en **uno** de estos cuatro estados.
 | hermes-agent | 30 | 16 | 7 | 0 | 7 | 7.5 |
 | openclaw | 24 | 9 | 8 | 6 | 1 | 6.0 |
 | coucou | 29 | 12 | 12 | 4 | 1 | 6.5 |
-| khoj | 13 | 3 | 3 | 0 | 7 | 7.0 |
+| khoj | 13 | 0 | 6 | 0 | 7 | 7.0 |
 | helmor | 10 | 4 | 1 | 5 | 0 | 7.5 |
 | career-ops | 8 | 2 | 3 | 2 | 1 | 6.0 |
-| deepseek-harness | 12 | 1 | 4 | 3 | 4 | 6.5 |
+| deepseek-harness | 12 | 0 | 5 | 3 | 4 | 6.5 |
 | opencode | 9 | 0 | 1 | 7 | 1 | — |
 | codex | 9 | 0 | 1 | 8 | 0 | — |
 | goose | 9 | 0 | 1 | 7 | 1 | — |
@@ -150,63 +150,101 @@ Todo hallazgo de extracción debe cerrar en **uno** de estos cuatro estados.
 | graphrag | 9 | 0 | 1 | 7 | 1 | — |
 | mem0 | 9 | 2 | 2 | 5 | 0 | — |
 | mcp-servers | 9 | 2 | 2 | 4 | 1 | — |
-| **TOTAL** | **289** | **54** | **71** | **130** | **34** | — |
+| **TOTAL** | **289** | **50** | **75** | **130** | **34** | — |
 
 Barrido de los vectores de `career-ops` (ATS, vacantes, candidatura, CV, salario, portales) y de
 `khoj` (scrapers web, `gte-small`, Twilio, Stripe, SMTP) sobre `packages/` y `apps/`:
 **0 coincidencias → LIMPIO**. Los únicos hits de `khoj` en el código son comentarios de atribución
 y el sidecar propio `scripts/ingest/bulk_import.py`.
 
-### 4.3 Cadena de atribución de código derivado (avatar)
+### 4.3 Cadena de atribución — dos planos (código derivado vs. ficha)
 
-Todo fichero derivado de código MIT de un repo de referencia debe llevar cabecera
-`Adapted from <upstream> (MIT), <ruta de origen>` y su aviso de licencia debe viajar en un
-`LICENSE.md` **dentro del paquete**.
+> **Regla que no se puede confundir.** Hay dos planos distintos y la Ola 8 los mezcló
+> (EGO-FIND-82). El error fue escribir `Adapted from …` en las **fichas** (documentos de
+> análisis escritos por Ego) y en las **filas de catálogo**: eso afirmaba una derivación de
+> código que no existe. `AGENTS.md` §2 lo prohíbe (`repos-referencia/`: *"No copiar código
+> directamente — extraer patterns y adaptar"*) y `EGO-FIND-83` retiró el crédito a `khoj`
+> por el mismo motivo (el código atribuido era propio de Ego, y `khoj` es AGPL-3.0).
 
-**Estado verificado 2026-10-21 (Ola 5, A5):**
+| Plano | Qué es | Qué lleva | Quién lo trabaja |
+|---|---|---|---|
+| **1 · Código** (`packages/**`) | un fichero **realmente derivado** (un port literal) | cabecera de fichero `Adapted from <upstream> (<LICENCIA>), <ruta de origen>` + aviso en el `LICENSE.md` del paquete | **A6** (`packages/avatar/**`) · **A2bis** (el resto de `packages/**`) |
+| **2 · Ficha** (`docs/extractions/*.md`) | documento de análisis **escrito por Ego** | fila de **procedencia** del upstream: `Licencia del origen`, `Commit verificado`, `Ruta de origen`, y `Repositorio Origen` normalizado. **Nunca** `Adapted from` | **A5** (este repo) |
+
+**Estado real medido 2026-10-21 (A5, Ola 8)** — cabecera canónica en **código derivado**:
 
 | Elemento | Estado | Evidencia |
 |---|:---:|---|
 | `packages/avatar/LICENSE.md` | ✅ existe | Junto a `LICENSE` y `NOTICE` (3 ficheros de licencia en el paquete). Registra los avisos MIT de los módulos portados. |
-| Cabeceras `Adapted from <upstream> (MIT), <ruta>` | ⚠️ **8 de 90** ficheros | Las 8 están en `packages/avatar/src/studio/`: `avatar.js`, `render/{accessories,body,ears,eyes,geometry,helpers,mouth}.js`. **41 de los 49 ficheros de `src/` no la llevan**; la mayoría son código nativo de Ego (sin atribución que hacer) y los derivados que sí la necesitan se listan en [`coucou.md`](coucou.md) §52.4. |
-| Restos de marca Mochi / verbatim | ⚠️ **11 sitios en 9 ficheros** | `src/core/timeline.js:2`, `src/render/ara-head.js:1`, `src/render/body.js:3`, `src/runtime/poses.js:11`, `src/studio/render/particles.js:1`, `src/studio/render/visor.js:1`, `src/studio/rig/eyes.js:1`, `src/studio/rig/hands.js:2`, `src/studio/sound.js:1` (9 con "verbatim"/"PORTES VERBATIM") + `src/runtime/avatar-element.js:2015` y `src/studio/avatar.js:70` (mención a `'coucou-mochi'` en **comentarios**, no en código funcional). |
+| `packages/tool-call-repair/LICENSE.md` | ⚠️ existe, incompleto | Sin `NOTICE`, y sus **3** ficheros de `src/` (`balanced-json.ts`, `coercion.ts`, `grammar.ts`) usan atribución en **prosa** (`Extraído y adaptado de OpenClaw …`), **no** la forma canónica por paquete. Ver el aviso a A6 en el handoff. |
+| Forma 1 — `Adapted from <upstream> (<LIC>), <ruta>` | ⚠️ **14 de 1 144** | Los 14 están en `packages/avatar/`: 7 en `src/` + sus 7 en `dist/` (artefacto de build — no cuenta). En `src/`: `src/studio/avatar.js` + `src/studio/render/{accessories,body,ears,eyes,helpers,mouth}.js`. *El recuento antiguo «8 de 90» estaba desfasado: `src/studio/render/geometry.js` ya **no** la lleva (A6 lo sustituyó) y `src/` tiene **47** `.js`, no 49.* |
+| Forma 2 — `ADAPTADO de <ruta> (<LIC>, <copyright>) — ver LICENSE.md` | ⚠️ **6 de 1 144** | También sólo en `packages/avatar/`: `src/{core/anim.js,runtime/micro.js,runtime/sound.js}` (+ sus 3 en `dist/`). Es la convención **por paquete** que el owner implantó (y la que valida `packages/avatar/scripts/check-attribution.mjs`). |
+| Atribución en **prosa** (forma no canónica) | ⚠️ **42** | Repartida en 11 paquetes: `tool-call-repair` (9), `ui-runtime` (9), `memory` (6), `avatar` (5), `execution` (3), `recovery` (3), `subegos` (3), `tools` (2), `events` (1), `runtime` (1). |
+| Paquetes con fichero de licencia en el paquete | ⚠️ **2 de 19** | Sólo `avatar/` y `tool-call-repair/`. |
 
-El veredicto de descarte de los puertos verbatim de Mochi (decisión D4 del owner: sustituir por
-geometría propia) está en [`docs/extractions/coucou.md`](coucou.md) §52.4. Ejecución: A6
-(owner de `packages/avatar/**` y de la copia vendorizada).
+> **Base de medida:** barrido recursivo de `packages/**` (excluye `node_modules`) sobre 1 144
+> ficheros `.ts/.tsx/.js/.mjs/.cjs`, cabecera en las 15 primeras líneas. Reparto por paquete:
+> `avatar` 166 (14 forma 1 · 6 forma 2 · 5 prosa · 141 sin cabecera), `tool-call-repair` 16
+> (9 prosa · 7 sin cabecera), `ui-runtime` 79 (9 prosa), `memory` 76 (6 prosa), `execution` 36
+> (3), `recovery` 58 (3), `subegos` 85 (3), `tools` 135 (2), `events` 36 (1), `runtime` 42 (1),
+> `knowledge` 79 · `models` 54 · `tasks` 69 · `decision` 57 · `domains` 55 · `integrations` 44 ·
+> `security` 30 · `dailystate` 27 (0 atribuciones).
 
-### 4.4 Harness de verificación de procedencia (specificación para A7)
+La **lista autoritativa** de ficheros derivados que aún **no** llevan la cabecera canónica está
+en [`coucou.md`](coucou.md) §52.4: los 9 con residuo *verbatim* + `src/render/projection.js`
+(puerto de `drawEyes()` de `coucou mochi/engine.ts`) + `src/render/static.js` (puerto de
+`MochiStill.swift`) = **11**. **A6** decide cuáles son puerto literal y cuáles código nativo
+de Ego — es su zona (`packages/avatar/**` y la copia vendorizada), no la de A5.
 
-> **Estado:** pendiente de implementación. El ejecutable va en `scripts/**` (zona de A7); A5 define
-> el contrato y el formato de salida. Sin este harness, la procedencia (commit + licencia) de las
-> 25 fichas es **una afirmación manual** que sólo se re-verifica cuando A5 la vuelve a mirar.
+> `src/render/ara-head.js` y `src/render/body.js` también dicen «verbatim», pero su origen es
+> **`agent-robot-avatar`** (MIT © CX ArtLab), no Mochi: son un upstream distinto y su
+> atribución es legítima. Lo que exige la decisión D4 del owner es sustituir la **geometría de
+> Mochi**, no la de `agent-robot-avatar`.
 
-**Nombre propuesto:** `scripts/verify-extraction-provenance.mjs`
-**Invocación:** `node scripts/verify-extraction-provenance.mjs [--json]` · **Exit 0** = todo cuadra · **Exit 1** = discrepancia.
+### 4.4 Puerta de procedencia de las fichas (implementada)
 
-**Qué debe comprobar, por cada ficha `docs/extractions/<slug>.md`:**
+> **Estado: IMPLEMENTADA y en verde.** `docs/extractions/tools/verify-extraction-provenance.mjs`
+> · exit 0 · 25/25 fichas verificadas. Test: `verify-extraction-provenance.test.mjs` (7 casos
+> con fixtures sobre `--root`, rojo→verde).
+> **A7**: mover el script a `scripts/**` y cablearlo al job `verify` de CI.
+
+**Qué comprueba, por cada una de las 25 fichas `docs/extractions/<slug>.md`:**
 
 | # | Comprobación | Origen de la verdad | Fallo |
 |:--:|---|---|---|
-| 1 | El repo clonado existe | `repos-referencia/<slug>/` | `repo-ausente` |
-| 2 | El commit citado en la línea `Commit verificado:` coincide con el HEAD del clon | `git -C repos-referencia/<slug> rev-parse --short=7 HEAD` | `commit-desfasado` (indica el esperado y el citado) |
-| 3 | La licencia citada en la ficha coincide con el `LICENSE`/`LICENSE.md`/`NOTICE` del clon | primer bloque del fichero de licencia | `licencia-desfasada` |
-| 4 | La ruta del repo citada en la ficha (`repos-referencia/<slug>/`) existe | sistema de ficheros | `ruta-inexistente` |
-| 5 | La ficha tiene su backlog y ambos comparten el mismo conjunto de IDs | `docs/review/backlog-<slug>.md` | `ids-discrepantes` |
-| 6 | Ninguna fila `✅ Completada` cita un fichero de `repos-referencia/` como si fuera código de Ego, ni viceversa | heurística: en la columna de evidencia, un camino que empieza por `repos-referencia/` **debe** accompanied de la ruta equivalente en `packages/` o `apps/` | `atribucion-falsa` |
+| 1 | La ficha tiene la fila `Licencia del origen` (upstream + licencia) | la propia ficha | `procedencia-ausente` / `procedencia-malformada` |
+| 2 | El upstream corresponde a un clon real de `repos-referencia/` — **mapeado por el remote del clon**, no por nombre (`modelcontextprotocol/servers` → clon `mcp-servers`) | `git config --get remote.origin.url` de cada clon | `upstream-inexistente` |
+| 3 | La licencia citada coincide con el `LICENSE`/`NOTICE` real del clon | primer bloque del fichero de licencia | `licencia-distinta` |
+| 4 | El commit citado (`Commit verificado`) coincide con el HEAD del clon | `git -C <clon> rev-parse --short=7 HEAD` | `commit-desfasado` |
+| 5 | La `Ruta de origen` existe dentro del clon | sistema de ficheros | `ruta-inexistente` |
+| 6 | La ficha y su backlog comparten el mismo conjunto de IDs | `docs/review/backlog-<slug>.md` | `ids-discrepantes` |
+| 7 | El backlog existe | `docs/review/` | `backlog-ausente` |
+| 8 | **Ninguna** fila de catálogo afirma derivación de código salvo que el fichero de Ego citado **lleve** la cabecera canónica | la cabecera real del fichero citado | `derivacion-sin-cabecera` |
+| 9 | **Ninguna** fila afirma derivación de `khoj` (AGPL-3.0) | `EGO-FIND-83` (decisión del owner) | `credito-retirado` |
 
-**Formato de salida** (mismo estilo que `scripts/audit-extraction-gates.mjs`):
+**Salida** (mismo estilo que `scripts/audit-extraction-gates.mjs`):
 
 ```text
-slug              repo?  commit-ficha  commit-real  licencia  estado
-ag-ui             SI     3decbe8       3decbe8      MIT       OK
-claude-squad      SI     ce1ffb4       ce1ffb4      AGPL-3.0  OK
+slug                upstream                            licencia     clon              commit   estado
+ag-ui               ag-ui-protocol/ag-ui                MIT          ag-ui             3decbe8  OK
+mcp-servers         modelcontextprotocol/servers         Apache-2.0   mcp-servers       51b6382  OK
 ...
-Auditados: 25 repos · 289 fichas
-OK: 0 discrepancias de procedencia.
+OK: 25 fichas con procedencia verificada (upstream, licencia, commit, ruta de origen e IDs).
 ```
 
-**Estado verificado por A5 el 2026-10-21 (sin harness):** 25/25 repos existen, 25/25 commits
-citados coinciden con el HEAD del clon, 25/25 licencias citadas coinciden con el fichero de
-licencia real, 0 atribuciones falsas detectadas en las 7 filas `✅ Completada` de los 18 repos
-nuevos (todas citan rutas **de Ego**, no del upstream).
+**El generador es la fuente de la verdad.** `docs/extractions/tools/normalize-attribution.mjs`
+deriva upstream, licencia, commit y ruta **del clon real** (nunca de memoria) y escribe la
+fila de procedencia **dentro** de la tabla de metadatos existente, sin partirla. Es
+**idempotente** (`--check` → 0 cambios) y repara los `||` sin escapar que rompen una tabla.
+
+```bash
+node docs/extractions/tools/normalize-attribution.mjs           # aplica
+node docs/extractions/tools/normalize-attribution.mjs --check   # 0 cambios
+node docs/extractions/tools/verify-extraction-provenance.mjs   # exit 0
+node --test docs/extractions/tools/verify-extraction-provenance.test.mjs
+```
+
+**Estado verificado 2026-10-21:** 25/25 clones resueltos por remote, 25/25 licencias coinciden
+con el `LICENSE` real, 25/25 commits coinciden con el HEAD, 25/25 rutas de origen existen
+dentro de su clon, 0 filas de catálogo afirma derivación de código y 0 filas acreditan a
+`khoj`.

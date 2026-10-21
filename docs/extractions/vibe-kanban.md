@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de patrones |
-| Repositorio Origen | `repos-referencia/vibe-kanban/` (BloopAI/vibe-kanban, commit `d5cbb53`, `package.json` version `0.1.45`) |
+| Repositorio Origen | `repos-referencia/vibe-kanban/` (upstream `BloopAI/vibe-kanban`, commit `d5cbb53`, origen `crates/worktree-manager/src/worktree_manager.rs`) |
+| Licencia del origen | Apache-2.0 — BloopAI/vibe-kanban |
+| Commit verificado | d5cbb53 |
+| Ruta de origen | `crates/worktree-manager/src/worktree_manager.rs` |
 | Stack del Origen | Workspace Rust de 30 crates (Tokio + axum/WebSocket + SQLx/SQLite + libgit2 y git CLI) + shell Tauri 2 (`crates/tauri-app/`) + monorepo pnpm con React/TypeScript (`packages/local-web`, `packages/remote-web`, `packages/web-core`) |
 | Rol en Ego | Referencia de orquestación multi-agente: worktree por tarea, ciclo de vida de sesiones de agente, bus de eventos derivado de la persistencia, merge/rebase de cambios y reconciliación de estado al arrancar |
 | Owner | ness-e |
