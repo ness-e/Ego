@@ -342,35 +342,36 @@ handoff de A4 la negaba.
 | **Ola 6 · T2** — Backlog ↔ catálogo de extracción | ✅ **CERRADO** (A1) | `verify-backlog-gates` → **exit 0**: **546 filas coherentes** (antes 506). **33 filas** alineadas a `🚫 Descartada (con justificación)` con puntero a la fila canónica, y **7** a `✅ Completada` con el **caller de producción verificado** (no la ruta del upstream, que no existe en Ego). Las 2 celdas con texto descriptivo (`COUC-10`, `DSEK-05`) **reescritas**, no sólo el emoji. |
 | **Ola 6 · T3** — publicar el ADR-0023 y actualizar el registro | ✅ **CERRADO** (A1) | ADR-0023 **verificado** antes de publicar (`inner` es campo público en el JS compilado: `native.js:123`; las 5 APIs en `index.d.ts:603,614,622,629,636`; la resolución de `vantadb` **uniforme** en los 3 paquetes) e indexado. Registro: `VDB-REQ-02` (resuelto **y retirado**) · `VDB-REQ-15` (✅ cableado) · `VDB-REQ-16` (b resuelta + a pendiente, con el puente como workaround de Ego) · `VDB-REQ-14` (cuantificada: 320,03 MB de **disco**, ≈ 0,45 MB de **RAM**, 1 store en producción). → 26 hallazgos: **8 resueltos · 4 parciales · 4 persisten · 10 sin verificar**. |
 
-### 7.6 Contabilidad real del Backlog (verificada 2026-07-21) #
+### 7.6 Contabilidad real del Backlog (verificada 2026-10-21, Ola 8) #
 
-> **Recuento medido** sobre `docs/roadmap/Backlog.md` (no una estimación): **103 filas
+> **Recuento medido** sobre `docs/roadmap/Backlog.md` (no una estimación): **106 filas
 > `EGO-FIND`** — la serie de hallazgos de la revisión full, que es la que
 > `scripts/verify-backlog-gates.mjs` contrasta con el catálogo canónico.
 
 | Estado | Filas | % |
 |---|---:|---:|
-| ✅ Completada | **86** | 83,5 % |
-| 🟡 Parcial | **4** | 3,9 % |
-| 🆕 Pendiente | **13** | 12,6 % |
+| ✅ Completada | **93** | 87,7 % |
+| 🟡 Parcial | **3** | 2,8 % |
+| 🆕 Pendiente | **10** | 9,4 % |
 
+> Las **12 tareas canónicas** del roadmap (12 fases + 03.1) están en **149 de 151**
+> (las 2 que faltan, `DIST-04` y `DIST-06`, son **bloqueo del owner**: certificados
+> de firma y prueba de arranque en VM limpia). El catálogo de extracción de los **25**
+> repos de referencia está en **0 tareas en el limbo**.
+>
 > ⚠️ El árbol se mueve: en la Ola 6 A5 abrió `EGO-FIND-96..103` (8 hallazgos de
-> auditoría visual/UX). El recuento de arriba es el de este momento; el de la
-> ola anterior era 95 filas / 81 ✅. **Lo que no cambia es el criterio**: una fila
-> sólo pasa a ✅ con **evidencia verificable** (fichero:línea o test).
+> auditoría visual/UX del workstream paralelo). La Ola 8 cerró `EGO-FIND-49`, `29`,
+> `89`, `82` y `83`. **Lo que no cambia es el criterio**: una fila sólo pasa a ✅ con
+> **evidencia verificable** (fichero:línea o test).
 
-### 7.6.1 Las 17 que quedan abiertas, con su motivo en una línea #
+### 7.6.1 Las 13 que quedan abiertas, con su motivo en una línea #
 
 | Id | Estado | Qué falta exactamente |
 |---|---|---|
-| `EGO-FIND-22` | 🟡 | `DelegationRouter` **ya** se instancia en producción (`packages/subegos/src/DelegationRuntime.ts:14`); `DreamConsolidator` y `MemoryCurator` siguen **sólo en sus propios tests** ⇒ instanciarlos o retirarlos (decisión de producto) |
-| `EGO-FIND-29` | 🟡 | Las **5 APIs nativas ya tienen callsite** y el puente HybridRuntime funciona; falta el **call site** que arma el contexto cognitivo en el turno y el **ADR de activación** del nativo como motor canónico (el TS sigue siéndolo) |
+| `EGO-FIND-22` | 🟡 | `DelegationRouter` ✅ y `DreamConsolidator` ✅ (cableado en `EgoMemoryLifecycle.ts:164`, hook de inactividad de 5 min); falta **`MemoryCurator`**, que sigue con **0 instanciaciones** → el diff exacto está en `handoff/A2bis-ola8.md` §5.4 |
 | `EGO-FIND-63` | 🟡 | Quedan **6 ficheros / 14 asserts** sobre texto de fuente (A4 → 11, A7 → 3); convertirlos en aserciones de comportamiento o aislarlos como lint-tests |
 | `EGO-FIND-94` | 🟡 | **(b) RESUELTA** (A7: raíz + resolución ascendente + puerta `vantadb:check` bloqueante). **(a) es upstream**: el wrapper `vantadb@0.9.0` no re-expone las APIs cognitivas ⇒ petición `VDB-REQ-16` a. Mitigada en Ego por el puente HybridRuntime |
-| `EGO-FIND-49` | 🆕 | Un servidor MCP puede **pisar tools nativas** (`overrideExisting: true`): exigir `allowOverride` explícito por servidor + auditar el override |
 | `EGO-FIND-81` | 🆕 | El **canal de obtención del token MCP** para clientes externos no está decidido ⇒ **decisión del owner** |
-| `EGO-FIND-82` | 🆕 | La cabecera canónica de atribución de licencia no está desplegada en **0 de 313** ficheros de `packages/` |
-| `EGO-FIND-83` | 🆕 | `khoj` es **AGPL-3.0** y el catálogo de extracción lo presenta como origen de 4 compuertas ✅ asimiladas ⇒ hay que corregir la clasificación |
 | `EGO-FIND-87` | 🆕 | `VDB-REQ-14` (**upstream**): 320,03 MB de pre-reserva por store, no parametrizable |
 | `EGO-FIND-96` | 🆕 | El CTA «Enviar» **deshabilitado es visualmente idéntico** al habilitado (`bg-brand` a opacidad plena) |
 | `EGO-FIND-97` | 🆕 | **3 selectores de modelo y 3 superficies de Sub-Ego visibles a la vez** en la vista Chat |
@@ -380,6 +381,9 @@ handoff de A4 la negaba.
 | `EGO-FIND-101` | 🆕 | Anillo de foco ámbar **doble y denso** en el Selector de Modelos sobre dark |
 | `EGO-FIND-102` | 🆕 | El shell del panel anima `width`: la **única transición no-composited** de la app (reflow por frame) |
 | `EGO-FIND-103` | 🆕 | La **escala de motion no está canonizada**: duraciones/easings en producción son defaults de Tailwind, no tokens |
+
+> Las 8 últimas (`96..103`) son hallazgos de la auditoría visual/UX del **workstream
+> paralelo** y no son de esta ola: quedan abiertas en su propia vía.
 
 ### 7.6.2 Las 7 decisiones de producto que esperan al owner #
 
