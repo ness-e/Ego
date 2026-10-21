@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-21T11:32:06.461Z",
+  "generatedAt": "2026-10-21T11:47:03.883Z",
   "markdownlintVersion": "0.15.0",
   "globs": "docs/**/*.md",
-  "totalViolations": 7133,
+  "totalViolations": 7143,
   "files": {
     "docs/adr/0001-electron-vite.md": {
       "MD003/heading-style": 6
@@ -427,6 +427,9 @@
     },
     "docs/agent-ops/reports/reviews/remediation-wave2-2026-10-20.md": {
       "MD003/heading-style": 3
+    },
+    "docs/agent-ops/reports/reviews/remediation-waves3-6-2026-10-20.md": {
+      "MD013/line-length": 11
     },
     "docs/agent-ops/reports/reviews/review-full-2026-10-19.md": {
       "MD013/line-length": 49,
