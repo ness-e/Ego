@@ -1,8 +1,8 @@
 /**
  * Interfaz de similitud para el reordenamiento MMR (EGO-FIND-41 / T3).
  *
- * El fast path de VantaDB 0.8.0 sólo expone búsqueda BM25 pura
- * (`query_vector: []` — workaround `VDB-REQ-02`), por lo que **no existe una
+ * El fast path de VantaDB 0.9.0 sólo expone búsqueda BM25 pura
+ * (sin embeddings en el fast path — `VDB-REQ-10`), por lo que **no existe una
  * lista vectorial densa** sobre la que calcular MMR canónico. Esta interfaz
  * desacopla el MMR del backend: hoy se implementa con coseno sobre vectores
  * de frecuencia de términos (matemáticamente coseno, no solapamiento de

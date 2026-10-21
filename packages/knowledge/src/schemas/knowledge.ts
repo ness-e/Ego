@@ -63,8 +63,8 @@ export type Fact = z.infer<typeof FactSchema>;
 /**
  * Opciones de búsqueda federada multi-namespace (BM25) con reordenamiento MMR.
  *
- * EGO-FIND-41: el fast path de VantaDB 0.8.0 es BM25 puro (`query_vector: []`
- * — workaround upstream `VDB-REQ-02`), así que **no hay canal vectorial ni
+ * EGO-FIND-41: el fast path de VantaDB 0.9.0 es BM25 puro (sin embeddings en
+ * el fast path — `VDB-REQ-10`), así que **no hay canal vectorial ni
  * RRF** todavía; el re-rank es mono-lista (score del motor + MMR).
  *
  * Workaround upstream: `VDB-REQ-10` — el binding `vantadb-node@0.8.0` no

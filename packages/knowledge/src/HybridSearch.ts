@@ -10,8 +10,8 @@ import {
 export interface HybridSearchOptions {
   /**
    * Estrategia de similitud para el reordenamiento MMR.
-   * Por defecto: coseno léxico (TF). El fast path de VantaDB 0.8.0 es BM25
-   * puro (`query_vector: []` — workaround upstream `VDB-REQ-02`), por lo que
+   * Por defecto: coseno léxico (TF). El fast path de VantaDB 0.9.0 es BM25
+   * puro (sin embeddings en el fast path — `VDB-REQ-10`), por lo que
    * aún no existe una lista vectorial densa sobre la que calcular MMR
    * canónico.
    *
@@ -34,7 +34,7 @@ export interface HybridSearchOptions {
  *   `searchMulti`, no varias listas que fusionar. El re-rank es mono-lista:
  *   preserva el score original del motor y sólo reordena por diversidad.
  * - **No hay lista vectorial.** `searchMulti` opera en BM25 puro
- *   (`query_vector: []` — workaround upstream `VDB-REQ-02`), por lo que la
+ *   (sin embeddings en el fast path — `VDB-REQ-10`), por lo que la
  *   similitud del MMR es coseno léxico, no coseno denso.
  *
  * Workaround upstream: `VDB-REQ-10` — mientras el fast path no exponga
