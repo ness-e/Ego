@@ -46,12 +46,25 @@ test('flatten con heightScale 1 es identidad; con 0.9 aplasta los polos', () => 
   const pts = parseHeadPoints(ARA_HEAD_D);
   const same = flattenHeadPoints(pts, 1);
   assert.deepEqual(same, pts);
+  // La PROPIEDAD del aplastamiento, con puntos sonda (no dependen de la
+  // silueta concreta): los polos se mueven el inset completo y el ecuador no
+  // se mueve nada.
+  const probe = [{ x: 0, y: 20 }, { x: 0, y: 120 }, { x: 0, y: 220 }];
+  const flatProbe = flattenHeadPoints(probe, 0.9);
+  assert.equal(flatProbe[0].y, 30, 'la corona baja el inset completo (10)');
+  assert.equal(flatProbe[1].y, 120, 'el ecuador no se mueve');
+  assert.equal(flatProbe[2].y, 210, 'el menton sube el inset completo (10)');
+  // Y sobre la silueta real: la corona baja el inset completo y el alto total
+  // se reduce en 2x inset.
   const flat = flattenHeadPoints(pts, 0.9);
-  // coronilla (y=20) baja el inset completo: altura 200 → inset 10
-  assert.equal(flat[0].y, 30);
-  // el ecuador no se mueve
-  const mid = flat.reduce((a, p) => (Math.abs(p.y - 120) < Math.abs(a.y - 120) ? p : a), flat[0]);
-  assert.ok(Math.abs(mid.y - 120) < 1, `ecuador ${mid.y}`);
+  const minY = Math.min(...pts.map((p) => p.y));
+  const maxY = Math.max(...pts.map((p) => p.y));
+  const inset = ((maxY - minY) * (1 - 0.9)) / 2;
+  const shift = pts.map((p, i) => Math.abs(flat[i].y - p.y));
+  assert.ok(Math.abs(shift[0] - inset) < 1e-6, `corona: ${shift[0]} (inset ${inset})`);
+  const flatMin = Math.min(...flat.map((p) => p.y));
+  const flatMax = Math.max(...flat.map((p) => p.y));
+  assert.ok(Math.abs((flatMax - flatMin) - ((maxY - minY) - 2 * inset)) < 1e-6, 'el alto se reduce 2x inset');
   assert.equal(flat.length, pts.length);
 });
 

@@ -318,6 +318,7 @@ pnpm --filter @ego/avatar attribution:declare # reescribe las cabeceras canonica
 | `pnpm --filter @ego/avatar geometry:check` | **puerta geométrica**: compara la traza de operaciones de canvas contra la golden `tests/golden/geometry.json` (231 combinaciones: 33 estados × 7 módulos) |
 | `pnpm --filter @ego/avatar sync:check` | puerta de sincronización SHA-256 entre el paquete y la copia vendorizada (incluye el corpus de atribución) |
 | `pnpm --filter @ego/avatar attribution:check` | **puerta de atribución y de procedencia**: contra `provenance.manifest.json`, cada derivado lleva su cabecera canónica con el upstream/licencia/ruta correctos, ningún nativo la lleva, todo fichero está clasificado, el `LICENSE.md` recoge el aviso de cada upstream en uso y toda ruta `vendor/…` citada resuelve dentro del repo |
+| `pnpm --filter @ego/avatar no-verbatim:check` | **puerta de la decisión D4**: ningún fichero con presupuesto en el manifiesto conserva **cero** código verbatim del upstream (shingles de 48 caracteres contra el corpus `vendor/` y el single-file HTML). Es lo que impide que la sustitución se revierta en silencio |
 | `pnpm --filter @ego/avatar bridge:check` | **puerta del contrato del puente**: ningún mapa nombra un estado del studio inexistente y el round-trip Ego↔studio conserva la identidad (15/15) |
 | `pnpm --filter @ego/avatar upstream:check` | **puerta de divergencia declarada**: exit 1 si un fichero diverge del upstream sin estar declarado en `upstream-divergence.json`, si una declaración deja de ser verdad, o si cambia el contenido aprobado de un fichero declarado |
 | `pnpm --filter @ego/avatar upstream:declare` | re-declara los hashes del manifiesto de divergencias (imprime el cambio) |
@@ -367,8 +368,16 @@ texto sin comentarios, y contrastada con el `LICENSE.md` del propio clon):
 
 | | Ficheros | Nota |
 |---|:---:|---|
-| **Derivados** | **63** | 31 en `src/`, 29 en `tests/`, 3 en `demo/` |
-| **Nativos** | **23** | 19 en `src/`, 3 tests propios, 1 golden (dato) |
+| **Derivados** | **57** | 25 en `src/`, 29 en `tests/`, 3 en `demo/` |
+| **Nativos** | **31** | 25 en `src/`, 5 tests propios, 1 golden (dato) |
+
+> **La decisión D4 (owner, 2026-10-21) ya está ejecutada**: seis ficheros que
+> eran ports literales (`render/ara-head.js`, `render/body.js`,
+> `runtime/poses.js`, `core/timeline.js`, `studio/sound.js`,
+> `studio/render/accessories.js`) son hoy **implementación propia de Ego**.
+> Su cabecera paso de `Adapted from …` al texto veraz del plano 2
+> (*"implementación propia de Ego; patrón asimilado de `<upstream>`, sin
+> traducción de código"*) y el recuento de derivados bajó de 63 a 57.
 
 Por upstream: `agent-robot-avatar` 9 · `coucou` 7 · `coucou-swift` 1 ·
 `ego-avatar-studio` 14 (el motor canvas del single-file HTML) · `ego-avatar`

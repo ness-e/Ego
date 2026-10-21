@@ -97,29 +97,25 @@ atribuido era propio).
 
 ## 3. Derivacion fichero a fichero
 
-**63 ficheros derivados.** Cada uno lleva su cabecera canonica
+**57 ficheros derivados.** Cada uno lleva su cabecera canonica
 con el upstream, la licencia y la ruta de origen de esta tabla.
 
-### agent-robot-avatar (9 ficheros)
+### agent-robot-avatar (6 ficheros)
 
 | Fichero | Ruta de origen | Evidencia |
 |---|---|---|
 | `src/core/config.js` | `vendor/agent-robot-avatar/random.js` | Port del patron Defaults/Bounds + clampConfig de agent-robot-avatar, con `parseSize` literal de core.js:63-68. |
-| `src/render/ara-head.js` | `vendor/agent-robot-avatar/core.js` | COPIA LITERAL verificada: el path SVG de 2411 caracteres de ARA_HEAD_D es identico byte a byte al atributo d de #headShape en vendor/agent-robot-avatar/core.js. |
-| `src/render/body.js` | `vendor/agent-robot-avatar/geometry.js` | Port de la silueta del robot (plantilla verbatim de 160 puntos de ara-head.js) + superelipse y mezcla de redondeo de geometry.js/head-roundness.js. |
 | `src/render/eyes.js` | `vendor/agent-robot-avatar/core.js` | Port del rig ocular del robot (plantilla de core.js:270-285 y setEye de CORE:1046-1103). |
 | `src/runtime/extension-host.js` | `vendor/agent-robot-avatar/extension-host.js` | Port del sistema de extensiones de agent-robot-avatar (runner de funciones con registro). |
 | `src/runtime/fx-eyes.js` | `vendor/agent-robot-avatar/actions.js` | Port de los efectos oculares de agent-robot-avatar/actions.js (barrido, warnings) mas CORE:999-1037, inspect.js, love.js, waiting.js y failure.js. |
 | `src/runtime/pointer.js` | `vendor/agent-robot-avatar/core.js` | Port con constantes literales del original (CORE:368-383 puntero, CORE:922-948 wander, CORE:955-1043 springs de cabeza). |
 | `src/runtime/policy.js` | `vendor/agent-robot-avatar/runtime.js` | Port de la capa de politica de agent-robot-avatar/runtime.js (requestedMotion/reducedMotion, action records, scheduleAutoSleep). |
-| `src/runtime/poses.js` | `vendor/agent-robot-avatar/core.js` | TABLA LITERAL: la tabla de 10 numeros por pose procede de agent-robot-avatar/core.js:8-57 (verificado por residuo de shingles del 38% contra el corpus). |
 
-### coucou (7 ficheros)
+### coucou (6 ficheros)
 
 | Fichero | Ruta de origen | Evidencia |
 |---|---|---|
 | `src/core/anim.js` | `vendor/coucou/core/anim.ts` | Port del modulo de easings/spring de coucou (sub-stepping 240 Hz, Tracked). El LICENSE.md del clon lo declara "adaptado de coucou/windows/src/core/anim.ts". |
-| `src/core/timeline.js` | `vendor/coucou/mochi/engine.ts` | Port del runner anim()/update() por campo con `locks` de coucou/mochi/engine.ts:477-507 + buildPhases de agent-robot-avatar/actions.js. |
 | `src/render/projection.js` | `vendor/coucou/mochi/engine.ts` | Port de drawEyes() de coucou/mochi/engine.ts:749-784 (eyeYaw, foreshortening, umbral 0.04, piso 0.18). |
 | `src/runtime/micro.js` | `vendor/coucou/mochi/engine.ts` | Port de las tablas de keyframe de micro-animacion de coucou/mochi/engine.ts con la semantica `locks`. |
 | `src/runtime/presence.js` | `vendor/coucou/island/fsm.ts` | Port de la FSM de presencia IslandStateMachine de coucou/island/fsm.ts (hidden/compact/home/greet con sus temporizadores). |
@@ -132,13 +128,12 @@ con el upstream, la licencia y la ruta de origen de esta tabla.
 |---|---|---|
 | `src/render/static.js` | `vendor/coucou-swift/MochiStill.swift` | Port de la pose estatica por hash djb2 de coucou-swift/MochiStill.swift. |
 
-### ego-avatar-studio (14 ficheros)
+### ego-avatar-studio (12 ficheros)
 
 | Fichero | Ruta de origen | Evidencia |
 |---|---|---|
 | `src/studio/avatar.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de HybridRobotAvatar (bucle de render, maquina de estados del canvas, catalogo de estados y aplicacion de presets) desde el single-file HTML de origen. |
 | `src/studio/config.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de DATOS: los literales de STUDIO_DEFAULTS, de los presets de applyPreset y del mapa estado -> acento proceden del constructor del single-file HTML de origen (verificado: cada valor literal -#1e222d, #dbf59d, cx-faithful, cx-led, eyeSpacing, squircleN...- aparece en el fichero de origen). |
-| `src/studio/render/accessories.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de drawTopAccessory del single-file HTML de origen (codigo identico al del clon: 366/366 lineas sin comentarios). |
 | `src/studio/render/body.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de drawBody del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4). |
 | `src/studio/render/ears.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de drawEars del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4). |
 | `src/studio/render/eyes.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de drawEyes del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4). |
@@ -149,7 +144,6 @@ con el upstream, la licencia y la ruta de origen de esta tabla.
 | `src/studio/render/visor.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de drawInnerVisor del single-file HTML de origen (codigo identico al del clon: 100% de shingles). |
 | `src/studio/rig/eyes.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de updateEyeRig del single-file HTML de origen (79% de shingles contra el HTML). |
 | `src/studio/rig/hands.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de updateHandsRig, drawHands y drawSingleHand del single-file HTML de origen (70% de shingles contra el HTML). |
-| `src/studio/sound.js` | `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html` | Port de SoundSynthesizer del single-file HTML de origen (64% de shingles contra el HTML). |
 
 ### ego-avatar (32 ficheros)
 
@@ -190,11 +184,17 @@ con el upstream, la licencia y la ruta de origen de esta tabla.
 
 ## 4. Ficheros nativos (sin cabecera canonica)
 
-**23 ficheros** son codigo propio de Ego o asimilacion de
+**31 ficheros** son codigo propio de Ego o asimilacion de
 patron. No llevan cabecera canonica, y esta es la razon.
 
 | Fichero | Por que es nativo |
 |---|---|
+| `src/render/ara-head.js` | Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. La silueta es una cupula de exponente propio (3.4) con la corona plana y el menton estrecho, generada por una regla y normalizada a la caja canonica 20-220 (Ola 9, decision D4). |
+| `src/render/body.js` | Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. El pipeline (parsear -> aplanar -> mezclar el redondeo -> serializar) y sus constantes son de Ego (Ola 9, decision D4). |
+| `src/runtime/poses.js` | Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. Las poses se declaran con INTENCIONES (abrir, cerrar por debajo, inclinar, estirar, achatar) y las cifras del rig las produce una regla propia (Ola 9, decision D4). |
+| `src/core/timeline.js` | Implementacion propia de Ego; patron asimilado de `coucou` (MIT), sin traduccion de codigo. El runner de tracks por campo (estado, avance del tiempo y reserva del campo) y las fases acumuladas son de Ego (Ola 9, decision D4). |
+| `src/studio/sound.js` | Implementacion propia de Ego; patron asimilado del Avatar Studio (single-file HTML; su licencia no esta declarada en el origen), sin traduccion de codigo. El catalogo de gestos sonoros (raiz tonal, patron en semitonos y envolvente) y el renderizador generico son de Ego (Ola 9, decision D4). |
+| `src/studio/render/accessories.js` | Implementacion propia de Ego; patron asimilado del Avatar Studio (single-file HTML; su licencia no esta declarada en el origen), sin traduccion de codigo. El catalogo de accesorios es dato y las piezas (antena, banda, lentes, gorro, orejas, corona, halo, brote) son geometria propia sobre una capa de primitivas (Ola 9, decision D4). |
 | `src/index.js` | Barrel publico del paquete (registra el custom element). Codigo propio de Ego. |
 | `src/version.js` | Version del paquete. Codigo propio de Ego. |
 | `src/core/genome.js` | Genoma -> identidad. Asimilacion de patron: usa los traits `roundness`/`ratio` del robot de agent-robot-avatar, pero el codigo (semilla, genes, rangos) es propio. |
@@ -218,6 +218,8 @@ patron. No llevan cabecera canonica, y esta es la razon.
 | `tests/studio-roundtrip.test.js` | Test propio de la Ola 2 (contrato del puente Ego <-> studio). |
 | `tests/warning.test.js` | Test propio de la Ola 2 (estado warning). |
 | `tests/golden/geometry.json` | Golden generada por el propio motor de Ego (traza de operaciones de canvas). Dato, no codigo. |
+| `tests/no-verbatim.test.js` | Test propio de la Ola 9 (puerta de residuo verbatim con fixtures). |
+| `tests/d4-geometry.test.js` | Test propio de la Ola 9 (property test de la geometria propia: la silueta y la tabla de poses no pueden ser las del upstream). |
 
 ## 5. Sustituciones de geometria propias (decision D4 del owner)
 

@@ -304,6 +304,9 @@ test('un fichero del manifiesto que NO existe en disco falla (exit 1)', () => {
 test('la puerta real del paquete pasa (exit 0)', () => {
   const { code, report } = runGate(PKG);
   assert.equal(code, 0, `problemas: ${JSON.stringify(report?.problems)}`);
-  assert.ok(report.derived.length >= 60, `derivados declarados: ${report.derived.length}`);
-  assert.ok(report.native.length >= 20, `nativos declarados: ${report.native.length}`);
+  // Baseline HONESTO tras la Ola 9 (decision D4): los seis ficheros
+  // sustituidos (silueta, cuerpo, poses, timeline, sonido del studio y
+  // accesorios) pasaron de derivados a nativos, asi que el reparto es 57/31.
+  assert.equal(report.derived.length, 57, `derivados declarados: ${report.derived.length}`);
+  assert.equal(report.native.length, 31, `nativos declarados: ${report.native.length}`);
 });

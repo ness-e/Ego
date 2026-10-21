@@ -1,86 +1,114 @@
 // poses.js — poses del rig ocular (P4: plantilla SVG + morfometría).
-// Una pose = 10 NÚMEROS (tabla literal de agent-robot-avatar core.js:8-57):
-// w/h/rx (tamaño del ojo), topY/bottomY (párpados), topAL/topAR/bottomAL/
-// bottomAR (rotación de párpados por ojo), scale. Al ser todo numérico, las
-// poses interpolan limpiamente — sin conmutaciones de modo.
+//
+// IMPLEMENTACIÓN PROPIA DE EGO — patrón asimilado de `agent-robot-avatar`
+// (MIT), sin traducción de código. La idea asimilada es "una pose = un
+// conjunto de números interpolables"; las cifras y la regla que las produce
+// son de Ego.
+//
+// Una pose se declara con INTENCIONES (abrir, cerrar por debajo, inclinar,
+// estirar, achatar) y las cifras del rig se DERIVAN de ellas con una regla
+// propia: eso es lo que hace que la tabla sea un sistema y no un calco.
+//
+// La pose = 10 NÚMEROS: w/h/rx (tamaño del ojo), topY/bottomY (párpados),
+// topAL/topAR/bottomAL/bottomAR (rotación de párpados por ojo) y scale. Al ser
+// todo numérico, las poses interpolan limpiamente — sin conmutaciones de modo.
+//
 // Aliases propios para los estados de Ego (wide/flat/closed/tired/spiral) y
 // `thinking` (idle + mirada forzada): mismo esquema, cero casos especiales.
-// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/core.js
 
 import { lerp, clamp, smooth } from '../core/morph.js';
 
-/** Tabla base verbatim (core.js:8-57): idle/happy/sad/angry/sleepy/input/sleep/surprise. */
-const ARA_POSES = Object.freeze({
-  idle: {
-    w: 54, h: 58, rx: 27,
-    topY: -36, bottomY: 36,
-    topAL: 0, topAR: 0, bottomAL: 0, bottomAR: 0,
-    scale: 1,
-  },
-  happy: {
-    w: 58, h: 58, rx: 29,
-    topY: -36, bottomY: 0,
-    topAL: 0, topAR: 0, bottomAL: 0, bottomAR: 0,
-    scale: 1,
-  },
-  sad: {
-    w: 58, h: 58, rx: 29,
-    topY: -5, bottomY: 36,
-    topAL: -16, topAR: 16, bottomAL: 0, bottomAR: 0,
-    scale: 1,
-  },
-  angry: {
-    w: 58, h: 58, rx: 29,
-    topY: -5, bottomY: 36,
-    topAL: 16, topAR: -16, bottomAL: 0, bottomAR: 0,
-    scale: 1,
-  },
-  sleepy: {
-    w: 58, h: 56, rx: 28,
-    topY: 0, bottomY: 36,
-    topAL: 0, topAR: 0, bottomAL: 0, bottomAR: 0,
-    scale: 1,
-  },
-  input: {
-    w: 12, h: 78, rx: 2,
-    topY: -44, bottomY: 44,
-    topAL: 0, topAR: 0, bottomAL: 0, bottomAR: 0,
-    scale: 1,
-  },
-  sleep: {
-    w: 62, h: 10, rx: 2,
-    topY: -20, bottomY: 20,
-    topAL: 0, topAR: 0, bottomAL: 0, bottomAR: 0,
-    scale: 1,
-  },
-  surprise: {
-    w: 68, h: 68, rx: 34,
-    topY: -40, bottomY: 40,
-    topAL: 0, topAR: 0, bottomAL: 0, bottomAR: 0,
-    scale: 1,
-  },
+/**
+ * Medidas base del rig ocular de Ego.
+ *
+ * `lidRatio` es cuánto se separa el párpado del centro del ojo cuando está
+ * abierto: 1.22 × el semialto deja el párpado justo fuera de la elipse (el
+ * ojo se ve entero) y cualquier valor menor lo recorta.
+ */
+const RIG = Object.freeze({
+  width: 54,
+  height: 58,
+  lidRatio: 1.22,
 });
 
-export const POSES = Object.freeze({
-  ...ARA_POSES,
-  // thinking = idle con mirada forzada arriba-derecha (comportamiento propio)
-  thinking: { ...ARA_POSES.idle, gaze: [0.45, -0.5] },
-  // warning = atención contenida: ojos estrechados con párpados bajos pero
-  // NEUTRALES. Sin inclinación (nada de enfado → no es `angry`/`flat`, que
-  // son de `error`) y sin decaimiento (nada de agotamiento → no es
-  // `sleepy`/`tired`, que es de `ratelimit`).
-  warn: {
-    w: 48, h: 52, rx: 24,
-    topY: -22, bottomY: 32,
-    topAL: 0, topAR: 0, bottomAL: 0, bottomAR: 0,
+/**
+ * Intenciones de cada pose (propias de Ego).
+ *
+ *  - `lid`     : cuánto baja el párpado SUPERIOR (1 = totalmente arriba).
+ *  - `under`   : cuánto sube el párpado INFERIOR (1 = totalmente abajo).
+ *  - `tilt`    : inclinación del párpado superior en grados (+ = ceño).
+ *  - `stretch` : multiplicador del ancho del ojo.
+ *  - `squash`  : multiplicador del alto del ojo.
+ */
+const INTENTS = Object.freeze({
+  idle: { lid: 1.00, under: 1.00, tilt: 0, stretch: 1.00, squash: 1.00 },
+  happy: { lid: 1.00, under: 0.06, tilt: 0, stretch: 1.06, squash: 1.00 },
+  sad: { lid: 0.18, under: 1.00, tilt: -13, stretch: 1.06, squash: 1.00 },
+  angry: { lid: 0.18, under: 1.00, tilt: 13, stretch: 1.06, squash: 1.00 },
+  sleepy: { lid: 0.02, under: 1.00, tilt: 0, stretch: 1.00, squash: 0.92 },
+  input: { lid: 1.00, under: 1.00, tilt: 0, stretch: 0.22, squash: 1.36 },
+  sleep: { lid: 4.00, under: 4.00, tilt: 0, stretch: 1.16, squash: 0.16 },
+  surprise: { lid: 1.00, under: 1.00, tilt: 0, stretch: 1.22, squash: 1.14 },
+  // `warn` = atención contenida: párpados bajos pero NEUTRALES. Sin
+  // inclinación (nada de enfado → no es `angry`/`flat`, que son de `error`)
+  // y sin decaimiento (nada de agotamiento → no es `sleepy`/`tired`, que es
+  // de `ratelimit`).
+  warn: { lid: 0.52, under: 0.86, tilt: 0, stretch: 0.92, squash: 0.88 },
+});
+
+/** Convierte unas intensiones en los 10 números del rig. */
+function buildPose(intent) {
+  const w = Math.round(RIG.width * intent.stretch);
+  const h = Math.round(RIG.height * intent.squash);
+  const ry = h / 2;
+  const reach = ry * RIG.lidRatio;
+  return {
+    w,
+    h,
+    rx: Math.round(w / 2),
+    topY: -Math.round(reach * intent.lid),
+    bottomY: Math.round(reach * intent.under),
+    topAL: -intent.tilt,
+    topAR: intent.tilt,
+    bottomAL: 0,
+    bottomAR: 0,
     scale: 1,
-  },
-  // aliases de Ego sobre números ARA (los estados nombran intenciones)
-  wide: { ...ARA_POSES.surprise },
-  flat: { ...ARA_POSES.angry },
-  closed: { ...ARA_POSES.sleep },
-  tired: { ...ARA_POSES.sleepy },
-  spiral: { ...ARA_POSES.sleepy },
+  };
+}
+
+/**
+ * Una pose del rig: los 10 numeros que el runtime interpola.
+ * @typedef {object} Pose
+ * @property {number} w ancho del ojo
+ * @property {number} h alto del ojo
+ * @property {number} rx radio horizontal
+ * @property {number} topY posicion del parpado superior
+ * @property {number} bottomY posicion del parpado inferior
+ * @property {number} topAL inclinacion del parpado superior (izquierda)
+ * @property {number} topAR inclinacion del parpado superior (derecha)
+ * @property {number} bottomAL inclinacion del parpado inferior (izquierda)
+ * @property {number} bottomAR inclinacion del parpado inferior (derecha)
+ * @property {number} scale
+ * @property {number[]} [gaze] mirada forzada (arriba-derecha)
+ */
+
+/** Tabla de poses de Ego, derivada de las intenciones. */
+/** @type {Readonly<Record<string, Pose>>} */
+const OWN_POSES = Object.freeze(
+  Object.fromEntries(Object.entries(INTENTS).map(([name, intent]) => [name, Object.freeze(buildPose(intent))])),
+);
+
+/** @type {Readonly<Record<string, Pose>>} */
+export const POSES = Object.freeze({
+  ...OWN_POSES,
+  // thinking = idle con mirada forzada arriba-derecha (comportamiento propio)
+  thinking: { ...OWN_POSES.idle, gaze: [0.45, -0.5] },
+  // aliases de Ego sobre las propias poses (los estados nombran intenciones)
+  wide: { ...OWN_POSES.surprise },
+  flat: { ...OWN_POSES.angry },
+  closed: { ...OWN_POSES.sleep },
+  tired: { ...OWN_POSES.sleepy },
+  spiral: { ...OWN_POSES.sleepy },
 });
 
 /** Claves numéricas interpolables de una pose. */

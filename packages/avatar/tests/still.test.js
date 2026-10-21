@@ -36,11 +36,15 @@ test('staticSVG con pose "hash" es determinista y válido', () => {
   assert.ok(!a.includes('NaN'));
 });
 
-test('staticSVG con pose nombrada explícita la respeta', () => {
+test('staticSVG con pose nombrada explicita la respeta', () => {
   const svg = staticSVG('pose-explicita', { state: 'idle', pose: 'angry' });
-  // pose angry: párpados inclinados (topAL 16 / topAR −16 en sus transforms)
-  assert.ok(svg.includes('rotate(16 0 -5)'), 'párpado izquierdo inclinado');
-  assert.ok(svg.includes('rotate(-16 0 -5)'), 'párpado derecho inclinado');
+  // La pose `angry` inclina los parpados: los numeros salen de la TABLA.
+  const left = `rotate(${POSES.angry.topAL} 0 ${POSES.angry.topY})`;
+  const right = `rotate(${POSES.angry.topAR} 0 ${POSES.angry.topY})`;
+  assert.ok(svg.includes(left), `parpado izquierdo inclinado: ${left}`);
+  assert.ok(svg.includes(right), `parpado derecho inclinado: ${right}`);
+  // y en sentidos opuestos (el ceño no puede parecerse a la tristeza)
+  assert.ok(POSES.angry.topAL * POSES.angry.topAR < 0, 'inclinaciones opuestas');
   void POSES;
 });
 

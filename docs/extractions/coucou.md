@@ -2111,39 +2111,53 @@ de modo que las cuatro primeras filas ya no son trabajo pendiente:
 - `packages/avatar/LICENSE.md` **existe** (junto a `LICENSE` y `NOTICE`); las 15 referencias resuelven.
 - El preset `'coucou-mochi'` fue **eliminado** del código funcional de `packages/avatar/src/studio/config.js` y
   de `applyPreset`.
-- Hay **8 cabeceras** `Adapted from <upstream> (MIT), <ruta>` en `packages/avatar/src/studio/`
-  (`avatar.js`, `render/{accessories,body,ears,eyes,geometry,helpers,mouth}.js`).
+- ~~Hay **8 cabeceras**~~ → **hoy hay 25 cabeceras canonicas en
+  `packages/avatar/src/`** (el numero exacto, con su upstream y su ruta, vive
+  en `packages/avatar/provenance.manifest.json`: el registro canonico).
 
-**Residuos verificados 2026-10-21 (Ola 5, A5)** — el listado de la Ola 2 (`overlays.js`,
-`particles.js`, `visor.js`) y el de la Ola 4b (4 ficheros) estaban desactualizados: `overlays.js` ya
-está limpio y el recuento real de cabeceras `Adapted from` es **8 de 90 ficheros**
-(la Ola 4b contaba "16" porque contaba dos ocurrencias por fichero).
+**Estado real verificado (2026-10-21, Ola 9 — decision D4 ejecutada):** la
+sustitucion de los puertos verbatim por geometria propia **esta hecha**, y es
+verificable por puerta.
 
-| Fichero | Residuo | Naturaleza | Responsable |
-|---|---|---|:---:|
-| `packages/avatar/src/studio/render/visor.js:1` | "puerto verbatim del avatar studio" | Etiquetado | A6 |
-| `packages/avatar/src/studio/render/particles.js:1` | "port verbatim de `avatar_studio_cx_artlab_mochi_2_0.html`" | Etiquetado | A6 |
-| `packages/avatar/src/studio/rig/eyes.js:1` | "puerto verbatim del avatar studio" | Etiquetado | A6 |
-| `packages/avatar/src/studio/rig/hands.js:2` | "Puerto verbatim de `avatar_studio_cx_artlab_mochi_2_0.html`" | Etiquetado | A6 |
-| `packages/avatar/src/studio/sound.js:1` | "verbatim de `avatar_studio_cx_artlab_mochi_2_0.html`" | Etiquetado | A6 |
-| `packages/avatar/src/core/timeline.js:2` | "PORTES VERBATIM" (origen: `coucou mochi/engine.ts`) | Geometría de Coucou | A6 |
-| `packages/avatar/src/runtime/poses.js:11` | "Tabla base verbatim (core.js:8-57)" | Geometría de Coucou | A6 |
-| `packages/avatar/src/runtime/avatar-element.js:2015` | `'coucou-mochi'` en **JSDoc** (no funcional) | Etiquetado | A6 |
-| `packages/avatar/src/studio/avatar.js:70` | `'coucou-mochi'` en **comentario** (no funcional) | Etiquetado | A6 |
+| | Ficheros de `packages/avatar/src/` | Nota |
+|---|:---:|---|
+| **Derivados** (llevan cabecera canonica `Adapted from <upstream> (<LIC>), <ruta>`) | **25** | 8 con cabecera desde la Ola 1 + 17 normalizadas en la Ola 9 |
+| **Nativos** (implementacion propia de Ego; **sin** cabecera) | **24** | 18 en `src/` + 2 `.d.ts` + los 6 sustituidos por D4 |
 
-**Ficheros derivados que aún NO llevan cabecera `Adapted from`:** de los 49 ficheros de
-`packages/avatar/src/`, **8 la llevan** (todas en `src/studio/`) y **41 no**. La mayoría de esos 41
-son **código nativo de Ego** (p. ej. `src/index.js`, `src/core/prng.js`, `src/core/palette.js`,
-`src/runtime/pointer.js`) y no necesitan atribución. Los que **sí** la necesitan y siguen sin ella
-son los derivados con residuo marcado —los 9 de la tabla anterior— más `src/render/projection.js:2`
-(puerto del `drawEyes()` de `coucou mochi/engine.ts`) y `src/render/static.js:3` (puerto de
-`MochiStill.swift`). La clasificación exacta derivado/nativo de los 41 es trabajo de **A6** (tiene el
-diff contra el upstream); A5 deja aquí el recuento y los puntos verificables.
+> El reparto **definitivo** de los 86 ficheros del paquete (63 -> 57 derivados
+> tras D4, mas 31 nativos) vive en el manifiesto
+> `packages/avatar/provenance.manifest.json`, que es el **denominador** de la
+> puerta `packages/avatar/scripts/check-attribution.mjs`. La clasificacion se
+> midio con residuo de `shingles` de 48 caracteres y se contrasto con el
+> `LICENSE.md` del propio clon.
 
-> **Distinción importante:** `packages/avatar/src/render/ara-head.js:1` y `render/body.js:3` también dicen
-> "verbatim", pero su origen es **`agent-robot-avatar`** (MIT © CX ArtLab), no Mochi: son un upstream
-> distinto y su atribución es legítima; lo que exige D4 es la sustitución de la **geometría de Mochi**
-> (`coucou` / `avatar_studio_cx_artlab_mochi_2_0.html`), no la de `agent-robot-avatar`.
+**Los seis ficheros sustituidos (decision D4, owner, 2026-10-21):**
+
+| Fichero | Antes | Ahora |
+|---|---|---|
+| `src/render/ara-head.js` | COPIA LITERAL del path `#headShape` de `vendor/agent-robot-avatar/core.js` (95,1 % de residuo) | **Cupula propia** de exponente 3,4 con la corona plana y el menton estrecho, generada por una regla y normalizada a la caja 20…220 (residuo **0 %**) |
+| `src/render/body.js` | pipeline con funciones literales (`flattenHeadPoints`, `targetShape`, `mixPoints`) | Pipeline propio con las mismas firmas publicas y constantes propias (residuo **0 %**) |
+| `src/runtime/poses.js` | tabla literal de 10 numeros por pose (`core.js:8-57`) | **Tabla derivada de INTENCIONES** (abrir, cerrar por debajo, inclinar, estirar, achatar): las cifras las produce una regla propia (residuo **0 %**) |
+| `src/core/timeline.js` | runner de tracks por campo y `buildPhases` portados | Runner propio: estado, avance del tiempo y reserva del campo (residuo **0 %**) |
+| `src/studio/sound.js` | `SoundSynthesizer` con la tabla literal de tonos | **Catalogo de gestos sonoros** (raiz tonal, patron en semitonos, envolvente) + renderizador generico (residuo **0 %**) |
+| `src/studio/render/accessories.js` | 12 accesorios dibujados en una cadena `if/else` de 432 lineas | **Catalogo de accesorios (dato) + 8 piezas genericas** sobre una capa de primitivas (residuo **0 %**) |
+
+Cuando un fichero deja de ser un port literal **deja de ser derivado**: su
+cabecera pasa de `Adapted from …` al texto veraz del **plano 2** (*"implementacion
+propia de Ego; patron asimilado de `<upstream>`, sin traduccion de codigo"*) y
+pasa de `derived` a `native` en el manifiesto. Inventar esa cabecera seria una
+atribucion falsa (precedente `EGO-FIND-83`).
+
+**La puerta que impide la reversion:** `packages/avatar/scripts/check-no-verbatim.mjs`
+(`pnpm --filter @ego/avatar no-verbatim:check`) mide el residuo verbatim de
+los ficheros con presupuesto (los seis de D4, con **presupuesto 0**) contra los
+upstreams verdaderos —el corpus `vendor/` y el single-file HTML— y falla si
+aparece aunque un solo shingle de 48 caracteres del upstream sobreviva.
+
+> **Por que la medicion no se hace contra el clon de referencia:** el clon
+> `repos-referencia/avatar/` es el paquete de Ego de una iteracion anterior y
+> mezcla codigo propio con ports. Medir contra el responderia a "queda codigo
+> de la iteracion anterior?", no a "queda codigo del upstream?".
 
 ## 52.5 Contaminación de dominio (re-verificada 2026-10-19, post A2/A3)
 

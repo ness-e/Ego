@@ -2,25 +2,26 @@
   "$comment": [
     "Manifiesto de procedencia de `packages/avatar/` (motor de personaje de Ego).",
     "",
-    "Es el DENOMINADOR de la puerta `scripts/check-attribution.mjs`: decide que",
-    "ficheros son codigo derivado (y por tanto llevan cabecera canonica) y que",
-    "ficheros son codigo nativo de Ego (y por tanto NO la llevan).",
-    "",
-    "Modelo (docs/extractions/README.md 4.3, dos planos):",
-    "  - Plano 1 (CODIGO): fichero realmente derivado -> cabecera",
-    "    `Adapted from <upstream> (<LICENCIA>), <ruta de origen>` + aviso en el",
-    "    LICENSE.md del paquete.",
-    "  - Plano 2 (FICHA): documento de analisis escrito por Ego -> fila de",
-    "    procedencia. Nunca `Adapted from`.",
+    "Es el DENOMINADOR de las dos puertas del paquete:",
+    "  · `scripts/check-attribution.mjs` — cada fichero DERIVADO lleva la cabecera",
+    "    canonica `Adapted from <upstream> (<LICENCIA>), <ruta de origen>` y aviso en",
+    "    el LICENSE.md; cada NATIVO no la lleva (inventarla seria una atribucion",
+    "    falsa: precedente EGO-FIND-83).",
+    "  · `scripts/check-no-verbatim.mjs` — cada fichero con presupuesto en el campo",
+    "    `verbatim` no puede conservar codigo verbatim del upstream (decision D4).",
     "",
     "Un fichero NATIVO no lleva cabecera canonica: inventarla seria una",
-    "atribucion falsa (precedente EGO-FIND-83).",
+    "atribucion falsa (precedente EGO-FIND-83, el owner retiro el credito a khoj",
+    "porque el codigo atribuido era propio).",
     "",
-    "Clasificacion medida contra el clon de referencia `repos-referencia/avatar`",
-    "(residuo de shingles de 48 caracteres sobre el texto sin comentarios) y",
-    "contrastada con el LICENSE.md del propio clon, que es el registro de",
-    "procedencia por fichero del port. Ver `docs/agent-ops/plans/",
-    "2026-10-19-remediation-wave1/handoff/A6-ola8.md` para la evidencia completa."
+    "Plano 2 (el texto veraz de un fichero que ya no es un port):",
+    "  \"Implementacion propia de Ego; patron asimilado de <upstream>, sin",
+    "  traduccion de codigo.\"",
+    "",
+    "La clasificacion se midio contra el clon de referencia `repos-referencia/avatar`",
+    "con residuo de shingles de 48 caracteres, y contra los upstreams VERDADEROS",
+    "(el corpus `vendor/` y el single-file HTML) con el detector de verbatim.",
+    "Ver `docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola9.md`."
   ],
   "version": 1,
   "package": "@ego/avatar",
@@ -74,27 +75,6 @@
       "origin": "vendor/agent-robot-avatar/random.js",
       "via": "repos-referencia/avatar/src/core/config.js",
       "evidence": "Port del patron Defaults/Bounds + clampConfig de agent-robot-avatar, con `parseSize` literal de core.js:63-68."
-    },
-    {
-      "path": "src/core/timeline.js",
-      "upstream": "coucou",
-      "origin": "vendor/coucou/mochi/engine.ts",
-      "via": "repos-referencia/avatar/src/core/timeline.js",
-      "evidence": "Port del runner anim()/update() por campo con `locks` de coucou/mochi/engine.ts:477-507 + buildPhases de agent-robot-avatar/actions.js."
-    },
-    {
-      "path": "src/render/ara-head.js",
-      "upstream": "agent-robot-avatar",
-      "origin": "vendor/agent-robot-avatar/core.js",
-      "via": "repos-referencia/avatar/src/render/ara-head.js",
-      "evidence": "COPIA LITERAL verificada: el path SVG de 2411 caracteres de ARA_HEAD_D es identico byte a byte al atributo d de #headShape en vendor/agent-robot-avatar/core.js."
-    },
-    {
-      "path": "src/render/body.js",
-      "upstream": "agent-robot-avatar",
-      "origin": "vendor/agent-robot-avatar/geometry.js",
-      "via": "repos-referencia/avatar/src/render/body.js",
-      "evidence": "Port de la silueta del robot (plantilla verbatim de 160 puntos de ara-head.js) + superelipse y mezcla de redondeo de geometry.js/head-roundness.js."
     },
     {
       "path": "src/render/eyes.js",
@@ -153,13 +133,6 @@
       "evidence": "Port de la capa de politica de agent-robot-avatar/runtime.js (requestedMotion/reducedMotion, action records, scheduleAutoSleep)."
     },
     {
-      "path": "src/runtime/poses.js",
-      "upstream": "agent-robot-avatar",
-      "origin": "vendor/agent-robot-avatar/core.js",
-      "via": "repos-referencia/avatar/src/runtime/poses.js",
-      "evidence": "TABLA LITERAL: la tabla de 10 numeros por pose procede de agent-robot-avatar/core.js:8-57 (verificado por residuo de shingles del 38% contra el corpus)."
-    },
-    {
       "path": "src/runtime/presence.js",
       "upstream": "coucou",
       "origin": "vendor/coucou/island/fsm.ts",
@@ -193,13 +166,6 @@
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/config.js",
       "evidence": "Port de DATOS: los literales de STUDIO_DEFAULTS, de los presets de applyPreset y del mapa estado -> acento proceden del constructor del single-file HTML de origen (verificado: cada valor literal -#1e222d, #dbf59d, cx-faithful, cx-led, eyeSpacing, squircleN...- aparece en el fichero de origen)."
-    },
-    {
-      "path": "src/studio/render/accessories.js",
-      "upstream": "ego-avatar-studio",
-      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
-      "via": "repos-referencia/avatar/src/studio/render/accessories.js",
-      "evidence": "Port de drawTopAccessory del single-file HTML de origen (codigo identico al del clon: 366/366 lineas sin comentarios)."
     },
     {
       "path": "src/studio/render/body.js",
@@ -270,13 +236,6 @@
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/rig/hands.js",
       "evidence": "Port de updateHandsRig, drawHands y drawSingleHand del single-file HTML de origen (70% de shingles contra el HTML)."
-    },
-    {
-      "path": "src/studio/sound.js",
-      "upstream": "ego-avatar-studio",
-      "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
-      "via": "repos-referencia/avatar/src/studio/sound.js",
-      "evidence": "Port de SoundSynthesizer del single-file HTML de origen (64% de shingles contra el HTML)."
     },
     {
       "path": "tests/anim.test.js",
@@ -505,6 +464,30 @@
   ],
   "native": [
     {
+      "path": "src/render/ara-head.js",
+      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. La silueta es una cupula de exponente propio (3.4) con la corona plana y el menton estrecho, generada por una regla y normalizada a la caja canonica 20-220 (Ola 9, decision D4)."
+    },
+    {
+      "path": "src/render/body.js",
+      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. El pipeline (parsear -> aplanar -> mezclar el redondeo -> serializar) y sus constantes son de Ego (Ola 9, decision D4)."
+    },
+    {
+      "path": "src/runtime/poses.js",
+      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. Las poses se declaran con INTENCIONES (abrir, cerrar por debajo, inclinar, estirar, achatar) y las cifras del rig las produce una regla propia (Ola 9, decision D4)."
+    },
+    {
+      "path": "src/core/timeline.js",
+      "reason": "Implementacion propia de Ego; patron asimilado de `coucou` (MIT), sin traduccion de codigo. El runner de tracks por campo (estado, avance del tiempo y reserva del campo) y las fases acumuladas son de Ego (Ola 9, decision D4)."
+    },
+    {
+      "path": "src/studio/sound.js",
+      "reason": "Implementacion propia de Ego; patron asimilado del Avatar Studio (single-file HTML; su licencia no esta declarada en el origen), sin traduccion de codigo. El catalogo de gestos sonoros (raiz tonal, patron en semitonos y envolvente) y el renderizador generico son de Ego (Ola 9, decision D4)."
+    },
+    {
+      "path": "src/studio/render/accessories.js",
+      "reason": "Implementacion propia de Ego; patron asimilado del Avatar Studio (single-file HTML; su licencia no esta declarada en el origen), sin traduccion de codigo. El catalogo de accesorios es dato y las piezas (antena, banda, lentes, gorro, orejas, corona, halo, brote) son geometria propia sobre una capa de primitivas (Ola 9, decision D4)."
+    },
+    {
       "path": "src/index.js",
       "reason": "Barrel publico del paquete (registra el custom element). Codigo propio de Ego."
     },
@@ -595,6 +578,40 @@
     {
       "path": "tests/golden/geometry.json",
       "reason": "Golden generada por el propio motor de Ego (traza de operaciones de canvas). Dato, no codigo."
+    },
+    {
+      "path": "tests/no-verbatim.test.js",
+      "reason": "Test propio de la Ola 9 (puerta de residuo verbatim con fixtures)."
+    },
+    {
+      "path": "tests/d4-geometry.test.js",
+      "reason": "Test propio de la Ola 9 (property test de la geometria propia: la silueta y la tabla de poses no pueden ser las del upstream)."
     }
-  ]
+  ],
+  "verbatim": {
+    "src/render/ara-head.js": {
+      "maxResidue": 0,
+      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
+    },
+    "src/render/body.js": {
+      "maxResidue": 0,
+      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
+    },
+    "src/runtime/poses.js": {
+      "maxResidue": 0,
+      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
+    },
+    "src/core/timeline.js": {
+      "maxResidue": 0,
+      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
+    },
+    "src/studio/sound.js": {
+      "maxResidue": 0,
+      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
+    },
+    "src/studio/render/accessories.js": {
+      "maxResidue": 0,
+      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
+    }
+  }
 }

@@ -613,6 +613,28 @@ fichero del port, y se usó como contraste.
   inmediato es el clon de referencia. El manifiesto lo dice así, en vez de
   repetir la fila histórica del `LICENSE.md` del clon.
 
+### La puerta de D4: cero código verbatim
+
+La puerta de atribución responde a `¿de quién es este código?`. Esta
+responde a `¿queda código del upstream dentro?`.
+
+`scripts/check-no-verbatim.mjs` mide el **residuo verbatim** con el mismo
+método de la Ola 8 (`shingles` de 48 caracteres sobre el texto normalizado,
+sin comentarios) y lo compara contra los **upstreams verdaderos**: el corpus
+`vendor/` (los originales MIT) y el single-file HTML del motor canvas.
+
+> **Por qué no se mide contra el clon de referencia**: el clon
+> `repos-referencia/avatar/` es el paquete de Ego de una iteración anterior:
+> mezcla código **propio** con ports. Medir contra él respondería a `¿queda
+> código de la iteración anterior?`, no a `¿queda código del upstream?` — y un
+> fichero totalmente propio (como `runtime/poses.js` tras D4) seguiría dando
+> residuo por sus funciones propias.
+
+El presupuesto vive en el manifiesto (`verbatim`) y lo vigila la puerta: los
+seis ficheros de la decisión D4 tienen **presupuesto 0** — no pueden conservar
+ni 48 caracteres del upstream. Su test es `tests/no-verbatim.test.js` (5
+casos con *fixtures*).
+
 ### La puerta
 
 `scripts/check-attribution.mjs` usa el manifiesto como denominador y falla si:
@@ -641,6 +663,7 @@ la ejercita con 11 *fixtures*.
 | `pnpm --filter @ego/avatar attribution:check` | **puerta de atribución y de procedencia**: contra `provenance.manifest.json`, cada derivado lleva su cabecera canónica con el upstream/licencia/ruta correctos, ningún nativo la lleva, todo fichero de código está clasificado, el `LICENSE.md` recoge el aviso de cada upstream en uso y toda ruta `vendor/…` citada resuelve dentro del repo. |
 | `pnpm --filter @ego/avatar bridge:check` | ningún mapa nombra un estado del studio inexistente y el round-trip Ego↔studio conserva la identidad (15/15). |
 | `pnpm --filter @ego/avatar upstream:check` | toda divergencia frente al upstream está **declarada** con su motivo y su hash aprobado (§11). |
+| `pnpm --filter @ego/avatar no-verbatim:check` | **puerta de la decisión D4**: los ficheros con presupuesto en el manifiesto no conservan **cero** código verbatim del upstream (shingles de 48 caracteres contra el corpus `vendor/` y el single-file HTML) |
 | `pnpm --filter @ego/avatar build` | `dist/` reproducible, con manifiesto SHA-256 por fichero. |
 
 ### Defecto latente encontrado por el typecheck

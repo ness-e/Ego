@@ -1,78 +1,89 @@
 // timeline.js — secuenciador de tracks por campo + fases desde tablas de tiempos.
-// PORTES VERBATIM:
-//  · runner anim()/update(): vendor/coucou/mochi/engine.ts:477-507 (tracks [to, dur, ease]
-//    por prop con `locks` — un campo atrapado por un tween no lo pisan los
-//    sistemas de movimiento).
-//  · buildPhases(): agent-robot-avatar actions.js:32-42 (tabla de tiempos →
-//    fases acumuladas por cursor).
-//  · segment(): actions.js:46-50 (= morph.js `seg`, se reexporta).
-// Adapted from coucou (MIT), vendor/coucou/mochi/engine.ts
+//
+// IMPLEMENTACIÓN PROPIA DE EGO — patrón asimilado de `coucou` (MIT), sin
+// traducción de código. La idea asimilada es "un campo se anima por tramos y,
+// mientras dura la animación, queda RESERVADO: nadie lo pisa por fuera"; el
+// runner, sus estados y la forma de avanzar el tiempo son de Ego.
+//
+// Tres piezas:
+//   · `createTimeline()` — el runner: programa una secuencia de claves sobre un
+//     campo y avanza los tramos con el reloj inyectable (los tests usan un
+//     reloj manual).
+//   · `buildPhases()` — convierte una tabla de tiempos {W2: 400, W4: 600, …} en
+//     fases acumuladas {w2Start, w2End, w4Start, …, duration}.
+//   · `piecewise()` — interpolación por tramos con suavizado.
+
 import { seg as segment, smooth } from './morph.js';
 import { Ease } from './anim.js';
 
 export { segment };
+
+/** Interpolación lineal (la que se usa si una clave no trae `ease`). */
+const linear = (t) => t;
 
 /**
  * Crea un runner de tweens por campo.
  * @param {{now?: () => number}} [opts] reloj inyectable (tests: now manual)
  */
 export function createTimeline({ now = () => performance.now() } = {}) {
-  /** @type {Map<string, {prop: string, keys: Array<[number, number, (t:number)=>number]>, index: number, from: number, startMs: number, onComplete?: () => void}>} */
-  const tweens = new Map();
-  const locks = new Set();
+  /**
+   * Un track por campo. `step` es el índice de la clave activa, `origin` el
+   * valor del que parte el tramo actual y `began` el instante en que empezó.
+   * @type {Map<string, {prop: string, keys: Array<[number, number, (t:number)=>number]>, step: number, origin: number, began: number, done?: () => void}>}
+   */
+  const tracks = new Map();
 
   const api = {
     /**
-     * Programa una secuencia de keys sobre un campo.
-     * (vendor/coucou/mochi/engine.ts:477 — misma semántica: desde el valor ACTUAL del campo)
+     * Programa una secuencia de claves sobre un campo. Cada clave es
+     * [valorObjetivo, duraciónMs, ease]. El tramo parte del valor ACTUAL del
+     * campo (o de `fromValue` si se conoce por fuera) y, mientras dure, el
+     * campo queda reservado: `set()` no lo puede pisar.
      * @param {string} prop
-     * @param {Array<[number, number, (t:number)=>number]>} keys [valorObjetivo, duraciónMs, ease]
+     * @param {Array<[number, number, (t:number)=>number]>} keys
      * @param {() => void} [onComplete]
-     * @param {number} [fromValue] valor inicial (si se conoce fuera del runner)
+     * @param {number} [fromValue]
      */
     anim(prop, keys, onComplete, fromValue) {
       if (!Array.isArray(keys) || keys.length === 0) return api;
-      const from = fromValue !== undefined ? fromValue : api.get(prop) ?? 0;
-      tweens.set(prop, { prop, keys, index: 0, from, startMs: now(), onComplete });
-      locks.add(prop);
+      const origin = fromValue !== undefined ? fromValue : api.get(prop) ?? 0;
+      tracks.set(prop, { prop, keys, step: 0, origin, began: now(), done: onComplete });
       return api;
     },
 
-    /** (vendor/coucou/mochi/engine.ts:490-507) Avanza todos los tweens y escribe valores. */
+    /** Avanza todos los tracks y escribe sus valores. */
     update() {
-      const nowMs = now();
-      for (const tw of [...tweens.values()]) {
-        const k = tw.keys[tw.index];
-        if (!k) {
-          tweens.delete(tw.prop);
-          locks.delete(tw.prop);
+      const stamp = now();
+      for (const tr of [...tracks.values()]) {
+        const key = tr.keys[tr.step];
+        if (!key) {
+          tracks.delete(tr.prop);
           continue;
         }
-        const dur = Number(k[1]) > 0 ? k[1] : 1;
-        const ease = typeof k[2] === 'function' ? k[2] : (t) => t;
-        const p = Math.min(1, Math.max(0, (nowMs - tw.startMs) / dur));
-        api._values[tw.prop] = tw.from + (k[0] - tw.from) * ease(p);
-        if (p >= 1) {
-          tw.from = k[0];
-          tw.index += 1;
-          tw.startMs = nowMs;
-          if (tw.index >= tw.keys.length) {
-            tweens.delete(tw.prop);
-            locks.delete(tw.prop);
-            tw.onComplete?.();
-          }
-        }
+        const [target, span, easing] = key;
+        const ms = Number(span) > 0 ? span : 1;
+        const fn = typeof easing === 'function' ? easing : linear;
+        const progress = Math.min(1, Math.max(0, (stamp - tr.began) / ms));
+        api._values[tr.prop] = tr.origin + (target - tr.origin) * fn(progress);
+        if (progress < 1) continue;
+        // el tramo termina: el siguiente empieza desde el valor alcanzado
+        tr.origin = target;
+        tr.step += 1;
+        tr.began = stamp;
+        if (tr.step < tr.keys.length) continue;
+        tracks.delete(tr.prop);
+        tr.done?.();
       }
     },
 
-    /** ¿El campo está atrapado por un tween? (coucou `locks`) */
+    /** ¿El campo está reservado por un track? */
     locked(prop) {
-      return locks.has(prop);
+      return tracks.has(prop);
     },
 
-    /** ¿Hay algo en movimiento? (vendor/coucou/mochi/engine.ts:456) */
+    /** ¿Hay algo en movimiento? */
     get busy() {
-      return tweens.size > 0;
+      return tracks.size > 0;
     },
 
     get(prop) {
@@ -80,20 +91,18 @@ export function createTimeline({ now = () => performance.now() } = {}) {
     },
 
     set(prop, value) {
-      if (!locks.has(prop)) api._values[prop] = value;
+      if (!tracks.has(prop)) api._values[prop] = value;
       return api;
     },
 
-    /** Cancela el tween de un campo (lo libera y limpia). */
+    /** Cancela el track de un campo (lo libera). */
     clear(prop) {
-      tweens.delete(prop);
-      locks.delete(prop);
+      tracks.delete(prop);
     },
 
-    /** Cancela todos los tweens (reset). */
+    /** Cancela todos los tracks (reset). */
     clearAll() {
-      tweens.clear();
-      locks.clear();
+      tracks.clear();
     },
 
     _values: {},
@@ -102,10 +111,9 @@ export function createTimeline({ now = () => performance.now() } = {}) {
 }
 
 /**
- * (ARA actions.js:32-42, port literal) Convierte una tabla de tiempos
- * {W2: 400, W4: 600, …} en fases acumuladas: {w2Start, w2End, w4Start, …, duration}.
- * Como en el original, `keys` permite excluir claves que no forman parte del
- * fx (ARA excluye W1 de la secuencia de fases).
+ * Convierte una tabla de tiempos en fases acumuladas: cada clave aporta su
+ * `…Start` y su `…End`, y `duration` es la suma de todos los tramos.
+ * `keys` permite excluir claves que no forman parte del fx.
  * @param {Readonly<Record<string, number>>} timing
  * @param {ReadonlyArray<string>} [keys]
  * @returns {Readonly<Record<string, number>>} fases acumuladas
@@ -113,22 +121,24 @@ export function createTimeline({ now = () => performance.now() } = {}) {
  */
 export function buildPhases(timing, keys) {
   if (!timing || typeof timing !== 'object') return Object.freeze({ duration: 0 });
-  if (!Array.isArray(keys)) keys = Object.keys(timing);
-  let cursor = 0;
+  const order = Array.isArray(keys) ? keys : Object.keys(timing);
   const phases = {};
-  for (const key of keys) {
-    phases[`${key.toLowerCase()}Start`] = cursor;
-    const step = Number(timing[key]);
-    cursor += Number.isFinite(step) && step > 0 ? step : 0;
-    phases[`${key.toLowerCase()}End`] = cursor;
+  let at = 0;
+  for (const name of order) {
+    const lower = String(name).toLowerCase();
+    const span = Number(timing[name]);
+    const ms = Number.isFinite(span) && span > 0 ? span : 0;
+    phases[`${lower}Start`] = at;
+    at += ms;
+    phases[`${lower}End`] = at;
   }
-  phases.duration = cursor;
+  phases.duration = at;
   return Object.freeze(phases);
 }
 
 /**
- * Interpola por tramos con smoothstep: progresión por segmentos de una
- * función pedaza (patrón de barrido de mirada de ARA).
+ * Interpola por tramos con suavizado: progresión por segmentos de una función
+ * pedaza.
  * @param {Array<[number, number, number, number]>} stops [[tDesde, tHasta, vDesde, vHasta], …]
  */
 export function piecewise(t, stops) {

@@ -567,20 +567,20 @@ const result = {
 };
 
 if (asJson) {
-  console.log(JSON.stringify(result, null, 2));
+  console.info(JSON.stringify(result, null, 2));
   process.exit(result.ok ? 0 : 1);
 }
 
-console.log(
+console.info(
   `atribucion: ${result.requiredFiles} ficheros legales, ` +
     `${result.manifest ? `${result.manifest.derived} derivados + ${result.manifest.native} nativos` : 'SIN MANIFIESTO'}, ` +
     `${result.licenseFamilies} familias en LICENSE.md -> ${licenseFiles} ficheros, ` +
     `${result.sourceRoutes} rutas en cabeceras, ${corpusFiles} ficheros de corpus`,
 );
-for (const n of notes) console.log(`  nota: ${n}`);
+for (const n of notes) console.info(`  nota: ${n}`);
 if (result.ok) {
-  console.log('  CADENA MIT RESOLUBLE: toda ruta citada existe en el repositorio.');
-  console.log('  CLASIFICACION CONFORME: cada derivado lleva su cabecera canonica y ningun nativo la lleva.');
+  console.info('  CADENA MIT RESOLUBLE: toda ruta citada existe en el repositorio.');
+  console.info('  CLASIFICACION CONFORME: cada derivado lleva su cabecera canonica y ningun nativo la lleva.');
   process.exit(0);
 }
 console.error(`  ${problems.length} PROBLEMA(S):`);

@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { staticSVG } from '../src/render/static.js';
 import { generateGenome } from '../src/core/genome.js';
+import { POSES } from '../src/runtime/poses.js';
 import { STATES } from '../src/runtime/states.js';
 import { VERSION } from '../src/version.js';
 
@@ -66,10 +67,12 @@ test('todos los estados renderizan y aplican tinte/insignia cuando corresponde',
 test('emotes cambian la pose en el snapshot', () => {
   const g = generateGenome('emote-test');
   const svg = staticSVG('emote-test', { state: 'idle', emote: 'love' });
-  // pose happy: rx = 58/2 × scale del genoma, párpado superior retraído (−36)
-  const rx = (29 * g.eyes.scale).toFixed(2);
+  // La pose del emote (`happy`) se refleja en el snapshot. Las cifras salen de
+  // la TABLA de poses (la fuente de verdad), no de un literal upstream.
+  // El renderer usa `w/2` (el radio del ojo) escalado por el gen `scale`.
+  const rx = ((POSES.happy.w / 2) * g.eyes.scale).toFixed(2);
   assert.ok(svg.includes(`rx="${rx}"`), `pose happy: rx ${rx}`);
-  assert.ok(svg.includes('y="-126"'), 'párpado superior retraído (topY −36)');
+  assert.ok(svg.includes(`y="${POSES.happy.topY - 90}"`), 'parpado superior retruido');
 });
 
 test('modo input: barra de cursor visible y elipse oculta', () => {

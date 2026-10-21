@@ -73,22 +73,28 @@ test('lerpPose interpola todos los números sin conmutaciones (rig ARA)', () => 
   }
 });
 
-test('poses ARA verbatim + aliases de Ego', () => {
-  // tabla literal de core.js:8-57
-  assert.deepEqual(
-    [POSES.idle.w, POSES.idle.h, POSES.idle.topY, POSES.idle.bottomY],
-    [54, 58, -36, 36]
-  );
-  assert.deepEqual(
-    [POSES.angry.topY, POSES.angry.topAL, POSES.angry.topAR],
-    [-5, 16, -16]
-  );
-  assert.deepEqual([POSES.surprise.w, POSES.surprise.h], [68, 68]);
-  // aliases propios sobre números ARA
+test('poses propias de Ego + aliases', () => {
+  // Las cifras las produce la REGLA de `poses.js` (intenciones -> numeros del
+  // rig). El test fija PROPIEDADES, no numeros de un upstream:
+  //   · los parpados de reposo estan abiertos y simetricos;
+  //   · `sad` y `angry` estrechan el ojo por arriba y se inclinan en
+  //     sentidos OPUESTOS (el ceño no puede parecerse a la tristeza);
+  //   · `happy` sube el parpado inferior (la sonrisa);
+  //   · `surprise` es el ojo mas grande.
+  assert.ok(POSES.idle.topY < 0 && POSES.idle.bottomY > 0, 'reposo: parpados abiertos');
+  assert.equal(POSES.idle.topY, -POSES.idle.bottomY, 'reposo: parpados simetricos');
+  assert.ok(POSES.angry.topY > POSES.idle.topY, 'angry: el parpado superior baja');
+  assert.ok(POSES.angry.topAL * POSES.angry.topAR < 0, 'angry: inclina en sentidos opuestos');
+  assert.ok(POSES.sad.topAL * POSES.sad.topAR < 0, 'sad: tambien inclina');
+  assert.notEqual(POSES.angry.topAL, POSES.sad.topAL, 'sad y angry no inclinan igual');
+  assert.ok(POSES.happy.bottomY < POSES.idle.bottomY, 'happy: el parpado inferior sube (sonrisa)');
+  assert.ok(POSES.surprise.w > POSES.idle.w, 'surprise: el ojo es mas ancho');
+  assert.ok(POSES.surprise.h > POSES.idle.h, 'surprise: el ojo es mas alto');
+  // aliases propios sobre las poses propias
   assert.deepEqual(POSES.flat, POSES.angry, 'flat = angry');
   assert.deepEqual(POSES.wide, POSES.surprise, 'wide = surprise');
   assert.deepEqual(POSES.closed, POSES.sleep, 'closed = sleep');
   assert.deepEqual(POSES.tired, POSES.sleepy, 'tired = sleepy');
   assert.deepEqual(POSES.spiral, POSES.sleepy, 'spiral = sleepy');
-  assert.equal(POSES.thinking.gaze.join(','), '0.45,-0.5', 'thinking mira ↑der');
+  assert.equal(POSES.thinking.gaze.join(','), '0.45,-0.5', 'thinking mira arriba-derecha');
 });

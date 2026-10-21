@@ -49,7 +49,9 @@
     "attribution:check": "node scripts/check-attribution.mjs",
     "attribution:declare": "node scripts/check-attribution.mjs --fix",
     "provenance:check": "node scripts/check-attribution.mjs",
-    "capture:visuals": "node scripts/capture-visuals.mjs --out captures/current"
+    "capture:visuals": "node scripts/capture-visuals.mjs --out captures/current",
+    "no-verbatim:check": "node scripts/check-no-verbatim.mjs",
+    "no-verbatim:all": "node scripts/check-no-verbatim.mjs --all"
   },
   "dependencies": {},
   "devDependencies": {}

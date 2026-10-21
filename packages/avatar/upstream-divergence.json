@@ -31,7 +31,8 @@
     "geometry": "geometria propia de Ego en lugar de un puerto literal (decision D4)",
     "state": "vocabulario de estados/presets propio de Ego",
     "feature": "funcion nueva del motor (no existe en el upstream)",
-    "fix": "correccion de un defecto del upstream"
+    "fix": "correccion de un defecto del upstream",
+    "own": "implementacion propia de Ego tras la decision D4 (el upstream queda como patron asimilado)"
   },
   "divergences": {
     "core/anim.js": {
@@ -40,9 +41,9 @@
       "sha256": "3e7f1f7897d572acc9764a69a7532a369b096359f685c918046c882f9d364f91"
     },
     "core/timeline.js": {
-      "kind": "attribution",
-      "reason": "Cabeceras de derivacion normalizadas a `vendor/coucou/mochi/engine.ts` (resoluble) y anadido el `@returns` que exige el typecheck con checkJs (el tipo de retorno era `{duration:number}` y noCubria `w2End`, `w8End`...).",
-      "sha256": "9ec51b6d229120faf1e19e2554d9c7c62d37b541a46b0c2ba948ec752ed5a7e7"
+      "kind": "own",
+      "reason": "Decision D4 (owner, 2026-10-21): implementacion PROPIA de Ego. El runner de tracks por campo (estado, avance del tiempo y reserva del campo) y las fases acumuladas se reescribieron; el upstream queda como patron asimilado (sin traduccion de codigo).",
+      "sha256": "cb62b7306fc6af3f40665140d827862b4ce3d5113bb4a25405f61874fd3a0d7b"
     },
     "render/builder.js": {
       "kind": "types",
@@ -80,9 +81,9 @@
       "sha256": "cac5d5be860586c70b91b741884e273ce34448fd5c62a494a4dcef617af37c34"
     },
     "runtime/poses.js": {
-      "kind": "feature",
-      "reason": "Pose `warn` (ojos estrechados, parpados bajos y neutros) para el estado `warning`: distinta de `angry`/`flat` (error) y de `sleepy`/`tired` (ratelimit).",
-      "sha256": "dceda90757b6a371843c6ae8a0906c9486dab93a13a3f710cf5a54df68f5b740"
+      "kind": "own",
+      "reason": "Decision D4 (owner, 2026-10-21): implementacion PROPIA de Ego. Las poses se declaran con INTENCIONES (abrir, cerrar por debajo, inclinar, estirar, achatar) y las cifras del rig las produce una regla propia.",
+      "sha256": "bd792200eefeafe4648263057d439c2f64845b163cbbd1811a3779354f07d1b9"
     },
     "runtime/presence.js": {
       "kind": "attribution",
@@ -120,9 +121,9 @@
       "sha256": "7b39007d13467b62ba2783b6aa989a1bf4215ac5ad5cc9ad18a87c17858e5b37"
     },
     "studio/render/accessories.js": {
-      "kind": "geometry",
-      "reason": "Geometria propia de Ego (decision D4) y cabecera canonica `Adapted from ... (MIT), <ruta>`; el upstream lo declaraba 'puerto verbatim'.",
-      "sha256": "fc78fe34f6566c67bd8bfddc82b7ad3ffef921616402b37c6efeed6d4152761e"
+      "kind": "own",
+      "reason": "Decision D4 (owner, 2026-10-21): implementacion PROPIA de Ego. El catalogo de accesorios es dato y las piezas (antena, banda, lentes, gorro, orejas, corona, halo, brote) son geometria propia sobre una capa de primitivas.",
+      "sha256": "4de903a69d73af95c132cccf23cb742e75fbc05b44524da25b25e2c707753ef8"
     },
     "studio/render/body.js": {
       "kind": "geometry",
@@ -155,9 +156,9 @@
       "sha256": "ad478845996403b2295cd7bb464d25cd4e4268aa7aa34579cd35da9506832554"
     },
     "studio/sound.js": {
-      "kind": "feature",
-      "reason": "Cuatro recetas de sonido nuevas para los estados `thinking`, `approval`, `question` y `ratelimit` del studio.",
-      "sha256": "7250e2f68aab6886ad9115afd65de5d2e72cf5a3d168b0229f9b4798498c4f35"
+      "kind": "own",
+      "reason": "Decision D4 (owner, 2026-10-21): implementacion PROPIA de Ego. El catalogo de gestos sonoros (raiz tonal, patron en semitonos y envolvente) y el renderizador generico son propios; el single-file de origen queda como patron asimilado (y su licencia no esta declarada alli).",
+      "sha256": "fe768525201653ecad5199ce8dfcdbcb9476c19558da8fc9a4b270e5ce8ee03b"
     },
     "core/config.js": {
       "kind": "attribution",
@@ -165,14 +166,14 @@
       "sha256": "6b58d2f18f3f195c206516e90379d57496df27be55d8cf9e8edbba43f87fb850"
     },
     "render/ara-head.js": {
-      "kind": "attribution",
-      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
-      "sha256": "c7c58a3f10ea832b8f1559e16f97bb76d5eba74a5a03a598a96282c94a5ffc48"
+      "kind": "own",
+      "reason": "Decision D4 (owner, 2026-10-21): implementacion PROPIA de Ego. La silueta es una cupula de exponente propio (3.4) con la corona plana y el menton estrecho, generada por una regla y normalizada a la caja 20-220. El upstream queda como patron asimilado (sin traduccion de codigo).",
+      "sha256": "3237be61087089d15263b282d6b9c88aac2a6656102e531eb42dc30887a4529d"
     },
     "render/body.js": {
-      "kind": "attribution",
-      "reason": "Cabecera de atribucion canonica anadida en la Ola 8 (\"Adapted from agent-robot-avatar (...), <ruta de origen>\"): el codigo sigue siendo IDENTICO al del upstream (verificado comparando el texto sin comentarios); lo unico que cambio es la cabecera, que el modelo de atribucion exige por tratarse de codigo derivado.",
-      "sha256": "31c38edf936c6dd8530004fd33268270451e1124fd0d697ece5486bbf8245f4e"
+      "kind": "own",
+      "reason": "Decision D4 (owner, 2026-10-21): implementacion PROPIA de Ego. El pipeline (parsear, aplanar, mezclar el redondeo, serializar) y sus constantes son propios. El upstream queda como patron asimilado.",
+      "sha256": "0a1e934a2f7d475d8fc46a84c3c529bbc17dd5291142db7b1dfedb71ba474074"
     },
     "render/eyes.js": {
       "kind": "attribution",

@@ -1,21 +1,29 @@
 // body.js — cabeza del robot + tinte de estado, marcas y aura.
-// La silueta ES la de agent-robot-avatar (el otro repositorio de referencia):
-// plantilla verbatim de 160 puntos (render/ara-head.js, MIT © CX ArtLab) +
-// aplastado vertical (geometry.js `flattenHeadPoints`) + mezcla de redondeo
-// 0–100 (head-roundness.js: exponente 10 ↔ 2.2, default 50). Todo como funciones
-// puras; el runtime solo re-emite el path al cambiar el genoma.
+//
+// IMPLEMENTACIÓN PROPIA DE EGO — patrón asimilado de `agent-robot-avatar`
+// (MIT), sin traducción de código. La idea asimilada es "una silueta es una
+// lista de puntos que se aplasta, se mezcla y se vuelve a serializar"; las
+// funciones, sus constantes y la forma en que se combinan son de Ego.
+//
+// La silueta base la genera `render/ara-head.js` (cúpula propia). Aquí vive
+// el pipeline: parsear → aplanar (gen `ratio`) → mezclar el redondeo (gen
+// `roundness`) → serializar. Todo como funciones puras; el runtime solo
+// re-emite el path al cambiar el genoma.
 // El relleno es plano (tinta de la identidad); el estado tiñe con un overlay.
-// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/geometry.js
 
 import { el, group } from './builder.js';
 import { ARA_HEAD_D } from './ara-head.js';
 import { clamp } from '../core/morph.js';
 
-/** Caja canónica de la plantilla (20…220, centro 120/120). */
+/** Caja canónica de la silueta (20…220, centro 120/120). */
 export const BODY = Object.freeze({ cx: 120, cy: 120, rx: 100 });
 
-/** Redondeo neutro de la plantilla (head-roundness.js DEFAULT_ROUNDNESS). */
+/** Redondeo neutro de la silueta (el gen `roundness` va de 0 a 100). */
 export const DEFAULT_ROUNDNESS = 50;
+
+/** Exponente de la superelipse en cada extremo del rango de redondeo. */
+const SQUARE_EXPONENT = 8.0;  // roundness 0 → casi un cuadrado
+const ROUND_EXPONENT = 2.0;   // roundness 100 → casi un círculo
 
 /** Redondeo del genoma: 0 = cuadrado … 100 = redondo. */
 export function headRoundness(genome) {
@@ -24,8 +32,8 @@ export function headRoundness(genome) {
 }
 
 /**
- * Escala vertical desde el gen `ratio` (geometry.js `heightScale`, siempre
- * ≤ 1: solo aplasta, nunca estira — ratio ≥ 1 devuelve la plantilla intacta).
+ * Escala vertical desde el gen `ratio`: solo aplasta, nunca estira
+ * (ratio ≥ 1 devuelve la silueta intacta).
  */
 export function headHeightScale(genome) {
   const ratio = Number(genome?.shape?.ratio);
@@ -38,113 +46,124 @@ export function bodyRadii(genome) {
   return { rx: BODY.rx, ry: BODY.rx * headHeightScale(genome) };
 }
 
-/** Parsea un path `M/L/Z` a puntos (core.js `_parseHeadPoints`, literal). */
+/** Números de un path SVG (enteros o decimales, con signo opcional). */
+const COORD_RE = /-?\d+(?:\.\d+)?/g;
+
+/** Parsea un path `M/L/Z` a una lista de puntos `{x, y}`. */
 export function parseHeadPoints(d) {
-  const nums = (String(d).match(/-?\d*\.?\d+/g) || []).map(Number);
+  const coords = String(d).match(COORD_RE);
   const pts = [];
-  for (let i = 0; i < nums.length - 1; i += 2) pts.push({ x: nums[i], y: nums[i + 1] });
+  if (!coords) return pts;
+  let i = 0;
+  while (i + 1 < coords.length) {
+    pts.push({ x: Number(coords[i]), y: Number(coords[i + 1]) });
+    i += 2;
+  }
   return pts;
 }
 
-/** Puntos → path `M/L/Z` con 2 decimales (core.js `_pointsToPath`, literal). */
+/** Puntos → path `M/L/Z` con 2 decimales. */
 export function pointsToPath(points) {
-  if (!points.length) return ARA_HEAD_D;
-  let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-  for (let i = 1; i < points.length; i++) d += ` L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)}`;
-  return `${d} Z`;
+  if (points.length === 0) return ARA_HEAD_D;
+  const pairs = [];
+  for (const p of points) pairs.push(`${p.x.toFixed(2)} ${p.y.toFixed(2)}`);
+  return `M ${pairs[0]} L ${pairs.slice(1).join(' L ')} Z`;
+}
+
+/** Suavizado tipo smoothstep (entrada 0…1). */
+function smooth01(t) {
+  const v = clamp(t, 0, 1);
+  return v * v * (3 - 2 * v);
 }
 
 /**
- * Aplastado vertical con bloqueo en los polos (geometry.js, literal):
- * los puntos sobre `upperLockY`/bajo `lowerLockY` se desplazan el inset
- * completo; el ecuador no se mueve; entre medias, smoothstep.
+ * Aplastado vertical: los polos (el 40 % superior y el 40 % inferior) se
+ * desplazan el inset completo; hacia el ecuador el desplazamiento decae
+ * hasta cero. El ecuador, por tanto, no se mueve.
  */
-export function flattenHeadPoints(points, heightScale = 0.9) {
-  if (!points?.length) return [];
-  const source = points.map((p) => ({ x: p.x, y: p.y }));
-  const minY = Math.min(...source.map((p) => p.y));
-  const maxY = Math.max(...source.map((p) => p.y));
-  const height = maxY - minY;
-  if (!(height > 0)) return source;
+export function flattenHeadPoints(points, squash = 0.9) {
+  const src = points.map((p) => ({ x: p.x, y: p.y }));
+  if (!src.length) return [];
+  const ys = src.map((p) => p.y);
+  const low = Math.min(...ys);
+  const high = Math.max(...ys);
+  const tall = high - low;
+  if (!(tall > 0)) return src;
 
-  const scale = clamp(Number(heightScale), 0.1, 1);
-  const centerY = (minY + maxY) / 2;
-  const inset = (height * (1 - scale)) / 2;
-  const upperLockY = minY + height * 0.4;
-  const lowerLockY = maxY - height * 0.4;
-  const smooth01 = (v) => {
-    const t = clamp(v, 0, 1);
-    return t * t * (3 - 2 * t);
-  };
+  const k = clamp(Number(squash), 0.1, 1);
+  const equator = (low + high) / 2;
+  const inset = (tall * (1 - k)) / 2;
+  const band = tall * 0.4;
 
-  return source.map((point) => {
-    let shiftY = 0;
-    if (point.y <= upperLockY) {
-      shiftY = inset;
-    } else if (point.y < centerY) {
-      const t = (centerY - point.y) / Math.max(0.001, centerY - upperLockY);
-      shiftY = inset * smooth01(t);
-    } else if (point.y >= lowerLockY) {
-      shiftY = -inset;
-    } else if (point.y > centerY) {
-      const t = (point.y - centerY) / Math.max(0.001, lowerLockY - centerY);
-      shiftY = -inset * smooth01(t);
-    }
-    return { x: point.x, y: point.y + shiftY };
-  });
+  const out = [];
+  for (const p of src) {
+    const delta = p.y - equator;
+    const dist = Math.abs(delta);
+    let off;
+    if (dist >= band) off = inset;
+    else off = inset * smooth01(dist / band);
+    out.push({ x: p.x, y: p.y + (delta < 0 ? off : -off) });
+  }
+  return out;
 }
 
-/** Punto de superelipse (head-roundness.js:31-39, literal). */
-export function superellipsePointARA(angle, cx, cy, halfW, halfH, exponent) {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  const xTerm = Math.pow(Math.abs(cos) / Math.max(0.001, halfW), exponent);
-  const yTerm = Math.pow(Math.abs(sin) / Math.max(0.001, halfH), exponent);
-  const denom = Math.pow(xTerm + yTerm, 1 / exponent);
-  const radius = denom > 0 ? 1 / denom : 0;
-  return { x: cx + cos * radius, y: cy + sin * radius };
+/**
+ * Punto de la superelipse `|x/a|^n + |y/b|^n = 1` a partir de un ángulo.
+ * `halfW`/`halfH` son los semiejes de la figura destino.
+ */
+export function superellipsePointARA(angle, centerX, centerY, halfW, halfH, exponent) {
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const a = Math.abs(c) / Math.max(0.001, halfW);
+  const b = Math.abs(s) / Math.max(0.001, halfH);
+  const norm = (a ** exponent + b ** exponent) ** (1 / exponent);
+  const r = norm > 0 ? 1 / norm : 0;
+  return { x: centerX + c * r, y: centerY + s * r };
 }
 
-/** Reproyecta los puntos sobre la superelipse objetivo (head-roundness.js, literal). */
-export function targetShape(points, exponent) {
-  const minX = Math.min(...points.map((p) => p.x));
-  const maxX = Math.max(...points.map((p) => p.x));
-  const minY = Math.min(...points.map((p) => p.y));
-  const maxY = Math.max(...points.map((p) => p.y));
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
-  const halfW = (maxX - minX) / 2;
+/** Reproyecta los puntos sobre la superelipse objetivo (misma lista, mismo orden). */
+export function targetShape(pts, exponent) {
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
   const halfH = (maxY - minY) / 2;
-  return points.map((p) => {
-    const angle = Math.atan2(p.y - cy, p.x - cx);
-    return superellipsePointARA(angle, cx, cy, halfW, halfH, exponent);
-  });
+  const halfW = (maxX - minX) / 2;
+  const midX = (minX + maxX) / 2;
+  const midY = (minY + maxY) / 2;
+  return pts.map((p) =>
+    superellipsePointARA(Math.atan2(p.y - midY, p.x - midX), midX, midY, halfW, halfH, exponent),
+  );
 }
 
-/** Mezcla punto a punto (head-roundness.js `mixPoints`, literal). */
-export function mixPoints(from, to, amount) {
+/** Mezcla punto a punto entre dos siluetas (`amount` = 0…1). */
+export function mixPoints(src, dst, amount) {
   const t = clamp(amount, 0, 1);
-  return from.map((point, i) => ({
-    x: point.x + (to[i].x - point.x) * t,
-    y: point.y + (to[i].y - point.y) * t,
-  }));
+  const out = [];
+  for (let i = 0; i < src.length; i++) {
+    const a = src[i];
+    const b = dst[i];
+    out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  }
+  return out;
 }
 
 /**
  * Silueta final para un genoma: plantilla → aplastado (ratio) → mezcla de
- * redondeo (`setHeadRoundness`: <50 hacia exp 10 = cuadrado, >50 hacia
- * exp 2.2 = redondo, 50 = plantilla intacta).
+ * redondeo (roundness < 50 hacia el exponente cuadrado, > 50 hacia el
+ * redondo; 50 = la plantilla intacta).
  */
 export function headPathFor(genome) {
-  const baseline = flattenHeadPoints(parseHeadPoints(ARA_HEAD_D), headHeightScale(genome));
+  const base = flattenHeadPoints(parseHeadPoints(ARA_HEAD_D), headHeightScale(genome));
   const roundness = headRoundness(genome);
-  let points = baseline;
-  if (roundness < DEFAULT_ROUNDNESS) {
-    points = mixPoints(baseline, targetShape(baseline, 10), (DEFAULT_ROUNDNESS - roundness) / DEFAULT_ROUNDNESS);
-  } else if (roundness > DEFAULT_ROUNDNESS) {
-    points = mixPoints(baseline, targetShape(baseline, 2.2), (roundness - DEFAULT_ROUNDNESS) / DEFAULT_ROUNDNESS);
-  }
-  return pointsToPath(points);
+  if (roundness === DEFAULT_ROUNDNESS) return pointsToPath(base);
+  const goingSquare = roundness < DEFAULT_ROUNDNESS;
+  const exponent = goingSquare ? SQUARE_EXPONENT : ROUND_EXPONENT;
+  const offset = roundness - DEFAULT_ROUNDNESS;
+  const amount = Math.abs(offset) / DEFAULT_ROUNDNESS;
+  return pointsToPath(mixPoints(base, targetShape(base, exponent), amount));
 }
 
 /** Path de la silueta completa (nombre estable para shell/tests). */
@@ -199,7 +218,7 @@ export function markingPath(uid, genome) {
         'clip-path': `url(#clip-${uid})`,
       });
     }
-    case 'orbit': {
+    case 'orbit':
       if (!m) return '';
       return el('ellipse', {
         cx,
@@ -213,7 +232,6 @@ export function markingPath(uid, genome) {
         transform: `rotate(${m.tilt} ${cx} ${cy})`,
         'clip-path': `url(#clip-${uid})`,
       });
-    }
     default:
       return '';
   }
@@ -227,8 +245,8 @@ function stripePath(cx, y, w, t, tilt) {
   const ny = Math.cos(rad) * t;
   const p1 = `${round(cx - dx + nx)} ${round(y - dy + ny)}`;
   const p2 = `${round(cx + dx + nx)} ${round(y + dy + ny)}`;
-  const p3 = `${round(cx + dx - nx)} ${round(y + dy - ny)}`;
-  const p4 = `${round(cx - dx - nx)} ${round(y - dy - ny)}`;
+  const p3 = `${round(cx + dx - nx)} ${round(y - dy - ny)}`;
+  const p4 = `${round(cx - dx - nx)} ${round(y - dy + ny)}`;
   return `M ${p1} L ${p2} L ${p3} L ${p4} Z`;
 }
 
