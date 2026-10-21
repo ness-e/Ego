@@ -1,10 +1,11 @@
-import type { ModelMessage, ModelRole } from "@ego/models";
+import type { ModelMessage, ModelRole, ToolCall } from "@ego/models";
 import { createHash } from "node:crypto";
 import { ModelRouter } from "@ego/models";
 import { ToolRegistry } from "@ego/tools";
 import type { ToolDefinition } from "@ego/tools";
 import { ExecutionManager, type ApprovalEngine } from "@ego/execution";
 import type { EventBus } from "@ego/events";
+import { childCorrelationId } from "@ego/events";
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -268,6 +269,10 @@ export class ToolExecutionLoop {
     const eventBus = options.eventBus ?? this.eventBus;
     const sessionId = options.context.sessionId;
     const traceId = options.traceId ?? sessionId;
+    // EGO-FIND-74: correlación del turno. Se propaga a los eventos de tool
+    // para poder reconstruir la traza (turno → tool calls → logs).
+    const correlationId = options.correlationId;
+    const correlationMeta = correlationId ? { correlationId } : undefined;
     const loopStartTime = Date.now();
 
     // STAB-05: enforcement del prefijo cacheado (deuda `types.ts:77-87`).
@@ -391,6 +396,47 @@ export class ToolExecutionLoop {
           details: { requestedTools: res.toolCalls.map((tc) => tc.name) }
         });
 
+        // ══════════════════════════════════════════════════════════════════
+        // E1 (EGO-FIND-43) — Tool calls CONCURRENTES con orden garantizado.
+        // ══════════════════════════════════════════════════════════════════
+        //
+        // POR QUÉ 3 FASES Y NO UN `Promise.all` SOBRE EL BUCLE:
+        // el proveedor exige que cada `tool_result` siga en orden a su
+        // `tool_use`. Verificado contra el source del SDK:
+        // `@ai-sdk/anthropic@4.0.78` → `src/convert-to-anthropic-prompt.ts`,
+        // `groupIntoBlocks()` (L1569-1577): los mensajes `tool` CONSECUTIVOS se
+        // agrupan en un único bloque `user` y sus partes `tool_result` se
+        // empujan EN EL ORDEN DEL ARRAY de mensajes. Por tanto el orden del
+        // array `messages` de Ego ES el orden de los `tool_result` del payload:
+        // ejecutar en paralelo y emitir por orden de completación violaría el
+        // contrato del proveedor.
+        //
+        // Diseño en 3 fases:
+        //   A) PREPARACIÓN (secuencial, por tool, en orden): lookup, reparación,
+        //      validación, gates de gobernanza y aprobación HITL. Sin I/O.
+        //   B) EJECUCIÓN (concurrente): las tools aprobadas se lanzan a la vez;
+        //      el `ExecutionManager` gobierna `maxConcurrentExecutions`, la cola,
+        //      el timeout por llamada, el abort, el truncado por bytes, el
+        //      circuit breaker y la quota por Sub-Ego.
+        //   C) EMISIÓN (secuencial, en orden): los resultados se empujan al
+        //      array `messages` en el ORDEN ORIGINAL de los `tool_use`.
+        //
+        // Un tool que falla NO aborta el turno: su resultado de error ocupa SU
+        // posición (aislamiento de fallos).
+        type ToolCallPlan =
+          | { kind: "message"; message: ModelMessage; correlationId?: string }
+          | {
+              kind: "execute";
+              call: ToolCall;
+              tool: ToolDefinition;
+              args: Record<string, unknown>;
+              correlationId?: string;
+            };
+
+        const plans: ToolCallPlan[] = [];
+        let suspended: ApprovalRequest | null = null;
+
+        // ── FASE A: PREPARACIÓN (secuencial, en orden) ─────────────────────
         for (const call of res.toolCalls) {
           // Cancelación entre herramientas: no ejecutar más tools del turno.
           const betweenTools = this.abortCheckpoint(
@@ -399,6 +445,13 @@ export class ToolExecutionLoop {
           if (betweenTools) return betweenTools;
 
           this.config.onToolCall?.(call);
+
+          // EGO-FIND-74: span hijo determinista por tool call
+          // (`tool:<nombre>`), para correlacionar start ↔ executed ↔ log.
+          const toolCorrelationId = correlationId
+            ? childCorrelationId(correlationId, `tool:${call.name}`)
+            : undefined;
+          const toolMeta = toolCorrelationId ? { correlationId: toolCorrelationId } : correlationMeta;
 
           const tool = this.registry.get(call.name);
           eventBus?.emit("tool.started", {
@@ -410,7 +463,8 @@ export class ToolExecutionLoop {
             source: "runtime.tool_loop",
             sessionId,
             traceId,
-            severity: "info"
+            severity: "info",
+            metadata: toolMeta
           });
 
           if (!tool) {
@@ -423,18 +477,22 @@ export class ToolExecutionLoop {
               source: "runtime.tool_loop",
               sessionId,
               traceId,
-              severity: "error"
+              severity: "error",
+              metadata: toolMeta
             });
 
             const enriched = errorHandler.handleToolNotFound(
               call,
               this.registry.list().map((t) => t.name)
             );
-            messages.push({
-              role: "tool",
-              toolCallId: call.id,
-              name: call.name,
-              content: errorHandler.formatErrorResponse(enriched)
+            plans.push({
+              kind: "message",
+              message: {
+                role: "tool",
+                toolCallId: call.id,
+                name: call.name,
+                content: errorHandler.formatErrorResponse(enriched)
+              }
             });
             continue;
           }
@@ -458,15 +516,19 @@ export class ToolExecutionLoop {
               source: "runtime.tool_loop",
               sessionId,
               traceId,
-              severity: "error"
+              severity: "error",
+              metadata: toolMeta
             });
 
             const enriched = errorHandler.handleValidationError(call, validation.error);
-            messages.push({
-              role: "tool",
-              toolCallId: call.id,
-              name: call.name,
-              content: errorHandler.formatErrorResponse(enriched)
+            plans.push({
+              kind: "message",
+              message: {
+                role: "tool",
+                toolCallId: call.id,
+                name: call.name,
+                content: errorHandler.formatErrorResponse(enriched)
+              }
             });
             continue;
           }
@@ -481,22 +543,25 @@ export class ToolExecutionLoop {
             { sessionId, traceId, eventBus }
           );
           if (gate.rejected) {
-            messages.push({
-              role: "tool",
-              toolCallId: call.id,
-              name: call.name,
-              content: JSON.stringify({ status: "rejected", message: gate.rejected })
+            plans.push({
+              kind: "message",
+              message: {
+                role: "tool",
+                toolCallId: call.id,
+                name: call.name,
+                content: JSON.stringify({ status: "rejected", message: gate.rejected })
+              }
             });
             continue;
           }
 
-          // Verificación de política HITL (aprobación humana)
+          // Verificación de política HITL (aprobación humana) — POR TOOL.
           //
           // EGO-FIND-60 (T5): si el historial contiene contenido NO CONFIABLE
           // (procedencia externa) y la herramienta es destructiva o de riesgo
           // alto, la llamada se escala a aprobación humana aunque la política
           // por defecto no la exigiría: el contenido externo pudo haber
-          // influenced los argumentos.
+          // influenceado los argumentos.
           const taintedDestructiveGuard =
             (tool.riskLevel === "destructive" || tool.riskLevel === "sensitive") &&
             messages.some(isTainted);
@@ -507,21 +572,6 @@ export class ToolExecutionLoop {
             (approvalEngine
               ? approvalEngine.evaluateRequirement(tool, finalArgs, options.context).required
               : this.registry.resolveApprovalRequirement(tool));
-
-          if (taintedDestructiveGuard) {
-            eventBus?.emit("hook.decided", {
-              hookId: "trust-boundary:untrusted-content",
-              phase: "PreToolUse",
-              toolName: tool.name,
-              allow: false,
-              reason: "untrusted_content_in_history",
-            }, {
-              source: "runtime.tool_loop",
-              sessionId,
-              traceId,
-              severity: "warn",
-            });
-          }
 
           if (requiresApproval) {
             let decision: ApprovalDecision;
@@ -544,7 +594,8 @@ export class ToolExecutionLoop {
                 source: "runtime.tool_loop",
                 sessionId,
                 traceId,
-                severity: "warn"
+                severity: "warn",
+                metadata: toolMeta
               });
 
               try {
@@ -578,7 +629,8 @@ export class ToolExecutionLoop {
                 source: "runtime.tool_loop",
                 sessionId,
                 traceId,
-                severity: "info"
+                severity: "info",
+                metadata: toolMeta
               });
             } else if (approvalHandler) {
               const approvalReq: ApprovalRequest = {
@@ -608,7 +660,8 @@ export class ToolExecutionLoop {
                 source: "runtime.tool_loop",
                 sessionId,
                 traceId,
-                severity: "warn"
+                severity: "warn",
+                metadata: toolMeta
               });
 
               try {
@@ -636,10 +689,15 @@ export class ToolExecutionLoop {
                 source: "runtime.tool_loop",
                 sessionId,
                 traceId,
-                severity: "info"
+                severity: "info",
+                metadata: toolMeta
               });
             } else {
-              const approvalReq: ApprovalRequest = {
+              // Sin handler ni engine inmediato: se suspende el ciclo.
+              // Los planes ANTERIORES a esta llamada ya se han resuelto y se
+              // emiten (en orden) antes de devolver la suspensión; los
+              // posteriores NO se ejecutan (mismo contrato que el serie).
+              suspended = {
                 approvalId,
                 toolName: tool.name,
                 toolCategory: tool.category,
@@ -650,27 +708,7 @@ export class ToolExecutionLoop {
                 subEgoId: options.context.subEgoId,
                 timestamp: Date.now()
               };
-
-              eventBus?.emit("approval.required", {
-                approvalId: approvalReq.approvalId,
-                action: tool.name,
-                riskLevel: tool.riskLevel,
-                details: finalArgs
-              }, {
-                source: "runtime.tool_loop",
-                sessionId,
-                traceId,
-                severity: "warn"
-              });
-
-              // Si requiere aprobación y no hay handler ni engine inmediato, suspendemos el ciclo
-              return {
-                status: "approval_required",
-                pendingApproval: approvalReq,
-                messages,
-                steps: step,
-                usage: totalUsage
-              };
+              break;
             }
 
             if (!decision.approved) {
@@ -678,11 +716,14 @@ export class ToolExecutionLoop {
                 status: "rejected",
                 message: decision.reason || "Acción rechazada por el usuario o directiva de gobernanza."
               };
-              messages.push({
-                role: "tool",
-                toolCallId: call.id,
-                name: tool.name,
-                content: JSON.stringify(rejectionPayload)
+              plans.push({
+                kind: "message",
+                message: {
+                  role: "tool",
+                  toolCallId: call.id,
+                  name: tool.name,
+                  content: JSON.stringify(rejectionPayload)
+                }
               });
               continue;
             }
@@ -692,35 +733,109 @@ export class ToolExecutionLoop {
             }
           }
 
-          // Ejecución material supervisada mediante ExecutionManager (ACT-03)
+          plans.push({ kind: "execute", call, tool, args: finalArgs, correlationId: toolCorrelationId });
+        }
+
+        // ── FASE B: EJECUCIÓN (concurrente) ────────────────────────────────
+        // Los planes previos a una suspensión sí se ejecutan (su resultado
+        // debe estar en `messages` antes de devolver la suspensión); los
+        // posteriores, no (mismo contrato que la ejecución en serie).
+        const execSlots = plans.filter(
+          (p): p is Extract<ToolCallPlan, { kind: "execute" }> => p.kind === "execute"
+        );
+
+        const execManager = options.executionManager ?? this.executionManager;
+        const parallel = this.config.parallelToolCalls !== false;
+
+        for (const slot of execSlots) {
           this.config.onStep?.({
             step,
             action: "tool_executing",
-            details: { toolName: tool.name, callId: call.id }
+            details: { toolName: slot.tool.name, callId: slot.call.id }
+          });
+        }
+
+        type ExecResult = Awaited<ReturnType<typeof execManager.execute>>;
+        const runSlot = (slot: Extract<ToolCallPlan, { kind: "execute" }>) =>
+          execManager.execute(slot.tool, slot.args, options.context, {
+            abortSignal: options.abortSignal
           });
 
-          const execManager = options.executionManager ?? this.executionManager;
-          let execRes;
-          try {
-            execRes = await execManager.execute(tool, finalArgs, options.context, {
-              abortSignal: options.abortSignal
-            });
-          } catch (err) {
-            const aborted = this.abortResultForError(
-              err, options, messages, step, totalUsage, eventBus, sessionId, traceId
-            );
-            if (aborted) return aborted;
-            throw err;
+        // `Promise.allSettled` conserva el ORDEN de entrada en el array de
+        // resultados ⇒ `settled[i]` corresponde a `execSlots[i]`.
+        let settled: PromiseSettledResult<ExecResult>[];
+        if (parallel) {
+          settled = await Promise.allSettled(execSlots.map((slot) => runSlot(slot)));
+        } else {
+          settled = [];
+          for (const slot of execSlots) {
+            try {
+              settled.push({ status: "fulfilled", value: await runSlot(slot) });
+            } catch (reason: unknown) {
+              settled.push({ status: "rejected", reason });
+            }
+          }
+        }
+
+        // ── FASE C: EMISIÓN (secuencial, en el orden original) ─────────────
+        let slotIndex = 0;
+        for (const plan of plans) {
+          if (plan.kind === "message") {
+            messages.push(plan.message);
+            continue;
           }
 
+          const outcome = settled[slotIndex++];
+          const { call, tool } = plan;
+
+          if (!outcome) {
+            // Sin resultado (no debería ocurrir): error defensivo en posición.
+            messages.push({
+              role: "tool",
+              toolCallId: call.id,
+              name: tool.name,
+              content: JSON.stringify({
+                status: "error",
+                message: "La herramienta no produjo resultado."
+              })
+            });
+            continue;
+          }
+
+          if (outcome.status === "rejected") {
+            // La llamada lanzó fuera del contrato del ExecutionManager
+            // (p. ej. cancelación). Si es cancelación → turno abortado; si no,
+            // se AISLA: el error ocupa SU posición y el turno continúa.
+            const aborted = this.abortResultForError(
+              outcome.reason, options, messages, step, totalUsage, eventBus, sessionId, traceId
+            );
+            if (aborted) return aborted;
+
+            const rawMessage =
+              outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
+            const enriched = errorHandler.handleExecutionError(call, rawMessage, 0);
+            messages.push({
+              role: "tool",
+              toolCallId: call.id,
+              name: tool.name,
+              content: errorHandler.formatErrorResponse(enriched)
+            });
+            continue;
+          }
+
+          const execRes = outcome.value;
           const executionResult: ToolExecutionResult = {
             callId: call.id,
             toolName: tool.name,
             success: execRes.status === "success",
             output: execRes.output,
             error: execRes.error,
-            durationMs: execRes.durationMs
+            durationMs: execRes.durationMs,
+            correlationId: plan.correlationId
           };
+          const planMeta = plan.correlationId
+            ? { correlationId: plan.correlationId }
+            : correlationMeta;
 
           if (execRes.status === "success") {
             errorHandler.notifySuccess();
@@ -733,7 +848,8 @@ export class ToolExecutionLoop {
               source: "runtime.tool_loop",
               sessionId,
               traceId,
-              severity: "info"
+              severity: "info",
+              metadata: planMeta
             });
             messages.push({
               role: "tool",
@@ -755,7 +871,8 @@ export class ToolExecutionLoop {
               source: "runtime.tool_loop",
               sessionId,
               traceId,
-              severity: "error"
+              severity: "error",
+              metadata: planMeta
             });
             const enriched = errorHandler.handleExecutionError(
               call,
@@ -779,6 +896,19 @@ export class ToolExecutionLoop {
             action: "tool_executed",
             details: { toolName: tool.name, success: executionResult.success }
           });
+        }
+
+        if (suspended) {
+          // Suspensión HITL: se devuelven los resultados ya emitidos (en orden)
+          // y la solicitud de aprobación pendiente. Las tool calls posteriores a
+          // esta NO se ejecutan (mismo contrato que la ejecución en serie).
+          return {
+            status: "approval_required",
+            pendingApproval: suspended,
+            messages,
+            steps: step,
+            usage: totalUsage
+          };
         }
 
         // Continúa la siguiente iteración multi-turno

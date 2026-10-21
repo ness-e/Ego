@@ -44,6 +44,11 @@ export interface ToolExecutionResult {
   output?: unknown;
   error?: string;
   durationMs: number;
+  /**
+   * EGO-FIND-74: span de correlación derivado de la tool call
+   * (`childCorrelationId(correlationId del turno, "tool:<nombre>")`).
+   */
+  correlationId?: string;
 }
 
 /**
@@ -73,6 +78,15 @@ export interface ToolExecutionLoopConfig {
   maxSteps?: number;
   defaultRole?: ModelRole;
   systemPrompt?: string;
+  /**
+   * E1 (EGO-FIND-43): ejecutar las tool calls de un turno de forma
+   * **concurrente** (la emisión de resultados mantiene el orden de los
+   * `tool_use`, requisito del contrato del proveedor).
+   *
+   * `false` ⇒ comportamiento estrictamente en serie (el anterior).
+   * Por defecto `true`.
+   */
+  parallelToolCalls?: boolean;
   /**
    * Overlay efímero API-call-time (estilo Hermes `ephemeral_system_prompt`).
    * Vive DESPUÉS de la frontera EPHEMERAL, nunca persiste ni contamina el
@@ -189,6 +203,12 @@ export interface LoopRunOptions {
   abortSignal?: AbortSignal;
   eventBus?: EventBus;
   traceId?: string;
+  /**
+   * EGO-FIND-74: id de correlación del turno. Se propaga a los eventos de
+   * tool (`metadata.correlationId`) y a los spans hijos derivados
+   * (`childCorrelationId(parent, "tool:<nombre>")`).
+   */
+  correlationId?: string;
 }
 
 /**
