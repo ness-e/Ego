@@ -12,6 +12,11 @@ import type {
   ReasoningEffort,
 } from "./types.js";
 import { MockProvider } from "./providers/MockProvider.js";
+import {
+  attributeModelId,
+  providerProfile,
+  type ModelTarget,
+} from "./ModelCatalog.js";
 
 export interface ModelRouterConfig {
   preferLocal?: boolean;
@@ -568,6 +573,208 @@ export class ModelRouter {
   }
 
   /**
+   * E5: tope global de coste por llamada (USD).
+   *
+   * Lo consume el circuit breaker de presupuesto de Sub-Ego
+   * (`packages/subegos/src/SubEgoBudgetBreaker.ts`), que combina el tope
+   * propio del Sub-Ego con este tomando el MÍNIMO.
+   *
+   * ## Contrato (semántica exacta de "sin tope")
+   *
+   * | configuración | valor devuelto | por qué |
+   * |---|---|---|
+   * | sin `maxCostPerCallUsd` explícito | **1.0** | el default del constructor: es el mismo valor que ya usa `enforceCostBudget`, así que el tope global y el enforcement en línea nunca se contradicen |
+   * | `{maxCostPerCallUsd: 2.5}` | **2.5** | el tope configurado |
+   * | `{maxCostPerCallUsd: 0}` / negativo / `NaN` | **`undefined`** | **sin tope**: `0` significaría "todo cuesta 0" y el breaker calcularía `MÍNIMO(Sub-Ego, 0) = 0`, parando **todos** los turnos. `undefined` = "no hay tope global": el circuito vigila el resto de límites (tokens, duración, gasto diario) |
+   *
+   * Es exactamente la semántica que ya tiene `enforceCostBudget` (un tope no
+   * positivo o no finito = "sin tope"), aplicada al lector.
+   */
+  public getMaxCostPerCallUsd(): number | undefined {
+    const budget = this.config.maxCostPerCallUsd;
+    if (typeof budget !== "number" || !Number.isFinite(budget) || budget <= 0) {
+      return undefined;
+    }
+    return budget;
+  }
+
+  /**
+   * E5: resuelve el modelo más barato que cumple el tope indicado.
+   *
+   * Delega en la MISMA selección de candidatos que `enforceCostBudget`
+   * (no la duplica): el breaker de Sub-Ego decide *cuándo* degradar; el
+   * router decide *con qué modelo*. Devuelve `null` si no hay ninguno
+   * disponible (el breaker entonces DETIENE con error tipado).
+   *
+   * El mock NUNCA es destino de una degradación por coste: devolvería una
+   * respuesta ficticia al usuario. `capabilities` se filtra con AND; una
+   * capacidad desconocida deja la lista de candidatos vacía (fail-closed).
+   *
+   * ## Formas admitidas
+   *
+   * - **Objeto de opciones** (la del contrato real `BudgetAwareRouterLike`):
+   *   `resolveCheaperModel({maxCostPerCallUsd, capabilities?, excludeModelId?})`.
+   * - **Número suelto** (forma abreviada): `resolveCheaperModel(0.05)`.
+   *
+   * Se aceptan las dos para que cualquier consumidor del contrato
+   * estructural pueda llamar sin adaptadores intermedios.
+   *
+   * ## Semántica de "sin alternativa"
+   *
+   * `null` ⇒ no hay ningún modelo que cumpla el tope ⇒ el circuito **DETIENE**
+   * con `SubEgoBudgetCircuitBreakerError` (fail-closed). Nunca devuelve el
+   * mock, nunca devuelve un modelo por encima del tope.
+   */
+  public async resolveCheaperModel(
+    options:
+      | {
+          maxCostPerCallUsd: number;
+          capabilities?: readonly string[];
+          /** Modelo actual: se excluye para no "degradar" al mismo modelo. */
+          excludeModelId?: string;
+        }
+      | number
+  ): Promise<string | null> {
+    const normalized: {
+      maxCostPerCallUsd: number;
+      capabilities?: readonly string[];
+      excludeModelId?: string;
+    } = typeof options === "number" ? { maxCostPerCallUsd: options } : options;
+
+    const budget = normalized.maxCostPerCallUsd;
+    if (typeof budget !== "number" || !Number.isFinite(budget) || budget <= 0) {
+      return null;
+    }
+    const candidate = await this.findCheaperCandidate(
+      budget,
+      (normalized.capabilities ?? []) as readonly ModelCapability[],
+      normalized.excludeModelId ?? null
+    );
+    return candidate?.id ?? null;
+  }
+
+  /**
+   * E5: descriptor completo de un id de modelo — la fuente canónica
+   * **"id de modelo → configuración"** (`provider`, capacidades, coste).
+   *
+   * El desktop persiste UNA sola configuración de modelo
+   * (`gov/settings/model_config`): sin esta fuente no puede construir la
+   * configuración de un id arbitrario al que el circuito de presupuesto
+   * degrade, y el guard termina DETENIENDO (fail-closed). Con ella, el
+   * llamador sabe qué provider usar y puede construir su configuración.
+   *
+   * - Id **registrado** → descriptor del registro (fuente autoritativa).
+   * - Id **no registrado** con `providerId` conocido y disponible →
+   *   descriptor dinámico (mismo patrón que el `preferred.modelId` de
+   *   `resolveModel`): el id es válido para la API del provider.
+   * - Id **no registrado** sin provider → `null` (no se puede construir
+   *   configuración ⇒ fail-closed).
+   */
+  public async resolveModelDescriptor(
+    idOrAlias: string,
+    options?: {
+      providerId?: ModelProviderId;
+      capabilities?: readonly ModelCapability[];
+    }
+  ): Promise<ModelDescriptor | null> {
+    const id = this.resolveModelIdOrAlias(idOrAlias);
+    if (id.length === 0) return null;
+
+    const registered = this.models.get(id);
+    if (registered) {
+      // Una pista de provider contradictoria no se resuelve: el id registrado
+      // pertenece a otro provider y construir su config sería incorrecto.
+      if (options?.providerId && options.providerId !== registered.provider) return null;
+      return registered;
+    }
+
+    const providerId = options?.providerId;
+    if (!providerId) return null;
+    const provider = this.providers.get(providerId);
+    if (!provider) return null;
+    if (!(await provider.isAvailable())) return null;
+
+    return {
+      id,
+      provider: providerId,
+      displayName: `${id} (dinámico)`,
+      contextWindow: 0,
+      costPerInputTokenUsd: 0,
+      costPerOutputTokenUsd: 0,
+      capabilities: new Set<ModelCapability>(
+        options?.capabilities ? [...options.capabilities] : ["text", "tool_calling", "streaming"]
+      ),
+      isLocal: providerId === "ollama",
+    };
+  }
+
+  /** Descriptor del registro por id (o alias), sin red. `undefined` si no está. */
+  public getModelDescriptor(idOrAlias: string): ModelDescriptor | undefined {
+    return this.models.get(this.resolveModelIdOrAlias(idOrAlias));
+  }
+
+  /** Registro completo id → descriptor (copia defensiva). */
+  public listModelDescriptors(): ModelDescriptor[] {
+    return [...this.models.values()];
+  }
+
+  /**
+   * E5 (A4): el **destino operable** de un id de modelo — "id de modelo →
+   * configuración", en una sola llamada y **sin red**.
+   *
+   * El desktop persiste UNA sola configuración de modelo
+   * (`gov/settings/model_config`): cuando el circuito de presupuesto degrada
+   * a otro id, el desktop tiene que saber **con qué provider** hablar y
+   * **qué credencial** usar. Con este método lo tiene, sin inventarse nada:
+   *
+   * - Id **registrado** en el router → provider, capacidades y coste
+   *   **exactos** (fuente autoritativa: el registro).
+   * - Id **no registrado** → se atribuye por el catálogo curado
+   *   (`attributeModelId`, offline). Sus **capacidades se dejan vacías**
+   *   (no se inventan) y `registered` es `false`: el llamante sabe que no
+   *   puede asumir `tool_calling`.
+   * - Id **no atribuible** → `null` ⇒ fail-closed (el guard DETIENE).
+   *
+   * Es **sincrono** a propósito: el consumidor del desktop
+   * (`resolveModelConfig?: (modelId: string) => ModelConfig | undefined`,
+   * `apps/desktop/src/main/subegos/budget-guard.ts:114`) también lo es.
+   *
+   * `providerRegistered` dice si hay un provider **registrado** para ese
+   * provider (señal síncrona de que se puede hablar con él); la
+   * disponibilidad real la consulta el propio provider (`isAvailable()`).
+   */
+  public resolveModelTarget(modelId: string): ModelTarget | null {
+    const id = this.resolveModelIdOrAlias(modelId);
+    if (id.length === 0) return null;
+
+    const registered = this.models.get(id);
+    if (registered) {
+      return {
+        modelId: registered.id,
+        provider: registered.provider,
+        profile: providerProfile(registered.provider),
+        capabilities: [...registered.capabilities],
+        estimatedCostUsd: estimateCallCostUsd(registered, { messages: [] }),
+        registered: true,
+        providerRegistered: this.providers.has(registered.provider),
+      };
+    }
+
+    // Id NO registrado: atribución offline por el catálogo curado.
+    const provider = attributeModelId(id);
+    if (!provider) return null;
+    return {
+      modelId: id,
+      provider,
+      profile: providerProfile(provider),
+      capabilities: [],
+      estimatedCostUsd: undefined,
+      registered: false,
+      providerRegistered: this.providers.has(provider),
+    };
+  }
+
+  /**
    * EGO-FIND-39: hace cumplir `maxCostPerCallUsd`.
    * Si el modelo resuelto excede el presupuesto, degrada al modelo real más
    * barato que cumpla las capacidades exigidas. El mock NO es destino de
@@ -586,22 +793,8 @@ export class ModelRouter {
     const estimated = estimateCallCostUsd(descriptor, options);
     if (estimated <= budget) return descriptor;
 
-    let best: ModelDescriptor | null = null;
-    let bestCost = Number.POSITIVE_INFINITY;
-
-    for (const candidate of this.models.values()) {
-      if (candidate.id === descriptor.id) continue;
-      if (candidate.provider === "mock") continue;
-      if (!requiredCapabilities.every((cap) => candidate.capabilities.has(cap))) continue;
-      const provider = this.providers.get(candidate.provider);
-      if (!provider) continue;
-      if (!(await provider.isAvailable())) continue;
-      const cost = estimateCallCostUsd(candidate, options);
-      if (cost <= budget && cost < bestCost) {
-        best = candidate;
-        bestCost = cost;
-      }
-    }
+    const best = await this.findCheaperCandidate(budget, requiredCapabilities, descriptor.id, options);
+    const bestCost = best ? estimateCallCostUsd(best, options) : Number.POSITIVE_INFINITY;
 
     if (best) {
       console.warn(
@@ -612,6 +805,46 @@ export class ModelRouter {
     }
 
     throw new ModelCostBudgetExceededError(descriptor.id, estimated, budget);
+  }
+
+  /**
+   * Selección del modelo más barato que cumple el tope (extraída de
+   * `enforceCostBudget` para que la usen las dos rutas: el enforcement en
+   * línea y la degradación del circuit breaker de Sub-Ego).
+   *
+   * El criterio de elegibilidad NO cambia: capacidades exigidas, provider
+   * registrado y disponible, y exclusión del mock.
+   *
+   * `estimateOptions` fija la métrica de coste: el enforcement en línea usa
+   * las opciones REALES de la llamada (mismo criterio que antes de la
+   * extracción); el breaker, que no tiene opciones, usa la estimación
+   * canónica `{messages: []}` (1024 tokens de salida, 0 de entrada) — que
+   * ordena igual porque el número de tokens es el mismo para todos los
+   * candidatos.
+   */
+  private async findCheaperCandidate(
+    budget: number,
+    requiredCapabilities: readonly ModelCapability[],
+    excludeId: string | null,
+    estimateOptions: ModelGenerateOptions = { messages: [] }
+  ): Promise<ModelDescriptor | null> {
+    let best: ModelDescriptor | null = null;
+    let bestCost = Number.POSITIVE_INFINITY;
+
+    for (const candidate of this.models.values()) {
+      if (excludeId !== null && candidate.id === excludeId) continue;
+      if (candidate.provider === "mock") continue;
+      if (!requiredCapabilities.every((cap) => candidate.capabilities.has(cap))) continue;
+      const provider = this.providers.get(candidate.provider);
+      if (!provider) continue;
+      if (!(await provider.isAvailable())) continue;
+      const cost = estimateCallCostUsd(candidate, estimateOptions);
+      if (cost <= budget && cost < bestCost) {
+        best = candidate;
+        bestCost = cost;
+      }
+    }
+    return best;
   }
 
   private applyCost(res: ModelGenerateResult, descriptor: ModelDescriptor): ModelGenerateResult {

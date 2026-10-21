@@ -64,8 +64,8 @@ export interface ModelMessage {
   toolCalls?: ToolCall[];
   /**
    * Procedencia del mensaje (EGO-FIND-60 / taint tracking).
-   * `untrusted` marca contenido externo ya saneado: el prompt assembly debe
-   * tratarlo como *data channel*, nunca como *control channel*.
+   * `untrusted` marca contenido externo: el prompt assembly debe tratarlo
+   * como *data channel*, nunca como *control channel*.
    */
   trust?: MessageTrust;
 }
@@ -74,8 +74,8 @@ export interface ModelMessage {
  * Nivel de confianza en la procedencia de un mensaje.
  * - `trusted`: generado por Ego (sistema, assistant, tool propia).
  * - `untrusted`: proviene de una fuente externa (documento, web, RAG de
- *   terceros). Puede haber pasado por `UntrustedContentSanitizer`, pero su
- *   contenido sigue sin ser capaz de alterar instrucciones.
+ *   terceros). Su contenido viaja en el canal de datos y sigue sin ser capaz
+ *   de alterar instrucciones (ADR-0019).
  */
 export type MessageTrust = "trusted" | "untrusted";
 

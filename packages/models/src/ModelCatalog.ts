@@ -6,6 +6,7 @@
  * y cache memoria + VantaDB (`gov/catalog`, TTL 1h).
  * Sin dependencias nuevas: solo `fetch` global. Sin `any`, sin logs.
  */
+import type { ModelCapability, ModelProviderId } from "./types.js";
 
 export type CatalogProviderId = "openai" | "anthropic" | "google" | "deepseek" | "ollama";
 
@@ -31,6 +32,146 @@ export interface FetchLiveModelsInput {
   apiKey?: string;
   baseURL?: string;
   fetchImpl?: typeof fetch;
+}
+
+/**
+ * Atribuye un id de modelo a su provider usando el catálogo **curado**
+ * (offline, determinista, sin red).
+ *
+ * Es la pieza que permite al desktop construir la **configuración** de un id
+ * de modelo arbitrario al que el circuito de presupuesto degrade: el desktop
+ * persiste UNA sola configuración (`gov/settings/model_config`) y, sin saber
+ * a qué provider pertenece el id degradado, el guard termina DETENIENDO
+ * (fail-closed). `null` = id desconocido ⇒ fail-closed también.
+ */
+export function attributeModelId(modelId: string): CatalogProviderId | null {
+  const target = modelId.trim().toLowerCase();
+  if (target.length === 0) return null;
+  for (const [provider, ids] of Object.entries(CURATED_MODELS) as Array<
+    [CatalogProviderId, string[]]
+  >) {
+    if (ids.some((id) => id.toLowerCase() === target)) return provider;
+  }
+  return null;
+}
+
+/**
+ * Campo de la **configuración de turno** que lleva la credencial de un
+ * provider.
+ *
+ * El nombre es el del campo del `ModelConfig` del desktop
+ * (`apps/desktop/src/ipc/schema.ts`): `packages/models` **no** importa ese
+ * esquema (DIP), sólo declara qué slot corresponde a cada provider, que es
+ * conocimiento del propio paquete de modelos (es el mismo reparto que usa
+ * `createProductionRouter(keys)`).
+ */
+export type ModelCredentialSlot =
+  | "apiKey"
+  | "openaiKey"
+  | "anthropicKey"
+  | "googleKey"
+  | "deepseekKey";
+
+/** Campo de la configuración de turno que lleva el `baseUrl` de un provider. */
+export type ModelBaseUrlSlot =
+  | "baseUrl"
+  | "openaiBaseURL"
+  | "deepseekBaseURL"
+  | "ollamaBaseURL";
+
+/** Qué necesita un provider para poder atender una llamada. */
+export interface ModelProviderProfile {
+  /** Provider del que se habla. */
+  readonly provider: ModelProviderId;
+  /** Slot de la credencial (`null` = no necesita credencial: local/mock). */
+  readonly credentialSlot: ModelCredentialSlot | null;
+  /** Slot del `baseUrl` (`null` = el provider no acepta baseUrl propio). */
+  readonly baseUrlSlot: ModelBaseUrlSlot | null;
+  /** El provider es local (se ejecuta en la máquina; no hay credencial). */
+  readonly isLocal: boolean;
+}
+
+/**
+ * Perfiles de provider: **qué credencial y qué baseUrl** necesita cada uno.
+ *
+ * Es la segunda mitad de "id de modelo → configuración": la primera es saber
+ * a qué **provider** pertenece el id (`attributeModelId` / el registro del
+ * router); esta es saber **qué slots** de la configuración rellena el
+ * llamante para poder hablar con ese provider.
+ */
+export const MODEL_PROVIDER_PROFILES: Readonly<
+  Record<ModelProviderId, ModelProviderProfile>
+> = {
+  openai: {
+    provider: "openai",
+    credentialSlot: "openaiKey",
+    baseUrlSlot: "openaiBaseURL",
+    isLocal: false,
+  },
+  anthropic: {
+    provider: "anthropic",
+    credentialSlot: "anthropicKey",
+    baseUrlSlot: "baseUrl",
+    isLocal: false,
+  },
+  google: {
+    provider: "google",
+    credentialSlot: "googleKey",
+    baseUrlSlot: "baseUrl",
+    isLocal: false,
+  },
+  deepseek: {
+    provider: "deepseek",
+    credentialSlot: "deepseekKey",
+    baseUrlSlot: "deepseekBaseURL",
+    isLocal: false,
+  },
+  ollama: {
+    provider: "ollama",
+    credentialSlot: null,
+    baseUrlSlot: "ollamaBaseURL",
+    isLocal: true,
+  },
+  mock: {
+    provider: "mock",
+    credentialSlot: null,
+    baseUrlSlot: null,
+    isLocal: true,
+  },
+};
+
+/** Perfil de un provider (inmutable). */
+export function providerProfile(provider: ModelProviderId): ModelProviderProfile {
+  return MODEL_PROVIDER_PROFILES[provider] ?? MODEL_PROVIDER_PROFILES.mock;
+}
+
+/**
+ * Destino **operable** de un id de modelo: todo lo que hace falta para
+ * construir la configuración de turno de ese modelo.
+ *
+ * Es el resultado de "id de modelo → configuración" que pidió el desktop
+ * (A4): el guard de presupuesto degrade a un id y necesita saber **con qué
+ * provider** hablar, **qué credencial** usar y **qué capacidades** tiene el
+ * modelo, para no degradar a algo que no pueda hacer el turno.
+ */
+export interface ModelTarget {
+  /** Id del modelo (normalizado: alias resuelto). */
+  readonly modelId: string;
+  /** Provider al que pertenece. */
+  readonly provider: ModelProviderId;
+  /** Qué credencial/baseUrl necesita ese provider. */
+  readonly profile: ModelProviderProfile;
+  /**
+   * Capacidades del modelo. **Vacío si el modelo no está registrado** en el
+   * router: no se inventan (el llamante no puede asumir `tool_calling`).
+   */
+  readonly capabilities: readonly ModelCapability[];
+  /** Coste estimado de una llamada con la estimación canónica (si se sabe). */
+  readonly estimatedCostUsd?: number;
+  /** El modelo está registrado en el router (⇒ capacidades y coste conocidos). */
+  readonly registered: boolean;
+  /** Hay un provider registrado para `provider` (⇒ se puede hablar con él). */
+  readonly providerRegistered: boolean;
 }
 
 export type CatalogSource = "live" | "cache" | "curated";
@@ -214,6 +355,33 @@ export class ModelCatalog {
 
   private fresh(entry: CatalogCacheEntry | null | undefined): entry is CatalogCacheEntry {
     return !!entry && this.now() - entry.savedAtMs < CATALOG_CACHE_TTL_MS;
+  }
+
+  /**
+   * Atribuye un id de modelo a su provider.
+   *
+   * Orden: (1) catálogo curado (offline, gratis, determinista); (2) si se
+   * indican providers, se consulta su catálogo live/cache (best-effort, con
+   * red). `null` = id desconocido ⇒ fail-closed (el llamante NO puede
+   * construir la configuración del id).
+   */
+  public async attributeModelId(
+    modelId: string,
+    providers: CatalogProviderId[] = []
+  ): Promise<CatalogProviderId | null> {
+    const curated = attributeModelId(modelId);
+    if (curated) return curated;
+
+    const target = modelId.trim().toLowerCase();
+    if (target.length === 0) return null;
+
+    for (const provider of providers) {
+      const listed = await this.listModels({ provider });
+      if (listed.models.some((id) => id.trim().toLowerCase() === target)) {
+        return provider;
+      }
+    }
+    return null;
   }
 
   async listModels(input: CatalogListInput): Promise<CatalogListResult> {
