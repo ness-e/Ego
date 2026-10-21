@@ -5,6 +5,7 @@ import type {
   SubEgoRuntimeOptions,
   SubEgoTurnResult
 } from "./types.js";
+import type { SubEgoBudgetCircuitBreaker, SubEgoBudgetDecision } from "./SubEgoBudgetBreaker.js";
 
 /**
  * Error base para excepciones del runtime de Sub-Egos.
@@ -58,7 +59,16 @@ export const DEFAULT_CHEAP_CHILD_MODEL = "gpt-4o-mini";
 export interface SubEgoRuntimeHardenedOptions {
   /** Modelo barato por defecto para hijos (default: gpt-4o-mini). */
   defaultChildModel?: string;
+  /**
+   * E5: circuit breaker de presupuesto del Sub-Ego. Si se inyecta, el
+   * runtime consulta el circuito antes y después de cada turno (tokens,
+   * coste y tiempo) y expone el modelo degradado en el scratchpad.
+   */
+  budgetBreaker?: SubEgoBudgetCircuitBreaker;
 }
+
+/** Clave del scratchpad donde el runtime publica el modelo degradado (E5). */
+export const SUB_EGO_DEGRADED_MODEL_KEY = "__budget_model";
 
 /**
  * Sub-Ego Runtime (SUB-03 / Principios §4 y §10).
@@ -77,6 +87,7 @@ export class SubEgoRuntime {
   private readonly maxConcurrentActive: number;
   private readonly onStateTransition?: SubEgoRuntimeOptions["onStateTransition"];
   private readonly defaultChildModel: string;
+  private readonly budgetBreaker?: SubEgoBudgetCircuitBreaker;
 
   constructor(options: SubEgoRuntimeOptions & SubEgoRuntimeHardenedOptions = {}) {
     this.idleTtlMs = options.idleTtlMs ?? 60_000;
@@ -84,6 +95,7 @@ export class SubEgoRuntime {
     this.onStateTransition = options.onStateTransition;
     const dm = (options.defaultChildModel ?? DEFAULT_CHEAP_CHILD_MODEL).trim();
     this.defaultChildModel = dm.length > 0 ? dm : DEFAULT_CHEAP_CHILD_MODEL;
+    this.budgetBreaker = options.budgetBreaker;
   }
 
   /**
@@ -244,11 +256,33 @@ export class SubEgoRuntime {
       instance.scratchpad.set("__steer_pending", [...pendingSteer]);
     }
 
+    // E5: si el circuito de presupuesto ya está abierto (p. ej. el turno
+    // anterior excedió el tope de tiempo), el turno NO arranca.
+    if (this.budgetBreaker) {
+      const pre = await this.budgetBreaker.checkBeforeTurn({});
+      if (pre.outcome === "stop") {
+        throw pre.error;
+      }
+      if (pre.outcome === "degrade") {
+        instance.scratchpad.set(SUB_EGO_DEGRADED_MODEL_KEY, pre.model);
+      }
+    }
+
     try {
       const result = await turnFn(instance);
       const durationMs = Date.now() - startTime;
       const tokens = result.tokensUsed ?? 0;
       const cost = result.costUsd ?? 0;
+
+      // E5: circuit breaker de presupuesto — la contabilidad del turno entra
+      // en el contador MEDIBLE del Sub-Ego (tokens, coste, duración).
+      if (this.budgetBreaker) {
+        await this.budgetBreaker.recordAfterTurn({
+          tokens,
+          costUsd: cost,
+          durationMs
+        });
+      }
 
       // Stop solicitado durante el turno: se hace efectivo al boundary con parcial.
       const midStop = this.stopRequests.get(subEgoId);
@@ -275,6 +309,36 @@ export class SubEgoRuntime {
         this.scheduleIdleTimer(subEgoId);
       }
     }
+  }
+
+  /**
+   * Consulta el circuito de presupuesto con una estimación real de la
+   * llamada (la capa que/modelo la conoce) y publica en el scratchpad el
+   * modelo degradado, si lo hubo.
+   *
+   * E5: este es el punto de enganche con el `ModelRouter` — el runtime NO
+   * decide qué modelo es barato: se lo pregunta al router (o al tope
+   * explícito del manifiesto) a través del circuit breaker.
+   */
+  async consultBudget(
+    subEgoId: string,
+    estimate: { tokens?: number; costUsd?: number }
+  ): Promise<SubEgoBudgetDecision> {
+    if (!this.budgetBreaker) {
+      return { outcome: "allow" };
+    }
+    const decision = await this.budgetBreaker.checkBeforeTurn(estimate);
+    if (decision.outcome === "degrade") {
+      // Se activa la instancia (lazy) para poder publicar el modelo
+      // degradado: el llamante lo leerá del scratchpad.
+      try {
+        this.getOrActivate(subEgoId).scratchpad.set(SUB_EGO_DEGRADED_MODEL_KEY, decision.model);
+      } catch {
+        // El Sub-Ego no está registrado en el runtime: no hay instancia
+        // donde publicar el modelo (la decisión sigue siendo válida).
+      }
+    }
+    return decision;
   }
 
   /**

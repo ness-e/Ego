@@ -230,6 +230,44 @@ describe("T1 — createDelegationRuntime: punto de entrada único (EGO-FIND-22)"
     expect(result.output).toBeDefined();
   });
 
+  it("E13/T2: el ejecutor por defecto cumple el contrato `StructuredChildOutput`", async () => {
+    // El contrato exige `{ summary, findings, files, issues }`. Si el
+    // ejecutor por defecto devolviese otra forma, `delegate_task` fallaría
+    // en la normalización de la salida (el bug que abrió esta ola).
+    const delegation = createDelegationRuntime({ storage, toolRegistry: registry });
+
+    await delegation.registry.register(TARGET_MANIFEST);
+    await delegation.registry.register(NUCLEUS_MANIFEST);
+    delegation.runtime.registerManifest(TARGET_MANIFEST);
+    delegation.runtime.registerManifest(NUCLEUS_MANIFEST);
+
+    const tool = registry.get("delegate_task")!;
+    const result = (await tool.execute(
+      {
+        goal: "Audita el módulo de auth",
+        context: "Contexto autocontenido para la auditoría.",
+        targetEgoId: TARGET_MANIFEST.id,
+        projectId: "p",
+        callerEgoId: "ego.nucleus",
+      },
+      { callId: "c5", sessionId: "s1" }
+    )) as { status: string; output: unknown };
+
+    expect(result.status).toBe("completed");
+
+    const output = result.output as {
+      summary?: unknown;
+      findings?: unknown;
+      files?: unknown;
+      issues?: unknown;
+    };
+    expect(typeof output.summary).toBe("string");
+    expect((output.summary as string).length).toBeGreaterThan(0);
+    expect(Array.isArray(output.findings)).toBe(true);
+    expect(Array.isArray(output.files)).toBe(true);
+    expect(Array.isArray(output.issues)).toBe(true);
+  });
+
   it("`dispose` libera el runtime y es idempotente", async () => {
     const delegation = createDelegationRuntime({ storage, toolRegistry: registry });
     await delegation.dispose();

@@ -7,12 +7,15 @@ export * from "./SubEgoMemoryGuard.js";
 export * from "./SharedMemory.js";
 export * from "./SubEgoRegistry.js";
 export * from "./SubEgoSoul.js";
+export * from "./soulDocument.js";
+export * from "./SubEgoIdentity.js";
 export * from "./PromptAssembly.js";
 export * from "./DelegationRouter.js";
 export * from "./DelegationTools.js";
 export * from "./DelegationRuntime.js";
 export * from "./CharacterProfile.js";
 export * from "./SubEgoBudget.js";
+export * from "./SubEgoBudgetBreaker.js";
 export * from "./SelfImprovementLoop.js";
 export * from "./SubEgoWorktree.js";
 

@@ -1,7 +1,6 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
-import * as path from "node:path";
-import * as os from "node:os";
 import { EgoMemoryAdapter } from "@ego/memory";
 import {
   createSubEgoManifest,
@@ -30,7 +29,7 @@ describe("DelegationRouter — Comunicación y Delegación Inter-Sub-Ego (SUB-06
   let workerManifest: SubEgoManifest;
 
   beforeEach(async () => {
-    tmpDir = path.join(os.tmpdir(), `ego-delegation-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
+    tmpDir = createTempWorkspace({ prefix: "ego-delegation-test" }).path;
     await fs.mkdir(tmpDir, { recursive: true });
 
     adapter = new EgoMemoryAdapter(tmpDir);

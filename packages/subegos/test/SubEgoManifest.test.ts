@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   createSubEgoId,
   validateSubEgoManifest,
-  parseSubEgoManifest,
   validateNamespaceAccess,
   createSubEgoManifest,
   SubEgoManifestSchema

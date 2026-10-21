@@ -1,7 +1,6 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
-import * as path from "node:path";
-import * as os from "node:os";
 import { EgoMemoryAdapter } from "@ego/memory";
 import {
   SubEgoBudgetTracker,
@@ -23,7 +22,7 @@ describe("SubEgoBudget — Límites de Presupuesto y Cuotas de Consumo (SUB-09)"
   };
 
   beforeEach(async () => {
-    tmpDir = path.join(os.tmpdir(), `ego-budget-test-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+    tmpDir = createTempWorkspace({ prefix: "ego-budget-test" }).path;
     await fs.mkdir(tmpDir, { recursive: true });
     adapter = new EgoMemoryAdapter(tmpDir);
     await adapter.init();

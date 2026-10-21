@@ -216,10 +216,14 @@ export class SubEgoBudgetTracker {
 
   /**
    * Registra el consumo real de tokens y costo al finalizar un turno de ejecución.
+   *
+   * `usage.costUsd` (E5) permite pasar el coste REAL ya calculado por la
+   * capa de modelos (no estimarlo de nuevo aquí): si se omite, se calcula
+   * con la tabla de precios de referencia.
    */
   async recordTurnUsage(
     subEgoId: string,
-    usage: { inputTokens: number; outputTokens: number; model?: string },
+    usage: { inputTokens: number; outputTokens: number; model?: string; costUsd?: number },
     budget: SubEgoBudget
   ): Promise<SubEgoUsageMetrics> {
     const totalTurnTokens = usage.inputTokens + usage.outputTokens;
@@ -234,7 +238,10 @@ export class SubEgoBudgetTracker {
     }
 
     const metrics = await this.getMetrics(subEgoId);
-    const turnCostUsd = calculateTokenCost(usage.inputTokens, usage.outputTokens, usage.model);
+    const turnCostUsd =
+      typeof usage.costUsd === "number"
+        ? Number(usage.costUsd.toFixed(6))
+        : calculateTokenCost(usage.inputTokens, usage.outputTokens, usage.model);
 
     // Actualizar métricas acumuladas
     metrics.currentSessionInputTokens += usage.inputTokens;

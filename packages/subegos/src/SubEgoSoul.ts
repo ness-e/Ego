@@ -3,6 +3,7 @@ import YAML from "yaml";
 import type { EgoPut } from "@ego/memory";
 import { getQuarantineAware } from "@ego/memory";
 import type { SubEgoManifest } from "./types.js";
+import { parseSoulDocument, serializeSoulDocument } from "./soulDocument.js";
 import {
   assembleSystemPrompt,
   buildStableTier,
@@ -13,6 +14,48 @@ import {
 } from "./PromptAssembly.js";
 
 export type { AssembledPrompt } from "./PromptAssembly.js";
+
+/**
+ * E5: claves del frontmatter que se mapean a campos canónicos del alma.
+ * Cualquier otra clave del frontmatter se ignora (el manifiesto sigue siendo
+ * la autoridad sobre gobernanza: tools, permisos, namespaces y presupuesto).
+ */
+const SOUL_FRONTMATTER_KEYS = [
+  "id",
+  "name",
+  "tone",
+  "reasoningStyle",
+  "values",
+  "inviolableRules",
+  "customDirectives",
+  "temperament",
+  "presentationFormat",
+  "visualIdentity",
+  "selfReflectionNamespace",
+  "metadata"
+] as const;
+
+/**
+ * E5: traduce el frontmatter de un artefacto declarativo a la entrada del
+ * alma. Si el documento usa el formato `AGENT.md`, el bloque puede anidar
+ * la identidad bajo `soul:`; en ese caso se usa ese sub-mapa.
+ */
+function soulInputFromFrontmatter(
+  frontmatter: Record<string, unknown>,
+  allowNestedSoulBlock: boolean
+): Record<string, unknown> {
+  const nested = allowNestedSoulBlock ? frontmatter.soul : undefined;
+  const source: Record<string, unknown> =
+    typeof nested === "object" && nested !== null && !Array.isArray(nested)
+      ? { ...frontmatter, ...(nested as Record<string, unknown>) }
+      : frontmatter;
+
+  const out: Record<string, unknown> = {};
+  for (const key of SOUL_FRONTMATTER_KEYS) {
+    if (source[key] !== undefined) out[key] = source[key];
+  }
+  return out;
+}
 
 /**
  * Error base para fallos relacionados con el Alma de un Sub-Ego.
@@ -115,6 +158,12 @@ export const SubEgoSoulSchema = z.object({
     })
     .optional(),
   selfReflectionNamespace: z.string().max(200).optional(),
+  /**
+   * E5: narrativa de identidad en Markdown (el cuerpo del artefacto
+   * `SOUL.md` / `AGENT.md`). El frontmatter alimenta los campos estructurados;
+   * el cuerpo es la voz del Sub-Ego.
+   */
+  identityBody: z.string().max(4000).optional(),
   updatedAtMs: z.number().int().positive().optional(),
   metadata: z.record(z.unknown()).optional()
 });
@@ -194,6 +243,10 @@ export class SubEgoSoul {
   }>;
   public readonly updatedAtMs?: number;
   public readonly metadata?: Record<string, unknown>;
+  /**
+   * E5: narrativa de identidad (cuerpo Markdown del artefacto declarativo).
+   */
+  public readonly identityBody?: string;
   private readonly _selfReflectionNamespace?: string;
 
   constructor(input: SubEgoSoulInput) {
@@ -217,6 +270,7 @@ export class SubEgoSoul {
       ? Object.freeze({ ...validated.visualIdentity })
       : undefined;
     this._selfReflectionNamespace = validated.selfReflectionNamespace;
+    this.identityBody = validated.identityBody;
     this.updatedAtMs = validated.updatedAtMs ?? Date.now();
     this.metadata = validated.metadata ? Object.freeze({ ...validated.metadata }) : undefined;
   }
@@ -294,6 +348,61 @@ export class SubEgoSoul {
   }
 
   /**
+   * E5: deserializa el alma desde un artefacto declarativo Markdown
+   * (`SOUL.md` / `AGENT.md`) con frontmatter YAML + cuerpo.
+   *
+   * `defaults` cubre los campos obligatorios que el artefacto no declara
+   * (típicamente tomados del manifiesto: `id`, `name`, `tone`,
+   * `reasoningStyle`, valores y reglas).
+   *
+   * `format` decide si se admite el bloque anidado `soul:` (formato
+   * `agent-md`); en `soul-md` el frontmatter es plano.
+   */
+  static fromMarkdown(
+    markdown: string,
+    defaults?: Partial<SubEgoSoulInput>,
+    options: { format?: "soul-md" | "agent-md" } = {}
+  ): SubEgoSoul {
+    const doc = parseSoulDocument(markdown);
+    const mapped = soulInputFromFrontmatter(doc.frontmatter, options.format !== "soul-md");
+    const merged: Record<string, unknown> = { ...(defaults ?? {}), ...mapped };
+    if (doc.body.trim().length > 0) {
+      merged.identityBody = doc.body.trim();
+    }
+    return new SubEgoSoul(merged as SubEgoSoulInput);
+  }
+
+  /**
+   * E5: serializa el alma a un artefacto declarativo Markdown canónico
+   * (frontmatter YAML + cuerpo = narrativa de identidad).
+   */
+  toMarkdown(): string {
+    const frontmatter: Record<string, unknown> = {
+      id: this.id,
+      name: this.name,
+      tone: this.tone,
+      reasoningStyle: this.reasoningStyle,
+      values: [...this.values],
+      inviolableRules: [...this.inviolableRules],
+      customDirectives: [...this.customDirectives]
+    };
+    if (this.temperament) frontmatter.temperament = { ...this.temperament };
+    if (this.presentationFormat) {
+      frontmatter.presentationFormat = {
+        codeLanguage: this.presentationFormat.codeLanguage,
+        preferredArtifacts: [...this.presentationFormat.preferredArtifacts]
+      };
+    }
+    if (this.visualIdentity) {
+      frontmatter.visualIdentity = { ...this.visualIdentity };
+    }
+    if (this._selfReflectionNamespace) {
+      frontmatter.selfReflectionNamespace = this._selfReflectionNamespace;
+    }
+    return serializeSoulDocument(frontmatter, this.identityBody ?? "");
+  }
+
+  /**
    * Retorna una representación JSON plana y deserializable.
    */
   toJSON(): SubEgoSoulData {
@@ -314,6 +423,7 @@ export class SubEgoSoul {
         : undefined,
       visualIdentity: this.visualIdentity ? { ...this.visualIdentity } : undefined,
       selfReflectionNamespace: this.selfReflectionNamespace,
+      identityBody: this.identityBody,
       updatedAtMs: this.updatedAtMs,
       metadata: this.metadata ? { ...this.metadata } : undefined
     };
@@ -362,6 +472,11 @@ export class SubEgoSoul {
       lines.push("\n[PRESENTATION FORMAT]");
       lines.push(`• Code Language: ${this.presentationFormat.codeLanguage}`);
       lines.push(`• Preferred Artifacts: ${this.presentationFormat.preferredArtifacts.join(", ")}`);
+    }
+
+    if (this.identityBody && this.identityBody.trim().length > 0) {
+      lines.push("\n[IDENTITY NARRATIVE]");
+      lines.push(this.identityBody.trim());
     }
 
     lines.push("\n[SOUL PRECEDENCE CLAUSE]");

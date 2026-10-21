@@ -18,7 +18,6 @@ import {
   wrapUntrustedAsData,
   formatOutOfBandUserMessage,
   buildStableTier,
-  buildContextTier,
   buildVolatileTier,
   formatSessionLine,
   assembleSystemPrompt,

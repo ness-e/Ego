@@ -1,6 +1,5 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as os from "node:os";
-import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { EgoMemoryAdapter } from "@ego/memory";
 import {
@@ -9,8 +8,9 @@ import {
   type LearningCandidate,
 } from "../src/SelfImprovementLoop.js";
 
-describe("SelfImprovementLoop — Closed Learning Loop y Auto-Reflexión (SUB-12)", () => {
-  const testDir = path.join(os.tmpdir(), `ego-self-improvement-test-${Date.now()}`);
+describe("SelfImprovementLoop - Closed Learning Loop y Auto-Reflexión (SUB-12)", () => {
+  // T-X1: workspace bajo la raíz de la corrida (limpieza a prueba de muerte).
+  const testDir = createTempWorkspace({ prefix: "ego-self-improvement-test" }).path;
   let adapter: EgoMemoryAdapter;
   let loop: SelfImprovementLoop;
 

@@ -1,6 +1,5 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import * as os from "node:os";
-import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import type { EgoMemoryAdapter, EgoPut } from "@ego/memory";
 import {
@@ -407,7 +406,7 @@ describe("SubEgoRegistry — Registro y catálogo en gov/sub_egos (SUB-07)", () 
     let realAdapter2: EgoMemoryAdapter | null = null;
 
     beforeEach(async () => {
-      testStorageDir = path.join(os.tmpdir(), `ego-registry-persist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+    testStorageDir = createTempWorkspace({ prefix: "ego-registry-persist" }).path;
       await fs.mkdir(testStorageDir, { recursive: true });
     });
 

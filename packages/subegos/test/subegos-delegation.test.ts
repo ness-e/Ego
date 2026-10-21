@@ -1,8 +1,7 @@
 // subegos-delegation.test.ts — Golden Path Alpha (Pasos 10 al 14) (SUB-10)
 // Validación E2E Multi-Sub-Ego: Orquestación -> SharedMemory -> Delegación Especialista -> Closed Loop Learning -> Persistencia y Reapertura en frío
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as os from "node:os";
-import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { EgoMemoryAdapter } from "@ego/memory";
 import {
@@ -31,7 +30,7 @@ describe("Golden Path Alpha — Delegación Multi-Sub-Ego y Cooperación E2E (SU
   let researcherManifest: SubEgoManifest;
 
   beforeEach(async () => {
-    tmpDir = path.join(os.tmpdir(), `ego-e2e-subegos-${Date.now()}-${Math.random().toString(36).substring(7)}`);
+    tmpDir = createTempWorkspace({ prefix: "ego-e2e-subegos" }).path;
     await fs.mkdir(tmpDir, { recursive: true });
 
     adapter = new EgoMemoryAdapter(tmpDir);

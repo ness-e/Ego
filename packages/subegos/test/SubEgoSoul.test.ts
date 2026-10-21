@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { EgoPut } from "@ego/memory";
 import {
   SubEgoSoul,
-  SubEgoSoulSchema,
   SubEgoSoulError,
   SubEgoSoulValidationError,
   SubEgoSoulNotFoundError,

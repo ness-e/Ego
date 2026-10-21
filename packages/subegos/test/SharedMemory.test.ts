@@ -1,3 +1,4 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -230,7 +231,7 @@ describe("SharedMemory — Protocolo de Intercambio de Contexto e Integración (
 
   describe("6. Integración Real con NativeVantaDB sobre EgoMemoryAdapter", () => {
     it("debe persistir registros en disco y recuperarlos íntegros tras reinicio", async () => {
-      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ego-shared-memory-test-"));
+      const tmpDir = createTempWorkspace({ prefix: "ego-shared-memory-test-" }).path;
       try {
         const adapter1 = new EgoMemoryAdapter(tmpDir);
         await adapter1.init();

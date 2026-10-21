@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CharacterProfileSchema } from "./CharacterProfile.js";
+import { SubEgoIdentitySchema } from "./SubEgoIdentity.js";
 import type { SubEgoManifest as MemorySubEgoManifest } from "@ego/memory";
 import type {
   SubEgoManifest,
@@ -46,11 +47,19 @@ export const SubEgoTriggerSchema = z.enum(["manual", "cron", "event"]);
 
 /**
  * Esquema Zod para las cuotas de presupuesto del Sub-Ego.
+ *
+ * E5: `maxCostPerCallUsd` (tope por llamada, se combina con el tope global
+ * del `ModelRouter` tomando el mínimo) y `maxTurnDurationMs` (tope de
+ * duración del turno) abren el circuito de presupuesto.
  */
 export const SubEgoBudgetSchema = z.object({
   maxTokensPerCall: z.number().int().positive().default(4000),
   maxDailyCostUsd: z.number().nonnegative().default(2.0),
-  requiresApprovalAboveUsd: z.number().nonnegative().default(0.5)
+  requiresApprovalAboveUsd: z.number().nonnegative().default(0.5),
+  maxCostPerCallUsd: z.number().nonnegative().optional(),
+  maxTurnDurationMs: z.number().int().positive().optional(),
+  degradeToCheaperModel: z.boolean().default(false),
+  cheaperModelId: z.string().min(1).max(120).optional()
 });
 
 /**
@@ -114,6 +123,12 @@ export const SubEgoManifestSchema = z.object({
   }),
   trigger: SubEgoTriggerSchema.default("manual"),
   soul: SubEgoSoulConfigSchema.optional(),
+  /**
+   * E5: declaración del artefacto de identidad declarativa (`SOUL.md` /
+   * `AGENT.md`). El runtime lo carga; si falta, la identidad del manifiesto
+   * es el fallback (fail-open de IDENTIDAD, nunca de gobernanza).
+   */
+  identity: SubEgoIdentitySchema.optional(),
   character: CharacterProfileSchema.optional(),
   state: SubEgoStateSchema.default("active"),
   creator: SubEgoCreatorSchema.default("user"),
@@ -201,7 +216,19 @@ export function createSubEgoManifest(input: SubEgoCreateInput): SubEgoManifest {
   const defaultBudget: SubEgoBudget = {
     maxTokensPerCall: input.budget?.maxTokensPerCall ?? 4000,
     maxDailyCostUsd: input.budget?.maxDailyCostUsd ?? 2.0,
-    requiresApprovalAboveUsd: input.budget?.requiresApprovalAboveUsd ?? 0.5
+    requiresApprovalAboveUsd: input.budget?.requiresApprovalAboveUsd ?? 0.5,
+    // E5: los topes del circuito de presupuesto son opcionales (sin tope
+    // explícito, el circuito no abre por coste ni por tiempo).
+    ...(input.budget?.maxCostPerCallUsd !== undefined
+      ? { maxCostPerCallUsd: input.budget.maxCostPerCallUsd }
+      : {}),
+    ...(input.budget?.maxTurnDurationMs !== undefined
+      ? { maxTurnDurationMs: input.budget.maxTurnDurationMs }
+      : {}),
+    degradeToCheaperModel: input.budget?.degradeToCheaperModel ?? false,
+    ...(input.budget?.cheaperModelId !== undefined
+      ? { cheaperModelId: input.budget.cheaperModelId }
+      : {})
   };
 
   const defaultBehavior: SubEgoBehavior = {
@@ -229,6 +256,16 @@ export function createSubEgoManifest(input: SubEgoCreateInput): SubEgoManifest {
     budget: defaultBudget,
     trigger: input.trigger ?? "manual",
     soul: input.soul,
+    // E5: declaración del artefacto de identidad (opcional).
+    ...(input.identity
+      ? {
+          identity: {
+            file: input.identity.file,
+            format: input.identity.format ?? "auto",
+            required: input.identity.required ?? false
+          }
+        }
+      : {}),
     state: "active",
     creator: input.creator ?? "user",
     createdAtMs: now,

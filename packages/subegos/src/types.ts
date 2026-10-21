@@ -45,6 +45,49 @@ export interface SubEgoBudget {
   maxDailyCostUsd: number;
   /** Umbral de costo por acción que exige confirmación humana (HITL) */
   requiresApprovalAboveUsd: number;
+  /**
+   * E5: tope de coste por llamada (USD). Es el presupuesto **por Sub-Ego**;
+   * el tope global del `ModelRouter` (`maxCostPerCallUsd`) se combina con él
+   * tomando el MÍNIMO. `undefined` ⇒ el Sub-Ego no impose tope propio.
+   */
+  maxCostPerCallUsd?: number;
+  /**
+   * E5: tope de duración de un turno (ms). Superarlo marca el circuito
+   * como abierto: el siguiente turno se detiene con error tipado.
+   */
+  maxTurnDurationMs?: number;
+  /**
+   * E5: al superar el presupuesto, degradar a un modelo más barato en vez
+   * de detener. Si es `false` (por defecto), el circuito DETIENE.
+   */
+  degradeToCheaperModel?: boolean;
+  /**
+   * E5: modelo de degradación explícito. Si no se declara, se consulta al
+   * router (`resolveCheaperModel`); si el router no puede resolverlo, el
+   * circuito detiene con error tipado.
+   */
+  cheaperModelId?: string;
+}
+
+/**
+ * Formatos de artefacto de identidad declarativa (E5).
+ */
+export type SubEgoIdentityFormat = "auto" | "soul-md" | "agent-md";
+
+/**
+ * Declaración del artefacto de identidad de un Sub-Ego (E5).
+ *
+ * El artefacto (`SOUL.md` / `AGENT.md`) declara la IDENTIDAD (nombre, valores,
+ * reglas, narrativa). El manifiesto sigue declarando la GOBERNANZA (tools,
+ * permisos, namespaces, presupuesto).
+ */
+export interface SubEgoIdentity {
+  /** Ruta del artefacto (relativa al workspace o absoluta). */
+  file: string;
+  /** Formato del artefacto (`auto` lo deduce del nombre del fichero). */
+  format: SubEgoIdentityFormat;
+  /** Si es `true`, la ausencia del artefacto aborta la carga (fail-closed). */
+  required: boolean;
 }
 
 /**
@@ -111,6 +154,12 @@ export interface SubEgoManifest {
   trigger: SubEgoTrigger;
   /** Definición opcional de Alma / Personalidad profunda */
   soul?: SubEgoSoulConfig;
+  /**
+   * E5: declaración del artefacto de identidad declarativa (`SOUL.md` /
+   * `AGENT.md`). Si se declara y se puede leer, el runtime carga el alma
+   * desde el artefacto; si no, la identidad del manifiesto es el fallback.
+   */
+  identity?: SubEgoIdentity;
   /** Perfil e identidad visual del personaje en Canvas 2D (CHAR-04) */
   character?: CharacterProfile;
   /** Estado operativo actual */
@@ -142,6 +191,8 @@ export interface SubEgoCreateInput {
   autonomy?: SubEgoAutonomy;
   budget?: Partial<SubEgoBudget>;
   soul?: SubEgoSoulConfig;
+  /** E5: declaración del artefacto de identidad (`SOUL.md` / `AGENT.md`). */
+  identity?: { file: string; format?: SubEgoIdentityFormat; required?: boolean };
   character?: CharacterProfile;
   trigger?: SubEgoTrigger;
   creator?: SubEgoCreator;

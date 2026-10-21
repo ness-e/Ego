@@ -1,3 +1,4 @@
+import { createTempWorkspace } from "@ego/tools";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
@@ -19,7 +20,7 @@ describe("CharacterProfile — Contrato de Identidad Visual y Rasgos Anatómicos
   let adapter: EgoMemoryAdapter;
 
   beforeEach(async () => {
-    tmpDir = path.join(os.tmpdir(), `ego-char-test-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+    tmpDir = createTempWorkspace({ prefix: "ego-char-test" }).path;
     await fs.mkdir(tmpDir, { recursive: true });
     adapter = new EgoMemoryAdapter(tmpDir);
     await adapter.init();
