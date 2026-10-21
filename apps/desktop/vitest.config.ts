@@ -22,5 +22,10 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
     exclude: ["renderer/**", "node_modules/**", "dist/**"],
+    // T-X1: barre al inicio de la corrida los run-dir huérfanos del scratch
+    // compartido (los que dejó una corrida que murió). Es la red que hace
+    // la limpieza resistente a la muerte del proceso: cada store de VantaDB
+    // pre-reserva 320 MB (5 × 64 MB) y sin este barrido se acumulan.
+    globalSetup: ["./test/helpers/global-setup.ts"],
   },
 });

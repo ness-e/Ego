@@ -62,6 +62,8 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { CONTRACT, MEASURE, DEFAULT_STEPS } from "./design-audit-spec.mjs";
+
 
 /* ------------------------------------------------------------------ *
  * Configuración: el runtime embebido NO hereda process.env, así que el
@@ -108,119 +110,18 @@ function withTimeout(promise, ms, label) {
 /* ------------------------------------------------------------------ *
  * Contrato de diseño (docs/design/design-system.md §1)
  * ------------------------------------------------------------------ */
-const CONTRACT = {
-  fontSizes: [12, 14, 16],
-  radii: [0, 6, 8, 9999],
-  headerHeight: 44,
-  minTarget: 24,
-  iconTarget: 44,
-};
+
 
 /**
  * Medición dentro de la página. El callback NO puede cerrar variables del
  * script: todo lo que necesita entra por el argumento.
  */
-const MEASURE = (contract) => {
-  const visible = (el) => {
-    const r = el.getBoundingClientRect();
-    const s = getComputedStyle(el);
-    return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none";
-  };
-  const path = (el) => {
-    const parts = [];
-    let n = el;
-    while (n && n.nodeType === 1 && parts.length < 4) {
-      let s = n.tagName.toLowerCase();
-      if (n.id) { s += `#${n.id}`; parts.unshift(s); break; }
-      const cls = (n.getAttribute?.("class") || "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
-      if (cls.length) s += "." + cls.join(".");
-      parts.unshift(s);
-      n = n.parentElement;
-    }
-    return parts.join(" > ");
-  };
-  const round = (n) => Math.round(n * 100) / 100;
 
-  const fonts = new Map();
-  const radii = new Map();
-  const shadows = new Map();
-  const bgs = new Map();
-  const violations = [];
-  const add = (map, key) => map.set(key, (map.get(key) || 0) + 1);
-
-  const all = Array.from(document.querySelectorAll("*")).filter(visible);
-  for (const el of all) {
-    const s = getComputedStyle(el);
-    const txt = (el.textContent || "").trim();
-    const leaf = el.children.length === 0 && txt.length > 0;
-
-    if (leaf) {
-      const fs = round(parseFloat(s.fontSize));
-      add(fonts, fs);
-      if (fs > 0 && !contract.fontSizes.includes(fs)) {
-        violations.push({ rule: "TIPOGRAFIA", value: fs, expected: contract.fontSizes, selector: path(el) });
-      }
-    }
-    const br = round(parseFloat(s.borderTopLeftRadius));
-    if (br > 0) {
-      add(radii, br);
-      const ok = contract.radii.some((r) => Math.abs(r - br) < 0.6);
-      if (!ok) violations.push({ rule: "RADIO", value: br, expected: contract.radii, selector: path(el) });
-    }
-    const sh = s.boxShadow;
-    if (sh && sh !== "none") add(shadows, sh);
-    const bg = s.backgroundColor;
-    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") add(bgs, bg);
-
-    if (el.tagName === "HEADER" || el.getAttribute?.("role") === "banner") {
-      const h = round(el.getBoundingClientRect().height);
-      if (h > 0 && Math.abs(h - contract.headerHeight) > 1.5) {
-        violations.push({ rule: "CABECERA", value: h, expected: contract.headerHeight, selector: path(el) });
-      }
-    }
-    if (el.tagName === "BUTTON" || el.getAttribute?.("role") === "button") {
-      const r = el.getBoundingClientRect();
-      const hasText = (el.innerText || "").trim().length > 0;
-      const min = hasText ? contract.minTarget : contract.iconTarget;
-      if (r.height > 0 && r.height < min - 0.5) {
-        violations.push({ rule: hasText ? "TARGET" : "TARGET_ICONO", value: round(r.height), expected: min, selector: path(el) });
-      }
-    }
-    if (el.scrollWidth > el.clientWidth + 2 && el.clientWidth > 0) {
-      const s2 = getComputedStyle(el);
-      if (s2.overflowX === "visible" && s2.overflow === "visible") {
-        violations.push({ rule: "DESBORDE", value: round(el.scrollWidth - el.clientWidth), expected: 0, selector: path(el) });
-      }
-    }
-  }
-
-  const toObj = (m) => Object.fromEntries([...m.entries()].sort((a, b) => b[1] - a[1]));
-  const byRule = {};
-  for (const v of violations) (byRule[v.rule] ||= []).push(v);
-  return {
-    counts: { elements: all.length, violations: violations.length },
-    fonts: toObj(fonts),
-    radii: toObj(radii),
-    shadows: toObj(shadows),
-    backgrounds: toObj(bgs),
-    byRule,
-    sample: Object.fromEntries(Object.entries(byRule).map(([k, v]) => [k, v.slice(0, 12)])),
-  };
-};
 
 /* ------------------------------------------------------------------ *
  * Spec por defecto: la app de Ego
  * ------------------------------------------------------------------ */
-const DEFAULT_STEPS = {
-  steps: [
-    { id: "01-chat-vacio", note: "Chat: empty-state" },
-    { id: "02-work", click: "loc=role:button[name='Work']", wait: 1200 },
-    { id: "03-subegos", click: "loc=css:nav[aria-label='Icon Rail'] button[aria-label='Sub-Egos Fábrica']", wait: 1200 },
-    { id: "04-personalizacion", click: "loc=css:nav[aria-label='Icon Rail'] button[aria-label='Personalización']", wait: 1200 },
-    { id: "05-perfil", click: "loc=css:nav[aria-label='Icon Rail'] button[aria-label='Perfil de usuario y configuración']", wait: 1200 },
-    { id: "06-omnibar", key: "ControlOrMeta+K", wait: 1500 },
-  ],
-};
+
 
 /* ------------------------------------------------------------------ *
  * Programa
@@ -394,6 +295,23 @@ try {
     stepsTotal: report.steps.length,
   };
   report.exitCode = totalViolations > 0 ? 1 : 0;
+
+  // T3 (Ola 4): NINGUNA corrida sin mediciones es válida. Si el compositor
+  // de ego lite no produjo frames (`Page.captureScreenshot` expira en los
+  // 6 pasos), el informe decía "0 infracciones" y salía con 0 → un VERDE
+  // FALSO que tapaba una app sin auditar. Ahora es un fallo explícito (2) y
+  // el wrapper cae al camino de rescate (Chromium headless).
+  if (report.summary.stepsOk === 0) {
+    report.exitCode = 2;
+    report.compositorDead = true;
+    report.errors.push(
+      "compositor sin frames: 0 pasos con capturas (Page.captureScreenshot agotó el tiempo). " +
+        "La corrida NO es válida: usa el camino de rescate (Chromium headless)."
+    );
+    console.error(
+      "[audit] el compositor no produjo ningún frame: la corrida no es válida (usa -Headless)."
+    );
+  }
 
   writeFileSync(join(OUT, "report.json"), JSON.stringify(report, null, 2), "utf8");
 

@@ -1,17 +1,11 @@
 // E6 (Ola 2): arranque de la ventana principal (extraído del god-file).
 import { createWindow, type CreateWindowDeps } from "./main/window/create-window.js";
 
-import { app, Tray, Menu, nativeImage, screen } from "electron";
+import { app, screen } from "electron";
 import { join, resolve as resolveFsPath, isAbsolute as isAbsoluteFsPath, relative as relativeFsPath } from "node:path";
 import { createHash } from "node:crypto";
 
 import { type ChildProcess } from "node:child_process";
-import { deflateSync } from "node:zlib";
-import { EgoMemoryAdapter } from "@ego/memory";
-import { ModelRouter, OpenAICompatibleProvider, AiSdkOpenAIProvider, AiSdkAnthropicProvider, AiSdkGoogleProvider, AiSdkOpenAICompatibleProvider } from "@ego/models";
-import type { ModelProviderFactory } from "@ego/models";
-import { AttentionStateMachine } from "@ego/runtime";
-import { SubEgoWorktreeManager } from "@ego/subegos";
 import {
   SubEgoSoul,
   applyEphemeralOverlay,
@@ -19,19 +13,23 @@ import {
   formatOutOfBandUserMessage,
   type AssembledPrompt,
 } from "@ego/subegos";
-import { ProjectManifestSchema, type ProjectManifest } from "./ipc/schema.js";
-import { MemoryCleanupJob } from "@ego/tasks";
-import { CredentialManager, CredentialPool } from "@ego/security";
 import { WindowStateManager } from "./windows/WindowStateManager.js";
-import {
-  FloatingWindowManager,
-  syncFromAttention,
-} from "./windows/FloatingWindow.js";
 
 // T11 (EGO-FIND-54): módulos extraídos del god-file.
 import { defaultWorkspaceRoot } from "./main/path-scope.js";
-import { DegradedObfBackend } from "./main/credentials/vault.js";
-import { currentModelConfig, isCustomBaseURL, isNonEmptyKey, mergeModelKeys, OPENAI_DEFAULT_BASE_URL, resolveEnvModelKeys, type ResolvedModelKeys } from "./main/models/model-config.js";
+import { currentModelConfig } from "./main/models/model-config.js";
+// E5 (Ola 5 · T1): identidad declarativa (SOUL.md/AGENT.md) + circuito de
+// presupuesto del Sub-Ego. El primero hace que el artefacto declarado
+// llegue al turno; el segundo, que el presupuesto declarado se vigile.
+import {
+  resolveSubEgoIdentity,
+  isRequiredIdentityMissing,
+} from "./main/subegos/identity.js";
+import {
+  evaluateTurnBudget,
+  recordTurnBudget,
+  type TurnBudgetOutcome,
+} from "./main/subegos/budget-guard.js";
 import { activeProjectId } from "./main/ipc/ipc-state.js";
 // T11 (Ola 1c): handler del turno de LLM (extraído del god-file).
 import { handleLlmStream } from "./main/llm/handle-llm-stream.js";
@@ -42,14 +40,6 @@ import { buildMcpPersistedRecord, deleteMcpEnvSecrets, extractPersistedMcpRecord
 // STAB-09: núcleos puros extraídos de este god-file (5047 líneas). La API
 // pública de `main.js` se mantiene vía re-export para las 10 suites de
 // `test/` que importan de aquí.
-import {
-  TRAY_COLORS,
-  pngChunk,
-  trayTooltipFor,
-  pauseAllTasks,
-  resumeAllTasks,
-  type EgoTrayStatus,
-} from "./main/tray-status.js";
 import {
   IpcPriorityQueue,
   type IpcPriority,
@@ -97,6 +87,10 @@ export {
   type ResolvedModelKeys,
 } from "./main/models/model-config.js";
 export { currentModelConfig } from "./main/models/model-config.js";
+// Ola 6 · T2: el estimador de coste del PROPIO router (para no duplicar su
+// heurística de tokens de salida) y el tipo de la configuración de turno.
+import { estimateCallCostUsd } from "@ego/models";
+import type { ModelConfig } from "./ipc/schema.js";
 export {
   buildMcpPersistedRecord,
   deleteMcpEnvSecrets,
@@ -124,14 +118,6 @@ export type { McpEnvSecretsRef, McpEnvSecretVault } from "./main/mcp-env.js";
 
 
 
-function ensureFloatMgr(): FloatingWindowManager {
-  if (!floatMgr) {
-    const created = new FloatingWindowManager();
-    setFloatMgr(created);
-    return created;
-  }
-  return floatMgr;
-}
 
 
 interface TerminalSession {
@@ -144,14 +130,6 @@ interface TerminalSession {
 }
 
 const terminalSessions = new Map<string, TerminalSession>();
-
-/**
- * Turnos LLM en curso cancelables (A1 real). Cada `handleLlmStream` registra
- * su `AbortController` al arrancar y lo libera en `finally`;
- * `ipc.llm.cancel` aborta por `turnId` o todos. El abort es síncrono: el
- * handler de cancelación nunca espera al loop (sin colgar).
- */
-const llmAbortControllers = new Map<string, AbortController>();
 
 /**
  * Emite `turn-cancelled` al renderer sin tumbar el main. El loop ya detenido
@@ -307,266 +285,32 @@ function killTerminalSession(sessionId: string, reason: string): boolean {
 }
 
 /** Icono 16×16 sólido generado en runtime (sin assets binarios nuevos). */
-function createTrayIcon(status: EgoTrayStatus): Electron.NativeImage {
-  const [r, g, b] = TRAY_COLORS[status];
-  const width = 16;
-  const height = 16;
-  const row = Buffer.alloc(1 + width * 4);
-  row[0] = 0; // filtro PNG: none
-  for (let x = 0; x < width; x++) {
-    row[1 + x * 4] = r;
-    row[1 + x * 4 + 1] = g;
-    row[1 + x * 4 + 2] = b;
-    row[1 + x * 4 + 3] = 255;
-  }
-  const raw = Buffer.alloc(row.length * height);
-  for (let y = 0; y < height; y++) row.copy(raw, y * row.length);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // color type RGBA
-  const png = Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    pngChunk("IHDR", ihdr),
-    pngChunk("IDAT", deflateSync(raw)),
-    pngChunk("IEND", Buffer.alloc(0)),
-  ]);
-  return nativeImage.createFromBuffer(png);
-}
 
 /** Deriva verde/azul/rojo del estado real del engine (COUC-19 mínimo). */
-function refreshTrayStatus(): void {
-  let next: EgoTrayStatus = "idle";
-  try {
-    if (backgroundEngine) {
-      if (backgroundEngine.listTasks({ status: ["paused"] }).length > 0) {
-        next = "hitl";
-      } else if (backgroundEngine.getActiveCount() > 0) {
-        next = "thinking";
-      }
-    }
-  } catch {
-    // noop: el tray nunca tumba el main
-  }
-  setTrayStatus(next);
-  try {
-    if (tray && !tray.isDestroyed()) {
-      tray.setImage(createTrayIcon(next));
-      tray.setToolTip(trayTooltipFor(next));
-    }
-  } catch {
-    // noop
-  }
-}
 
 /** Task4 (D2): snapshot de trabajo para `shouldAutoShow` (engine + flotante). */
-function floatingSnapshot(): {
-  active: number;
-  hitl: number;
-  muted: boolean;
-  disabled: boolean;
-} {
-  let active = 0;
-  let hitl = 0;
-  try {
-    if (backgroundEngine) {
-      active += backgroundEngine.getActiveCount();
-      hitl += backgroundEngine.listTasks({ status: ["paused"] }).length;
-    }
-    if (approvalEngine) {
-      hitl += approvalEngine.listPendingApprovals().length;
-    }
-    active += llmAbortControllers.size;
-  } catch {
-    // noop: el flotante nunca tumba el main
-  }
-  const st = floatMgr ? floatMgr.getState() : null;
-  return { active, hitl, muted: st?.muted ?? false, disabled: st?.disabled ?? false };
-}
 
-function getAttentionFsm(): AttentionStateMachine {
-  if (!attentionFsm) {
-    const created = new AttentionStateMachine({
-      onTransition: (ev) => {
-        try {
-          ensureFloatMgr().updateState({ attentionState: syncFromAttention(ev.currentState) });
-        } catch {
-          // noop
-        }
-      },
-    });
-    setAttentionFsm(created);
-    return created;
-  }
-  return attentionFsm;
-}
 
 /**
  * Recomputa la atención de la isla flotante y el tray usando AttentionStateMachine canónica.
  * Mantiene jerarquía de estados: hitl_approval (approval) > compact/expanded > hidden.
  */
-function recomputeFloatingAttention(): void {
-  try {
-    const snap = floatingSnapshot();
-    const fsm = getAttentionFsm();
-
-    if (snap.hitl > 0) {
-      fsm.requestAttention({
-        id: "hitl-approval",
-        priority: 100,
-        state: "hitl_approval",
-        title: "Aprobación HITL requerida",
-        pinned: true,
-      });
-    } else {
-      fsm.releaseAttention("hitl-approval");
-    }
-
-    if (snap.active > 0) {
-      fsm.requestAttention({
-        id: "active-work",
-        priority: 50,
-        state: "compact",
-        title: "Trabajo activo en curso",
-        pinned: true,
-      });
-    } else {
-      fsm.releaseAttention("active-work");
-    }
-
-    const state = fsm.getState();
-    ensureFloatMgr().updateState({ attentionState: syncFromAttention(state) });
-  } catch {
-    // noop: defensivo contra fallos en cálculo de atención
-  }
-  refreshTrayStatus();
-}
 
 /** Task4 (D2): sincroniza flotante + tray desde el engine (una sola llamada). */
-function syncFloatingFromEngine(): void {
-  recomputeFloatingAttention();
-}
 
 /**
  * Task10 (COUC-19): emite el canal `tray:id` al renderer principal
  * (el tray es espejo del estado: click/acciones notifican sin tumbar main).
  */
-function emitTrayId(action: string): void {
-  try {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send("ipc.event", { event: "tray:id", action, status: trayStatus });
-    }
-  } catch {
-    // noop: el push al renderer nunca tumba el main
-  }
-}
 
 /**
  * Task10 (COUC-19): Pause detiene el BackgroundEngine (running+queued →
  * paused) SIN cerrar ventanas; Reanudar lo re-encola. Lógica pura en
  * `main/tray-status.ts` (testeable); aquí solo wiring + sync visual.
  */
-function pauseAllBackgroundTasks(): string[] {
-  let paused: string[] = [];
-  try {
-    if (backgroundEngine) {
-      paused = pauseAllTasks(backgroundEngine);
-    }
-  } catch {
-    // noop
-  }
-  try {
-    ensureFloatMgr().updateState({ attentionState: "hidden" });
-  } catch {
-    // noop
-  }
-  refreshTrayStatus();
-  return paused;
-}
 
-function resumeAllBackgroundTasks(): string[] {
-  let resumed: string[] = [];
-  try {
-    if (backgroundEngine) {
-      resumed = resumeAllTasks(backgroundEngine);
-    }
-  } catch {
-    // noop
-  }
-  syncFloatingFromEngine();
-  return resumed;
-}
 
 /** Task10 (WIDG-05/COUC-19): tray completo — Abrir/Settings/Pause/Quit + `tray:id`. */
-function ensureTray(): void {
-  if (tray) {
-    refreshTrayStatus();
-    return;
-  }
-  try {
-    const created = new Tray(createTrayIcon(trayStatus));
-    setTray(created);
-    created.setToolTip(trayTooltipFor(trayStatus));
-    const restore = (): void => {
-      try {
-        if (win && !win.isDestroyed()) {
-          if (win.isMinimized()) win.restore();
-          win.show();
-          win.focus();
-        }
-        // Task4 (D2): al restaurar la principal, ocultar el flotante.
-        if (floatMgr) floatMgr.hide();
-        emitTrayId("open");
-      } catch {
-        // noop
-      }
-    };
-    const openSettings = (): void => {
-      try {
-        if (win && !win.isDestroyed()) {
-          if (win.isMinimized()) win.restore();
-          win.show();
-          win.focus();
-        }
-        emitTrayId("open-settings");
-      } catch {
-        // noop
-      }
-    };
-    created.on("click", restore);
-    created.setContextMenu(Menu.buildFromTemplate([
-        { label: "Abrir Ego", click: restore },
-        { label: "Configuración", click: openSettings },
-        { type: "separator" },
-        {
-          label: "Pausar tareas",
-          click: (): void => {
-            const paused = pauseAllBackgroundTasks();
-            emitTrayId(`pause:${paused.length}`);
-          },
-        },
-        {
-          label: "Reanudar tareas",
-          click: (): void => {
-            const resumed = resumeAllBackgroundTasks();
-            emitTrayId(`resume:${resumed.length}`);
-          },
-        },
-        { type: "separator" },
-        {
-          label: "Salir",
-          click: (): void => {
-            app.quit();
-          },
-        },
-      ])
-    );
-  } catch (err) {
-    console.warn("[Ego Desktop] Tray no disponible:", err);
-    setTray(null);
-  }
-}
 
 // E6 (Ola 2): los accessors del runtime viven con el estado.
 export {
@@ -598,45 +342,6 @@ export {
   getTaskCheckpointManager,
 } from "./main/state/runtime-getters.js";
 
-export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapter): Promise<ProjectManifest> {
-  const existing = await adapterInstance.get("gov/projects", "default");
-  if (existing) {
-    let payload: unknown = existing;
-    if (typeof existing === "object" && existing !== null && "payload" in existing) {
-      payload = (existing as { payload: unknown }).payload;
-    }
-    try {
-      return ProjectManifestSchema.parse(payload);
-    } catch {
-      // noop
-    }
-  }
-
-  const defaultProject: ProjectManifest = {
-    id: "default",
-    name: "Ego Core",
-    rootPath: process.env.EGO_WORKSPACE_PATH || process.cwd(),
-    description: "Proyecto central y entorno de trabajo principal de Ego",
-    activeSubEgoId: "ego.nucleus",
-    createdAtMs: Date.now(),
-    updatedAtMs: Date.now(),
-  };
-
-  await adapterInstance.put({
-    namespace: "gov/projects",
-    key: "default",
-    payload: defaultProject,
-    metadata: { name: defaultProject.name, rootPath: defaultProject.rootPath }
-  });
-  await adapterInstance.put({
-    namespace: "projects/default",
-    key: "manifest",
-    payload: defaultProject,
-    metadata: { name: defaultProject.name, rootPath: defaultProject.rootPath }
-  });
-
-  return defaultProject;
-}
 
 // ---------------------------------------------------------------------------
 // Secretos de entorno MCP → Credential Manager (Deuda F1T2/F5T10).
@@ -681,82 +386,17 @@ export async function getOrCreateDefaultProject(adapterInstance: EgoMemoryAdapte
 // ---------------------------------------------------------------------------
 
 /** Factory del pool: reconstruye el provider real con la key rotada. */
-const modelPoolProviderFactory: ModelProviderFactory = (providerId, apiKey) => {
-  if (providerId === "openai") {
-    const base = isNonEmptyKey(currentModelConfig.openaiBaseURL)
-      ? currentModelConfig.openaiBaseURL
-      : currentModelConfig.activeProvider === "openai" && isNonEmptyKey(currentModelConfig.baseUrl)
-        ? currentModelConfig.baseUrl
-        : undefined;
-    if (isCustomBaseURL(base, OPENAI_DEFAULT_BASE_URL)) {
-      return new OpenAICompatibleProvider({ providerId: "openai", baseUrl: base, apiKey });
-    }
-    return new AiSdkOpenAIProvider({ apiKey, ...(isNonEmptyKey(base) ? { baseURL: base } : {}) });
-  }
-  if (providerId === "anthropic") {
-    return new AiSdkAnthropicProvider({ apiKey });
-  }
-  if (providerId === "google") {
-    return new AiSdkGoogleProvider({ apiKey });
-  }
-  if (providerId === "deepseek") {
-    const base = isNonEmptyKey(currentModelConfig.deepseekBaseURL)
-      ? currentModelConfig.deepseekBaseURL
-      : currentModelConfig.activeProvider === "deepseek" && isNonEmptyKey(currentModelConfig.baseUrl)
-        ? currentModelConfig.baseUrl
-        : undefined;
-    return new AiSdkOpenAICompatibleProvider({
-      providerId: "deepseek",
-      apiKey,
-      ...(isNonEmptyKey(base) ? { baseURL: base } : {}),
-    });
-  }
-  throw new Error(
-    `[ModelPool] Rotación no soportada para '${providerId}' (solo openai/anthropic/google/deepseek rotan; mock/ollama sin secreto).`
-  );
-};
 
 
 /** Singleton del pool de keys de modelos (vault en memoria sobre safeStorage). */
-export function getModelCredentialPool(): CredentialPool {
-  const existing = modelCredentialPool;
-  if (existing) return existing;
-  // BUGFIX 2026-10-15 (saveModelConfig lanzaba tras T21): el pool usaba
-  // `mainProcessCryptoBackend` directo (fail-closed: lanza sin safeStorage)
-  // mientras `encryptCredential` degrada a `obf:` legacy. En esta máquina
-  // safeStorage no está disponible, así que el save moría en
-  // `setProviderKeys`. El pool usa el mismo degradado que el resto del
-  // save (memoria del proceso + `obf:` reversible, nunca texto plano).
-  const manager = new CredentialManager(new DegradedObfBackend());
-  setModelCredentialManager(manager);
-  const pool = new CredentialPool(manager);
-  setModelCredentialPool(pool);
-  return pool;
-}
 
 /** Solo tests: inyecta un pool falso en el singleton de sesión. */
-export function setModelCredentialPoolForTests(pool: CredentialPool | null): void {
-  setModelCredentialPool(pool);
-  if (pool === null) setModelCredentialManager(null);
-}
 
 /**
  * Rehidrata el pool desde keys efectivas (env + persistidas) y lo conecta
  * al router. V1: 1 slot por proveedor; el pool soporta N (arrays multi-key
  * diferidos sin cambio de forma del payload).
  */
-export async function syncModelCredentialPool(
-  router: ModelRouter,
-  extraKeys: ResolvedModelKeys = {}
-): Promise<void> {
-  const keys = mergeModelKeys(resolveEnvModelKeys(), extraKeys);
-  const pool = getModelCredentialPool();
-  await pool.setProviderKeys("openai", isNonEmptyKey(keys.openai) ? [keys.openai] : []);
-  await pool.setProviderKeys("anthropic", isNonEmptyKey(keys.anthropic) ? [keys.anthropic] : []);
-  await pool.setProviderKeys("google", isNonEmptyKey(keys.google) ? [keys.google] : []);
-  await pool.setProviderKeys("deepseek", isNonEmptyKey(keys.deepseek) ? [keys.deepseek] : []);
-  router.attachCredentialPool(pool, modelPoolProviderFactory);
-}
 
 // ---------------------------------------------------------------------------
 // CFG-06: política de permisos allow/ask/deny (deny gana) + approvals.
@@ -826,8 +466,17 @@ import { getCachedPermissionsSettings, getCachedCompressionSettings, parsePermis
 
 // E6 (Ola 2): estado mutable del proceso main (bindings VIVOS).
 // Los setters son el único punto de escritura; ver el módulo para el contrato.
-import { crashRecoveryEngine, opGate, windowStateManager, adapter, lifecycle, displayChangeListener, compactionJob, compactionSummarizer, modelRouter, approvalEngine, toolLoop, subEgoRegistry, delegationRuntime, decisionRouter, decisionAuditor, decisionTelemetry, loopBreaker, mcpManager, mcpServerHandle, runRecorder, skillScanner, eventBus, knowledgeIndexer, hybridSearch, graphRagEngine, quarantineManager, factLifecycle, bitemporalQueries, projectMemoryGraph, knowledgeExport, documentParser, dailyStateEngine, dailyStatePersistence, goalPrioritizer, decisionsFeed, win, backgroundEngine, workerTaskPool, proactivityEngine, tray, trayStatus, floatMgr, mainPushDrainScheduled, attentionFsm, modelCredentialPool, memoryCleanupTimer, memoryCleanupFirst, defaultNucleusSoul } from "./main/state/app-context.js";
-import { setDisplayChangeListener, setDelegationRuntime, setMcpServerHandle, setRunRecorder, setTray, setTrayStatus, setFloatMgr, setMainPushDrainScheduled, setAttentionFsm, setModelCredentialManager, setModelCredentialPool, setMemoryCleanupTimer, setMemoryCleanupFirst, setDefaultNucleusSoul } from "./main/state/app-context.js";
+import { crashRecoveryEngine, opGate, windowStateManager, adapter, lifecycle, displayChangeListener, compactionJob, compactionSummarizer, modelRouter, approvalEngine, toolLoop, subEgoRegistry, delegationRuntime, decisionRouter, decisionAuditor, decisionTelemetry, loopBreaker, mcpManager, mcpServerHandle, runRecorder, skillScanner, eventBus, knowledgeIndexer, hybridSearch, graphRagEngine, quarantineManager, factLifecycle, bitemporalQueries, projectMemoryGraph, knowledgeExport, documentParser, dailyStateEngine, dailyStatePersistence, goalPrioritizer, decisionsFeed, win, backgroundEngine, workerTaskPool, proactivityEngine, tray, mainPushDrainScheduled, defaultNucleusSoul, llmAbortControllers } from "./main/state/app-context.js";
+import { setDisplayChangeListener, setDelegationRuntime, setMcpServerHandle, setRunRecorder, setTray, setMainPushDrainScheduled, setDefaultNucleusSoul } from "./main/state/app-context.js";
+
+// E6-res (Ola 3): bloques extraídos del compositor a módulos propios.
+import { ensureFloatMgr, refreshTrayStatus, floatingSnapshot, syncFloatingFromEngine, ensureTray } from "./main/tray/tray-controller.js";
+import { getOrCreateDefaultProject } from "./main/subsystems/default-project.js";
+import { syncModelCredentialPool } from "./main/models/model-pool.js";
+import { scheduleMemoryCleanup } from "./main/subsystems/memory-cleanup.js";
+export { getOrCreateDefaultProject } from "./main/subsystems/default-project.js";
+export { getModelCredentialPool, setModelCredentialPoolForTests, syncModelCredentialPool } from "./main/models/model-pool.js";
+export { scheduleMemoryCleanup, stopMemoryCleanupForTests } from "./main/subsystems/memory-cleanup.js";
 
 
 export { getCachedPermissionsSettings } from "./main/settings-cache.js";
@@ -872,63 +521,8 @@ export function clearLoopStableHash(sessionId: string): void {
 }
 
 
-export function scheduleMemoryCleanup(): void {
-  if (memoryCleanupTimer) return;
-  const runCleanup = async (): Promise<void> => {
-    try {
-      const settings = getCachedCompressionSettings();
-      const repoRoot = process.env["EGO_WORKSPACE_PATH"] || process.cwd();
-      const worktrees = new SubEgoWorktreeManager();
-      const job = new MemoryCleanupJob(adapter, {
-        cleanupPeriodDays: settings.cleanupPeriodDays,
-        pruneOrphanWorktrees: () =>
-          worktrees.pruneOrphanWorktrees(repoRoot, {
-            cleanupPeriodDays: settings.cleanupPeriodDays,
-          }),
-      });
-      const report = await job.run();
-      const total =
-        report.sessions.pruned.length +
-        report.turns.pruned.length +
-        (report.worktrees?.pruned.length ?? 0);
-      if (total > 0) {
-        console.log(
-          `[Ego Main] MemoryCleanup STAB-05: sesiones=${report.sessions.pruned.length} ` +
-            `turns=${report.turns.pruned.length} worktrees=${report.worktrees?.pruned.length ?? 0}`
-        );
-      }
-    } catch (err) {
-      console.warn("[Ego Main] MemoryCleanup STAB-05 falló (reintenta en 24h):", err);
-    }
-  };
-  // Primera corrida diferida; luego cada 24h. `unref` para no retener salida.
-  setMemoryCleanupFirst(setTimeout(() => {
-      setMemoryCleanupFirst(null);
-      void runCleanup();
-    }, 60_000)
-  );
-  if (typeof memoryCleanupFirst === "object" && memoryCleanupFirst !== null && "unref" in memoryCleanupFirst) {
-    (memoryCleanupFirst as NodeJS.Timeout).unref();
-  }
-  setMemoryCleanupTimer(setInterval(() => {
-    void runCleanup();
-  }, 24 * 60 * 60 * 1000));
-  if (typeof memoryCleanupTimer === "object" && memoryCleanupTimer !== null && "unref" in memoryCleanupTimer) {
-    (memoryCleanupTimer as NodeJS.Timeout).unref();
-  }
-}
 
 /** Solo tests: detiene los timers periódicos sin efectos colaterales. */
-export function stopMemoryCleanupForTests(): void {
-  if (memoryCleanupFirst) {
-    clearTimeout(memoryCleanupFirst);
-    setMemoryCleanupFirst(null);
-  }
-  if (memoryCleanupTimer) {
-    clearInterval(memoryCleanupTimer);
-    setMemoryCleanupTimer(null);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // STAB-03: PromptAssembly cableado al turno real (tiers Hermes, caché e inyección).
@@ -959,17 +553,131 @@ export function getDefaultNucleusSoul(): SubEgoSoul {
 }
 
 /**
- * Resuelve el alma del subEgo del turno: registry → `SubEgoSoul.fromManifest`,
- * fallback al nucleus por defecto (nunca lanza por registry vacío).
+ * Resuelve el alma del subEgo del turno: registry → identidad declarativa
+ * (`SOUL.md`/`AGENT.md`, E5) → fallback al nucleus por defecto.
+ *
+ * ## Semántica de fallo (E5)
+ * - Identidad **no obligatoria** e ilegible → fallback al manifiesto + aviso.
+ * - Identidad **obligatoria** (`required: true`) e ilegible → **error
+ *   tipado**: el turno NO puede continuar con el nucleus (sería sustituir
+ *   en silencio la identidad que el Sub-Ego declaró).
+ * - Registry vacío o error de registry → nucleus (fail-open de IDENTIDAD,
+ *   nunca de gobernanza).
  */
 export async function resolveTurnSoul(subEgoId: string): Promise<SubEgoSoul> {
   try {
     const manifest = await subEgoRegistry?.get(subEgoId);
-    if (manifest) return SubEgoSoul.fromManifest(manifest);
-  } catch {
+    if (manifest) {
+      // E5: si el manifiesto declara su artefacto de identidad, se carga
+      // desde disco; si no, el loader en código sigue siendo la fuente.
+      const resolution = await resolveSubEgoIdentity(manifest, {
+        workspacePath: defaultWorkspaceRoot(),
+      });
+      for (const warning of resolution.warnings) {
+        console.warn(`[resolveTurnSoul] ${warning}`);
+      }
+      return resolution.soul;
+    }
+  } catch (err) {
+    // Fail-closed de IDENTIDAD: la identidad obligatoria ausente es un
+    // error de gobernanza, no un motivo para servir otra identidad.
+    if (isRequiredIdentityMissing(err)) throw err;
     // Fallback intencional al nucleus (fail-open solo en identidad, nunca en permisos).
   }
   return getDefaultNucleusSoul();
+}
+
+/**
+ * E5 (Ola 5 · T1) — Evalúa el circuito de presupuesto del Sub-Ego ANTES del
+ * turno.
+ *
+ * Sin manifiesto (Sub-Ego desconocido) no hay presupuesto declarado → el
+ * turno pasa. Con manifiesto, el circuito decide: `allow`, `degrade` (con el
+ * modelo barato y su configuración) o `stop` (error tipado).
+ */
+export async function evaluateTurnBudgetForTurn(args: {
+  subEgoId: string;
+  estimate: { tokens?: number; costUsd?: number };
+  prompt?: string;
+}): Promise<TurnBudgetOutcome> {
+  const manifest = (await subEgoRegistry?.get(args.subEgoId)) ?? null;
+  return evaluateTurnBudget({
+    subEgoId: args.subEgoId,
+    manifest,
+    // El `ModelRouter` satisface estructuralmente `BudgetAwareRouterLike`
+    // (`getMaxCostPerCallUsd` / `resolveCheaperModel`, añadidos en A2-bis):
+    // el tope efectivo pasa a ser el MÍNIMO(Sub-Ego, router) y la
+    // degradación a un modelo más barato deja de ser teórica.
+    router: modelRouter,
+    estimate: {
+      ...args.estimate,
+      // Ola 6 · T2: el COSTE se estima con las **tarifas reales** del
+      // modelo vigente (el estimador del propio router). Sin esto el tope
+      // de coste no se evaluaba nunca: el circuito sólo veía tokens.
+      ...(args.estimate.costUsd === undefined
+        ? { costUsd: estimateTurnCostUsd(args.prompt ?? "") }
+        : {}),
+    },
+    // La configuración del modelo degradado se construye desde la fuente
+    // canónica de A2-bis (`resolveModelDescriptor`): un id registrado →
+    // su descriptor; un id no registrado con provider conocido → descriptor
+    // dinámico. Sin ella, el guard DETIENE (fail-closed: seguir con el
+    // modelo caro violaría el tope).
+    resolveModelConfig: (modelId) => resolveModelConfigById(modelId),
+  });
+}
+
+/**
+ * Ola 6 · T2 — Configuración de turno de un **id de modelo** cualquiera.
+ *
+ * `null` si no hay forma de construirla (el guard DETIENE entonces).
+ */
+export async function resolveModelConfigById(
+  modelId: string
+): Promise<ModelConfig | undefined> {
+  const descriptor = await modelRouter.resolveModelDescriptor(modelId);
+  if (!descriptor) return undefined;
+  return {
+    activeProvider: descriptor.provider,
+    apiKey: currentModelConfig.apiKey ?? "",
+    baseUrl: currentModelConfig.baseUrl ?? "",
+    modelName: descriptor.id,
+  } as ModelConfig;
+}
+
+/**
+ * Ola 6 · T2 — Coste estimado del turno (USD) con las tarifas reales.
+ *
+ * El estimador es el del PROPIO router (`estimateCallCostUsd`), para no
+ * duplicar su heurística de tokens de salida.
+ */
+function estimateTurnCostUsd(prompt: string): number | undefined {
+  const modelId = currentModelConfig.modelName?.trim();
+  if (!modelId) return undefined;
+  const descriptor = modelRouter.getModelDescriptor(modelId);
+  if (!descriptor) return undefined;
+  const cost = estimateCallCostUsd(descriptor, {
+    messages: [{ role: "user", content: prompt }],
+  });
+  return Number.isFinite(cost) ? cost : undefined;
+}
+
+/**
+ * E5 (Ola 5 · T1) — Registra el consumo real del turno en el circuito.
+ */
+export async function recordTurnBudgetForTurn(args: {
+  subEgoId: string;
+  usage: { tokens: number; durationMs: number; model?: string };
+}): Promise<void> {
+  const manifest = (await subEgoRegistry?.get(args.subEgoId)) ?? null;
+  await recordTurnBudget({
+    subEgoId: args.subEgoId,
+    manifest,
+    // El `ModelRouter` satisface estructuralmente `BudgetAwareRouterLike`
+    // (A2-bis) → sin cast.
+    router: modelRouter,
+    usage: args.usage,
+  });
 }
 
 /** Cola out-of-band de steers pendientes (productor futuro: IPC/delegación; STAB-04 expone el loop). */
@@ -1073,6 +781,10 @@ const llmCtx = {
   get updateLoopStableHash() { return updateLoopStableHash; },
   get buildTurnPrompt() { return buildTurnPrompt; },
   get resolveTurnSoul() { return resolveTurnSoul; },
+  // E5 (Ola 5 · T1): el circuito de presupuesto del Sub-Ego se evalúa antes
+  // del turno y se registra después.
+  get evaluateTurnBudget() { return evaluateTurnBudgetForTurn; },
+  get recordTurnBudget() { return recordTurnBudgetForTurn; },
   get drainMainSteerQueue() { return drainMainSteerQueue; },
   get formatOutOfBandUserMessage() { return formatOutOfBandUserMessage; },
   get pushTurnCancelled() { return pushTurnCancelled; },

@@ -101,6 +101,8 @@ import { join } from "node:path";
 import { EgoMemoryAdapter, EgoMemoryLifecycle } from "@ego/memory";
 import { ModelRouter, createRouterSummarizer } from "@ego/models";
 import { ToolRegistry, registerNativeTools } from "@ego/tools";
+// E13 (Ola 5 · T1): registro de los metatools de divulgación progresiva.
+import { registerProgressiveMetaTools } from "../tools/meta-tools.js";
 import { McpManager, SkillScanner } from "@ego/integrations";
 import { EventBus, StructuredLogger, type EgoEventType } from "@ego/events";
 import { ToolExecutionLoop, ContextCompactionJob } from "@ego/runtime";
@@ -394,6 +396,19 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
     },
   });
 
+  // E13 (Ola 5 · T1): metatools de divulgación progresiva. Sin esto el
+  // modelo no puede ver `lookup_skills` / `search_tools` / `expand_tools`:
+  // estaban implementados y verificados en `packages/tools`, pero nunca
+  // registrados en el registro de producción (código muerto, EGO-FIND-90).
+  //
+  // El catálogo es INYECTADO (`SkillCatalogLike`): `packages/tools` no
+  // depende de `packages/integrations` (evita el ciclo), así que el
+  // adaptador vive aquí. El cuerpo de cada skill se lee del disco **sólo**
+  // bajo demanda (`includeBody: true`).
+  const skillScanner = new SkillScanner();
+  setSkillScanner(skillScanner);
+  registerProgressiveMetaTools(toolRegistry, { scanner: skillScanner });
+
   // A3-T1 / EGO-FIND-22: delegación de Sub-Egos viva. `createDelegationRuntime`
   // registra en el `toolRegistry` las 6 tools de delegación
   // (delegate_task, delegate_many, delegation_steer/stop/list_active/drain_steer).
@@ -434,7 +449,6 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
     secretResolver: createCredentialSecretResolver(getMcpCredentialManager()),
     eventBus,
   }));
-  setSkillScanner(new SkillScanner());
   setSubEgoRegistry(new SubEgoRegistry(adapter));
   // A2-07 / EGO-FIND-36: los niveles 2 (scorer) y 3 (LLM estructurado) de la
   // cascada eran código muerto. Con scorer/llm configurados, `DecisionRouter`

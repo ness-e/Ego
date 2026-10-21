@@ -50,6 +50,10 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+// Ola 5 · T2: la huella del contenido infractor (SHA-256) es la clave de la
+// lista blanca: una excepción deja de suprimir en cuanto el contenido
+// cambia, en vez de desplazarse en silencio.
+const { createHash } = require('node:crypto');
 
 /* ------------------------------------------------------------------ *
  * Constantes de contexto
@@ -175,6 +179,15 @@ const RULES = {
       'docs/design/design-system.md §1 y §6 — las superficies son 3 niveles SÓLIDOS ' +
       '(`bg-paper` · `bg-panel` · `bg-raised`). Una superficie con alfa no es un nivel de la rampa: ' +
       'es un color distinto que no se puede comparar con los otros.',
+  },
+  R12: {
+    id: 'R12',
+    title: 'CSS crudo fuera del design system',
+    severity: 'error',
+    doc:
+      'docs/design/design-system.md §1 — la puerta también analiza los ficheros `.css` del renderer: ' +
+      '`!important` (salta la cascada; el orden de Tailwind no es determinista por texto) y colores ' +
+      'crudos (`rgb()`/`hsl()`) fuera de los ficheros de tokens.',
   },
 };
 
@@ -362,6 +375,8 @@ const REASONS = {
     'Posicionamiento calculado en runtime (coordenadas de selección): Tailwind no puede expresar un valor dinámico. La supresión la hace esta entrada de la lista blanca, no un comentario en el código.',
   SELECT_UI_KIT:
     'El propio kit de UI: `Button`/`Input` envuelven los controles nativos de la plataforma (Radix no ofrece Button ni Input) — ver `docs/design/design-system.md` §8.1.',
+  DEBT_CSS_RAW:
+    'Deuda heredada: CSS crudo fuera del design system (`!important` y colores `rgb()`/`hsl()` literales). Pendiente de migrar el CSS legacy a los tokens del sistema (`--color-*`) y a la especificidad del selector.',
 };
 
 /**
@@ -399,6 +414,13 @@ const R8_EXCLUSIONS = [{ prefix: 'components/ui-kit/', reason: REASONS.SELECT_UI
     {
       rule: 'R1',
       files: ['components/canvas/DesignSystemProvider.tsx'],
+      fingerprints: [
+        { hash: 'e5e7de4013eab504', match: '#71717a' },
+        { hash: 'dc040a16323b5160', match: '#0a0a0b' },
+        { hash: '0a71004413ea03b2', match: '#8a8a92' },
+        { hash: '028da4d84ac30597', match: '#818cf8' },
+        { hash: 'fab7ee422327b1c7', match: '#a78bfa' },
+      ],
       reason: REASONS.TOKEN_SOURCE,
       since: '2026-10-20',
       findingId: 'EGO-DL-001',
@@ -407,6 +429,64 @@ const R8_EXCLUSIONS = [{ prefix: 'components/ui-kit/', reason: REASONS.SELECT_UI
     {
       rule: 'R1',
       files: ['components/character/core/CharacterEngine.ts','components/character/traits/TraitRegistry.ts','components/character/transitions/CharacterMorph.ts','components/character/wardrobe/CharacterWardrobe.ts'],
+      fingerprints: [
+        { hash: 'c07fbbfe6c37d2db', match: '#FFFFFF' },
+        { hash: '1fe76ef86e208b12', match: '#FF4081' },
+        { hash: '53af015cb358d532', match: '#FFD700' },
+        { hash: 'fe5fe60a3e6c7d08', match: '#4FC3F7' },
+        { hash: '494c5f40a86f8c3c', match: '#9E9E9E' },
+        { hash: '18b323ccb67d6a43', match: '#EDEDEF' },
+        { hash: 'c17e9e4491bdb107', match: '#C4C5CA' },
+        { hash: '2a19b2846ee91f38', match: '#E0F2FE' },
+        { hash: 'e3b3114901109ecc', match: '#BAE6FD' },
+        { hash: '695c6ab00fce931a', match: '#EDE9FE' },
+        { hash: '4acefd1e51f2bfff', match: '#DDD6FE' },
+        { hash: 'a2b3fe748ea97420', match: '#FEF3C7' },
+        { hash: '0eb228cfceface9f', match: '#FDE68A' },
+        { hash: 'b0ddc2d209627045', match: '#D1FAE5' },
+        { hash: 'cecb7d6a7a67f3c7', match: '#A7F3D0' },
+        { hash: '8b55f4d064eeeeb8', match: '#F3E8FF' },
+        { hash: '3371087074f32969', match: '#E9D5FF' },
+        { hash: 'd2e2a5820b664a8f', match: '#93c5fd' },
+        { hash: '9e0b92408ffc5550', match: '#FFFFFF' },
+        { hash: 'c724be575b40f3ab', match: '#D5D9E2' },
+        { hash: 'cb570c45b0cffce3', match: '#DADDE4' },
+        { hash: '55f0ae58cbf8143f', match: '#7DB6FF' },
+        { hash: '03319c004af0811f', match: '#2F6FE0' },
+        { hash: '4e94d0401ace3225', match: '#3C7BEA' },
+        { hash: 'a9e4522e13a8a65b', match: '#2257C4' },
+        { hash: '560b31ae0d9a2ea6', match: '#FF6B6B' },
+        { hash: '8c3038a09da037f3', match: '#E53935' },
+        { hash: '2a3a185c116c49fd', match: '#B71C1C' },
+        { hash: 'e5a87adf5496dd62', match: '#FF9BD0' },
+        { hash: '7d7594f0f532d6ae', match: '#F15BAE' },
+        { hash: '6f24483422748057', match: '#C2187A' },
+        { hash: 'faa3c38a2e62c1ff', match: '#FFD84D' },
+        { hash: 'f51623d94506bd3d', match: '#FFE27A' },
+        { hash: '4d214694a024858b', match: '#F2B705' },
+        { hash: '9e2e924cd3ae0ec9', match: '#111317' },
+        { hash: '04623bf70f6a7eaf', match: '#0B0C0F' },
+        { hash: 'be4556bf36de086d', match: '#8A4B12' },
+        { hash: '2eb00949af5e5ebd', match: '#9A5A1A' },
+        { hash: '0357e45ecbb5f1ce', match: '#F87171' },
+        { hash: '949157ecea60a510', match: '#B91C1C' },
+        { hash: 'cd97cde177612a62', match: '#EF4444' },
+        { hash: 'b3b57dcf2e1ded77', match: '#DC2626' },
+        { hash: '8a41545d2c18150d', match: '#FF8CC6' },
+        { hash: '880f605cf3a8c640', match: '#DB2777' },
+        { hash: '64b632180c631404', match: '#FFB3D9' },
+        { hash: '92784eb9bbec1054', match: '#C2185B' },
+        { hash: '83ed297b7a54a4fb', match: '#C98A12' },
+        { hash: 'ea5663b3e6337141', match: '#8A5A06' },
+        { hash: '576491e9593cd38a', match: '#FFE58A' },
+        { hash: '861ec11aebe4f4f0', match: '#FBBF24' },
+        { hash: 'b45d08306d9e9c25', match: '#D08A0B' },
+        { hash: '14f66fe72693c3de', match: '#3B82F6' },
+        { hash: '81e61fdf05bbb0ea', match: '#22C55E' },
+        { hash: '04bf48afd7c66736', match: '#A855F7' },
+        { hash: 'f869ebcde8949c7f', match: '#FFF6CC' },
+        { hash: '7643bccc05b5d392', match: '#E0A21A' },
+      ],
       reason: REASONS.AVATAR_ENGINE,
       since: '2026-10-20',
       findingId: 'EGO-DL-002',
@@ -415,7 +495,20 @@ const R8_EXCLUSIONS = [{ prefix: 'components/ui-kit/', reason: REASONS.SELECT_UI
     {
       rule: 'R1',
       files: ['components/character/wardrobe/WardrobeSelector.tsx'],
-      lines: [[60,75]],
+      fingerprints: [
+        { hash: '2cf35d3e39e2b407', match: '#06b6d4' },
+        { hash: '275a7265e0313f77', match: '#083344' },
+        { hash: '24ff464210edd46f', match: '#f59e0b' },
+        { hash: '5ebc7518c642c740', match: '#451a03' },
+        { hash: 'ab0d7bac559172ac', match: '#10b981' },
+        { hash: '6a5b0f4d757a3676', match: '#022c22' },
+        { hash: 'b76854901d397716', match: '#a855f7' },
+        { hash: '714cb3b30f3ea58b', match: '#3b0764' },
+        { hash: '23576b1dae227c55', match: '#52525b' },
+        { hash: '5ab532a8a8bbdeaf', match: '#18181b' },
+        { hash: '8f245ef8c26a788f', match: '#f43f5e' },
+        { hash: '24bc1999847a820c', match: '#4c0519' },
+      ],
       reason: REASONS.AVATAR_ENGINE,
       since: '2026-10-20',
       findingId: 'EGO-DL-003',
@@ -424,6 +517,9 @@ const R8_EXCLUSIONS = [{ prefix: 'components/ui-kit/', reason: REASONS.SELECT_UI
     {
       rule: 'R2',
       files: ['components/canvas/SelectionToolbar.tsx'],
+      fingerprints: [
+        { hash: '231065ec6e41fd2c', match: 'style={{' },
+      ],
       reason: REASONS.RUNTIME_POSITIONING,
       since: '2026-10-20',
       findingId: 'EGO-DL-004',
@@ -432,9 +528,26 @@ const R8_EXCLUSIONS = [{ prefix: 'components/ui-kit/', reason: REASONS.SELECT_UI
     {
       rule: 'R9',
       files: ['components/ui-kit/Menu.tsx','components/ui-kit/Popover.tsx','components/ui-kit/Select.tsx'],
+      fingerprints: [
+        { hash: '34e9e6dc1aa41cda', match: 'rounded-lg' },
+        { hash: '426c014519bae525', match: 'rounded-lg' },
+        { hash: 'eaa04e46d9e626c5', match: 'rounded-lg' },
+      ],
       reason: REASONS.DEBT_RADIUS_SCALE,
       since: '2026-10-20',
       findingId: 'EGO-DL-021',
+      kind: 'deuda',
+    },
+    {
+      rule: 'R12',
+      files: ['floating/floating.css'],
+      fingerprints: [
+        { hash: '22d40b38b5873e08', match: '!important' },
+        { hash: 'dd16563f077b7e7e', match: 'rgb(' },
+      ],
+      reason: REASONS.DEBT_CSS_RAW,
+      since: '2026-10-21',
+      findingId: 'EGO-DL-024',
       kind: 'deuda',
     },
   ];
@@ -761,6 +874,29 @@ function extractClassFragments(region, base, out) {
 }
 
 /**
+ * Extrae las listas de clases de las tablas `cva({...})`.
+ *
+ * Las variantes compuestas por `cva` NO pasan por `className=`: el string
+ * vive dentro de un objeto (`variants.tone.ok = "…"`). Sin esto, un
+ * `text-emerald-400` en una variante nueva pasaba la puerta (hueco que
+ * cerró A5 con la regla R7).
+ */
+function extractCvaValues(src) {
+  const out = [];
+  const re = /\bcva\s*\(/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const open = src.indexOf('{', m.index);
+    if (open < 0) continue;
+    const close = matchBrace(src, open);
+    if (close < 0) continue;
+    extractClassFragments(src.slice(open + 1, close), open + 1, out);
+    re.lastIndex = close;
+  }
+  return out;
+}
+
+/**
  * Extrae todas las listas de clases candidatas.
  *
  * Cubre `className="…"`, `className={'…'}`, `` className={`…`} `` y
@@ -847,7 +983,7 @@ function collectFiles(dir, acc) {
       continue;
     }
     if (!entry.isFile()) continue;
-    if (!/\.(tsx|ts)$/.test(entry.name)) continue;
+    if (!/\.(tsx|ts|css)$/.test(entry.name)) continue;
     if (IGNORED_FILE_RE.test(entry.name)) continue;
     acc.push(full);
   }
@@ -882,7 +1018,10 @@ function analyzeFile(absPath, relPath) {
   const varSpans = computeVarSpans(stripped);
   const hexRe = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g;
   let m;
-  while ((m = hexRe.exec(stripped)) !== null) {
+  // Los ficheros de TOKENS son la fuente canónica del hex (con su
+  // `var(--color-*, #fallback)`): no se analizan con R1.
+  const isTokenFile = TOKEN_FILES.includes(relPath);
+  while (!isTokenFile && (m = hexRe.exec(stripped)) !== null) {
     if (inSpans(varSpans, m.index)) continue; // fallback `var(--color-*, #hex)`: canónico
     push(
       'R1',
@@ -890,6 +1029,34 @@ function analyzeFile(absPath, relPath) {
       m[0],
       `Hex literal ${m[0]} fuera de token. Úsalo como fallback var(--color-*, ${m[0]}) o como clase del sistema.`,
     );
+  }
+
+  /* --- R12: CSS crudo fuera del design system -------------------- */
+  // La puerta solo miraba TSX: el CSS del renderer (19 KB en
+  // `floating/floating.css` y cualquier CSS nuevo) quedaba fuera. Aquí se
+  // analizan los ficheros `.css`:
+  //   - `!important`: salta la cascada del design system (y el orden de
+  //     Tailwind, que no es determinista por texto).
+  //   - `rgb()/hsl()` crudo: un color fuera del gamut de tokens.
+  if (/\.css$/.test(relPath) && !isTokenFile) {
+    const importantRe = /!important\b/g;
+    while ((m = importantRe.exec(stripped)) !== null) {
+      push(
+        'R12',
+        m.index,
+        m[0],
+        '`!important` en CSS: salta la cascada del design system (el orden de Tailwind no es determinista por texto). Usa la especificidad del selector.',
+      );
+    }
+    const rawColorRe = /\b(?:rgb|rgba|hsl|hsla)\(/g;
+    while ((m = rawColorRe.exec(stripped)) !== null) {
+      push(
+        'R12',
+        m.index,
+        m[0],
+        `Color crudo (${m[0]}) en CSS: usa los tokens del design system (--color-*) o su fallback var(--color-*, …).`,
+      );
+    }
   }
 
   /* --- R2: style={{ ... }} ---------------------------------------- */
@@ -917,7 +1084,13 @@ function analyzeFile(absPath, relPath) {
   }
 
   /* --- R4 / R5 / R7: análisis de listas de clases ---------------- */
-  const candidates = extractClassNameValues(stripped);
+  // Las candidatas son las del JSX (`className=`) MÁS las de las tablas
+  // `cva({...})`: una variante compuesta no pasa por `className` y sus
+  // clases se escapaban de la puerta (R7 en cva no se veía).
+  const candidates = [
+    ...extractClassNameValues(stripped),
+    ...extractCvaValues(stripped),
+  ];
   for (const cand of candidates) {
     const tokens = cand.value.split(/\s+/).filter(Boolean);
     if (tokens.length === 0) continue;
@@ -1075,17 +1248,46 @@ function whitelistFiles(entry) {
   return [];
 }
 
-/** ¿La entrada cubre este hallazgo? */
+/**
+ * Huella del contenido infractor (Ola 5 · T2).
+ *
+ * ## Por qué
+ * La lista blanca se indexaba por **ID posicional** (`EGO-DL-0NN`) y por
+ * **rango de líneas** (`lines: [[60,75]]`). Un hex literal nuevo o
+ * eliminado en un fichero desplazaba las líneas: la excepción `EGO-DL-010`
+ * dejaba de suprimir nada (y la puerta fallaba con un error que no
+ * explicaba el desplazamiento) o, peor, suprimía otra cosa.
+ *
+ * ## La clave ahora
+ * `(regla, fichero, hash del contenido infractor)`. Si el contenido cambia,
+ * la excepción **deja de suprimir** → la puerta falla de verdad (obligando a
+ * revisar la excepción) en vez de desplazarse en silencio.
+ */
+function fingerprintOf(file, match) {
+  return createHash("sha256")
+    .update(`${file}\u0000${match}`)
+    .digest("hex")
+    .slice(0, 16);
+}
+
+/**
+ * ¿La entrada cubre este hallazgo?
+ *
+ * Con `fingerprints`, la cobertura es EXACTA: el contenido infractor tiene
+ * que coincidir byte a byte (mismo fichero, mismo texto). Sin
+ * `fingerprints` (entradas heredadas), se cae al criterio antiguo por
+ * `match` — pero **nunca** por rango de líneas: un rango es posicional y
+ * es lo que se rompió.
+ */
 function whitelistMatches(entry, finding) {
   if (entry.rule !== finding.rule) return false;
   const files = whitelistFiles(entry);
   if (!files.includes(finding.file)) return false;
-  if (Array.isArray(entry.lines) && entry.lines.length > 0) {
-    const inRange = entry.lines.some((range) => {
-      if (Array.isArray(range)) return finding.line >= range[0] && finding.line <= range[1];
-      return finding.line === range;
-    });
-    if (!inRange) return false;
+  if (Array.isArray(entry.fingerprints) && entry.fingerprints.length > 0) {
+    const fp = fingerprintOf(finding.file, finding.match);
+    const hit = entry.fingerprints.some((f) => f && f.hash === fp);
+    if (!hit) return false;
+    return true;
   }
   if (typeof entry.match === 'string' && entry.match.length > 0) {
     if (!finding.match.includes(entry.match)) return false;
@@ -1247,6 +1449,7 @@ function runLint(targetDirs, baseDir) {
     whitelist: WHITELIST.map((e) => ({
       rule: e.rule,
       files: whitelistFiles(e),
+      fingerprints: Array.isArray(e.fingerprints) ? e.fingerprints : null,
       lines: e.lines || null,
       match: e.match || null,
       reason: e.reason,
@@ -1452,6 +1655,23 @@ function pruneWhitelist(report) {
     const next = { ...entry, files: stillViolating };
     if (!Array.isArray(next.files) || next.files.length === 0) delete next.files;
     if (typeof next.file === 'string') delete next.file;
+    // Ola 5 · T2: la entrada se reindexa por la HUELLA del contenido
+    // infractor (no por un ID posicional ni por un rango de líneas).
+    const prints = [];
+    for (const file of stillViolating) {
+      for (const finding of findings) {
+        if (finding.file !== file) continue;
+        if (!whitelistMatches({ ...entry, files: [file] }, finding)) continue;
+        prints.push({ hash: fingerprintOf(file, finding.match), match: finding.match });
+      }
+    }
+    const seen = new Set();
+    next.fingerprints = prints.filter((p) => {
+      if (seen.has(p.hash)) return false;
+      seen.add(p.hash);
+      return true;
+    });
+    delete next.lines;
     kept.push(next);
   }
   const reasonKeyOf = (reason) => {
@@ -1464,7 +1684,13 @@ function pruneWhitelist(report) {
         `      rule: '${e.rule}',`,
         `      files: ${JSON.stringify(e.files || []).replace(/"/g, "'")},`,
       ];
-      if (e.lines) parts.push(`      lines: ${JSON.stringify(e.lines)},`);
+      if (Array.isArray(e.fingerprints) && e.fingerprints.length > 0) {
+        parts.push(`      fingerprints: [`);
+        for (const f of e.fingerprints) {
+          parts.push(`        { hash: '${f.hash}', match: '${f.match}' },`);
+        }
+        parts.push(`      ],`);
+      }
       if (e.match) parts.push(`      match: '${e.match}',`);
       parts.push(`      reason: REASONS.${reasonKeyOf(e.reason)},`);
       parts.push(`      since: '${e.since}',`);

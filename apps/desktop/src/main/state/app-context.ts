@@ -516,6 +516,17 @@ export function setCachedCompressionSettings(value: CompressionSettings | null):
 }
 
 /**
+ * Turnos LLM en curso cancelables (A1 real). Cada `handleLlmStream` registra
+ * su `AbortController` al arrancar y lo libera en `finally`;
+ * `ipc.llm.cancel` aborta por `turnId` o todos. El abort es síncrono: el
+ * handler de cancelación nunca espera al loop (sin colgar).
+ *
+ * E6-res: es estado del proceso (un contenedor mutable) → vive aquí, no en
+ * el compositor.
+ */
+export const llmAbortControllers = new Map<string, AbortController>();
+
+/**
  * Configuración de modelo vigente en memoria (NUNCA sale del main).
  * Es estado del proceso: `main.ts` lo lee (binding vivo) y lo escribe con
  * `setCurrentModelConfig` (que delega en `setCurrentModelConfigState`).
