@@ -36,8 +36,10 @@ con su fundamento.
 - AttentionStateMachine → `packages/runtime/src/AttentionStateMachine.ts`
   (variante isla `hidden/compact/expanded/alert/hitl_approval` + `ISLA_TIMING`;
   NO se crea segunda FSM en dailystate; suite runtime 73/73).
-- SafeConfigMutation + fingerprint CAS → `packages/execution/src/SafeConfigMutation.ts`
-  (`fingerprintOriginal/New` + `confirm` + anti-race en disco; suite execution 42/42).
+- SafeConfigMutation + fingerprint CAS → **retirado el 2026-10-21** (A2-bis: era código
+  muerto, sin caller de producción). El patrón vive **inline** en
+  `packages/integrations/src/mcp/McpClient.ts:97,218,234-243` (compuerta COUC-10:
+  recarga atómica con **rollback transaccional**).
 - AdaptiveChunker 256/overlap/`headingPath`/SHA-256/dedup →
   `packages/knowledge/src/ingest/AdaptiveChunker.ts` (ruta `ingest/`, no `chunking/`;
   suite knowledge 67/67).

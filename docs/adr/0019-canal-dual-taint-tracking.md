@@ -11,7 +11,9 @@
 
 Ego ingestiona contenido externo (documentos, web, RAG de terceros, resultados
 de herramientas) y lo reassembla en el prompt del turno. El *sanitizer* de
-memoria (`packages/memory/UntrustedContentSanitizer.ts`) **detectaba** vectores
+memoria (el módulo `UntrustedContentSanitizer`, **retirado el 2026-10-21** por
+A2-bis: era código muerto y era el único detector de inyección de prompt de
+Ego — el hueco de capacidad está escalado al owner) **detectaba** vectores
 de inyección, pero no **neutralizaba** ni **impedía** que el contenido marcado
 acabara mezclado con las instrucciones del sistema. Concretamente:
 
@@ -74,16 +76,16 @@ Reglas del ensamblado:
 3. El carrier conserva `trust: "untrusted"` para que las capas superiores
    puedan seguir filtrando.
 
-### 2. Neutralización completa — `packages/memory/UntrustedContentSanitizer.ts`
+### 2. Neutralización completa — *(módulo retirado el 2026-10-21; ver §2.1)*
 
 - `CONTROL_TAGS` cubre **11** tags de control: `system`, `prompt`,
   `instruction`, `instructions`, `developer_mode`, `ego_internal`, `tool_call`,
   `tool_result`, `function_call`, `assistant`, `human`.
-- `UntrustedContentSanitizer.neutralizeControlTags()` neutraliza **todas** las
-  tags conocidas, no solo las detectadas (el defecto que cerró `EGO-FIND-60`).
-- `UntrustedContentSanitizer.inspectContent()` devuelve `ContentInspectionResult`
-  con `threatScore`, `detectedThreats` y `requiresQuarantine` (severidad ≥ 0.7).
-- `UntrustedContentSanitizer.wrapUntrustedContent()` encapsula en
+- *(retirado)* `neutralizeControlTags()` neutralizaba **todas** las tags
+  conocidas, no solo las detectadas (el defecto que cerró `EGO-FIND-60`).
+- *(retirado)* `inspectContent()` devolvía `ContentInspectionResult` con
+  `threatScore`, `detectedThreats` y `requiresQuarantine` (severidad ≥ 0.7).
+- *(retirado)* `wrapUntrustedContent()` encapsulaba en
   `<untrusted_content origin=… hash=… score=…>`.
 
 ### 3. Guard de escalado a aprobación — `packages/runtime/src/ToolExecutionLoop.ts`
@@ -140,8 +142,11 @@ Reglas del ensamblado:
 - `packages/runtime/src/TrustBoundary.ts` — la frontera de confianza.
 - `packages/runtime/test/TrustBoundary.test.ts` — contrato de la frontera.
 - `packages/runtime/src/ToolExecutionLoop.ts:20,335,500-522` — consumo y guard.
-- `packages/memory/UntrustedContentSanitizer.ts` — detección y neutralización.
-- `packages/memory/test/untrusted-sanitizer-hardening.test.ts` — regresión.
+- *(retirado el 2026-10-21)* el detector de inyección de prompt y la
+  neutralización de tags de control: **no hay módulo equivalente en Ego**
+  (hueco de capacidad → decisión del owner).
+- `packages/runtime/src/TrustBoundary.ts` — el canal dual y el taint tracking
+  (éste **sí** cubre la parte de «el contenido externo no altera instrucciones»).
 - `packages/models/src/types.ts` — `ModelMessage.trust`.
 - `docs/roadmap/Backlog.md` — `EGO-FIND-60`.
 - `docs/research/arquitectura-master-matrix.md` §11.2 — el requisito del

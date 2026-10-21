@@ -178,6 +178,7 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 - Ola 2026-10-20: `Menu`, `Popover`, `Tooltip` y `Switch` entraron en el kit sobre Radix → el kit pasa de 6 a **11 primitives**.
 - Primitives aún **ad-hoc** fuera del kit (combobox + listbox del omnibar): revisión de Radix/React Aria pendiente — inventariadas en `docs/design/design-system.md` §8.2.
 - Verificación: `docs/design/design-system.md` §"Tabla de primitives".
+- **Decisión de paleta (2026-10-21):** `warning = oklch(0.837 0.164 84.4)` en los 2 presets cuyo `brand` es el ámbar (`default-dark`, `amber-warm`) — antes `warning` coincidía con `brand` y **los iconos de dominio `engineering` (`text-brand`) y `product` (`text-warning`) salían idénticos**. El valor nuevo además **mejora** el contraste (8.24:1 sobre bg frente a 5.83:1). `midnight-cyan` conserva `oklch(0.769 0.165 70.1)` porque su `brand` es cyan. Regla: *un token semántico no puede coincidir con el `brand` de su preset si ambos se usan como color de icono de dominio*. Detalle y medición en `docs/design/design-system.md` §2.4.
 
 ### Puerta de calidad del design system
 

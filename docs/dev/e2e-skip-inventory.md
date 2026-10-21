@@ -22,8 +22,10 @@
     (guards de compilación/binario en los specs `.electron.ts`, symlink en Windows,
     flag `EGO_SOAK`, flag `EGO_REAL_DB`).
 * **Estado de la suite GUI Playwright (`tests/gui/specs/`):**
-  * **3 specs activos** (`14-visual`, `floating-full`, `floating-island`) y **11 bloques
-    `describe.skip`** de Clase B.
+  * **16 ficheros de spec** en total: **5 sin skip** (`01-arranque`, `10-a11y-tab`, `14-visual`, `floating-full`, `floating-island`) y **11 bloques `describe.skip`** de Clase B
+    (`02`–`09`, `11`–`13`).
+  * ⚠️ La redacción anterior decía «3 specs activos»: son **5 ficheros sin skip**, pero sólo **3** de ellos son bloques `describe` (`14-visual`, `floating-full`, `floating-island`);
+    `01-arranque` y `10-a11y-tab` son `test()` sueltos. El gate estático avisa de los 5 con *"sin skips — verificar que no requiera backend oculto"*.
   * Los 11 skips **llevan la clase en el título** (`"requiere backend Electron vivo — Clase B
     (taxonomía docs/dev/e2e-skip-inventory.md)"`): la taxonomía vive **en el código**, no
     sólo en este documento.
@@ -35,6 +37,45 @@
   (donde `window.ego` no existe porque no hay preload) y pasarla a la app Electron real vía
   `electron.playwright.config.ts` (`_electron.launch()`), que es otro runner con otro
   `webServer`.
+
+### 1.0 Estado verificado 2026-10-21 (remediado)
+
+> **Medido, no supuesto.** Se recontó el inventario contra el árbol real
+> (2026-10-21) ejecutando un barrido de `tests/gui/specs/*.spec.ts` y el gate
+> estático `tests/gui/scripts/check-gui-coverage.cjs`.
+
+| Métrica | Valor medido | Cómo |
+|---|---|---|
+| Ficheros de spec en `tests/gui/specs/` | **16** | barrido de `git ls-files tests/gui/specs` |
+| Bloques `describe.skip` | **11** | recuento de `describe.skip(` por fichero |
+| Ficheros **sin** skip | **5** | los 5 que el gate marca con `WARN … sin skips` |
+| `it.skip` en la suite | **0** | recuento de `it.skip(` |
+| `.only` en la suite | **0** | recuento de `describe.only`/`test.only`/`it.only` |
+| Gate estático | **VERDE — 16 specs, 0 fallos** | `node tests/gui/scripts/check-gui-coverage.cjs` (exit 0) |
+
+**Sobre el cierre atribuido a A2 (12 de 13):** *no ha aterrizado en el
+árbol*. A fecha de esta medición, `git status --short -- tests/gui` está **vacío**
+(el árbol de `tests/gui` coincide con `HEAD`) y el recuento sigue siendo **11**
+bloques `describe.skip`. Tampoco hay todavía un handoff `A2-ola3.md` en
+`docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/`. Por tanto este
+inventario **no da por cerrado** ningún skip: la tabla maestra de §2 sigue
+reflejando los 11 bloques de Clase B, que es el estado real.
+
+> **Re-verificado en la Ola 5 (2026-07-21, A1).** Repetí el barrido por cuenta
+> propia (no heredado de nadie): **16 ficheros · 11 `describe.skip` · 5 sin skip ·
+> 0 `it.skip` · 0 `.only`**, `git status --short -- tests/gui` **vacío**, y el
+> último handoff de A2 sigue siendo `A2-ola2-vitest3.md` (13:10 del 20) — no hay
+> `A2-ola3/4/5.md`. **El estado no ha cambiado desde la medición de la Ola 4.**
+> Los recuentos que circulan en otras notas (A5, A8) coinciden con esta
+> medición, pero la cifra de este documento es la que **yo** ejecuté sobre el
+> árbol.
+
+**Qué haría falta para reactivar uno** (procedimiento sin cambios, §4):
+no basta con quitar el `skip` — hay que mover la suite del dev-server Vite al
+runner `electron.playwright.config.ts` (`_electron.launch()`), que es otro
+runner con otro `webServer`. El gate estático ya avisa de los 5 ficheros sin
+skip con *"verificar que no requiera backend oculto"*: ese es el trabajo que
+queda, no un `skip` que borrar.
 
 ### 1.1 Cambio de contrato del E2E Electron (2026-10-19, `d50a050`)
 
@@ -84,6 +125,7 @@ isla y se auto-oculta al restaurar".
 ### 3.1. Metodología de Verificación Pura
 
 Debido a que `happy-dom` no ejecuta el motor de layout ni computa sombras/bounding boxes para que `axe-core` evalúe contraste en el DOM, se implementó en `apps/desktop/renderer/test/a11y.test.tsx` una función pura basada en las fórmulas oficiales del W3C (WCAG 2.1 / 2.2):
+
 * **Luminancia Relativa ($L$):**
   $$L = 0.2126 \cdot R_{lin} + 0.7152 \cdot G_{lin} + 0.0722 \cdot B_{lin}$$
 * **Ratio de Contraste ($CR$):**
@@ -113,6 +155,7 @@ Debido a que `happy-dom` no ejecuta el motor de layout ni computa sombras/boundi
 > dependen de la paleta. → `EGO-FIND-71` sigue **parcial** → Ola 2.
 
 #### 1. Hallazgo FIND-A11Y-01 (`theme-tokens.css` · Warm Sepia)
+
 * **Superficie:** `raised` (`#44403c`)
 * **Token evaluado:** `--ego-color-border-strong: #78716c`
 * **Ratio obtenido:** **2.14:1** (Exigido: $\ge 3.0:1$).
@@ -176,7 +219,7 @@ En lugar de tokens monocromáticos globales fijados a piñón fijo (`FIXED_DIM =
 
 ---
 
-## 4. Cómo reactivar un skip de Clase B (procedimiento) ##
+## 4. Cómo reactivar un skip de Clase B (procedimiento)
 
 1. **Localizar el bloque**: el título del `describe.skip` lleva ya la clase; si dice
    *"Clase B"*, el caso es de backend Electron real.

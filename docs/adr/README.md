@@ -26,7 +26,7 @@
 
 | Estado | ADRs |
 |---|---|
-| Aceptado | 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0019, 0021 |
+| Aceptado | 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0019, 0021, 0022, 0023, 0024 |
 | Aceptado (parcial) | 0018 (la consolidación física de `CharacterEngine` queda pendiente; la FSM legacy **ya se retiró**) · 0020 (el motor nativo queda condicionado a una puerta de invariantes) |
 | Superseded | 0001 (`electron-vite` 5.x lo sustituye) |
 
@@ -55,6 +55,16 @@
 | [0019](0019-canal-dual-taint-tracking.md) | Canal dual (P-LLM/Q-LLM) con taint tracking | 2026-10-19 | 4 · Architecture |
 | [0020](0020-compactacion-motor-ts-vs-nativo.md) | Motor de compactación: `ContextCompaction` (TS) canónico | 2026-10-20 | 4 · Architecture |
 | [0021](0021-mcp-server-transporte-y-token.md) | Transporte HTTP loopback y política de token del MCP Server | 2026-10-20 | 4 · Architecture |
+| [0022](0022-exportadores-de-artefactos.md) | Exportadores de artefactos y REPL de expresiones: TypeScript puro, cero dependencias | 2026-10-21 | 4 · Architecture |
+| [0023](0023-path-cognitivo-nativo.md) | Path cognitivo nativo: el motor de VantaDB decide, con un puente de alcance explícito | 2026-10-21 | 4 · Architecture |
+| [0024](0024-identidad-declarativa-y-presupuestos.md) | Identidad declarativa de Sub-Egos, presupuestos con circuit breaker y divulgación progresiva de tools | 2026-07-21 | 4 · Architecture |
+
+> **Numeración (2026-07-21, Olas 5 y 6).** El `0022` lo ocupa **E4**
+> (exportadores), que A1 redactó en la Ola 4; el contrato de la Ola 3
+> (`OLA3-CONTRATO.md`) había reservado `docs/adr/0022-*` para **A2** (path
+> cognitivo nativo), así que **A2 usa el `0023`** —que es donde quedó
+> finalmente su ADR, escrito por A2-bis y publicado por A1 en la Ola 6. El
+> `0024` es de **A3** (identidad declarativa + presupuestos + metatools).
 
 ## Referencias
 

@@ -79,9 +79,8 @@ Los tres recuentos que existían (este README, `docs/review/README.md` y
 ### 3.1 Ola 2 — Catálogo de agentes de código y de conocimiento (2026-10-20) ###
 
 Repositorios clonados el 2026-10-20 en profundidad 1 (`--depth 1 --single-branch`).
-**Todos son repositorios nuevos: ninguno tiene hallazgos en estado `✅ Completada`
-por asilación propia** (el `0 ✅` de cada repo nuevo es correcto y está
-documentado en su §0 de backlog). La verificación de caller se hizo por grep
+**4 de los 18 repositorios nuevos tienen hallazgos en estado `✅ Completada` por asilación propia** (`gemini-cli` 2, `claude-squad` 1, `mem0` 2, `mcp-servers` 2); el resto tienen `0 ✅`.
+La verificación de caller se hizo por grep
 sobre `packages/` + `apps/desktop/` excluyendo `test/`, `dist/` y `node_modules/`.
 
 | Repositorio | Naturaleza / Stack | Archivo de Extracción / Backlog | Rango de IDs | Tareas | Foco Principal en Ego |
@@ -126,13 +125,13 @@ Todo hallazgo de extracción debe cerrar en **uno** de estos cuatro estados.
 
 | Repo | Declarados | ✅ Asimilado + integrado | 🚫 Descartado | 🆕 Pendiente | ⏳ Futura | Nota |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| hermes-agent | 30 | 14 | 3 | 6 | 7 | 7.5 |
-| openclaw | 24 | 7 | 5 | 11 | 1 | 6.0 |
-| coucou | 29 | 10 | 6 | 12 | 1 | 6.5 |
-| khoj | 13 | 3 | 1 | 2 | 7 | 7.0 |
-| helmor | 10 | 4 | 0 | 6 | 0 | 7.5 |
+| hermes-agent | 30 | 16 | 7 | 0 | 7 | 7.5 |
+| openclaw | 24 | 9 | 8 | 6 | 1 | 6.0 |
+| coucou | 29 | 12 | 12 | 4 | 1 | 6.5 |
+| khoj | 13 | 3 | 3 | 0 | 7 | 7.0 |
+| helmor | 10 | 4 | 1 | 5 | 0 | 7.5 |
 | career-ops | 8 | 2 | 3 | 2 | 1 | 6.0 |
-| deepseek-harness | 12 | 0 | 0 | 8 | 4 | 6.5 |
+| deepseek-harness | 12 | 1 | 4 | 3 | 4 | 6.5 |
 | opencode | 9 | 0 | 1 | 7 | 1 | — |
 | codex | 9 | 0 | 1 | 8 | 0 | — |
 | goose | 9 | 0 | 1 | 7 | 1 | — |
@@ -151,7 +150,7 @@ Todo hallazgo de extracción debe cerrar en **uno** de estos cuatro estados.
 | graphrag | 9 | 0 | 1 | 7 | 1 | — |
 | mem0 | 9 | 2 | 2 | 5 | 0 | — |
 | mcp-servers | 9 | 2 | 2 | 4 | 1 | — |
-| **TOTAL** | **289** | **47** | **51** | **157** | **34** | — |
+| **TOTAL** | **289** | **54** | **71** | **130** | **34** | — |
 
 Barrido de los vectores de `career-ops` (ATS, vacantes, candidatura, CV, salario, portales) y de
 `khoj` (scrapers web, `gte-small`, Twilio, Stripe, SMTP) sobre `packages/` y `apps/`:
@@ -162,7 +161,52 @@ y el sidecar propio `scripts/ingest/bulk_import.py`.
 
 Todo fichero derivado de código MIT de un repo de referencia debe llevar cabecera
 `Adapted from <upstream> (MIT), <ruta de origen>` y su aviso de licencia debe viajar en un
-`LICENSE.md` **dentro del paquete**. Estado 2026-10-19: **0 cabeceras normalizadas** y
-`packages/avatar/LICENSE.md` **no existe** pese a estar referenciado 5 veces. Ejecución: A6
-(owner de `packages/avatar/**`). Veredicto documentado en
-[`docs/extractions/coucou.md`](coucou.md) §52.4.
+`LICENSE.md` **dentro del paquete**.
+
+**Estado verificado 2026-10-21 (Ola 5, A5):**
+
+| Elemento | Estado | Evidencia |
+|---|:---:|---|
+| `packages/avatar/LICENSE.md` | ✅ existe | Junto a `LICENSE` y `NOTICE` (3 ficheros de licencia en el paquete). Registra los avisos MIT de los módulos portados. |
+| Cabeceras `Adapted from <upstream> (MIT), <ruta>` | ⚠️ **8 de 90** ficheros | Las 8 están en `packages/avatar/src/studio/`: `avatar.js`, `render/{accessories,body,ears,eyes,geometry,helpers,mouth}.js`. **41 de los 49 ficheros de `src/` no la llevan**; la mayoría son código nativo de Ego (sin atribución que hacer) y los derivados que sí la necesitan se listan en [`coucou.md`](coucou.md) §52.4. |
+| Restos de marca Mochi / verbatim | ⚠️ **11 sitios en 9 ficheros** | `src/core/timeline.js:2`, `src/render/ara-head.js:1`, `src/render/body.js:3`, `src/runtime/poses.js:11`, `src/studio/render/particles.js:1`, `src/studio/render/visor.js:1`, `src/studio/rig/eyes.js:1`, `src/studio/rig/hands.js:2`, `src/studio/sound.js:1` (9 con "verbatim"/"PORTES VERBATIM") + `src/runtime/avatar-element.js:2015` y `src/studio/avatar.js:70` (mención a `'coucou-mochi'` en **comentarios**, no en código funcional). |
+
+El veredicto de descarte de los puertos verbatim de Mochi (decisión D4 del owner: sustituir por
+geometría propia) está en [`docs/extractions/coucou.md`](coucou.md) §52.4. Ejecución: A6
+(owner de `packages/avatar/**` y de la copia vendorizada).
+
+### 4.4 Harness de verificación de procedencia (specificación para A7)
+
+> **Estado:** pendiente de implementación. El ejecutable va en `scripts/**` (zona de A7); A5 define
+> el contrato y el formato de salida. Sin este harness, la procedencia (commit + licencia) de las
+> 25 fichas es **una afirmación manual** que sólo se re-verifica cuando A5 la vuelve a mirar.
+
+**Nombre propuesto:** `scripts/verify-extraction-provenance.mjs`
+**Invocación:** `node scripts/verify-extraction-provenance.mjs [--json]` · **Exit 0** = todo cuadra · **Exit 1** = discrepancia.
+
+**Qué debe comprobar, por cada ficha `docs/extractions/<slug>.md`:**
+
+| # | Comprobación | Origen de la verdad | Fallo |
+|:--:|---|---|---|
+| 1 | El repo clonado existe | `repos-referencia/<slug>/` | `repo-ausente` |
+| 2 | El commit citado en la línea `Commit verificado:` coincide con el HEAD del clon | `git -C repos-referencia/<slug> rev-parse --short=7 HEAD` | `commit-desfasado` (indica el esperado y el citado) |
+| 3 | La licencia citada en la ficha coincide con el `LICENSE`/`LICENSE.md`/`NOTICE` del clon | primer bloque del fichero de licencia | `licencia-desfasada` |
+| 4 | La ruta del repo citada en la ficha (`repos-referencia/<slug>/`) existe | sistema de ficheros | `ruta-inexistente` |
+| 5 | La ficha tiene su backlog y ambos comparten el mismo conjunto de IDs | `docs/review/backlog-<slug>.md` | `ids-discrepantes` |
+| 6 | Ninguna fila `✅ Completada` cita un fichero de `repos-referencia/` como si fuera código de Ego, ni viceversa | heurística: en la columna de evidencia, un camino que empieza por `repos-referencia/` **debe** accompanied de la ruta equivalente en `packages/` o `apps/` | `atribucion-falsa` |
+
+**Formato de salida** (mismo estilo que `scripts/audit-extraction-gates.mjs`):
+
+```text
+slug              repo?  commit-ficha  commit-real  licencia  estado
+ag-ui             SI     3decbe8       3decbe8      MIT       OK
+claude-squad      SI     ce1ffb4       ce1ffb4      AGPL-3.0  OK
+...
+Auditados: 25 repos · 289 fichas
+OK: 0 discrepancias de procedencia.
+```
+
+**Estado verificado por A5 el 2026-10-21 (sin harness):** 25/25 repos existen, 25/25 commits
+citados coinciden con el HEAD del clon, 25/25 licencias citadas coinciden con el fichero de
+licencia real, 0 atribuciones falsas detectadas en las 7 filas `✅ Completada` de los 18 repos
+nuevos (todas citan rutas **de Ego**, no del upstream).

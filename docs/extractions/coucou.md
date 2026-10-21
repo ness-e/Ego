@@ -2053,27 +2053,27 @@ escribió el import, no que la capacidad esté integrada en producción.
 
 | `✅ Completada` | `🚫 Descartada` | `🆕 Pendiente` | `⏳ Futura` | Total |
 |:---:|:---:|:---:|:---:|:---:|
-| 10 | 6 | 12 | 1 | **29** |
+| 12 | 12 | 4 | 1 | **29** |
 
 ## 52.3 Veredicto por patrón (resumen)
 
 | ID | Patrón | Estado | Evidencia / Fundamento |
 |---|---|:---:|---|
-| `COUC-01` | Normalización de eventos en el borde | 🆕 Pendiente | `packages/events/src/EventNormalizer.ts:35` — sin caller: sólo `packages/events/src/index.ts:3` y `packages/events/test/`. No hay adaptadores de agentes externos aún (depende de `COUC-22`). |
-| `COUC-02` | Ingress no bloqueante | 🆕 Pendiente | `packages/events/src/EventIngress.ts:45` — sin caller: sólo `packages/events/src/index.ts:6` y `packages/events/test/`. |
+| `COUC-01` | Normalización de eventos en el borde | 🚫 Descartada (con justificación) | 🚫 Duplicado: el mapeo de tipos crudos vive en `packages/events/src/EventBus.ts:292-294`, servido por `apps/desktop/src/main/ipc/register-ipc.ts`. `packages/events/src/EventNormalizer.ts:35` no tiene caller de producción. **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/events (A2). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/events (A2). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/events (A2). |
+| `COUC-02` | Ingress no bloqueante | 🚫 Descartada (con justificación) | 🚫 Duplicado: la admisión no bloqueante está en `packages/events/src/EventBus.ts:368-390` -> `apps/desktop/src/main/ipc/register-ipc.ts`. `packages/events/src/EventIngress.ts:45` sin caller. **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/events (A2). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/events (A2). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/events (A2). |
 | `COUC-03` | `ActionIdentity` | ✅ Completada | `packages/execution/src/ApprovalEngine.ts:75` (`computeActionIdentity`) + `packages/execution/src/types.ts:95` → `apps/desktop/src/main.ts:20, 2429`. Duplicado sin caller: `packages/events/src/ApprovalIdentity.ts:53` (ver `COUC-29`). |
 | `COUC-04` | Admisión interactiva con ACK | ✅ Completada | `packages/execution/src/WidgetHitlBridge.ts:54, 77-91` → `apps/desktop/src/main.ts:20, 2441-2465` (`presentApproval` + `acknowledgePresentation`). |
-| `COUC-05` | Anti-singleton de estado (7 stores) | 🚫 Descartada | Sustituido por los módulos canónicos por dominio; `packages/ui-runtime/src/stores/EgoStateStores.ts` sería una tercera fuente de verdad. Sin caller (sólo `packages/ui-runtime/src/stores/index.ts:2` y test). |
+| `COUC-05` | Anti-singleton de estado (7 stores) | 🚫 Descartada (con justificación) | 🚫 El módulo `packages/ui-runtime/src/stores/EgoStateStores.ts` fue **retirado** (commit `41985ed`): el particionado real lo dan los módulos canónicos por dominio (`AttentionStateMachine`, `ApprovalEngine`, estado de runtime en `apps/desktop/src/main.ts`). |
 | `COUC-06` | FSM de atención | ✅ Completada | `packages/runtime/src/AttentionStateMachine.ts:50` → `apps/desktop/src/main.ts:15, 500-554` (`getAttentionFsm` + `recomputeFloatingAttention` → tray y ventana flotante). |
-| `COUC-07` | `ChangeSetService` | 🆕 Pendiente | `packages/tools/src/native/git/ChangeSetService.ts:56` — **sin caller de producción**: su único import real es `packages/execution/src/SafeConfigMutation.ts:4`, y ese módulo tampoco tiene caller (ver `COUC-10`). La cadena `→ McpManager.ts → main.ts:23` de la Ola 1 era un comentario, no un import. |
-| `COUC-08` | `PayloadRef` | 🆕 Pendiente | Canónico en `packages/tools/src/native/git/ChangeSetService.ts:49,184,194` — mismo hueco de caller que `COUC-07`. Duplicado browser-safe sin caller: `packages/ui-runtime/src/PayloadRef.ts:126` (`PayloadRegistry`). |
-| `COUC-09` | `RunRecorder` | 🆕 Pendiente | `packages/tasks/src/RunRecorder.ts:67` — sin caller: sólo `packages/tasks/src/index.ts:13` y test. Cablear al cierre de turno (A3/A2). |
-| `COUC-10` | `SafeConfigMutation` | 🆕 Pendiente | `packages/execution/src/SafeConfigMutation.ts:25` — **sin caller de producción**: `McpManager.ts:85` y `McpClient.ts:97,217` sólo lo mencionan en comentarios; el `reload()` de `McpClient.ts:220-248` hace rollback en memoria, sin preview, sin fingerprint y sin escritura atómica de fichero. La config MCP de Ego persiste en VantaDB (`gov/mcp_servers`), no en un JSON externo. |
+| `COUC-07` | `ChangeSetService` | 🚫 Descartada (con justificación) | 🚫 Sin caller real: `ChangeSetService` sólo lo importa `SafeConfigMutation` (`packages/execution/src/SafeConfigMutation.ts:4`), y `SafeConfigMutation` no tiene caller de producción. El diff en producción es `GitParser` -> `NativeGitTool.ts`. **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/tools (A3). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/tools (A3). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/tools (A3). |
+| `COUC-08` | `PayloadRef` | ✅ Completada | ✅ Caller: `packages/ui-runtime/src/PayloadRef.ts:137` (`PayloadRegistry`) -> `apps/desktop/src/main/mcp/mcp-server-runtime.ts:29` -> `EgoMcpServer` (`packages/integrations/src/mcp/McpServer.ts:259,292`). |
+| `COUC-09` | `RunRecorder` | ✅ Completada | ✅ Caller: `apps/desktop/src/main/state/app-context.ts:40` y `apps/desktop/src/main/window/create-window.ts:114,312`. |
+| `COUC-10` | `SafeConfigMutation` | 🚫 Descartada (con justificación) | 🚫 Sin caller real: `McpManager.ts:85` y `McpClient.ts:97,217` son **comentarios**, no imports. La config MCP vive en VantaDB (`gov/mcp_servers`), no en fichero. **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/execution (A2). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/execution (A2). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/execution (A2). |
 | `COUC-11` | Escritura atómica + lock | ✅ Completada | `packages/tools/src/native/fs/FileLockManager.ts:19` → `packages/tools/src/native/fs/NativeFsTool.ts:7,147` → `packages/tools/src/native/index.ts:27` → `apps/desktop/src/main.ts:2148` (`registerNativeTools`). **La mitad de "preservación de permisos" NO está implementada** → `COUC-24`. |
 | `COUC-12` | `IntervalSet` | 🚫 Descartada | Sin caller: sólo `packages/domains/src/index.ts:13` y test. La métrica la cubren los checkpoints y contadores del Daily State. |
-| `COUC-13` | `ResourcePolicy` | 🚫 Descartada | La política de URLs viva es `packages/security/src/ToolPermissions.ts` + `packages/security/src/netPolicy.ts:31` (`validateSSRFUrl`). `packages/tools/src/native/security/ResourcePolicy.ts` sigue sin caller. |
-| `COUC-14` | `SyntheticRuntime` | 🆕 Pendiente | `packages/runtime/src/SyntheticRuntime.ts:17` — sin caller: sólo `packages/runtime/src/index.ts:6` y test. Cablear en la suite E2E (A7). |
-| `COUC-15` | `MockIPCBridge` | 🆕 Pendiente | `packages/ui-runtime/src/MockIPCBridge.ts:89` — sin caller: `installIfMissing()` (`:266`) no se invoca desde ningún sitio; sólo `packages/ui-runtime/src/index.ts:11` y test. Cablear en el dev-server del renderer (A4/A7). |
+| `COUC-13` | `ResourcePolicy` | 🚫 Descartada (con justificación) | 🚫 El módulo `packages/tools/src/native/security/ResourcePolicy.ts` fue **retirado** (commit `6a82b57`). La política viva es `packages/security/src/ToolPermissions.ts` + `packages/security/src/ssrfPolicy.ts`. |
+| `COUC-14` | `SyntheticRuntime` | 🚫 Descartada (con justificación) | 🚫 Sin caller: `packages/runtime/src/SyntheticRuntime.ts:17` sólo lo referencian el re-export y su test. Ego no tiene modo demo. **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/runtime (A2). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/runtime (A2). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/runtime (A2). |
+| `COUC-15` | `MockIPCBridge` | 🚫 Descartada (con justificación) | 🚫 Sin caller: `packages/ui-runtime/src/MockIPCBridge.ts:89` (`installIfMissing` en `:266` no se invoca). El renderer real usa el preload (`apps/desktop/src/preload.ts`). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/ui-runtime (A3). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/ui-runtime (A3). **Codigo muerto:** modulo asimilado sin caller de produccion -> retirar. Zona duenosa: @ego/ui-runtime (A3). |
 | `COUC-16` | `ContextProvider` | 🚫 Descartada | Duplicidad **no resuelta**: `packages/tasks/src/ContextProvider.ts:24` (sin caller) frente a `apps/desktop/renderer/floating/upload-canvas.ts:649-654` (`interface ContextProvider` + `NoopContextProvider`). Se unifica en un solo contrato (A2/A4). |
 | `COUC-17` | Ventana flotante | ✅ Completada | `apps/desktop/src/windows/FloatingWindow.ts` → `apps/desktop/src/main.ts:59-62` (import) y `main.ts:237-239` (`ensureFloatMgr`). |
 | `COUC-18` | Spring physics | ✅ Completada | `apps/desktop/renderer/floating/floating-anim.ts` → `countdown.tsx:12` y `ticker.ts:13`. La tercera cita `views.tsx:8` de la Ola 1 era **un comentario de cabecera**, no un import. |
@@ -2082,11 +2082,11 @@ escribió el import, no que la capacidad esté integrada en producción.
 | `COUC-21` | Motor de avatar procedural | ✅ Completada | **Revisión de la Ola 2:** `@ego/avatar` **sí** tiene callers en producción — `apps/desktop/renderer/floating/floating-avatar.tsx:86`, `floating-sound.ts:384` y `apps/desktop/renderer/components/character/CharacterBadge.tsx:21`. La copia vendorizada se conserva en el repo (cadena MIT + `sync:check`) pero **no se importa**: D5 se mantiene en su parte de "tres copias en el repo", no en la de "la app ejecuta la vendorizada". |
 | `COUC-22` | Notificaciones móviles / HITL remoto | ⏳ Futura (P1) | Requiere relay stateless + canal externo, no implementados. **Ruta real del fuente:** `relay/src/index.ts` (Cloudflare Worker), no `windows/src/core/relay.ts` como citaba la Ola 1. |
 | `COUC-23` | Geometría propia de Sub-Egos | ✅ Completada | `packages/subegos/src/CharacterProfile.ts:126,129` → `packages/subegos/src/SubEgoManifest.ts:2,117` → `apps/desktop/src/main.ts:21`. |
-| `COUC-24` | Preservación de permisos POSIX | 🆕 Pendiente | **Hallazgo nuevo.** `packages/tools/src/native/fs/NativeFsTool.ts:164-171` y `packages/execution/src/SafeConfigMutation.ts:164-173` escriben en temporal y renombran **sin `chmod`**: un fichero `0600` queda `0644`. Coucou sí fija el modo (`HookServer.swift:243` → `0600`; `:1167,1171` → `0700` dir, `0755` wrapper). |
-| `COUC-25` | Evaluador de atención (`AttentionSignal`) | 🆕 Pendiente | **Hallazgo nuevo.** `packages/runtime/src/AttentionStateMachine.ts:84` **consume** un `state`/`priority` ya decidido; no existe ningún evaluador que traduzca importancia/urgencia/riesgo/foco a esa decisión, ni el tipo `AttentionSignal` de §15. |
-| `COUC-26` | Presupuesto y salud del worker | 🆕 Pendiente | **Hallazgo nuevo.** `packages/tasks/src/BackgroundEngine.ts:39` tiene prioridad y concurrencia, pero **no** schedule, backoff, presupuesto de recursos, health ni última ejecución exitosa (§37). |
+| `COUC-24` | Preservación de permisos POSIX | 🆕 Pendiente | 🆕 Falta preservar el `mode` del destino sobre el temporal antes del `rename` (`NativeFsTool.ts`: 0 hits de `mode`/`chmod`). **Owner: A3.** |
+| `COUC-25` | Evaluador de atención (`AttentionSignal`) | 🆕 Pendiente | 🆕 Falta el evaluador que produce la decision (importancia/urgencia/riesgo/foco -> superficie + `AttentionSignal`): 0 hits de `AttentionEvaluator`/`AttentionSignal`. La decision esta cableada a mano en `apps/desktop/src/main.ts:555-582`. **Owner: A2.** |
+| `COUC-26` | Presupuesto y salud del worker | 🆕 Pendiente | 🆕 Faltan `schedule`, backoff, presupuesto de recursos, ultima ejecucion exitosa y health por worker en `packages/tasks/src/BackgroundEngine.ts` (0 hits). **Owner: A3.** |
 | `COUC-27` | Capacidad de presencia de secreto | 🚫 Descartada | **Hallazgo nuevo.** Sustituido por `packages/security/src/CredentialManager.ts:414` (`hasSecret`: sólo presencia, nunca el valor) + `apps/desktop/src/main/credentials/vault.ts` (keychain del SO). Más estricto que Coucou, que mantenía su propio almacén en Rust. |
-| `COUC-28` | `ActionSummarizer` en el core | 🆕 Pendiente | **Hallazgo nuevo.** `apps/desktop/renderer/floating/floating.tsx:210` construye la línea de display con `commandFor(toolName, args)` a partir del input crudo — justo lo que §38 prohíbe. `apps/desktop/src/main.ts:2547` ya lo resuelve en main: hoy hay dos rutas de resumen. |
+| `COUC-28` | `ActionSummarizer` en el core | 🆕 Pendiente | 🆕 Falta el `ActionSummarizer` en el core: el flotante deriva el resumen del input crudo (`apps/desktop/renderer/floating/floating.tsx:210`). **Owner: A2** (+ consumo A4). |
 | `COUC-29` | Segunda identidad de acción (`@ego/events`) | 🚫 Descartada | **Hallazgo nuevo.** `packages/events/src/ApprovalIdentity.ts:53` duplica la identidad canónica sin caller (sólo `packages/events/src/index.ts:7`); el canónico en producción es `packages/execution/src/ApprovalEngine.ts:75`. Dos contratos de identidad = deriva garantizada. |
 
 ## 52.4 Veredicto de descarte — puertos verbatim de Mochi (decisión D4, owner 2026-10-19)
@@ -2103,11 +2103,41 @@ escribió el import, no que la capacidad esté integrada en producción.
 de modo que las cuatro primeras filas ya no son trabajo pendiente:
 
 - `packages/avatar/LICENSE.md` **existe** (junto a `LICENSE` y `NOTICE`); las 15 referencias resuelven.
-- El preset `'coucou-mochi'` fue **eliminado** de `packages/avatar/src/studio/config.js` y de `applyPreset`.
-- Las cabeceras de `packages/avatar/src/studio/render/` están normalizadas a `Adapted from <upstream> (MIT), <ruta>`.
-- Queda un residuo de etiquetado: `packages/avatar/src/studio/render/overlays.js:1`, `particles.js:1` y
-  `visor.js:1` siguen declarándose *"port verbatim"* del HTML de Mochi (no de Coucou). No es geometría
-  de Mochi sino overlay y partículas del studio, pero la etiqueta debe normalizarse. **Responsable: A6.**
+- El preset `'coucou-mochi'` fue **eliminado** del código funcional de `packages/avatar/src/studio/config.js` y
+  de `applyPreset`.
+- Hay **8 cabeceras** `Adapted from <upstream> (MIT), <ruta>` en `packages/avatar/src/studio/`
+  (`avatar.js`, `render/{accessories,body,ears,eyes,geometry,helpers,mouth}.js`).
+
+**Residuos verificados 2026-10-21 (Ola 5, A5)** — el listado de la Ola 2 (`overlays.js`,
+`particles.js`, `visor.js`) y el de la Ola 4b (4 ficheros) estaban desactualizados: `overlays.js` ya
+está limpio y el recuento real de cabeceras `Adapted from` es **8 de 90 ficheros**
+(la Ola 4b contaba "16" porque contaba dos ocurrencias por fichero).
+
+| Fichero | Residuo | Naturaleza | Responsable |
+|---|---|---|:---:|
+| `packages/avatar/src/studio/render/visor.js:1` | "puerto verbatim del avatar studio" | Etiquetado | A6 |
+| `packages/avatar/src/studio/render/particles.js:1` | "port verbatim de `avatar_studio_cx_artlab_mochi_2_0.html`" | Etiquetado | A6 |
+| `packages/avatar/src/studio/rig/eyes.js:1` | "puerto verbatim del avatar studio" | Etiquetado | A6 |
+| `packages/avatar/src/studio/rig/hands.js:2` | "Puerto verbatim de `avatar_studio_cx_artlab_mochi_2_0.html`" | Etiquetado | A6 |
+| `packages/avatar/src/studio/sound.js:1` | "verbatim de `avatar_studio_cx_artlab_mochi_2_0.html`" | Etiquetado | A6 |
+| `packages/avatar/src/core/timeline.js:2` | "PORTES VERBATIM" (origen: `coucou mochi/engine.ts`) | Geometría de Coucou | A6 |
+| `packages/avatar/src/runtime/poses.js:11` | "Tabla base verbatim (core.js:8-57)" | Geometría de Coucou | A6 |
+| `packages/avatar/src/runtime/avatar-element.js:2015` | `'coucou-mochi'` en **JSDoc** (no funcional) | Etiquetado | A6 |
+| `packages/avatar/src/studio/avatar.js:70` | `'coucou-mochi'` en **comentario** (no funcional) | Etiquetado | A6 |
+
+**Ficheros derivados que aún NO llevan cabecera `Adapted from`:** de los 49 ficheros de
+`packages/avatar/src/`, **8 la llevan** (todas en `src/studio/`) y **41 no**. La mayoría de esos 41
+son **código nativo de Ego** (p. ej. `src/index.js`, `src/core/prng.js`, `src/core/palette.js`,
+`src/runtime/pointer.js`) y no necesitan atribución. Los que **sí** la necesitan y siguen sin ella
+son los derivados con residuo marcado —los 9 de la tabla anterior— más `src/render/projection.js:2`
+(puerto del `drawEyes()` de `coucou mochi/engine.ts`) y `src/render/static.js:3` (puerto de
+`MochiStill.swift`). La clasificación exacta derivado/nativo de los 41 es trabajo de **A6** (tiene el
+diff contra el upstream); A5 deja aquí el recuento y los puntos verificables.
+
+> **Distinción importante:** `packages/avatar/src/render/ara-head.js:1` y `render/body.js:3` también dicen
+> "verbatim", pero su origen es **`agent-robot-avatar`** (MIT © CX ArtLab), no Mochi: son un upstream
+> distinto y su atribución es legítima; lo que exige D4 es la sustitución de la **geometría de Mochi**
+> (`coucou` / `avatar_studio_cx_artlab_mochi_2_0.html`), no la de `agent-robot-avatar`.
 
 ## 52.5 Contaminación de dominio (re-verificada 2026-10-19, post A2/A3)
 
