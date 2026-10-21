@@ -279,9 +279,39 @@ Para la ejecución de tareas complejas en segundo plano y recuperación tras rei
 
 ## 14. Security / Encryption (Cifrado y Purga Criptográfica)
 
-* **Cifrado en reposo:** Compatible con cifrado de página AES-256-GCM.
-* **Purga criptográfica (VER-02):** Destrucción verificable de claves y datos sensibles en cumplimiento de políticas de privacidad.
-* **Aislamiento de credenciales:** Las claves de API y secretos **NUNCA se almacenan en VantaDB**, sino exclusivamente en el Keychain nativo del sistema operativo gestionado por el Credential Manager.
+> ⚠️ **Estado verificado empíricamente contra el binding `vantadb-node@0.9.0` (2026-10-21).**
+> Lo que sigue corrige afirmaciones heredadas del proyecto hermano que **no** se pueden
+> verificar desde Ego. La petición al upstream está registrada como `VDB-REQ-08`.
+
+- **Cifrado en reposo: NO disponible.** ❌ El binding `vantadb-node@0.9.0` **no expone ninguna
+  API de cifrado at-rest** (verificado ejecutando el binario real, no leyendo documentación):
+  no hay cifrado de página AES-256-GCM, ni cifrado por registro, ni cifrado por namespace.
+  **Todo el estado persistente vive en claro** dentro del `userData` del usuario: `egos/*`,
+  `system/*`, los hechos y documentos de `kb/*`, y los registros de auditoría de `gov/audit`.
+  ⚠️ La afirmación anterior de esta sección ("Compatible con cifrado de página AES-256-GCM")
+  **era falsa**: describía una capacidad declarada del proyecto hermano que Ego no puede
+  verificar ni usar.
+
+- **Decisión del owner (2026-10-21):** *"documentar el riesgo y esperar al soporte del motor"*.
+  No se cifra en la capa de Ego: hacerlo solo para el subconjunto sensible dejaría la
+  búsqueda por contenido rota, y cifrarlo todo dejaría el fast path BM25 inservible sobre
+  lo cifrado. El riesgo queda **documentado** y la mejora se pide **upstream** (`VDB-REQ-08`).
+
+- **Mitigaciones vigentes:** el store vive en el `userData` del usuario (local, sin red);
+  el acceso lo controla el sistema de ficheros del SO; y los **secretos nunca están aquí**
+  (ver "Aislamiento de credenciales").
+
+- **Qué haría falta para cerrarlo:** cifrado at-rest nativo en el binding (preferible) o un
+  almacén de secretos cifrado con clave del keychain para el subconjunto marcado sensible.
+
+- **Purga criptográfica (VER-02):** Destrucción verificable de claves y datos sensibles en cumplimiento de políticas de privacidad.
+  **Estado real:** el borrado físico del motor ya no deja los registros legibles (verificado:
+  las tombstones dejan de ser recuperables), pero **no** hay purga criptográfica de claves —
+  no hay claves que purgar porque no hay cifrado.
+
+- **Aislamiento de credenciales:** Las claves de API y secretos **NUNCA se almacenan en VantaDB**, sino
+  exclusivamente en el Keychain nativo del sistema operativo gestionado por el Credential Manager.
+  ✅ **Este es el límite real de la protección de secretos hoy.**
 
 ---
 

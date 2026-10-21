@@ -393,9 +393,19 @@ handoff de A4 la negaba.
 | 2 | **`ZeroContextKernel` (HERM-18): ¿se cablea en producción?** | Sandbox endurecido (worker + `node:vm` sin intrínsecos) con caller real **sólo en la suite de seguridad** (`tests/security/injection-boundaries.test.ts`, SEC-08.C); cero uso en `apps/desktop` | A2bis: **mantenerlo como componente de test de seguridad** y documentarlo así, para que no se lea como código muerto por ignorancia; la alternativa (ejecutor de tools programáticas) es capacidad real con su coste |
 | 3 | **Hueco de capacidad tras retirar `UntrustedContentSanitizer` (CARP-04): ¿cablear la detección o aceptar la brecha?** | Era el **único** módulo con detección de inyección de prompt (13 patrones EN/ES, normalización anti-obfuscación) y neutralización de tags de control. No lo llamaba nadie ⇒ retirarlo **no cambia el comportamiento**, pero `scanEgoPut` sólo detecta **secretos** y el `TrustBoundary` **no** neutraliza tags | A2bis: **no lo decide** (es política de seguridad). Opciones: (a) cablear en el borde de escritura (`scanEgoPut` → quarantine + marca `untrusted`), o (b) aceptar y documentar la brecha |
 | 4 | **El clon confinado por Sub-Ego** (diff 3 de A3) | En el desktop **no existe** `cloneRegistryForProfile` y hay **un** registro de producción | A4: **no implementado**; la propuesta medida da ~2–5 tools por Sub-Ego sin coste de memoria, y **no cambia** qué tools puede invocar un Sub-Ego (eso lo decide el registro) |
-| 5 | **El canal de obtención del token MCP** (`EGO-FIND-81`) | El token vive sólo en el main (keychain) y **no** se expone al renderer; un cliente externo necesita otro canal | A1: variable de entorno con nombre explícito (`EGO_MCP_TOKEN`) o fichero `0600` en el directorio de datos + **descubrimiento del puerto** (hoy efímero) |
+| 5 | **El canal de obtención del token MCP** (`EGO-FIND-81`) | El token vive sólo en el main (keychain) y **no** se expone al renderer; un cliente externo necesita otro canal | A1: variable de entorno con nombre explícito (`EGO_MCP_TOKEN`) o fichero `0600` en el directorio de datos + **descubrimiento del puerto** (hoy efímero) → ✅ **RESUELTO por el owner (2026-10-21): "keychain + CLI local"** — el token se guarda en el keychain del SO y se expone **sólo** por un comando CLI local; el renderer nunca lo ve. En ejecución por **A3** |
 | 6 | **Los certificados de firma** (`DIST-04`) | Bloquea E3 (binarios MCP embebidos + firma) y el bucket de distribución | — (material criptográfico que sólo el owner puede emitir) |
-| 7 | **El cifrado at-rest** (`VDB-REQ-08` / FIND-249) | VantaDB persiste todo en claro; la cuarentena de SEC-09 es **control de acceso, no confidencialidad** | — (upstream). Decisión de owner: **relajar SEC-09 o no** mientras el motor no cifre |
+| 7 | **El cifrado at-rest** (`VDB-REQ-08` / FIND-249) | VantaDB persiste todo en claro; la cuarentena de SEC-09 es **control de acceso, no confidencialidad** | — (upstream). Decisión de owner: **relajar SEC-09 o no** mientras el motor no cifre → ✅ **RESUELTO por el owner (2026-10-21): "documentar el riesgo y esperar"** — no se cifra en la capa de Ego (cifrar sólo lo sensible rompe la búsqueda por contenido; cifrar todo deja el fast path BM25 inservible); el riesgo queda **documentado** en `docs/architecture/memoria-vantadb.md` §14 (la afirmación heredada "AES-256-GCM" era **falsa** → corregida) y la petición `VDB-REQ-08` sigue **upstream** |
+
+### 7.6.2.b Decisiones del owner tomadas el 2026-10-21 (Ola 9) #
+
+| # | Decisión | Veredicto | Estado |
+|---|---|---|---|
+| A | **Canal del token MCP** (`EGO-FIND-81`) | **Keychain + CLI local** | En ejecución (A3) |
+| B | **Cifrado at-rest** (`VDB-REQ-08`) | **Documentar el riesgo y esperar al upstream** | ✅ Hecho: `memoria-vantadb.md` §14 + `VANTADB-FEEDBACK-Y-MEJORAS.md` |
+| C | **Registro de tools: global vs. vista filtrada** | **Vista filtrada por Sub-Ego** (recomendación de A4) | En ejecución (A4) |
+| D | **Hueco de detección de inyección de prompt** | **Reconstruir el detector** (módulo determinista en `packages/security/`) | En ejecución (A2-bis) |
+| E | **Publicación de los commits** | **Publicar ahora** | ✅ Hecho: `origin/master` = `bb74656`, 0 commits sin publicar |
 
 ### 7.6.3 Las peticiones upstream que quedan (no son trabajo de Ego) #
 
