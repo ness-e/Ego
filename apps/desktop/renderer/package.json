@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "pretest": "node ../scripts/design-lint.cjs",
     "design:lint": "node ../scripts/design-lint.cjs",
     "design:lint:json": "node ../scripts/design-lint.cjs --json"
   },

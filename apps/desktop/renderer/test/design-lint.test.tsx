@@ -16,7 +16,7 @@
  * con `--json` y parsea su informe. Si el linter cambia, el test lo ve.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -242,6 +242,13 @@ const EXPECTED_EXEMPTIONS: readonly ExpectedExemption[] = [
     kind: "deuda",
     motivo: "Deuda heredada: radio fuera de la escala de 3 pasos (`rounded` a secas = 4px, `rounded-{lg,xl,2xl,3xl}`).",
   },
+  {
+    id: "EGO-DL-024",
+    rule: "R12",
+    kind: "deuda",
+    motivo:
+      "Deuda heredada: CSS crudo fuera del design system (`!important` y colores rgb()/hsl() literales) en el CSS legacy del flotante.",
+  },
 ];
 
 /* ------------------------------------------------------------------ *
@@ -278,15 +285,40 @@ describe("design-lint — puerta de calidad del design system", () => {
       expect(status).toBe(0);
     });
 
-    it("declara las 11 reglas con severidad y título", () => {
+    it("declara las 12 reglas con severidad y título", () => {
       const rules = report.rules;
-      expect(Object.keys(rules).sort()).toEqual(["R1", "R10", "R11", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9"]);
+      expect(Object.keys(rules).sort()).toEqual([
+        "R1",
+        "R10",
+        "R11",
+        "R12",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "R7",
+        "R8",
+        "R9",
+      ]);
       for (const [id, summary] of Object.entries(rules)) {
         expect(summary.title.length, `${id} debe tener título`).toBeGreaterThan(0);
         expect(["error", "warning"]).toContain(summary.severity);
       }
-      // R1..R7 y R9..R11 bloquean (exit 1); R8 es métrica (aviso).
-      for (const id of ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R9", "R10", "R11"]) {
+      // R1..R7 y R9..R12 bloquean (exit 1); R8 es métrica (aviso).
+      for (const id of [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "R7",
+        "R9",
+        "R10",
+        "R11",
+        "R12",
+      ]) {
         expect(rules[id]?.severity, `${id} debe ser error`).toBe("error");
       }
       expect(rules["R8"]?.severity).toBe("warning");
@@ -480,6 +512,188 @@ describe("design-lint — puerta de calidad del design system", () => {
         "rounded-[8px]",
       ]);
       expect(run.status).toBe(1);
+    });
+
+    it("enciende con una paleta cruda dentro de una tabla `cva` (T1.5)", () => {
+      // El hueco que cerró T1.5: las variantes compuestas por `cva` NO
+      // pasan por `className=`, así que sus clases se escapaban de la
+      // puerta (un `text-emerald-400` en una variante nueva pasaba).
+      const dir = mkdtempSync(join(tmpdir(), "ego-design-lint-"));
+      try {
+        writeFileSync(
+          join(dir, "Fixture.tsx"),
+          [
+            "import { cva } from './cva.js';",
+            "export const variants = cva({",
+            "  base: 'inline-flex items-center',",
+            "  variants: {",
+            "    tone: {",
+            "      ok: 'bg-success/10 text-success',",
+            "      bad: 'text-emerald-400',",
+            "    },",
+            "  },",
+            "});",
+            "",
+          ].join("\n"),
+          "utf8",
+        );
+
+        const run = runDesignLint([dir]);
+        const errors = run.report.findings.filter((f) => f.severity === "error");
+        expect(
+          errors.map((f) => f.rule),
+          "la paleta cruda de una variante `cva` debe encender R7"
+        ).toEqual(["R7"]);
+        expect(errors[0]?.match).toContain("text-emerald-400");
+        expect(run.status).toBe(1);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("enciende con CSS crudo: `!important`, `rgb()` y hex fuera de token (T1.6)", () => {
+      // El hueco que cerró T1.6: la puerta solo analizaba TSX, así que el
+      // CSS del renderer (19 KB en floating/floating.css y cualquier CSS
+      // nuevo) quedaba fuera.
+      const dir = mkdtempSync(join(tmpdir(), "ego-design-lint-"));
+      try {
+        writeFileSync(
+          join(dir, "Fixture.css"),
+          [
+            ".panel {",
+            "  color: #ff00aa;",
+            "  background: rgb(1 2 3);",
+            "  z-index: 10 !important;",
+            "}",
+            "",
+          ].join("\n"),
+          "utf8",
+        );
+
+        const run = runDesignLint([dir]);
+        const errors = run.report.findings.filter((f) => f.severity === "error");
+        expect(
+          errors.map((f) => f.rule).sort(),
+          "el CSS crudo debe encender R1 (hex) y R12 (!important / color crudo)"
+        ).toEqual(["R1", "R12", "R12"]);
+        expect(errors.find((f) => f.match === "#ff00aa")?.rule).toBe("R1");
+        expect(
+          errors.filter((f) => f.rule === "R12").some((f) => f.match.includes("!")),
+          "R12 debe ver el `!important`"
+        ).toBe(true);
+        expect(
+          errors.filter((f) => f.rule === "R12").some((f) => f.match.includes("rgb(")),
+          "R12 debe ver el color crudo"
+        ).toBe(true);
+        expect(run.status).toBe(1);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("NO enciende con el CSS de los ficheros de TOKENS (son la fuente canónica)", () => {
+      const dir = mkdtempSync(join(tmpdir(), "ego-design-lint-"));
+      try {
+        writeFileSync(
+          join(dir, "index.css"),
+          [
+            ":root {",
+            "  --color-brand: var(--ego-color-brand, #f59e0b);",
+            "  --color-panel: oklch(0.195 0.004 286);",
+            "}",
+            "",
+          ].join("\n"),
+          "utf8",
+        );
+        const run = runDesignLint([dir]);
+        const errors = run.report.findings.filter((f) => f.severity === "error");
+        expect(
+          errors,
+          "el fichero de tokens puede llevar hex (con su var(--color-*, …))"
+        ).toEqual([]);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    /**
+     * T2 (Ola 5) — La lista blanca se indexa por la HUELLA del contenido
+     * infractor, no por un ID posicional ni por un rango de líneas.
+     *
+     * Antes, un hex literal nuevo o eliminado en un fichero con excepción
+     * desplazaba las líneas: la excepción dejaba de suprimir nada y la
+     * puerta fallaba con un error que no explicaba el desplazamiento (o,
+     * peor, suprimía otra cosa).
+     */
+    describe("lista blanca indexada por huella del contenido (T2)", () => {
+      /** Ruta relativa de un fichero con excepción estructural (EGO-DL-001). */
+      const WHITELISTED_FILE = "components/canvas/DesignSystemProvider.tsx";
+      /** Hex que la excepción EGO-DL-001 tiene grabado (token fijo). */
+      const WHITELISTED_HEX = "#71717a";
+
+      /** Monta una fixture en la ruta EXACTA de un fichero con excepción. */
+      function lintWhitelistedFile(content: string): LintRun {
+        const dir = mkdtempSync(join(tmpdir(), "ego-design-lint-"));
+        const target = join(dir, WHITELISTED_FILE);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, content, "utf8");
+        return runDesignLint([dir]);
+      }
+
+      it("(a) sin cambios, el hex con excepción sigue suprimido (la puerta pasa)", () => {
+        const run = lintWhitelistedFile(
+          [
+            "export const tokens = {",
+            `  borderStrong: "${WHITELISTED_HEX}",`,
+            "};",
+            "",
+          ].join("\n")
+        );
+        const errors = run.report.findings.filter((f) => f.severity === "error");
+        expect(
+          errors.map((f) => f.match),
+          `el hex con excepción debe seguir suprimido:\n${describeFindings(errors)}`
+        ).toEqual([]);
+        expect(run.status).toBe(0);
+      });
+
+      it("(b) AÑADIR un hex nuevo a un fichero con excepción hace FALLAR la puerta", () => {
+        // El contenido nuevo no está en las huellas de la excepción → no se
+        // suprime → la puerta falla de verdad (en vez de desplazar la
+        // excepción en silencio).
+        const run = lintWhitelistedFile(
+          [
+            "export const tokens = {",
+            `  borderStrong: "${WHITELISTED_HEX}",`,
+            '  nuevo: "#ff00aa",',
+            "};",
+            "",
+          ].join("\n")
+        );
+        const errors = run.report.findings.filter((f) => f.severity === "error");
+        expect(
+          errors.map((f) => f.match),
+          `el hex NUEVO debe encender R1:\n${describeFindings(errors)}`
+        ).toEqual(["#ff00aa"]);
+        expect(run.status).toBe(1);
+      });
+
+      it("(c) ELIMINAR el hex de un fichero con excepción avisa de que la excepción SOBRA", () => {
+        // La excepción ya no suprime nada: la puerta lo dice (no lo ignora
+        // en silencio) para que se retire de la tabla.
+        const run = lintWhitelistedFile(
+          ["export const tokens = {", '  otro: "#ff00aa",', "};", ""].join("\n")
+        );
+        const stale = run.report.staleWhitelist;
+        expect(
+          stale.length,
+          "la excepción debe marcarse como obsoleta"
+        ).toBeGreaterThan(0);
+        expect(
+          stale.map((s) => s.findingId),
+          `excepciones obsoletas inesperadas: ${JSON.stringify(stale)}`
+        ).toContain("EGO-DL-001");
+      });
     });
 
     it("enciende con una superficie derivada con alfa (bg-panel/95)", () => {

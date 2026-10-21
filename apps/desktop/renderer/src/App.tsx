@@ -43,9 +43,9 @@ const PersonalizationView = lazy(() =>
 );
 
 /**
- * Recorte del VALOR de un `Select` (Radix) aplicado desde el trigger.
+ * Recorte del VALOR de un `Select` (Radix).
  *
- * ## Por qué hace falta
+ * ## Por qué hace falta (y por qué ya no se aplica desde aquí)
  * `@radix-ui/react-select` 2.3.8 **descarta el `className`** que se le pasa a
  * `Select.Value`: lo desestructura y no lo reinyecta en el `<span>` que
  * renderiza (`style: { pointerEvents: "none" }` y poco más). Consecuencia
@@ -53,14 +53,12 @@ const PersonalizationView = lazy(() =>
  * una caja de 44 px y pisa la fila superior (`scrollHeight` 45 > `clientHeight`
  * 42 con "Obsidian Graphite · Slate Oscuro").
  *
- * El kit (`components/ui-kit/Select.tsx`) es de propiedad compartida y no se
- * modifica desde aquí, así que el recorte se aplica desde el propio
- * consumidor: el `<span>` del valor es el ÚNICO `<span>` hijo del trigger (el
- * caret es un `<svg>`), de modo que `[&>span]:truncate` lo alcanza sin
- * ambigüedad. `truncate` = `overflow:hidden` + `text-overflow:ellipsis` +
- * `white-space:nowrap` → una sola línea con elipsis.
+ * T1.4 (Ola 4): ese hueco se resolvió **en el kit** (`Select.tsx` renderiza
+ * su valor en un `<span className="min-w-0 truncate text-left">`), así que el
+ * hack del consumidor (`[&>span]:min-w-0 [&>span]:truncate`) era
+ * redundante y acoplaba al DOM interno del kit. **Eliminado**: ya no hace
+ * falta ninguna constante aquí.
  */
-const SELECT_VALUE_TRUNCATE = "[&>span]:min-w-0 [&>span]:truncate";
 
 /** Pestañas del Dynamic Workspace (unificadas como control segmentado). */
 type WorkspaceTab =
@@ -196,12 +194,15 @@ function ChatPanelHeader({
             const found = CANONICAL_MODELS.find((m) => m.id === val);
             if (found) onSelectModel(found);
           }}
-          // `truncate` + `whitespace-nowrap` (vía `SELECT_VALUE_TRUNCATE`):
-          // sin esto la etiqueta larga se envuelve y desborda la fila (D2).
+          // T1.4 (Ola 4): el recorte del valor lo hace el KIT (`Select`
+          // renderiza su valor en un `<span className="min-w-0 truncate">`),
+          // así que el hack `[&>span]:truncate` del consumidor era
+          // redundante Y acoplaba al DOM interno del kit. Aquí sólo queda
+          // el ancho máximo y el `whitespace-nowrap` del trigger.
           // 190 px es lo que necesita "Claude 3.7 Sonnet" en mono 12 px con
           // el caret: la cabecera del chat mide 560 px por defecto, así que
           // el nombre se lee COMPLETO sin recortarse.
-          className={`${SELECT_VALUE_TRUNCATE} min-h-11 min-w-11 max-w-[190px] whitespace-nowrap rounded-full font-mono text-xs text-dim hover:text-ink`}
+          className="min-h-11 min-w-11 max-w-[190px] whitespace-nowrap rounded-full font-mono text-xs text-dim hover:text-ink"
           options={modelOptions}
         />
       </div>

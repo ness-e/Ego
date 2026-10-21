@@ -37,18 +37,18 @@ import { Popover } from "../ui-kit/Popover.js";
  * El `Button` del kit renderiza los hijos dentro de un `<span>` interno
  * (`inline-flex min-w-0 items-center gap-1.5`).
  *
- * - Para un icono + etiqueta ya NO hace falta ningún selector arbitrario:
- *   la prop `icon` renderiza el icono como hermano ANTERIOR a ese `<span>`,
- *   de modo que el `gap-1.5` del base los separa sin acoplar el consumidor
- *   al DOM interno del kit.
- * - Para una fila con un atajo/insignia a la DERECHA (kbd, contador), el
- *   `<span>` interno tiene que CRECER (`w-full`) para poder separar los dos
- *   extremos con `justify-between`. Eso no es un hack de alineación sino una
- *   necesidad estructural del DOM del kit, y por eso sigue siendo un
- *   selector arbitrario — pero acotado a un único caso.
+ * - Para un icono + etiqueta NO hace falta ningún selector arbitrario: la
+ *   prop `icon` renderiza el icono como hermano ANTERIOR a ese `<span>`, de
+ *   modo que el `gap-1.5` del base los separa sin acoplar el consumidor al
+ *   DOM interno del kit.
+ * - Para una fila con un atajo/insignia a la DERECHA (kbd, contador, punto
+ *   de estado) está la prop `trailing`: el contenido crece (`flex-1`) y el
+ *   slot queda al extremo, **sin `[&>span]:flex` ni `justify-between`**.
+ *
+ * T1.4 (Ola 4): los 8 sitios que usaban el hack `BTN_SPREAD` migrated a
+ * `trailing`, y la constante desaparece. Ya no queda ningún selector
+ * arbitrario que reach en el DOM interno del kit.
  */
-const BTN_SPREAD =
-  "[&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:justify-between";
 
 /**
  * Etiqueta CORTA de cada preset de tema.
@@ -489,15 +489,17 @@ export function Sidebar({
                   onClick={() => {
                     toggleFloatingCompanion();
                   }}
-                  className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] text-ink hover:bg-raised`}
+                  trailing={
+                    <kbd className="shrink-0 rounded-md bg-raised px-1 py-0.5 font-mono text-xs text-dim">
+                      Alt+Win+P
+                    </kbd>
+                  }
+                  className="w-full rounded-[var(--radius-card)] text-ink hover:bg-raised"
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <Sparkle size={15} className="shrink-0 text-faint" />
                     <span className="truncate">Mostrar mascota (Isla Flotante)</span>
                   </span>
-                  <kbd className="shrink-0 rounded-md bg-raised px-1 py-0.5 font-mono text-xs text-dim">
-                    Alt+Win+P
-                  </kbd>
                 </Button>
 
                 {/* Selector rápido de Tema. D12: el nombre visible del preset
@@ -534,15 +536,17 @@ export function Sidebar({
                   onClick={() => {
                     setIsSettingsOpen(true);
                   }}
-                  className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] text-ink hover:bg-raised`}
+                  trailing={
+                    <kbd className="shrink-0 rounded-md bg-raised px-1 py-0.5 font-mono text-xs text-dim">
+                      Ctrl+,
+                    </kbd>
+                  }
+                  className="w-full rounded-[var(--radius-card)] text-ink hover:bg-raised"
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <Gear size={15} className="shrink-0 text-faint" />
                     <span className="truncate">Configuración</span>
                   </span>
-                  <kbd className="shrink-0 rounded-md bg-raised px-1 py-0.5 font-mono text-xs text-dim">
-                    Ctrl+,
-                  </kbd>
                 </Button>
               </div>
             </div>
@@ -612,15 +616,17 @@ export function Sidebar({
               size="md"
               onClick={requestOpenOmnibar}
               title="Búsqueda federada (Ctrl+K)"
-              className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] font-normal text-faint hover:text-ink`}
+              trailing={
+                <kbd className="shrink-0 rounded-md border border-hairline bg-raised px-1.5 py-0.5 font-mono text-xs text-dim">
+                  Ctrl+K
+                </kbd>
+              }
+              className="w-full rounded-[var(--radius-card)] font-normal text-faint hover:text-ink"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <MagnifyingGlass size={13} className="shrink-0 text-dim" />
                 <span className="truncate">Buscar recuerdos (Ctrl+K)</span>
               </span>
-              <kbd className="shrink-0 rounded-md border border-hairline bg-raised px-1.5 py-0.5 font-mono text-xs text-dim">
-                Ctrl+K
-              </kbd>
             </Button>
           </div>
 
@@ -632,15 +638,23 @@ export function Sidebar({
                   `min-h-11` + `pb-1`: con el botón `+` de 44 px dentro, la
                   fila medía 48 px reales y rompía el ritmo de las cabeceras
                   del resto de la app. `h-11` sin `pb-1` la deja en 44 px. */}
-              <div className="flex h-11 items-center justify-between px-2 text-xs font-semibold tracking-wider text-dim uppercase">
-                <span>Proyectos</span>
-                <Button
+                <div className="flex h-11 items-center justify-between px-2 text-xs font-semibold tracking-wider text-dim uppercase">
+                  <span>Proyectos</span>
+                  {/* T3 (Ola 4): el margen negativo del botón `+` compensa el
+                      `px-2` de la cabecera (-8 px) para que su borde derecho
+                      caiga en el mismo sitio que el de las filas de abajo
+                      (`w-full` sobre el contenido del padre, sin padding).
+                      Con `-mr-3` se salía 4 px de la caja de la cabecera: la
+                      auditoría de diseño lo reportaba como DESBORDE real
+                      (no era un falso positivo del halo `animate-ping`, que sí
+                      lo era y ya está filtrado en la medición). */}
+                  <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsNewProjectModalOpen(true)}
                   title="Crear nuevo proyecto"
                   aria-label="Crear nuevo proyecto"
-                  className="-mr-3 text-dim hover:bg-raised hover:text-ink"
+                  className="-mr-2 text-dim hover:bg-raised hover:text-ink"
                 >
                   <Plus size={14} />
                 </Button>
@@ -660,7 +674,12 @@ export function Sidebar({
                       variant="ghost"
                       size="md"
                       onClick={() => void handleSelectProject(p.id)}
-                      className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] ${
+                      trailing={
+                        isSelected ? (
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+                        ) : null
+                      }
+                      className={`w-full rounded-[var(--radius-card)] ${
                         isSelected
                           ? "bg-raised text-ink font-medium"
                           : "text-faint hover:bg-raised hover:text-ink"
@@ -674,9 +693,6 @@ export function Sidebar({
                         )}
                         <span className="truncate text-left">{p.name}</span>
                       </span>
-                      {isSelected && (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
-                      )}
                     </Button>
                   );
                 })}
@@ -704,7 +720,19 @@ export function Sidebar({
                       variant="ghost"
                       size="md"
                       onClick={() => onSelectSubEgo(s.id)}
-                      className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] ${
+                      trailing={
+                        <span
+                          title={s.state === "active" ? "Sub-Ego Activo" : "En espera"}
+                          // D17: el punto de estado es una SUPERFICIE, no un
+                          // borde. `bg-strong` (`--color-strong` = #71717a) es el
+                          // token de borde interactivo; para el estado "en
+                          // espera" corresponde el token apagado `bg-dim`.
+                          className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
+                            s.state === "active" ? "bg-success" : "bg-dim"
+                          }`}
+                        />
+                      }
+                      className={`w-full rounded-[var(--radius-card)] ${
                         isSelected
                           ? "bg-raised text-ink font-medium"
                           : "text-faint hover:bg-raised hover:text-ink"
@@ -719,16 +747,6 @@ export function Sidebar({
                           <span className="truncate text-xs text-faint">{s.role}</span>
                         </span>
                       </span>
-                      <span
-                        title={s.state === "active" ? "Sub-Ego Activo" : "En espera"}
-                        // D17: el punto de estado es una SUPERFICIE, no un
-                        // borde. `bg-strong` (`--color-strong` = #71717a) es el
-                        // token de borde interactivo; para el estado "en
-                        // espera" corresponde el token apagado `bg-dim`.
-                        className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
-                          s.state === "active" ? "bg-success" : "bg-dim"
-                        }`}
-                      />
                     </Button>
                   );
                 })}
@@ -764,7 +782,12 @@ export function Sidebar({
                         variant="ghost"
                         size="md"
                         onClick={() => void handleResumeSession(session.id)}
-                        className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] ${
+                        trailing={
+                          <span className="shrink-0 font-mono text-xs text-dim">
+                            {session.preview}
+                          </span>
+                        }
+                        className={`w-full rounded-[var(--radius-card)] ${
                           isCurrent
                             ? "bg-raised text-ink font-medium"
                             : "text-faint hover:bg-raised hover:text-ink"
@@ -773,9 +796,6 @@ export function Sidebar({
                         <span className="flex min-w-0 items-center gap-2">
                           <ChatCircle size={13} className="shrink-0 text-dim" />
                           <span className="truncate text-left text-xs">{session.title}</span>
-                        </span>
-                        <span className="shrink-0 font-mono text-xs text-dim">
-                          {session.preview}
                         </span>
                       </Button>
                     );
@@ -810,13 +830,15 @@ export function Sidebar({
               variant="ghost"
               size="md"
               onClick={() => setIsSettingsOpen(true)}
-              className={`${BTN_SPREAD} w-full rounded-[var(--radius-card)] text-faint hover:bg-raised hover:text-ink`}
+              trailing={
+                <span className="shrink-0 font-mono text-xs text-dim">Ctrl+,</span>
+              }
+              className="w-full rounded-[var(--radius-card)] text-faint hover:bg-raised hover:text-ink"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <Gear size={15} className="shrink-0 text-dim" />
                 <span>Configuración</span>
               </span>
-              <span className="shrink-0 font-mono text-xs text-dim">Ctrl+,</span>
             </Button>
           </div>
         </aside>

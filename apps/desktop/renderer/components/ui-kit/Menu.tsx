@@ -50,13 +50,12 @@ export interface MenuProps {
   /**
    * Nombre accesible del menú (`role="menu"`).
    *
-   * ⚠️ **En la práctica NO es lo que nombra al menú.** Radix fija
-   * `aria-labelledby` al *trigger* del menú, y en el cálculo del nombre
-   * accesible `aria-labelledby` tiene prioridad sobre `aria-label`: el
-   * nombre real del menú es, por tanto, el del botón que lo abre. La prop
-   * se conserva (retro-compatible y como red de seguridad cuando el trigger
-   * no tiene texto visible, caso en el que sí es el único nombre), pero no
-   * se promete aquí ningún nombre accesible que la librería no va a dar.
+   * - **Con `ariaLabel`**: el menú se nombra por esta etiqueta. El kit anula
+   *   el `aria-labelledby` que Radix pone por defecto (que apuntaría al
+   *   trigger y, al tener prioridad sobre `aria-label`, dejaría esta prop
+   *   sin efecto). Ver `labelProps` más abajo.
+   * - **Sin `ariaLabel`** (por defecto): el menú se nombra por su **trigger**
+   *   —que es su nombre natural— mediante el `aria-labelledby` de Radix.
    */
   ariaLabel?: string;
   /** Clase extra del disparador. */
@@ -121,7 +120,7 @@ export function Menu({
   align = "start",
   side = "bottom",
   sideOffset = 6,
-  ariaLabel = "Menú",
+  ariaLabel,
   className,
   contentClassName,
   open,
@@ -132,6 +131,26 @@ export function Menu({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const portalHost = usePortalHost(triggerRef);
   const isEmpty = items.length === 0;
+
+  /**
+   * T1.3 (Ola 4) — El nombre accesible del menú.
+   *
+   * Radix compone sus props internas ANTES de las del consumidor
+   * (`{ "aria-labelledby": context.triggerId, ...contentProps }`), así que
+   * pasar `aria-labelledby: undefined` lo anula (React no renderiza un
+   * atributo `undefined`). Sin eso, el `aria-labelledby` del trigger ganaría
+   * siempre (tiene prioridad sobre `aria-label` en el cálculo del nombre
+   * accesible) y la prop `ariaLabel` **no haría nada**.
+   *
+   * - Con `ariaLabel` → el menú se nombra por esa etiqueta.
+   * - Sin `ariaLabel` → se deja el default de Radix: el nombre del trigger.
+   */
+  const labelProps = ariaLabel
+    ? ({
+        "aria-label": ariaLabel,
+        "aria-labelledby": undefined,
+      } as { "aria-label": string; "aria-labelledby": undefined })
+    : {};
 
   // --- Estado "uno de" (radio) -------------------------------------------
   // `hasRadio`: hay al menos un ítem con la prop `checked` PRESENTE (sean
@@ -216,7 +235,7 @@ export function Menu({
           side={side}
           sideOffset={sideOffset}
           collisionPadding={8}
-          aria-label={ariaLabel}
+          {...labelProps}
           className={cn(
             "z-50 max-h-60 min-w-[10rem] overflow-y-auto rounded-[var(--radius-card)] border border-hairline bg-raised p-1 text-xs text-ink shadow-[var(--ego-elevation-l2)]",
             "transition-[opacity,transform] duration-150 ease-[var(--motion-ease-out)] starting:opacity-0 starting:scale-95 data-[state=open]:opacity-100 data-[state=open]:scale-100",

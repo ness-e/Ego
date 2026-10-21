@@ -417,11 +417,18 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
                     variant="secondary"
                     onClick={() => handleShapeSelect(opt.id)}
                     aria-pressed={isSelected}
-                    // `h-auto` + `whitespace-normal`: las etiquetas largas
+                    // `min-h-7` + `whitespace-normal`: las etiquetas largas
                     // ("Robot Studio CX (Squircle / Superelipse)") se parten
                     // por PALABRA en dos líneas; el `h-7` fijo del kit las
                     // recortaba a media palabra.
-                    className={`h-auto w-full rounded-md whitespace-normal text-left ${
+                    //
+                    // Ola 5 · T4: `h-auto` a secas dejaba el botón en 18 px
+                    // (por debajo del objetivo táctil mínimo de 24 px del
+                    // design system): lo detectó la auditoría visual al abrir
+                    // por fin esta superficie (el canvas de avatares nunca se
+                    // auditaba). `min-h-7` mantiene el crecimiento por
+                    // contenido con el suelo de 28 px.
+                    className={`h-auto min-h-7 w-full rounded-md whitespace-normal text-left ${
                       isSelected ? "border-ink font-semibold" : "border-hairline text-dim hover:text-ink"
                     }`}
                   >

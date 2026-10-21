@@ -102,6 +102,18 @@ export interface ButtonProps extends ComponentPropsWithRef<"button"> {
    *   táctil de 44×44 (`min-h-11 min-w-11`).
    */
   icon?: ReactNode;
+  /**
+   * Slot DERECHO (kbd, contador, insignia): se renderiza como hermano del
+   * contenido, pegado al extremo derecho.
+   *
+   * ## Por qué existe (sustituye al hack `[&>span]:flex`)
+   * El caso "etiqueta a la izquierda + atajo a la derecha" obligaba a los
+   * consumidores a Reach en el DOM interno del kit:
+   * `[&>span]:flex [&>span]:w-full [&>span]:items-center
+   * [&>span]:justify-between`. Con esta prop, el contenido crece
+   * (`flex-1`) y el slot queda al extremo: **sin selectores arbitrarios**.
+   */
+  trailing?: ReactNode;
 }
 
 /**
@@ -124,6 +136,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     truncate = false,
     disabled,
     icon,
+    trailing,
     children,
     className,
     // `type="button"` por defecto: un botón dentro de un `<form>` no debe
@@ -172,9 +185,23 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
           alinea icono y etiqueta sin que cada consumidor tenga que forzar el
           layout con `[&>span]:flex`. `min-w-0` permite que el texto se
           recorte (`truncate`) sin desbordar el botón. */}
-      <span className={cn("inline-flex min-w-0 items-center gap-1.5", truncate && "truncate")}>
+      <span
+        className={cn(
+          "inline-flex min-w-0 items-center gap-1.5",
+          truncate && "truncate",
+          // Con `trailing`, el contenido CRECE (`flex-1`) para que el slot
+          // derecho quede pegado al extremo sin que el consumidor tenga que
+          // tocar el DOM interno del kit.
+          trailing && "flex-1",
+        )}
+      >
         {children}
       </span>
+      {/* Slot DERECHO (kbd, contador, insignia). Es hermano del contenido, no
+          un hijo: así el `truncate` del texto no muerde al slot. Con esta
+          prop desaparece el hack `[&>span]:flex [&>span]:w-full
+          [&>span]:items-center [&>span]:justify-between`. */}
+      {trailing && <span className="shrink-0">{trailing}</span>}
     </button>
   );
 });

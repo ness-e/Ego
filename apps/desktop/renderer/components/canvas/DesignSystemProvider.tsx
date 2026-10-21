@@ -57,7 +57,11 @@ export const DEFAULT_DESIGN_TOKENS: DesignSystemTokens = {
     border: "oklch(0.274 0.005 286)",
     success: "oklch(0.696 0.149 162.5)",
     warning: "oklch(0.837 0.164 84.4)",
-    error: "oklch(0.645 0.215 16.4)",
+    // T1.2 (Ola 4): el `error` es el TEXTO del tono `risk` del `Badge`
+    // (`text-error` sobre `bg-error/10`). Con L=0.645 el texto quedaba en
+    // 4,54:1 sobre su propio tinte compuesto (margen de 0,04 por debajo de
+    // AA). L=0.66 lo deja en 4,75:1.
+    error: "oklch(0.66 0.215 16.4)",
   },
   geometry: {
     radius: "md",
@@ -85,7 +89,9 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
       border: "oklch(0.372 0.039 257.3)",
       success: "oklch(0.696 0.149 162.5)",
       warning: "oklch(0.769 0.165 70.1)",
-      error: "oklch(0.637 0.208 25.3)",
+      // T1.2 (Ola 4): `text-error` sobre `bg-error/10` daba 4,49:1 (AA
+      // exige 4,5:1). L=0.655 → 4,78:1.
+      error: "oklch(0.655 0.208 25.3)",
     },
     geometry: {
       radius: "lg",
@@ -140,7 +146,9 @@ export const PRESET_THEMES: Record<string, DesignSystemTokens> = {
       border: "oklch(0.444 0.01 73.6)",
       success: "oklch(0.696 0.149 162.5)",
       warning: "oklch(0.837 0.164 84.4)",
-      error: "oklch(0.637 0.208 25.3)",
+      // T1.2 (Ola 4): `text-error` sobre `bg-error/10` daba 4,42:1 (el peor
+      // de los 4 presets). L=0.655 → 4,78:1.
+      error: "oklch(0.655 0.208 25.3)",
     },
     geometry: {
       radius: "md",
