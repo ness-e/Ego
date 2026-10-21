@@ -45,12 +45,6 @@
     "lint:budget:check": "node scripts/verify-lint-budget.mjs",
     "lint:budget:test": "node scripts/test-verify-lint-budget.mjs"
   },
-  "lint-staged": {
-    "!packages/avatar/vendor/**": [],
-    "*.{ts,tsx,js,mjs,cjs}": [
-      "pnpm exec oxlint --ignore-path .gitignore"
-    ]
-  },
   "pnpm": {
     "overrides": {
       "app-builder-lib": "26.15.3",
