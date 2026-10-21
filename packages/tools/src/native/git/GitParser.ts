@@ -34,7 +34,9 @@ export interface GitDiffSummary {
 
 /**
  * Parser estructurado para comandos Git en Ego.
- * Patrón OpenClaw OCLW-08 (Unidiff parser y porcelain status).
+ * **Implementación propia de Ego** (patrón asimilado de OpenClaw · OCLW-08:
+ * parser de Unidiff y `porcelain status`): el parser es propio. Sin
+ * atribución de código derivado.
  */
 export class GitParser {
   /**

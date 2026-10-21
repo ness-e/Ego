@@ -1,5 +1,9 @@
 /**
- * Mock IPC Bridge para iteración aislada de la UI (Patrón Coucou COUC-15 / Mock Bridge).
+ * Mock IPC Bridge para iteración aislada de la UI.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de Coucou · COUC-15 /
+ * Mock Bridge): el puente en memoria es propio. Sin atribución de código
+ * derivado.
  * Permite ejecutar y probar los componentes del Dynamic Workspace y la UI en un navegador
  * web estándar sin requerir arrancar Electron ni el proceso principal de Node.js.
  *

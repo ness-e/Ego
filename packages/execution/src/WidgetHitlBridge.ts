@@ -38,9 +38,16 @@ interface PendingAck {
 }
 
 /**
- * WidgetHitlBridge — HITL flotante<->main (WIDG-04, COUC-03/04).
+ * WidgetHitlBridge - HITL flotante<->main (WIDG-04, COUC-03/04).
  *
- * Contrato mecánico (fuente: `repos-referencia/coucou/windows/src/island/hooks.ts:273-328`):
+ * **Implementación propia de Ego** (patrón asimilado de Coucou · COUC-01/03):
+ * el contrato mecánico que se implementa es el de
+ * `repos-referencia/coucou/windows/src/island/hooks.ts:273-328`, pero **el
+ * código es propio** (no hay `State`/`Bridge`/`island`: el puente es un
+ * contrato de eventos entre el widget flotante y el main). Sin atribución de
+ * código derivado.
+ *
+ * El contrato que se implementa:
  * - `presentApproval()` emite al widget y espera ACK <= 800 ms.
  * - Si ACK: resuelve `true`, mantiene pending + digest presentado.
  * - Si NO ACK: fallback a main (`onFallbackToMain`) y resuelve `false`

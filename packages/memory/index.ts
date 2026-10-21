@@ -9,6 +9,7 @@ export * from "./SessionCheckpointPolicy.js";
 export * from "./SnapshotRetention.js";
 export * from "./GraphRag.js";
 export * from "./CognitivePath.js";
+export * from "./DreamConsolidator.js";
 export * from "./SessionRetention.js";
 export * from "./SessionFork.js";
 export * from "./CompressionSettings.js";

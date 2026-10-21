@@ -1,16 +1,24 @@
 # Licencia y atribución — `@ego/tool-call-repair`
 
-Este paquete contiene código **adaptado** de un proyecto de terceros. La cláusula de
+Este paquete contiene código **derivado** de un proyecto de terceros. La cláusula de
 atribución de la licencia original se reproduce aquí para que el aviso de copyright sea
 resoluble dentro de este repositorio, tal como exige la licencia MIT.
 
 ## Código derivado
 
-| Fichero de este paquete | Origen | Licencia | Copyright |
-|---|---|---|---|
-| `src/grammar.ts` | `packages/tool-call-repair/src/grammar.ts` de OpenClaw | MIT | Copyright (c) 2026 OpenClaw Foundation |
-| `src/coercion.ts` | `packages/normalization-core` de OpenClaw | MIT | Copyright (c) 2026 OpenClaw Foundation |
-| `src/balanced-json.ts` | `packages/normalization-core/balanced-json.ts` de OpenClaw | MIT | Copyright (c) 2026 OpenClaw Foundation |
+Un fichero **realmente derivado** (un port literal) lleva la cabecera canónica
+`// Adapted from <upstream> (<LICENCIA>), <ruta de origen>`.
+
+| Fichero de este paquete | Origen | Ruta de origen | Licencia | Copyright |
+|---|---|---|---|---|
+| `src/grammar.ts` | OpenClaw | `packages/tool-call-repair/src/grammar.ts` | MIT | Copyright (c) 2026 OpenClaw Foundation |
+| `src/balanced-json.ts` | OpenClaw | `packages/normalization-core/src/balanced-json.ts` | MIT | Copyright (c) 2026 OpenClaw Foundation |
+
+## Código nativo (asimilación de patrón, sin código derivado)
+
+| Fichero de este paquete | Patrón estudiado | Nota |
+|---|---|---|
+| `src/coercion.ts` | OpenClaw `packages/normalization-core` | **Implementación propia de Ego**: las heurísticas (`yes/y/on/no/n/off` como booleanos, números como cadenas, la exención de las claves de contenido `content/body/code/script/query/message/prompt`) no tienen equivalente en el upstream. Sin atribución de código derivado. |
 
 El resto de ficheros del paquete son código original de Ego.
 
@@ -40,7 +48,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-Upstream: <https://github.com/openclaw/openclaw> (rama `main`, commit `ce1ffb4`).
+Upstream: <https://github.com/openclaw/openclaw> (rama `main`, commit `0c7a83d`).
 
 > **Nota de procedencia:** `repos-referencia/` está en `.gitignore`, de modo que la ruta
 > del upstream no es resoluble en un clon limpio del repo de Ego. Este fichero es el

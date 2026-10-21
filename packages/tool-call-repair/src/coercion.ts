@@ -1,7 +1,12 @@
 /**
  * Heurísticas deterministas de normalización y coerción de argumentos (OCLW-04).
- * Extraído y adaptado de OpenClaw `packages/normalization-core`
- * (MIT, Copyright (c) 2026 OpenClaw Foundation) - ver LICENSE.md.
+ *
+ * **Implementación propia de Ego.** El patrón (coerción tolerante de
+ * argumentos de tools) se estudió en OpenClaw (`packages/normalization-core`),
+ * pero **este código no es un port**: las heurísticas (`yes/y/on/no/n/off`
+ * como booleanos, números como cadenas, la exención de las claves de
+ * contenido `content/body/code/script/query/message/prompt`) son propias y no
+ * tienen equivalente en el upstream. No hay atribución de código derivado.
  */
 
 /**

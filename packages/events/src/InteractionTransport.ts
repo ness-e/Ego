@@ -1,11 +1,13 @@
 /**
  * Transporte de interacción HITL con admisión por timeout (STAB-14).
  *
- * Patrón coucou island/fsm + bridge (reimplementación TS): un solicitante
- * publica una interacción (`submit`) y espera admisión (`admit`) con timeout
- * corto. `admit` NUNCA rechaza ni bloquea: ante timeout, cancelación o id
- * desconocido resuelve `false` (fallback sin bloqueo) para que el caller
- * aplique su política fail-closed/degenerada sin colgar el loop.
+ * **Implementación propia de Ego** (patrón asimilado de Coucou ·
+ * `island/fsm` + bridge): un solicitante publica una interacción (`submit`) y
+ * espera admisión (`admit`) con timeout corto. `admit` NUNCA rechaza ni
+ * bloquea: ante timeout, cancelación o id desconocido resuelve `false`
+ * (fallback sin bloqueo) para que el caller aplique su política
+ * fail-closed/degenerada sin colgar el loop. Reimplementación TS del patrón:
+ * sin atribución de código derivado.
  */
 export type InteractionOutcome = "approved" | "denied" | "cancelled";
 

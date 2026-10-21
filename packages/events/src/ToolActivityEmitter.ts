@@ -46,7 +46,13 @@ export interface ToolPatchSummaryParams {
 
 /**
  * Despachador tipado de eventos de actividad de herramientas (OCLW-14).
- * Extraído y adaptado de OpenClaw src/infra/agent-activity-events.js.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de OpenClaw · OCLW-14):
+ * el patrón de eventos de actividad se estudió allí, pero **este código no
+ * es un port** — el upstream no expone un fichero equivalente y el bus de
+ * eventos, los niveles de riesgo y las métricas son de Ego. Sin atribución de
+ * código derivado.
+ *
  * Alimenta la bandeja de Background Activity y la telemetría del Workspace.
  */
 export class ToolActivityEmitter {

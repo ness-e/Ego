@@ -1,5 +1,7 @@
 // SelfImprovementLoop.ts — Superación Personal y Closed Learning Loop (SUB-12)
-// Basado en Principios Innegociables §1, §4 y compuerta KHOJ-05 (extracción de hechos y auto-reflexión).
+// Basado en Principios Innegociables §1, §4 y en la extracción de hechos y auto-reflexión
+// estudiada en `repos-referencia/khoj` (AGPL-3.0) como referencia de diseño —
+// **implementación propia de Ego, sin traducción de código** (decisión del owner 2026-10-20).
 // Permite a los Sub-Egos aprender de errores corregidos y reforzar estrategias exitosas inter-sesión.
 
 import { z } from "zod";

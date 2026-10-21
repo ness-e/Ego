@@ -1,11 +1,12 @@
 /**
  * WorkerPolicy — política de admisión, prioridad, backoff y salud (STAB-14).
  *
- * Patrón helmor/openclaw worker-pool ADAPTADO sin `worker_threads`: los
- * handlers del `LocalTaskPool` son clausuras no transferibles entre hilos,
- * de modo que esta policy es pura (sin I/O) y se aplica ANTES de despachar:
- * admisión por presupuesto, orden por prioridad y backoff determinista con
- * health tracking. Reimplementación TS del patrón, no copia de referencia.
+ * **Implementación propia de Ego** (patrón asimilado de helmor/openclaw ·
+ * `worker-pool`): los handlers del `LocalTaskPool` son clausuras no
+ * transferibles entre hilos, de modo que esta policy es pura (sin I/O) y se
+ * aplica ANTES de despachar: admisión por presupuesto, orden por prioridad y
+ * backoff determinista con health tracking. Reimplementación TS del patrón,
+ * no copia de referencia: sin atribución de código derivado.
  */
 export interface PrioritizableTask {
   id: string;

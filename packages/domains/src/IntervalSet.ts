@@ -7,7 +7,12 @@ export interface TimeInterval {
 }
 
 /**
- * IntervalSet - Agregación de intervalos no solapados (Patrón Coucou COUC-12 / RecapStore).
+ * IntervalSet - Agregación de intervalos no solapados.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de Coucou · COUC-12 /
+ * `RecapStore`): el algoritmo O(N log N) para unir y fusionar intervalos de
+ * tiempo continuos o solapados es propio; no hay atribución de código
+ * derivado.
  *
  * Implementa el algoritmo O(N log N) para unir y fusionar intervalos de tiempo continuos
  * o solapados. Evita contar doblemente el tiempo de trabajo efectivo cuando coexisten

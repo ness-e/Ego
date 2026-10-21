@@ -1,6 +1,12 @@
+// Adapted from coucou (MIT), NotchBuddy/Sources/CoucouKit/DiffEngine.swift
 /**
  * Tipos canónicos para el Servicio de ChangeSets y Diffs.
- * Extraído y adaptado de Coucou COUC-07 (DiffEngine / ChangeSetService).
+ *
+ * Código **derivado** de Coucou (MIT, Copyright (c) 2026 Louis Raillard): el
+ * port conserva los tipos del motor de origen (`DiffLine` con su `Kind`
+ * `context|added|removed`, `DiffHunk` y `FileDiff`) y su algoritmo de
+ *_lineas y hunks_. El aviso de licencia está en el `LICENSE.md` de este
+ * paquete.
  */
 import { createHash } from "node:crypto";
 

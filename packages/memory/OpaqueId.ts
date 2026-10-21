@@ -21,8 +21,11 @@ export interface ParsedOpaqueId {
 const OPAQUE_ID_REGEX = /^([a-z0-9]+)_([a-z0-9]{7,11})_([a-z0-9]{8,16})$/i;
 
 /**
- * Genera un identificador opaco, inmutable y ordenable cronológicamente
- * siguiendo el patrón canónico de DeepSeek-Harness (DSEK-03).
+ * Genera un identificador opaco, inmutable y ordenable cronológicamente.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de DeepSeek-Harness ·
+ * DSEK-03): los identificadores opacos canónicos se estudiaron allí, pero el
+ * formato y el código son propios. Sin atribución de código derivado.
  *
  * Formato: `${prefix}_${timestamp_base36}_${entropy}`
  * Ejemplo: `sess_m4k1l0p2_a7b9c1d2e3f4`

@@ -3,7 +3,7 @@ import { ScoreThresholdFilter } from "../src/filters/ScoreThresholdFilter.js";
 import type { SearchHit } from "@ego/memory";
 
 /**
- * F2T3 — ScoreThresholdFilter calibrado (H10, KHOJ-03).
+ * F2T3 — ScoreThresholdFilter calibrado (H10).
  *
  * BM25 no está acotado a [0,1] (típico 0..>10 según longitud/IDF), por lo que
  * un umbral absoluto 0.70 "pensado para coseno" es arbitrario sobre scores
@@ -27,7 +27,7 @@ const hit = (key: string, score: number): SearchHit =>
     score,
   }) as SearchHit;
 
-describe("F2T3 — ScoreThresholdFilter (H10/KHOJ-03)", () => {
+describe("F2T3 — ScoreThresholdFilter (H10)", () => {
   it("modo normalized (defecto): calibra el umbral contra la distribución BM25 del lote", () => {
     const filter = new ScoreThresholdFilter({ minScore: 0.7 });
     const hits = [hit("a", 4.2), hit("b", 3.1), hit("c", 0.5)];

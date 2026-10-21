@@ -1,7 +1,11 @@
+// Adapted from openclaw (MIT), packages/tool-call-repair/src/grammar.ts
 /**
  * Gramática y detectores de sintaxis de tool calls emitidas en texto plano (OCLW-03).
- * Extraído y adaptado de OpenClaw `packages/tool-call-repair/src/grammar.ts`
- * (MIT, Copyright (c) 2026 OpenClaw Foundation) - ver LICENSE.md.
+ *
+ * Código **derivado** de OpenClaw (MIT, Copyright (c) 2026 OpenClaw Foundation):
+ * los marcadores (`END_TOOL_REQUEST`, `HARMONY_*`) y el escáner son un port
+ * reducido del fichero de origen. El aviso de licencia está en el `LICENSE.md`
+ * de este paquete.
  */
 
 export interface ParsedToolCallBlock {

@@ -10,7 +10,9 @@ export interface FileLockOptions {
 
 /**
  * Gestor de exclusión mutua basada en lockfiles para evitar carreras concurrentes en filesystem.
- * Patrón Career-Ops CARP-02 (pipeline-lock.mjs).
+ * **Implementación propia de Ego** (patrón asimilado de Career-Ops · CARP-02
+ * / `pipeline-lock.mjs`): el gestor de lockfiles con detección de locks
+ * caducos es propio. Sin atribución de código derivado.
  *
  * EGO-FIND-66 (Ola 1 / A3 / T11): todo el I/O pasó a `fs/promises`. Este
  * lockfile está en el path de escritura (`fs_write_file`), es decir, en un

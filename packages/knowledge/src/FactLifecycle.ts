@@ -177,8 +177,10 @@ export class FactLifecycle {
   }
 
   /**
-   * Consolida y actualiza autónomamente memorias y hechos cognitivos (KHOJ-05).
+   * Consolida y actualiza autónomamente memorias y hechos cognitivos.
    * Procesa listas de hechos nuevos, sustituciones causales y retiros sin borrado destructivo.
+   *
+   * **Implementación propia de Ego.** Sin atribución de código derivado.
    */
   public async consolidateMemories(
     updates: {

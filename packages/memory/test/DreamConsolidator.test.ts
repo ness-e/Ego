@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DreamConsolidator } from '../src/DreamConsolidator.js';
+import { DreamConsolidator } from '../DreamConsolidator.js';
 
-describe('DreamConsolidator (TASK-08 / KHOJ-05)', () => {
+/**
+ * `DreamConsolidator` — consolidación de memoria (fase "sueño"), LLM-free.
+ *
+ * Implementación propia de Ego: la pasada es determinista (dedup por firma
+ * normalizada, procedencia de contradicciones y normalización de fechas).
+ * Sin llamada a LLM en ningún punto.
+ */
+describe('DreamConsolidator (TASK-08)', () => {
   let mockAdapter: any;
   let consolidator: DreamConsolidator;
   const storage = new Map<string, Array<{ key: string; payload: unknown; metadata?: Record<string, unknown> }>>();

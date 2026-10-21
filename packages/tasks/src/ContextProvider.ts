@@ -15,7 +15,11 @@ export interface ContextCaptureStrategy {
 }
 
 /**
- * ContextProvider - Capturador desacoplado de contexto ambiental (Patrón Coucou COUC-16 / WindowContextCapture).
+ * ContextProvider - Capturador desacoplado de contexto ambiental.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de Coucou · COUC-16 /
+ * `WindowContextCapture`): el contrato de captura desacoplada es propio. Sin
+ * atribución de código derivado.
  *
  * Captura la aplicación activa, título de ventana o selección de texto en el borde del SO
  * para enriquecer la intencionalidad y contexto al iniciar tareas o turnos en Ego.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { AdaptiveChunker } from "../src/ingest/AdaptiveChunker.js";
 
-describe("AdaptiveChunker (KHOJ-01, KHOJ-02)", () => {
+describe("AdaptiveChunker (fragmentación jerárquica propia de Ego)", () => {
   it("fragmenta texto extenso en bloques respetando el límite de tokens", () => {
     const chunker = new AdaptiveChunker({ maxTokens: 50, overlapTokens: 10 });
     const text = `
@@ -20,7 +20,7 @@ Continuamos agregando más texto con oraciones estructuradas para asegurarnos de
     }
   });
 
-  it("preserva la jerarquía de títulos Markdown en headingPath (KHOJ-02)", () => {
+  it("preserva la jerarquía de títulos Markdown en headingPath", () => {
     const chunker = new AdaptiveChunker({ maxTokens: 40, overlapTokens: 5 });
     const markdown = `
 # Guía Principal
@@ -46,7 +46,7 @@ Explicación sobre VantaDB y Fjall LSM.
     expect(lastChunk.headingPath).toContain("Subsección 1.1: Memoria");
   });
 
-  it("calcula hash SHA-256 idempotente y deduplica fragmentos repetidos (KHOJ-01)", () => {
+  it("calcula hash SHA-256 idempotente y deduplica fragmentos repetidos", () => {
     const chunker = new AdaptiveChunker({ maxTokens: 100, overlapTokens: 0 });
     const hash1 = chunker.calculateHash("Texto idéntico para verificación de hash.");
     const hash2 = chunker.calculateHash("Texto idéntico para verificación de hash.");

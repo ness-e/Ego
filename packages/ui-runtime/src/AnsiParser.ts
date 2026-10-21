@@ -1,6 +1,11 @@
+// Adapted from hermes-agent (MIT), apps/desktop/src/lib/ansi.ts
 /**
  * AnsiParser.ts — Parser minimalista de secuencias ANSI SGR para terminales y tool cards.
- * Extraído y adaptado de Hermes Agent (HERM-05) para Ego SOC.
+ *
+ * Código **derivado** de Hermes Agent (MIT, Copyright (c) 2025 Nous Research):
+ * el tipo `AnsiSegment`, la paleta `AnsiColor` y el mapa `FG_BY_CODE` son un port
+ * del parser de origen. El aviso de licencia está en el `LICENSE.md` de este
+ * paquete.
  *
  * Procesa códigos SGR de formato y color de texto (30-37, 90-97, 1, 22, 0, 39).
  * Ignora y descarta de manera segura otras secuencias de control o de cursor.

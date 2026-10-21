@@ -31,7 +31,7 @@ describe("HybridSearch & Retrieval Components (KB-04)", () => {
     hybridSearch = new HybridSearch(asEgoAdapter(mockAdapter));
   });
 
-  describe("ScoreThresholdFilter (KHOJ-03, H10)", () => {
+  describe("ScoreThresholdFilter (H10)", () => {
     const filter = new ScoreThresholdFilter({ minScore: 0.7, mode: "absolute" });
 
     it("descarta candidatos con score inferior a 0.70 en modo absoluto", () => {
@@ -48,7 +48,7 @@ describe("HybridSearch & Retrieval Components (KB-04)", () => {
     });
   });
 
-  describe("FactExtractor (KHOJ-04)", () => {
+  describe("FactExtractor (extracción propia de Ego)", () => {
     const extractor = new FactExtractor();
 
     it("extrae hechos atómicos desde formato clave-valor", () => {
@@ -109,7 +109,7 @@ describe("HybridSearch & Retrieval Components (KB-04)", () => {
         scoreMode: "absolute",
       });
 
-      // Guarda KHOJ-03: nada que supere el umbral → nada al contexto.
+      // Guarda de umbral (H10): nada que supere el umbral → nada al contexto.
       expect(hits).toEqual([]);
       expect(warn).not.toHaveBeenCalled();
       warn.mockRestore();

@@ -39,7 +39,12 @@ const KNOWN_DIAGRAM_TYPES = [
 
 /**
  * Validador y preparador de seguridad de diagramas Mermaid para Canvas (OCLW-11).
- * Extraído y adaptado de OpenClaw packages/mermaid-renderer.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de OpenClaw · OCLW-11,
+ * `packages/mermaid-renderer`): el upstream **renderiza** Mermaid a SVG en el
+ * navegador (iframe + DOMPurify); aquí lo que hay es un **validador
+ * estático** sin DOM (sintaxis, patrones XSS, directivas). No hay código
+ * derivado: sin atribución de código derivado.
  *
  * Valida la sintaxis, previene inyecciones XSS y normaliza directivas
  * antes de renderizar gráficos SVG dinámicos en el Workspace de Ego.

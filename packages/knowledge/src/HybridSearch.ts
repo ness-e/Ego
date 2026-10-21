@@ -27,7 +27,7 @@ export interface HybridSearchOptions {
  *
  * Combina la recuperación léxica BM25 de varios namespaces de VantaDB con un
  * re-rank de diversidad (Maximal Marginal Relevance) y un corte de umbral
- * calibrado (KHOJ-03) que elimina ruido antes de inyectarlo al contexto.
+ * calibrado (H10) que elimina ruido antes de inyectarlo al contexto.
  *
  * **Lo que NO hace (honestidad de contrato, EGO-FIND-41):**
  * - **No hay RRF.** El backend expone una única lista fusionada por
@@ -45,7 +45,7 @@ export interface HybridSearchOptions {
  * exponga scores vectoriales por hit en `searchMulti`.
  *
  * Si el umbral descarta todo, se retorna vacío por defecto (guarda
- * anti-alucinación KHOJ-03); el fallback sin filtrar exige el flag explícito
+ * anti-alucinación H10); el fallback sin filtrar exige el flag explícito
  * `allowUnfilteredFallback` y queda registrado con `console.warn`.
  */
 export class HybridSearch {
@@ -88,7 +88,7 @@ export class HybridSearch {
       return [];
     }
 
-    // 2. Aplicar filtro de umbral calibrado (KHOJ-03/H10) para descartar ruido.
+    // 2. Aplicar filtro de umbral calibrado (H10) para descartar ruido.
     // H09: sin fallback silencioso. Si el filtro descarta todo, se retorna
     // vacío salvo flag explícito (con warn) que asume el bypass del umbral.
     // El modo de score viaja por opción: normalized (defecto, relativo a la
@@ -102,7 +102,7 @@ export class HybridSearch {
     } else if (options.allowUnfilteredFallback) {
       console.warn(
         `[HybridSearch] El umbral ${options.minConfidence} descartó los ${rawHits.length} candidatos; ` +
-          `retornando top-${topK} sin filtrar (allowUnfilteredFallback=true). Guarda KHOJ-03 explícitamente omitida.`
+          `retornando top-${topK} sin filtrar (allowUnfilteredFallback=true). Guarda de umbral (H10) explícitamente omitida.`
       );
       candidates = rawHits.slice(0, topK);
     } else {

@@ -9,7 +9,8 @@ import type { ModelMessage } from "@ego/models";
  * - `autoCompactTokens` (200000): techo absoluto de tokens estimados que
  *   dispara la compactación aunque el ratio aún no llegue al umbral.
  * - `autoMemory` (true): la compactación archiva el resumen del tramo podado
- *   en `kb/history_archive` (patrón Hermes pre-compress) **cuando hay un
+ *   en `kb/history_archive` (patrón asimilado de Hermes · `pre-compress`)
+ *   **cuando hay un
  *   `archiveTarget` inyectado** (ver {@link CompactionArchiveTarget}).
  * - `protectedTailCount` (opcional): cantidad mínima de mensajes recientes a
  *   preservar siempre intactos al final del historial.

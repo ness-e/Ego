@@ -55,7 +55,13 @@ export type WorkboardBoard = z.infer<typeof WorkboardBoardSchema>;
 
 /**
  * Contrato de tableros de tareas y gestión de proyectos (OCLW-15).
- * Extraído y adaptado de OpenClaw packages/workboard-contract.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de OpenClaw · OCLW-15,
+ * `packages/workboard-contract`): el contrato de tableros se estudió allí, pero
+ * **este código no es un port** — el esquema de estados es propio
+ * (`backlog|todo|in_progress|review|done`, con títulos en español) frente al
+ * del upstream (`triage|backlog|todo|scheduled|ready|running|review|blocked|done`).
+ * Sin atribución de código derivado.
  */
 export class WorkboardContract {
   /**

@@ -1,4 +1,4 @@
-import { EgoMemoryAdapter, type EgoListPage } from '@ego/memory';
+import { EgoMemoryAdapter, type EgoListPage } from "./EgoMemoryAdapter.js";
 
 export interface DreamConsolidationStats {
   deduplicatedCount: number;

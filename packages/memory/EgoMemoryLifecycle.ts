@@ -7,10 +7,15 @@ import {
   type CompressionEvaluation,
   type CompressionSettings,
 } from "./CompressionSettings.js";
+import { DreamConsolidator, type DreamConsolidationStats } from "./DreamConsolidator.js";
 
 /**
  * Estado determinista de recuperación de memoria previo al turno.
- * Inspirado en RecallStatus de Hermes Agent fusionado con VantaDB RRF.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de Hermes Agent ·
+ * `RecallStatus`, fusionado con el RRF de VantaDB): el estado propio
+ * (`count`/`glyph`/`sources`/`tokensEstimate`/`hits`) es de Ego. Sin
+ * atribución de código derivado.
  */
 export interface EgoRecallStatus {
   count: number;          // Cantidad de fragmentos inyectados
@@ -94,6 +99,46 @@ export interface CuratorJobOptions extends CuratorConsolidationOptions {
 }
 
 /**
+ * Resultado de un ciclo de consolidación ("sueño").
+ *
+ * `consolidation` es `null` cuando el ciclo **no** se ejecutó (el sistema
+ * estaba activo). Cuando se ejecutó, sus estadísticas son la **evidencia** de
+ * que ocurrió: además quedan registradas en `gov/audit` con la acción
+ * `dream_consolidation`.
+ */
+export interface DreamConsolidationOutcome {
+  /** Refuerzos hebbianos aplicados en este ciclo. */
+  reinforcedCount: number;
+  /** Estadísticas de la consolidación de hechos (dedup + purga de cuarentena). */
+  consolidation: DreamConsolidationStats | null;
+  /** El ciclo se saltó porque el sistema NO estaba idle. */
+  skippedNotIdle: boolean;
+}
+
+/** Opciones del ciclo de sueño del lifecycle. */
+export interface DreamConsolidationOptions {
+  /**
+   * Retardo del temporizador de "sueño" tras el último turno (default 5 min).
+   * Es el disparador real del ciclo: el sistema está **inactivo**.
+   */
+  idleDelayMs?: number;
+  /**
+   * Motor de consolidación (inyectable para tests). Por defecto se crea uno
+   * sobre el mismo adapter.
+   */
+  consolidator?: DreamConsolidator;
+}
+
+/** Retardo por defecto del temporizador de sueño (5 minutos). */
+const DEFAULT_DREAM_IDLE_DELAY_MS = 5 * 60 * 1000;
+/**
+ * Margen entre el retardo del temporizador y el umbral de inactividad que
+ * decide consolidar. `setTimeout` puede disparar unos milisegundos antes y
+ * la consolidación no debe perderse por un borde de reloj.
+ */
+const DREAM_IDLE_MARGIN_MS = 60 * 1000;
+
+/**
  * Gestor del Ciclo de Vida de Memoria Unificado de Ego (CORE-12).
  * Fusión del ciclo por turnos conversacionales con el sustrato L0-L3 de VantaDB.
  */
@@ -104,9 +149,22 @@ export class EgoMemoryLifecycle {
   private dreamTimer: NodeJS.Timeout | null = null;
   private curatorTimer: NodeJS.Timeout | null = null;
   private pendingReinforcements: Set<string> = new Set();
+  /** Motor de consolidación ("sueño"): dedup de facts + purga de cuarentena. */
+  private readonly dreamConsolidator: DreamConsolidator;
+  /** Retardo del temporizador de sueño tras el último turno. */
+  private readonly dreamIdleDelayMs: number;
+  /** Instante del último turno persistido (`null` = aún no hay actividad). */
+  private lastActivityAt: number | null = null;
 
-  constructor(adapter: EgoMemoryAdapter) {
+  constructor(adapter: EgoMemoryAdapter, options: DreamConsolidationOptions = {}) {
     this.adapter = adapter;
+    this.dreamIdleDelayMs = options.idleDelayMs ?? DEFAULT_DREAM_IDLE_DELAY_MS;
+    this.dreamConsolidator =
+      options.consolidator ??
+      new DreamConsolidator(adapter, {
+        // El umbral va un margen por debajo del retardo del temporizador.
+        idleThresholdMs: Math.max(0, this.dreamIdleDelayMs - DREAM_IDLE_MARGIN_MS),
+      });
   }
 
   public get currentSessionId(): string | null {
@@ -297,6 +355,10 @@ export class EgoMemoryLifecycle {
 
     await this.adapter.put(putItem);
 
+    // Actividad reciente: el sistema NO está idle ⇒ la consolidación de
+    // hechos espera a que el temporizador de sueño se dispare.
+    this.lastActivityAt = Date.now();
+
     // Reiniciar temporizador de Dream Consolidation en inactividad (5 minutos)
     this.scheduleDreamConsolidation();
   }
@@ -369,24 +431,64 @@ export class EgoMemoryLifecycle {
 
   /**
    * FASE 6: Idle Dream Consolidation (Consolidación en Reposo)
-   * Refuerza las llaves mnemónicas utilizadas y sintetiza hechos en segundo plano.
+   *
+   * 1. **Refuerzo hebiano**: las llaves recuperadas se marcan para refuerzo.
+   * 2. **Consolidación de hechos** (`DreamConsolidator.runCycle`): dedup por
+   *    firma normalizada en `kb/facts` (la versión vigente es la de mayor
+   *    timestamp; el resto queda `superseded` con su procedencia) y purga de
+   *    la cuarentena expirada. Es una pasada **determinista y LLM-free**.
+   *
+   * ## El disparador es la INACTIVIDAD
+   *
+   * `syncTurn` programa este ciclo para dentro de `dreamIdleDelayMs` (5 min
+   * por defecto) y reinicia el temporizador en cada turno ⇒ el ciclo corre
+   * cuando el sistema lleva un rato sin actividad. Si se invoca a mano
+   * mientras hay actividad reciente, el ciclo **se salta** (`skippedNotIdle`).
+   *
+   * ## Evidencia
+   *
+   * Cada ejecución deja un registro inmutable en `gov/audit` con la acción
+   * `dream_consolidation` y las estadísticas del ciclo: se puede **demostrar**
+   * que la consolidación ocurrió, no sólo que el código está instanciado.
    */
-  async runDreamConsolidation(): Promise<{ reinforcedCount: number }> {
+  async runDreamConsolidation(now = Date.now()): Promise<DreamConsolidationOutcome> {
     const keysToReinforce = Array.from(this.pendingReinforcements);
     this.pendingReinforcements.clear();
 
-    if (keysToReinforce.length === 0) {
-      return { reinforcedCount: 0 };
+    if (keysToReinforce.length > 0) {
+      // Refuerzo Hebbiano: Registrar incremento de ponderación en gov/audit
+      await this.adapter.recordAudit("dream_consolidation_reinforce", "ego.memory_lifecycle", {
+        reinforcedKeys: keysToReinforce,
+        count: keysToReinforce.length,
+        timestamp: Date.now(),
+      });
     }
 
-    // Refuerzo Hebbiano: Registrar incremento de ponderación en gov/audit
-    await this.adapter.recordAudit("dream_consolidation_reinforce", "ego.memory_lifecycle", {
-      reinforcedKeys: keysToReinforce,
-      count: keysToReinforce.length,
-      timestamp: Date.now(),
+    // Consolidación de hechos: sólo con el sistema inactivo.
+    const idle =
+      this.lastActivityAt === null ||
+      this.dreamConsolidator.isSystemIdle(this.lastActivityAt, now);
+    if (!idle) {
+      return {
+        reinforcedCount: keysToReinforce.length,
+        consolidation: null,
+        skippedNotIdle: true,
+      };
+    }
+
+    const consolidation = await this.dreamConsolidator.runCycle(now);
+
+    // Evidencia: el registro inmutable de la consolidación.
+    await this.adapter.recordAudit("dream_consolidation", "ego.memory_lifecycle", {
+      ...consolidation,
+      timestamp: now,
     });
 
-    return { reinforcedCount: keysToReinforce.length };
+    return {
+      reinforcedCount: keysToReinforce.length,
+      consolidation,
+      skippedNotIdle: false,
+    };
   }
 
   /**
@@ -542,9 +644,16 @@ export class EgoMemoryLifecycle {
     if (this.dreamTimer) {
       clearTimeout(this.dreamTimer);
     }
-    // Ejecutar tras 5 minutos de inactividad
+    // Ejecutar tras el retardo de inactividad (5 minutos por defecto)
     this.dreamTimer = setTimeout(() => {
-      void this.runDreamConsolidation();
-    }, 5 * 60 * 1000);
+      void this.runDreamConsolidation().catch((err: unknown) => {
+        console.warn("[EgoMemoryLifecycle] dream consolidation falló:", err);
+      });
+    }, this.dreamIdleDelayMs);
+    // El temporizador no debe retener el proceso (Electron debe poder salir).
+    const t = this.dreamTimer as unknown as { unref?: () => void };
+    if (typeof t.unref === "function") {
+      t.unref();
+    }
   }
 }

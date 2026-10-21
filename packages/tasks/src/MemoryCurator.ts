@@ -1,5 +1,5 @@
 import type { EgoMemoryAdapter } from '@ego/memory';
-import { DreamConsolidator, type DreamConsolidationStats } from './DreamConsolidator.js';
+import { DreamConsolidator, type DreamConsolidationStats } from '@ego/memory';
 
 export interface MemoryCuratorOptions {
   /** Horas entre corridas programadas (por defecto 24). Debe ser > 0. */
@@ -93,6 +93,15 @@ function readRecordTimestamp(item: CuratorListItem): number | null {
  * 2. Marca como `superseded` (soft-replace, nunca borra en caliente) los
  *    registros de `staleNamespaces` sin actividad por más de
  *    `staleAfterDays`. Sin timestamp evidenciable → no se toca.
+ *
+ * ## Quién es el dueño de la consolidación ("sueño")
+ *
+ * En el producto, la consolidación de hechos la dispara **el lifecycle**
+ * (`EgoMemoryLifecycle.runDreamConsolidation`, en el hook de inactividad de
+ * 5 min): es el que tiene el disparador natural y deja la evidencia en
+ * `gov/audit`. Por eso **el producto NO le pasa un `DreamConsolidator` a este
+ * curator**: hacerlo consolidaría dos veces por el mismo ciclo. Este job
+ * aporta la capacidad que el lifecycle no tiene: **marcar stale**.
  */
 export class MemoryCurator {
   private readonly gateway: CuratorGateway;
@@ -215,7 +224,15 @@ export class MemoryCurator {
     };
   }
 
-  /** Inicia la corrida periódica (idempotente; cada `intervalHours`). */
+  /**
+   * Inicia la corrida periódica (idempotente; cada `intervalHours`).
+   *
+   * El temporizador **no retiene el proceso** (`unref`): en Electron, un
+   * `setInterval` vivo impediría que la app cerrase.
+   *
+   * Una corrida fallida **no** detiene la programación: se registra y el
+   * siguiente tick sigue igual (fail-soft).
+   */
   public start(onRun?: (stats: CuratorRunStats) => void): void {
     if (this.timer !== null) return;
     const intervalMs = this.intervalHours * 60 * 60 * 1000;
@@ -224,10 +241,19 @@ export class MemoryCurator {
         .then((stats) => {
           onRun?.(stats);
         })
-        .catch(() => {
+        .catch((err: unknown) => {
           // Defensive: una corrida fallida no detiene la programación.
+          console.warn(
+            `[MemoryCurator] corrida fallida (resultado intacto): ${
+              err instanceof Error ? err.message : String(err)
+            }`
+          );
         });
     }, intervalMs);
+    const t = this.timer as unknown as { unref?: () => void };
+    if (typeof t.unref === "function") {
+      t.unref();
+    }
   }
 
   public stop(): void {

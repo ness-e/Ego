@@ -25,7 +25,11 @@ export const MIN_WINDOW_HEIGHT = 640;
 export const MIN_VISIBLE_MARGIN = 48;
 
 /**
- * WindowState - Lógica pura de geometría y restauración de ventanas (Patrón Hermes HERM-08).
+ * WindowState - Lógica pura de geometría y restauración de ventanas.
+ *
+ * **Implementación propia de Ego** (patrón asimilado de Hermes · HERM-08):
+ * la geometría y la restauración son propias. Sin atribución de código
+ * derivado.
  * Side-effect free para permitir pruebas unitarias deterministas sin inicializar Electron.
  */
 export class WindowStateHelper {

@@ -116,7 +116,7 @@ describe("QuarantineManager & FactLifecycle (KB-07, KB-08 / CARP-04, DSEK-01)", 
     );
   });
 
-  it("consolida memorias ejecutando create, supersede y retire atómicamente (KHOJ-05)", async () => {
+  it("consolida memorias ejecutando create, supersede y retire atómicamente", async () => {
     mockAdapter.get.mockResolvedValueOnce({
       payload: "Usuario modelo_preferido Claude",
       metadata: { state: "active", is_latest: true },

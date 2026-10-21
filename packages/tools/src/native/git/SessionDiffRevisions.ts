@@ -33,7 +33,11 @@ const defaultGitRunner: GitCommandRunner = async (cwd: string, args: string[]) =
 
 /**
  * Rastreador acumulativo de revisiones y diffs por sesión (OCLW-07).
- * Extraído y adaptado de OpenClaw src/sessions/session-diff-revisions.ts.
+ * Implementación propia de Ego: el patrón (diff acumulado de la sesión) se
+ * estudió en OpenClaw (`src/sessions/session-diff-revisions.ts`), pero **este
+ * código no es un port**: allí se resuelve el *merge-base* de una rama; aquí
+ * se registra el SHA base de la sesión y se listan sus revisiones. Sin
+ * atribución de código derivado.
  *
  * Alimenta la vista de cambios de archivos y diffs acumulados en el
  * Canvas del Dynamic Workspace de Ego.

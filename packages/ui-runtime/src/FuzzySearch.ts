@@ -1,6 +1,11 @@
+// Adapted from hermes-agent (MIT), apps/shared/src/fuzzy.ts
 /**
  * FuzzySearch.ts — Algoritmo de puntuación y ranking difuso sin dependencias.
- * Extraído y adaptado de Hermes Agent para Ego SOC.
+ *
+ * Código **derivado** de Hermes Agent (MIT, Copyright (c) 2025 Nous Research):
+ * `FuzzyMatch`, `searchFold`, `fuzzyScore` y `fuzzyRank` son un port del
+ * fichero de origen (con `RankedItem` renombrado a `RankedResult`). El aviso de
+ * licencia está en el `LICENSE.md` de este paquete.
  *
  * Evalúa coincidencias de subsecuencia ponderando:
  * - Coincidencia exacta o de prefijo

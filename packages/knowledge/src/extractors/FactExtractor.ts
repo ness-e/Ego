@@ -56,7 +56,9 @@ const GENERIC_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Extractor heurístico y estructurado de hechos atómicos (KHOJ-04).
+ * Extractor heurístico y estructurado de hechos atómicos.
+ *
+ * **Implementación propia de Ego.** Sin atribución de código derivado.
  * Convierte enunciados declarativos en triples tipados (sujeto, predicado, objeto).
  */
 export class FactExtractor {

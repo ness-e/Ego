@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryCurator } from '../src/MemoryCurator.js';
-import { DreamConsolidator } from '../src/DreamConsolidator.js';
+import { DreamConsolidator } from '@ego/memory';
 
 describe('MemoryCurator (CFG-08)', () => {
   const DAY_MS = 24 * 60 * 60 * 1000;

@@ -1,6 +1,12 @@
 /**
  * ZeroContextKernel.ts — Kernel de Ejecución Zero-Context RPC en worker aislado.
- * Extraído y adaptado de Hermes Agent (HERM-18 / RFC-02) para Ego SOC.
+ *
+ * **Implementación propia de Ego.** El patrón (encadenar tools locales en un
+ * único turno) se estudió en Hermes Agent (HERM-18 / RFC-02), pero **este
+ * código no es un port**: el upstream es un kernel Python persistente
+ * (`tools/code_kernel.py`) con otro protocolo, otra semántica y otra
+ * arquitectura. Aquí el aislamiento es un `worker_threads` con un `node:vm`
+ * endurecido (ver más abajo). No hay atribución de código derivado.
  *
  * Permite encadenar programáticamente herramientas locales en un único turno cognitivo
  * ejecutando scripts aislados, ahorrando múltiples turnos y tokens de contexto.
