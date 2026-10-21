@@ -1,0 +1,191 @@
+{
+  "$comment": [
+    "Manifiesto de divergencias del paquete `@ego/avatar` respecto al upstream",
+    "`repos-referencia/avatar/`.",
+    "",
+    "El upstream es REFERENCIA DE SOLO LECTURA: está en `.gitignore` (línea 49) y",
+    "NO forma parte del repositorio. Este paquete es un descendiente BIFURCADO",
+    "del working tree de ese upstream, no un espejo suyo.",
+    "",
+    "Este fichero es el registro canónico de esas divergencias: qué ficheros",
+    "difieren, POR QUÉ existe cada divergencia, y con qué contenido se",
+    "aprobaron. La puerta `scripts/check-upstream-divergence.mjs` compara por",
+    "hash y falla si aparece una divergencia NO declarada, si una declaración",
+    "deja de ser verdad, o si el contenido aprobado de un fichero declarado",
+    "cambia sin que se re-declare.",
+    "",
+    "Para re-declarar de forma deliberada:",
+    "  node scripts/check-upstream-divergence.mjs --update",
+    "",
+    "El upstream no se toca nunca. Si no está presente (clone limpio), la",
+    "puerta lo dice y sale con 0: no es un fallo, es la ausencia de la",
+    "referencia."
+  ],
+  "upstream": {
+    "path": "repos-referencia/avatar",
+    "policy": "referencia de solo lectura; gitignored; nunca se modifica ni se commitea"
+  },
+  "kinds": {
+    "attribution": "cabecera de atribucion normalizada a una ruta vendor/ resoluble",
+    "types": "tipos reales (JSDoc) exigidos por el typecheck con checkJs",
+    "geometry": "geometria propia de Ego en lugar de un puerto literal (decision D4)",
+    "state": "vocabulario de estados/presets propio de Ego",
+    "feature": "funcion nueva del motor (no existe en el upstream)",
+    "fix": "correccion de un defecto del upstream"
+  },
+  "divergences": {
+    "core/anim.js": {
+      "kind": "attribution",
+      "reason": "La cabecera citaba `vendor/coucou/anim.ts`, ruta que no existe (el corpus real es `vendor/coucou/core/anim.ts`). Normalizada para que la cadena MIT sea resoluble dentro del repo.",
+      "sha256": "722d1f48b2f0e95a712980d9bb1e0ead895f9e6c08a7bc5904ff21ee2c7f5aa2"
+    },
+    "core/timeline.js": {
+      "kind": "attribution",
+      "reason": "Cabeceras de derivacion normalizadas a `vendor/coucou/mochi/engine.ts` (resoluble) y anadido el `@returns` que exige el typecheck con checkJs (el tipo de retorno era `{duration:number}` y noCubria `w2End`, `w8End`...).",
+      "sha256": "c5ef23b2be04282d896bfbd481b2a2ca8b05744a100f5c676f793db490bca2f7"
+    },
+    "render/builder.js": {
+      "kind": "types",
+      "reason": "JSDoc de `group()`/`g()`: sin el, el typecheck rechazaba pasar un array ya serializado a string (la insignia `warn` y el resto de `badgeLayer` usan `.join('')`, que devuelve string).",
+      "sha256": "85b7170a6ed164a3fa770ba5a0c2eba7aaf1403b3366e6d5bf4353dba7664d9b"
+    },
+    "render/parts.js": {
+      "kind": "feature",
+      "reason": "Insignia `warn` (triangulo de aviso, trazos propios) para el estado `warning`, con su clase propia. Ademas, el `replace` de `badgeLayer`/`static.js` recibia el prefijo compartido `badge-warn` y corrompia el `class` de los hijos: corregido con un lookbehind.",
+      "sha256": "bc611b0011b9a4296e84aa18f16bc8d8048e9c345a17765064f374c46f7fde09"
+    },
+    "render/projection.js": {
+      "kind": "attribution",
+      "reason": "Cabecera normalizada a `vendor/coucou/mochi/engine.ts` (resoluble dentro del repo).",
+      "sha256": "74dbd12e6e4927b8cff1973e11885ed7aeda0a837e8a7830c5dbc9e7489bab8f"
+    },
+    "render/static.js": {
+      "kind": "attribution",
+      "reason": "Cabeceras normalizadas a `vendor/coucou-swift/MochiStill.swift` y `vendor/coucou/mochi/engine.ts`; ademas, el SVG estatico enciende la insignia `warn`.",
+      "sha256": "5a3d1b25d1b9528c9659f573bc4b207e47c7b458e6f2a2d490d2a7c22266c4e9"
+    },
+    "runtime/avatar-element.js": {
+      "kind": "feature",
+      "reason": " atributo `hands` (modo del rig de manos: always|auto|hidden) con su ruta completa atributo -> setParam -> supervivencia al preset; `preset` pasa a ser atributo observado; `toSVGString()` y `setPointerFollow()` exponen API publica; el pegamento con el studio y el export SVG salen a modulos propios (`studio-bridge.js`, `svg-export.js`); la insignia `warn` se enciende; y la ruta de `hands` deja de ser un no-op cuando el host aun no existe (en el navegador los atributos se parsean antes de conectar el elemento).",
+      "sha256": "104c3b4030e95dc73c3bc79dbfcd8421ad7f121a011e8d8a07c78b5654a5303e"
+    },
+    "runtime/fx-eyes.js": {
+      "kind": "types",
+      "reason": "typedef `EyeBobCfg`: sin el, el typecheck rechazaba leer `cfg.cycles` (el tipo inferido era `{duration,amp}`).",
+      "sha256": "f9d5cc8bb4fab3deb550e567a1cd742989a9f4a59be47582b07e2772b7027065"
+    },
+    "runtime/micro.js": {
+      "kind": "attribution",
+      "reason": "Cabeceras normalizadas a `vendor/coucou/mochi/engine.ts` (resoluble) y dos JSDoc con `@.34`/`@.52` reescritos (TypeScript parseaba el `@` como etiqueta JSDoc invalida).",
+      "sha256": "a57fc3bdd61a38c26aaf8e19c4adcdb9b8079734f2c4a3419523339604307f7a"
+    },
+    "runtime/poses.js": {
+      "kind": "feature",
+      "reason": "Pose `warn` (ojos estrechados, parpados bajos y neutros) para el estado `warning`: distinta de `angry`/`flat` (error) y de `sleepy`/`tired` (ratelimit).",
+      "sha256": "98456d2467fdc3c15aca1b45f0cb4f67427a351b6b8ac958fb94f05e05e961b9"
+    },
+    "runtime/presence.js": {
+      "kind": "attribution",
+      "reason": "Cabecera normalizada a `vendor/coucou/island/fsm.ts` (la ruta citada, `coucou/windows/src/island/fsm.ts`, no existe en el corpus).",
+      "sha256": "8bf7d9cdaaa9d6fab3451e0193e6722202ad82620f18ce19b0878a4bd605380b"
+    },
+    "runtime/sound.js": {
+      "kind": "attribution",
+      "reason": "Cabeceras normalizadas a `vendor/coucou/core/sound.ts` y `vendor/coucou/mochi/engine.ts` (resolubles).",
+      "sha256": "9a6a42bb019c682a197bf989219d33f7bd8d6958e85e7517d955255265bc14d9"
+    },
+    "runtime/states.js": {
+      "kind": "feature",
+      "reason": "Estado `warning` (degradacion tolerable) con su tinte, pose, insignia, movimiento, sonido y prioridad; y cabeceras de derivacion normalizadas a rutas `vendor/...` resolubles.",
+      "sha256": "4ac6e6736931353d89527b316988d351cae93c974f4d43c3b90f1e25f0d1bc57"
+    },
+    "studio/adapter.js": {
+      "kind": "state",
+      "reason": "Puente Ego <-> studio 1:1 en las dos direcciones (15 estados de Ego, 26 de studio): cuatro estados de studio nuevos (`thinking`, `approval`, `question`, `ratelimit`) para que ninguna imagen la compartan dos estados de Ego, y `toHexColor` en la conversion de color del genoma.",
+      "sha256": "bfae67709bc712f5ed4ba3ed396aa4c8e9af27f1e73ccaafe7a8818c643400ad"
+    },
+    "studio/avatar.js": {
+      "kind": "state",
+      "reason": "`applyPreset` con el catalogo de presets de Ego (sin la rama `coucou-mochi`) y casos de `play()` para los cuatro estados nuevos, con su movimiento y su voz.",
+      "sha256": "bae1291c809c5a0f1a7c697ae0007b2cc09e34d05f4b4cecdd7a6d542e8e8a36"
+    },
+    "studio/config.js": {
+      "kind": "state",
+      "reason": "Catalogos propios de Ego: presets de identidad (ego-nucleus/cyber/sentinel/architect) en lugar del preset `coucou-mochi`; 26 estados de studio; `STATE_ACCENT` con los acentos nuevos y `getStateAccentColor` como fuente unica del acento por estado.",
+      "sha256": "a104f010d16a017faa6066f8753a06f66815b7a3e68682721eebf38a9c3b340d"
+    },
+    "studio/element-host.js": {
+      "kind": "state",
+      "reason": "Presets de Ego, `applyGenomeToStudio` (el genoma pinta el chasis y los ojos del studio), DPR real en el encuadre, y `handsMode` guardado en el host para sobrevivir a los presets.",
+      "sha256": "7b39007d13467b62ba2783b6aa989a1bf4215ac5ad5cc9ad18a87c17858e5b37"
+    },
+    "studio/render/accessories.js": {
+      "kind": "geometry",
+      "reason": "Geometria propia de Ego (decision D4) y cabecera canonica `Adapted from ... (MIT), <ruta>`; el upstream lo declaraba 'puerto verbatim'.",
+      "sha256": "6fc1baefaa5f2bd93b95ee15aec688ed6afdea1d9fa75df9370df5116f505c9d"
+    },
+    "studio/render/body.js": {
+      "kind": "geometry",
+      "reason": "Geometria propia de Ego (decision D4): se elimino la rama de cuerpo 'blob' heredada y las medidas viven ahora en `render/geometry.js`.",
+      "sha256": "58f6f62725b972da4e0957f1f86cdd88956bb0670ff7631694a0e5163ac41f68"
+    },
+    "studio/render/ears.js": {
+      "kind": "geometry",
+      "reason": "Geometria propia de Ego (decision D4): se elimino el LED rosa fijo heredado; las medidas de la vaina viven en `render/geometry.js`.",
+      "sha256": "c95d7a06a33e8548d3ceb9e385f4820e3c2512ee4d3a4b4bbbf80361ffeb5932"
+    },
+    "studio/render/eyes.js": {
+      "kind": "geometry",
+      "reason": "Geometria propia de Ego (decision D4): se elimino la familia de ojo 'mochi-sphere'; ademas el acento se reexporta desde `config.js` (fuente unica).",
+      "sha256": "16e7fb884e1b66ed2255451b95c704c78be131c9d007879fea7d3c544254d47a"
+    },
+    "studio/render/helpers.js": {
+      "kind": "geometry",
+      "reason": "Capa de primitivas 2D re-elegida como propia (cabecera canonica) y acento por estado reexportado desde `config.js` (fuente unica), en lugar de una tercera copia del switch.",
+      "sha256": "218d1d6f7585e858abf25341b08c66d49457e9a27f584096e7330b61f57c5b9d"
+    },
+    "studio/render/mouth.js": {
+      "kind": "geometry",
+      "reason": "Geometria propia de Ego (decision D4): se elimino el estilo de boca 'mochi-cute'; las metricas viven en `render/geometry.js`.",
+      "sha256": "5847cafb8c06fb62e1e479e15b65ed1b464476297579d812d9812c6764e844b6"
+    },
+    "studio/render/overlays.js": {
+      "kind": "feature",
+      "reason": "Imagenes propias de los cuatro estados nuevos de studio (arco girando, anillos, cartel '?', barras de regulador) con geometria de Ego, y el acento importado de `config.js`.",
+      "sha256": "1b1c2ee8b1b41021691fc6f3c1135a2bdb97217b01e7793855c0d02e29d14a6a"
+    },
+    "studio/sound.js": {
+      "kind": "feature",
+      "reason": "Cuatro recetas de sonido nuevas para los estados `thinking`, `approval`, `question` y `ratelimit` del studio.",
+      "sha256": "c533e4652d8eea8b25a651f0316cdb8c2cdb55d99e8c10a8ce208e5375f94acd"
+    }
+  },
+  "newFiles": {
+    "runtime/avatar-element.d.ts": {
+      "kind": "types",
+      "reason": "Tipos del elemento (declaracion publica del paquete) exigidos por el typecheck del renderer, que consume el paquete como workspace.",
+      "sha256": "83f70b25e199894bfa143bdf02b62a8f4e8874af8f8e1f932e39b2e7211b4ed9"
+    },
+    "runtime/sound.d.ts": {
+      "kind": "types",
+      "reason": "Tipos del motor de sonido: sin el, la resolucion de `./runtime/sound.js` usaba el `.d.ts` minimo y el barrel del paquete dejaba de exportar 9 simbolos.",
+      "sha256": "fbf14461e0cddd7dfab3ee53a35a82016b3bead6f6f2a307fb285417981652d6"
+    },
+    "runtime/studio-bridge.js": {
+      "kind": "feature",
+      "reason": "Pegamento entre el elemento y el motor canvas (extraccion de `avatar-element.js`): `isStudio`, `studioHost`, `mountStudio`, `setStateStudio`, `runEmoteStudio`.",
+      "sha256": "87e746a478a6ae972e4c8631c701805f82b22bab8a40ca93dc77567435b04dd5"
+    },
+    "runtime/svg-export.js": {
+      "kind": "feature",
+      "reason": "Serializacion a SVG (`toSVGString`, `toSVGDocument`), extraida del elemento.",
+      "sha256": "c759a1309b81cbc59b518aa17c46663a5486a96393213bc427fb044c8ef63b9c"
+    },
+    "studio/render/geometry.js": {
+      "kind": "geometry",
+      "reason": "Proporciones canonicas del robot de Ego (chasis, reactor, vaina auditiva, accesorio, rubor, metricas de boca): un solo hogar para las medidas que antes vivian dispersas como numeros magicos heredados.",
+      "sha256": "9ca1b8b305dc708442ea612838b3a0d70bf66e755cc36725085aa3ad287be483"
+    }
+  },
+  "removedFiles": {}
+}

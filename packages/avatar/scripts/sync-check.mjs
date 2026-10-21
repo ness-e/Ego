@@ -210,7 +210,9 @@ console.log(`sync-check: ${result.files} ficheros en el arbol canonico`);
 if (upstream) {
   console.log(
     `  fork frente al upstream: ${fork.differing.length} divergentes, ` +
-    `${fork.extra.length} propios, ${fork.missing.length} ausentes (esperado: ver README)`,
+    `${fork.extra.length} propios, ${fork.missing.length} ausentes ` +
+    `(declarados en upstream-divergence.json; los vigila ` +
+    `scripts/check-upstream-divergence.mjs)`,
   );
   if (fork.differing.length || fork.extra.length || fork.missing.length) {
     for (const line of describe('upstream->canon', fork)) console.log(line);

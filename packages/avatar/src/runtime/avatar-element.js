@@ -541,7 +541,12 @@ export class EgoAvatar extends ElementBase {
     // Manos flotantes articuladas: el atributo manda sobre el motor.
     if (name === 'hands') {
       this._handsMode = normalizeHandsMode(newV);
-      this._studioHost?.setParam('handsMode', this._handsMode);
+      // `_studio()` (y no `this._studioHost`) a propósito: en el navegador
+      // los atributos se parsean ANTES de conectar el elemento, así que el
+      // host canvas todavía no existe. Con el host opcional el valor se
+      // perdía por el camino (solo quedaba en `_handsMode`) y el motor
+      // nacía con el modo por defecto.
+      this._studio()?.setParam('handsMode', this._handsMode);
       return;
     }
     if (name === 'mode') {

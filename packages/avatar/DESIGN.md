@@ -210,6 +210,32 @@ imagen del studio corresponde a un único estado de Ego, y el dock no miente.
 
 ---
 
+### 5-ter. La paleta del avatar es DATO, no tema
+
+> Verificado 2026-10-21 (Ola 4b, ítem 1.2).
+
+El motor **no lee el tema del producto**: no consulta tokens, ni custom
+properties de color, ni `getComputedStyle`. La única custom property que lee
+es `--avatar-size` (tamaño del elemento, con valor por defecto). Es decir: los
+colores del avatar son **datos del motor**, no una vista del design system.
+
+Por eso un cambio de paleta en el tema (por ejemplo `warning` →
+`oklch(0.837 0.164 84.4)`) **no puede alterar el render del avatar**. La
+correspondencia entre ambos sistemas, medida:
+
+| Sistema | `warning` | Hue |
+|---|---|---|
+| Tema del producto (`design-system.md` §2.4) | `oklch(0.837 0.164 84.4)` = `#FBBF25` = `hsl(43 96% 56%)` | 43° |
+| Motor SVG (`runtime/states.js`) | `hsl(48 92% 55%)` | 48° |
+| Motor canvas / studio (`studio/config.js`) | `#f59e0b` = `hsl(38 92% 52%)` | 38° |
+
+Los tres caen en la **misma familia de tono** (±5°), de modo que el aviso se
+lee igual en el producto y en el avatar, aunque sean sistemas independientes.
+La regla para el futuro: **si el tema cambia un tono de estado, el motor
+puede seguir al mismo tono, pero no depende de él**; el motor declara su color
+y la golden (`geometry:check`, 231 combinaciones) es la que garantiza que el
+render no se mueve.
+
 ## 6. Estructura del SVG (viewBox 0 0 240 240)
 
 ```
@@ -492,43 +518,58 @@ toda copia** del motor: la cláusula MIT exige incluir el aviso de copyright, y
 descendiente **bifurcado** de su *working tree* (el `HEAD` del upstream está
 desfasado respecto a su propio working tree, y no se modifica).
 
-De los 44 ficheros de `src/` del upstream: **28 byte-idénticos**,
-**16 bifurcados** y **5 nuevos**.
+De los 44 ficheros de `src/` del upstream: **19 byte-idénticos**,
+**25 bifurcados** y **5 nuevos** (medido por hash, 2026-10-21).
 
 | Situación | Ficheros |
 |---|---|
-| Byte-idénticos (28) | `core/{genome,morph,palette,prng,config}`, `render/{ara-head,body,eyes,parts,shell,static,projection}`, `runtime/{states,poses,policy,presence,extension-host,pointer,sound}`, `studio/{index,sound}`, `studio/render/{visor,overlays,particles}`, `studio/rig/{eyes,hands}` |
-| Bifurcados (16) | `core/timeline.js`, `render/builder.js`, `runtime/avatar-element.js`, `runtime/fx-eyes.js`, `runtime/micro.js`, `studio/adapter.js`, `studio/avatar.js`, `studio/config.js`, `studio/element-host.js`, `studio/sound.js`, `studio/render/{accessories,body,ears,eyes,helpers,mouth}.js` |
-| Nuevos (5) | `runtime/studio-bridge.js`, `runtime/svg-export.js`, `runtime/avatar-element.d.ts`, `runtime/sound.d.ts`, `studio/render/geometry.js` |
+| Byte-idénticos (19) | `core/{config,genome,morph,palette,prng}`, `{index,version}`, `render/{ara-head,body,eyes,shell}`, `runtime/{extension-host,pointer,policy}`, `studio/index`, `studio/render/{particles,visor}`, `studio/rig/{eyes,hands}` |
+| Bifurcados (25) | `core/{anim,timeline}`, `render/{builder,parts,projection,static}`, `runtime/{avatar-element,fx-eyes,micro,poses,presence,sound,states}`, `studio/{adapter,avatar,config,element-host,sound}`, `studio/render/{accessories,body,ears,eyes,helpers,mouth,overlays}` |
+| Nuevos (5) | `runtime/{avatar-element.d.ts,sound.d.ts,studio-bridge.js,svg-export.js}`, `studio/render/geometry.js` |
 
 En **todos** los bifurcados **Ego va por delante**:
 
 | Fichero | Divergencia |
 |---|---|
-| `runtime/avatar-element.js` | `preset` pasa a ser un atributo observado; `toSVGString()` y `setPointerFollow()` exponen API pública; `ResizeObserver` propio; el host de studio y el export SVG se extraen (§8b-ter). |
-| `studio/render/helpers.js` | soporte `hsl`/`rgb` → hex canónico; `hexToRgba` y `shadeColor` extraídas y reutilizables. |
+| `runtime/avatar-element.js` | atributo `hands` (modo del rig de manos) con su ruta completa atributo → `setParam` → supervivencia al preset; `preset` pasa a ser un atributo observado; `toSVGString()` y `setPointerFollow()` exponen API pública; `ResizeObserver` propio; el host de studio y el export SVG se extraen (§8b-ter). |
+| `runtime/states.js`, `runtime/poses.js`, `render/parts.js` | estado `warning` con su tinte, pose `warn`, insignia `warn`, movimiento y sonido. |
+| `studio/render/helpers.js` | soporte `hsl`/`rgb` → hex canónico; `hexToRgba` y `shadeColor` extraídas y reutilizables; acento por estado importado de `config.js` (fuente única). |
 | `studio/render/body.js` | geometría propia de Ego; rama de Mochi eliminada. |
 | `studio/render/ears.js` | geometría propia de Ego; LED siempre de acento. |
 | `studio/render/eyes.js` | geometría propia de Ego; familia `mochi-sphere` eliminada. |
 | `studio/render/mouth.js` | geometría propia de Ego; estilo `mochi-cute` eliminado. |
 | `studio/render/accessories.js` | cabecera y catálogo de accesorios de Ego. |
-| `studio/config.js` | presets de identidad de Ego; `coucou-mochi` eliminado. |
-| `studio/element-host.js` | presets de Ego; `applyGenomeToStudio`; DPR. |
-| `studio/avatar.js` | `applyPreset` con catálogo de Ego. |
-| `studio/adapter.js` | `toHexColor` en la conversión de color del genoma. |
-| `core/timeline.js`, `render/builder.js`, `runtime/fx-eyes.js`, `runtime/micro.js`, `studio/sound.js` | tipos reales (JSDoc) que el `checkJs` exige; **sin cambio de comportamiento**. |
+| `studio/render/overlays.js` | imágenes propias de los cuatro estados nuevos de studio. |
+| `studio/config.js` | presets de identidad de Ego; `coucou-mochi` eliminado; 26 estados; `STATE_ACCENT` como fuente única del acento. |
+| `studio/element-host.js` | presets de Ego; `applyGenomeToStudio`; DPR; `handsMode` en el host para sobrevivir a los presets. |
+| `studio/avatar.js` | `applyPreset` con catálogo de Ego; casos de los cuatro estados nuevos. |
+| `studio/adapter.js` | puente Ego↔studio 1:1 en las dos direcciones (15 estados de Ego, 26 de studio); `toHexColor` en la conversión de color del genoma. |
+| `core/anim.js`, `core/timeline.js`, `render/projection.js`, `render/static.js`, `runtime/micro.js`, `runtime/presence.js`, `runtime/sound.js` | cabeceras de derivación normalizadas a rutas `vendor/…` **resolubles** (la cadena MIT no puede quedar colgando). |
+| `core/timeline.js`, `render/builder.js`, `runtime/fx-eyes.js`, `runtime/micro.js` | tipos reales (JSDoc) que el `checkJs` exige; **sin cambio de comportamiento**. |
 
-> El detalle completo y actualizado de estas divergencias vive en
+> **El registro canónico de la divergencia es
+> [`upstream-divergence.json`](upstream-divergence.json)**: cada fichero
+> declarado con su **motivo**, su **clase** (atribución · tipos · geometría ·
+> estado · feature · fix) y el **hash aprobado** de su contenido. La puerta
+> `scripts/check-upstream-divergence.mjs` falla si aparece una divergencia no
+> declarada, si una declaración deja de ser verdad, o si cambia el contenido
+> aprobado de un fichero declarado. El upstream es referencia de **solo
+> lectura**: está en `.gitignore` y no se modifica.
+>
+> El detalle histórico completo vive en
 > `docs/research/character-audit-and-coucou-inventory.md`.
 
 ## 12. Verificación
 
 | Puerta | Qué garantiza |
 |---|---|
-| `pnpm --filter @ego/avatar test` | 266 tests (`node --test tests/`): determinismo, genoma, rig ocular, poses, estados, config, timeline, política, presencia, puntero, fx, micros, sonido, elemento, studio. |
+| `pnpm --filter @ego/avatar test` | 291 tests (`node --test tests/`): determinismo, genoma, rig ocular, poses, estados, config, timeline, política, presencia, puntero, fx, micros, sonido, elemento, studio, atributo `hands`, round-trip del puente. |
 | `pnpm --filter @ego/avatar typecheck` | `tsc -p tsconfig.json` con `allowJs` + `checkJs`: el motor es JavaScript plano, pero **sí** se tipa. Exit 0 real (antes era un no-op). |
 | `pnpm --filter @ego/avatar geometry:check` | la geometría dibujada no cambia respecto a la golden (231 combinaciones: 33 estados × 7 módulos). |
 | `pnpm --filter @ego/avatar sync:check` | el paquete y la copia vendorizada son idénticos (SHA-256), incluidos los ficheros legales. |
+| `pnpm --filter @ego/avatar attribution:check` | toda ruta citada en `LICENSE.md` y en las cabeceras de `src/` resuelve dentro del repo. |
+| `pnpm --filter @ego/avatar bridge:check` | ningún mapa nombra un estado del studio inexistente y el round-trip Ego↔studio conserva la identidad (15/15). |
+| `pnpm --filter @ego/avatar upstream:check` | toda divergencia frente al upstream está **declarada** con su motivo y su hash aprobado (§11). |
 | `pnpm --filter @ego/avatar build` | `dist/` reproducible, con manifiesto SHA-256 por fichero. |
 
 ### Defecto latente encontrado por el typecheck

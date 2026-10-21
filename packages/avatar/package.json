@@ -41,6 +41,8 @@
     "geometry:check": "node scripts/compare-geometry.mjs --check tests/golden/geometry.json src",
     "geometry:record": "node scripts/compare-geometry.mjs --record tests/golden/geometry.json src",
     "bridge:check": "node scripts/check-bridge.mjs",
+    "upstream:check": "node scripts/check-upstream-divergence.mjs",
+    "upstream:declare": "node scripts/check-upstream-divergence.mjs --update",
     "sync:check": "node scripts/sync-check.mjs",
     "sync:write": "node scripts/sync-check.mjs --write",
     "attribution:check": "node scripts/check-attribution.mjs",

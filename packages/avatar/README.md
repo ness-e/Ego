@@ -244,8 +244,8 @@ Hay **tres** copias del motor en el repo, y se mantienen a propósito:
 | Vendorizada | `apps/desktop/renderer/floating/vendor/avatar/` | la que el renderer carga de verdad (import literal dentro del root servido, requisito de `FIND-12-01`). Debe ser **byte-idéntica** al paquete. |
 
 Este paquete es un **descendiente bifurcado** del *working tree* de upstream, no
-un espejo: de los 44 ficheros de `src/` del upstream, **28 son byte-idénticos**,
-**16 están bifurcados** (Ego va por delante) y **5 son nuevos** (no existen
+un espejo: de los 44 ficheros de `src/` del upstream, **19 son byte-idénticos**,
+**25 están bifurcados** (Ego va por delante) y **5 son nuevos** (no existen
 upstream). El detalle fichero a fichero está en
 [`DESIGN.md`](DESIGN.md) § *Estado real: este paquete es un fork del upstream*.
 
@@ -260,6 +260,23 @@ pnpm --filter @ego/avatar sync:write   # realinea la copia vendorizada desde el 
 La puerta compara además los ficheros legales (`LICENSE`, `LICENSE.md`,
 `NOTICE`) y el corpus de atribución (`vendor/`): si una copia lleva la licencia
 y la otra no, también falla.
+
+**Y hay una segunda puerta, para el fork frente al upstream.** El upstream es
+una referencia de **solo lectura** (está en `.gitignore`: no forma parte del
+repositorio), pero el fork crece a propósito. Para que ese crecimiento sea
+deliberado y rastreable, cada divergencia está **declarada con su motivo** en
+[`upstream-divergence.json`](upstream-divergence.json) (25 divergencias + 5
+ficheros propios) y una puerta la vigila por hash:
+
+```bash
+pnpm --filter @ego/avatar upstream:check    # exit 1 si aparece una divergencia NO declarada
+pnpm --filter @ego/avatar upstream:declare  # re-declara los hashes (imprime el cambio)
+```
+
+Falla si un fichero diverge sin estar declarado, si una declaración deja de ser
+verdad, o si cambia el contenido aprobado de un fichero declarado. Si el
+upstream no está presente (clone limpio), lo dice y sale con 0: no es un fallo,
+es la ausencia de la referencia.
 
 ### Estado honesto: qué copia ejecuta el runtime
 
@@ -293,13 +310,16 @@ pnpm --filter @ego/avatar attribution:check   # exit 1 si alguna referencia qued
 
 | Comando | Qué hace |
 |---|---|
-| `pnpm --filter @ego/avatar test` | 266 tests (`node --test tests/`) |
+| `pnpm --filter @ego/avatar test` | 291 tests (`node --test tests/`) |
 | `pnpm --filter @ego/avatar typecheck` | `tsc -p tsconfig.json` (`allowJs` + `checkJs`), exit 0 real |
 | `pnpm --filter @ego/avatar build` | copia `src/` → `dist/` + `index.d.ts` y escribe `dist/build-manifest.json` (SHA-256 por fichero) |
 | `pnpm --filter @ego/avatar build:check` | verifica que `dist/` está al día |
 | `pnpm --filter @ego/avatar geometry:check` | **puerta geométrica**: compara la traza de operaciones de canvas contra la golden `tests/golden/geometry.json` (231 combinaciones: 33 estados × 7 módulos) |
 | `pnpm --filter @ego/avatar sync:check` | puerta de sincronización SHA-256 entre el paquete y la copia vendorizada (incluye el corpus de atribución) |
 | `pnpm --filter @ego/avatar attribution:check` | **puerta de atribución**: toda ruta citada en `LICENSE.md` y en las cabeceras de `src/` resuelve dentro del repo (exit 1 si alguna queda colgando) |
+| `pnpm --filter @ego/avatar bridge:check` | **puerta del contrato del puente**: ningún mapa nombra un estado del studio inexistente y el round-trip Ego↔studio conserva la identidad (15/15) |
+| `pnpm --filter @ego/avatar upstream:check` | **puerta de divergencia declarada**: exit 1 si un fichero diverge del upstream sin estar declarado en `upstream-divergence.json`, si una declaración deja de ser verdad, o si cambia el contenido aprobado de un fichero declarado |
+| `pnpm --filter @ego/avatar upstream:declare` | re-declara los hashes del manifiesto de divergencias (imprime el cambio) |
 | `pnpm --filter @ego/avatar capture:visuals` | capturas PNG del studio (registro visual) |
 
 ### La puerta geométrica, y por qué no se fía de los píxeles
