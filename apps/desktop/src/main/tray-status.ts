@@ -17,21 +17,26 @@ export const TRAY_COLORS: Record<EgoTrayStatus, [number, number, number]> = {
   hitl: [251, 113, 133], // rojo
 };
 
-let crcTable: Int32Array | null = null;
+/**
+ * E6 (Ola 2): la tabla CRC memoizada NO es estado del proceso (es una
+ * caché pura del módulo), así que vive en un holder `const` y no como `let`
+ * global mutable.
+ */
+const crcCache: { table: Int32Array | null } = { table: null };
 
 /** Tabla CRC-32 (lazy singleton) para `pngChunk`. */
 export function getCrcTable(): Int32Array {
-  if (!crcTable) {
-    crcTable = new Int32Array(256);
+  if (!crcCache.table) {
+    crcCache.table = new Int32Array(256);
     for (let n = 0; n < 256; n++) {
       let c = n;
       for (let k = 0; k < 8; k++) {
         c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
       }
-      crcTable[n] = c;
+      crcCache.table[n] = c;
     }
   }
-  return crcTable;
+  return crcCache.table;
 }
 
 /** Chunk PNG (`len + type + data + crc`) para el icono generado en runtime. */

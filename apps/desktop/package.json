@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && electron-vite build && node scripts/copy-avatar-attribution.cjs && node scripts/verify-dist.cjs",
     "build:verify": "node scripts/verify-dist.cjs",
+    "design:lint": "node scripts/design-lint.cjs",
+    "design:lint:json": "node scripts/design-lint.cjs --json",
     "dist": "electron-builder --config electron-builder.config.cjs",
     "pack": "electron-builder --dir --config electron-builder.config.cjs",
     "dev": "electron-vite dev",

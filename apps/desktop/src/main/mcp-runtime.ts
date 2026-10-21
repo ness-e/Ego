@@ -262,18 +262,22 @@ export function sanitizeMcpRuntimeStateForRenderer(
  * safeStorage: los handlers lo tratan best-effort con warn (el cifrado
  * persiste igual).
  */
-let mcpCredentialManager: CredentialManager | null = null;
+/**
+ * E6 (Ola 2): el vault de secretos MCP es estado LOCAL del módulo (no
+ * del proceso) → holder `const`, no `let` global mutable.
+ */
+const mcpVaultState: { manager: CredentialManager | null } = { manager: null };
 
 export function getMcpCredentialManager(): CredentialManager {
-  if (!mcpCredentialManager) {
-    mcpCredentialManager = new CredentialManager(mainProcessCryptoBackend);
+  if (!mcpVaultState.manager) {
+    mcpVaultState.manager = new CredentialManager(mainProcessCryptoBackend);
   }
-  return mcpCredentialManager;
+  return mcpVaultState.manager;
 }
 
 /** Solo tests: inyecta un vault falso en el singleton de sesión. */
 export function setMcpCredentialManagerForTests(manager: CredentialManager | null): void {
-  mcpCredentialManager = manager;
+  mcpVaultState.manager = manager;
 }
 
 /** Guarda secretos de un servidor en el vault (servicio `mcp/<id>/env`). */

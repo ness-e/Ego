@@ -85,6 +85,21 @@ export interface StartEgoMcpServerOptions {
  * Se persiste **cifrado** en el keychain del SO: no está en claro en disco
  * ni en el renderer. Se reutiliza entre arranques para que un cliente MCP
  * externo pueda cachearlo.
+ *
+ * ## Fail-soft (bug corregido 2026-10-20)
+ * `startEgoMcpServer` se espera DENTRO de `createWindow`: si esta función
+ * lanzaba, el error subía por `createWindow` y mataba la app con "Error
+ * crítico durante la inicialización" — la ventana nunca aparecía.
+ *
+ * Ocurría porque el vault del MCP usa el backend **fail-closed**
+ * (`SyncSafeStorageBackend`): si el keychain del SO no puede cifrar, lanza.
+ * El path de modelos ya loesquivaba con `DegradedObfBackend`; este no.
+ *
+ * Aquí la persistencia es una **optimización**, no un requisito de
+ * seguridad: el token es un bearer de un servidor en loopback y caduca con
+ * el proceso (además `close()` lo revoca). Si el vault no puede escribir, el
+ * token sigue siendo válido **en memoria** durante esta sesión; lo que se
+ * pierde es la reutilización entre arranques.
  */
 export async function resolveMcpServerToken(store: McpTokenVault): Promise<string> {
   const existing = await store.getSecret(
@@ -95,7 +110,17 @@ export async function resolveMcpServerToken(store: McpTokenVault): Promise<strin
     return existing;
   }
   const token = randomBytes(32).toString("base64url");
-  await store.storeSecret(MCP_SERVER_TOKEN_SERVICE, MCP_SERVER_TOKEN_ACCOUNT, token);
+  try {
+    await store.storeSecret(MCP_SERVER_TOKEN_SERVICE, MCP_SERVER_TOKEN_ACCOUNT, token);
+  } catch (err) {
+    // Fail-soft: el token vive solo en memoria durante esta sesión. La app
+    // arranca; lo que se pierde es la persistencia entre arranques.
+    console.warn(
+      "[MCP] No se pudo persistir el token del servidor MCP en el keychain del SO; " +
+        "seguirá siendo válido solo en memoria durante esta sesión.",
+      err instanceof Error ? err.message : err
+    );
+  }
   return token;
 }
 

@@ -13,36 +13,18 @@
  * - `floatingAutoShownOnMinimize` / `floatingPinnedManually`: flags de la
  *   ventana flotante (auto-mostrado y pin manual).
  */
-import type { PermissionsSettings } from "../../ipc/schema.js";
-
-/** Id del proyecto activo (`"default"` hasta que se seleccione uno). */
-export let activeProjectId: string = "default";
-
-/** Fija el proyecto activo. */
-export function setActiveProjectId(value: string): void {
-  activeProjectId = value;
-}
-
-/** Caché de la política de permisos resuelta (Zod fail-closed). */
-export let cachedPermissionsSettings: PermissionsSettings | null = null;
-
-/** Actualiza la caché de permisos. */
-export function setCachedPermissionsSettings(value: PermissionsSettings | null): void {
-  cachedPermissionsSettings = value;
-}
-
-/** La ventana flotante ya se mostró automáticamente al minimizar. */
-export let floatingAutoShownOnMinimize = false;
-
-/** Marca/limpia el auto-mostrado de la ventana flotante. */
-export function setFloatingAutoShownOnMinimize(value: boolean): void {
-  floatingAutoShownOnMinimize = value;
-}
-
-/** El usuario pineó la ventana flotante manualmente. */
-export let floatingPinnedManually = false;
-
-/** Marca/limpia el pin manual de la ventana flotante. */
-export function setFloatingPinnedManually(value: boolean): void {
-  floatingPinnedManually = value;
-}
+/**
+ * E6 (Ola 2) — El estado vive en `state/app-context.ts` (único sitio con
+ * estado mutable del proceso). Este módulo lo re-exporta para no romper la
+ * API pública (`main.ts` y `register-ipc.ts` lo importan desde aquí).
+ */
+export {
+  activeProjectId,
+  setActiveProjectId,
+  cachedPermissionsSettings,
+  setCachedPermissionsSettings,
+  floatingAutoShownOnMinimize,
+  setFloatingAutoShownOnMinimize,
+  floatingPinnedManually,
+  setFloatingPinnedManually,
+} from "../state/app-context.js";

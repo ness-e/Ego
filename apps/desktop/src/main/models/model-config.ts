@@ -24,6 +24,8 @@ import {
 } from "@ego/models";
 import { ModelConfigSchema, type ModelConfig } from "../../ipc/schema.js";
 import { decryptCredential } from "../credentials/vault.js";
+// E6 (Ola 2): la configuración vigente es estado del proceso → `app-context`.
+import { setCurrentModelConfigState } from "../state/app-context.js";
 
 /**
  * Claves de proveedor resueltas SOLO en main (BYOK vía bootstrap env + gov/settings
@@ -244,12 +246,7 @@ function registerOpenAIProvider(router: ModelRouter, apiKey: string, baseURL?: s
  * Es estado del módulo: `main.ts` lo lee (binding vivo) y lo escribe
  * con `setCurrentModelConfig`.
  */
-export let currentModelConfig: ModelConfig = {
-  activeProvider: process.env.OPENAI_API_KEY ? "openai" : process.env.DEEPSEEK_API_KEY ? "deepseek" : "mock",
-  apiKey: process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY || "",
-  baseUrl: process.env.OPENAI_BASE_URL || "",
-  modelName: "",
-};
+export { currentModelConfig } from "../state/app-context.js";
 
 /**
  * T13 probe-before-save (hermes P3): valida la key del proveedor activo
@@ -455,5 +452,5 @@ export function setupModelProviders(router: ModelRouter, extraKeys: ResolvedMode
  * directa a `currentModelConfig` desde fuera del módulo.
  */
 export function setCurrentModelConfig(config: ModelConfig): void {
-  currentModelConfig = { ...config };
+  setCurrentModelConfigState({ ...config });
 }

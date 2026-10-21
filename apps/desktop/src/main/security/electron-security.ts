@@ -237,7 +237,13 @@ export function logInvokeOrigin(channel: string, event: InvokeEventLike | null |
   }
 }
 
-let ipcOriginLoggingInstalled = false;
+/**
+ * E6 (Ola 2): estado LOCAL del módulo (no del proceso) → holder `const`,
+ * para que no quede ningún `let` global mutable fuera de `app-context.ts`.
+ */
+const securityState: { ipcOriginLoggingInstalled: boolean } = {
+  ipcOriginLoggingInstalled: false,
+};
 
 /**
  * Envuelve `ipcMain.handle` una vez para:
@@ -248,8 +254,8 @@ let ipcOriginLoggingInstalled = false;
  * Los handlers conservan su firma pública y su validación Zod de payload.
  */
 export function installIpcOriginLogging(): void {
-  if (ipcOriginLoggingInstalled) return;
-  ipcOriginLoggingInstalled = true;
+  if (securityState.ipcOriginLoggingInstalled) return;
+  securityState.ipcOriginLoggingInstalled = true;
   const origHandle = ipcMain.handle.bind(ipcMain);
   (ipcMain as unknown as { handle: typeof ipcMain.handle }).handle = ((
     channel: string,
@@ -351,20 +357,22 @@ export function isFetchAuthHostAllowed(
  * este módulo no depende del estado global del proceso. Sin resolutor
  * inyectado, se usa el token de entorno (dev) — nunca se lanza.
  */
-let authTokenResolver: (() => Promise<string | null>) | null = null;
+const fetchAuthState: { resolver: (() => Promise<string | null>) | null } = {
+  resolver: null,
+};
 
 /** Inyecta el resolutor de token (lo llama el main en el arranque). */
 export function setFetchAuthTokenResolver(
   resolver: () => Promise<string | null>
 ): void {
-  authTokenResolver = resolver;
+  fetchAuthState.resolver = resolver;
 }
 
 /** Resuelve el token de la API (null si no hay). */
 export async function resolveFetchAuthToken(): Promise<string | null> {
   try {
-    if (authTokenResolver) {
-      const resolved = await authTokenResolver();
+    if (fetchAuthState.resolver) {
+      const resolved = await fetchAuthState.resolver();
       if (typeof resolved === "string" && resolved.length > 0) return resolved;
     }
   } catch {

@@ -25,6 +25,10 @@ import {
   cachedPermissionsSettings,
   setCachedPermissionsSettings,
 } from "./ipc/ipc-state.js";
+import {
+  cachedCompressionSettings,
+  setCachedCompressionSettings,
+} from "./state/app-context.js";
 
 /** Cache en memoria de `gov/settings/permissions` (STAB-02; fuente: VantaDB).
  *  Estado compartido con los handlers IPC (`ipc-state.ts`). */
@@ -93,8 +97,10 @@ export async function loadPermissionsSettingsIntoCache(adapter: SettingsCacheRea
 // STAB-02: payload ausente/inválido → defaults, boot nunca tumba.
 // ---------------------------------------------------------------------------
 
-/** Cache en memoria de `gov/settings/compression` (fuente: VantaDB). */
-let cachedCompressionSettings: CompressionSettings | null = null;
+/**
+ * E6 (Ola 2): la caché de compresión vive en `state/app-context.ts`
+ * (único sitio con el estado mutable del proceso).
+ */
 
 /** Settings efectivos: cache de boot o defaults Gate P (nunca lanza). */
 export function getCachedCompressionSettings(): CompressionSettings {
@@ -104,7 +110,7 @@ export function getCachedCompressionSettings(): CompressionSettings {
 
 /** Solo tests: fija o limpia el cache sin tocar VantaDB. */
 export function setCachedCompressionSettingsForTests(settings: CompressionSettings | null): void {
-  cachedCompressionSettings = settings;
+  setCachedCompressionSettings(settings);
 }
 
 /**
@@ -119,12 +125,14 @@ export async function loadCompressionSettingsIntoCache(adapter: SettingsCacheRea
       payload = (saved as { payload: unknown }).payload;
     }
     if (payload && typeof payload === "object") {
-      cachedCompressionSettings = parseCompressionSettings(payload);
-      return cachedCompressionSettings;
+      const parsed = parseCompressionSettings(payload);
+      setCachedCompressionSettings(parsed);
+      return parsed;
     }
   } catch (err) {
     console.warn("[Ego Main] Settings de compresión ilegibles, usando defaults STAB-05:", err);
   }
-  cachedCompressionSettings = parseCompressionSettings({});
-  return cachedCompressionSettings;
+  const defaults = parseCompressionSettings({});
+  setCachedCompressionSettings(defaults);
+  return defaults;
 }

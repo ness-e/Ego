@@ -20,9 +20,31 @@ import { CredentialManager, SyncSafeStorageBackend } from "@ego/security";
  * síncrona, que es la que exigen los call sites de settings. El restore
  * `gov/settings` no cambia de semántica: vacío → `""`, sin cifrado del
  * SO → ofuscación legada `obf:` con warn (migración), nunca texto plano.
+ *
+ * ## POR QUÉ el store NO se decide en el import (bug corregido 2026-10-20)
+ * `safeStorage.isEncryptionAvailable()` devuelve **false hasta que la app
+ * está lista**: en Electron, el backend criptográfico del SO (DPAPI en
+ * Windows, Keychain en macOS) se inicializa durante `app.whenReady()`.
+ * Medido en esta máquina con una sonda dedicada:
+ *
+ *   ANTES de `app.whenReady()`  → isEncryptionAvailable = false
+ *   DESPUÉS de `app.whenReady()` → isEncryptionAvailable = true
+ *
+ * Este módulo se evalúa en el grafo de imports del main process, es decir
+ * ANTES de `app.whenReady()`. Evaluar ahí la disponibilidad y pasar `null`
+ * cuando aún no lo está dejaba el backend **permanentemente** incapaz de
+ * cifrar durante toda la vida del proceso, aunque 100 ms después la app
+ * estuviera lista. De ahí el crash de arranque: `storeSecret` → `encrypt` →
+ * "safeStorage no disponible para cifrar".
+ *
+ * La solución es pasar un **adaptador vivo**: `SyncSafeStorageBackend`
+ * re-consulta `isEncryptionAvailable()` en CADA operación (`activeStore()`),
+ * así que decide en el momento del uso, no en el del import. Antes de
+ * `app.whenReady()` sigue fallando en cerrado (fail-closed correcto);
+ * después, cifra con el keychain del SO.
  */
 export const mainProcessCryptoBackend = new SyncSafeStorageBackend(
-  typeof safeStorage !== "undefined" && safeStorage.isEncryptionAvailable()
+  typeof safeStorage !== "undefined"
     ? {
         isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
         encryptString: (plainText: string) => safeStorage.encryptString(plainText),
