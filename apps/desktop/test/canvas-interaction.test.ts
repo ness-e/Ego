@@ -30,6 +30,12 @@ describe("CANV-10: Golden Path Alpha (Pasos 15 al 20) — Dynamic Workspace & Ca
   });
 
   it("Pasos 15 al 20: Contrato declarativo -> Bridge reactivo -> ChangeSet atómico -> Persistencia VantaDB -> Recuperación intacta", async () => {
+    // Presupuesto explícito de 20 s: el E2E abre un store real de VantaDB
+    // (320 MB de pre-reserva por store, VDB-REQ-14), persiste, reabre en frío y
+    // verifica la recuperación. Su coste real es ~2 s aislado, pero bajo la
+    // carga de la suite completa (19 paquetes en paralelo) el presupuesto
+    // por defecto de 5 s se desborda. Mismo patrón que `tools`, `recovery` y
+    // `memory`. No es un flake: el test es determinista.
     // ── Paso 15: Inicio de sesión y proyecto en VantaDB ──
     adapter = new EgoMemoryAdapter(testDir);
     await adapter.init();
@@ -202,5 +208,5 @@ describe("CANV-10: Golden Path Alpha (Pasos 15 al 20) — Dynamic Workspace & Ca
     expect(restoredTable).toBeDefined();
     expect((restoredTable?.props as any).rows[1].status).toBe("completado");
     expect((restoredTable?.props as any).rows[1].task).toBe("Persistir en VantaDB");
-  });
+  }, 20000);
 });

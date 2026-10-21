@@ -115,6 +115,7 @@ import { DailyStateEngine, DailyStatePersistence, GoalPrioritizer, DecisionsFeed
 import { CrashRecoveryEngine, OpGate } from "@ego/recovery";
 import { BackgroundEngine, WorkerTaskPool, ProactivityEngine, TaskCheckpointManager, registerBackgroundTaskTools, RunRecorder } from "@ego/tasks";
 import { evaluateToolCall } from "@ego/security";
+import { isPresenceAllowed } from "../../windows/FloatingWindow.js";
 import { WindowStateManager } from "../../windows/WindowStateManager.js";
 import { initAutoUpdater, resolveUpdateFeedUrl } from "../../updater.js";
 import { defaultWorkspaceRoot } from "../path-scope.js";
@@ -697,7 +698,10 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
             onPresent: (req) => {
               try {
                 const st = deps.ensureFloatMgr().getState();
-                if (!st.muted && !st.disabled) {
+                // EGO-FIND-104: una aprobación pendiente es ATENCIÓN, no
+                // sonido. El mute (audio) no oculta la tarjeta HITL; solo
+                // `disabled` bloquea el pop de la isla.
+                if (!st.disabled) {
                   deps.ensureFloatMgr().updateState({ attentionState: "hitl_approval" });
                   deps.ensureFloatMgr().show();
                   queueMicrotask(() =>
@@ -891,8 +895,10 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
 
   windowStateManager.trackWindow(mainWindow);
 
-  // Task4 (D2): flotante instanciado UNA vez en ready + autoshow al minimizar
-  // con trabajo/HITL (mainWindow.hide + floatMgr.show; sin trabajo = minimize normal).
+  // Task4 (D2) + EGO-FIND-104: flotante instanciado UNA vez en ready.
+  // Autoshow al minimizar gobernado por presencia (disabled/presenceMode);
+  // `muted` es solo audio y NUNCA bloquea la presencia. Al restaurar/enfocar
+  // con 0 trabajo y 0 HITL, `onMainRestoreOrFocus` auto-oculta.
   // Task10 (WIDG-05): restore de persistencia flotante (mute/presencia/pos).
   deps.ensureFloatMgr();
   try {
@@ -910,7 +916,10 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
       if (!mainWindow || mainWindow.isDestroyed()) return;
       const st = deps.ensureFloatMgr().getState();
       const presenceMode = (windowStateManager as any)?.lastFloatingState?.presenceMode ?? "auto";
-      if (presenceMode !== "never" && !st.muted && !st.disabled) {
+      // EGO-FIND-104: presencia gobernada por `isPresenceAllowed` (disabled +
+      // presenceMode). `muted` es SOLO audio: el mute del botón de la isla ya
+      // no puede matar el autoshow ni dejar la isla inalcanzable.
+      if (isPresenceAllowed({ disabled: st.disabled, presenceMode })) {
         mainWindow.hide();
         deps.ensureFloatMgr().show();
         if (st.attentionState === "hidden") {

@@ -5,12 +5,15 @@
 // con BackgroundEngine real + electron mockeado. Este spec ejerce lo que el
 // Electron REAL permite desde fuera, sin hooks de producto:
 //
-// - Contrato ACTUAL (commit `d50a050`, "auto-show interactive companion
-//   island on minimize"): al minimizar la ventana principal, la isla flotante
-//   APARECE siempre que no esté muted/disabled y `presenceMode !== "never"`.
-//   Al restaurar (o enfocar) la principal con 0 tareas y 0 HITL pendientes,
-//   la isla se AUTO-OCULTA. El contrato anterior (`shouldAutoShow` gate:
-//   "sin trabajo no aparece") quedó derogado por ese commit.
+// - Contrato ACTUAL (commit `d50a050` → fix EGO-FIND-104, 2026-10-21): al
+//   minimizar la ventana principal, la isla flotante APARECE siempre que
+//   `isPresenceAllowed` lo permita (no `disabled` y `presenceMode !==
+//   "never"`). `muted` es SOLO audio: nunca bloquea presencia, autoshow ni
+//   el pop de HITL. Al restaurar (o enfocar) la principal con 0 tareas y 0
+//   HITL pendientes, la isla se AUTO-OCULTA. Recovery: el tray expone
+//   «Isla flotante: mostrar/ocultar» (única ruta si la isla queda oculta).
+//   El gate `shouldAutoShow` ("sin trabajo no aparece") quedó derogado en
+//   `d50a050`; el helper `isPresenceAllowed` es la regla actual (EGO-FIND-104).
 // - Leg positivo con HITL (SKIP con precondición): minimize CON HITL
 //   pendiente → tarjeta de aprobación visible en la isla → click resuelve.
 //   Requiere semilla real (hook inexistente: preload `tasks` expone solo

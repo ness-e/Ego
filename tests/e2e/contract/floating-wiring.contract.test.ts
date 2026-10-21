@@ -32,11 +32,13 @@
 //      una ruta se rompe con cada refactor aunque el wiring siga intacto.
 //      Lo que este test protege es que el wiring EXISTA, no dónde viva.
 //
-// CONTEXTO DE PRODUCTO (commit `d50a050`): el gate de autoshow cambió.
-// Antes: `shouldAutoShow(floatingSnapshot())` (trabajo activo o HITL
-// pendiente). Ahora: la isla se muestra al minimizar siempre que no esté
-// muted/disabled y `presenceMode !== "never"`, y se auto-oculta al restaurar
-// si no hay trabajo pendiente (`onMainRestoreOrFocus`).
+// CONTEXTO DE PRODUCTO (commit `d50a050` → fix EGO-FIND-104, 2026-10-21):
+// el gate de autoshow es de PRESENCIA. La isla se muestra al minimizar
+// siempre que `isPresenceAllowed` lo permita (no `disabled` y
+// `presenceMode !== "never"`) y se auto-oculta al restaurar si no hay
+// trabajo pendiente (`onMainRestoreOrFocus`). `muted` es SOLO audio:
+// NUNCA bloquea la presencia, el autoshow ni el pop de HITL (antes sí, y
+// el unmute viviendo en la isla desaparecida dejaba un deadlock).
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
@@ -90,6 +92,16 @@ describe("CONTRATO (lint-test) — wiring de la isla flotante en el proceso main
     expect(mainSrc).toMatch(/ensureFloatMgr\(\)\.getState\(\)/);
     // Presencia persistente: `presenceMode` (auto/never) decide si se muestra.
     expect(mainSrc).toMatch(/presenceMode/);
+  });
+
+  it("INVARIANTE (EGO-FIND-104): presencia via `isPresenceAllowed`; el mute de audio no puede volver a bloquearla", () => {
+    // La decisión de presencia pasa por el helper canónico del manager…
+    expect(mainSrc).toMatch(/isPresenceAllowed\(/);
+    // …y la forma `!st.muted` (gate de presencia por mute) quedó prohibida:
+    // fue el deadlock completo (island oculta + unmute solo accesible en ella).
+    expect(mainSrc).not.toMatch(/!st\.muted/);
+    // Recovery desde el tray: la isla siempre alcanzable aunque esté oculta.
+    expect(mainSrc).toMatch(/toggleFloatingIslandFromTray/);
   });
 
   it("INVARIANTE: minimize registra el movimiento de la isla para persistirla", () => {

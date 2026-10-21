@@ -225,6 +225,28 @@ export function resumeAllBackgroundTasks(): string[] {
   return resumed;
 }
 
+/**
+ * EGO-FIND-104 — path de RECUPERACIÓN: la única UI de mute/unmute vive EN la
+ * isla; si la presencia quedaba bloqueada (muted enterrado en persistencia),
+ * no había forma de volver a verla. Desde el tray la isla siempre es
+ * alcanzable: mostrar (compact, interactiva) u ocultar.
+ */
+export function toggleFloatingIslandFromTray(): void {
+  try {
+    const mgr = ensureFloatMgr();
+    const st = mgr.getState();
+    if (st.visible && st.attentionState !== "hidden") {
+      mgr.updateState({ attentionState: "hidden" });
+      mgr.hide();
+    } else {
+      mgr.show();
+      mgr.updateState({ attentionState: "compact" });
+    }
+  } catch {
+    // noop: el tray nunca tumba el main
+  }
+}
+
 export function ensureTray(): void {
   if (tray) {
     refreshTrayStatus();
@@ -264,6 +286,11 @@ export function ensureTray(): void {
     created.setContextMenu(Menu.buildFromTemplate([
         { label: "Abrir Ego", click: restore },
         { label: "Configuración", click: openSettings },
+        {
+          // EGO-FIND-104: recovery — toggle manual de la isla desde fuera.
+          label: "Isla flotante: mostrar/ocultar",
+          click: toggleFloatingIslandFromTray,
+        },
         { type: "separator" },
         {
           label: "Pausar tareas",

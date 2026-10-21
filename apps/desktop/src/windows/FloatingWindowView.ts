@@ -15,6 +15,13 @@ export interface FloatingWindowOptions {
   alwaysOnTop?: boolean;
   focusable?: boolean;
   initialPosition?: 'top-right' | 'bottom-right' | 'dock';
+  /**
+   * EGO-FIND-104: callback por cada `did-finish-load`. La creación es lazy
+   * (primer show): los pushes anteriores a que floating.html cargue se
+   * pierden. `FloatingWindowManager` lo usa para re-empujar su estado
+   * actual cuando el renderer ya puede escuchar.
+   */
+  onContentLoaded?: () => void;
 }
 
 export class FloatingWindow {
@@ -79,6 +86,18 @@ export class FloatingWindow {
 
     // Modo click-through por defecto: los eventos de ratón traspasan al escritorio
     this.setClickThrough(true);
+
+    // EGO-FIND-104: resync de estado tras cada carga del contenido (el push
+    // previo a la carga era se perdía: renderer sin listeners del preload).
+    if (this.options.onContentLoaded) {
+      this.window.webContents.on("did-finish-load", () => {
+        try {
+          this.options.onContentLoaded?.();
+        } catch {
+          // noop: el resync nunca tumba la ventana flotante
+        }
+      });
+    }
 
     // WIDG-02 (Task3): la flotante carga contenido real (avatar mini +
     // ticker + approval). Fire-and-forget con log: createWindow conserva su

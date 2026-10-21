@@ -47,6 +47,27 @@ export function shouldAutoShow(s: AutoShowSnapshot): boolean {
 }
 
 /**
+ * Gate de PRESENCIA (EGO-FIND-104): decide si la isla puede mostrarse.
+ *
+ * Regla canónica tras el fix: `muted` es SOLO audio y **nunca** forma parte
+ * del gate de presencia. Antes el mute (desde el propio botón de la isla)
+ * mataba el autoshow al minimizar y el pop de HITL, y al vivir el unmute
+ * EN la isla desaparecida quedaba un deadlock sin path de recuperación.
+ * La presencia la gobiernan `disabled` y `presenceMode` únicamente.
+ *
+ * (`shouldAutoShow` queda como utilidad pura legado: ya no gobierna el
+ * minimize desde el commit `d50a050`, pero su contrato se conserva en
+ * `tests/e2e/contract/floating-wiring.contract.test.ts`.)
+ */
+export function isPresenceAllowed(g: {
+  disabled?: boolean;
+  presenceMode?: "auto" | "always" | "never";
+}): boolean {
+  if (g.disabled) return false;
+  return (g.presenceMode ?? "auto") !== "never";
+}
+
+/**
  * Costura Task1→Task4 (Task7 la enriquece): traduce un AttentionState de la
  * FSM pura a `attentionState` del flotante. Hoy es identidad con fallback
  * defensivo a 'hidden' (misma unión de 5 estados en ambos lados).
@@ -77,6 +98,12 @@ export class FloatingWindowManager {
       transparent: true,
       alwaysOnTop: true,
       focusable: false,
+      // EGO-FIND-104: el push de estado hecho justo tras `showInactive()` se
+      // pierde cuando la ventana se crea en caliente (primer minimize: la
+      // renderer aún no tiene el listener del preload) y la isla quedaba
+      // pintada en `hidden` (CSS opacity: 0). Al terminar la carga se
+      // re-empuja el estado ACTUAL del manager, una vez por carga.
+      onContentLoaded: () => this.pushState(),
     });
 
     this.state = {
@@ -85,6 +112,13 @@ export class FloatingWindowManager {
       disabled: false,
       attentionState: 'hidden',
     };
+  }
+
+  /** Push canónico del estado actual al renderer de la isla (si existe). */
+  private pushState(): void {
+    const win = this.prototype.getWindow();
+    if (!win || win.isDestroyed()) return;
+    win.webContents.send('ipc.floating.state_changed', this.state);
   }
 
   public show(): void {
@@ -114,7 +148,11 @@ export class FloatingWindowManager {
       this.prototype.resizeForState(this.state.attentionState);
     }
 
-    if (this.state.muted || this.state.attentionState === 'hidden') {
+    if (this.state.attentionState === 'hidden') {
+      // EGO-FIND-104: click-through solo cuando la isla está en hidden
+      // (invisible: no debe bloquear clics del escritorio). `muted` era
+      // audio, no interacción: muted igual dejaba la isla inalcanzable
+      // para el unmute (segmento del deadlock).
       this.prototype.setClickThrough(true);
     } else {
       // En cualquier otro estado ("compact", "expanded", "hitl_approval", "alert"),
@@ -122,8 +160,8 @@ export class FloatingWindowManager {
       this.prototype.setClickThrough(false);
     }
 
-    // Transmitir estado actualizado al renderizador de la ventana flotante si está cargado
-    win.webContents.send('ipc.floating.state_changed', this.state);
+    // Push del estado (canal único; `pushState` no-op si la ventana murió).
+    this.pushState();
   }
 
   public resizeForState(attentionState: string): void {
