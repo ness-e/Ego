@@ -121,9 +121,9 @@ test('noteActivity es alias público de _noteActivity', () => {
 
 /* ─── adaptador inverso y puentes ────────────────────────────────────── */
 
-test('STUDIO_TO_EGO_STATE cubre los 22 estados con destinos válidos', () => {
+test('STUDIO_TO_EGO_STATE cubre los 26 estados con destinos válidos', () => {
   const names = new Set(STUDIO_STATES.map((s) => s.name));
-  assert.equal(Object.keys(STUDIO_TO_EGO_STATE).length, 22);
+  assert.equal(Object.keys(STUDIO_TO_EGO_STATE).length, 26);
   for (const [studio, ego] of Object.entries(STUDIO_TO_EGO_STATE)) {
     assert.ok(names.has(studio), `origen desconocido: ${studio}`);
     assert.ok(STATE_NAMES.includes(ego), `${studio} → ${ego} inválido`);

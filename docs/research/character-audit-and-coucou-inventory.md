@@ -170,7 +170,122 @@ combinaciones** (28 estados × 6 módulos). No se usó un diff de píxeles porqu
 comparando el mismo código en dos sesiones de navegador, se midió hasta un
 12 % de píxeles distintos (ruido de rasterizado).
 
-### 6.4 Licencias y cadena de atribución
+### 6.4 Estado `warning` — degradación tolerable (Ola 2, 2026-10-20)
+
+El inventario de estados del motor canónico queda así:
+
+| Motor | Estados runtime | Emotes | Estados studio |
+|---|---:|---:|---:|
+| `@ego/avatar` (SVG + canvas) | **15** | 11 | 22 |
+
+**El hueco que motivó el estado.** La app tenía la señal y no su
+representación: `ego-chat.tsx` declara el evento
+`kind: "tool_call" | "tool_result" | "tool_start" | "tool_end" | "tool_error"`,
+pero su `useMemo` de `avatarLiveState` sólo miraba `tool_call`/`tool_start`. Un
+`tool_error` caía en la rama del mensaje y el avatar se pintaba en `thinking`
+mientras una tool estaba fallando. Además, el mapa legacy
+`mapCharacterStateToAvatarState` mapeaba `warning` a `idle` por defecto, de
+modo que el estado **no tenía ninguna imagen**.
+
+**Qué se añadió** (`packages/avatar/src/runtime/states.js`):
+
+| Canal | `warning` | Por qué |
+|---|---|---|
+| Tinte | `hsl(48 92% 55%)` (amarillo-caution) | fuera del cluster naranja cálido (27 `ratelimit`, 30 `approval`, 35 `waiting`) y a 56° del rojo del `error` (352) |
+| Pose | `warn` (**nueva**) | ojos estrechados (48×52) con párpados bajos y neutros: ni enfado (`flat`/`error`) ni agotamiento (`tired`/`ratelimit`) |
+| Insignia | `warn` (**nueva**): triángulo `⚠` | se distingue de la `!` de `error` **por la forma**, no sólo por el color |
+| Movimiento | `sway` | vaivén leve: inquieto pero no agitado (el `shake` es del `error`) |
+| Aura / tinte | 0.4 / 0.4 | el más tenue de los estados alertas |
+| Sonido | `tick` | el catálogo de 28 sonidos **no tiene receta de aviso**; no se inventa ninguna, se usa la más breve y no alarmista (la misma que la acción `waiting`) |
+
+**Puente studio.** El studio **ya tenía** un estado `warning` con imagen propia
+(cartel ámbar con `!`, `studio/render/overlays.js`). El mapeo pasa a ser 1:1
+en ambos sentidos, así que el estado se conserva de ida y de vuelta. Como
+consecuencia, `ratelimit` deja de reclamar esa imagen y pasa a `bored` (el
+estado cansado del studio, que es lo que `ratelimit` ya expresaba en el motor
+SVG con pose `tired` + sudor). Así **cada imagen del studio corresponde a un
+único estado de Ego** y el dock no miente.
+
+**Puerta de no-regresión.** La golden de geometría (`packages/avatar/tests/golden/geometry.json`)
+pasó de **168 a 174** combinaciones (29 × 6). El diff se comprobó: **6
+añadidas** (la nueva imagen `bored` de `ratelimit`) y **0 preexistentes
+modificadas**. La prueba sigue siendo la traza de operaciones de canvas
+(determinista), no una comparación de píxeles.
+
+### 6.5 El round-trip del puente studio (Ola 2, 2026-10-20)
+
+**El bug que encontró A4.** El puente `EGO_TO_STUDIO_STATE` /
+`STUDIO_TO_EGO_STATE` (`packages/avatar/src/studio/adapter.js`) **no eran
+inversas**: 4 de los 15 estados de Ego perdían la identidad al cruzar el
+puente. El avatar podía mostrar un estado distinto del que el chat pidió.
+
+**Causa raíz.** El mapa inverso sólo puede devolver **un** estado por estado de
+studio, así que cualquier imagen de studio compartida por dos estados de Ego
+hace que uno de los dos se pierda:
+
+| Estado de studio | Lo reclamaban | Se perdía |
+|---|---|---|
+| `waiting` | `thinking`, `waiting`, `approval` | `thinking`, `approval` |
+| `inspect` | `searching`, `question` | `question` |
+| `bored` | `ratelimit` (mapeado en la Ola 2 para liberar la imagen `warning`) | `ratelimit` |
+
+Tres de las cuatro pérdidas eran **preexistentes**; la cuarta (`ratelimit`) la
+introdujo la Ola 2 al mover `ratelimit` de `warning` a `bored` para que la
+imagen del aviso no se desambiguase.
+
+**Desenlace: 1:1, con cuatro estados de studio nuevos.** No era posible
+arreglarlo sin añadir estados: los 10 estados de studio libres (`talk`, `send`,
+`failure`, `blocked`, `surprise`, `wave`, `poke`, `spin`, `box`, `love`) no
+significan "procesando", "te toca", "te pregunto" ni "el proveedor nos frena".
+Así que se añadieron `thinking`, `approval`, `question` y `ratelimit` —con su
+color, su **imagen propia** (geometría de Ego, D4) y su sonido— y el studio
+pasa de 22 a **26 estados**.
+
+| Estado de Ego | Estado de studio | Imagen propia |
+|---|---|---|
+| `thinking` | `thinking` | arco girando (arriba a la izquierda) |
+| `approval` | `approval` | anillos concéntricos que rodean el cuerpo |
+| `question` | `question` | cartel «?» (arriba a la derecha) |
+| `ratelimit` | `ratelimit` | barras de regulador (debajo del visor) |
+
+Ahora el round-trip es **1:1 en los 15 estados de Ego** y ninguna imagen la
+comparten dos estados.
+
+**Efecto colateral bueno.** El acento por estado estaba **replicado en tres
+módulos** (`render/overlays.js`, `render/eyes.js`, `render/helpers.js`): tres
+`switch` que había que mantener en sincronía a mano y que se habrían
+desincronizado al añadir un estado. Ahora hay **una fuente**
+(`STATE_ACCENT` en `src/studio/config.js`) y los tres la reexportan.
+
+**La puerta que faltaba.** El modo de fallo real de este puente no es que el
+mapa inverso falte, sino que **el mapa directo nombre un estado que el
+catálogo no tiene**: el motor cae a un `default` y el estado se pierde en
+silencio. Por eso `packages/avatar/scripts/check-bridge.mjs`
+(`pnpm --filter @ego/avatar bridge:check`) recorre **todos** los mapas que
+nombran estados del studio — el de estados, el de emotes y el de sonidos — y
+falla si alguno nombra un estado inexistente, si hay colisiones o si el
+round-trip pierde la identidad. Estado actual (2026-10-20):
+
+```text
+puente Ego(15) <-> studio(26): round-trip 1:1 = 15/15 | colisiones = 0
+  | estados de studio sin dueño Ego = 11
+  CONTRATO CUMPLIDO
+```
+
+Los 11 estados de studio **sin dueño de Ego** son los que nacen de una
+interacción en el canvas (`talk`, `bored`, `send`, `failure`, `blocked`,
+`surprise`, `wave`, `poke`, `spin`, `box`, `love`): el mapa inverso los lleva
+al de Ego más próximo y para ellos la ida y la vuelta **no** son inversas.
+No es una pérdida: son estados que sólo existen en el canvas. El contrato es
+"Ego → studio → Ego conserva la identidad", no "todo estado de studio tiene
+un estado de Ego".
+
+**Golden.** La traza de geometría pasó de **174 a 231** combinaciones (33
+estados × 7 módulos, al añadir el `overlays` como módulo trazado): **57
+añadidas, 0 eliminadas y 0 preexistentes modificadas**. La prueba sigue siendo
+determinista (traza de operaciones de canvas), no una comparación de píxeles.
+
+### 6.6 Licencias y cadena de atribución
 
 `packages/avatar/` y la copia vendorizada incluyen `LICENSE` (MIT),
 `LICENSE.md` (tabla de atribuciones por fichero) y `NOTICE` (aviso de terceros).
@@ -208,7 +323,7 @@ El corpus es **material de solo lectura**: no se edita, no se ejecuta y no se
 importa. `packages/avatar/vendor/README.md` lo declara y además mapea cada
 fichero del corpus con su parte derivada en `src/`.
 
-### 6.5 Defecto latente encontrado
+### 6.7 Defecto latente encontrado
 
 `HybridRobotAvatar.impulse(sx, sy, vy, rot, vx)` acepta cinco parámetros,
 pero seis llamadas le pasaban un sexto argumento que nunca se leía. Es un

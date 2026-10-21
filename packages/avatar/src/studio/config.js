@@ -177,6 +177,13 @@ export const STUDIO_STATES = Object.freeze([
   Object.freeze({ name: 'box', label: 'box drop', emoji: '📦' }),
   Object.freeze({ name: 'listen', label: 'listen', emoji: '🎙️' }),
   Object.freeze({ name: 'love', label: 'love', emoji: '😍' }),
+  // Estados con dueño propio de Ego (Ola 2). Existen para que el round-trip
+  // Ego -> studio -> Ego conserve la identidad: cada uno tiene su propia
+  // IMAGEN en render/overlays.js y su propio color.
+  Object.freeze({ name: 'thinking', label: 'thinking', emoji: '💭' }),
+  Object.freeze({ name: 'approval', label: 'approval', emoji: '✋' }),
+  Object.freeze({ name: 'question', label: 'question', emoji: '❓' }),
+  Object.freeze({ name: 'ratelimit', label: 'ratelimit', emoji: '⏳' }),
 ]);
 
 /** Estilos de ojo del dock (predeterminados no-mochi). */
@@ -216,8 +223,32 @@ export const STATE_ACCENT = Object.freeze({
   surprise: '#c084fc',
   send: '#c084fc',
   sleep: '#94a3b8',
+  // Estados con dueño propio de Ego (Ola 2, round-trip 1:1). Cada uno con
+  // un color y una IMAGEN propios, para que el dock distinga siempre de qué
+  // estado de Ego se trata.
+  thinking: '#a78bfa',   // procesando
+  approval: '#fb923c',   // tu turno
+  question: '#2dd4bf',   // te pregunto
+  ratelimit: '#facc15',  // el proveedor nos frena
   DEFAULT: null,
 });
+
+/**
+ * Color de acento según el estado (respeta S.autoStateColors / S.eyeColor).
+ *
+ * ÚNICA fuente de verdad del acento por estado. Antes vivía replicado en
+ * `render/overlays.js`, `render/eyes.js` y `render/helpers.js`: tres switch
+ * que debían mantenerse en sincronía a mano (y que se desincronizarían en
+ * cuanto se añadiera un estado). Ahora los tres módulos reexportan esta
+ * función, así que añadir un estado es un cambio en un solo sitio.
+ *
+ * @param {{state: string, autoStateColors?: boolean, eyeColor?: string}} S
+ * @returns {string}
+ */
+export function getStateAccentColor(S) {
+  if (!S.autoStateColors) return S.eyeColor;
+  return STATE_ACCENT[S.state] ?? S.eyeColor;
+}
 
 /**
  * Acento efectivo: sin auto-colores manda el color de ojos del usuario.

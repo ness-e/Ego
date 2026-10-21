@@ -1,14 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { TraitRegistry, type DomainCharacterPreset, type CharacterTrait } from "../traits/TraitRegistry.js";
-import { Sparkle, Check, ArrowClockwise, FloppyDisk } from "@phosphor-icons/react";
+import { Sparkle, Check, ArrowClockwise, FloppyDisk, Eye, Lightbulb, Lightning, MagnifyingGlass, Warning, XCircle, Triangle, Robot, Hexagon, Diamond, type Icon } from "@phosphor-icons/react";
 import {
   loadCharacterConfig,
   saveCharacterConfig,
   liveCharacterGateway,
 } from "./characterProfileBridge.js";
 
-// Registro del custom element <ego-avatar>
+// Registro automático del custom element <ego-avatar> (motor vendorizado).
 import "../../../floating/vendor/avatar/runtime/avatar-element.js";
+import { Button } from "../../ui-kit/Button.js";
 
 export type BaseFormType =
   | "delta-core"
@@ -81,15 +82,50 @@ const EYE_SHAPES: Array<{ id: CustomCharacterConfig["eyeShape"]; label: string }
   { id: "cup", label: "Curvo" },
 ];
 
-const TEST_STATES: Array<{ id: string; label: string; emoji: string }> = [
-  { id: "idle", label: "Idle", emoji: "👁️" },
-  { id: "thinking", label: "Pensando", emoji: "💭" },
-  { id: "working", label: "Trabajando", emoji: "⚡" },
-  { id: "searching", label: "Buscando", emoji: "🔍" },
-  { id: "approval", label: "Aprobación", emoji: "⚠️" },
-  { id: "happy", label: "Feliz", emoji: "✨" },
-  { id: "error", label: "Error", emoji: "❌" },
+/**
+ * D18: los estados de prueba se identificaban con EMOJI (👁️ 💭 ⚡ 🔍 ⚠️ ✨ ❌).
+ * Los emoji son glifos del SO: no heredan el color del token, se rompen con
+ * la fuente de la plataforma y no tienen nombre accesible. Ahora cada estado
+ * lleva su icono Phosphor, que sí hereda `currentColor` y es decorativo
+ * (`aria-hidden`) con la etiqueta de texto como nombre real.
+ */
+const TEST_STATES: Array<{ id: string; label: string; icon: Icon }> = [
+  { id: "idle", label: "Idle", icon: Eye },
+  { id: "thinking", label: "Pensando", icon: Lightbulb },
+  { id: "working", label: "Trabajando", icon: Lightning },
+  { id: "searching", label: "Buscando", icon: MagnifyingGlass },
+  { id: "approval", label: "Aprobación", icon: Warning },
+  { id: "happy", label: "Feliz", icon: Sparkle },
+  { id: "error", label: "Error", icon: XCircle },
 ];
+
+/**
+ * D18: la geometría del núcleo se identificaba con EMOJI (🔺 🤖 🔷 ⚡). Cada
+ * silueta tiene ahora su icono Phosphor (`Triangle`, `Robot`, `Hexagon`,
+ * `Diamond`), que además describe la FORMA que el usuario está eligiendo.
+ */
+const BASE_FORM_OPTIONS: Array<{ id: BaseFormType; label: string; icon: Icon }> = [
+  { id: "delta-core", label: "Delta Core (Triangular)", icon: Triangle },
+  { id: "coucou-mochi", label: "Robot Studio CX (Squircle / Superelipse)", icon: Robot },
+  { id: "fractal-polyhedron", label: "Fractal Polyhedron (Hexagonal)", icon: Hexagon },
+  { id: "quantum-monolith", label: "Quantum Monolith", icon: Diamond },
+];
+
+/**
+ * Puente tipado con el web component `<ego-avatar>`.
+ *
+ * El motor expone una API imperativa (`play`, `applyStudioPreset`,
+ * `setState`, `_studio`) que React no conoce: en vez de `any` (prohibido por
+ * las reglas del repo) se declara el mínimo estructural que el selector usa
+ * de verdad. Los métodos son opcionales porque el registro del custom element
+ * puede no estar listo (SSR / test sin DOM de canvas).
+ */
+interface EgoAvatarElement extends HTMLElement {
+  play?: (emote: string) => Promise<unknown>;
+  applyStudioPreset?: (preset: string) => void;
+  setState?: (state: string, options?: { immediate?: boolean }) => void;
+  _studio?: () => { setParam?: (name: string, value: unknown) => void } | null;
+}
 
 export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
   subEgoId = "ego.nucleus",
@@ -145,7 +181,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
 
   // Sincronizar preset del studio en el web component si cambia
   useEffect(() => {
-    const el = studioAvatarRef.current as any;
+    const el = studioAvatarRef.current as EgoAvatarElement | null;
     if (!el) return;
     if (typeof el.applyStudioPreset === "function") {
       try {
@@ -160,7 +196,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
 
   // Sincronizar accesorio
   useEffect(() => {
-    const el = studioAvatarRef.current as any;
+    const el = studioAvatarRef.current as EgoAvatarElement | null;
     if (!el) return;
     const host = el._studio?.();
     if (host && typeof host.setParam === "function") {
@@ -170,7 +206,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
 
   // Sincronizar redondez de cabeza (squircleN)
   useEffect(() => {
-    const el = studioAvatarRef.current as any;
+    const el = studioAvatarRef.current as EgoAvatarElement | null;
     if (!el) return;
     const host = el._studio?.();
     if (host && typeof host.setParam === "function") {
@@ -258,26 +294,43 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
   };
 
   return (
-    <div className="flex flex-col bg-panel border border-hairline rounded-2xl p-5 shadow-lg max-w-2xl w-full text-xs select-none">
+    // D3: el radio de la tarjeta de Identidad era `rounded-2xl` (16 px),
+    // un valor fuera de la escala del sistema. Ahora usa el radio canónico
+    // `rounded-[var(--radius-card)]` (8 px), igual que el resto de la app.
+    // `@container`: el reparto preview | controles lo decide el ancho REAL
+    // de la tarjeta, no el del viewport. Con `md:grid-cols-3` (breakpoint de
+    // viewport) el panel de la vista de avatares —que vive en la columna
+    // estrecha del workspace— repartía 477 px en 3 columnas de 132 px, y
+    // el marco del avatar (176 px) SE SOBRESALÍA sobre los controles.
+    <div className="@container flex w-full max-w-2xl flex-col select-none rounded-[var(--radius-card)] border border-hairline bg-panel p-5 text-xs shadow-[var(--ego-elevation-l2)]">
       {/* Cabecera */}
-      <div className="flex items-center justify-between pb-3 border-b border-hairline mb-4">
-        <div className="flex items-center gap-2">
-          <Sparkle size={16} className="text-amber-400" />
-          <h3 className="font-semibold text-sm text-ink">
+      <div className="mb-4 flex items-center justify-between border-b border-hairline pb-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Sparkle size={16} className="shrink-0 text-warning" />
+          <h3 className="text-sm font-semibold text-ink">
             Personalización de Identidad & Rasgos Morfológicos
           </h3>
         </div>
-        <span className="font-mono text-[11px] text-faint">{subEgoId}</span>
+        <span className="shrink-0 font-mono text-xs text-faint">{subEgoId}</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* Dos columnas (preview | controles) sólo cuando la tarjeta da de sí.
+          El mínimo de 220 px de la primera columna es lo que garantiza que
+          el marco del avatar (176 px + 32 px de padding) NO se invada la
+          columna de controles. Por debajo, se apilan. */}
+      <div className="grid grid-cols-1 gap-5 @[560px]:grid-cols-[minmax(220px,1fr)_2fr]">
         {/* Panel izquierdo: Preview viva del Avatar en grande (size=140) con Robot Studio 2.5D */}
-        <div className="flex flex-col items-center justify-between p-4 bg-paper rounded-xl border border-hairline">
-          <div className="flex flex-col items-center justify-center w-full">
+        <div className="flex flex-col items-center justify-between rounded-[var(--radius-card)] border border-hairline bg-paper p-4">
+          <div className="flex w-full flex-col items-center justify-center">
             <div
-              className="w-44 h-44 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-2xl flex items-center justify-center overflow-hidden cursor-pointer p-2 mb-2"
+              // El escenario del avatar usa la superficie más profunda del
+              // sistema (`bg-paper`): el hex anterior (#0d0f17) era un valor
+              // congelado que no acompañaba al cambio de paleta.
+              // D3: el marco de 176×176 tenía `rounded-3xl` (24 px), fuera de
+              // escala: ahora radio canónico de 8 px.
+              className="mb-2 flex h-44 w-44 cursor-pointer items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-hairline bg-paper p-2 shadow-[var(--ego-elevation-l3)]"
               onClick={() => {
-                const el = studioAvatarRef.current as any;
+                const el = studioAvatarRef.current as EgoAvatarElement | null;
                 if (el && typeof el.play === "function") {
                   void el.play("happy").catch(() => {});
                 }
@@ -297,13 +350,13 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
                 style: { width: "140px", height: "140px", display: "block" },
               })}
             </div>
-            <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 font-semibold">
+            <span className="flex items-center gap-1 font-mono text-xs font-semibold text-brand">
               <Sparkle size={12} weight="bold" /> Robot Studio 2.5D
             </span>
-            <span className="font-semibold text-ink text-center text-xs mt-1">
+            <span className="mt-1 text-center text-xs font-semibold text-ink">
               {currentConfig.name}
             </span>
-            <span className="text-[10px] text-faint mt-0.5 font-mono text-center">
+            <span className="mt-0.5 text-center font-mono text-xs text-faint">
               {currentConfig.baseForm === "delta-core"
                 ? "Delta Core (Triángulo C₃)"
                 : "Robot Studio CX (Squircle / Superelipse)"}
@@ -311,118 +364,99 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
           </div>
 
           {/* Selector de prueba de estados en vivo */}
-          <div className="mt-4 w-full pt-3 border-t border-hairline">
-            <span className="block text-[10px] font-semibold text-dim mb-1.5 text-center">
+          <div className="mt-4 w-full border-t border-hairline pt-3">
+            <span className="mb-1.5 block text-center text-xs font-semibold text-dim">
               Probar Animación de Estado
             </span>
             <div className="flex flex-wrap justify-center gap-1">
-              {TEST_STATES.map((st) => (
-                <button
-                  key={st.id}
-                  type="button"
-                  onClick={() => {
-                    setPreviewState(st.id);
-                    const el = studioAvatarRef.current as any;
-                    if (st.id === "happy" && el && typeof el.play === "function") {
-                      void el.play("happy").catch(() => {});
-                    }
-                  }}
-                  className={`px-1.5 py-0.5 rounded text-[9px] border transition-colors flex items-center gap-1 ${
-                    previewState === st.id
-                      ? "bg-ink text-paper border-ink font-semibold"
-                      : "border-hairline text-dim hover:text-ink hover:bg-raised"
-                  }`}
-                  title={`Estado ${st.label}`}
-                >
-                  <span>{st.emoji}</span>
-                  <span>{st.label}</span>
-                </button>
-              ))}
+              {TEST_STATES.map((st) => {
+                const StateIcon = st.icon;
+                const isSelected = previewState === st.id;
+                return (
+                  <Button
+                    key={st.id}
+                    type="button"
+                    size="sm"
+                    variant={isSelected ? "primary" : "secondary"}
+                    icon={<StateIcon size={12} />}
+                    onClick={() => {
+                      setPreviewState(st.id);
+                      const el = studioAvatarRef.current as EgoAvatarElement | null;
+                      if (st.id === "happy" && el && typeof el.play === "function") {
+                        void el.play("happy").catch(() => {});
+                      }
+                    }}
+                    aria-pressed={isSelected}
+                    title={`Estado ${st.label}`}
+                    className={`rounded-md ${isSelected ? "" : "border-hairline text-dim hover:text-ink"}`}
+                  >
+                    {st.label}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Panel derecho: Controles de Personalización */}
-        <div className="md:col-span-2 space-y-4 max-h-[460px] overflow-y-auto pr-1">
+        <div className="max-h-[460px] space-y-4 overflow-y-auto pr-1">
           {/* 1. Geometría de Silueta */}
           <div>
-            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+            <label className="mb-1.5 block text-xs font-semibold text-dim">
               Geometría Base del Núcleo
             </label>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleShapeSelect("delta-core")}
-                className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
-                  currentConfig.baseForm === "delta-core"
-                    ? "bg-raised border-ink text-ink font-semibold"
-                    : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
-                }`}
-              >
-                <span>🔺 Delta Core (Triangular)</span>
-                {currentConfig.baseForm === "delta-core" && <Check size={12} weight="bold" className="text-emerald-400" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleShapeSelect("coucou-mochi")}
-                className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
-                  currentConfig.baseForm === "coucou-mochi"
-                    ? "bg-raised border-ink text-ink font-semibold"
-                    : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
-                }`}
-              >
-                <span>🤖 Robot Studio CX (Squircle / Superelipse)</span>
-                {currentConfig.baseForm === "coucou-mochi" && <Check size={12} weight="bold" className="text-emerald-400" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleShapeSelect("fractal-polyhedron")}
-                className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
-                  currentConfig.baseForm === "fractal-polyhedron"
-                    ? "bg-raised border-ink text-ink font-semibold"
-                    : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
-                }`}
-              >
-                <span>🔷 Fractal Polyhedron (Hexagonal)</span>
-                {currentConfig.baseForm === "fractal-polyhedron" && <Check size={12} weight="bold" className="text-emerald-400" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleShapeSelect("quantum-monolith")}
-                className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] border transition-colors ${
-                  currentConfig.baseForm === "quantum-monolith"
-                    ? "bg-raised border-ink text-ink font-semibold"
-                    : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
-                }`}
-              >
-                <span>⚡ Quantum Monolith</span>
-                {currentConfig.baseForm === "quantum-monolith" && <Check size={12} weight="bold" className="text-emerald-400" />}
-              </button>
+            <div className="grid grid-cols-1 gap-1.5 @[380px]:grid-cols-2">
+              {BASE_FORM_OPTIONS.map((opt) => {
+                const FormIcon = opt.icon;
+                const isSelected = currentConfig.baseForm === opt.id;
+                return (
+                  <Button
+                    key={opt.id}
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleShapeSelect(opt.id)}
+                    aria-pressed={isSelected}
+                    // `h-auto` + `whitespace-normal`: las etiquetas largas
+                    // ("Robot Studio CX (Squircle / Superelipse)") se parten
+                    // por PALABRA en dos líneas; el `h-7` fijo del kit las
+                    // recortaba a media palabra.
+                    className={`h-auto w-full rounded-md whitespace-normal text-left ${
+                      isSelected ? "border-ink font-semibold" : "border-hairline text-dim hover:text-ink"
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5 text-left">
+                      <FormIcon size={13} className="shrink-0" />
+                      <span className="min-w-0">{opt.label}</span>
+                    </span>
+                    {isSelected && <Check size={12} weight="bold" className="shrink-0 text-success" />}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
           {/* 2. Preset Robot Studio */}
           <div>
-            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+            <label className="mb-1.5 block text-xs font-semibold text-dim">
               Preset Robot Studio (Ego Native)
             </label>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-1 gap-1.5 @[380px]:grid-cols-2">
               {STUDIO_PRESETS_OPTIONS.map((p) => {
                 const isSelected = (currentConfig.studioPreset ?? "cx-faithful") === p.id;
                 return (
-                  <button
+                  <Button
                     key={p.id}
                     type="button"
+                    size="sm"
+                    variant="secondary"
                     onClick={() => handleStudioPresetSelect(p.id)}
-                    className={`flex items-center justify-between px-2 py-1.5 rounded text-[10px] border transition-colors ${
-                      isSelected
-                        ? "bg-raised border-ink text-ink font-semibold"
-                        : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
-                    }`}
+                    aria-pressed={isSelected}
+                    className={`rounded-md ${isSelected ? "border-ink font-semibold" : "border-hairline text-dim hover:text-ink"}`}
                   >
-                    <span>{p.label}</span>
-                    {isSelected && <Check size={12} weight="bold" className="text-cyan-400" />}
-                  </button>
+                    <span className="min-w-0 truncate">{p.label}</span>
+                    {isSelected && <Check size={12} weight="bold" className="shrink-0 text-brand" />}
+                  </Button>
                 );
               })}
             </div>
@@ -430,26 +464,26 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
 
           {/* 3. Accesorio de Cabecera */}
           <div>
-            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+            <label className="mb-1.5 block text-xs font-semibold text-dim">
               Accesorio de Cabecera
             </label>
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-2 gap-1 @[380px]:grid-cols-4">
               {ACCESSORY_OPTIONS.map((acc) => {
                 const isSelected = (currentConfig.accessory ?? "none") === acc.id;
                 return (
-                  <button
+                  <Button
                     key={acc.id}
                     type="button"
+                    size="sm"
+                    variant="secondary"
                     onClick={() => handleAccessorySelect(acc.id)}
-                    className={`px-1.5 py-1 rounded text-[10px] border transition-colors truncate ${
-                      isSelected
-                        ? "bg-raised border-ink text-ink font-semibold"
-                        : "border-hairline text-dim hover:text-ink"
-                    }`}
+                    aria-pressed={isSelected}
                     title={acc.label}
+                    truncate
+                    className={`rounded-md ${isSelected ? "border-ink font-semibold" : "border-hairline text-dim hover:text-ink"}`}
                   >
                     {acc.label}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -457,11 +491,11 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
 
           {/* 4. Redondez de Cabeza (Roundness) */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-dim">
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs font-semibold text-dim">
                 Redondez de Cabeza (Roundness)
               </label>
-              <span className="font-mono text-[10px] text-ink font-medium">
+              <span className="font-mono text-xs font-medium text-ink">
                 {currentConfig.roundness ?? 50}%
               </span>
             </div>
@@ -471,32 +505,32 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
               max={100}
               value={currentConfig.roundness ?? 50}
               onChange={(e) => handleRoundnessChange(Number(e.target.value))}
-              className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-raised rounded-lg appearance-none"
+              aria-label="Redondez de cabeza"
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-[var(--radius-card)] bg-raised accent-brand"
             />
           </div>
 
           {/* 5. Rasgos Anatómicos y Sensores */}
           <div>
-            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+            <label className="mb-1.5 block text-xs font-semibold text-dim">
               Rasgos Anatómicos & Sensores ({currentConfig.traits.length} activos)
             </label>
-            <div className="grid grid-cols-2 gap-1.5 max-h-28 overflow-y-auto pr-1">
+            <div className="grid max-h-28 grid-cols-1 gap-1.5 overflow-y-auto pr-1 @[380px]:grid-cols-2">
               {availableTraits.map((trait: CharacterTrait) => {
                 const isSelected = currentConfig.traits.includes(trait.id);
                 return (
-                  <button
+                  <Button
                     key={trait.id}
                     type="button"
+                    size="sm"
+                    variant="secondary"
                     onClick={() => handleTraitToggle(trait.id)}
-                    className={`flex items-center justify-between px-2 py-1.5 rounded text-[10px] border transition-colors ${
-                      isSelected
-                        ? "bg-raised border-ink text-ink font-semibold"
-                        : "border-hairline text-dim hover:text-ink hover:bg-raised/40"
-                    }`}
+                    aria-pressed={isSelected}
+                    className={`rounded-md ${isSelected ? "border-ink font-semibold" : "border-hairline text-dim hover:text-ink"}`}
                   >
-                    <span className="truncate">{trait.name}</span>
-                    {isSelected && <Check size={12} weight="bold" className="text-cyan-400" />}
-                  </button>
+                    <span className="min-w-0 truncate">{trait.name}</span>
+                    {isSelected && <Check size={12} weight="bold" className="shrink-0 text-brand" />}
+                  </Button>
                 );
               })}
             </div>
@@ -504,33 +538,38 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
 
           {/* 6. Paletas de Color */}
           <div>
-            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+            <label className="mb-1.5 block text-xs font-semibold text-dim">
               Gradiente Energético Corporal
             </label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 @[380px]:grid-cols-3">
               {COLOR_PALETTES.map((pal) => {
                 const isSelected =
                   currentConfig.bodyColors[0] === pal.colors[0] &&
                   currentConfig.bodyColors[1] === pal.colors[1];
                 return (
-                  <button
+                  <Button
                     key={pal.name}
                     type="button"
+                    size="sm"
+                    variant="secondary"
                     onClick={() => handlePaletteSelect(pal.colors)}
-                    className={`flex items-center gap-2 p-1.5 rounded border text-[10px] transition-colors ${
-                      isSelected
-                        ? "border-ink bg-raised text-ink font-medium"
-                        : "border-hairline text-dim hover:text-ink hover:bg-raised/30"
-                    }`}
+                    aria-pressed={isSelected}
+                    className={`rounded-md ${isSelected ? "border-ink font-semibold" : "border-hairline text-dim hover:text-ink"}`}
                   >
-                    <div
-                      className="h-3.5 w-3.5 rounded-full shrink-0 border border-hairline"
-                      style={{
-                        background: `linear-gradient(to bottom, ${pal.colors[0]}, ${pal.colors[1]})`,
-                      }}
-                    />
-                    <span className="truncate">{pal.name}</span>
-                  </button>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-hairline"
+                        // El degradado reproduce la paleta REAL del avatar (dato
+                        // del personaje, ver EGO-DL-003): no es un color de UI, así
+                        // que no tiene token — el valor llega en runtime.
+                        // design-lint: allow
+                        style={{
+                          background: `linear-gradient(to bottom, ${pal.colors[0]}, ${pal.colors[1]})`,
+                        }}
+                      />
+                      <span className="min-w-0 truncate">{pal.name}</span>
+                    </span>
+                  </Button>
                 );
               })}
             </div>
@@ -538,25 +577,24 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
 
           {/* 7. Forma de Ojos */}
           <div>
-            <label className="block text-[11px] font-semibold text-dim mb-1.5">
+            <label className="mb-1.5 block text-xs font-semibold text-dim">
               Expresión Ocular
             </label>
             <div className="flex flex-wrap gap-1">
               {EYE_SHAPES.map((shape) => {
                 const isSelected = currentConfig.eyeShape === shape.id;
                 return (
-                  <button
+                  <Button
                     key={shape.id}
                     type="button"
+                    size="sm"
+                    variant="secondary"
                     onClick={() => handleEyeShapeSelect(shape.id)}
-                    className={`px-2 py-1 rounded text-[10px] border transition-colors ${
-                      isSelected
-                        ? "bg-raised border-ink text-ink font-semibold"
-                        : "border-hairline text-dim hover:text-ink"
-                    }`}
+                    aria-pressed={isSelected}
+                    className={`rounded-md ${isSelected ? "border-ink font-semibold" : "border-hairline text-dim hover:text-ink"}`}
                   >
                     {shape.label}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -565,34 +603,40 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       </div>
 
       {/* Barra de Acciones */}
-      <div className="flex items-center justify-between pt-4 border-t border-hairline mt-4">
-        <button
+      <div className="mt-4 flex items-center justify-between border-t border-hairline pt-4">
+        <Button
           type="button"
+          size="md"
+          variant="secondary"
+          icon={<ArrowClockwise size={13} />}
           onClick={handleReset}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-raised text-dim hover:text-ink border border-hairline transition-colors"
+          className="whitespace-nowrap"
         >
-          <ArrowClockwise size={13} />
-          <span>Restaurar Predeterminado</span>
-        </button>
+          Restaurar Predeterminado
+        </Button>
 
         <div className="flex items-center gap-2">
           {onClose && (
-            <button
+            <Button
               type="button"
+              size="md"
+              variant="secondary"
               onClick={onClose}
-              className="px-3 py-1.5 rounded border border-hairline text-dim hover:text-ink transition-colors"
+              className="whitespace-nowrap"
             >
               Cancelar
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             type="button"
+            size="md"
+            variant="primary"
+            icon={<FloppyDisk size={14} weight="bold" />}
             onClick={handleSave}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded bg-ink text-paper font-semibold hover:opacity-90 transition-opacity"
+            className="whitespace-nowrap"
           >
-            <FloppyDisk size={14} weight="bold" />
-            <span>{savedSuccess ? "¡Guardado!" : "Guardar Personalización"}</span>
-          </button>
+            {savedSuccess ? "¡Guardado!" : "Guardar Personalización"}
+          </Button>
         </div>
       </div>
     </div>

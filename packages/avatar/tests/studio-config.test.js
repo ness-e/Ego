@@ -77,17 +77,21 @@ test('STUDIO_PRESETS: valores distintivos de cada variante', () => {
   assert.ok(Object.isFrozen(STUDIO_PRESETS), 'congelado');
 });
 
-test('STUDIO_STATES: los 22 estados del dock (html:190-257)', () => {
+test('STUDIO_STATES: los 26 estados del dock', () => {
+    // 22 heredados del studio original + los 4 anadidos por Ego (Ola 2) para
+    // que el round-trip Ego -> studio -> Ego sea 1:1.
   const names = STUDIO_STATES.map((s) => s.name);
-  assert.equal(names.length, 22);
+  assert.equal(names.length, 26);
   for (const n of [
     'idle', 'talk', 'bored', 'waiting', 'input', 'send', 'success', 'failure',
     'warning', 'inspect', 'blocked', 'error', 'surprise', 'sleep', 'wake',
     'wave', 'poke', 'dizzy', 'spin', 'box', 'listen', 'love',
+
+    'thinking', 'approval', 'question', 'ratelimit',
   ]) {
     assert.ok(names.includes(n), `falta estado '${n}'`);
   }
-  assert.equal(new Set(names).size, 22);
+  assert.equal(new Set(names).size, 26);
   // Etiquetas visibles literales del dock.
   const byName = Object.fromEntries(STUDIO_STATES.map((s) => [s.name, s.label]));
   assert.equal(byName.wave, 'coucou');

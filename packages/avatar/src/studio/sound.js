@@ -27,6 +27,10 @@ export const STUDIO_SOUND_NAMES = Object.freeze([
   'love',
   'talk',
   'dizzy',
+  'thinking',
+  'approval',
+  'question',
+  'ratelimit',
   'default',
 ]);
 
@@ -118,6 +122,21 @@ export class SoundSynthesizer {
         case 'warning':
           this.tone(660, 660, 0.09, t, 'sine', 0.11);
           this.tone(520, 520, 0.12, t + 0.11, 'sine', 0.11);
+          break;
+        case 'thinking':
+          this.tone(500, 560, 0.07, t, 'sine', 0.08);
+          this.tone(560, 620, 0.07, t + 0.1, 'sine', 0.08);
+          break;
+        case 'approval':
+          this.tone(720, 720, 0.07, t, 'triangle', 0.1);
+          this.tone(720, 720, 0.07, t + 0.13, 'triangle', 0.1);
+          break;
+        case 'question':
+          this.tone(600, 880, 0.13, t, 'sine', 0.11);
+          break;
+        case 'ratelimit':
+          this.tone(340, 300, 0.16, t, 'sine', 0.09);
+          this.tone(300, 260, 0.16, t + 0.14, 'sine', 0.08);
           break;
         case 'surprise':
           this.tone(420, 980, 0.12, t, 'sine', 0.14);

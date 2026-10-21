@@ -61,6 +61,11 @@ const VARIANTS = [
   { preset: 'ego-nucleus', state: 'success' },
   { preset: 'ego-nucleus', state: 'error' },
   { preset: 'ego-cyber', state: 'waiting' },
+  // Estados de studio con dueño propio de Ego (Ola 2, round-trip 1:1).
+  { preset: 'ego-nucleus', state: 'thinking' },
+  { preset: 'ego-nucleus', state: 'approval' },
+  { preset: 'ego-nucleus', state: 'question' },
+  { preset: 'ego-nucleus', state: 'ratelimit' },
 ];
 
 function parseArgs(argv) {
@@ -88,22 +93,28 @@ function sha256(path) {
 const MIN_PNG_BYTES = 8 * 1024;
 
 function shoot(url, dest) {
-  const res = spawnSync(
-    'python',
-    [CAPTURE_SCRIPT, url, dest, '--timeout', '20000', '--width', '520', '--height', '520'],
-    { encoding: 'utf8' },
-  );
-  if (res.status !== 0 || !existsSync(dest)) {
-    throw new Error(`captura fallida para ${url}\n${res.stdout || ''}${res.stderr || ''}`);
-  }
-  const bytes = statSync(dest).size;
-  if (bytes < MIN_PNG_BYTES) {
-    throw new Error(
-      `captura VACIA para ${url}: ${bytes} bytes (< ${MIN_PNG_BYTES}). ` +
-      'El avatar no se renderizo a tiempo; la captura no es valida.',
+  // El arranque del navegador y la carga del motor pueden tardar bajo carga
+  // (12 variantes, un launch por variante): se reintenta una vez antes de
+  // rendirse, para que un flak de infraestructura no se confunda con una
+  // regresión visual.
+  let last = null;
+  for (const attempt of [1, 2]) {
+    const res = spawnSync(
+      'python',
+      [CAPTURE_SCRIPT, url, dest, '--timeout', '45000', '--width', '520', '--height', '520'],
+      { encoding: 'utf8' },
     );
+    if (res.status === 0 && existsSync(dest)) {
+      const bytes = statSync(dest).size;
+      if (bytes >= MIN_PNG_BYTES) return dest;
+      last = `captura VACIA para ${url}: ${bytes} bytes (< ${MIN_PNG_BYTES}). ` +
+        'El avatar no se renderizo a tiempo; la captura no es valida.';
+    } else {
+      last = `captura fallida para ${url}\n${res.stdout || ''}${res.stderr || ''}`;
+    }
+    if (attempt === 1) console.log(`  reintento tras: ${String(last).split('\n')[0]}`);
   }
-  return dest;
+  throw new Error(last);
 }
 
 /** Compara dos capturas con tolerancia de pixel. */

@@ -10,8 +10,8 @@ Un solo elemento, dos motores de render:
 
 - **SVG** (defecto): organismo generativo por semilla — cabeza paramétrica de
   160 puntos, redondeo 0–100, ojos con párpados por poses numéricas, genoma
-  propio (tinta, marca, apéndice, aura), 14 estados y 11 emotes.
-- **Studio** (canvas, `mode="studio"`): 22 estados, 9 estilos de ojo, 5 bocas
+  propio (tinta, marca, apéndice, aura), 15 estados y 11 emotes.
+- **Studio** (canvas, `mode="studio"`): 26 estados, 9 estilos de ojo, 5 bocas
   con lip-sync, 16 accesorios, manos articuladas de 5 dedos, visor, partículas
   y habla (burbuja + sonido).
 
@@ -103,15 +103,44 @@ seed ──xmur3──► mulberry32 ──► ① GENOMA (inmutable)
 
 `idle · thinking · working · searching · listening · waiting · success · finished · error · ratelimit · approval · question · dizzy · sleeping`
 
-Con tinte, pose, insignia (`•••` `•` `!` `?`), movimiento (breathe/bounce/sway/hop/shake/tilt/pulse/orbit),
+Con tinte, pose, insignia (`•••` `•` `!` `?` `⚠`), movimiento (breathe/bounce/sway/hop/shake/tilt/pulse/orbit),
 glow y *flags* de comportamiento propios: `scans` (barre la mirada), `dizzyGaze`
 (`sin(t·9)`), `zz` (partículas Z de sueño), `sweat` (gotas de sudor).
 Mapeo de hooks del runtime en `HOOK_STATE_MAP` (`UserPromptSubmit→thinking`,
 `Stop→finished` con auto-retorno a los 5.2 s, `StopFailure→error`,
 `PermissionRequest→approval`…) — ver `HOOK_AUTO_RETURN`.
 
-El vocabulario del **studio** es más amplio (22 estados) y se traduce con
+El estado `warning` (amarillo-caution, triángulo `⚠`, vaivén leve) es la
+**degradación tolerable**: algo falló pero el turno continúa. Se distingue de
+`error` (rojo, `!`, sacudida) y de `ratelimit` (naranja, `•`, sudor) en los
+cinco canales del motor. Ver `DESIGN.md` § 5-bis.
+
+El vocabulario del **studio** es más amplio (26 estados) y se traduce con
 `EGO_TO_STUDIO_STATE` / `STUDIO_TO_EGO_STATE` (`src/studio/adapter.js`).
+`warning` mapea 1:1 al estado `warning` del studio (cartel ámbar con `!`) y
+conserva su imagen de ida y de vuelta; `ratelimit` usa el estado `ratelimit` del
+studio (barras de regulador), de modo que cada imagen corresponde a un único
+estado de Ego.
+
+### El contrato del puente
+
+> Para todo estado de Ego, el round-trip `Ego → studio → Ego` **conserva la
+> identidad**: el avatar nunca muestra un estado distinto del que el chat
+> pidió.
+
+Lo sostiene que **cada estado de Ego tenga un estado de studio propio** (26 en
+el studio: los 22 heredados + `thinking`, `approval`, `question` y `ratelimit`,
+añadidos con su color, su imagen y su sonido). Los estados que nacen de una
+interacción en el canvas (poke, box, spin…) no son imagen de ningún estado de
+Ego y el mapa inverso los lleva al más próximo: para esos, la ida y la vuelta
+**no** son inversas y no se pretende que lo sean.
+
+Verificado por `tests/studio-roundtrip.test.js` y por la puerta
+`pnpm --filter @ego/avatar bridge:check`, que recorre **todos** los mapas que
+nombran estados del studio (estados, emotes y sonidos) y falla si alguno
+nombra un estado inexistente — el modo de fallo real de este puente, donde el
+motor cae a un `default` y el estado se pierde en silencio. La golden
+(`geometry:check`) traza también el overlay de cada estado.
 
 ## Genoma (identidad)
 
@@ -182,7 +211,7 @@ packages/avatar/
 | `playSound(name)` | reproduce una de las 28 recetas por nombre |
 | `playMicro(name)` | dispara una de las 21 micro-animaciones por nombre |
 | `toSVGString()` | snapshot SVG exportable (miniaturas/widgets; `''` en modo studio) |
-| `setMode(mode)` / `getMode()` | motor de render: `'svg'` (defecto) o `'studio'` (canvas: 22 estados, 9 ojos, 5 bocas, manos, visor) |
+| `setMode(mode)` / `getMode()` | motor de render: `'svg'` (defecto) o `'studio'` (canvas: 26 estados, 9 ojos, 5 bocas, manos, visor) |
 | `setStudioParam(k, v)` / `getStudioParam(k)` / `getStudioParams()` | parámetros visuales del motor studio |
 | `applyStudioPreset(name)` | aplica un preset visual del studio (`cx-faithful`, `ego-nucleus`, `ego-cyber`, `ego-sentinel`, `ego-architect`) |
 | `speak(text, seconds?)` | habla en modo studio (burbuja + boca + sonido) |
@@ -268,7 +297,7 @@ pnpm --filter @ego/avatar attribution:check   # exit 1 si alguna referencia qued
 | `pnpm --filter @ego/avatar typecheck` | `tsc -p tsconfig.json` (`allowJs` + `checkJs`), exit 0 real |
 | `pnpm --filter @ego/avatar build` | copia `src/` → `dist/` + `index.d.ts` y escribe `dist/build-manifest.json` (SHA-256 por fichero) |
 | `pnpm --filter @ego/avatar build:check` | verifica que `dist/` está al día |
-| `pnpm --filter @ego/avatar geometry:check` | **puerta geométrica**: compara la traza de operaciones de canvas contra la golden `tests/golden/geometry.json` (168 combinaciones: 28 estados × 6 módulos) |
+| `pnpm --filter @ego/avatar geometry:check` | **puerta geométrica**: compara la traza de operaciones de canvas contra la golden `tests/golden/geometry.json` (231 combinaciones: 33 estados × 7 módulos) |
 | `pnpm --filter @ego/avatar sync:check` | puerta de sincronización SHA-256 entre el paquete y la copia vendorizada (incluye el corpus de atribución) |
 | `pnpm --filter @ego/avatar attribution:check` | **puerta de atribución**: toda ruta citada en `LICENSE.md` y en las cabeceras de `src/` resuelve dentro del repo (exit 1 si alguna queda colgando) |
 | `pnpm --filter @ego/avatar capture:visuals` | capturas PNG del studio (registro visual) |
@@ -310,5 +339,5 @@ licencia del motor, en [`LICENSE`](LICENSE).
   sonido, ojos, boca+manos, avatar headless, adaptador, modo dual del elemento
   con passthrough de parámetros/presets/habla y estados crudos) — y demo
   verificada (0 errores).
-- **168 combinaciones geométricas** verificadas contra la golden.
+- **231 combinaciones geométricas** verificadas contra la golden.
 - **0 dependencias** (runtime y dev).

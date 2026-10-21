@@ -121,7 +121,21 @@ const COMBOS = [
   { label: 'idle', state: { state: 'idle' } },
   { label: 'success', state: { state: 'success' } },
   { label: 'error', state: { state: 'error', autoStateColors: true } },
+  // `warning` del studio: es la imagen 1:1 del nuevo estado `warning` de Ego
+  // (cartel ámbar con "!"). La geometria de este estado ya estaba cubierta
+  // por la golden antes de que existiera el estado de Ego.
   { label: 'warning', state: { state: 'warning' } },
+  // `ratelimit` de Ego: tras la decision D4/de Ola 2 su imagen en el studio es
+  // `bored` (el estado cansado), porque el cartel `warning` del studio queda
+  // reservado para el aviso de Ego. Esta es la geometria NUEVA que la golden
+  // tiene que fijar a partir de ahora.
+  { label: 'ratelimit', state: { state: 'bored' } },
+  // Estados de studio con dueño propio de Ego (Ola 2, round-trip 1:1). Cada
+  // uno tiene su propia imagen en render/overlays.js.
+  { label: 'studio-thinking', state: { state: 'thinking' } },
+  { label: 'studio-approval', state: { state: 'approval' } },
+  { label: 'studio-question', state: { state: 'question' } },
+  { label: 'studio-ratelimit', state: { state: 'ratelimit' } },
   { label: 'dizzy', state: { state: 'dizzy', eyeLookX: 0.2, eyeLookY: 0.1 } },
   { label: 'sleep', state: { state: 'sleep', eyeOffsetY: -2, eyeStyle: 'cx-led' } },
   { label: 'love', state: { state: 'love', mouthOpen: 0.4, pettingAmount: 0.5 } },
@@ -156,6 +170,11 @@ const CASES = [
   { name: 'mouth', mod: 'studio/render/mouth.js', fn: 'drawMouth', args: (ctx, S) => [ctx, S, 84, 77.28] },
   { name: 'accessory', mod: 'studio/render/accessories.js', fn: 'drawTopAccessory', args: (ctx, S) => [ctx, S, 84, 77.28, 0, 0] },
   { name: 'eyes', mod: 'studio/render/eyes.js', fn: 'drawEyes', args: (ctx, S) => [ctx, S, 84, 77.28] },
+  // El overlay es la IMAGEN de cada estado del studio: es lo que distingue
+  // visualmente a dos estados. Sin esta traza, la golden no comprobaría que
+  // un estado nuevo tiene su propia imagen (ni que dos estados no la
+  // comparten).
+  { name: 'overlays', mod: 'studio/render/overlays.js', fn: 'drawStateOverlays', args: (ctx, S) => [ctx, S, 84, 77.28] },
 ];
 
 async function traceOf(srcRoot, c, S) {

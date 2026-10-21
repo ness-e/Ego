@@ -65,6 +65,16 @@ export class StudioHost {
     this.pointerOn = true;
     this.soundOn = true;
     this.userScale = 1; // multiplicador sobre el auto-encuadre
+    /**
+     * Modo del rig de manos flotantes articuladas.
+     *
+     * Vive en el HOST (no solo en el backend) por el mismo motivo que
+     * `userScale`: `applyPreset` reinicia los parámetros paramétricos del
+     * motor y vacía `_pendingParams`, así que un valor solo pendiente se
+     * perdería al aplicar el preset. Guardándolo aquí, el host lo
+     * re-aplica al backend después de cada preset.
+     */
+    this.handsMode = 'auto';
     this._pendingPreset = null; // preset fijado antes de que cargue el motor
     this._pendingParams = {}; // params fijados antes de que cargue el motor
     this._dead = false;
@@ -118,6 +128,12 @@ export class StudioHost {
           }
         }
         this._pendingParams = {};
+        // Última palabra del host sobre el modo de manos (sobrevive al preset).
+        try {
+          backend.handsMode = this.handsMode;
+        } catch {
+          /* campo de solo lectura: se ignora */
+        }
         this._sizeBackend();
         // montaje silencioso: el estado ya lo tiene el elemento
         this.expect = studioStateForEgo(this.el.getState ? this.el.getState() : 'idle');
@@ -308,6 +324,11 @@ export class StudioHost {
       this._sizeBackend();
       return true;
     }
+    // El modo de manos se guarda en el host para sobrevivir a los presets
+    // (que vacían `_pendingParams` y reinician los parámetros del motor).
+    if (key === 'handsMode') {
+      this.handsMode = value;
+    }
     this._pendingParams[key] = value;
     if (this.backend) {
       try {
@@ -323,6 +344,7 @@ export class StudioHost {
   getParam(key) {
     if (!STUDIO_PARAM_KEYS.has(key)) return undefined;
     if (key === 'userScale') return this.userScale;
+    if (key === 'handsMode') return this.handsMode;
     if (key in this._pendingParams) return this._pendingParams[key];
     return this.backend ? this.backend[key] : undefined;
   }
@@ -351,6 +373,13 @@ export class StudioHost {
       this.backend.applyPreset(effectiveName);
     } catch {
       return false;
+    }
+    // El preset reinicia los parámetros paramétricos del motor (incluida la
+    // visibilidad de las manos): se re-aplica el modo que pidió el host.
+    try {
+      this.backend.handsMode = this.handsMode;
+    } catch {
+      /* campo de solo lectura: se ignora */
     }
     this.expect = 'idle';
     this._sizeBackend();

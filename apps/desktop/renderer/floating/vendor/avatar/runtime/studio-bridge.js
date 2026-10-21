@@ -100,6 +100,9 @@ export function mountStudio(el, styles) {
     host.userScale = prev.userScale;
     host.pointerOn = prev.pointerOn;
     host.soundOn = prev.soundOn;
+    // El modo de manos también se hereda (vive en el host, no en el
+    // backend: el preset lo reinicia).
+    host.handsMode = prev.handsMode;
     Object.assign(host._pendingParams, prev._pendingParams);
   }
   el._studioHost = host;

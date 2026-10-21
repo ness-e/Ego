@@ -64,6 +64,16 @@ export const POSES = Object.freeze({
   ...ARA_POSES,
   // thinking = idle con mirada forzada arriba-derecha (comportamiento propio)
   thinking: { ...ARA_POSES.idle, gaze: [0.45, -0.5] },
+  // warning = atención contenida: ojos estrechados con párpados bajos pero
+  // NEUTRALES. Sin inclinación (nada de enfado → no es `angry`/`flat`, que
+  // son de `error`) y sin decaimiento (nada de agotamiento → no es
+  // `sleepy`/`tired`, que es de `ratelimit`).
+  warn: {
+    w: 48, h: 52, rx: 24,
+    topY: -22, bottomY: 32,
+    topAL: 0, topAR: 0, bottomAL: 0, bottomAR: 0,
+    scale: 1,
+  },
   // aliases de Ego sobre números ARA (los estados nombran intenciones)
   wide: { ...ARA_POSES.surprise },
   flat: { ...ARA_POSES.angry },

@@ -199,9 +199,34 @@ function deepFreeze(obj) {
   return Object.freeze(obj);
 }
 
+/**
+ * Modo de las manos flotantes articuladas (rig de 5 dedos, `studio/rig/hands.js`).
+ *
+ * El motor del Robot Studio tiene el rig, pero `handsMode` SOLO era
+ * ajustable desde el propio Studio: el elemento `<ego-avatar>` no exponía
+ * ninguna vía para encenderlo, así que en la app las manos quedaban
+ * invisibles (modo `auto`: solo visibles durante los 10 s que dura el
+ * temporizador que dispara un emote o el hover de una mano).
+ *
+ * Se expone como atributo `hands` del elemento:
+ *   - `always` → siempre visibles.
+ *   - `auto`   → aparecen tras una interacción (comportamiento original).
+ *   - `hidden` → nunca.
+ * Ausente o con un valor desconocido → `auto` (comportamiento previo).
+ *
+ * @param {string|null|undefined} value
+ * @returns {'always'|'auto'|'hidden'}
+ */
+function normalizeHandsMode(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  if (v === 'always' || v === 'on' || v === 'true') return 'always';
+  if (v === 'hidden' || v === 'off' || v === 'false') return 'hidden';
+  return 'auto';
+}
+
 export class EgoAvatar extends ElementBase {
   static get observedAttributes() {
-    return ['seed', 'state', 'size', 'motion', 'auto-sleep', 'presence', 'pointer-follow', 'sound', 'mode', 'preset'];
+    return ['seed', 'state', 'size', 'motion', 'auto-sleep', 'presence', 'pointer-follow', 'sound', 'mode', 'preset', 'hands'];
   }
 
   constructor() {
@@ -256,6 +281,10 @@ export class EgoAvatar extends ElementBase {
     this._headFollow = createHeadFollow();
     this._headFollowEl = null; // grupo SVG .head-follow (null si el envoltorio falla)
     this._pointerFollow = cfg.pointerFollow;
+    // Modo de las manos flotantes articuladas (rig de 5 dedos). El atributo
+    // `hands` del elemento manda sobre este valor; por defecto se conserva
+    // el comportamiento del motor (`auto`: solo tras una interacción).
+    this._handsMode = normalizeHandsMode(this.getAttribute?.('hands'));
     this._hover = null; // {since, dwellFired} — dwell de 1900 ms → emote love
     this._slapTimes = [];
     this._dragging = null; // {startX, startY, moved} — arrastre "jelly"
@@ -509,6 +538,12 @@ export class EgoAvatar extends ElementBase {
     if (name === 'sound') {
       this._applySoundEnabled(newV === null ? true : newV !== 'false' && newV !== '0');
     }
+    // Manos flotantes articuladas: el atributo manda sobre el motor.
+    if (name === 'hands') {
+      this._handsMode = normalizeHandsMode(newV);
+      this._studioHost?.setParam('handsMode', this._handsMode);
+      return;
+    }
     if (name === 'mode') {
       this._renderMode = newV === 'studio' ? 'studio' : 'svg';
       if (this._mounted) {
@@ -598,6 +633,10 @@ export class EgoAvatar extends ElementBase {
       badgeDot: [...(q('.badge-dots')?.querySelectorAll('.badge-dot') ?? [])],
       badgeBang: q('.badge-bang'),
       badgeQuestion: q('.badge-question'),
+      badgeWarn: q('.badge-warn'),
+      badgeWarnFrame: q('.badge-warn-frame'),
+      badgeWarnBar: q('.badge-warn-bar'),
+      badgeWarnDot: q('.badge-warn-dot'),
       particles: q('.particles'),
       appendage: q('.appendage'),
     };
@@ -606,6 +645,12 @@ export class EgoAvatar extends ElementBase {
     if (this._n.badgeBg) this._n.badgeBg.setAttribute('fill', this._palette.accent);
     for (const d of this._n.badgeDot) d.setAttribute('fill', this._palette.white);
     for (const t of [this._n.badgeBang, this._n.badgeQuestion]) t?.setAttribute('fill', this._palette.white);
+    // El aviso (warning) se pinta en claro sobre el círculo de acento, igual que
+    // la "!" de error: mismo lenguaje, distinto signo.
+    for (const t of [this._n.badgeWarnFrame, this._n.badgeWarnBar]) {
+      t?.setAttribute('stroke', this._palette.white);
+    }
+    this._n.badgeWarnDot?.setAttribute('fill', this._palette.white);
     if (this._n.appendage) this._n.appendage.style.color = this._palette.accent;
     this._mounted = true;
     // listeners deduplicados (evita duplicados al re-montar por setSeed)
@@ -655,7 +700,12 @@ export class EgoAvatar extends ElementBase {
    * el elemento solo conserva actividad (auto-sleep) y visibilidad.
    */
   _mountStudio() {
-    return mountStudio(this, STYLES);
+    const res = mountStudio(this, STYLES);
+    // El atributo `hands` puede fijarse ANTES de que exista el backend
+    // canvas (el elemento se construye con los atributos ya puestos): se
+    // re-aplica al montar para que el motor nace con el modo correcto.
+    this._studioHost?.setParam('handsMode', this._handsMode);
+    return res;
   }
 
   /* ─── loop ──────────────────────────────────────────────────── */
@@ -1323,7 +1373,7 @@ export class EgoAvatar extends ElementBase {
     }
   }
 
-  /** Escribe el contenido de la insignia: 'dots' · 'dot' · 'bang' · 'question'. */
+  /** Escribe el contenido de la insignia: 'dots' · 'dot' · 'bang' · 'question' · 'warn'. */
   _applyBadgeContent(target) {
     this._n.badgeDots?.setAttribute('visibility', target === 'dots' || target === 'dot' ? 'visible' : 'hidden');
     this._n.badgeDot?.forEach((d, i) => {
@@ -1331,6 +1381,7 @@ export class EgoAvatar extends ElementBase {
     });
     this._n.badgeBang?.setAttribute('visibility', target === 'bang' ? 'visible' : 'hidden');
     this._n.badgeQuestion?.setAttribute('visibility', target === 'question' ? 'visible' : 'hidden');
+    this._n.badgeWarn?.setAttribute('visibility', target === 'warn' ? 'visible' : 'hidden');
   }
 
   /** Escala efectiva de la insignia: el timeline manda mientras hay un pop. */

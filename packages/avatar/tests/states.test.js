@@ -13,9 +13,10 @@ test('todo estado tiene las claves requeridas y pose válida', () => {
     if (cfg.tint) assert.match(cfg.tint, /^hsl\(/);
     assert.ok(cfg.tintStrength >= 0 && cfg.tintStrength <= 1);
     assert.ok(cfg.glow >= 0 && cfg.glow <= 1);
-    if (cfg.badge) assert.ok(['dots', 'dot', 'bang', 'question'].includes(cfg.badge));
+    if (cfg.badge) assert.ok(['dots', 'dot', 'bang', 'question', 'warn'].includes(cfg.badge));
   }
-  assert.ok(STATE_NAMES.length >= 14, 'mínimo14 estados (10 originales + searching/finished/ratelimit/dizzy de coucou)');
+  assert.ok(STATE_NAMES.length >= 15, 'mínimo 15 estados (10 originales + searching/finished/ratelimit/dizzy de coucou + warning de Ego)');
+  assert.ok(STATE_NAMES.includes('warning'), 'el estado `warning` (degradación tolerable) debe existir');
 });
 
 test('todo emote referencia una pose válida', () => {

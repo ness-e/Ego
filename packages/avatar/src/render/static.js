@@ -61,18 +61,22 @@ export function staticSVG(seed, opts = {}) {
   // glow
   const glow = (genome.aura * cfg.glow).toFixed(3);
   svg = svg.replace(/class="aura"/, `class="aura" opacity="${glow}"`);
-  // insignia: dots (3) · dot (1) · bang · question — visibilidad explícita
+  // insignia: dots (3) · dot (1) · bang · question · warn — visibilidad explícita
   if (cfg.badge) {
     svg = svg.replace('scale(0)', 'scale(1)');
     const setVis = (cls, vis) => {
       svg = svg.replace(
-        new RegExp(`class="${cls}"( visibility="(hidden|visible)")?`),
+        // El lookbehind `(?![-\w])` evita que `badge-warn` coincida con
+        // `badge-warn-frame` (prefijo compartido): sin el, el replace
+        // corromperia el class de los hijos.
+        new RegExp(`class="${cls}"(?![-\\w])( visibility="(hidden|visible)")?`),
         `class="${cls}" visibility="${vis}"`
       );
     };
     setVis('badge-dots', cfg.badge === 'dots' || cfg.badge === 'dot' ? 'visible' : 'hidden');
     setVis('badge-bang', cfg.badge === 'bang' ? 'visible' : 'hidden');
     setVis('badge-question', cfg.badge === 'question' ? 'visible' : 'hidden');
+    setVis('badge-warn', cfg.badge === 'warn' ? 'visible' : 'hidden');
     if (cfg.badge === 'dot') {
       // solo el primer punto visible
       let seen = 0;

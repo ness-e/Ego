@@ -13,22 +13,42 @@ const STUDIO_SOUND_NAMES = new Set(STUDIO_SOUNDS);
 const EGO_MICRO_NAMES = new Set(EGO_MICROS);
 
 /**
- * Estado de Ego (14) → estado del studio (22). Criterio: equivalencia de
+ * Estado de Ego (15) → estado del studio (26). Criterio: equivalencia de
  * affordance (qué le comunica al usuario), no igualdad de nombre.
+ *
+ * CONTRATO: el round-trip `Ego → studio → Ego` conserva la identidad. Cada
+ * estado de Ego tiene un estado de studio PROPIO, con su color y su imagen,
+ * para que el avatar nunca pueda mostrar un estado distinto del que el chat
+ * pidió. Ninguna imagen de studio la comparten dos estados de Ego.
+ *
+ * Lo que el contrato NO cubre: los 11 estados de studio que NO son imagen de
+ * ningún estado de Ego (los que nacen de una interacción en el canvas: talk,
+ * bored, send, failure, blocked, surprise, wave, poke, spin, box, love). Esos
+ * sólo existen en el canvas y el mapa inverso los lleva al de Ego más próximo;
+ * para ellos la ida y la vuelta no son inversas, y no se pretende que lo sean.
+ *
+ * Verificable: `pnpm --filter @ego/avatar bridge:check` (comprueba TODOS los
+ * mapas que nombran estados de studio, no solo este) y
+ * `tests/studio-roundtrip.test.js`.
  */
 export const EGO_TO_STUDIO_STATE = Object.freeze({
   idle: 'idle',
-  thinking: 'waiting', // puntos de espera: "procesando"
+  thinking: 'thinking', // arco girando: procesando
   working: 'input', // tecleando: tool calls en curso
   searching: 'inspect', // lupa: búsqueda activa
   listening: 'listen', // sonar: escuchando al usuario
-  waiting: 'waiting',
+  waiting: 'waiting', // puntos de espera
   success: 'success',
   finished: 'wake', // despertar + estrellas al terminar
   error: 'error',
-  ratelimit: 'warning', // aviso ámbar antes de bloquear
-  approval: 'waiting', // espera atenta de decisión humana
-  question: 'inspect', // atención + lupa
+  // `warning` (Ego) = degradación tolerable → el estado `warning` del studio,
+  // que ya existe y es EXACTAMENTE su imagen: un cartel ámbar con "!".
+  warning: 'warning',
+  // `ratelimit` = el proveedor nos frena → su propio estado de studio (barras
+  // de regulador). Antes compartía imagen con `warning` y con `bored`.
+  ratelimit: 'ratelimit',
+  approval: 'approval', // anillos que laten: te toca a ti
+  question: 'question', // "?": te pregunto
   dizzy: 'dizzy',
   sleeping: 'sleep',
 });
@@ -116,9 +136,13 @@ export function applyGenomeToStudio(studio, genome, palette) {
 }
 
 /**
- * Studio (22) → Ego (14). Mejor esfuerzo para transiciones nacidas en el
+ * Studio (26) → Ego (15). Mejor esfuerzo para transiciones nacidas en el
  * canvas (poke/dizzy/box/spin por interacción directa): los flujos lanciados
  * por API conservan el vocabulario exacto de Ego sin pasar por aquí.
+ *
+ * Los estados de studio que son imagen de un estado de Ego devuelven
+ * **exactamente** ese estado: el round-trip es 1:1. Los que nacen en el canvas
+ * (sin equivalente en Ego) se re-mapean al más próximo.
  */
 export const STUDIO_TO_EGO_STATE = Object.freeze({
   idle: 'idle',
@@ -129,7 +153,7 @@ export const STUDIO_TO_EGO_STATE = Object.freeze({
   send: 'waiting',
   success: 'success',
   failure: 'error',
-  warning: 'ratelimit',
+  warning: 'warning',
   inspect: 'searching',
   blocked: 'error',
   error: 'error',
@@ -143,6 +167,11 @@ export const STUDIO_TO_EGO_STATE = Object.freeze({
   box: 'idle',
   listen: 'listening',
   love: 'idle',
+  // Estados con dueño propio de Ego (1:1).
+  thinking: 'thinking',
+  approval: 'approval',
+  question: 'question',
+  ratelimit: 'ratelimit',
 });
 
 /**
@@ -174,7 +203,7 @@ export const EGO_SOUND_TO_STUDIO_SOUND = Object.freeze({
   attach: 'input',
   think: 'waiting',
   search: 'inspect',
-  rate: 'warning',
+  rate: 'bored',
   sleep: 'bored',
   peek: 'surprise',
   open: 'wake',

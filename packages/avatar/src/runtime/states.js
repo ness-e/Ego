@@ -23,6 +23,17 @@ export const STATES = Object.freeze({
   success: { tint: 'hsl(152 65% 46%)', tintStrength: 0.5, pose: 'happy', badge: null, movement: 'bounce', glow: 0.65 },
   finished: { tint: 'hsl(160 81% 52%)', tintStrength: 0.4, pose: 'happy', badge: 'dot', movement: 'breathe', glow: 0.5 },
   error: { tint: 'hsl(352 85% 58%)', tintStrength: 0.6, pose: 'flat', badge: 'bang', movement: 'shake', glow: 0.65 },
+  /**
+   * `warning` = DEGRADACIÓN TOLERABLE: algo falló pero el turno continúa.
+   *
+   * No es `error` (fallo duro: rojo, enfado, sacudida) ni `ratelimit` (señal
+   * de vocabulario del proveedor: naranja, cansancio, sudor). Es un aviso
+   * atenuado: tono amarillo-caution fuera del cluster naranja (27/30/35),
+   * intensidad rebajada respecto al error, gesto contenido (un vaivén leve,
+   * no la sacudida del error) y una insignia propia (triángulo ⚠) en lugar
+   * de la "!" de error.
+   */
+  warning: { tint: 'hsl(48 92% 55%)', tintStrength: 0.4, pose: 'warn', badge: 'warn', movement: 'sway', glow: 0.4 },
   ratelimit: { tint: 'hsl(27 96% 59%)', tintStrength: 0.55, pose: 'tired', badge: 'dot', movement: 'breathe', glow: 0.45, sweat: true },
   approval: { tint: 'hsl(30 95% 56%)', tintStrength: 0.55, pose: 'wide', badge: 'bang', movement: 'hop', glow: 0.7 },
   question: { tint: 'hsl(180 75% 45%)', tintStrength: 0.5, pose: 'idle', badge: 'question', movement: 'tilt', glow: 0.6 },
@@ -68,6 +79,11 @@ export const STATE_SOUND = Object.freeze({
   working: 'work', thinking: 'think', searching: 'search', approval: 'approval',
   question: 'question', error: 'error', finished: 'finish', ratelimit: 'rate',
   sleeping: 'sleep', dizzy: 'dizzy',
+  // `warning`: el catálogo de 28 sonidos no tiene una receta de aviso, y no se
+  // inventa ninguna. Se usa 'tick' — el más breve y no alarmista del catálogo
+  // (es el mismo que usa la ACCIÓN `waiting`; el catálogo lo comparten
+  // estados y acciones, y ambos sonidos pueden convivir).
+  warning: 'tick',
 });
 
 /** Emote → sonido (solo emotes con `sound`). */
@@ -108,7 +124,7 @@ export const HOOK_AUTO_RETURN = Object.freeze({
 
 /** Prioridad de urgencia para un avatar que resume múltiples Sub-Egos (coucou §15). */
 const PRIORITY = [
-  'approval', 'question', 'error', 'ratelimit', 'dizzy', 'working', 'searching',
+  'approval', 'question', 'error', 'ratelimit', 'warning', 'dizzy', 'working', 'searching',
   'waiting', 'listening', 'success', 'finished', 'thinking', 'sleeping', 'idle',
 ];
 

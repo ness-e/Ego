@@ -442,6 +442,23 @@ export class HybridRobotAvatar {
         this.triggerSurfaceRipple(0, 0.7);
         this.say('⚠️ Atención: revisa los permisos o parámetros');
         break;
+      case 'thinking':
+        this.impulse(0.94, 1.06, 0, 0.06);
+        this.say('💭 Pensando…');
+        break;
+      case 'approval':
+        this.impulse(1.1, 0.92, 0, 0.14);
+        this.triggerSurfaceRipple(0, 0.6);
+        this.say('✋ Necesito tu aprobación para continuar');
+        break;
+      case 'question':
+        this.impulse(1.04, 0.98, 0, -0.1);
+        this.say('❓ Tengo una pregunta');
+        break;
+      case 'ratelimit':
+        this.impulse(0.96, 1.05, 0, 0.05);
+        this.say('⏳ El proveedor nos está limitando: espero');
+        break;
       case 'inspect':
         this.impulse(1.1, 0.92, -3, 0.08, 0);
         this.say('🧐 Inspeccionando código y trazas al detalle...');

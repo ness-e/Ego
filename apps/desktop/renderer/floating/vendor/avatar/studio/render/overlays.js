@@ -1,34 +1,12 @@
-// studio/render/overlays.js — port verbatim de avatar_studio_cx_artlab_mochi_2_0.html:2069-2096, 3208-3383.
+// studio/render/overlays.js — imagenes de estado del avatar studio.
 // Contrato: (ctx, S, …) — S es el estado del avatar (sin importar la clase).
+//
+// El acento por estado vive en `../config.js` (fuente única): aquí sólo se
+// reexporta para no romper los imports existentes.
 import { roundRectPath, hexToRgba } from './helpers.js';
-export function getStateAccentColor(S) {
-    if (!S.autoStateColors) return S.eyeColor;
-    switch (S.state) {
-        case 'error':
-        case 'blocked':
-        case 'poke':
-            return '#f43f5e';
-        case 'warning':
-            return '#f59e0b';
-        case 'waiting':
-        case 'input':
-        case 'inspect':
-        case 'listen':
-            return '#38bdf8';
-        case 'failure':
-        case 'bored':
-            return '#818cf8';
-        case 'love':
-            return '#fb7185';
-        case 'surprise':
-        case 'send':
-            return '#c084fc';
-        case 'sleep':
-            return '#94a3b8';
-        default:
-            return S.eyeColor;
-    }
-}
+import { getStateAccentColor } from '../config.js';
+export { getStateAccentColor };
+
 export function drawStateOverlays(ctx, S, rx, ry) {
     const shiftX = S.eyeLookX * 24;
     const shiftY = S.eyeLookY * 18;
@@ -190,6 +168,61 @@ export function drawStateOverlays(ctx, S, rx, ry) {
             ctx.moveTo(3, 10);
             ctx.quadraticCurveTo(3, 3, 10, 3);
             ctx.stroke();
+        }
+        ctx.restore();
+    } else if (S.state === 'thinking') {
+        // Procesando: un arco que gira. Va en la zona alta IZQUIERDA, libre de
+        // la antena (centro) y del cartel de aviso (arriba a la derecha).
+        ctx.save();
+        ctx.translate(-rx * 0.55, -ry * 0.78);
+        ctx.rotate(S.time * 2.2);
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 3.4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0.4, Math.PI * 1.5);
+        ctx.stroke();
+        ctx.restore();
+    } else if (S.state === 'approval') {
+        // Tu turno: anillos concentricos que laten RODEANDO el cuerpo, para que
+        // se lean fuera de la silueta. Distinto de 'listen' (arcos de sonar a
+        // los lados) y de 'dizzy' (estrellas en orbita).
+        ctx.save();
+        for (let i = 0; i < 2; i++) {
+            const t = (S.time * 0.9 + i * 0.5) % 1;
+            ctx.strokeStyle = hexToRgba(accent, 0.6 * (1 - t));
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, 58 + t * 38, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    } else if (S.state === 'question') {
+        // Te pregunto: "?" en un disco. Misma familia que el cartel de aviso
+        // pero con otro signo y otro color, para no confundirse con el.
+        ctx.save();
+        ctx.translate(rx - 6, -ry + 8);
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#090b10';
+        ctx.font = 'bold 20px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', 0, 1);
+        ctx.restore();
+    } else if (S.state === 'ratelimit') {
+        // El proveedor nos frena: barras que se acortan (regulador de caudal),
+        // ABAJO del cuerpo, donde no choca con la antena ni con el cartel.
+        // No comparte imagen con 'bored'/'failure' (gota de sudor).
+        ctx.save();
+        ctx.translate(0, ry * 0.58);
+        for (let i = 0; i < 3; i++) {
+            const w = 30 - i * 8;
+            ctx.fillStyle = hexToRgba(accent, 0.9 - i * 0.2);
+            roundRectPath(ctx, -w / 2, -12 + i * 9, w, 5, 2.5);
+            ctx.fill();
         }
         ctx.restore();
     } else if (S.state === 'failure' || S.state === 'bored') {

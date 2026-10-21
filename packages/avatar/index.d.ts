@@ -321,9 +321,23 @@ export interface ActionStateDetail {
 /** Motor de render del elemento. */
 export type RenderMode = 'svg' | 'studio';
 
+/**
+ * Modo de las manos flotantes articuladas (rig de 5 dedos).
+ *
+ * - `auto`   → las manos aparecen tras una interacción (emote, hover de una
+ *   mano). Es el comportamiento por defecto del motor.
+ * - `always` → siempre visibles.
+ * - `hidden` → nunca visibles.
+ *
+ * Se fija con el atributo `hands` del elemento: `<ego-avatar hands="always">`.
+ */
+export type HandsMode = 'auto' | 'always' | 'hidden';
+
 /** Custom element <ego-avatar>. */
 export class EgoAvatar extends HTMLElement {
   static observedAttributes: string[];
+  /** Modo de las manos flotantes articuladas (atributo `hands`). */
+  hands: HandsMode;
   setState(name: StateName, opts?: { immediate?: boolean; fromAction?: boolean }): this;
   play(action: EmoteName | ActionName | string, opts?: { source?: string; duration?: number }): Promise<this>;
   playMicro(name: MicroName | string): boolean;

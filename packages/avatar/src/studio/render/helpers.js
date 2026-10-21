@@ -126,32 +126,5 @@ export function buildSquirclePath(ctx, rx, ry, n) {
   ctx.closePath();
 }
 
-/** Color de acento según el estado (respeta S.autoStateColors / S.eyeColor). */
-export function getStateAccentColor(S) {
-  if (!S.autoStateColors) return S.eyeColor;
-  switch (S.state) {
-    case 'error':
-    case 'blocked':
-    case 'poke':
-      return '#f43f5e';
-    case 'warning':
-      return '#f59e0b';
-    case 'waiting':
-    case 'input':
-    case 'inspect':
-    case 'listen':
-      return '#38bdf8';
-    case 'failure':
-    case 'bored':
-      return '#818cf8';
-    case 'love':
-      return '#fb7185';
-    case 'surprise':
-    case 'send':
-      return '#c084fc';
-    case 'sleep':
-      return '#94a3b8';
-    default:
-      return S.eyeColor;
-  }
-}
+/** Color de acento según el estado (fuente única: ../config.js). */
+export { getStateAccentColor } from '../config.js';

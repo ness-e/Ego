@@ -275,7 +275,7 @@ adoptar el **rig visual completo del motor A**:
 
 Fuente: single-file HTML original de referencia (4812 líneas, con CDN de
 estilos + fuentes web). Clases `SoundSynthesizer` (síntesis por oscilador,
-tabla de ~21 sonidos) y `HybridRobotAvatar` (22 estados, física de springs sin
+tabla de ~25 sonidos) y `HybridRobotAvatar` (26 estados, física de springs sin
 distorsión ±3.5 %, hover/petting/poke/high-five/drag/wheel-spin/drop-box, manos
 de 5 dedos, visor, 9 ojos, 6 bocas con lip-sync, 16 accesorios, 2 presets
 fieles). Método: port por rangos a ESM (`render/*`, `rig/*`, `avatar.js`),

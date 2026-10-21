@@ -101,7 +101,7 @@ export function appendageLayer(genome) {
   return group({ class: 'appendage' }, parts);
 }
 
-/** Insignia superior-derecha (dots / bang / question) con entrada por escala. */
+/** Insignia superior-derecha (dots / bang / question / warn) con entrada por escala. */
 export function badgeLayer() {
   return group(
     { class: 'badge', transform: 'translate(198 66) scale(0)', 'data-badge': '' },
@@ -130,6 +130,28 @@ export function badgeLayer() {
         'font-weight': 800,
         visibility: 'hidden',
       }, '?'),
+      // Aviso (warning): triángulo ⚠ dibujado con trazos propios — no es el
+      // signo "!" de error ni el "?" de question. El triángulo va en contorno
+      // para que la barra y el punto se lean como un "!", no como un borrón.
+      group({ class: 'badge-warn', visibility: 'hidden' }, [
+        el('path', {
+          class: 'badge-warn-frame',
+          d: 'M0 -9.5 L9.5 7.5 L-9.5 7.5 Z',
+          fill: 'none',
+          stroke: '#0b0d12',
+          'stroke-width': '2.2',
+          'stroke-linejoin': 'round',
+        }),
+        el('path', {
+          class: 'badge-warn-bar',
+          d: 'M0 -3.4 L0 1.6',
+          fill: 'none',
+          stroke: '#0b0d12',
+          'stroke-width': '2.2',
+          'stroke-linecap': 'round',
+        }),
+        el('circle', { class: 'badge-warn-dot', cx: 0, cy: 4.6, r: 1.25, fill: '#0b0d12' }),
+      ]),
     ].join('')
   );
 }
