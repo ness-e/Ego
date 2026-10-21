@@ -23,8 +23,8 @@
   },
   "dependencies": {
     "@ego/security": "workspace:*",
-    "vantadb": "0.8.0",
-    "vantadb-node": "file:../../../VantaDB/vantadb-node"
+    "vantadb": "0.9.0",
+    "vantadb-node": "0.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",

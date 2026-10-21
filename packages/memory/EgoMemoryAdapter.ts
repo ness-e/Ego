@@ -24,6 +24,23 @@ import {
   type GraphRagBinding,
   type NativeGraphRagResult,
 } from "./GraphRag.js";
+import {
+  normalizeContextAssemble,
+  normalizeMemoryRecall,
+  resolveCognitiveBinding,
+  type ContextAssembleOptions,
+  type ContextAssembleResult,
+  type MemoryRecallOptions,
+  type MemoryRecallResult,
+} from "./CognitivePath.js";
+export type {
+  ContextAssembleOptions,
+  ContextAssembleResult,
+  MemoryRecallOptions,
+  MemoryRecallResult,
+  RecalledMemory,
+  MemoryRecallGovernance,
+} from "./CognitivePath.js";
 export type { QuarantineAwareRecord };
 
 export interface EgoPut {
@@ -228,19 +245,6 @@ export function verifyAuditPayload(payload: unknown): boolean {
   return recomputed === p.sha256;
 }
 
-export interface VersionNode {
-  key: string;
-  namespace: string;
-  payload: unknown;
-  metadata: Record<string, unknown>;
-  supersededBy?: string;
-  supersedes?: string;
-  supersededAt?: number;
-  createdAt: number;
-  isLatest: boolean;
-  versionIndex: number;
-}
-
 export class EgoMemoryAdapter {
   private db: NativeVantaDB | null = null;
   private isInitialized = false;
@@ -284,6 +288,14 @@ export class EgoMemoryAdapter {
   /**
    * Inicialización asíncrona obligatoria.
    * Carga dinámicamente NativeVantaDB (módulo ESM) y abre el motor Fjall LSM.
+   *
+   * Workaround upstream: `VDB-REQ-14` — al conectar, el motor **pre-reserva
+   * 320 MB por store** (4 segmentos `vstore_L*.vanta` de 64 MB + `0.jnl`) y
+   * `ConnectOptions` **no lo parametriza**. Un store VACÍO ocupa 320,03 MB en
+   * disco (medido 2026-10-21) y sólo ~0,45 MB de RSS: el coste es de disco,
+   * no de RAM. Ego abre **un solo** store en producción
+   * (`apps/desktop/src/main/window/create-window.ts:187`), así que el coste
+   * es 320 MB de disco por instalación — cuantificado en el ADR-0023.
    */
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -670,11 +682,16 @@ export class EgoMemoryAdapter {
    * resultados se fusionan por score en un único ranking.
    *
    * **Sin RRF y sin lista vectorial (EGO-FIND-41):** el fast path napi-rs
-   * opera en BM25 léxico puro (`query_vector: []` — workaround upstream
-   * `VDB-REQ-02`), de modo que no hay lista densa que fusionar ni score
+   * opera en BM25 léxico puro (sin embeddings en el fast path —
+   * `VDB-REQ-10`), de modo que no hay lista densa que fusionar ni score
    * coseno por hit. La firma se mantiene intacta (F2T6/M07); la degradación
    * por namespace emite log estructurado vía console.error (ver
    * `test/gateway-errors.test.ts`).
+   *
+   * `VDB-REQ-02` RESUELTO en 0.9.0: la API documenta el vector vacío para
+   * búsqueda sólo-texto y, medido, `search` funciona **sin** `query_vector`
+   * cuando hay `text_query`. El workaround `query_vector: []` está RETIRADO
+   * (A2-bis, T3): lo que se retira es el workaround, no la limitación.
    *
    * Workaround upstream: `VDB-REQ-10` — el binding `vantadb-node@0.8.0` no
    * expone embeddings en el fast path (el path cognitivo L0-L3 vive en
@@ -692,8 +709,11 @@ export class EgoMemoryAdapter {
     const db = this.ensureReady();
     const topK = options.topK ?? 10;
 
-    // Workaround: VDB-BUG-05 (guards.js evalúa text_query:"" como falsy y exige
-    // query_vector denso). Barridos sin término léxico deben usar list()/listPaged().
+    // Workaround: VDB-BUG-05 (guards.js evalúa `text_query: ""` como falsy y
+    // exige un vector **no vacío**; `query_vector: []` también se rechaza:
+    // medido en 0.9.0 → "query_vector must be a non-empty array unless
+    // text_query or query_sparse is provided"). Barridos sin término léxico
+    // deben usar list()/listPaged().
     if (query.trim().length === 0) {
       console.error(
         `[EgoMemoryAdapter] searchMulti(${namespaces.join(",")}) rechazado: texto vacío (VDB-BUG-05); usar list()/listPaged() para barridos`
@@ -734,9 +754,6 @@ export class EgoMemoryAdapter {
         return await db.search({
           namespace: ns,
           text_query: query,
-          // Workaround: VDB-REQ-02 (guards.js exige array aunque la búsqueda
-          // sea BM25 léxica pura en fast path): enviar `[]` explícito.
-          query_vector: [],
           top_k: topK,
           exclude_superseded: options.excludeSuperseded ?? true,
           min_confidence: options.minConfidence,
@@ -771,8 +788,6 @@ export class EgoMemoryAdapter {
       const hits = await db.search({
         namespace,
         text_query: keyOrQuery,
-        // Workaround: VDB-REQ-02 (ver searchMulti): `[]` para BM25 léxica pura.
-        query_vector: [],
         top_k: 1,
         exclude_superseded: true,
       });
@@ -984,95 +999,6 @@ export class EgoMemoryAdapter {
     );
   }
 
-  /**
-   * Reconstruye el árbol/cadena de versiones de un hecho o entidad (DSEK-02).
-   * Sigue los punteros causales `supersedes` hacia atrás y `superseded_by` hacia adelante.
-   */
-  async getVersionHistory(namespace: string, key: string): Promise<VersionNode[]> {
-    const db = this.ensureReady();
-    const visited = new Set<string>();
-
-    // 1. Obtener el registro inicial
-    const startRecord = await db.get({ namespace, key });
-    if (!startRecord) return [];
-
-    // 2. Caminar hacia atrás para encontrar la raíz (versión 1)
-    let rootKey = key;
-    let curr = startRecord;
-    while (curr) {
-      visited.add(curr.key);
-      const meta = this.unwrapMetadata(curr.metadata as Record<string, unknown>);
-      const parentKey = typeof meta.supersedes === "string" ? meta.supersedes : null;
-      if (!parentKey || visited.has(parentKey)) break;
-      const parentRec = await db.get({ namespace, key: parentKey });
-      if (!parentRec) break;
-      curr = parentRec;
-      rootKey = parentKey;
-    }
-
-    // 3. Caminar hacia adelante desde la raíz siguiendo superseded_by
-    const chain: VersionNode[] = [];
-    visited.clear();
-    let forwardKey: string | null = rootKey;
-    let versionIndex = 1;
-
-    while (forwardKey && !visited.has(forwardKey)) {
-      visited.add(forwardKey);
-      const rec = await db.get({ namespace, key: forwardKey });
-      if (!rec) break;
-
-      const meta = this.unwrapMetadata(rec.metadata as Record<string, unknown>);
-      const supersededBy = typeof meta.superseded_by === "string" ? meta.superseded_by : undefined;
-      const supersedes = typeof meta.supersedes === "string" ? meta.supersedes : undefined;
-      const supersededAt = typeof meta.superseded_at === "number" ? meta.superseded_at : undefined;
-      const createdAt = typeof meta.ts === "number" ? meta.ts : (typeof meta.created_at === "number" ? meta.created_at : 0);
-      const isLatest = meta.is_latest === true || (!supersededBy && meta.state !== "superseded");
-
-      chain.push({
-        key: rec.key,
-        namespace,
-        payload: this.parseRecord(rec),
-        metadata: meta,
-        supersededBy,
-        supersedes,
-        supersededAt,
-        createdAt,
-        isLatest,
-        versionIndex: versionIndex++,
-      });
-
-      forwardKey = supersededBy || null;
-    }
-
-    return chain;
-  }
-
-  /**
-   * Consulta time-travel (DSEK-02): Recupera el estado de una entidad en un instante temporal específico.
-   */
-  async getAtTimestamp(namespace: string, key: string, targetTimestamp: number): Promise<VersionNode | null> {
-    const history = await this.getVersionHistory(namespace, key);
-    if (history.length === 0) return null;
-
-    for (const node of history) {
-      const created = node.createdAt;
-      const supersededAt = node.supersededAt;
-      if (created <= targetTimestamp) {
-        if (!supersededAt || supersededAt > targetTimestamp) {
-          return node;
-        }
-      }
-    }
-
-    const firstNode = history[0];
-    if (!firstNode || firstNode.createdAt > targetTimestamp) {
-      return null;
-    }
-
-    const priorNodes = history.filter((n) => n.createdAt <= targetTimestamp);
-    return priorNodes[priorNodes.length - 1] ?? null;
-  }
-
   private unwrapMetadata(metadata?: Record<string, unknown>): Record<string, unknown> {
     if (!metadata) return {};
     const clean: Record<string, unknown> = {};
@@ -1232,6 +1158,146 @@ export class EgoMemoryAdapter {
     } catch (err) {
       console.warn(
         `[EgoMemoryAdapter] graphRagSearch(${namespace}) falló, degradando a null: ${sanitizeForLog(describeError(err))}`
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Recall cognitivo nativo con re-rank compuesto por CONFIANZA (VDB-REQ-15).
+   *
+   * La capacidad **YA EXISTE** en el motor 0.9.0: `memoryRecall({trust_aware:true})`
+   * (ver `vantadb-node@0.9.0/index.d.ts:614`). Lo que faltaba era el cableado
+   * en Ego: el `TrustBoundary` (ADR-0019) decide qué procedencias son de
+   * confianza y el motor las pondera en el re-rank, de modo que el contenido
+   * no confiable no sube por repetición de término.
+   *
+   * `trust_aware` por defecto **true** (es el path que el `TrustBoundary`
+   * quiere); `false` conserva el orden legacy byte a byte.
+   *
+   * `allow_prefixes` es la ACL de inyección (la produce
+   * `trustedAllowPrefixes` del `TrustBoundary`). **No se envía si está vacía**:
+   * el motor interpreta una lista vacía como "allow-all", y eso sería un
+   * fail-open. La puerta fina (qué se inyecta al final en el prompt) es
+   * `selectTrustedForInjection` del runtime, que sí es fail-closed.
+   *
+   * Alcance: la API pública de la fachada no expone el método (`VDB-REQ-16`);
+   * el puente de alcance vive en `CognitivePath.ts` (ADR-0023). Si el motor no
+   * está disponible, degrada a `null` (fail-soft) sin romper el turno.
+   */
+  async memoryRecall(options: MemoryRecallOptions): Promise<MemoryRecallResult | null> {
+    const db = this.ensureReady();
+    const binding = resolveCognitiveBinding(db);
+    if (!binding) {
+      console.warn(
+        "[EgoMemoryAdapter] memoryRecall no disponible: el binding no expone la API cognitiva (VDB-REQ-16); se degrada a null."
+      );
+      return null;
+    }
+    try {
+      const allow = options.allow_prefixes?.filter((p) => p.trim().length > 0) ?? [];
+      const payload: Record<string, unknown> = {
+        ...options,
+        trust_aware: options.trust_aware ?? true,
+        now_ms: options.now_ms ?? Date.now(),
+      };
+      // Lista vacía = allow-all en el motor ⇒ no se envía en ese caso.
+      if (allow.length > 0) payload["allow_prefixes"] = allow;
+      else delete payload["allow_prefixes"];
+
+      const raw = await binding.memoryRecall(payload);
+      return normalizeMemoryRecall(raw);
+    } catch (err) {
+      console.error(
+        `[EgoMemoryAdapter] memoryRecall falló, degradando a null: ${sanitizeForLog(describeError(err))}`
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Compactación NATIVA del contexto (`contextAssemble`).
+   *
+   * El motor es una función pura sin estado de motor (funciona con la base
+   * de datos cerrándose) y preserva el prefijo protegido y los pares
+   * `tool_call`/`tool_result` — la **puerta de invariantes** del ADR-0020.
+   *
+   * Alcance: la API pública de la fachada no expone el método (`VDB-REQ-16`);
+   * el puente de alcance vive en `CognitivePath.ts` (ADR-0023).
+   */
+  async contextAssemble(
+    options: ContextAssembleOptions
+  ): Promise<ContextAssembleResult | null> {
+    const db = this.ensureReady();
+    const binding = resolveCognitiveBinding(db);
+    if (!binding) {
+      console.warn(
+        "[EgoMemoryAdapter] contextAssemble no disponible: el binding no expone la API cognitiva (VDB-REQ-16); se degrada a null."
+      );
+      return null;
+    }
+    try {
+      const raw = await binding.contextAssemble(options);
+      return normalizeContextAssemble(raw);
+    } catch (err) {
+      console.error(
+        `[EgoMemoryAdapter] contextAssemble falló, degradando a null: ${sanitizeForLog(describeError(err))}`
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Consolidación LLM-free de una sesión (`memoryConsolidate`).
+   *
+   * El motor es fail-closed: una sesión que no está idle es un error, nunca
+   * un no-op silencioso. Aquí el error se traduce a `null` + log (el turno no
+   * se cae por una consolidación fallida).
+   */
+  async memoryConsolidate(options: {
+    session_id: string;
+    now_ms?: number;
+    last_active_at_ms?: number;
+    idle_threshold_ms?: number;
+  }): Promise<unknown | null> {
+    const db = this.ensureReady();
+    const binding = resolveCognitiveBinding(db);
+    if (!binding) {
+      console.warn(
+        "[EgoMemoryAdapter] memoryConsolidate no disponible: el binding no expone la API cognitiva (VDB-REQ-16); se degrada a null."
+      );
+      return null;
+    }
+    try {
+      return await binding.memoryConsolidate(options);
+    } catch (err) {
+      console.error(
+        `[EgoMemoryAdapter] memoryConsolidate falló, degradando a null: ${sanitizeForLog(describeError(err))}`
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Refuerza un recuerdo recuperado (`memoryReinforce`).
+   *
+   * `outcome` es el desenlace del uso del recuerdo: `used` | `corrected` |
+   * `unused`. El motor rechaza tokens desconocidos (nunca los infiere).
+   */
+  async memoryReinforce(hit: unknown, outcome: "used" | "corrected" | "unused"): Promise<unknown | null> {
+    const db = this.ensureReady();
+    const binding = resolveCognitiveBinding(db);
+    if (!binding) {
+      console.warn(
+        "[EgoMemoryAdapter] memoryReinforce no disponible: el binding no expone la API cognitiva (VDB-REQ-16); se degrada a null."
+      );
+      return null;
+    }
+    try {
+      return await binding.memoryReinforce(hit, outcome);
+    } catch (err) {
+      console.error(
+        `[EgoMemoryAdapter] memoryReinforce falló, degradando a null: ${sanitizeForLog(describeError(err))}`
       );
       return null;
     }

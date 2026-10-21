@@ -141,7 +141,6 @@ describe("CORE-15 — NativeVantaDB ↔ EgoMemoryAdapter Contract Suite", () => 
       const hits = await rawDb.search({
         namespace: ns,
         text_query: "cognitive operating system",
-        query_vector: [],
         top_k: 5,
       });
 

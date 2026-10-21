@@ -134,6 +134,62 @@ AA silenciosamente).
 > light mapeados pero inactivos). `nativeTheme` **no** gobierna el tema en P0.
 > El provider **no debe pisar `--color-dim` sin medir cada preset**.
 
+### 2.4 Los colores semánticos (`success` / `warning` / `error`) y la colisión de iconos
+
+Los tres colores semánticos **no** están en la tabla de §2.2 (que documenta las
+rampas de superficie y el accent). Viven en
+`apps/desktop/renderer/components/canvas/DesignSystemProvider.tsx` y se publican
+como `--ego-color-success|warning|error`.
+
+| Preset | `success` | `warning` | `error` |
+|---|---|---|---|
+| `default-dark` | `oklch(0.696 0.149 162.5)` | **`oklch(0.837 0.164 84.4)`** | `oklch(0.645 0.215 16.4)` |
+| `midnight-cyan` | `oklch(0.696 0.149 162.5)` | `oklch(0.769 0.165 70.1)` | `oklch(0.637 0.208 25.3)` |
+| `emerald-terminal` | `oklch(0.773 0.153 163.2)` | **`oklch(0.837 0.164 84.4)`** | `oklch(0.711 0.166 22.2)` |
+| `amber-warm` | `oklch(0.696 0.149 162.5)` | **`oklch(0.837 0.164 84.4)`** | `oklch(0.637 0.208 25.3)` |
+
+#### La decisión: `warning` ≠ `brand` en los 2 presets de accent ámbar (2026-10-21)
+
+**Valor elegido:** `warning = oklch(0.837 0.164 84.4)` en `default-dark` y
+`amber-warm` (los 2 presets cuyo `brand` es el ámbar `oklch(0.769 0.165 70.1)`,
+fijado por la decisión de accent único de §2.3).
+
+**Motivo:** los iconos de dominio se tiñen con tokens semánticos
+(`apps/desktop/renderer/components/domains/DomainSelector.tsx:26-32`):
+
+```tsx
+engineering: <Code   size={16} className="text-brand" />,
+product:     <Kanban size={16} className="text-warning" />,
+knowledge:   <BookOpen size={16} className="text-chart-violet" />,
+analytics:   <ChartBar size={16} className="text-success" />,
+crm:         <Users  size={16} className="text-error" />,
+```
+
+Con `warning` igual a `brand`, **los iconos de `engineering` y de `product`
+salían idénticos** en `default-dark` y `amber-warm`: dos dominios distintos
+pintados con el mismo color, sin ninguna pista visual de cuál es cuál. Es
+precisamente el tipo de defecto que la puerta `design-lint` **no** puede ver
+(la puerta vigila hexes y tokens, no la semántica del color).
+
+**Medición del valor nuevo** (cálculo determinista, mismo método que §7):
+
+| Preset | `warning` vs bg | `warning` vs raised |
+|---|---|---|
+| `default-dark` | **8.24:1** | **8.05:1** |
+| `midnight-cyan` | 5.83:1 | 5.70:1 |
+| `emerald-terminal` | **8.24:1** | **8.06:1** |
+| `amber-warm` | **8.24:1** | **8.05:1** |
+
+El valor nuevo **además mejora el contraste** frente al anterior
+(`oklch(0.769 0.165 70.1)`: 5.83:1 sobre bg), así que la corrección visual no
+cuesta nada en accesibilidad.
+
+**Regla que sale de la decisión:** *un token semántico no puede coincidir con
+el `brand` de su preset si ambos se usan como color de icono de dominio.* Por
+eso `midnight-cyan` conserva `oklch(0.769 0.165 70.1)` (su `brand` es cyan:
+`oklch(0.715 0.126 215.2)`, no hay colisión) y `emerald-terminal` comparte el
+valor nuevo por coherencia.
+
 ## 3. Kit UI sobre Radix + Zustand (`components/ui-kit/`)
 
 **11 primitives**, todas sobre primitivas de librería (principio D3):
@@ -341,6 +397,7 @@ recorre `components/` y `src/` y falla (exit 1) ante:
 | R9 | radio fuera de escala (`rounded` = 4px, `rounded-lg/xl/2xl/3xl`, `rounded-[Npx]`) | error |
 | R10 | cabecera fuera del chrome unificado (`h-12`/`h-10` en un elemento con trazas de barra) | error |
 | R11 | superficie derivada con alfa (`bg-paper/N`, `bg-panel/N`, `bg-raised/N`) | error |
+| **R12** | **CSS crudo fuera del design system**: `!important` (rompe la cascada: el orden de Tailwind no es determinista por texto) y colores literales `rgb()/rgba()/hsl()/hsla()`. R1 (hex) se aplica también al CSS, **excepto** en los ficheros de tokens (`src/index.css`, `src/styles/theme-tokens.css`), que son la fuente canónica | error |
 
 > **R7/R9/R10/R11 se añadieron el 2026-10-20** tras la auditoría visual: la
 > puerta declaraba 3 escalas fijas (radio, superficie, chrome) que **no
@@ -349,11 +406,32 @@ recorre `components/` y `src/` y falla (exit 1) ante:
 > pegado a comillas que ninguna regla reconocía) y sólo conocía 3 familias
 > (`white`/`black`/`zinc`). Por eso reportaba 0 errores con 154 usos de
 > paleta cruda en el renderer.
+> **R12 (2026-10-21) y el alcance de R7 a las tablas `cva`:** la puerta
+> analizaba sólo `.tsx`/`.ts`, así que el **CSS del renderer** (19 KB en
+> `floating/floating.css` y cualquier CSS nuevo) quedaba fuera; y las
+> **variantes compuestas por `cva`** no pasan por `className=`, de modo que un
+> `text-emerald-400` en una variante nueva **pasaba** la puerta. Ahora la puerta
+> recorre el CSS (con la excepción de los ficheros de tokens) y `extractCvaValues`
+> recorre los literales de `cva({…})`. **La deuda heredada del CSS del flotante
+> (36 `!important` + 4 colores crudos) está nombrada, no escondida**: entrada
+> `EGO-DL-024` (`kind: "deuda"`, motivo `DEBT_CSS_RAW`, fecha 2026-10-21) en el
+> `WHITELIST` del linter **y** en el `EXPECTED_EXEMPTIONS` del test (un diff
+> visible, no una edición silenciosa). Estado medido: `R12 [ERROR] CSS crudo
+> fuera del design system — 0 errores (40 granfathered)`.
 
-**Excepciones:** explícitas, por `(regla, fichero)`, con motivo + fecha + ID
-`EGO-DL-###`. Un fichero nuevo con la misma infracción **no** queda cubierto:
-la puerta se enciende sola. `--prune` las poda automáticamente (una entrada
-obsoleta = deuda ya saldada).
+**Excepciones por CONTRATO: se indexan por hash del contenido, no por ID
+posicional.** Cada entrada declara sus **huellas** (`fingerprints: [{ hash:
+'…', match: '#…' }]`), de modo que un hex literal nuevo **no desplaza** los IDs
+ni deja obsoletas las excepciones. Antes se indexaban por `EGO-DL-0NN`, asignado
+en orden de escaneo: un solo refactor invalidaba la lista entera en silencio
+—un mecanismo de excepción que se autodesactivaba es peor que no tenerlo, porque
+da falsa confianza—.
+
+Cada entrada lleva además **motivo + fecha + ID de hallazgo** (`EGO-DL-###`).
+Un fichero nuevo con la misma infracción **no** queda cubierto: la puerta se
+enciende sola. `--prune` las poda automáticamente (una entrada obsoleta = deuda
+ya saldada). Estado medido (2026-10-21): **6 entradas · 79 huellas · 3 casos
+verificables** en `test/design-lint.test.tsx`.
 
 **Puerta de test:** `test/design-lint.test.tsx` verifica que (a) el renderer
 actual tiene 0 errores, (b) la lista de excepciones del script coincide con la
@@ -368,13 +446,16 @@ fixture temporal con un hex, un `<select>`, un `bg-emerald-500`, un
 ## 10.1 La auditoría visual: `ego-browser-audit`
 
 La puerta de arriba es **estática** (lee el código). Faltaba la contraparte
-**en ejecución**: medir el DOM renderizado. Para eso hay un arnés propio sobre
-`ego-browser` (ego lite):
+**en ejecución**: medir el DOM renderizado. El arnés se **desacopló** del
+compositor de `ego-lite` (que no capturaba y producía un **verde falso**: 0 pasos
+⇒ 0 infracciones) y ahora son **dos caminos con un solo spec**:
 
 | Fichero | Rol |
 |---|---|
-| `apps/desktop/scripts/ego-browser-audit.mjs` | La auditoría: mide `font-size`, radio, `box-shadow`, `background-color`, altura de cabecera, targets y desbordes contra el contrato de §1, y escribe `report.json` + capturas PNG |
-| `apps/desktop/scripts/run-design-audit.ps1` | Wrapper: pone el binario de ego-browser en el PATH, escribe la config (el runtime embebido **no hereda `process.env`**) y propaga el código de salida |
+| `apps/desktop/scripts/design-audit-spec.mjs` | **El spec compartido**: contrato, función de medición, pasos por defecto y resolución de localizadores. Es la **única** fuente de verdad de qué se mide |
+| `apps/desktop/scripts/ego-browser-audit.mjs` | **Camino de referencia** (ego lite): ahora **importa** el spec en vez de duplicarlo |
+| `apps/desktop/scripts/design-audit-headless.mjs` | **Camino de rescate**: Chromium headless vía Playwright, **sin compositor** |
+| `apps/desktop/scripts/run-design-audit.ps1` | El wrapper: intenta ego lite → si no produce un informe con pasos, **cae al rescate** (y el criterio de caída incluye `stepsOk === 0`, que es exactamente el fallo clásico del compositor) |
 
 ```powershell
 pnpm --filter @ego/desktop dev
@@ -382,6 +463,16 @@ pwsh -File apps/desktop/scripts/run-design-audit.ps1 -Out C:\temp\ego-audit
 ```
 
 Códigos: 0 = sin infracciones · 1 = infracciones · 2 = fallo del arnés.
+
+**Qué mide ahora (2026-10-21):** además de `font-size`, radio, `box-shadow`,
+`background-color`, altura de cabecera, targets y desbordes, la auditoría mide
+**COLOR** (la calibración de contraste del tinte compuesto, que antes sólo
+cubría la puerta de tokens) y abre el **canvas de avatares** (paso `04b-avatares-canvas`),
+que antes **no se abría** y por tanto nunca auditaba al avatar. Ese paso nuevo
+**encontró un defecto real**: 6 infracciones `TARGET`, con dos botones del panel
+de avatares a **18 px** (un `Button size="sm"` con `h-auto` anulaba el `h-7` del
+kit) — muy por debajo del mínimo de **24 px** de §3.2. Corregido. Corrida
+**verde**: **7/7 pasos · 0 infracciones**.
 
 **Por qué es un script y no un agente:** una auditoría hecha "a mano" con un
 navegador se degrada (ventana minimizada → `Page.captureScreenshot` expira;
