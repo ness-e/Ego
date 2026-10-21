@@ -3,7 +3,10 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Activo — Documento canónico de extracción y análisis de capacidades |
-| Repositorio Origen | `repos-referencia/khoj/` (commit `ae229ca`, rama `master`, clon en profundidad 1) |
+| Repositorio Origen | `repos-referencia/khoj/` (upstream `khoj-ai/khoj`, commit `ae229ca`, origen `src/khoj/processor/content/__init__.py`) |
+| Licencia del origen | AGPL-3.0 — khoj-ai/khoj |
+| Commit verificado | ae229ca |
+| Ruta de origen | `src/khoj/processor/content/__init__.py` |
 | Stack del Origen | Python 3.11 + FastAPI + Next.js + SQLite / PostgreSQL (pgvector) + LangChain + sentence-transformers |
 | Rol en Ego | Referencia de algoritmos de chunking, búsqueda semántica, extracción de hechos y automatizaciones |
 | Owner | ness-e |
@@ -49,8 +52,10 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
   - **Corrección Ola 2:** el solapamiento es **0**, no "32-64 tokens"; el límite cuenta **palabras**, no tokens de
     modelo; el hash de deduplicación es **MD5** (`text_to_entries.py:36-37`), no SHA-256; y el tokenizador es
     LangChain, no TikToken.
-  - **Adaptación en Ego:** `packages/knowledge/src/ingest/AdaptiveChunker.ts`. Ego **mejora** a Khoj en tres puntos:
-    solapamiento real de 32 tokens, digest SHA-256 y `headingPath` como array estructurado (no texto prepended).
+  - **En Ego (implementación propia, sin traducción de código):** `packages/knowledge/src/ingest/AdaptiveChunker.ts` —
+    solapamiento real de 32 tokens, digest SHA-256 y `headingPath` como array estructurado (no texto prepended). El upstream
+    usa solapamiento 0, hash MD5 y longitud contada en palabras. El patrón se estudió como **referencia de diseño**
+    (`EGO-FIND-83`: retirado todo el crédito a khoj, AGPL-3.0).
   - **Relación con Backlog Ego:** `KB-01`, `KB-02` (Fase 06). **Compuerta:** `KHOJ-01`.
 
 - **Extractores por formato (`content/markdown/`, `content/pdf/`, `content/docx/`, `content/org_mode/`,
@@ -58,9 +63,10 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
   - **Qué hace:** Módulos que normalizan cada formato a entradas `Entry` antes del troceado; PDF y DOCX usan
     loaders de `langchain_community` (`PyMuPDFLoader`, `Docx2txtLoader`) y el parser Markdown trocea por jerarquía
     de encabezados con recursión sobre el nivel de heading (`markdown_to_entries.py:72-142`).
-  - **Adaptación en Ego:** `packages/knowledge/src/ingest/DocumentParser.ts` + `MarkdownExtractor.ts` cubren
-    Markdown, texto plano, JSON y CSV; PDF y DOCX quedan fuera (el sidecar `scripts/ingest/bulk_import.py` es la
-    vía prevista, aún no cableada para estos formatos).
+  - **En Ego (implementación propia, sin traducción de código):** `packages/knowledge/src/ingest/DocumentParser.ts` +
+    `MarkdownExtractor.ts` cubren Markdown, texto plano, JSON y CSV; PDF y DOCX quedan fuera (el sidecar
+    `scripts/ingest/bulk_import.py` es la vía prevista, aún no cableada para estos formatos). Patrón estudiado como
+    referencia de diseño, sin traducción de código (`EGO-FIND-83`).
   - **Relación con Backlog Ego:** `KB-01`. **Compuerta:** `KHOJ-02`.
 
 ### Bloque B: Búsqueda Semántica, Umbrales y Reducción de Ruido ##
@@ -74,10 +80,12 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
     ningún vecino lo supera, la búsqueda no devuelve nada.
   - **Corrección Ola 2:** la ficha anterior afirmaba un `min_score = 0.72` "calibrado" en el código de Khoj. **No
     existe tal constante**: el umbral vive en la configuración del modelo. El `0.70` es un valor propio de Ego.
-  - **Adaptación en Ego:** `packages/knowledge/src/filters/ScoreThresholdFilter.ts`, invocado por
-    `HybridSearch.search` (`packages/knowledge/src/HybridSearch.ts:88-89`). **Corrección Ola 2:** el umbral **no** se
-    aplica en `EgoMemoryAdapter.searchMulti` (`packages/memory/EgoMemoryAdapter.ts:682`), que devuelve la lista
-    BM25 cruda; el corte vive exclusivamente en la capa de `HybridSearch`.
+  - **En Ego (implementación propia, sin traducción de código):** `packages/knowledge/src/filters/ScoreThresholdFilter.ts`,
+    invocado por `HybridSearch.search` (`packages/knowledge/src/HybridSearch.ts:88-89`). El corte de umbral es una
+    **calibración propia de Ego** (0.70 + normalización min-max por lote), no el `bi_encoder_confidence_threshold` del
+    upstream. **Corrección Ola 2:** el umbral **no** se aplica en `EgoMemoryAdapter.searchMulti`
+    (`packages/memory/EgoMemoryAdapter.ts:682`), que devuelve la lista BM25 cruda; el corte vive exclusivamente en la
+    capa de `HybridSearch`. Patrón estudiado como referencia de diseño, sin traducción de código (`EGO-FIND-83`).
   - **Relación con Backlog Ego:** `CORE-09` (Fase 01), `KB-03`, `KB-04` (Fase 06). **Compuerta:** `KHOJ-03`.
 
 ### Bloque C: Extracción Cognitiva de Hechos y Consolidación ##
@@ -93,8 +101,11 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
   - **Corrección Ola 2:** la ficha anterior atribuía a Khoj un formato de hechos "atómicos, con categoría, certeza
     e impacto temporal". Eso es el **esquema de Ego** (`packages/knowledge/src/schemas/knowledge.ts`), no el de Khoj:
     Khoj produce listas planas de cadenas y decide crear o borrar por comparación con las memorias existentes.
-  - **Adaptación en Ego:** `packages/knowledge/src/extractors/FactExtractor.ts` (heurística determinista, sin LLM)
-    más el eslabón de prompting estructurado, pendiente de cablear.
+  - **En Ego (implementación propia, sin traducción de código):** `packages/knowledge/src/extractors/FactExtractor.ts`
+    (heurística determinista, sin LLM) más el eslabón de prompting estructurado, pendiente de cablear. Sin consumidor en
+    producción (`packages/knowledge/src/extractors/FactExtractor.ts:62`); la escritura de hechos en producción es
+    `packages/domains/src/knowledge/KnowledgeDomain.ts:128,168` (`kb/facts`). Patrón estudiado como referencia de
+    diseño, sin traducción de código (`EGO-FIND-83`).
   - **Relación con Backlog Ego:** `CORE-12`, `KB-04`. **Compuerta:** `KHOJ-04`.
 
 - **Actualización y borrado de memorias tras cada turno (`helpers.py:1038-1066`)**
@@ -105,7 +116,9 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
     puntero activo" y que el patrón "mapea 1:1" al `supersede()` de Ego. **Khoj borra**; el *soft-replace* con
     arista `SUPERSEDED_BY` es una **mejora propia de Ego** (`packages/knowledge/src/FactLifecycle.ts:117`), no una
     asimilación literal.
-  - **Adaptación en Ego:** base conceptual de `TASK-08` (Dream Consolidation) y `SUB-12` (Closed Learning Loop).
+  - **En Ego (implementación propia, sin traducción de código):** base conceptual de `TASK-08` (Dream Consolidation) y
+    `SUB-12` (Closed Learning Loop). Patrón estudiado como referencia de diseño, sin traducción de código
+    (`EGO-FIND-83`).
   - **Relación con Backlog Ego:** `CORE-12`, `TASK-08`, `SUB-12`. **Compuerta:** `KHOJ-05`.
 
 ### Bloque D: Vistas de Chunk, Procedencia y Filtros Temporales ##
@@ -117,7 +130,7 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
   - **Qué hace:** Cada entrada guarda **dos** representaciones: `raw` (texto original) y `compiled` (el texto con
     el nombre del fichero como encabezado de nivel superior `# <fichero>` y la ancestría de encabezados antepuesta).
     El embedding y la búsqueda operan sobre `compiled`; la vista `raw` es la que se muestra al usuario.
-  - **Adaptación en Ego:** `DocumentChunk` guarda una única vista (`content`); el `headingPath` de Ego es
+  - **En Ego:** `DocumentChunk` guarda una única vista (`content`); el `headingPath` de Ego es
     estructurado y no compensado por un prefijo de contexto.
   - **Relación con Backlog Ego:** `KB-01` (Fase 06). **Compuerta:** `KHOJ-07`.
 
@@ -125,7 +138,7 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
   - **Qué hace:** Cada chunk conserva su línea exacta en el fichero original mediante un fragmento URI
     `file://<ruta>#line=<n>`, recalculado durante el troceado al localizar el chunk en el texto crudo. Un chunk sin
     coincidencia localizable conserva la línea de la sección padre.
-  - **Adaptación en Ego:** `DocumentChunk` no guarda offsets de línea; la cita al usuario no puede apuntar a la
+  - **En Ego:** `DocumentChunk` no guarda offsets de línea; la cita al usuario no puede apuntar a la
     línea exacta del origen.
   - **Relación con Backlog Ego:** `KB-01` (Fase 06). **Compuerta:** `KHOJ-08`.
 
@@ -134,7 +147,7 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
   - **Qué hace:** En la ingesta se extraen las fechas mencionadas en el texto (formatos estructurados y naturales)
     y se indexan como entradas `EntryDates` ligadas al chunk. En la consulta, un DSL `dt>=` / `dt<` sobre la query
     se convierte en un intervalo temporal que acota los resultados.
-  - **Adaptación en Ego:** `BitemporalQueries` (`packages/knowledge/src/BitemporalQueries.ts:77`) trabaja sobre el
+  - **En Ego:** `BitemporalQueries` (`packages/knowledge/src/BitemporalQueries.ts:77`) trabaja sobre el
     **eje de validez** del registro (`valid_at` / `invalid_at`), no sobre fechas contenidas en el texto; y
     `KnowledgeIndexer` no extrae fechas del contenido. La ruta `getAtTimestamp`
     (`packages/memory/EgoMemoryAdapter.ts:1048`) es un eje **transaccional** distinto y **no tiene caller en
@@ -149,7 +162,7 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
   - **Qué hace:** Tras la recuperación por bi-encoder, si hay más de un resultado y el modelo dispone de servidor de
     inferencia, un **cross-encoder** re-puntúa cada par (consulta, chunk); el orden final es por score de
     cross-encoder y, en empate, por score de bi-encoder.
-  - **Adaptación en Ego:** `HybridSearch` reordena por score del motor y aplica MMR por diversidad
+  - **En Ego:** `HybridSearch` reordena por score del motor y aplica MMR por diversidad
     (`packages/knowledge/src/HybridSearch.ts:104-113`), pero **no hay etapa de re-puntuación semántica**.
   - **Relación con Backlog Ego:** `KB-04` (Fase 06). **Compuerta:** `KHOJ-10`.
 
@@ -157,7 +170,7 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
   - **Qué hace:** Al componer la respuesta, `collate_results` descarta los hits cuyo `corpus_id` ya apareció, de
     modo que varios chunks del mismo documento no pueden monopolizar el top-k: cada documento aporta como máximo
     un fragmento al resultado final.
-  - **Adaptación en Ego:** el MMR de `HybridSearch` diversifica por **similitud**, no por **documento de origen**;
+  - **En Ego:** el MMR de `HybridSearch` diversifica por **similitud**, no por **documento de origen**;
     un documento con muchos chunks casi idénticos puede seguir acaparando el top-k.
   - **Relación con Backlog Ego:** `KB-04` (Fase 06). **Compuerta:** `KHOJ-11`.
 
@@ -188,16 +201,16 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
 
 | Componente / Feature de Khoj | Archivo Fuente | Acción | Justificación Técnica |
 |---|---|:---:|---|
-| **Chunking por límite de tokens con dedupe por hash MD5** | `processor/content/text_to_entries.py:60-140` | 📥 **Extraer & Adaptar** | Algoritmo probado; Ego ya lo asimiló mejorando solapamiento, digest y jerarquía de encabezados. |
-| **Extractores por formato (Markdown, Org, PDF, DOCX, Plaintext, GitHub, Notion)** | `processor/content/*/` | 📥 **Extraer & Adaptar** | Normalización por formato antes del troceado; en Ego asimilado para Markdown, texto plano, JSON y CSV. |
-| **Filtro de umbral del bi-encoder (`bi_encoder_confidence_threshold`)** | `search_type/text_search.py:113-135` | 📥 **Extraer & Adaptar** | Evita inyectar ruido en el contexto del LLM antes de contextualizar. |
-| **Extractor de hechos atómicos (`extract_facts_from_query`)** | `routers/helpers.py:994-1034` | 📥 **Extraer & Adaptar** | Primitiva mnemónica esencial para el ciclo de vida de memoria de Ego (`CORE-12`). |
-| **Consolidación y resolución de contradicciones (`ai_update_memories`)** | `routers/helpers.py:1038-1066` | 📥 **Extraer & Adaptar** | Khoj borra; Ego lo mejora con supersesión suave y aristas causales. |
-| **Doble vista `raw` / `compiled` con prefijo de contexto** | `processor/content/markdown/markdown_to_entries.py:171-183` | 📥 **Extraer & Adaptar** | Permite conservar la fuente limpia para citar y una vista optimizada para recuperar. |
-| **Anclaje de línea de origen (`file://…#line=N`)** | `processor/content/markdown/markdown_to_entries.py:169`, `processor/content/text_to_entries.py:82-109` | 📥 **Extraer & Adaptar** | Procedencia verificable por chunk; base de una cita trazable en la UI. |
-| **Extracción e indexación de fechas del contenido con filtro `dt`** | `search_filter/date_filter.py:87-100`, `processor/content/text_to_entries.py:237-247` | 📥 **Extraer & Adaptar** | Complementa la bitemporalidad de registro con un eje temporal de contenido. |
-| **Re-rank de segundo nivel con cross-encoder** | `search_type/text_search.py:192-257` | 📥 **Extraer & Adaptar** | Recuperación en dos etapas, más precisa que el orden por score de recuperación. |
-| **Deduplicación por corpus (`corpus_id`)** | `search_type/text_search.py:141-164` | 📥 **Extraer & Adaptar** | Evita que un documento con muchos chunks monopolice el top-k. |
+| **Chunking por límite de tokens con dedupe por hash MD5** | `processor/content/text_to_entries.py:60-140` | 💡 **Referencia de diseño** (sin traducción de código) | En Ego es **implementación propia** (`AdaptiveChunker.ts`): solapamiento de 32 tokens, digest SHA-256 y ruta de encabezados estructurada. Sin traducción de código (`EGO-FIND-83`). |
+| **Extractores por formato (Markdown, Org, PDF, DOCX, Plaintext, GitHub, Notion)** | `processor/content/*/` | 💡 **Referencia de diseño** (sin traducción de código) | Normalización por formato antes del troceado; en Ego es **implementación propia** para Markdown, texto plano, JSON y CSV (PDF y DOCX de khoj no asimilados). Sin traducción de código (`EGO-FIND-83`). |
+| **Filtro de umbral del bi-encoder (`bi_encoder_confidence_threshold`)** | `search_type/text_search.py:113-135` | 💡 **Referencia de diseño** (sin traducción de código) | Evita inyectar ruido en el contexto del LLM antes de contextualizar. En Ego es una **calibración propia** (0.70 + min-max por lote), no el umbral del upstream. Sin traducción de código (`EGO-FIND-83`). |
+| **Extractor de hechos atómicos (`extract_facts_from_query`)** | `routers/helpers.py:994-1034` | 💡 **Referencia de diseño** (sin traducción de código) | Primitiva mnemónica esencial para el ciclo de vida de memoria de Ego (`CORE-12`); en Ego es **implementación propia** (y hoy sin consumidor). Sin traducción de código (`EGO-FIND-83`). |
+| **Consolidación y resolución de contradicciones (`ai_update_memories`)** | `routers/helpers.py:1038-1066` | 💡 **Referencia de diseño** (sin traducción de código) | Khoj borra físicamente; en Ego el *soft-replace* con arista `SUPERSEDED_BY` es **mejora propia**, no una traducción. Sin traducción de código (`EGO-FIND-83`). |
+| **Doble vista `raw` / `compiled` con prefijo de contexto** | `processor/content/markdown/markdown_to_entries.py:171-183` | 🆕 **Estudiar como referencia** (sin traducción de código) | Permite conservar la fuente limpia para citar y una vista optimizada para recuperar. |
+| **Anclaje de línea de origen (`file://…#line=N`)** | `processor/content/markdown/markdown_to_entries.py:169`, `processor/content/text_to_entries.py:82-109` | 🆕 **Estudiar como referencia** (sin traducción de código) | Procedencia verificable por chunk; base de una cita trazable en la UI. |
+| **Extracción e indexación de fechas del contenido con filtro `dt`** | `search_filter/date_filter.py:87-100`, `processor/content/text_to_entries.py:237-247` | 🆕 **Estudiar como referencia** (sin traducción de código) | Complementa la bitemporalidad de registro con un eje temporal de contenido. |
+| **Re-rank de segundo nivel con cross-encoder** | `search_type/text_search.py:192-257` | 🆕 **Estudiar como referencia** (sin traducción de código) | Recuperación en dos etapas, más precisa que el orden por score de recuperación. |
+| **Deduplicación por corpus (`corpus_id`)** | `search_type/text_search.py:141-164` | 🆕 **Estudiar como referencia** (sin traducción de código) | Evita que un documento con muchos chunks monopolice el top-k. |
 | **Cliente de herramientas MCP (`mcp.py`)** | `processor/tools/mcp.py:13-124` | 🚫 **Descartada (con justificación)** | Envoltura fina sobre el SDK oficial; Ego ya usa el SDK oficial en TypeScript (`packages/integrations/src/mcp/McpClient.ts`). No aporta capacidad nueva. |
 | **Motor de investigación multi-paso (`research.py`)** | `routers/research.py:277,476` | 💡 **Solo Inspiración** | La iteración genérica ya existe (runtime de Sub-Ego + `ToolExecutionLoop`); el orquestador específico con descomposición de la pregunta queda diferido. |
 | **Scraper web y búsqueda online pesada (`online_search.py`)** | `processor/tools/online_search.py` | 🚫 **Descartada (con justificación)** | Fuera de alcance de P0; viola el principio local-first soberano. Las búsquedas externas en Ego se canalizan vía herramientas MCP gobernadas. |
@@ -206,17 +219,27 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
 | **PostgreSQL, pgvector y migraciones SQL** | `database/` | 🚫 **Descartada (con justificación)** | Incompatible con la arquitectura soberana local basada en VantaDB in-process (Fjall LSM). |
 | **Módulos Twilio, WhatsApp, Email y Stripe** | `routers/twilio.py`, `routers/api_phone.py`, `routers/email.py`, `routers/api_subscription.py` | 🚫 **Descartada (con justificación)** | Contaminación de dominios ajenos (Guardrail §4 de `AGENTS.md`). La fila de backlog asociada es `KHOJ-06` (⏳ Futura, porque pertenece a Ego Web, no al desktop). |
 
+> **Lectura de la columna «Acción» (Ola 8, `EGO-FIND-83`).** Khoj es AGPL-3.0 y la decisión del owner
+> (2026-10-20) es **retirar todo el crédito a khoj** ⇒ ninguna capacidad de Ego es una traducción de este repo. Los
+> tres valores de la columna significan:
+>
+> | Valor | Significado |
+> |---|---|
+> | 💡 **Referencia de diseño** (sin traducción de código) | El patrón **se estudió** en el upstream y **se implementó en Ego por cuenta propia**, sin portar código (filas `KHOJ-01..05`). |
+> | 🆕 **Estudiar como referencia** (sin traducción de código) | El patrón **se estudiará** como referencia de diseño; la implementación en Ego, cuando llegue, será propia (filas `KHOJ-07..11`, todas `⏳ Futura`). |
+> | 🚫 **Descartada (con justificación)** | El patrón no se aplica en Ego (guardrail, dominio ajeno o SDK oficial equivalente). |
+
 ---
 
 ## 4. Impacto en el Backlog de Ego y Trazabilidad ##
 
-| ID Compuerta | Archivo / Función Khoj | Tarea Canónica Ego | Estado en Backlog Review |
+| ID Compuerta | Archivo upstream (procedencia del clon) | Tarea Canónica Ego | Estado en Backlog Review |
 |:---:|---|:---:|:---:|
-| `KHOJ-01` | `processor/content/text_to_entries.py:60-140` (chunking 256 palabras) | `KB-01`, `KB-02` (Fase 06) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
-| `KHOJ-02` | `processor/content/markdown/`, `content/pdf/`, `content/docx/` | `KB-01` (Fase 06) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
-| `KHOJ-03` | `search_type/text_search.py:113-135` (umbral del bi-encoder) | `CORE-09` (Fase 01), `KB-03` (Fase 06) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
-| `KHOJ-04` | `routers/helpers.py:994-1034` (`extract_facts_from_query`) | `CORE-12` (Fase 01), `KB-04` (Fase 06) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
-| `KHOJ-05` | `routers/helpers.py:1038-1066` (`ai_update_memories`) | `CORE-12` (Fase 01), `SUB-12` (Fase 03), `TASK-08` (Fase 07) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
+| `KHOJ-01` | `processor/content/text_to_entries.py:60-140` (chunking 256 palabras) | `KB-01`, `KB-02` (Fase 06) | 🚫 Descartada (con justificación) — ver [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
+| `KHOJ-02` | `processor/content/markdown/`, `content/pdf/`, `content/docx/` | `KB-01` (Fase 06) | 🚫 Descartada (con justificación) — ver [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
+| `KHOJ-03` | `search_type/text_search.py:113-135` (umbral del bi-encoder) | `CORE-09` (Fase 01), `KB-03` (Fase 06) | 🚫 Descartada (con justificación) — ver [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
+| `KHOJ-04` | `routers/helpers.py:994-1034` (`extract_facts_from_query`) | `CORE-12` (Fase 01), `KB-04` (Fase 06) | 🚫 Descartada (con justificación) — ver [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
+| `KHOJ-05` | `routers/helpers.py:1038-1066` (`ai_update_memories`) | `CORE-12` (Fase 01), `SUB-12` (Fase 03), `TASK-08` (Fase 07) | 🚫 Descartada (con justificación) — ver [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
 | `KHOJ-06` | `routers/api_subscription.py`, `api_phone.py`, `twilio.py`, `email.py` | `DOM-05`, `DOM-06` (Ego Web) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
 | `KHOJ-07` | `processor/content/markdown/markdown_to_entries.py:171-183` (vistas `raw` / `compiled`) | `KB-01` (Fase 06) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
 | `KHOJ-08` | `processor/content/markdown/markdown_to_entries.py:169` (anclaje `#line=N`) | `KB-01` (Fase 06) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
@@ -226,21 +249,31 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
 | `KHOJ-12` | `processor/tools/mcp.py:13-124` (cliente MCP) | `ACT-09`, `ACT-11` (Fase 02) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
 | `KHOJ-13` | `routers/research.py:277,476` (motor de investigación) | `DOM-03` (Fase 09) | [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md) |
 
+> **Qué registra la columna «Archivo upstream (procedencia del clon)»:** el fichero del clon
+> `repos-referencia/khoj/` **estudiado** para cada patrón. **No** es el origen del código de Ego: la implementación es
+> **propia** (ver §5). Khoj es **AGPL-3.0** y la decisión del owner (`EGO-FIND-83`, 2026-10-20) es **retirar todo el
+> crédito a khoj** ⇒ ninguna capacidad de Ego es una traducción de este repo.
+
 ---
 
-## 5. Estado real verificado (2026-10-20) — Ola 2 de remediación ##
+## 5. Estado real verificado (2026-10-21) — Ola 8: `EGO-FIND-83` (retirado el crédito a khoj) ##
 
 > Fuente canónica del estado por tarea: [`docs/review/backlog-khoj.md`](../review/backlog-khoj.md).
-> Criterio de cierre: fichero adaptado **y** caller en producción (grep sobre `packages/` + `apps/desktop/`,
-> excluyendo `test/`, `dist/` y `node_modules/`).
+> Criterio de cierre: fichero **propio de Ego** **y** caller en producción (grep sobre `packages/` +
+> `apps/desktop/`, excluyendo `test/`, `dist/` y `node_modules/`).
+>
+> **Ola 8 (`EGO-FIND-83`).** Las compuertas cuyo patrón **se estudió** en khoj pero **no hubo traducción de código**
+> pasan de `✅ Completada` a `🚫 Descartada (con justificación)`: lo que se descarta es la **atribución** al
+> upstream, **no** la capacidad (el código de Ego existe, es propio y está cableado). Khoj es **AGPL-3.0** y la decisión
+> del owner (2026-10-20) es **retirar todo el crédito a khoj**.
 
 | ID | Patrón | Estado | Evidencia / Fundamento |
 |---|---|:---:|---|
-| `KHOJ-01` | Chunking por límite de tokens + dedupe por hash | ✅ Completada | `packages/knowledge/src/ingest/AdaptiveChunker.ts:16,42` → `DocumentParser.ts:4,17` y `MarkdownExtractor.ts:2,19` → `apps/desktop/src/main.ts:40,2238` → `apps/desktop/src/main/ipc/register-ipc.ts:1340-1341`. |
-| `KHOJ-02` | Parsers por formato | ✅ Completada | `packages/knowledge/src/ingest/DocumentParser.ts:12,53-71` y `MarkdownExtractor.ts:15,77-94` → `apps/desktop/src/main.ts:2238` → `register-ipc.ts:1340-1341`. Alcance asimilado: Markdown, texto plano, JSON y CSV (PDF y DOCX de Khoj no asimilados). |
-| `KHOJ-03` | Umbral de similitud | ✅ Completada | `packages/knowledge/src/filters/ScoreThresholdFilter.ts:22,27` → `packages/knowledge/src/HybridSearch.ts:88-89` → `apps/desktop/src/main.ts:33,2231` → `register-ipc.ts:1350`. **Rutas corregidas**: el fichero real es `ScoreThresholdFilter.ts` y el corte **no** se aplica en `EgoMemoryAdapter.searchMulti`. |
-| `KHOJ-04` | `extract_facts_from_query` | 🚫 Descartada (con justificación) | 🚫 Sin consumidor: `packages/knowledge/src/extractors/FactExtractor.ts:62`. La escritura de hechos en producción es `packages/domains/src/knowledge/KnowledgeDomain.ts:128,168` (`kb/facts`). |
-| `KHOJ-05` | `ai_update_memories` | 🚫 Descartada (con justificación) | 🚫 El soft-replace no es alcanzable: `consolidateMemories` (`packages/knowledge/src/FactLifecycle.ts:183`) y `DreamConsolidator` / `MemoryCurator` sin instanciación en producción. Sólo el lado de lectura está vivo. |
+| `KHOJ-01` | Chunking por límite de tokens + dedupe por hash | 🚫 Descartada (con justificación) | El código es **implementación propia de Ego** (`packages/knowledge/src/ingest/AdaptiveChunker.ts`): SHA-256 + solapamiento de 32 tokens + ruta de encabezados. El upstream usa MD5, cuenta palabras y solapamiento 0. Se estudió como **referencia de diseño, sin traducción de código** (EGO-FIND-83: retirado todo el crédito a khoj, AGPL-3.0). *El código existe y está cableado en Ego* (`AdaptiveChunker` → `DocumentParser.ts:4,17` y `MarkdownExtractor.ts:2,19` → `apps/desktop/src/main.ts:40,2238` → `register-ipc.ts:1340-1341`): lo que se descarta es la **atribución** al upstream, no la capacidad. |
+| `KHOJ-02` | Parsers por formato | 🚫 Descartada (con justificación) | **Implementación propia de Ego** (`packages/knowledge/src/ingest/DocumentParser.ts`, `MarkdownExtractor.ts`). Alcance asimilado: Markdown, texto plano, JSON y CSV (PDF y DOCX de khoj **no** asimilados). Patrón estudiado como referencia de diseño, sin traducción de código. *El código existe y está cableado en Ego* (`DocumentParser.ts:12,53-71` y `MarkdownExtractor.ts:15,77-94` → `apps/desktop/src/main.ts:2238` → `register-ipc.ts:1340-1341`): lo que se descarta es la **atribución** al upstream, no la capacidad. |
+| `KHOJ-03` | Umbral de similitud | 🚫 Descartada (con justificación) | El corte de umbral es una **calibración propia de Ego** (0.70 + normalización min-max por lote, etiqueta interna `H10`), no el `bi_encoder_confidence_threshold` del upstream. Implementación propia; patrón estudiado como referencia de diseño, sin traducción de código. *El código existe y está cableado en Ego* (`ScoreThresholdFilter.ts:22,27` → `packages/knowledge/src/HybridSearch.ts:88-89` → `apps/desktop/src/main.ts:33,2231` → `register-ipc.ts:1350`); **el corte no se aplica en `EgoMemoryAdapter.searchMulti`**: lo que se descarta es la **atribución** al upstream, no la capacidad. |
+| `KHOJ-04` | `extract_facts_from_query` | 🚫 Descartada (con justificación) | ❌ Sin consumidor: `packages/knowledge/src/extractors/FactExtractor.ts:62`. La escritura de hechos en producción es `packages/domains/src/knowledge/KnowledgeDomain.ts:128,168` (`kb/facts`). El extractor es **implementación propia de Ego** (patrón estudiado, sin traducción de código). *Comprobación:* `Select-String "FactExtractor" packages/ apps/` → sólo el propio fichero, el re-export `packages/knowledge/src/index.ts:8` y dos tests. |
+| `KHOJ-05` | `ai_update_memories` | 🚫 Descartada (con justificación) | ❌ El soft-replace no es alcanzable: `consolidateMemories` (`packages/knowledge/src/FactLifecycle.ts:183`). **Actualización 2026-10-21 (A2-bis):** `DreamConsolidator` **ya está cableado** en producción (`packages/memory/EgoMemoryLifecycle.ts` → hook de inactividad de 5 min → dedup de `kb/facts` + purga de `quarantine/pending`, con evidencia en `gov/audit` acción `dream_consolidation`); el que sigue sin instanciar es `MemoryCurator` (se cablea con el diff de §6.3). El código es **implementación propia de Ego** (patrón estudiado, sin traducción de código). |
 | `KHOJ-06` | Stripe / Twilio / SMTP | ⏳ Futura (P1) | Dominio de Ego Web, no del desktop SOC; ver matriz de descarte §3. |
 | `KHOJ-07` | Vistas `raw` / `compiled` | ⏳ Futura (Fase 06, P1) | Sin base en Ego: `DocumentChunk` (`packages/knowledge/src/schemas/knowledge.ts`) guarda una única vista `content`. Fase destino: `KB-01`, P1. |
 | `KHOJ-08` | Anclaje de línea de origen | ⏳ Futura (Fase 06, P1) | Sin base en Ego: ningún chunk conserva offset de línea; el metadato `chunk_index` no permite citar la línea. Fase destino: `KB-01`, P1. |
@@ -250,7 +283,7 @@ umbral de similitud y la extracción automatizada de hechos a partir de turnos d
 | `KHOJ-12` | Cliente MCP de herramientas | 🚫 Descartada (con justificación) | Envoltura fina sobre el SDK oficial de MCP; Ego usa el SDK oficial en TypeScript (`packages/integrations/src/mcp/McpClient.ts`). Cero capacidad aportada, `AGENTS.md` §7. |
 | `KHOJ-13` | Motor de investigación iterativa | ⏳ Futura (Fase 09, P1) | La iteración existe de forma genérica (runtime de Sub-Ego → `ToolExecutionLoop`) y `packages/domains/src/knowledge/KnowledgeDomain.ts` está en producción (`register-ipc.ts:1588`), pero no hay descomposición explícita de la pregunta ni síntesis parcial re refinable. Fase destino: `DOM-03`, P1. |
 
-**Recuento:** 3 `✅ Completada` · 3 `🚫 Descartada` · 0 `🆕 Pendiente` · 7 `⏳ Futura` — **13 tareas**.
+**Recuento:** 0 `✅ Completada` · 6 `🚫 Descartada` · 0 `🆕 Pendiente` · 7 `⏳ Futura` — **13 tareas**.
 
 ## 6. Guardrail de embeddings y de dominio (re-verificado 2026-10-20) ##
 
