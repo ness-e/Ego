@@ -47,7 +47,7 @@ El personaje **no es una imagen que se regenera cada vez que un LLM escribe text
 El sistema se rige por una regla cardinal:
 > **"Un personaje, múltiples superficies, una sola fuente de estado."**
 
-La fuente de estado es el **`<ego-avatar>`** (`@ego/avatar`): un Web Component con 14 estados runtime y 11 emotes. Las distintas superficies de la aplicación simplemente proyectan ese mismo elemento en diferentes tamaños y niveles de expresividad:
+La fuente de estado es el **`<ego-avatar>`** (`@ego/avatar`): un Web Component con 15 estados runtime y 11 emotes. Las distintas superficies de la aplicación simplemente proyectan ese mismo elemento en diferentes tamaños y niveles de expresividad:
 
 ```text
                     <ego-avatar>  (Web Component, @ego/avatar)
@@ -239,10 +239,13 @@ Opera exclusivamente como un **consumidor reactivo de eventos**:
 | Elemento | `<ego-avatar>` — Custom Element v1 + Shadow DOM, ESM puro |
 | Motores de render | **SVG** (defecto, exportable a string) y **canvas / Robot Studio** (`mode="studio"`) |
 | Identidad | **genoma procedimental**: `seed` → `xmur3` → `mulberry32` → genoma inmutable (forma, ojos, paleta, marca, apéndice, aura, temperamento) |
-| Vocabulario | **14 estados runtime** + **11 emotes** (`src/runtime/states.js`); el studio amplía a **22 estados** (`src/studio/config.js`) y traduce con `EGO_TO_STUDIO_STATE` / `STUDIO_TO_EGO_STATE` |
+| Vocabulario | **15 estados runtime** + **11 emotes** (`src/runtime/states.js`); el studio amplía a **22 estados** (`src/studio/config.js`) y traduce con `EGO_TO_STUDIO_STATE` / `STUDIO_TO_EGO_STATE` |
+| Ida y vuelta al studio | **15/15 estados con identidad** Ego → studio → Ego (medido sobre el mapa real). Los 4 que la perdían (`thinking`, `approval`, `question`, `ratelimit`) tienen ahora imagen propia en los dos mapas; `ratelimit` deja de compartir imagen con `warning` y pasa al estado cansado `bored` del studio |
+| Guard de contrato | `apps/desktop/renderer/test/avatar-state-contract.test.ts` (7 tests): todo estado del chat existe en el motor y **ninguno cae en el `idle` de reserva** (el síntoma de «falta el `case`») |
 | Presets de identidad | `cx-faithful`, `ego-nucleus`, `ego-cyber`, `ego-sentinel`, `ego-architect` |
 | Consumidores | `CharacterBadge.tsx` (chat, Activity Widget, selector de Sub-Egos, sidebar, Presence) y la ventana flotante (`apps/desktop/renderer/floating/`) |
-| Estado en el chat | `ego-chat.tsx` computa `avatarLiveState` desde `pendingApprovals` / `activeError` / `isStreaming` / `toolEvents` / `composerText` y lo mapea al vocabulario del avatar |
+| Estado en el chat | `resolveAvatarLiveState` —**función pura** en `components/character/avatar-live-state.ts`— computa el estado desde `pendingApprovals` / `activeError` / `isStreaming` / `toolEvents` / `composerText` y lo mapea al vocabulario del avatar. Antes era un `useMemo` dentro de un componente de ~1 900 líneas: no era testeable sin montar el chat |
+| Estado `warning` | **Degradación tolerable**: algo falló pero el turno continúa (por ejemplo, una tool que devuelve error). En el motor es amarillo-caution con un triángulo `⚠`, un vaivén leve y la pose `warn` — ni el rojo ni la `!` del `error`, ni el naranja cansado del `ratelimit`. Se añadió en la Ola 2 porque la app tenía la señal (`tool_error`) pero no tenía imagen: el avatar se pintaba en reposo mientras una tool fallaba. Se calcula **acotado al turno en curso** (`turnStartToolSeq`), porque `toolEvents` es historial acumulativo: sin ese acotado, un fallo de una tool del turno 1 dejaba al avatar en ámbar durante todos los turnos siguientes |
 
 **El personaje SÍ es un avatar**, en el sentido de que es una entidad
 procedimental viva con identidad propia que se proyecta en varias superficies.
@@ -255,14 +258,27 @@ terceros. Todo se dibuja con código.
 `apps/desktop/renderer/components/character/core/CharacterEngine.ts`
 (998 líneas) sigue en el repo, pero **no dibuja nada en la interfaz**:
 
-* `CharacterCanvas.tsx` y `CharacterMiniBadge.tsx` están **definidos y nunca
-  renderizados** (0 usos JSX).
-* La clase sólo se usa hoy por tres módulos que importan de ella **tipos**
-  (`RGB`, `EyeShape`) y un utilería (`hexToRGB`): `CharacterStateMachine.ts`,
-  `TraitRegistry.ts` y `CharacterMorph.ts`.
-* La FSM de 14 estados (`CharacterStateMachine`) **nunca se instancia**: sólo
-  se importa su *tipo*. El estado real lo computa el `useMemo` de
-  `ego-chat.tsx`.
+* `CharacterCanvas.tsx` y `CharacterMiniBadge.tsx` fueron **retirados** en el commit
+  `cce55ae` (2026-10-20): estaban definidos y nunca se renderizaron (0 usos JSX).
+* La clase sólo se usa hoy por dos módulos que importan de ella **tipos**
+  (`RGB`, `EyeShape`) y un utilería (`hexToRGB`): `TraitRegistry.ts` y
+  `CharacterMorph.ts`.
+* La FSM de 14 estados (`CharacterStateMachine`) fue **retirada** en el mismo
+  commit: **nunca se instanció**, así que su modelo de interpolación nunca llegó
+  a ejecutarse. Su vocabulario quedó congelado en `state/character-state.ts` (14
+  estados) con un test de regresión (`CharacterLegacy.test.tsx`). El estado real lo
+  computa hoy `resolveAvatarLiveState`, una **función pura**.
+
+> **Por qué el motor canónico es `@ego/avatar` y no la FSM de Ego** (decisión del
+> owner ratificada el 2026-10-20, *"avatar es el mejor"*): el motor canónico es
+> una **tabla de datos** de 14 estados + 11 emotes + `STATE_SOUND` + 22 estados de
+> studio con puente bidireccional, más el motor que interpola; la FSM era un
+> **interpolador cinético** de 14 canales numéricos escrito en Ego (adaptación
+> COUC-06) que nunca corrió. El motor canónico tiene **274 tests**, geometría
+> golden de **174/174** combinaciones, sync SHA-256 entre sus dos copias y cadena
+> MIT resoluble; la FSM no tenía verificación posible. Principio **D3**: el motor
+> del repo `avatar` *es* la primitive; la FSM era la reimplementación. Ver
+> [ADR-0018](../adr/0018-motor-de-personaje.md) §"Retirada de la FSM legacy".
 
 Su vocabulario (`delta-core`, `squircle-core`, `coucou-mochi`, 13 morfologías de
 ojos) es **histórico** y no describe lo que se ve en pantalla.

@@ -40,8 +40,9 @@ seed ──xmur3──► mulberry32 ──► ① GENOMA (inmutable)
                     │                                         │
                     └────────────────────┬────────────────────┘
                                          ▼
-                              ③ ESTADO (14) + EMOTES (11)
+                              ③ ESTADO (15) + EMOTES (11)
                               runtime/states.js
+                              (incluye `warning` = degradación tolerable)
                                          │
                     ┌────────────────────┴────────────────────┐
                     ▼                                         ▼
@@ -51,7 +52,7 @@ seed ──xmur3──► mulberry32 ──► ① GENOMA (inmutable)
 ```
 
 * **Identidad**: el genoma es inmutable; `setSeed()` regenera.
-* **Estado**: 14 estados runtime + 11 emotes; el estado se traduce al
+* **Estado**: 15 estados runtime + 11 emotes; el estado se traduce al
   vocabulario del studio (22) mediante el puente de `src/studio/adapter.js`.
 * **Puentes de hooks**: `HOOK_STATE_MAP` (`UserPromptSubmit→thinking`,
   `Stop→finished` con auto-retorno, `PermissionRequest→approval`…).
@@ -66,23 +67,38 @@ por la decisión D4 del 2026-10-19).
 
 ```
 ego-chat.tsx
-  └─ avatarLiveState = useMemo(...)          ← estado real del chat
+  └─ resolveAvatarLiveState(...)        ← estado real del chat (FUNCIÓN PURA)
        pendingApprovals → "approval_required"
        activeError      → "error"
+       último tool_error→ "warning"   (solo del turno en curso)
        isStreaming      → "searching" | "using_tool" | "thinking" | "generating"
        composerText     → "listening"
        (por defecto)    → "idle"
                     │
                     ▼
        CharacterBadge.tsx
-         mapCharacterStateToAvatarState()     ← 14 estados del chat → 14 del avatar
+         mapCharacterStateToAvatarState()     ← 14 estados del chat → 15 del avatar
                     │
                     ▼
               <ego-avatar>                     ← @ego/avatar (Web Component)
 ```
 
-`CharacterStateMachine.ts` (la FSM de 14 estados) **no se instancia**: sólo se
-importa su *tipo*. El estado efectivo lo computa el `useMemo` anterior.
+> **Ola 2 (2026-07-20).** La resolución se extrajo a una **función pura**,
+> `apps/desktop/renderer/components/character/avatar-live-state.ts`. Antes vivía
+> dentro de un `useMemo` en un componente de ~1 900 líneas: **no era testeable
+> sin montar el chat**. La función recibe además `turnStartToolSeq` porque
+> `toolEvents` es **acumulativo** (es historial, no estado): sin acotarlo al
+> turno en curso, un `tool_error` del turno 1 dejaba el avatar en ámbar durante
+> todos los turnos siguientes. Ese fue un **bug real** que la ola encontró bajo
+> una suite en verde.
+
+`CharacterStateMachine.ts` (la FSM de 14 estados) **fue retirado** en el commit
+`cce55ae` (2026-10-20), junto con `CharacterCanvas.tsx` y
+`CharacterMiniBadge.tsx`. **Nunca se instanció**: su modelo de interpolación
+nunca llegó a ejecutarse. El motivo está en
+[ADR-0018](../adr/0018-motor-de-personaje.md) §"Retirada de la FSM legacy"
+(principio **D3**: el motor del repo `avatar` *es* la primitive; la FSM era la
+reimplementación).
 
 ### 0.3 El motor anterior: `CharacterEngine` (legacy)
 
@@ -91,10 +107,10 @@ líneas) permanece en el repo pero **no dibuja nada**:
 
 | Elemento | Estado real |
 |---|---|
-| `CharacterCanvas.tsx` | definido, **0 usos JSX** |
-| `CharacterMiniBadge.tsx` | definido, **0 usos JSX** |
-| `CharacterEngine` (clase) | sólo se usan sus **tipos** (`RGB`, `EyeShape`) y `hexToRGB`, desde `CharacterStateMachine.ts`, `TraitRegistry.ts` y `CharacterMorph.ts` |
-| `CharacterStateMachine` (FSM) | sólo se importa su **tipo**; nunca se instancia |
+| `CharacterCanvas.tsx` | **retirado** en `cce55ae` (definido y nunca renderizado: 0 usos JSX) |
+| `CharacterMiniBadge.tsx` | **retirado** en `cce55ae` (idem) |
+| `CharacterEngine` (clase) | sólo se usan sus **tipos** (`RGB`, `EyeShape`) y `hexToRGB`, desde `TraitRegistry.ts` y `CharacterMorph.ts`. **No dibuja nada.** |
+| `CharacterStateMachine` (FSM) | **retirada** en `cce55ae`. Nunca se instanció. Su vocabulario quedó congelado en `state/character-state.ts` (14 estados) + `CharacterLegacy.test.tsx` (test de regresión del contrato legacy). |
 | `CharacterMorph` | usa `hexToRGB`; su morph no está conectado al elemento |
 
 Su vocabulario (`delta-core`, `squircle-core`, `coucou-mochi`, 13 morfologías de
@@ -109,15 +125,19 @@ descripción del producto actual.
 
 ### 0.4 Estado de la implementación (corregido)
 
-| Ítem | Estado real (2026-10-19) |
+| Ítem | Estado real (2026-10-20) |
 |---|---|
-| Motor | **REAL** — `@ego/avatar`, 266 tests, typecheck real (`tsc --checkJs`), puerta geométrica de 168 combinaciones |
-| Estados | **REAL** — 14 runtime + 11 emotes, conectados al chat real (`ego-chat.tsx`) |
+| Motor | **REAL** — `@ego/avatar`, **274 tests** (266 + 8 de la Ola 2), typecheck real (`tsc --checkJs`), puerta geométrica de **174** combinaciones |
+| Estados | **REAL** — **15** runtime + **11** emotes, conectados al chat real; `warning` (degradación tolerable) incluido |
+| Estado del chat | **REAL** — `resolveAvatarLiveState` es una **función pura** (`avatar-live-state.ts`) con la precedencia `approval_required` → `error` → `warning` → `searching`/`using_tool`/`thinking`/`generating` → `listening` → `idle` |
+| Guard de contrato | **REAL** — `apps/desktop/renderer/test/avatar-state-contract.test.ts` (7 tests): todo `CharacterState` existe en el motor y ninguno cae en el `idle` de reserva |
+| Round-trip studio | **REAL** — **15/15** estados con identidad Ego → studio → Ego (medido sobre `src/studio/adapter.js`) |
 | Identidad | **REAL** — genoma determinista por semilla; presets de identidad de Ego |
 | UI | **REAL** — `CharacterBadge` en chat, Activity Widget, selector de Sub-Egos, sidebar y Presence; ventana flotante aparte |
 | Modo canvas (studio) | **REAL** — 22 estados, puente bidireccional de estados, presets, genome→studio |
-| `CharacterCanvas` / `CharacterMiniBadge` | **SIN CONSUMIDORES** (legacy) |
-| FSM `CharacterStateMachine` | **NO INSTANCIADA** (sólo el tipo se usa) |
+| `CharacterCanvas` / `CharacterMiniBadge` | **RETIRADOS** (`cce55ae`) — definidos y nunca renderizados |
+| FSM `CharacterStateMachine` | **RETIRADA** (`cce55ae`) — nunca se instanció; su vocabulario quedó en `state/character-state.ts` (14 estados) |
+| `CharacterEngine` (legacy) | **NO DIBUJA** — sobrevive por sus tipos (`RGB`, `EyeShape`) y `hexToRGB` |
 | Persistencia de la identidad | **PARCIAL** — el perfil vive en `packages/subegos`; el genoma es regenerable desde la semilla |
 | MotionGuard | **REAL** (`CharacterMotionGuard.ts`) |
 
@@ -126,7 +146,7 @@ descripción del producto actual.
 > **Estado y correcciones (2026-10-08, actualizado 2026-10-14 — D3 parcial honesto; **SUSTITUIDO por §0 el 2026-10-19**):** el motor existe en código (`apps/desktop/renderer/components/character/`, `packages/subegos/src/CharacterProfile.ts`): CHAR-06 REAL (FSM + 7 tests), CHAR-07 REAL (TraitRegistry + 5 tests), CHAR-09 REAL (Morph + 5 tests). Parciales honestos: CHAR-05 motor real (~2000 líneas) pero 0 tests dedicados; CHAR-10 UI y contrato existen pero desconectados (lo guardado no sobrevive reinicio); CHAR-11 MotionGuard real pero faltan benchmarks CPU/memoria y golden frames. Fuente: `docs/agent-ops/reports/2026-10-14-brechas-decisiones-diseno.md` §3. La identidad visual es una **criatura/bot original, carismática y limpia, con cabeza, ojos grandes expresivos, boca y manitas/brazos procedimentales**. No es un humano con ropa de tela ni un logotipo geométrico abstracto. Tareas: `CHAR-01..11` y `WIDG-01..05` en `docs/roadmap/Backlog.md`. El widget in-app es `CANV-11`; la ventana flotante de escritorio es `WIDG-02`; ambos comparten `AttentionStateMachine` (`WIDG-03`). El motor/renderer lo implementa `CHAR-05`/`CHAR-06` (absorbe el alcance técnico de `CANV-08`).
 >
 > **Corrección 2026-10-19:** el párrafo anterior describe el estado del motor
-> **legacy**. El motor vigente es `@ego/avatar` (266 tests, typecheck real), y
+> **legacy**. El motor vigente es `@ego/avatar` (274 tests, typecheck real), y
 > `CharacterEngine` **no dibuja en la interfaz**. La tabla de estado real está
 > en §0.4; la decisión sobre qué se archiva sigue pendiente del owner.
 

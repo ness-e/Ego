@@ -8,10 +8,9 @@ Versión amigable del [CHANGELOG.md](../../CHANGELOG.md) canónico
 (formato Keep a Changelog + SemVer). Si hay discrepancia, manda el
 `CHANGELOG.md` de la raíz.
 
-> **Estado 2026-10-20:** esta entrada y las de
-> [`docs/changelog.md`](../changelog.md) y el `CHANGELOG.md` raíz están
-> **sincronizadas**. La regla de precedencia es explícita en los tres:
-> **manda la raíz**.
+> **Estado 2026-10-20:** las entradas de la **Ola 1** y de la **Ola 2** están
+> **sincronizadas** en [`docs/changelog.md`](../changelog.md) y el `CHANGELOG.md`
+> raíz. La regla de precedencia es explícita en los tres: **manda la raíz**.
 
 ## Próximo (sin publicar)
 
@@ -45,6 +44,28 @@ Esto es lo que viene en camino, aún sin número de versión:
   (transiciones sobrias) sin inflar dependencias.
 - **Navegación y CSP más duras:** base de política de seguridad de contenido
   y navegación endurecida en la ventana desktop.
+- **Las imágenes de los mensajes ya no pueden espiarte.** El contenido del chat
+  se limpia con una lista blanca y las imágenes solo pueden venir de la propia
+  app: una imagen remota incrustada en un mensaje ya no puede enviar datos
+  fuera.
+- **El personaje avisa cuando algo falla pero todo sigue.** Antes, si una
+  herramienta fallaba y el turno continuaba, el personaje se quedaba en
+  «pensando» como si nada. Ahora se pone en ámbar, con un triángulo de aviso,
+  y vuelve a su estado normal en el siguiente turno.
+- **El personaje conserva su aspecto en el modo estudio.** Al abrir el
+  lienzo y volver, los estados ya no se mezclan.
+- **Varias herramientas se ejecutan a la vez.** En vez de hacerlas una detrás
+  de otra, las del mismo turno corren en paralelo y los resultados llegan en el
+  mismo orden de siempre. Medido: 220 ms en lugar de 600 ms.
+- **Ego se puede conectar como servidor MCP** desde otros programas, siempre
+  en tu propio equipo (`127.0.0.1`), con una clave que se guarda en el
+  almacén de credenciales del sistema y que **nunca** se pasa a la interfaz.
+  Cada herramienta sensible sigue pidiendo tu aprobación, igual que en el
+  chat.
+- **Menos ruido en el linter de código:** los ficheros de terceros que se
+  incluyen por licencia ya no se revisan como si fueran código tuyo, y el
+  linter de estilos que se quejaba de colores hardcodeados ya no falla por
+  culpa de un cambio en un fichero ajeno.
 
 ### Migración
 
@@ -60,3 +81,14 @@ Dos cambios **sí** requieren atención:
   componente accesible con teclado.
 - **El tema de la ventana ya no depende del sistema operativo.** Sigue siendo
   dark-only, como estaba, pero la app ya no lo cambia por su cuenta.
+- **Electron se ha actualizado** de una versión que ya no recibía parches de
+  seguridad a una con soporte. No cambia nada de tu uso diario, pero
+  conviene **reconstruir** (`pnpm build`) y reinstalar la app: las versiones
+  antiguas siguen arrancando, aunque sin las correcciones de seguridad del
+  motor.
+- **El servidor MCP de Ego escucha solo en `127.0.0.1`** y exige una clave.
+  El canal para obtener esa clave (variable de entorno o fichero protegido en
+  el directorio de datos de la app) **todavía se está documentando**: hasta
+  que se cierre, un cliente MCP externo no puede autenticarse de forma
+  soportada. Ver `EGO-FIND-81` en el Backlog y
+  [ADR-0021](../adr/0021-mcp-server-transporte-y-token.md).

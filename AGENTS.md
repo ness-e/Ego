@@ -5,14 +5,14 @@
 
 ## 1. STACK TECNOLÓGICO Y VERSIONES
 
-* Runtime: Node.js ≥22 en toolchain del sistema (build/test/lint) + Electron 33.4.11 cuyo main corre sobre su Node 20.18 embebido (F5T11/M29: upgrade a ≥36 diferido — el `.node` napi-rs de VantaDB es N-API estable y carga verificado en la suite; subir exige descarga de binario + re-verificación de empaquetado, fuera de esta task) + Chromium (renderer)
-* Framework desktop: Electron 33 + electron-builder con `electron-vite` 5.x (MIGRADO — T11, layout `out/`; ver `docs/engineering/stack-tecnico.md:17`)
+* Runtime: Node.js ≥22 en toolchain del sistema (build/test/lint) + Electron 41.10.7 cuyo main corre sobre su Node 24.18 embebido + Chromium 146 (renderer). *Corregido 2026-10-20: esta línea declaraba Electron 33.4.11 / Node 20.18, pero el manifiesto ya declara `electron: ^41.10.7` (`apps/desktop/package.json`; lockfile `41.10.7`) desde la Ola 2 — ver `EGO-FIND-23` en `docs/roadmap/Backlog.md`. La nota F5T11/M29 que difería el upgrade a ≥36 queda obsoleta.*
+* Framework desktop: Electron 41 + electron-builder con `electron-vite` 5.x (MIGRADO — T11, layout `out/`; ver `docs/engineering/stack-tecnico.md:17`)
 * Frontend: React 19 + TypeScript (strict) + Vite
 * Chat UI: `@assistant-ui/react`
 * Memoria: VantaDB 0.8.0 vía `NativeVantaDB` de `"vantadb/native"` (napi-rs, solo en main process) + `vantadb-mcp` como subprocess cognitivo (88 tools, vanta-memory L0-L3)
 * Modelos: AI SDK v7 (adaptador, NO arquitectura) + Model Router propio
 * Gestor de paquetes: pnpm (workspaces)
-* Lenguaje de la aplicación: TypeScript (Node.js 22 main + React 19 renderer). Sidecar opcional: Python (ingesta masiva).
+* Lenguaje de la aplicación: TypeScript (proceso main sobre el Node embebido de Electron 41 + React 19 renderer). Sidecar opcional: Python (ingesta masiva).
 
 ## 2. ARQUITECTURA Y CONVENCIONES
 
@@ -102,7 +102,7 @@ Ego/
 │   ├── roadmap/              ← 12 fases, Backlog canónico (estado de tareas), métricas-okr
 │   ├── references/           ← glosario, repos-intel
 │   ├── adr/                  ← decisiones de arquitectura numeradas (0001..0017, sin colisiones)
-│   ├── design/               ← design-system canónico (tokens, tabla de primitives, 9 estados)
+│   ├── design/               ← design-system canónico (tokens, tabla de primitives, 9 estados, puerta de calidad)
 │   ├── user/                 ← guía de usuario (taxonomía Diátaxis)
 │   ├── deployment/           ← distribución unsigned vigente + release notes
 │   ├── operations/           ← runbooks (snapshots/respaldo; despliegue legacy deprecado)
@@ -144,6 +144,7 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 * Type check: `pnpm typecheck` (o `npx tsc --noEmit -p apps/desktop`)
 * Tests: `pnpm test`
 * Lint: `pnpm lint`
+* Puerta de diseño: `pnpm --filter @ego/desktop design:lint` (o `node apps/desktop/scripts/design-lint.cjs`; `--json` para informe machine, `--prune` para podar la lista blanca de deuda)
 * Dev: `pnpm dev`
 
 > **Excepción de ejecución autorizada (Repositorio Ego):** El usuario ha autorizado explícitamente al agente para ejecutar de manera autónoma comandos de instalación, compilación, typecheck y pruebas unitarias/E2E en este repositorio (`pnpm install`, `pnpm build`, `pnpm test`, `pnpm typecheck`, `tsc`). No se requiere confirmación manual para cada ciclo de verificación en el flujo de desarrollo de Ego.
@@ -173,9 +174,21 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
 - **Alcance**: todo el repo — UI (`ui-kit/`), IPC, runtime, tooling y scripts.
 - Un componente **propio** solo puede existir cuando haya un **motivo concreto** (nunca "comodidad" ni "ya estaba hecho"), y ese motivo **debe estar escrito** en la [tabla de primitives](docs/design/design-system.md), que es el registro canónico de la decisión de cada primitive.
 - Si Radix, React Aria o la librería estándar ofrece el equivalente y el propio no aporta nada, **se migra**.
-- Migración aplicada: `Select` → `@radix-ui/react-select` (ADR-0015, A4, Ola 1). El renderer **no contiene ningún `<select>` nativo** (verificado 2026-10-19).
-- Primitives aún **ad-hoc** fuera del kit (combobox del omnibar, dropdown, popover, tooltip): revisión de Radix/React Aria pendiente — inventariadas en `docs/design/design-system.md` §8.2.
+- Migración aplicada: `Select` → `@radix-ui/react-select` (ADR-0015, A4, Ola 1). El renderer **no contiene ningún `<select>` nativo** (verificado 2026-10-19; desde la Ola 2 lo bloquea además la puerta R6).
+- Ola 2026-10-20: `Menu`, `Popover`, `Tooltip` y `Switch` entraron en el kit sobre Radix → el kit pasa de 6 a **11 primitives**.
+- Primitives aún **ad-hoc** fuera del kit (combobox + listbox del omnibar): revisión de Radix/React Aria pendiente — inventariadas en `docs/design/design-system.md` §8.2.
 - Verificación: `docs/design/design-system.md` §"Tabla de primitives".
+
+### Puerta de calidad del design system
+
+> **El design system de Ego se APLICA, no solo se DECLARA.** `docs/design/design-system.md` es el canónico (tokens, tabla de primitives, 9 estados, contraste) y `apps/desktop/scripts/design-lint.cjs` es su puerta ejecutable.
+
+- **Script**: `apps/desktop/scripts/design-lint.cjs` — linter sin dependencias (`node:fs`/`node:path`) que recorre el renderer y **falla (exit 1)** ante las reglas **R1–R7**: hex fuera de token · `style={{}}` ad-hoc · `text-[Npx]` arbitrario · opacidad sobre texto `dim`/`faint` · `border-hairline` como único indicador de input · `<select>` nativo · paleta cruda. **R8** (recuento de controles nativos crudos) es métrica: avisa, no bloquea.
+- **Ejecución**: `node apps/desktop/scripts/design-lint.cjs` (`--json` informe machine, `--prune` poda la lista blanca) · `pnpm --filter @ego/desktop design:lint` · `pnpm --filter @ego/renderer design:lint`.
+- **Excepciones**: la tabla `WHITELIST` del script enumera la deuda preexistente por `(regla, fichero)` con motivo + fecha + ID `EGO-DL-###`. Un fichero nuevo con la misma infracción **no** queda cubierto: la puerta se enciende sola.
+- **Contrato de test**: `apps/desktop/renderer/test/design-lint.test.tsx`.
+- **CI**: paso `design-lint` del job `verify` de `.github/workflows/ci.yml`, **antes** del typecheck, los tests y el build (fail-fast). Bloqueante.
+- **Documentación**: [`docs/design/design-system.md`](docs/design/design-system.md) §10 · [`docs/testing/estrategia.md`](docs/testing/estrategia.md) §"Puertas de calidad automatizadas".
 
 ### Excepción de tipado: el motor de personaje (`packages/avatar`) es JavaScript plano
 
@@ -247,6 +260,7 @@ Antes de iniciar la codificación de tareas en cualquier fase del Backlog Maestr
   - `VERIFIED`: Validación automatizada con pruebas unitarias, de error, persistencia y E2E sin regresiones.
 * Tipado estricto TypeScript. `any` prohibido salvo justificación explícita.
 * Toda feature = Implementado + Integrado + Prueba funcional + Prueba de error + Persistencia + Sin regresiones.
+* **Puertas de calidad**: una feature no pasa a `VERIFIED` si no atraviesa las puertas del job `verify` de CI (lint, typecheck, tests y —si toca el renderer— la puerta `design-lint` de las reglas R1–R7). Inventario: `docs/testing/estrategia.md`.
 * UI budget: 15-20% del esfuerzo de P0. "Funcional primero. Usable siempre. Perfecto después."
 
 ## 5. PROTOCOLO DE COMMITS Y GIT

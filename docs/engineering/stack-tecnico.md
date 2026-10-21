@@ -12,7 +12,7 @@
 
 ## Stack de Ego Desktop
 El cliente principal de Ego para escritorio se construye sobre las siguientes tecnologías:
-- **Electron**: Contenedor principal de la aplicación de escritorio.
+- **Electron**: Contenedor principal de la aplicación de escritorio (`^41.10.7` declarado en `apps/desktop/package.json`; el proceso main corre sobre el Node 24.18 embebido).
 - **React + TypeScript**: Framework de UI.
 - **Vite**: Bundler y herramientas de desarrollo del renderer vía **`electron-vite` 5.x (MIGRADO — T11 `fa58b8c`, layout `out/`, smoke nativo re-verificado; la nota anterior que decía "migración no hecha" quedó obsoleta). DevDeps verificadas: `electron-vite ^5.0.0`, `@vitejs/plugin-react ^4.3.4`, `@tailwindcss/vite`, `vitest`.
 
@@ -64,12 +64,27 @@ El cliente principal de Ego para escritorio se construye sobre las siguientes te
 
 ## Interfaz de Usuario (UI)
 - **Navegación**: workspace dinámico componible por estado local (tabs + `SplitPane` en `App.tsx`); sin React Router por decisión EGO-FIND-04 ✅ (grep 0 usos en `renderer/`, sin la dep en `package.json`; la arquitectura workspace rechaza pantallas fijas — ver `ux-ui.md`).
-- **Primitivas UI**: Radix (`@radix-ui/react-dialog`, `@radix-ui/react-tabs`,
-  `@radix-ui/react-select`) + kit propio `ui-kit/`
-  (Button/Input/Modal/Tabs/Badge/Select, cva+clsx+tailwind-merge) — instalados
-  T06 `40fb103`. **Principio D3 (owner 2026-10-19): las primitives de librería
-  se usan siempre; un componente propio solo existe si hay un motivo concreto,
-  escrito en [`docs/design/design-system.md`](../design/design-system.md) §8.**
+- **Primitivas UI**: Radix (`@radix-ui/react-dialog`,
+  `@radix-ui/react-dropdown-menu`, `@radix-ui/react-popover`,
+  `@radix-ui/react-select`, `@radix-ui/react-tabs`,
+  `@radix-ui/react-tooltip`) + kit propio `ui-kit/` (**11 primitives**: Badge,
+  Button, Input, Menu, Modal, Popover, Select, Switch, Tabs, Textarea,
+  Tooltip — sobre cva+clsx+tailwind-merge) — instalado T06 `40fb103` y
+  ampliado en laOLA 2026-10-20. **Principio D3 (owner 2026-10-19): las
+  primitives de librería se usan siempre; un componente propio solo existe si
+  hay un motivo concreto, escrito en
+  [`docs/design/design-system.md`](../design/design-system.md) §8.**
+- **Puerta de calidad del design system**: el design system **se aplica, no
+  solo se declara**. `apps/desktop/scripts/design-lint.cjs` (linter sin
+  dependencias) recorre el renderer y falla ante las reglas R1–R7 (hex fuera
+  de token, `style={{}}` ad-hoc, `text-[Npx]` arbitrario, opacidad sobre texto
+  dim/faint, `border-hairline` como único indicador de input, `<select>`
+  nativo, paleta cruda); R8 es métrica de adopción del kit. Es un paso
+  bloqueante del job `verify` de CI, **antes** del build. Contrato, ejecución
+  (`node apps/desktop/scripts/design-lint.cjs [--json|--prune]`) y lista de
+  excepciones: [`docs/design/design-system.md`](../design/design-system.md) §10
+  y [`docs/testing/estrategia.md`](../testing/estrategia.md) §"Puertas de
+  calidad automatizadas".
 - **Editor de código**: **CodeMirror 6** (`codemirror ^6.0.2` + `@codemirror/*` +
   `lang-javascript|python|markdown`) en
   `apps/desktop/renderer/components/canvas/EditorView.tsx` — sustituye a

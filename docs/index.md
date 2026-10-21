@@ -64,6 +64,8 @@
   — canal dual (P-LLM/Q-LLM) con taint tracking
 - [`0020-compactacion-motor-ts-vs-nativo.md`](adr/0020-compactacion-motor-ts-vs-nativo.md)
   — motor de compactación: `ContextCompaction` (TS) canónico, nativo condicionado
+- [`0021-mcp-server-transporte-y-token.md`](adr/0021-mcp-server-transporte-y-token.md)
+  — transporte HTTP loopback y política de token del MCP Server de Ego
 
 **Deployment** (fuente vigente)
 

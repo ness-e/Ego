@@ -23,7 +23,18 @@ export default defineConfig({
   // agent-ops/: worklogs internos (ver arriba). CHANGELOG/CONTRIBUTING/
   // CODE_OF_CONDUCT/AGENTS: viven en la raíz del repo (fuera del root del
   // site) y sus enlaces son válidos en GitHub aunque el site no los sirva.
-  ignoreDeadLinks: [/agent-ops\//, /CHANGELOG/, /CONTRIBUTING/, /CODE_OF_CONDUCT/, /AGENTS/],
+  // `/LICENSE` y `/packages/avatar/LICENSE.md`: mismo caso (la cadena legal
+  // vive fuera de `docs/`); los enlaces son válidos en GitHub y el sitio no
+  // puede resolverlos.
+  ignoreDeadLinks: [
+    /agent-ops\//,
+    /CHANGELOG/,
+    /CONTRIBUTING/,
+    /CODE_OF_CONDUCT/,
+    /AGENTS/,
+    /LICENSE/,
+    /packages\/avatar\/LICENSE/,
+  ],
   markdown: {
     /**
      * EGO-VUE-INTERPOLATION: el sitio compila cada `.md` como plantilla Vue,

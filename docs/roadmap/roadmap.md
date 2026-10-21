@@ -47,7 +47,7 @@ La implementación de Ego no sigue un enfoque lineal por características (A→B
 - [x] Los fallos devuelven contexto para reintento — Cumplido en ACT-02/ACT-03 (inyección causal en rol tool y aislamiento de fallos).
 - [x] Flujo visual interactivo de aprobación humana HITL con diffs y edición de parámetros — Cumplido en ACT-07 (`ApprovalCard` en Chat UI + puente IPC).
 - [x] Manejo de errores y reintentos con contexto causal y auto-reparación sintáctica — Cumplido en ACT-08 (`ErrorHandler` con auto-reparación OCLW-03, clasificación OCLW-04 y LoopGuard).
-- [x] Cliente MCP universal sobre stdio (Nivel B Integración) — Cumplido en ACT-09 (`McpClient` con handshake MCP 2024-11-05, auto-discovery de tools, schema bridge Zod, inferencia de riesgo, SafeConfigMutation con rollback atómico COUC-10 y kernel RPC dispatch directo HERM-18).
+- [x] Cliente MCP universal sobre stdio (Nivel B Integración) — Cumplido en ACT-09 (`McpClient` con handshake MCP 2024-11-05, auto-discovery de tools, schema bridge Zod e inferencia de riesgo). **Corrección 2026-10-20:** no incluye `SafeConfigMutation` (`COUC-10`, sin caller de producción) ni el kernel RPC (`HERM-18`, descartado); `McpClient.reload()` hace su rollback en memoria.
 - [x] Validación E2E del Golden Path Alpha (Pasos 8 al 12) — Cumplido en ACT-10 (Suite E2E automatizada `tools-execution.test.ts`: Solicitud → Inferencia ModelRouter → Selección de Tool → Retención HITL con ActionIdentity SHA-256 → Aprobación humana → Ejecución atómica Nivel A → Persistencia de turno y artefacto en VantaDB → Recuperación intacta tras reinicio).
 > **Estado actual:** 12 de 12 tareas completadas. **Fase 100% COMPLETADA**.
 **Criterio de aceptación:** El modelo puede interactuar con el sistema operativo de forma controlada y persistente —

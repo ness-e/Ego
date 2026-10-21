@@ -8,6 +8,19 @@ Dos superficies E2E, separadas a propósito (no se pisan entre sí ni con CI):
 | Electron mínimo | `tests/gui/electron/` + `tests/gui/electron.playwright.config.ts` | smoke del shell real: `_electron.launch` sobre `out/main/main.js`, header Ego + Chat + Canvas | `playwright test --config=electron.playwright.config.ts` |
 | Vitest e2e/resiliencia | `tests/e2e/`, `tests/chaos/`, `tests/security/` | golden path, caos, seguridad (sin ventana) | `pnpm test:e2e` |
 
+## Puertas de calidad del job `verify` (no E2E)
+
+Además de los E2E, el job `verify` de `.github/workflows/ci.yml` corre una
+cadena de puertas **bloqueantes**: lint, typecheck, tests, la puerta del
+design system (`node apps/desktop/scripts/design-lint.cjs`, reglas R1–R7 —
+ver [`docs/design/design-system.md`](../design/design-system.md) §10),
+`sync:check`/`geometry:check` del avatar, `verify-harness`,
+`verify-ci-triggers`, `verify-vantadb-ids` y `verify-paths`. La puerta de
+diseño se ejecuta **antes** del typecheck, los tests y el build (fail-fast).
+
+Inventario completo y detalle de cada puerta:
+[`docs/testing/estrategia.md`](../testing/estrategia.md).
+
 ## E2E Electron mínimo (`test:e2e:electron`)
 
 ### Precondiciones (las hace el owner, una vez)

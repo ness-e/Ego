@@ -26,8 +26,8 @@
 
 | Estado | ADRs |
 |---|---|
-| Aceptado | 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0019 |
-| Aceptado (parcial) | 0018 (la consolidación física de `CharacterEngine` queda pendiente) · 0020 (el motor nativo queda condicionado a una puerta de invariantes) |
+| Aceptado | 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0019, 0021 |
+| Aceptado (parcial) | 0018 (la consolidación física de `CharacterEngine` queda pendiente; la FSM legacy **ya se retiró**) · 0020 (el motor nativo queda condicionado a una puerta de invariantes) |
 | Superseded | 0001 (`electron-vite` 5.x lo sustituye) |
 
 ## Las decisiones
@@ -54,6 +54,7 @@
 | [0018](0018-motor-de-personaje.md) | `@ego/avatar` es el motor de personaje | 2026-10-19 | 4 · Architecture |
 | [0019](0019-canal-dual-taint-tracking.md) | Canal dual (P-LLM/Q-LLM) con taint tracking | 2026-10-19 | 4 · Architecture |
 | [0020](0020-compactacion-motor-ts-vs-nativo.md) | Motor de compactación: `ContextCompaction` (TS) canónico | 2026-10-20 | 4 · Architecture |
+| [0021](0021-mcp-server-transporte-y-token.md) | Transporte HTTP loopback y política de token del MCP Server | 2026-10-20 | 4 · Architecture |
 
 ## Referencias
 

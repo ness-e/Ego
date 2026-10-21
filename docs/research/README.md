@@ -36,6 +36,9 @@ El directorio `docs/research/` documenta las investigaciones técnicas profundas
 | [`compatibilidad-integraciones-mcp-skills.md`](compatibilidad-integraciones-mcp-skills.md) | De dónde saca Ego el ecosistema de integraciones: formatos y rutas de configuración por app, importabilidad de MCP/plugins/skills, detección de apps instaladas, brechas del MCP de Ego y estrategia de importación con gate HITL. | Activo (2026-10-20) |
 | [`automatizacion-y-agentes-ejecucion.md`](automatizacion-y-agentes-ejecucion.md) | Automatización con agentes: workflow engines, ejecución durable, computer-use/browser-use, asistentes locales, y los mecanismos de ejecución fiable (idempotencia, checkpoint, presupuesto triple, aprobación suspendida). | Activo (2026-10-20) |
 | [`producto-y-desarrollo-como-empresa.md`](producto-y-desarrollo-como-empresa.md) | Gestión de producto y desarrollo como empresa de software de una persona: spec-driven, roadmap, CI/CD, calidad, changelog y releases, y pipeline de feature con agentes. | Activo (2026-10-20) |
+| [`sintesis-capacidades-ego.md`](sintesis-capacidades-ego.md) | **Matriz maestra de decisión**: consolidación de los 9 informes de dominio en capacidades priorizadas (valor, evidencia, estado actual en Ego, fase destino, esfuerzo), mapa de fases, descartes con fundamento y bloqueos que solo el owner puede levantar. | Activo (2026-10-20) |
+| [`rfc-viability-top.md`](rfc-viability-top.md) | **RFC de viabilidad (Vía 2)** de las propuestas top: encaje en la arquitectura con rutas reales, FMEA, dependencias, seguridad y privacidad, esfuerzo, alternativas descartadas y veredicto por RFC. | Activo (2026-10-20) |
+| [`licencias-obligaciones.md`](licencias-obligaciones.md) | **Mapa de obligaciones de licencia** del catálogo de referencia para un producto Apache-2.0: categoría legal de cada proyecto (permisiva, copyleft fuerte, source-available, propietario, dual), zonas de riesgo, procedimiento de atribución y tabla de atribución acumulada. 56 proyectos verificados contra la API de GitHub. | Activo (2026-10-20) |
 | `HISTORIAL-DE-CONTEXTO-E-INVESTIGACION.txt` | Contexto de investigación previo (histórico). | Histórico |
 
 > **Alcance del documento maestro.** NO es una especificación de Ego. La
@@ -47,6 +50,8 @@ El directorio `docs/research/` documenta las investigaciones técnicas profundas
 
 ## Áreas de Investigación Activas
 
+### Áreas fundacionales (Ola 1) ###
+
 1. **Protocolos de Agentes y Modelos**:
    - Model Context Protocol (MCP) spec 2024-11-05 (Client + Server en Electron Main).
    - Vercel AI SDK v7 como adaptador de transporte agnóstico (`packages/models/`).
@@ -57,23 +62,47 @@ El directorio `docs/research/` documenta las investigaciones técnicas profundas
    - Recuperación estructural de grafos y GraphRAG local (ONNX embeddings + Fjall LSM).
    - Dream Consolidation y Micro-Memory-Documents inspirados en `vanta-memory`.
 
-> **Corrección 2026-10-20:** la línea de RRF describe **la capacidad del motor
-> de VantaDB**, no lo que Ego ejecuta hoy. En el **Fast Path** Ego usa **BM25
-> léxico puro** con re-rank mono-lista (sin RRF); la fusión RRF + HNSW denso
-> pertenece al **Cognitive Path** (Ola 2 · E2). Ver
-> `docs/architecture/memoria-vantadb.md` §3 y §10.
+   > **Corrección 2026-10-20:** la línea de RRF describe **la capacidad del motor
+   > de VantaDB**, no lo que Ego ejecuta hoy. En el **Fast Path** Ego usa **BM25
+   > léxico puro** con re-rank mono-lista (sin RRF); la fusión RRF + HNSW denso
+   > pertenece al **Cognitive Path** (Ola 2 · E2). Ver
+   > `docs/architecture/memoria-vantadb.md` §3 y §10.
 
 3. **Arquitectura Desktop y Runtimes**:
    - Aislamiento de procesos en Electron 34+ / Node.js 22.
    - Rendimiento de `@assistant-ui/react` con streaming de tokens de alta frecuencia.
    - PTY y multiplexación de terminales en Windows x64.
 
-> **Corrección 2026-10-20:** la línea de PTY describe **a `openclaw`/`helmor`**, no
-> a Ego. Ego **no tiene PTY** (`node-pty` no está en el workspace); su
-> equivalente es el drenado de terminal **sobre pipes** a 16 KB/tick con
-> ring-buffer de 2 MB (`packages/tools/src/native/terminal/TerminalCommandPolicy.ts`
-> + `NativeTerminalTool.ts`). Ver `docs/roadmap/Backlog.md` §backlogs de
-> referencia.
+   > **Corrección 2026-10-20:** la línea de PTY describe **a `openclaw`/`helmor`**, no
+   > a Ego. Ego **no tiene PTY** (`node-pty` no está en el workspace); su
+   > equivalente es el drenado de terminal **sobre pipes** a 16 KB/tick con
+   > ring-buffer de 2 MB (`packages/tools/src/native/terminal/TerminalCommandPolicy.ts`
+   > + `NativeTerminalTool.ts`). Ver `docs/roadmap/Backlog.md` §backlogs de
+   > referencia.
+
+### Áreas de dominio (Ola 2, 2026-10-20) ###
+
+Investigación de estado del arte para el producto de Ego como **sistema operativo de
+una empresa de una persona**. Cada informe lleva su veredicto por capacidad, su
+método de verificación de datos y la tabla de lo que se descarta.
+
+1. **Orquestación de agentes multi-agente** → [`orquestacion-multiagente.md`](orquestacion-multiagente.md).
+2. **Plantillas de agentes, enjambres y skills** → [`plantillas-agentes-y-enjambres.md`](plantillas-agentes-y-enjambres.md).
+3. **Backoffice de empresa** (ERP, CRM, finanzas, inventario, facturación) → [`backoffice-empresa-personal.md`](backoffice-empresa-personal.md).
+4. **Canales de comunicación y redes sociales** → [`canales-comunicacion-y-social.md`](canales-comunicacion-y-social.md).
+5. **Integraciones: MCP, plugins, skills y detección de apps instaladas** → [`compatibilidad-integraciones-mcp-skills.md`](compatibilidad-integraciones-mcp-skills.md).
+6. **Automatización y ejecución fiable con agentes** → [`automatizacion-y-agentes-ejecucion.md`](automatizacion-y-agentes-ejecucion.md).
+7. **Producto y desarrollo de software como empresa** → [`producto-y-desarrollo-como-empresa.md`](producto-y-desarrollo-como-empresa.md).
+
+### Síntesis y viabilidad (Ola 2, cierre) ###
+
+1. **Matriz maestra de decisión**: qué construye Ego, en qué fase y con qué fundamento → [`sintesis-capacidades-ego.md`](sintesis-capacidades-ego.md).
+2. **RFC de viabilidad del top-N** (Vía 2 del protocolo de extracción) → [`rfc-viability-top.md`](rfc-viability-top.md).
+
+> **Regla de verificación de datos:** los informes de la Ola 2 se auditaron contra la
+> API de GitHub (530 cifras verificadas, 229 corregidas, 40 marcadas "no verificado",
+> 7 repos renombrados). Cualquier cifra nueva debe verificarse igual antes de
+> promoverla a tarea: `estado = evidencia, no memoria`.
 
 ---
 

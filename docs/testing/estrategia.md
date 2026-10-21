@@ -41,6 +41,94 @@
    - Respaldo y restauración de `.vdbdump` en base de datos temporal con conteos y relaciones idénticos.
    - Validación del *Golden Path Alpha* (20 pasos) y *Golden Path Beta*.
 
+## Puertas de calidad automatizadas (bloqueantes)
+
+La cobertura mide; las **puertas** cortan. El job `verify` de
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) encadena las
+siguientes, y cualquiera de ellas rompe el pipeline:
+
+| Puerta | Comando | Qué bloquea |
+| --- | --- | --- |
+| Lint de código | `pnpm exec oxlint --ignore-path .gitignore apps packages tests scripts eval` | Errores de oxlint en `apps`, `packages`, `tests`, `scripts`, `eval`. |
+| Typecheck | `pnpm typecheck` | Cualquier error de tipos (TypeScript estricto en todo el monorepo). |
+| Tests | `pnpm test` | Regresiones funcionales. |
+| **Design system** | `node apps/desktop/scripts/design-lint.cjs` | Violaciones **R1–R7** del design system. |
+| Avatar sync/geometry | `pnpm --filter @ego/avatar sync:check` + `geometry:check` | Drift entre el motor canónico y la copia vendorizada; traza golden de la geometría. |
+| Harness del agente | `node scripts/verify-harness.mjs` | Desincronización de `.opencode/` con `.agents/`. |
+| Triggers de CI | `node scripts/verify-ci-triggers.mjs` | Workflows inertes (filtros de rama que nunca disparan). |
+| Trazabilidad VantaDB | `node scripts/verify-vantadb-ids.mjs` | IDs del registro canónico inexistentes o índice↔detalle incoherentes. |
+| Rutas del repositorio | `node scripts/verify-paths.mjs` | Rutas con caracteres no admitidos por Windows o ficheros de 0 bytes. |
+| Seguridad | `node scripts/audit-security.mjs` | Advisories CRITICAL/HIGH sin justificación en el ALLOWLIST. |
+
+### Puerta de calidad del design system (`design-lint`)
+
+El design system de Ego ([`docs/design/design-system.md`](../design/design-system.md),
+canónico) **ahora se aplica, no solo se declara**. Hasta la Ola 1 sus reglas
+eran prosa: nadie las ejecutaba y el código divergía (hex literales fuera de
+token, `style={{}}` ad-hoc, `text-[Npx]` arbitrarios, `<select>` nativo,
+colores de paleta crudos). Hoy hay un linter sin dependencias que convierte
+esas reglas en ley ejecutable.
+
+- **Script**: `apps/desktop/scripts/design-lint.cjs` — sólo `node:fs` y
+  `node:path`, sin dependencias que instalar.
+- **Alcance por defecto**: `apps/desktop/renderer/{components,src,floating}`
+  (ficheros `.ts`/`.tsx`; se excluyen los tests, `node_modules` y el motor de
+  avatar vendorizado en `floating/vendor/`).
+- **Contrato de salida**: `0` = pasa (puede haber avisos de R8, que son
+  métricas) · `1` = hay errores (R1–R7) · `2` = error de uso.
+
+| Regla | Detecta | Severidad |
+| --- | --- | --- |
+| R1 | Hex literal fuera de `var(--color-*, fallback)` | error |
+| R2 | `style={{}}` ad-hoc (escape: `// design-lint: allow`) | error |
+| R3 | `text-[Npx]` arbitrario — la escala tipográfica es la única admitida | error |
+| R4 | Opacidad sobre texto `dim`/`faint` o en `placeholder:` (contraste AA) | error |
+| R5 | `border-hairline` como único indicador de un input | error |
+| R6 | `<select>` nativo (ADR-0015) | error |
+| R7 | Paleta cruda (`text-white`, `bg-white/*`, `text-zinc-*`, `bg-black/*`…) | error |
+| R8 | Recuento de `<button>`/`<input>`/`<textarea>` nativos: métrica de adopción del kit | aviso |
+
+**Cómo ejecutarla:**
+
+```powershell
+# Informe legible (por defecto)
+node apps/desktop/scripts/design-lint.cjs
+
+# Informe JSON (para CI o para consumo por machines)
+node apps/desktop/scripts/design-lint.cjs --json
+
+# Podar la lista blanca: imprime la tabla `WHITELIST` sin las entradas muertas
+node apps/desktop/scripts/design-lint.cjs --prune
+
+# Scripts npm equivalentes
+pnpm --filter @ego/desktop design:lint
+pnpm --filter @ego/desktop design:lint:json
+pnpm --filter @ego/renderer design:lint
+pnpm --filter @ego/renderer design:lint:json
+```
+
+**Excepciones (deuda granfathered).** La tabla `WHITELIST` del script enumera,
+por `(regla, fichero)`, la deuda preexistente con **motivo + fecha + ID de
+hallazgo** (`EGO-DL-###`). Un fichero nuevo con la misma infracción **no**
+queda cubierto: la puerta se enciende sola. `--prune` retira las entradas que
+ya no suprimen nada, porque la lista blanca es un registro vivo — cuando una
+capa se migra al design system, sus entradas tienen que morir.
+
+**Contrato de test.** `apps/desktop/renderer/test/design-lint.test.tsx`
+verifica que (a) el renderer actual tiene 0 errores, (b) el índice de
+excepciones del script coincide con el declarado en el test, (c) cada
+excepción trae motivo, fecha e ID y apunta a ficheros que existen, (d) las
+excepciones no están obsoletas y (e) **la puerta está encendida**: un fixture
+temporal con un hex y un `<select>` produce exactamente 2 errores.
+
+**En CI.** El paso `design-lint` del job `verify` corre **antes** del
+typecheck, los tests y el build (fail-fast): una violación de diseño no llega
+a gastar un pipeline completo. Bloquea ante cualquier violación R1–R7.
+
+> Pendiente conocido (`EGO-FIND-86` en el Backlog): la lista blanca se indexa
+> por ID de hallazgo, que hoy se asigna en orden de escaneo. La corrección
+> acordada es indexarla por hash del contenido del hallazgo.
+
 ## Pruebas de Integración MCP (Model Context Protocol)
 
 Ego incorpora una suite de 8 pruebas de integración para validar la interoperabilidad segura tanto en rol de cliente (MCP Client) como de servidor (MCP Server):

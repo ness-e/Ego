@@ -68,6 +68,32 @@ siguen parciales por deuda menor).
 **Regla de orden heredada de `AGENTS.md` §6:** *una fase completa antes de la siguiente*. El orden
 siguiente respeta la progresión por fases, **no** el valor de negocio.
 
+### Estado de la Ola 2 (verificado 2026-07-20, remedido por A1) #
+
+| Id | Capacidad | Estado tras la Ola 2 | Evidencia |
+| --- | --- | --- | --- |
+| **E1** | Ejecución paralela de tool calls | ✅ **CERRADA** (A2) | Diseño en 3 fases (preparación secuencial → ejecución concurrente → emisión secuencial). **Medición**: `N=6 L=100ms C=3 → real=220ms` (paralelo teórico 200 ms, serie 600 ms), `concurrencia_max_observada=3`. Test: `ToolExecutionLoop-parallel.test.ts` (6). Cierra `EGO-FIND-43`. La constraint del proveedor se verificó contra el **source del SDK** (doc oficial geobloqueada por región) → `EGO-FIND-80` abierta. |
+| **E6** | Descomposición de `main.ts` | ✅ **CERRADA** (A4) | `main.ts`: 5 401 → 5 507 → 2 857 → **1 287 líneas** (objetivo < 1 500, con 213 de margen). **20 módulos** extraídos bajo `apps/desktop/src/main/`. **0 `let` de módulo** mutables fuera de `app-context.ts` (medido). La deuda pasó a ser **gate de CI**: `apps/desktop/test/e6-runtime-state.test.ts` (4 comprobaciones: sin `let` global, `app-context` con setter por estado, `main.ts` < 1 500, handlers IPC en su sitio). Cierra `EGO-FIND-54`. **Residual**: bloque del tray (~190 líneas) + 3 bloques cohesivos (~170 líneas) → Ola 3. |
+| **E7** | DOMPurify + CSP `img-src` + egress | ✅ **CERRADA** | **DOMPurify** aplicado (`apps/desktop/renderer/lib/sanitize-html.ts:39`, allowlist estructural, recursos solo locales). **CSP** construida por `buildCsp()` (`electron-security.ts:104`) y aplicada vía `session.defaultSession.webRequest.onHeadersReceived` (`create-window.ts:985-990`): `default-src 'self'` · `script-src 'self'` (packaged) · `style-src 'self' 'unsafe-inline'` · **`img-src 'self' data: blob:`** · `frame-src 'self'` · `object-src 'none'` · `frame-ancestors 'none'` · `base-uri` · `form-action`. Cierra `EGO-FIND-61`. |
+| **E10** | OKLCH + 6 hallazgos AA | 🟡 **PARCIAL** | **Cerrado**: OKLCH (A4, 4 paletas, `ThemeTokensOklch.test.tsx`), `docs/design/DESIGN.md` (A1) y los **6 `it.fails` de contraste → 0 `it.fails` en todo el repo**: el contraste pasó a ser una aserción real calculada sobre `theme-tokens.css` (`wcagRatio(...) ≥ 4.5`), lo que además mata la divergencia de las paletas hardcodeadas. Cierra `EGO-FIND-71`. **Pendiente**: `prefers-contrast` (**0 coincidencias** en el renderer) y `@container` (1 sola coincidencia, en `floating/floating.css:593`). |
+| — | Estado `warning` del motor + encadenado en el renderer | ✅ **CERRADA** (A6 + A4) | Motor: estado `warning` con tinte ámbar `hsl(48 92% 55%)`, pose `warn` e insignia `⚠` **nuevas**, `sway`, glow 0.4, sonido `tick` (`packages/avatar/src/runtime/states.js:36,86,127`), puente al studio 1:1. Renderer: resolución extraída a **función pura** (`components/character/avatar-live-state.ts`) y `case "warning"` en el mapa (`CharacterBadge.tsx:90`). **Medido**: golden **168 → 174**, `geometry:check` **174/174**, `node --test packages/avatar/tests/` **274 pass / 0 fail** (266 + 8). Registrado como `EGO-FIND-84`. |
+| — | **Guard de contrato de estados** (puerta) | ✅ **CERRADA** (A4) | `apps/desktop/renderer/test/avatar-state-contract.test.ts` (7 tests): enumera **TODOS** los `CharacterState` y comprueba que cada uno existe en el motor, que **ninguno cae en el `idle` de reserva** (el síntoma exacto de «falta el `case`») y que los conjuntos de señal del chat y del motor coinciden. Registrado como `EGO-FIND-85`. |
+| — | **Round-trip Ego → studio → Ego** | ✅ **CERRADA** (A4 detectó, A6 cerró) | 4 estados perdían la identidad (`thinking`, `approval`, `question`, `ratelimit`). **Medido** sobre el mapa real (`packages/avatar/src/studio/adapter.js`): **15/15 estados con round-trip identidad, 0 LOSSY**. `ratelimit` deja de compartir imagen con `warning` y pasa a `bored` (6 combos nuevos en la golden). |
+| — | `correlationId` (turno → tool → evento) | ✅ **CERRADA** (A2) | `packages/events/src/correlation.ts` es la implementación canónica (migrada de `scripts/correlation.mjs`, que no era importable desde un paquete del workspace). El loop deriva un **span hijo determinista por tool call** y lo propaga en `tool.started`/`tool.executed`/`tool.failed`/`approval.required`/`approval.resolved`. Cierra `EGO-FIND-74`. |
+| — | Vitest 3 en los manifiestos | ✅ **CERRADA** (A2) | **20 de 20** manifiestos con campo `vitest` declaran `^3.2.7`; **0** en `^2.1.2`. El **override `vitest` de la raíz se eliminó** (con él, los tests corrían bajo v3 mientras el manifiesto decía `^2.1.2`: el ratchet era verde sobre una mentira). `pnpm-lock.yaml` con 21 entradas `^3.2.7`. |
+| — | Corpus legal fuera del lint | ✅ **CERRADA** (A7) | El corpus de atribución MIT (30 ficheros de terceros) ya no se lintea como código de Ego; ratchet recalibrado. Cadena MIT resoluble (`attribution:check` → *"CADENA MIT RESOLUBLE"*). |
+| — | Electron fuera de EOL | ✅ **CERRADA** (A4) | `electron` `^33.2.0` (33.4.11, EOL) → **`^41.10.7`**, y el `pnpm.overrides` que aplicaba el salto sin tocar el manifiesto (prohibido por **D1**) **desaparece**. Cierra `EGO-FIND-23`. |
+| **E2** | Path cognitivo nativo | ⏸️ **Pendiente — el mayor multiplicador** | El binding `vantadb-node@0.8.0` ya expone `graphragSearch`, `memoryRecall` (con `trust_aware`), `contextAssemble`, `memoryConsolidate` y `memoryReinforce` (`index.d.ts:603-636`), pero **solo `graphragSearch` está cableado**. Antes de cablear el resto hay que pasar la **puerta de invariantes** del [ADR-0020](../../../adr/0020-compactacion-motor-ts-vs-nativo.md): ¿el `contextAssemble()` nativo preserva el system prompt y los pares `tool_call`/`tool_result`? Si no → petición upstream (`VDB-REQ-13`, ya abierta). Cierra `EGO-FIND-29`. |
+| **E3** | Binarios MCP embebidos + firma | ⛔ **BLOQUEO OWNER** | `DIST-04` (certificados de firma). |
+
+### Decisiones del owner ratificadas el 2026-07-20 #
+
+| Decisión | Contenido | Registro |
+| --- | --- | --- |
+| **D-A** | Transporte del MCP Server de Ego → **HTTP streamable en `127.0.0.1`, in-proceso en main** (no proceso hijo stdio). | `docs/adr/0021-mcp-server-transporte-y-token.md` |
+| **D-B** | El token del MCP Server **no se expone al renderer**; vive solo en main (keychain). | `docs/adr/0021-mcp-server-transporte-y-token.md` · `EGO-FIND-81` |
+| **D-C** | El motor de personaje canónico es **`@ego/avatar`** (repo `avatar`), no la FSM legacy. | `docs/adr/0018-motor-de-personaje.md` §"Retirada de la FSM legacy" |
+
 ### Ola 2 · Orden canónico por fase #
 
 | Orden | Fase | Id | Capacidad | Tipo | Depende de |
@@ -187,6 +213,8 @@ cerrado salvo las 5 reasignaciones R7-R12 de §4.2.
 **El riesgo residual mayor de la ola es la regresión de `main.ts`:** pasó de 5 401 a 5 507 líneas
 mientras cableaba la ola. Cerrar cuatro defectos no reduce la deuda estructural; la
 descomposición (E6) debe ser la primera tarea estructural de la Ola 2, no la última.
+*(Actualización 2026-07-20: E6 está en curso y `main.ts` ya va de 5 507 a **1 520** líneas
+con 20 módulos extraídos bajo `apps/desktop/src/main/`; el objetivo < 1 500 queda a 20 líneas.)*
 
 **La brecha más urgente de la Ola 2 es E7 (DOMPurify + CSP):** es la única pieza del documento maestro
 que es simultáneamente (a) requisito de seguridad frontend, (b) no descartada por ninguna decisión,
@@ -195,4 +223,49 @@ la sección con más peso documental sin cumplir.
 
 ---
 
-*Verificado por A8 el 2026-10-19 con lectura directa del código. Sin commits: el orquestador commitea.*
+## 7. Ola 3 — siguiente (pendientes de la Ola 2) #
+
+**Estado 2026-07-20 (remediado por A1).** La Ola 2 cerró **E1** (paralelismo), **E6**
+(descomposición de `main.ts`), **E7** (DOMPurify + CSP), el estado **`warning`** del motor **con
+su encadenado en el renderer**, el **guard de contrato de estados**, el **round-trip**
+Ego→studio→Ego, `correlationId`, **vitest 3**, el corpus legal fuera del lint y **electron**
+fuera de EOL. Lo que sigue son las capacidades del Bloque E **que la Ola 2 dejó sin cerrar**,
+reordenadas por la progresión de fases de `AGENTS.md` §6 — **no por valor de negocio**.
+
+### Ola 3 · Orden canónico por fase #
+
+| Orden | Fase | Id | Capacidad | Tipo | Estado / bloqueo |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 02 Acción | **E4** | Exportadores de artefactos (PDF/DOCX/XLSX/PPTX) + REPL Python | (b) capacidad nueva | 🆕 Sin Python (guardrail `AGENTS.md` §4): implementación TS. |
+| 2 | 02 Acción | **E6-res** | Remate de la descomposición: bloque del **tray** (~190 líneas) y 3 bloques cohesivos (~170) | (a) deuda técnica | 🆕 `main.ts` ya está en **1 287 líneas** (objetivo cumplido); queda el remate. Cerrar antes de Fase 03. |
+| 3 | 02 Acción | **E2-bis** | Contrastar la constraint del proveedor contra la **doc oficial de Anthropic** | (a) verificación | 🆕 `EGO-FIND-80` — la doc está geobloqueada por región en este entorno; A2 verificó contra el *source* del SDK, que es sólido pero **no es la fuente primaria**. |
+| 4 | 02 Acción | **EGO-FIND-64** | `vantadb-node` por `file:` fuera del repo → tarball vendorizado | (a) reproducibilidad | 🆕 Los **dos** manifiestos siguen en `file:../../../VantaDB/vantadb-node`; CI compila un stub no-op y el job `verify` verde **nunca ejercita VantaDB real**. El diff existe (A7) pero no se aplicó. |
+| 5 | 03 Sub-Egos | **E5** | Identidad declarativa (`SOUL.md`/`AGENT.md`) + budget circuit breakers | (b) capacidad nueva | 🆕 Hoy el "soul" vive en código (`packages/subegos/src/SubEgoSoul.ts`). |
+| 6 | 03 Sub-Egos | **E13** | Skills con divulgación progresiva (`lookup_skills`) + `expand_tools` + ejecutor real de delegación | (b) capacidad nueva | 🆕 0 coincidencias de `expand_tools`/`search_tools`/`lookup_skills` en el repo. |
+| 7 | 03 Sub-Egos | **EGO-FIND-22** | `DreamConsolidator` y `MemoryCurator` sin instanciar | (a) deuda técnica | 🆕 `DelegationRouter` **ya está** instanciado (`packages/subegos/src/DelegationRuntime.ts:14`); los otros dos no. |
+| 8 | 04 Canvas | **E11** | CRDT (Yjs) en el Canvas + deep linking | (b) capacidad nueva | 🆕 |
+| 9 | 06 Knowledge | **E2** | Path cognitivo nativo: RRF real, `memoryRecall` (con `trust_aware`)/`contextAssemble`/`memoryConsolidate`/`memoryReinforce` + embeddings | (b) capacidad nueva | 🆕 **El mayor multiplicador de la Ola 3.** El binding ya expone las 5 APIs (`vantadb-node@0.8.0`, `index.d.ts:603-636`) pero **solo `graphragSearch` está cableado**. Antes de cablear el resto hay que pasar la **puerta de invariantes** del [ADR-0020](../../../adr/0020-compactacion-motor-ts-vs-nativo.md): ¿el `contextAssemble()` nativo preserva el system prompt y los pares `tool_call`/`tool_result`? Si no → petición upstream (`VDB-REQ-13`, ya abierta). Cierra `EGO-FIND-29`. |
+| 10 | 10 Recovery | **E9** | Time-travel y bifurcación desde checkpoint | (b) capacidad nueva | 🆕 `TaskCheckpointManager` existe; falta la bifurcación. |
+| 11 | 11 Security | **E8** | OpenTelemetry/OTLP + sink de disco para `StructuredLogger` | (b) capacidad nueva | 🟡 Parcial: el sink rotado y `correlationId` ya existen (A2); falta el formato OTel. |
+| 12 | 11 Security | **E10-res** | `prefers-contrast` (**0 coincidencias** en el renderer) y `@container` (1 sola, en `floating/floating.css:593`) | (a) deuda técnica | 🟡 Los 6 `it.fails` de contraste ya están cerrados (0 `it.fails` en el repo, contraste medido sobre `theme-tokens.css`). |
+| 13 | 11 Security | **EGO-FIND-86** | La lista blanca de `design-lint` se indexa por ID posicional (`EGO-DL-0NN`) | (a) deuda técnica | 🆕 **Se autodesactiva bajo refactor**: un hex literal nuevo desplaza los IDs y la entrada `EGO-DL-010` deja de suprimir nada (`expected 0 to be greater than 0`). Indexar por **hash del contenido**. Dueño: A4/A7. |
+| 14 | 11 Security | **EGO-FIND-49** | `McpManager.connectServer` sobrescribe tools nativas (`overrideExisting: true`) | (a) deuda técnica | 🆕 Un servidor MCP puede pisar `fs_read_file` o `terminal_exec`. Exigir `allowOverride` explícito por servidor + auditar el override. |
+| 15 | 11 Security | **EGO-FIND-81** | Contrato de obtención del token MCP para clientes externos (guía de usuario) | (b) documentación de usuario | 🆕 **Bloqueo owner**: canal definitivo (env `EGO_MCP_TOKEN` vs. fichero `0600` vs. ambos) + descubrimiento del puerto efímero. `docs/adr/0021-mcp-server-transporte-y-token.md`. |
+| 16 | 12 Distribution | **E12** | Pirámide de tests: E2E real, Storybook, MSW, Lighthouse CI | (a) deuda técnica | 🆕 Depende del cierre de A7. Incluye los **5 contratos `floating-wiring` E2E en rojo** (71 passed · 5 failed · 1 skipped). |
+| 17 | 12 Distribution | **E3** | Binarios MCP embebidos (uv/bun) + firma de instalador | (a) deuda técnica | ⛔ **BLOQUEO OWNER** — `DIST-04` (certificados de firma). |
+| 18 | 12 Distribution | **DIST-09** | Publicar `vantadb-node` versionado en el registry npm | (a) cadena de suministro | ⛔ **BLOQUEO OWNER/upstream** — `npm view vantadb-node` → 404; el build depende hoy del checkout hermano por `file:`. Ver `EGO-FIND-64`. |
+
+### Reglas de la progresión por fases (no negociables) — Ola 3 #
+
+1. E4/E6-res/E2-bis (Fase 02) se cierran **antes** de tocar Fase 03+.
+2. E2 (Fase 06) no puede empezar hasta que las Fases 03-05 estén `VERIFIED`.
+3. E8/E10-res/EGO-FIND-86/49/81 (Fase 11) cierran después de Fase 10.
+4. E3/E12 (Fase 12) son las últimas y arrastran el bloqueo de owner de `DIST-04`.
+5. **Ningún bloque marcado ⛔ BLOQUEO OWNER avanza sin desbloqueo**: son los que el owner
+   tiene que resolver (certificados de firma, publicación de `vantadb-node`, canal del token MCP).
+
+---
+
+*Verificado por A8 el 2026-10-19 con lectura directa del código. Actualizado por A1 el
+2026-07-20 con el estado de la Ola 2 (remediido sobre el código) y el plan de la Ola 3.
+Sin commits: el orquestador commitea.*

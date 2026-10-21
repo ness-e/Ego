@@ -2,123 +2,247 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Canónico — fuente vigente de tokens, temas, kit, catálogo y **tabla de primitives** |
+| Estado | Canónico — fuente vigente de tokens, temas, kit, catálogo, **tabla de primitives** y **puerta de calidad** |
 | Owner | ness-e |
-| Fecha | 2026-10-19 |
-| Implementación | `apps/desktop/renderer/src/index.css` (tokens) · `components/canvas/DesignSystemProvider.tsx` (temas) · `components/ui-kit/` (kit Radix) · `components/canvas/registry.ts` (catálogo) · `packages/avatar/` (motor de personaje `<ego-avatar>`) |
-| Decisiones | Owner 2026-10-14 (D12, UI-01..UI-06): dark-only, 4 presets, accent ámbar, Geist, 9 estados · Owner 2026-10-19 (**D3**): tabla de primitives (§8) |
+| Fecha | 2026-10-20 (remediación de coherencia visual, owner 2026-10-20) |
+| Implementación | `apps/desktop/renderer/src/index.css` (puente `@theme`) · `src/styles/theme-tokens.css` (elevación, vidrio, superficies) · `components/canvas/DesignSystemProvider.tsx` (**fuente única de las 4 paletas**) · `components/ui-kit/` (11 primitives) · `components/canvas/registry.ts` (catálogo) · `apps/desktop/scripts/design-lint.cjs` (**puerta**) |
+| Decisiones | Owner 2026-10-14 (D12, UI-01..UI-06): dark-only, 4 presets, accent ámbar, Geist, 9 estados · Owner 2026-10-19 (D3): tabla de primitives · Owner 2026-10-19 (T14): OKLCH · **Owner 2026-10-20: densidad densa+táctil · accent único · primitives Radix (dropdown/popover/tooltip) · OKLCH como fuente única · puerta `design-lint`** |
 
 > **Regla de finalización (ux-ui.md P22):** `Feature DONE = Implementado + Funcional + Usable + Consistente + Estados completos + Accesibilidad básica + Design System`. Nada que use estilos ad-hoc se considera terminado.
 
+> **Por qué existe este documento:** hasta el 2026-10-20 el design system estaba
+> *declarado* pero no *aplicado*. La auditoría encontró 288 controles nativos
+> reimplementando estilos, ~120 colores fuera de token, 19 hex literales, ~500
+> `text-[Npx]`, 8 niveles de sombra y 7 radios conviviendo — mientras el kit
+> `ui-kit/` (Button/Input/Badge) tenía **0 % de adopción** en código de
+> producto. El problema no era el spec: era la falta de puerta. Por eso §10
+> (la puerta) es tan vinculante como §1 (los tokens).
+
+---
+
 ## 1. Tokens semánticos (`--ego-*` + Tailwind v4)
 
-Fuente única: `:root` en `index.css` (líneas 12–22) consumido vía `DesignSystemProvider`. Tailwind v4 emite `var(--color-*)` en las utilidades; cada token resuelve con fallback:
+**Fuente única de la paleta:** `components/canvas/DesignSystemProvider.tsx`
+(§2). `src/index.css` es el **puente** que expone esos valores como utilidades
+Tailwind; `src/styles/theme-tokens.css` conserva lo que no es paleta
+(elevación L0–L3, vidrio, superficies, scrollbar).
 
-| Utilidad Tailwind | Token `--ego-*` | Fallback verificado |
+| Utilidad Tailwind | Token `--ego-*` | Fallback (mismo valor que el preset `default-dark`) |
 |---|---|---|
-| `bg-paper` / `text-ink` | `--ego-color-bg` / `--ego-color-text` | `#0a0a0b` / `#f4f4f5` |
-| `bg-panel` / `bg-raised` | `--ego-color-panel` / `--ego-color-raised` | `#111113` / `#17171a` |
-| `border-hairline` / `text-faint` | `--ego-color-border` / `--ego-color-muted` | `#26262b` / `#8e8e93` |
-| `bg-accent` / `text-accent` (brand) | `--ego-color-brand` | `#f59e0b` (ámbar) |
-| `rounded-card` | `--ego-radius` | `8px` (radio real, ver EGO-FIND-11) |
-| `font-sans` / `font-mono` | `--font-geist-sans` / `--font-geist-mono` | Geist por import, fallback system-ui (ver EGO-FIND-02) |
+| `bg-paper` / `text-ink` | `--ego-color-bg` / `--ego-color-text` | `oklch(0.13 0.004 285.8)` / `oklch(0.985 0 89.9)` |
+| `bg-panel` / `bg-raised` | `--ego-color-panel` / `--ego-color-raised` | `oklch(0.195 0.004 286)` / `oklch(0.26 0.008 285.8)` |
+| `border-hairline` / `text-faint` | `--ego-color-border` / `--ego-color-muted` | `oklch(0.274 0.005 286)` / `oklch(0.712 0.013 286.1)` |
+| `bg-brand` / `text-brand` (accent) | `--ego-color-brand` | `oklch(0.769 0.165 70.1)` (ámbar) |
+| `text-on-brand` | `--ego-color-text-on-brand` | `#0a0a0b` |
+| `border-strong` | `--ego-color-border-strong` | `#71717a` |
+| `text-dim` | `--ego-color-dim` | `#8a8a92` (fijo) |
+| `focus-visible:outline-brand` | `--ego-color-focus-ring` | = **brand del preset** |
+| `rounded-[var(--radius-card)]` | `--ego-radius` | `8px` |
+| `font-sans` / `font-mono` | `--font-geist-sans` / `--font-geist-mono` | Geist (woff2 variable local) |
 
-Prohibido: <span v-pre>`style={{}}`</span> ad-hoc en componentes de producto, hex literales fuera de `index.css`, clases `bg-accent`/`text-accent` fuera del sistema (ver EGO-FIND-10). Excepción: acentos semánticos de estado (emerald/amber/rose/cyan/purple) y hex de Recharts anclados a tokens vía `var(--color-*, fallback)`.
+> ⚠️ **Corrección 2026-10-20:** la doc anterior decía `bg-accent` / `text-accent`.
+> El token se llama **`--color-brand`** → las utilidades son **`bg-brand`,
+> `text-brand`, `border-brand`, `outline-brand`**. `bg-accent` NO existe.
 
-Frameless: `.app-region-drag` en el chrome de ventana; controles interactivos llevan `.app-region-no-drag` (ver EGO-FIND-11, gui-desktop.md regla 4).
+**Prohibido:** `style={{}}` ad-hoc en componentes de producto · hex literales
+fuera de `index.css` / `theme-tokens.css` (el fallback `var(--color-*, #hex)`
+sí está permitido) · clases de paleta cruda (`text-white`, `bg-white/*`,
+`text-zinc-*`, `bg-black/*`, `bg-slate-*`) · `text-[Npx]` · `opacity-*` sobre
+texto dim/faint o en `placeholder:` · `border-hairline` como **único**
+indicador de un input · texto sobre `bg-brand` sin `text-on-brand` ·
+`shadow-{xs,sm,md,lg,xl,2xl}` (usar las elevaciones L1–L3) ·
+`rounded-{lg,xl,2xl,3xl}` (usar `--radius-card`).
 
-## 2. Temas: dark-only, 4 presets funcionales
+> **Mapa de la paleta cruda -> tokens:** `emerald-500/400` -> `success` |
+> `rose-300/500/950` y `red-800/300` -> `error` | `amber-400/500` -> `warning` |
+> `cyan-300/400` y `blue-600/500` -> `brand` | `slate-*` -> `ink`/`faint`/`panel`.
+> Fondos tintados: `bg-success/10`, `bg-error/10`, `bg-warning/10`, `bg-brand/10`.
+> La puerta R7 verifica esta equivalencia (ver seccion 10).
 
-Decisión owner: **dark-only**. `UserPrefs.theme` (tema claro) queda documentado como futuro, no implementado. Presets en `PRESET_THEMES` (`DesignSystemProvider.tsx:37`):
+**Escalas fijas del sistema (3 valores, sin excepción):**
 
-| Preset | Uso |
-|---|---|
-| `default-dark` | Base (`DEFAULT_DESIGN_TOKENS`) |
-| `midnight-cyan` | Variante fría de alto contraste |
-| `emerald-terminal` | Variante terminal verdosa |
-| `amber-warm` | Variante cálida sobre el accent ámbar |
+| Escala | Valores | Regla |
+|---|---|---|
+| Superficie | `bg-paper` → `bg-panel` → `bg-raised` | 3 niveles, saltos perceptibles |
+| Texto | `text-xs` (12) · `text-sm` (14) · `text-base` (16) | 3 tamaños, nada más |
+| Radio | `rounded-md` (6) · `rounded-[var(--radius-card)]` (8) · `rounded-full` | 3 pasos |
+| Elevación | `--ego-elevation-l1` (tarjeta) · `l2` (menú/popover) · `l3` (modal) | 3 niveles |
 
-`ThemeControl` aplica el preset vía `applyPreset(presetId)`; `index.css` consume `--ego-*`, por lo que el cambio es funcional en toda la app (ver EGO-FIND-11). Contraste: dim `#8a8a92` (AA verificado, ver EGO-FIND-08).
+**Frameless:** `.app-region-drag` en el chrome de ventana; los controles
+interactivos llevan `.app-region-no-drag`.
 
-> **FUTURO — tema claro / seguir OS (post-P0, no implementado):** P0 es **dark-only**. `UserPrefs.theme` queda **reservado** como clave futura (tokens light mapeados pero inactivos en P0). `nativeTheme` **no gobierna** el tema en P0. Accent ámbar `#f59e0b` y `dim #8a8a92` son **fijos** del sistema. Seguir al OS queda **diferido a post-P0**. El provider **no debe pisar `--color-dim` sin medir cada preset** (riesgo esmeralda: `emerald-terminal` verdoso puede romper el contraste AA si `dim` se deriva del preset sin medición por preset).
+## 2. Temas: dark-only, 4 presets en OKLCH
+
+Decisión owner: **dark-only**. `UserPrefs.theme` (tema claro) queda documentado
+como futuro, no implementado. `nativeTheme` **no** gobierna el tema en P0.
+
+### 2.1 Fuente única: el provider
+
+`PRESET_THEMES` en `components/canvas/DesignSystemProvider.tsx` es la **única**
+definición de las 4 paletas, en **OKLCH**. El provider escribe los valores
+resueltos en `documentElement` (y también los `--ego-*` espejo en su div) y
+publica `data-palette="<clave>"` en `<html>` como hook de CSS.
+
+> **Por qué el provider y no el CSS (corrección 2026-10-20):** las paletas
+> estaban duplicadas — en `theme-tokens.css` bajo `[data-palette="…"]`, que
+> **ningún componente asignaba** (código muerto), y en HEX dentro del
+> provider, que sí era lo que corría. Dos fuentes de verdad, una muerta. Los
+> bloques `[data-palette]` se eliminaron; la puerta `ThemeTokensOklch.test.tsx`
+> lee **el provider** y verifica lo que la app realmente pinta.
+
+### 2.2 Las 4 paletas (OKLCH)
+
+| Preset | bg | panel | raised | text | muted | border | brand |
+|---|---|---|---|---|---|---|---|
+| `default-dark` | `oklch(0.13 0.004 285.8)` | `oklch(0.195 0.004 286)` | `oklch(0.26 0.008 285.8)` | `oklch(0.985 0 89.9)` | `oklch(0.712 0.013 286.1)` | `oklch(0.274 0.005 286)` | `oklch(0.769 0.165 70.1)` |
+| `midnight-cyan` | `oklch(0.13 0.027 261.7)` | `oklch(0.195 0.04 265.8)` | `oklch(0.26 0.037 260)` | `oklch(0.984 0.003 247.9)` | `oklch(0.711 0.035 256.8)` | `oklch(0.372 0.039 257.3)` | `oklch(0.715 0.126 215.2)` |
+| `emerald-terminal` | `oklch(0.13 0.047 173.8)` | `oklch(0.19 0.05 165)` | `oklch(0.25 0.048 169.6)` | `oklch(0.979 0.021 166.1)` | `oklch(0.845 0.13 165)` | `oklch(0.508 0.105 165.6)` | `oklch(0.696 0.149 162.5)` |
+| `amber-warm` | `oklch(0.13 0.006 56)` | `oklch(0.195 0.006 34.3)` | `oklch(0.26 0.008 67.6)` | `oklch(0.962 0.058 95.6)` | `oklch(0.869 0.004 56.4)` | `oklch(0.444 0.01 73.6)` | `oklch(0.769 0.165 70.1)` |
+
+**Rampas de superficie:** las 4 comparten la misma estructura en `L`
+(**0.130 → 0.195 → 0.260**): el salto entre niveles es idéntico en todas,
+que es exactamente el efecto que OKLCH compra. `emerald-terminal` y
+`amber-warm` tenían rampas **no monótonas** (L 0.255/0.256/0.255) → se
+re-resolvieron por búsqueda numérica contra las restricciones WCAG (§7).
+
+**`high-contrast` y `warm-sepia`:** eran paletas CSS aspiracionales sin
+correspondencia en el producto (la UI ofrece `default-dark`,
+`midnight-cyan`, `emerald-terminal`, `amber-warm`). Se eliminaron del CSS; un
+preset `high-contrast` queda como **backlog**, no como dead code.
+
+### 2.3 Accent único (decisión owner 2026-10-20)
+
+> Antes coexistían **dos acentos vivos**: el brand real en runtime era cyan
+> `#38bdf8` (preset `default-dark`) y el focus-ring era ámbar `#f59e0b` fijo →
+> un control podía tener borde cyan y foco ámbar. Ahora el **focus-ring ES el
+> brand del preset** y `default-dark` usa el **ámbar** que la doc declaraba
+> (D12, "accent ámbar").
+
+| Preset | brand | focus-ring (= brand) | ratio vs bg (UI ≥3:1) |
+|---|---|---|---|
+| `default-dark` | `oklch(0.769 0.165 70.1)` (ámbar) | idem | 9.26:1 |
+| `midnight-cyan` | `oklch(0.715 0.126 215.2)` | idem | 8.29:1 |
+| `emerald-terminal` | `oklch(0.696 0.149 162.5)` | idem | 6.11:1 |
+| `amber-warm` | `oklch(0.769 0.165 70.1)` | idem | 8.14:1 |
+
+`--ego-color-dim` (`#8a8a92`) sigue siendo **FIJO** y el provider **nunca** lo
+deriva del `muted` del preset (riesgo `emerald-terminal` verdoso: rompería el
+AA silenciosamente).
+
+> **FUTURO — tema claro / seguir OS (post-P0, no implementado):** P0 es
+> **dark-only**. `UserPrefs.theme` queda **reservado** como clave futura (tokens
+> light mapeados pero inactivos). `nativeTheme` **no** gobierna el tema en P0.
+> El provider **no debe pisar `--color-dim` sin medir cada preset**.
 
 ## 3. Kit UI sobre Radix + Zustand (`components/ui-kit/`)
 
-Base: `@radix-ui/react-dialog` + `@radix-ui/react-tabs` (trap de foco, roles y
-Escape nativos) + `zustand` (store ligero) + `clsx` + `tailwind-merge` + `cva`.
-Componentes: `Button`, `Input`, `Modal`, `Tabs`, `Badge`, `Select`
-(+ `store.ts`, `cva.ts`).
+**11 primitives**, todas sobre primitivas de librería (principio D3):
 
-> **La decisión de cada primitive (usada de librería vs propia, con su motivo)
-> está en [§8 — Tabla de primitives](#8-tabla-de-primitives-librería-vs-propia-d3--decisión-del-owner-2026-10-19).**
-> Principio D3 del owner (2026-10-19): *las primitives de librería se usan
-> siempre; no se recrean desde cero*. Ver `AGENTS.md` §4.
+| Primitive | Base | Notas |
+|---|---|---|
+| `Button` | `<button>` nativo + `cva` | variantes `primary`/`secondary`/`ghost`/`danger`/`accent`; tamaños `sm`/`md`/`lg`/`icon` |
+| `Input` | `<input>` nativo + `cva` | 9 estados; `wrapperClassName` para el ancho del envoltorio |
+| `Textarea` | `<textarea>` nativo | gemelo de `Input` (contador de overflow incluido) |
+| `Badge` | `<span>` + `cva` | tonos semánticos; `tone=dim` **sin** `opacity` |
+| `Modal` | `@radix-ui/react-dialog` | `data-ego-dialog-content` (host del portal del `Select`); `motion` + `useReducedMotion` |
+| `Tabs` | `@radix-ui/react-tabs` | navegación por flechas, `data-state` |
+| `Select` | `@radix-ui/react-select` | portal al host del diálogo anfitrión (evita el ping-pong de `FocusScope`) |
+| `Switch` | `@radix-ui/react-switch` | `role="switch"` + `aria-checked`; el `label` amplía el área pulsable |
+| `Menu` | `@radix-ui/react-dropdown-menu` | **nuevo 2026-10-20** — sustituye los dropdowns ad-hoc |
+| `Popover` | `@radix-ui/react-popover` | **nuevo 2026-10-20** — sustituye los popovers ad-hoc |
+| `Tooltip` | `@radix-ui/react-tooltip` | **nuevo 2026-10-20** — sustituye los tooltips hand-rolled |
 
-Los 6 modales duplicados migran al `Modal` base; `ModelPicker` (header, proveedor real vía ModelRouter) y `SessionPicker` (sidebar, sesiones VantaDB) se montan, no se borran; `SplitPane` dimensiona el layout en `App.tsx:61`.
+### 3.1 Los 9 estados obligatorios
 
-### 9 estados obligatorios por componente (ver EGO-FIND-12)
+Todo componente del kit soporta contractualmente: `default`, `hover`, `active`,
+`focus`, `disabled`, `loading`, `error`, `empty`, `overflow`. Sin los 9, el
+componente no entra al catálogo. Puerta: `test/ui-kit-nine-states.test.tsx`.
 
-Todo componente del kit soporta contractualmente: `default`, `hover`, `active`, `focus`, `disabled`, `loading`, `error`, `empty`, `overflow`. Sin los 9, el componente no entra al catálogo.
+### 3.2 Densidad y target size (decisión owner 2026-10-20)
 
-## 4. Catálogo honesto: 11 implementados vs 13 aspiracionales
+La regla antigua ("44 px para todo") se sustituye por el criterio real de
+**WCAG 2.2 SC 2.5.8 (Target Size, AA = 24×24 px)**, más la distinción entre
+control **con etiqueta** y control **sólo-icono**:
 
-Verificado en `components/canvas/registry.ts:39-51` (props inferidos por Zod vía `CanvasPropsSchema`, ver EGO-FIND-13): **11 renderers implementados**: `table`, `card`, `form`, `chart`, `board`, `editor`, `diff`, `terminal`, `record_view`, `query_view`, `relation_view`.
+| Caso | Mínimo | Motivo |
+|---|---|---|
+| Control con etiqueta visible | **24 px** (el kit usa 28 `sm` / 32 `md`) | densidad real; 44 px por fila rompe el ritmo vertical (Claude/Codex/OpenClaw usan 28–32) |
+| Control **sólo-icono** | **44×44** | sin etiqueta, el área pulsable es la única pista de affordance → el `Button` lo aplica solo (`min-h-11 min-w-11`) |
+| CTA táctil | **44 px** (`size="lg"`) | |
 
-El inventario histórico citaba 24 (ver EGO-FIND-16). Doctrina honesta: los **13 restantes son aspiracionales** — ningún Sub-Ego puede componer un tipo fuera del `ComponentRegistry`; la ampliación del catálogo exige vista tipada + entrada en el registry + sus 9 estados. Mermaid: **NO implementado en el renderer** (cero dependencia `mermaid` en `package.json`, cero imports en `apps/`, cero entrada en el registry; verificado 2026-10-15, cierra EGO-FIND-16). `LazyTelemetryChart` (`DomainCanvasView.tsx:25`) es lazy de recharts (`DomainCharts.js`), no de mermaid — la mención anterior que los equiparaba queda corregida. Un futuro tipo `mermaid` exigiría vista tipada + entrada en el registry + sus 9 estados + chunk lazy propio.
+Puerta: `test/Targets44.test.tsx`.
+
+## 4. Catálogo honesto: 12 implementados
+
+Verificado en `components/canvas/registry.ts:68-91` (props inferidos por Zod
+vía `CanvasPropsSchema`): **12 renderers implementados**: `table`, `card`,
+`form`, `chart`, `board`, `editor`, `diff`, `terminal`, `record_view`,
+`query_view`, `relation_view` y **`mermaid`**.
+
+> **Corrección 2026-10-20 (drift):** la doc anterior afirmaba que mermaid
+> "**NO** implementado, cero entrada en el registry". Es **falso** desde la
+> Ola 1b: `MermaidView.tsx` existe y está registrado (`registry.ts:82-91`).
+> Lo que sí es cierto —y sigue siéndolo— es que **no hay dependencia del
+> paquete `mermaid`**: el renderer sanea el fuente y lo pinta en `<pre>`
+> (~1 MB fuera del bundle). `LazyTelemetryChart` es lazy de recharts y vive en
+> `components/domains/views.tsx:35` (**no** en `DomainCanvasView.tsx`, que
+> tiene 48 líneas — la cita anterior `DomainCanvasView.tsx:542` era obsoleta).
 
 ## 5. Rendimiento: lazy + windowing + skeletons + anti-shift
 
-- `React.lazy` para charts/dominios (`LazyTelemetryChart` verificado en `DomainCanvasView.tsx:25`; código partido por vendor en `vite.config.ts:19-36`). Mermaid fuera del bundle: sin dependencia ni chunk (ver §4).
+- `React.lazy` para charts/dominios (`LazyTelemetryChart`,
+  `components/domains/views.tsx:35`); código partido por vendor en
+  `vite.config.ts`.
 - `virtua` para windowing en chat/tablas/sidebar.
-- Skeletons con altura reservada (no texto plano "Procesando…", no layout shift; ver EGO-FIND-15).
-- `ErrorBoundary` global en `main.tsx` + `MessageRenderBoundary` por mensaje (patrón Hermes adaptado).
-- `focus-visible` global + `dim #8a8a92` + labels en icon-buttons (ver EGO-FIND-07/08; axe bloquea CI, snapshots visuales advisory 2 semanas por decisión owner).
+- Skeletons con altura reservada (no texto plano "Procesando…").
+- `ErrorBoundary` global en `main.tsx` + `MessageRenderBoundary` por mensaje.
+- `focus-visible` global + `dim #8a8a92` + labels en icon-buttons.
 
 ## 6. Mapa de superficies (D6/D7/D8)
 
-4 superficies canónicas (ver `workspace-dinamico.md`, `mascota.md`): App Header (icono/estado 28–36px), Chat/Conversation River (orador 32–48px), Activity Widget (ejecución/HITL 40–90px), Dynamic Canvas (trabajo 48–120px). Widget **≠** Tray: el Widget es telemetría+HITL in-app; el Tray es icono OS con código de color (verde idle / azul pensando / rojo HITL, mínimo útil: click restaura, menú Mostrar/Salir, tooltip estado).
+4 superficies canónicas: App Header (28–36 px), Chat/Conversation River
+(orador 32–48 px), Activity Widget (40–90 px), Dynamic Canvas (48–120 px).
+Widget **≠** Tray.
 
-```mermaid
-flowchart LR
-    Chat[Chat: intención] --> Runtime[CharacterRuntime<br/>fuente única de estado]
-    Runtime --> Widget[Activity Widget<br/>telemetría + HITL]
-    Runtime --> Canvas[Dynamic Canvas<br/>registry de 11 vistas]
-    Widget --> Tray[Tray OS<br/>verde/azul/rojo]
-```
+**Alturas de chrome unificadas (2026-10-20):** header global, header del chat,
+header del workspace, header del inspector y cabecera del sidebar contextual
+miden **todos `h-11` (44 px)**. Antes coexistían 40/44/52 px y las barras no
+se alineaban entre vistas — una de las causas del aspecto "desordenado".
 
-> Nota mermaid: los diagramas `mermaid` de los docs son texto de especificación y no se renderizan en la app (sin visor mermaid en el renderer, ver §4). Si el visor de docs no soporta mermaid, el texto del bloque sigue siendo la especificación.
+## 7. Contraste: tokens fijos y 7 combinaciones prohibidas (T-contraste)
 
-## 7. Contraste: tokens fijos y 7 combinaciones prohibidas (T-contraste 2026-10-14)
+Tokens fijos del sistema: `--ego-color-border-strong #71717a`,
+`--ego-color-focus-ring` (= brand), `--ego-color-text-on-brand #0a0a0b`,
+`--ego-color-dim #8a8a92`. El provider **no** los deriva del preset.
 
-Tokens fijos del sistema (ver `index.css` `:root` + `@theme`): `--ego-color-border-strong #52525b`, `--ego-color-focus-ring #f59e0b`, `--ego-color-text-on-brand #0a0a0b`, `--ego-color-dim #8a8a92` (el provider **no** los deriva del preset sin medir; ver §2 FUTURO).
-
-Medición WCAG (luminancia relativa, cálculo determinista 2026-10-14):
+Medición WCAG (luminancia relativa, cálculo determinista 2026-10-20, validado
+por `test/ThemeTokensOklch.test.tsx`):
 
 | Par | Ratio | Veredicto |
 |---|---|---|
-| dim `#8a8a92` sobre paper `#0a0a0b` | ≈5.8:1 | ✅ AA texto (≥4.5:1) |
-| dim `#8a8a92` sobre panel `#111113` | ≈5.5:1 | ✅ AA texto |
-| focus-ring `#f59e0b` sobre paper `#0a0a0b` | ≈9.2:1 | ✅ UI ≥3:1 |
-| text-on-brand `#0a0a0b` sobre ámbar `#f59e0b` | ≈9.2:1 | ✅ AA texto |
-| border-strong `#52525b` sobre panel `#111113` | ≈2.4:1 | ⚠️ NO alcanza 3:1 como color único → siempre con 2º indicador (grosor, foco, icono error) |
-| border-strong `#52525b` sobre paper `#0a0a0b` | ≈2.6:1 | ⚠️ idem |
-| Referencia que SÍ pasa UI 3:1 sobre `#111113`: `#63636b` ≈3.2:1, `#71717a` ≈3.9:1 | — | alternativa donde se exija identificación 3:1 con color único |
+| dim `#8a8a92` sobre bg de los 4 presets | 5.81 / 5.88 / 4.52 / 5.11:1 | ✅ AA texto (≥4.5:1) |
+| dim sobre raised de los 4 presets | 4.57 / 4.55 / 4.58 / 4.55:1 | ✅ AA texto |
+| border-strong `#71717a` sobre bg | 4.12 / 4.17 / 3.21 / 3.62:1 | ✅ UI ≥3:1 |
+| border-strong sobre raised | 3.36 / 3.23 / 3.25 / 3.22:1 | ✅ UI ≥3:1 |
+| text-on-brand `#0a0a0b` sobre brand | 9.21 / 8.15 / 7.80 / 9.21:1 | ✅ AA texto |
+| focus-ring (= brand) sobre bg | 9.26 / 8.29 / 6.11 / 8.14:1 | ✅ UI ≥3:1 |
 
-Combinaciones prohibidas (7):
+**Combinaciones prohibidas (7)** — la lista se mantiene; las que se
+materializaron en código (prohibida #2 `placeholder:text-faint/70`, #4
+`border-hairline` como único indicador, #5 hex sin token) están corregidas y
+**la puerta de §10 impide que vuelvan**.
 
 | # | Prohibido | Por qué | Reemplazo canónico |
 |---|---|---|---|
-| 1 | Texto `dim` legacy `#55555c` / `text-dim` con `opacity-*` sobre panel | ≈2.6:1, bajo AA | `text-dim` fijo `#8a8a92` sólido, sin opacity |
-| 2 | `placeholder:` con `opacity-*` o `/60` (`placeholder:text-dim/60`) | hunde el placeholder bajo AA | `placeholder:text-faint` sólido (`Input.tsx`, `DomainCanvasView.tsx`) |
-| 3 | `Badge tone=dim` con `opacity-70` | atenúa texto+borde bajo AA | `dim: border-hairline/60 bg-panel text-faint` sin opacity (`Badge.tsx`) |
-| 4 | `border-hairline` (`#26262b` ≈1.1:1) como ÚNICO indicador de input | indistinguible del fondo | borde base `border-strong` + `focus-within:border-brand` + icono error (`Input.tsx`) |
-| 5 | Strokes/tooltips con hex literal sin token (`#262626`, `#737373`, `#10b981`, `#171717`, `#a3a3a3`) | no tematizan, divergen del sistema | `var(--color-hairline, #262626)`, `var(--color-dim, #737373)`, `var(--color-success, #10b981)`, `var(--color-raised, #171717)`, `var(--color-faint, #a3a3a3)` (`DomainCharts.tsx`, `DomainCanvasView.tsx:542`, `ChartView.tsx`) |
-| 6 | Derivar `--color-dim` / `--ego-color-dim` de `muted` del preset sin medir | `emerald-terminal` verdoso rompería el AA silenciosamente | dim FIJO `#8a8a92`; el provider escribe fijos y nunca `c.muted → dim` (`DesignSystemProvider.tsx`) |
-| 7 | Texto sobre brand sin `text-on-brand` (blanco `#fff` sobre ámbar ≈2.1:1) | bajo AA | `--ego-color-text-on-brand #0a0a0b` (`--color-on-brand`, ≈9.2:1) |
+| 1 | `text-dim` con `opacity-*` | hunde el texto bajo AA | `text-dim` fijo `#8a8a92` sólido |
+| 2 | `placeholder:` con `opacity-*` o `/60` | hunde el placeholder | `placeholder:text-faint` sólido |
+| 3 | `Badge tone=dim` con `opacity-70` | atenúa texto+borde | `border-hairline/60 bg-panel text-faint` sin opacity |
+| 4 | `border-hairline` como ÚNICO indicador de input | indistinguible del fondo | `border-strong` + `focus-within:border-brand` + icono de error |
+| 5 | Hex literal sin token | no tematiza, diverge | `var(--color-*, #fallback)` |
+| 6 | Derivar `dim` del `muted` del preset | rompe el AA en `emerald-terminal` | `dim` FIJO `#8a8a92` |
+| 7 | Texto sobre brand sin `text-on-brand` | bajo AA | `--ego-color-text-on-brand #0a0a0b` |
 
-Nota honesta de medición: `border-strong #52525b` **no** alcanza 3:1 sobre los paneles oscuros (≈2.4:1); se conserva el valor especificado como borde decorativo/interactivo **pareado** (grosor + foco + icono), nunca como único medio de identificación. Donde WCAG 1.4.11 exija 3:1 con color único, usar `dim` o subir a `#71717a`.
-
-## 8. Tabla de primitives: librería vs propia (D3 — decisión del owner 2026-10-19)
+## 8. Tabla de primitives: librería vs propia (D3)
 
 > **Principio (vinculante a todo el repo, `AGENTS.md` §4):**
 > *Los componentes de librerías y framework se utilizan siempre; no se recrean
@@ -128,57 +252,169 @@ Nota honesta de medición: `border-strong #52525b` **no** alcanza 3:1 sobre los 
 > "comodidad" ni "ya estaba hecho" — y ese motivo está escrito aquí. Si Radix,
 > React Aria o la plataforma ofrece el equivalente y el propio no aporta nada,
 > **se migra**.
->
-> **Alcance de este registro**: la capa de primitives del renderer. El resto de
-> superficies (IPC, runtime, tooling) sigue la misma regla; las decisiones
-> concretas de cada componente se registran aquí o en un ADR.
 
-### 8.1 Kit `ui-kit/` (`apps/desktop/renderer/components/ui-kit/`)
+### 8.1 Kit `ui-kit/`
 
-| Primitive | Implementación actual | Decisión | Motivo / fundamento |
+| Primitive | Implementación | Decisión | Motivo |
 |---|---|---|---|
-| `Modal` | `Modal.tsx` sobre `@radix-ui/react-dialog` ^1.3.1 | **Usada de librería** | El trap de foco, los roles ARIA y el Escape son comportamiento no trivial; Radix lo resuelve. Reimplementarlo sería recrear una primitive de librería (prohibido por D3). |
-| `Tabs` | `Tabs.tsx` sobre `@radix-ui/react-tabs` ^1.2.1 | **Usada de librería** | Ídem: navegación por teclado y roles `tablist`/`tab`/`tabpanel` con la librería. |
-| `Select` | `Select.tsx` sobre `@radix-ui/react-select` ^2.1.6 (migrado por A4 en la Ola 1) | **Usada de librería** | El motivo original (evitar el `<select>` nativo del SO, cuyo menú ignora el tema dark-only) **lo cubre Radix**: Radix no renderiza `<select>` nativo. La implementación propia anterior reimplementaba teclado, typeahead y roles → viola D3. Migrado; el renderer **no contiene ningún `<select>` nativo** (verificado 2026-10-19). Decisión y alternativas en [ADR-0015](../adr/0015-radix-select-accesible.md). |
-| `Button` | `Button.tsx` propio sobre `<button>` nativo | **Propia — con motivo** | Radix **no ofrece** un Button (ofrece primitivas de comportamiento sin estilo). El wrapper existe para unificar variantes (`cva`), los 9 estados obligatorios (§3) y el target táctil ≥44 px. No es una recreación de una primitive de librería. |
-| `Input` | `Input.tsx` propio sobre `<input>` nativo | **Propia — con motivo** | Ídem: Radix no ofrece Input. El wrapper añade tokens, estados de error y 9 estados; el control es la primitiva nativa de la plataforma. |
-| `Badge` | `Badge.tsx` propio sobre `<span>` | **Propia — con motivo** | Radix no ofrece Badge. Es un `<span>` con tonos semánticos; no existe primitive de librería equivalente que reutilizar. |
-| Estado global de UI | `store.ts` sobre `zustand` ^5.0.15 | **Usada de librería** | Zustand ya estaba en el grafo de dependencias (T06 `40fb103`); store propio sobre la librería, no reimplementación. |
-| Variantes de estilo | `cva.ts` sobre `cva` + `clsx` + `tailwind-merge` | **Usada de librería** | `cva` + `clsx` + `tailwind-merge` resuelven variantes y merge de clases; no se reimplementa el merge de `tailwind-merge`. |
+| `Modal` | sobre `@radix-ui/react-dialog` | **Librería** | trap de foco, roles ARIA y `Escape` no triviales |
+| `Tabs` | sobre `@radix-ui/react-tabs` | **Librería** | navegación por teclado y roles `tablist`/`tab`/`tabpanel` |
+| `Select` | sobre `@radix-ui/react-select` | **Librería** | `ADR-0015`: sin `<select>` nativo (el menú del SO ignora el tema) |
+| `Switch` | sobre `@radix-ui/react-switch` | **Librería** (nuevo 2026-10-20) | `role="switch"` + `aria-checked` + estado compartido; los 4 interruptores de Ajustes lo reimplementaban a mano |
+| `Menu` | sobre `@radix-ui/react-dropdown-menu` | **Librería** (nuevo 2026-10-20) | cierra la deuda A4: `FocusScope`, teclado, roles `menu`/`menuitem`, retorno del foco |
+| `Popover` | sobre `@radix-ui/react-popover` | **Librería** (nuevo 2026-10-20) | cierra la deuda A4: foco + `Escape` + `outside-click` |
+| `Tooltip` | sobre `@radix-ui/react-tooltip` | **Librería** (nuevo 2026-10-20) | cierra la deuda A4: `role="tooltip"` + delay + `prefers-reduced-motion` |
+| `Button` | propio sobre `<button>` nativo | **Propia — con motivo** | Radix no ofrece Button; el wrapper unifica las 5 variantes, los 9 estados, la densidad y el target táctil |
+| `Input` / `Textarea` | propios sobre el control nativo | **Propia — con motivo** | Radix no ofrece input; el wrapper añade tokens, estados de error, contador y `aria-errormessage` |
+| `Badge` | propio sobre `<span>` | **Propia — con motivo** | Radix no ofrece Badge; es un `<span>` con tonos semánticos |
+| Estado global de UI | `store.ts` sobre `zustand` | **Librería** | Zustand ya estaba en el grafo de dependencias |
+| Variantes de estilo | `cva.ts` sobre `cva` + `clsx` + `tailwind-merge` | **Librería** | `cva` + `clsx` + `tailwind-merge` resuelven variantes y merge |
+| `components/PaneShell.tsx` (`SplitPane`) | propio | **Propia — con motivo** | `role="separator"` con teclado, doble clic, límites elásticos y persistencia en `localStorage`; `react-resizable-panels` se evaluó y se descartó |
 
-### 8.2 Primitives implementadas ad-hoc fuera del kit (pendiente de revisión A4)
+#### API pública por primitive (props)
 
-Comportamiento tipo popover/tooltip/dropdown/combobox implementado **inline**
-en componentes, con estado local y sin primitive de librería detrás. No son
-parte del `ui-kit` todavía, pero caen bajo el mismo principio.
+> Extensión de la ola 2026-10-20: props añadidas al kit para **cerrar los
+> huecos de API** que reportaron los agentes de migración. Todas son
+> **retro-compatibles** (ningún consumidor previo se rompe).
 
-| Primitive | Dónde | Estado | Nota |
-|---|---|---|---|
-| Combobox + listbox | `components/omnibar.tsx` (aria-activedescendant, `activeIndex`, debounce) | **Propia — con motivo** | Es un combobox de búsqueda con fuzzy match sobre proyectos/sesiones/Sub-Egos (`@ego/ui-runtime` `FuzzySearch`). Radix no ofrece combobox; React Aria sí, y no está en el grafo de dependencias. Migrar a React Aria es una decisión de Nivel 10 pendiente de valorarse. |
-| Dropdown / outside-click | `components/SubEgoSelector.tsx` (cierre por `mousedown` fuera) | **Propia — con motivo provisional** | Sin `FocusScope` ni navegación por teclado. `@radix-ui/react-dropdown-menu` no está instalado. **Deuda**: no cumple el conjunto de 9 estados ni navegación por teclado → candidata a migración (A4). |
-| Popover | `components/ego-chat.tsx`, `components/sidebar/Sidebar.tsx` | **Revisión pendiente A4** | Sin primitive de librería instalada (`@radix-ui/react-popover` no está en el grafo). |
-| Tooltip | `components/FileMentionBadge.tsx`, `components/domains/DomainCharts.tsx` | **Revisión pendiente A4** | Sin primitive de librería instalada (`@radix-ui/react-tooltip` no está en el grafo). |
+| Primitive | Props | Nota |
+|---|---|---|
+| `Button` | `variant`, `size`, `loading`, `truncate`, **`icon`**, `ref` | `forwardRef` **real**: el `ref` llega tipado al `<button>` (lo exige Radix `asChild` en `Menu`/`Popover`, que montan el `Button` del kit como trigger). `icon` renderiza el icono **antes** del `<span>` de contenido, así que el `gap-1.5` del base lo separa de la etiqueta → **sustituye al hack `[&>span]:flex [&>span]:items-center`** que cada consumidor repetía. El icono es decorativo (`aria-hidden`) y **no cuenta como texto visible** (un botón sólo-icono sigue siendo 44×44). |
+| `Input` | `error`, `hint`, `loading`, `truncate`, `size`, `wrapperClassName`, **`leadingIcon`** | `leadingIcon` mete el icono **dentro** de la caja del campo: hereda borde, `focus-within` y padding `px-2.5`, y el separador con el texto es el `gap-2` del contenedor (p. ej. la lupa del buscador de `QueryView`). |
+| `Tabs` | `tabs`, `value`/`defaultValue`, `onValueChange`, `error`, `empty`, `loading`, `ariaLabel`, **`className`**, **`contentClassName`** | `className` va a la **raíz** del kit y `contentClassName` al **panel** (`div[role=tabpanel]`). La raíz de Radix es ahora una columna flex (`flex grow min-h-0 flex-col`), así que el panel crece con `contentClassName="flex-1 min-h-0"` **sin** el selector arbitrario `[&>div>div>div[role=tabpanel]]:flex-1` que usaba `WorkbenchView`. |
+| `Menu` | `trigger`, `items`, `align`, `side`, `sideOffset`, **`open`**, **`onOpenChange`**, `ariaLabel`, `className`, `contentClassName`, `loading`, `error` | `MenuItem.checked` convierte el ítem en opción de "uno de": se renderiza como `RadioItem` de Radix (`role="menuitemradio"` + `aria-checked` + `ItemIndicator` con el check) y el `onSelect` se mantiene. `open`/`onOpenChange` dan el estado de apertura controlado (igual que `Popover`). ⚠️ `ariaLabel` **no nombra el menú**: Radix fija `aria-labelledby` al trigger y ese atributo tiene prioridad sobre `aria-label` en el cálculo del nombre accesible. |
+
+### 8.2 Primitives aún ad-hoc (pendiente de revisión)
+
+| Primitive | Dónde | Estado |
+|---|---|---|
+| Combobox + listbox | `components/omnibar.tsx` | **Propia con motivo**: combobox de búsqueda con fuzzy match sobre proyectos/sesiones/Sub-Egos (`FuzzySearch` de `@ego/ui-runtime`). Radix no ofrece combobox; React Aria sí, y no está en el grafo. Decisión de Nivel 10 pendiente. |
+| Listbox/option (`role="option"`) | `omnibar.tsx`, `ModelPicker.tsx`, `SessionPicker.tsx` | **Propia con motivo**: el patrón ARIA de listbox no está en Radix. |
+
+> Las 4 exenciones que la doc anterior listaba como "ad-hoc pendientes"
+> (dropdown, popover, tooltip, combobox) **quedan en 2** tras laOLA 2026-10-20.
 
 ### 8.3 Reglas de aplicación
 
-1. **Antes de añadir un componente al kit**, comprobar en esta tabla si ya
-   existe una primitive de librería equivalente. Si existe → se usa la de
-   librería.
+1. **Antes de añadir un componente al kit**, comprobar esta tabla. Si existe
+   una primitive de librería equivalente → se usa la de librería.
 2. **Toda fila "propia"** debe poder responder "¿qué aporta esto que la
    librería no?" en una frase. Si no puede, es una recreación → migrar.
 3. **Toda migración** se registra como ADR o como fila de esta tabla con el
    ADR asociado.
 4. **Verificación**: al añadir o cambiar una primitive, actualizar esta tabla
-   en el mismo commit (es el registro canónico de la decisión).
+   en el mismo commit.
 
 ## 9. Estado de implementación por superficie
 
 | Superficie | Estado | Nota |
 |---|---|---|
-| Tokens semánticos | ✅ Implementado | §1 |
-| Temas dark-only (4 presets) | ✅ Implementado | §2 |
-| Kit `ui-kit/` (6 componentes) | ✅ Completo | `Select` migrado a Radix (§8.1) |
-| 9 estados por componente | 🟡 Parcial | Kit base con suite; primitives ad-hoc (§8.2) sin cobertura |
-| Catálogo de componentes de Canvas | ✅ 11 / 13 aspiracionales | §4 |
+| Tokens semánticos | ✅ | §1 |
+| Temas dark-only (4 presets OKLCH) | ✅ | §2 — fuente única en el provider |
+| Accent único (focus-ring = brand) | ✅ | §2.3 |
+| Kit `ui-kit/` (11 primitives) | ✅ | §3 — 4 migrados a Radix en laOLA 2026-10-20 |
+| 9 estados por componente | ✅ | `test/ui-kit-nine-states.test.tsx` |
+| Densidad densa + táctil | ✅ | §3.2 |
+| Escalas fijas (tipografía/radio/elevación) | ✅ | §1 |
+| Catálogo de Canvas | ✅ 12 implementados | §4 |
 | Contraste | ✅ Medido + 7 combinaciones prohibidas | §7 |
-| Tokens OKLCH | 🆕 Pendiente | `EGO-FIND-72` |
+| Puerta de calidad (`design-lint`) | ✅ | §10 |
+
+## 10. La puerta: `design-lint` (lo que faltaba)
+
+Un design system sin puerta se convierte en documentación de ficción: por eso
+la doc declaraba reglas que el código incumplía durante meses.
+
+**`apps/desktop/scripts/design-lint.cjs`** — linter sin dependencias que
+recorre `components/` y `src/` y falla (exit 1) ante:
+
+| Regla | Detecta | Severidad |
+|---|---|---|
+| R1 | hex literal fuera de `var(--color-*, fallback)` | error |
+| R2 | `style={{}}` ad-hoc (escape: `// design-lint: allow`) | error |
+| R3 | `text-[Npx]` arbitrario | error |
+| R4 | `opacity` sobre texto dim/faint o en `placeholder:` | error |
+| R5 | `border-hairline` como único indicador de un input | error |
+| R6 | `<select>` nativo | error |
+| R7 | paleta cruda de Tailwind (23 familias: `slate`…`rose`, `white`, `black`) | error |
+| R8 | recuento de `<button>/<input>/<textarea>` nativos (métrica de adopción del kit) | aviso |
+| R9 | radio fuera de escala (`rounded` = 4px, `rounded-lg/xl/2xl/3xl`, `rounded-[Npx]`) | error |
+| R10 | cabecera fuera del chrome unificado (`h-12`/`h-10` en un elemento con trazas de barra) | error |
+| R11 | superficie derivada con alfa (`bg-paper/N`, `bg-panel/N`, `bg-raised/N`) | error |
+
+> **R7/R9/R10/R11 se añadieron el 2026-10-20** tras la auditoría visual: la
+> puerta declaraba 3 escalas fijas (radio, superficie, chrome) que **no
+> verificaba**, y su R7 original era **ciego a las plantillas literales**
+> (`` className={`… ${cond ? "bg-emerald-500" : …}`} `` devolvía un blob
+> pegado a comillas que ninguna regla reconocía) y sólo conocía 3 familias
+> (`white`/`black`/`zinc`). Por eso reportaba 0 errores con 154 usos de
+> paleta cruda en el renderer.
+
+**Excepciones:** explícitas, por `(regla, fichero)`, con motivo + fecha + ID
+`EGO-DL-###`. Un fichero nuevo con la misma infracción **no** queda cubierto:
+la puerta se enciende sola. `--prune` las poda automáticamente (una entrada
+obsoleta = deuda ya saldada).
+
+**Puerta de test:** `test/design-lint.test.tsx` verifica que (a) el renderer
+actual tiene 0 errores, (b) la lista de excepciones del script coincide con la
+del test, (c) cada excepción trae motivo/fecha/ID y ficheros existentes, (d)
+las excepciones no están obsoletas y (e) **la puerta está encendida** (un
+fixture temporal con un hex, un `<select>`, un `bg-emerald-500`, un
+`rounded-2xl`, un `bg-panel/95` y un `h-12` produce los errores esperados).
+
+**Ejecución:** `node apps/desktop/scripts/design-lint.cjs [--json] [--prune] [dir]`
+· `pnpm --filter @ego/desktop design:lint`.
+
+## 10.1 La auditoría visual: `ego-browser-audit`
+
+La puerta de arriba es **estática** (lee el código). Faltaba la contraparte
+**en ejecución**: medir el DOM renderizado. Para eso hay un arnés propio sobre
+`ego-browser` (ego lite):
+
+| Fichero | Rol |
+|---|---|
+| `apps/desktop/scripts/ego-browser-audit.mjs` | La auditoría: mide `font-size`, radio, `box-shadow`, `background-color`, altura de cabecera, targets y desbordes contra el contrato de §1, y escribe `report.json` + capturas PNG |
+| `apps/desktop/scripts/run-design-audit.ps1` | Wrapper: pone el binario de ego-browser en el PATH, escribe la config (el runtime embebido **no hereda `process.env`**) y propaga el código de salida |
+
+```powershell
+pnpm --filter @ego/desktop dev
+pwsh -File apps/desktop/scripts/run-design-audit.ps1 -Out C:\temp\ego-audit
+```
+
+Códigos: 0 = sin infracciones · 1 = infracciones · 2 = fallo del arnés.
+
+**Por qué es un script y no un agente:** una auditoría hecha "a mano" con un
+navegador se degrada (ventana minimizada → `Page.captureScreenshot` expira;
+un objetivo que no se encuentra → reintentos en bucle; pestañas acumuladas
+hasta ensuciar el navegador del usuario). El arnés lo resuelve: **des-minimiza
+y maximiza** la ventana, **fuerza el viewport**, pone un **timeout duro en
+cada operación**, **registra y continúa** ante un paso fallido, y **cierra su
+TaskSpace** (`task.finish({ keep: [] })`) sin tocar las pestañas del usuario.
+
+> **Trampas de ego-browser documentadas en el propio script** (aprendidas a la
+> fuerza): `page.targetId` es `undefined` (el target sale de `task.tabs()`);
+> `task.page(label)` no crea páginas (hay que usar `task.newPage()`);
+> `page.goto()` puede expirar esperando `load` porque el dev-server de Vite
+> mantiene abierto el canal HMR; y `@radix-ui/react-select@2.3.x` **descarta**
+> el `className` de `Select.Value` (por eso el truncado va en un `<span>`
+> envoltorio dentro del propio kit).
+
+### 10.2 Hallazgos de la auditoría del 2026-10-20 (18 defectos, corregidos)
+
+Críticos: **D1** la navegación del Workspace se salía 456 px de la ventana ·
+**D2** el `Select` de tema desbordaba en 3 líneas. Altos: paleta cruda en 3
+verdes distintos, el `RootErrorBoundary` con otro aspecto, el cierre de
+modales con radio de 4 px, cabeceras de modal de 48 px, Personalización con
+4 radios fuera de escala. Medios: 3 indicadores de modelo con 2 valores,
+textos cortados a media palabra, KPI que no caben.
+
+**Consecuencia estructural:** el diseño *se veía* descuidado no por los
+detalles, sino porque **nada impedía** que cada pantalla se escribiera por
+separado. La puerta de §10 (estática) + este arnés (dinámica) cierran ese
+hueco: lo que se mide se puede bloquear.
+
+> **Hallazgo de producto (no de diseño):** 8 de las 12 vistas del Canvas
+> documentadas (`form`, `board`, `diff`, `terminal`, `record_view`,
+> `query_view`, `relation_view`, `mermaid`) **no tienen ningún disparador en
+> la UI**: el Canvas queda en "Espacio de trabajo vacío" aunque el usuario
+> pulse "Ir al Canvas". Pendiente de una ola propia.
