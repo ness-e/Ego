@@ -39,7 +39,7 @@
 
 **ADR** (decisiones de arquitectura — `docs/adr/`, numeración sin colisiones)
 
-- [`adr/README.md`](adr/README.md) - índice de las 25 decisiones con su estado y nivel jerárquico
+- [`adr/README.md`](adr/README.md) - índice de las 27 decisiones con su estado y nivel jerárquico
 - [`0001-electron-vite.md`](adr/0001-electron-vite.md) — Electron + Vite (**superseded** por `electron-vite` 5.x)
 - [`0002-vantadb-primero.md`](adr/0002-vantadb-primero.md) - VantaDB embebido in-process como única base local
 - [`0003-renderer-tonto.md`](adr/0003-renderer-tonto.md) - renderer solo presentación
@@ -74,6 +74,10 @@
   — identidad declarativa de Sub-Egos, presupuestos con circuit breaker y divulgación progresiva
 - [`0025-dos-planos-de-atribucion.md`](adr/0025-dos-planos-de-atribucion.md)
   — dos planos de atribución: código realmente derivado vs. asimilación de patrón
+- [`0026-contenido-no-confiable-se-degrada.md`](adr/0026-contenido-no-confiable-se-degrada.md)
+  — el contenido no confiable se degrada, no se bloquea: el detector detecta, la política juzga
+- [`0027-vista-filtrada-del-registro-de-tools.md`](adr/0027-vista-filtrada-del-registro-de-tools.md)
+  — vista filtrada del registro de tools por Sub-Ego
 
 **Deployment** (fuente vigente)
 

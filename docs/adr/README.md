@@ -26,7 +26,7 @@
 
 | Estado | ADRs |
 |---|---|
-| Aceptado | 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0019, 0021, 0022, 0023, 0024, 0025 |
+| Aceptado | 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0019, 0021, 0022, 0023, 0024, 0025, 0026, 0027 |
 | Aceptado (parcial) | 0018 (la consolidación física de `CharacterEngine` queda pendiente; la FSM legacy **ya se retiró**) · 0020 (el motor nativo queda condicionado a una puerta de invariantes) |
 | Superseded | 0001 (`electron-vite` 5.x lo sustituye) |
 
@@ -59,6 +59,8 @@
 | [0023](0023-path-cognitivo-nativo.md) | Path cognitivo nativo: el motor de VantaDB decide, con un puente de alcance explícito | 2026-10-21 | 4 · Architecture |
 | [0024](0024-identidad-declarativa-y-presupuestos.md) | Identidad declarativa de Sub-Egos, presupuestos con circuit breaker y divulgación progresiva de tools | 2026-07-21 | 4 · Architecture |
 | [0025](0025-dos-planos-de-atribucion.md) | Dos planos de atribución: código realmente derivado vs. asimilación de patrón | 2026-10-21 | 4 · Architecture |
+| [0026](0026-contenido-no-confiable-se-degrada.md) | El contenido no confiable se degrada, no se bloquea: el detector detecta, la política juzga | 2026-10-21 | 4 · Architecture |
+| [0027](0027-vista-filtrada-del-registro-de-tools.md) | Vista filtrada del registro de tools por Sub-Ego | 2026-10-21 | 4 · Architecture |
 
 > **Numeración (2026-07-21, Olas 5 y 6).** El `0022` lo ocupa **E4**
 > (exportadores), que A1 redactó en la Ola 4; el contrato de la Ola 3
