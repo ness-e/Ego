@@ -29,7 +29,7 @@
     "telemetry:export": "node scripts/export-telemetry.mjs",
     "verify:ci": "node scripts/verify-ci-triggers.mjs",
     "verify:harness": "node scripts/verify-harness.mjs",
-    "verify:all": "pnpm run verify:ci && pnpm run verify:harness && pnpm run vantadb:check",
+    "verify:all": "pnpm run verify:ci && pnpm run verify:harness && pnpm run vantadb:check && pnpm run verify:ci:gates",
     "docs:lint": "node scripts/check-docs-lint.mjs",
     "docs:lint:baseline": "node scripts/check-docs-lint.mjs --write-baseline",
     "changelog:preview": "git cliff --unreleased",
@@ -43,7 +43,9 @@
     "vantadb:check": "node scripts/verify-vantadb-resolution.mjs",
     "audit:extraction:test": "node scripts/test-audit-extraction-gates.mjs",
     "lint:budget:check": "node scripts/verify-lint-budget.mjs",
-    "lint:budget:test": "node scripts/test-verify-lint-budget.mjs"
+    "lint:budget:test": "node scripts/test-verify-lint-budget.mjs",
+    "verify:ci:gates": "node scripts/verify-ci-gates.mjs",
+    "verify:ci:gates:test": "node scripts/test-verify-ci-gates.mjs"
   },
   "pnpm": {
     "overrides": {

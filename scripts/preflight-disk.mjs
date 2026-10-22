@@ -88,7 +88,12 @@ const LEFTOVER_PATTERNS = [
   /^ego-test-scratch/,
   /^\.?tmp/,
   /^vdb/,
+  // Perfiles de usuario de Electron de las corridas del e2e: `rep-island-ud-*`
+  // (isla flotante) y `rep<N>-ud-*` (resto de specs). Cada uno es un store de
+  // VantaDB de ~320 MB (VDB-REQ-14): sin este patron, ~3,8 GB se acumulan por
+  // corrida y el preflight aborta por falta de espacio.
   /^rep-/,
+  /^rep\d+-ud-/,
   /^pytest-of-/,
   /^vanta-cog-ckpt/,
   /^a7-/,

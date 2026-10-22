@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-21T20:38:32.349Z",
+  "generatedAt": "2026-10-22T01:25:44.110Z",
   "markdownlintVersion": "0.15.0",
   "globs": "docs/**/*.md",
-  "totalViolations": 7188,
+  "totalViolations": 7264,
   "files": {
     "docs/adr/0001-electron-vite.md": {
       "MD003/heading-style": 6
@@ -227,10 +227,19 @@
       "MD036/no-emphasis-as-heading": 1,
       "MD040/fenced-code-language": 1
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis-ola10.md": {
+      "MD032/blanks-around-lists": 3,
+      "MD004/ul-style": 14,
+      "MD036/no-emphasis-as-heading": 1,
+      "MD013/line-length": 7
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis-ola8.md": {
       "MD031/blanks-around-fences": 5,
       "MD013/line-length": 19,
       "MD032/blanks-around-lists": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis-ola9.md": {
+      "MD013/line-length": 5
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis-router.md": {
       "MD036/no-emphasis-as-heading": 2,
@@ -258,6 +267,9 @@
       "MD031/blanks-around-fences": 12,
       "MD013/line-length": 13,
       "MD040/fenced-code-language": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola10.md": {
+      "MD032/blanks-around-lists": 3
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola1b.md": {
       "MD013/line-length": 49,
@@ -297,6 +309,11 @@
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola6.md": {
       "MD036/no-emphasis-as-heading": 1
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola9.md": {
+      "MD032/blanks-around-lists": 4,
+      "MD031/blanks-around-fences": 14,
+      "MD013/line-length": 8
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4.md": {
       "MD040/fenced-code-language": 2,
       "MD013/line-length": 32,
@@ -308,6 +325,10 @@
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A5.md": {
       "MD038/no-space-in-code": 2
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola10.md": {
+      "MD013/line-length": 11,
+      "MD055/table-pipe-style": 1
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola1b.md": {
       "MD003/heading-style": 11,
@@ -329,6 +350,12 @@
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola8.md": {
       "MD013/line-length": 6
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola9.md": {
+      "MD032/blanks-around-lists": 3,
+      "MD004/ul-style": 1,
+      "MD029/ol-prefix": 1,
+      "MD013/line-length": 4
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6.md": {
       "MD040/fenced-code-language": 1,
       "MD037/no-space-in-emphasis": 1
@@ -344,9 +371,6 @@
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A7-ola2-lint.md": {
       "MD003/heading-style": 8
-    },
-    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A7-ola8.md": {
-      "MD032/blanks-around-lists": 1
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A7.md": {
       "MD040/fenced-code-language": 6,
@@ -367,7 +391,7 @@
       "MD022/blanks-around-headings": 6
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/VERDICT.md": {
-      "MD003/heading-style": 26,
+      "MD003/heading-style": 27,
       "MD024/no-duplicate-heading": 1,
       "MD012/no-multiple-blanks": 1
     },

@@ -87,6 +87,42 @@ jobs:
           pnpm --filter @ego/avatar sync:check
           pnpm --filter @ego/avatar geometry:check
 
+      - name: "Avatar: no-verbatim + contrato del puente (D4)"
+        # EGO-FIND-106: la puerta `check-no-verbatim` NO estaba cableada en
+        # ningún pipeline → la decisión D4 (el motor de personaje NO conserva
+        # código verbatim del upstream) no se verificaba.
+        #
+        # · no-verbatim  → mide el residuo verbatim frente al upstream y frente
+        #                   al corpus `vendor/` del propio paquete.
+        # · bridge       → el CONTRATO del puente Ego↔studio (qué estados
+        #                   cruzan y cuáles no).
+        # · upstream     → coherencia del manifiesto `upstream-divergence.json`
+        #                   (qué ficheros del upstream se declararon eliminados).
+        #
+        # CI-SAFE SIN CLONES: las tres usan `repos-referencia/avatar` como
+        # REFERENCIA de solo lectura; si el clon no está (CI es un checkout de
+        # Ego, no lo tiene), lo dicen y siguen verificando lo verificable
+        # contra el corpus `vendor/` del paquete, que sí está en el repo.
+        # Bloqueante.
+        run: |
+          node scripts/verify-no-verbatim.mjs
+          node scripts/verify-avatar-gates.mjs
+
+      - name: "Inventario de puertas: ¿todo está cableado en CI?"
+        # A7 (Ola 9, EGO-FIND-106): el patrón "puerta nueva que funciona en
+        # local y no está en ningún pipeline" se repitió 5 veces en la
+        # remediación (check-no-verbatim, check-bridge, check-upstream-divergence,
+        # verify-backlog-gates, audit-extraction-gates). Esta puerta lo
+        # convierte en ley: toda puerta del repo tiene que estar cableada en CI
+        # o exenta CON MOTIVO en la lista `CI_GATE_EXEMPT`.
+        # Bloqueante.
+        run: node scripts/verify-ci-gates.mjs
+
+      - name: Test de la puerta de inventario de puertas
+        # 6 casos: sin cablear → falla · cableada → pasa · exenta → pasa ·
+        # por delegador → pasa · por script npm → pasa · repo real → pasa.
+        run: node scripts/test-verify-ci-gates.mjs
+
       - name: Run Linter (oxlint pinned via devDependencies)
         # El tope de avisos vive en `scripts/lint-budget.json` (FUENTE ÚNICA), no
         # en un número de package.json: este paso lo lee y lo aplica. Antes
@@ -188,6 +224,24 @@ jobs:
         # limpio, para que no vuelva a colarse una referencia silenciosa.
         id: vdb-ids
         run: node scripts/verify-vantadb-ids.mjs
+
+      - name: Compuertas del backlog y del catálogo de extracciones
+        # A7 (Ola 9): dos puertas que existían y funcionaban en local pero NO
+        # estaban en ningún pipeline:
+        #   · verify-backlog-gates      → cada fila `GATES:` del Backlog Maestro
+        #     debe coincidir con el catálogo canónico (mismo estado, mismo
+        #     recuento, mismos IDs). Es la puerta que detecta, por ejemplo, que
+        #     el Backlog marca `KHOJ-01/02/03` como `✅ Completada` cuando el
+        #     catálogo los tiene como `🚫 Descartada` (EGO-FIND-83 retiró el
+        #     crédito a khoj, AGPL-3.0).
+        #   · audit-extraction-gates    → coherencia formal de las 25 fichas de
+        #     extracción con su backlog (IDs contiguos, sin filas en el limbo,
+        #     recuentos declarados = reales) y que ninguna fila `✅ Completada`
+        #     afirme derivación sin cabecera canónica ni crédito a `khoj`.
+        # Bloqueantes.
+        run: |
+          node scripts/verify-backlog-gates.mjs
+          node scripts/audit-extraction-gates.mjs
 
       - name: Verify repository paths
         # T0 (2026-10-20): un `>` de shell mal citado dejó en la raíz un
