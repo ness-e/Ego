@@ -164,6 +164,18 @@ jobs:
         id: design-lint
         run: node apps/desktop/scripts/design-lint.cjs
 
+      - name: "Contratos de fuente (apps/desktop/scripts/lint)"
+        # A4 (Ola 10) creó `apps/desktop/scripts/lint/source-contracts.lint.mjs`:
+        # los contratos que NO se pueden comprobar por COMPORTAMIENTO (son
+        # acuerdos sobre la FORMA del código) viven ahí, en un ejecutable que
+        # sale con exit 1, y NO en un `*.test.*` (donde el inventario de
+        # asertos tautológicos los contaba como "pruebas" sin medir nada).
+        #
+        # Ola 11 · A7: este lint NO estaba cableado en NINGÚN pipeline → sus
+        # contratos no se verificaban nunca (y su ruta de `PaneShell.tsx`
+        # llevaba desactualizada, sin que nadie lo notase). Bloqueante.
+        run: pnpm --filter @ego/desktop lint:source-contracts
+
       - name: Run Typecheck
         run: pnpm typecheck
 
@@ -183,6 +195,26 @@ jobs:
       - name: Build Desktop and Renderer
         run: pnpm build
 
+      - name: "Smoke test del bundle real (EGO-FIND-122)"
+        # Comprueba el bundle REAL que se acaba de construir:
+        #   1. que NO resuelva Node/Rust/Python (un bundle de Electron no puede
+        #      depender de un toolchain del sistema);
+        #   2. que los `.node` de VantaDB se carguen desde `asarUnpack` (los 3
+        #      patrones de electron-builder.config.cjs);
+        #   3. que no haya DLLs ausentes en el paquete.
+        #
+        # FAIL-SOFT: sin bundle → todo se omite con motivo (exit 0). Sin app
+        # empaquetada → las comprobaciones que necesitan el paquete se omiten
+        # con el comando exacto que las haría (`pnpm --filter @ego/desktop dist`).
+        #
+        # ⚠️ NO sustituye a la prueba en la VM limpia del owner (DIST-06).
+        run: node scripts/verify-bundle-runtime.mjs
+
+      - name: Test del smoke test del bundle
+        # 6 casos: sin bundle → omitido · toolchain → falla · bundle limpio →
+        # ok · config sin asarUnpack → falla · config ok · repo real.
+        run: node scripts/test-verify-bundle-runtime.mjs
+
       - name: "Procedencia de las extracciones (modo degradado, sin clones)"
         # A5 (EGO-FIND-82): la puerta de procedencia de las 25 fichas.
         #
@@ -200,13 +232,28 @@ jobs:
         #   node scripts/verify-extraction-provenance.mjs      (con clones)
         run: node scripts/verify-extraction-provenance.mjs --sin-clones
 
-      - name: Atribución del motor de avatar (cabeceras canónicas)
-        # A6: comprueba que los 63 ficheros derivados de `packages/avatar/`
-        # llevan su cabecera canónica y que NINGUNO de los 23 nativos la lleva,
-        # contra el `provenance.manifest.json` del propio paquete. No necesita
-        # clones: si `repos-referencia/avatar` no está, lo anota como "no
-        # comprobable" en lugar de fallar.
+      - name: "Atribución: motor de avatar + 3 paquetes (cabeceras canónicas)"
+        # A6: comprueba que los ficheros derivados de `packages/avatar/`
+        # llevan su cabecera canónica y que NINGUNO de los nativos la lleva,
+        # contra el `provenance.manifest.json` del propio paquete.
+        #
+        # A2-bis (EGO-FIND-82, Ola 11): sus tres puertas de paquete
+        # (`packages/{tool-call-repair,tools,ui-runtime}/scripts/check-attribution.mjs`)
+        # NO se ejecutaban en NINGÚN pipeline: `scripts/verify-attribution.mjs`
+        # cubría sólo el motor de avatar. Ahora el delegador cubre las CUATRO.
+        #
+        # CI-SAFE SIN CLONES: las cuatro usan `repos-referencia/<upstream>` como
+        # REFERENCIA de solo lectura; si el clon no está (CI es un checkout de
+        # Ego, no lo tiene), la puerta lo anota como "no comprobable" y sigue
+        # verificando lo verificable (cabeceras, cobertura del manifiesto,
+        # LICENSE.md, NOTICE). Verificado con el clon ausente: exit 0.
+        # Bloqueante.
         run: node scripts/verify-attribution.mjs
+
+      - name: Test del delegador de atribución
+        # 8 casos: las 4 puertas · una que falla → exit 1 · `--only` ·
+        # `--only --root` · uso inválido → exit 2 · `--json` · fixture limpio.
+        run: node scripts/test-verify-attribution.mjs
 
       - name: Run E2E and Resilience Suites
         run: pnpm test:e2e

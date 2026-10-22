@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-22T01:25:44.110Z",
+  "generatedAt": "2026-10-22T05:55:32.477Z",
   "markdownlintVersion": "0.15.0",
   "globs": "docs/**/*.md",
-  "totalViolations": 7264,
+  "totalViolations": 7287,
   "files": {
     "docs/adr/0001-electron-vite.md": {
       "MD003/heading-style": 6
@@ -271,6 +271,14 @@
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola10.md": {
       "MD032/blanks-around-lists": 3
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola11.md": {
+      "MD032/blanks-around-lists": 6,
+      "MD004/ul-style": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola12.md": {
+      "MD032/blanks-around-lists": 1,
+      "MD037/no-space-in-emphasis": 1
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A4-ola1b.md": {
       "MD013/line-length": 49,
       "MD032/blanks-around-lists": 4,
@@ -330,6 +338,12 @@
       "MD013/line-length": 11,
       "MD055/table-pipe-style": 1
     },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola11.md": {
+      "MD013/line-length": 3
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola12.md": {
+      "MD013/line-length": 5
+    },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola1b.md": {
       "MD003/heading-style": 11,
       "MD013/line-length": 7,
@@ -359,6 +373,9 @@
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6.md": {
       "MD040/fenced-code-language": 1,
       "MD037/no-space-in-emphasis": 1
+    },
+    "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A7-ola11.md": {
+      "MD013/line-length": 4
     },
     "docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A7-ola1b.md": {
       "MD003/heading-style": 24
@@ -470,6 +487,10 @@
     },
     "docs/agent-ops/reports/reviews/remediation-waves3-6-2026-10-20.md": {
       "MD013/line-length": 11
+    },
+    "docs/agent-ops/reports/reviews/remediation-waves9-10-2026-10-21.md": {
+      "MD058/blanks-around-tables": 1,
+      "MD022/blanks-around-headings": 1
     },
     "docs/agent-ops/reports/reviews/review-full-2026-10-19.md": {
       "MD013/line-length": 49,

@@ -29,7 +29,7 @@
     "telemetry:export": "node scripts/export-telemetry.mjs",
     "verify:ci": "node scripts/verify-ci-triggers.mjs",
     "verify:harness": "node scripts/verify-harness.mjs",
-    "verify:all": "pnpm run verify:ci && pnpm run verify:harness && pnpm run vantadb:check && pnpm run verify:ci:gates",
+    "verify:all": "pnpm run verify:ci && pnpm run verify:harness && pnpm run vantadb:check && pnpm run verify:ci:gates && pnpm run verify:attribution && pnpm run verify:bundle",
     "docs:lint": "node scripts/check-docs-lint.mjs",
     "docs:lint:baseline": "node scripts/check-docs-lint.mjs --write-baseline",
     "changelog:preview": "git cliff --unreleased",
@@ -45,7 +45,14 @@
     "lint:budget:check": "node scripts/verify-lint-budget.mjs",
     "lint:budget:test": "node scripts/test-verify-lint-budget.mjs",
     "verify:ci:gates": "node scripts/verify-ci-gates.mjs",
-    "verify:ci:gates:test": "node scripts/test-verify-ci-gates.mjs"
+    "verify:ci:gates:test": "node scripts/test-verify-ci-gates.mjs",
+    "verify:attribution": "node scripts/verify-attribution.mjs",
+    "verify:attribution:test": "node scripts/test-verify-attribution.mjs",
+    "verify:bundle": "node scripts/verify-bundle-runtime.mjs",
+    "verify:bundle:test": "node scripts/test-verify-bundle-runtime.mjs",
+    "inventory:tautological": "node scripts/inventory-tautological-tests.mjs",
+    "inventory:tautological:test": "node scripts/test-inventory-tautological-tests.mjs",
+    "lint:source-contracts": "node apps/desktop/scripts/lint/source-contracts.lint.mjs"
   },
   "pnpm": {
     "overrides": {
