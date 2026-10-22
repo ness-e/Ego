@@ -32,6 +32,12 @@ export interface CustomCharacterConfig {
   baseForm: BaseFormType;
   outfitId?: string | null;
   traits: string[];
+  /**
+   * A6 (Ola 11): la INTENSIDAD de cada rasgo. Antes el round-trip la
+   * perdia (el bridge ponia un 1 fijo) → un perfil guardado con
+   * `intensity: 0.4` volvia como 1.
+   */
+  traitIntensities?: Record<string, number>;
   studioPreset?: StudioPresetType;
   accessory?: string;
   roundness?: number;

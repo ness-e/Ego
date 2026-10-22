@@ -22,6 +22,7 @@ import { Input } from "../components/ui-kit/Input.js";
 import { SplitPane } from "../components/PaneShell.js";
 import { ThemeIO } from "../components/canvas/ThemeIO.js";
 import { EmptyState } from "../components/canvas/EmptyState.js";
+import { CharacterPresence } from "../components/canvas/CharacterPresence.js";
 import {
   DesignSystemProvider,
   PRESET_THEMES,
@@ -97,5 +98,40 @@ describe("Ola 10 — contratos de comportamiento de los visuales", () => {
       inactive!.getAttribute("aria-pressed"),
       "la paleta pulsada debe quedar activa"
     ).toBe("true");
+  });
+
+  /* ------------------------------------------------------------------ *
+   * EGO-FIND-119 (Ola 11) — la presencia refleja el estado REAL
+   * ------------------------------------------------------------------ */
+  it("EGO-FIND-119: el CharacterPresence refleja el estado de atención real", () => {
+    // Con atención real (la del main) el avatar NO queda en "idle".
+    const { container: con } = render(
+      <CharacterPresence
+        metadata={{
+          id: "comp_1",
+          kind: "metric",
+          generatedBy: "ego.nucleus",
+        } as never}
+        attentionState="hitl_approval"
+      />
+    );
+    const avatarCon = con.querySelector("ego-avatar");
+    expect(avatarCon, "el badge debe renderizar el motor").toBeTruthy();
+    expect(
+      avatarCon?.getAttribute("state"),
+      "con atención real el avatar no puede quedar en idle"
+    ).not.toBe("idle");
+
+    // Sin contexto: `idle` es honesto (no hay nada que expresar).
+    const { container: sin } = render(
+      <CharacterPresence
+        metadata={{
+          id: "comp_2",
+          kind: "metric",
+          generatedBy: "ego.nucleus",
+        } as never}
+      />
+    );
+    expect(sin.querySelector("ego-avatar")?.getAttribute("state")).toBe("idle");
   });
 });

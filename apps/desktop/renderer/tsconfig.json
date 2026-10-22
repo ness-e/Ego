@@ -43,6 +43,12 @@
       ],
       "@ego/avatar/runtime/sound.js": [
         "../../../packages/avatar/src/runtime/sound.d.ts"
+      ],
+      // Ola 12 · A4: el vocabulario canónico del motor (para cotejarlo en un
+      // test TIPADO: el enum del renderer, la lista de no-mapeables y la
+      // magnitud que el motor declara).
+      "@ego/avatar/runtime/profile.js": [
+        "../../../packages/avatar/src/runtime/profile.d.ts"
       ]
     }
   },

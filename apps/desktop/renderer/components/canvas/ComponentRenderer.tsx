@@ -3,6 +3,7 @@ import type { CanvasComponentManifest } from "@ego/ui-runtime";
 import { CanvasComponentManifestSchema } from "@ego/ui-runtime";
 import { getComponentRenderer } from "./registry.js";
 import { CharacterPresence } from "./CharacterPresence.js";
+import { useUiStore } from "../ui-kit/store.js";
 import { WarningCircle } from "@phosphor-icons/react";
 
 interface ComponentRendererProps {
@@ -56,8 +57,15 @@ export const ComponentRenderer: React.FC<ComponentRendererProps> = ({
         isSelected ? "ring-2 ring-brand shadow-[var(--ego-elevation-l2)]" : "hover:border-strong"
       }`}
     >
-      {/* Presencia contextual del Sub-Ego con avatar y botón ¿Por qué? (CANV-07 / CANV-08) */}
-      <CharacterPresence metadata={validManifest.metadata} />
+      {/* Presencia contextual del Sub-Ego con avatar y botón ¿Por qué? (CANV-07 / CANV-08)
+          Ola 11 · A4 (EGO-FIND-119): el estado de atención REAL (el de la
+          `AttentionStateMachine` del main, publicado por el relay
+          `ipc.event`) llega en `useUiStore.attentionState` → el avatar
+          refleja la presencia y no un `idle` fijo. */}
+      <CharacterPresence
+        metadata={validManifest.metadata}
+        attentionState={useUiStore((s) => s.attentionState)}
+      />
 
       {/* Renderizado del componente declarativo */}
       <Renderer

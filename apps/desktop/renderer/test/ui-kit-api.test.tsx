@@ -53,6 +53,46 @@ async function openMenu(trigger: Element | null): Promise<void> {
   });
 }
 
+/**
+ * Abre el menú y **espera a que exista**.
+ *
+ * Dos problemas de Radix en jsdom, resueltos aquí:
+ *
+ * 1. Radix monta el contenido del menú en un PORTAL, en un efecto posterior
+ *    al `act()`: sin esta espera el assert puede correr contra un menú
+ *    todavía inexistente (flake: ~1 de cada 3 ejecuciones).
+ * 2. En jsdom, el `pointerdown` que abre el menú se pierde alguna vez (la
+ *    capa de descarte de la instancia anterior lo intercepta) → el menú
+ *    nunca aparece. Se **reintenta**, y sólo si sigue SIN abrir: un
+ *    reintento nunca cerraría un menú ya abierto.
+ *
+ * ⚠️ Solo para menús NO controlados: con `open={false}` el menú no se abre
+ * nunca (lo decide el consumidor) y la espera expiraría.
+ */
+async function openMenuAndWait(trigger: Element | null): Promise<void> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await openMenu(trigger);
+    for (let i = 0; i < 10; i++) {
+      if (document.body.querySelector('[role="menu"]')) return;
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+    }
+  }
+  expect(document.body.querySelector('[role="menu"]')).not.toBeNull();
+}
+
+/** Espera a que el contenido del menú se haya desmontado (tras seleccionar). */
+async function waitMenuClosed(): Promise<void> {
+  for (let i = 0; i < 50; i++) {
+    if (!document.body.querySelector('[role="menu"]')) return;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
+  expect(document.body.querySelector('[role="menu"]')).toBeNull();
+}
+
 describe("ui-kit API — Button: forwardRef real", () => {
   it("el ref llega al <button> (no viaja implícitamente por ...rest)", async () => {
     const ref = createRef<HTMLButtonElement>();
@@ -75,7 +115,7 @@ describe("ui-kit API — Button: forwardRef real", () => {
     );
     const trigger = el.querySelector("button");
     expect(trigger?.getAttribute("aria-haspopup")).toBe("menu");
-    await openMenu(trigger);
+    await openMenuAndWait(trigger);
     expect(document.body.querySelector('[role="menu"]')).not.toBeNull();
     await unmountSafe();
   });
@@ -135,7 +175,7 @@ describe("ui-kit API — Menu: estado seleccionado (radio)", () => {
     const el = await mount(
       <Menu trigger={<button type="button">Abrir</button>} items={radioItems} />
     );
-    await openMenu(el.querySelector("button"));
+    await openMenuAndWait(el.querySelector("button"));
 
     const radios = Array.from(document.body.querySelectorAll('[role="menuitemradio"]'));
     expect(radios.length).toBe(3);
@@ -150,7 +190,7 @@ describe("ui-kit API — Menu: estado seleccionado (radio)", () => {
     const el = await mount(
       <Menu trigger={<button type="button">Abrir</button>} items={radioItems} />
     );
-    await openMenu(el.querySelector("button"));
+    await openMenuAndWait(el.querySelector("button"));
 
     const radios = Array.from(document.body.querySelectorAll('[role="menuitemradio"]'));
     const dos = radios.find((r) => r.textContent?.includes("Dos"));
@@ -169,7 +209,7 @@ describe("ui-kit API — Menu: estado seleccionado (radio)", () => {
         items={[{ label: "Copiar" }, { label: "Pegar" }]}
       />
     );
-    await openMenu(el.querySelector("button"));
+    await openMenuAndWait(el.querySelector("button"));
     expect(document.body.querySelectorAll('[role="menuitemradio"]').length).toBe(0);
     expect(document.body.querySelectorAll('[role="menuitem"]').length).toBe(2);
     await unmountSafe();
@@ -182,7 +222,7 @@ describe("ui-kit API — Menu: estado seleccionado (radio)", () => {
         items={[{ label: "Copiar" }, { label: "Modo", checked: true }]}
       />
     );
-    await openMenu(el.querySelector("button"));
+    await openMenuAndWait(el.querySelector("button"));
     expect(document.body.querySelectorAll('[role="menuitemradio"]').length).toBe(1);
     expect(document.body.querySelectorAll('[role="menuitem"]').length).toBe(1);
     await unmountSafe();
@@ -196,7 +236,7 @@ describe("ui-kit API — Menu: estado seleccionado (radio)", () => {
         items={[{ label: "Uno", checked: false, onSelect }]}
       />
     );
-    await openMenu(el.querySelector("button"));
+    await openMenuAndWait(el.querySelector("button"));
     const item = document.body.querySelector('[role="menuitemradio"]');
     await act(async () => {
       item?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -215,16 +255,18 @@ describe("ui-kit API — Menu: estado seleccionado (radio)", () => {
         ]}
       />
     );
-    await openMenu(el.querySelector("button"));
+    await openMenuAndWait(el.querySelector("button"));
     const dos = Array.from(document.body.querySelectorAll('[role="menuitemradio"]')).find((r) =>
       r.textContent?.includes("Dos"),
     );
     await act(async () => {
       dos?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    // La selección cierra el menú (comportamiento de Radix): se reabre
-    // para comprobar que la marca quedó en la opción elegida.
-    await openMenu(el.querySelector("button"));
+    // La selección cierra el menú (comportamiento de Radix): se espera a que
+    // se desmonte y se reabre para comprobar que la marca quedó en la opción
+    // elegida.
+    await waitMenuClosed();
+    await openMenuAndWait(el.querySelector("button"));
     const radios = Array.from(document.body.querySelectorAll('[role="menuitemradio"]'));
     const dosAgain = radios.find((r) => r.textContent?.includes("Dos"));
     const unoAgain = radios.find((r) => r.textContent?.includes("Uno"));
@@ -243,7 +285,7 @@ describe("ui-kit API — Menu: estado seleccionado (radio)", () => {
         ]}
       />
     );
-    await openMenu(el.querySelector("button"));
+    await openMenuAndWait(el.querySelector("button"));
     const radios = Array.from(document.body.querySelectorAll('[role="menuitemradio"]'));
     expect(radios.find((r) => r.textContent?.includes("Uno"))?.getAttribute("aria-checked")).toBe(
       "true",
@@ -289,7 +331,7 @@ describe("ui-kit API — Menu: estado de apertura controlado", () => {
     const el = await mount(
       <Menu trigger={<button type="button">Abrir</button>} items={[{ label: "A" }]} />
     );
-    await openMenu(el.querySelector("button"));
+    await openMenuAndWait(el.querySelector("button"));
     expect(document.body.querySelector('[role="menu"]')).not.toBeNull();
     await unmountSafe();
   });

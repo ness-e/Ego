@@ -31,12 +31,25 @@ export const BridgeTraitKindSchema = z.enum([
   "halo",
   "energy-cores",
   "antennae",
-  "floating-shards",
   "aura-field",
   "quantum-crown",
   "orbital-rings",
   "geometric-crest",
 ]);
+
+/**
+ * Los rasgos que el MOTOR no puede expresar.
+ *
+ * A6 (Ola 11) declara en `packages/avatar/src/runtime/profile.js` →
+ * `UNMAPPED_TRAITS = ['floating-shards']`: las partículas del motor son del
+ * ESTADO (la boca al hablar), no un knob del genoma.
+ *
+ * El renderer **no lo ofrece** (aquí tampoco está: ofrecerlo sería
+ * prometer un rasgo que no se ve) → está declarado aquí, no ignorado en
+ * silencio. Si algún día el motor lo expresa, se quita de esta lista (y del
+ * enum de arriba) en el mismo cambio.
+ */
+export const UNMAPPED_TRAITS_IN_RENDERER = Object.freeze(["floating-shards"]);
 
 export const BridgeEyeShapeSchema = z.enum([
   "pill", "wide", "dot", "line", "flat", "happy", "closed",
@@ -87,6 +100,84 @@ const UI_TRAIT_TO_KIND: Record<string, z.infer<typeof BridgeTraitKindSchema>> = 
   aura_harmonic_halo: "halo",
 };
 
+/**
+ * El inverso de `UI_TRAIT_TO_KIND`: el motor nombra los rasgos por su
+ * `kind` ("halo") y el renderer por su id de UI ("aura_harmonic_halo").
+ * La intensidad se guarda con el id de la UI (el vocabulario del config) →
+ * esta tabla la traduce al `kind` canónico y de vuelta.
+ */
+const KIND_TO_UI_TRAIT: Record<string, string> = Object.fromEntries(
+  Object.entries(UI_TRAIT_TO_KIND).map(([ui, kind]) => [kind, ui])
+);
+
+/**
+ * Una entrada de rasgo en la **forma canónica** que el motor entiende.
+ *
+ * El motor (`packages/avatar/src/runtime/profile.js`, zona de A6) conoce el
+ * vocabulario canónico (`TraitKind`): `antennae`, `geometric-crest`,
+ * `energy-cores`, `aura-field`, `halo`, `orbital-rings`, `quantum-crown`.
+ * El renderer guarda el perfil con el vocabulario **de la UI**
+ * (`sensor_antenna_scanner`, `visor_analytical`, …) → si se mandan tal cual,
+ * el motor los declara `unmapped` y **no aplica nada**.
+ */
+export interface CanonicalTraitEntry {
+  /** El `TraitKind` canónico (el que el motor traduce a sus palancas). */
+  kind: string;
+  /**
+   * La intensidad del rasgo (0..1).
+   *
+   * ⚠️ El motor sólo tiene **una** palanca de magnitud: el **aura**
+   * (`AURA_RANGE`). Los otros rasgos **se aplican** pero su magnitud no se
+   * puede expresar → el motor los declara en `unmappedIntensity`. Aquí la
+   * intensidad se transporta **tal cual** (la verdad del perfil): no se
+   * inventa ni se ajusta ninguna magnitud ✗.
+   */
+  intensity: number;
+  enabled: boolean;
+}
+
+export interface CanonicalTraits {
+  /** Las entradas canónicas, listas para el atributo `traits` del motor. */
+  entries: CanonicalTraitEntry[];
+  /**
+   * Los ids de la UI que **no** tienen kind canónico: se **declaran**, no se
+   * inventan (el motor los ignoraría en silencio).
+   */
+  unmapped: string[];
+}
+
+/**
+ * Traduce el vocabulario de la UI al **canónico** que el motor entiende.
+ *
+ * Es el PUENTE entre las dos vocabularios:
+ *  · el de la UI (`TraitRegistry`: `sensor_antenna_scanner`, …) → el config;
+ *  · el canónico (`TraitKind`: `antennae`, …) → el motor.
+ *
+ * La intensidad viaja por rasgo (indexada por el **id de la UI**, que es el
+ * vocabulario del config) y sale con el `kind` canónico.
+ */
+export function toCanonicalTraits(
+  config: Pick<CustomCharacterConfig, "traits" | "traitIntensities">
+): CanonicalTraits {
+  const entries: CanonicalTraitEntry[] = [];
+  const unmapped: string[] = [];
+  for (const uiId of config.traits ?? []) {
+    const kind = UI_TRAIT_TO_KIND[uiId];
+    if (!kind) {
+      // Sin kind canónico: se DECLARA (no se inventa un kind).
+      unmapped.push(uiId);
+      continue;
+    }
+    const raw = config.traitIntensities?.[uiId];
+    const intensity =
+      typeof raw === "number" && Number.isFinite(raw)
+        ? Math.min(1, Math.max(0, raw))
+        : 1;
+    entries.push({ kind, intensity, enabled: true });
+  }
+  return { entries, unmapped };
+}
+
 function hexToRgbaCss(hex: string, alpha: number): string {
   const h = hex.replace("#", "");
   const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
@@ -116,7 +207,20 @@ export function toCharacterPayload(config: CustomCharacterConfig): CharacterProf
     defaultMouth: "flat",
     traits: config.traits.flatMap((traitId) => {
       const kind = UI_TRAIT_TO_KIND[traitId];
-      return kind ? [{ kind, intensity: 1, enabled: true }] : [];
+      if (!kind) return [];
+      // A6 (Ola 11): la INTENSIDAD del rasgo se conserva en el round-trip.
+      // Antes era un `1` fijo → una perfil guardado con `intensity: 0.4`
+      // volvía como `1` al recargar y guardar (la intensidad se perdía).
+      // Ahora sale del propio perfil (`traitIntensities`) y, si no está, del
+      // `enabled` del payload.
+      const intensity = config.traitIntensities?.[traitId];
+      return [
+        {
+          kind,
+          intensity: typeof intensity === "number" ? intensity : 1,
+          enabled: true,
+        },
+      ];
     }),
     scale: 1,
     pulseRate: 1,
@@ -157,7 +261,9 @@ function unwrapRecord(record: unknown): unknown {
 function asCustomConfig(raw: unknown, subEgoId: string): CustomCharacterConfig | null {
   if (typeof raw !== "object" || raw === null) return null;
   const meta = (raw as { metadata?: { uiConfig?: unknown } }).metadata;
-  const candidate = meta?.uiConfig ?? raw;
+  const hasUiConfig =
+    typeof meta?.uiConfig === "object" && meta?.uiConfig !== null;
+  const candidate = hasUiConfig ? meta?.uiConfig : raw;
   if (typeof candidate !== "object" || candidate === null) return null;
   const c = candidate as Record<string, unknown>;
   if (
@@ -169,18 +275,61 @@ function asCustomConfig(raw: unknown, subEgoId: string): CustomCharacterConfig |
   ) {
     return null;
   }
+
+  // A6 (Ola 11): si el perfil trae su `uiConfig` (todos los guardados por
+  // esta version del bridge), se devuelve **tal cual**: el round-trip es
+  // exacto —no se pierde ningun ajuste de la UI (eyeShape, mouth, preset,
+  // accesorio, roundness, outfitId) ni la intensidad de los rasgos, y no se
+  // inventa ninguno nuevo.
+  if (hasUiConfig) {
+    return { ...(c as unknown as CustomCharacterConfig), subEgoId };
+  }
+
+  // Perfil legacy (sin `uiConfig`): se reconstruye desde el payload
+  // canonico. Aqui si se aplica el mapa inverso (kind del motor → id de la
+  // UI) para la intensidad, y se rellenan los campos que el payload no
+  // tiene (el motor no los conoce: son ajustes de la UI).
   return {
     subEgoId,
     name: c.name,
     bodyColors: [String(c.bodyColors[0]), String(c.bodyColors[1])] as [string, string],
     eyeShape: c.eyeShape as CustomCharacterConfig["eyeShape"],
     baseForm: c.baseForm as CustomCharacterConfig["baseForm"],
-    outfitId: null,
+    outfitId: typeof c.outfitId === "string" ? c.outfitId : null,
     traits: c.traits.map(String),
-    studioPreset: typeof c.studioPreset === "string" ? (c.studioPreset as CustomCharacterConfig["studioPreset"]) : undefined,
+    traitIntensities: readTraitIntensities(raw),
+    studioPreset:
+      typeof c.studioPreset === "string"
+        ? (c.studioPreset as CustomCharacterConfig["studioPreset"])
+        : undefined,
     accessory: typeof c.accessory === "string" ? c.accessory : undefined,
     roundness: typeof c.roundness === "number" ? c.roundness : undefined,
   };
+}
+
+/**
+ * Lee las intensidades de los rasgos del perfil persistido.
+ *
+ * El payload guarda `traits: [{kind, intensity, enabled}]` → de ahi sale la
+ * intensidad por rasgo (si el rasgo esta activo).
+ */
+function readTraitIntensities(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (typeof raw !== "object" || raw === null) return out;
+  const traits = (raw as { traits?: unknown }).traits;
+  if (!Array.isArray(traits)) return out;
+  for (const t of traits) {
+    if (typeof t !== "object" || t === null) continue;
+    const kind = (t as { kind?: unknown }).kind;
+    const intensity = (t as { intensity?: unknown }).intensity;
+    const enabled = (t as { enabled?: unknown }).enabled;
+    if (typeof kind !== "string") continue;
+    if (enabled === false) continue;
+    // La clave es el id de la UI (el vocabulario del config del renderer).
+    const uiId = KIND_TO_UI_TRAIT[kind] ?? kind;
+    out[uiId] = typeof intensity === "number" ? intensity : 1;
+  }
+  return out;
 }
 
 export async function saveCharacterConfig(
@@ -192,7 +341,17 @@ export async function saveCharacterConfig(
     namespace: characterNamespace(config.subEgoId),
     key: CHARACTER_KEY,
     payload,
-    metadata: { subEgoId: config.subEgoId, profileId: payload.id, updatedAtMs: Date.now() },
+    // A6 (Ola 11): el `uiConfig` se guarda en los metadatos para que el
+    // round-trip sea COMPLETO: el payload es el que entiende el MOTOR
+    // (baseForm, rasgos, paleta) y no tiene cabida para los ajustes de la
+    // UI (eyeShape, mouth, studioPreset, accessory, roundness, outfitId) →
+    // sin esto, al recargar el perfil se perdian.
+    metadata: {
+      subEgoId: config.subEgoId,
+      profileId: payload.id,
+      updatedAtMs: Date.now(),
+      uiConfig: { ...config },
+    },
   });
 }
 

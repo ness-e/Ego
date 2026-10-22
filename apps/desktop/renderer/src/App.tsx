@@ -248,6 +248,24 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // Ola 11 · A4 (EGO-FIND-119): el estado de atención REAL del proceso
+    // main (la `AttentionStateMachine`) llega por el relay `ipc.event` —el
+    // mismo canal que los pushes de la isla y del terminal, **sin canal
+    // nuevo**— y se guarda en el store para que el canvas (y su
+    // `CharacterPresence`) reflejen la presencia real.
+    const bridge = ego();
+    const off = bridge?.onEvent?.((raw: unknown) => {
+      const event = raw as { kind?: string; state?: string };
+      if (event?.kind !== "attention.state") return;
+      if (typeof event.state !== "string") return;
+      useUiStore.getState().setAttentionState(event.state);
+    });
+    return () => {
+      if (typeof off === "function") off();
+    };
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
         e.preventDefault();

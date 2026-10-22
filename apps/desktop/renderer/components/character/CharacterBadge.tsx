@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { TraitRegistry } from "./traits/TraitRegistry.js";
-import { loadCharacterConfig } from "./wardrobe/characterProfileBridge.js";
+import { loadCharacterConfig, toCanonicalTraits } from "./wardrobe/characterProfileBridge.js";
 import type { CharacterState } from "./state/character-state.js";
 import { MOTION } from "../canvas/DesignSystemProvider.js";
 
@@ -125,17 +125,18 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   const avatarRef = useRef<HTMLElement | null>(null);
   const reduceMotion = useReducedMotion() ?? false;
 
-  // EGO-FIND-116 (Ola 10): el perfil de personaje PERSISTE y hace
-  // round-trip, pero no alimentaba el render. Aquí se carga el perfil
-  // guardado (traits / baseForm / outfitId) y se le pasa al elemento.
+  // EGO-FIND-116 (Ola 10) + Ola 12 (A4): el perfil de personaje PERSISTE,
+  // hace round-trip y **alimenta el render**: el motor ya observa
+  // `base-form` / `traits` / `outfit` (A6) → el perfil se traduce a la
+  // **forma canónica** que el motor entiende y se le pasa al elemento.
   //
-  // El elemento `<ego-avatar>` todavía no observa estos atributos (eso es
-  // API nueva del motor, zona de A6 → handoff), así que hasta que llegue,
-  // pasarlos no cambia el render pero deja el cableado **listo** y verificable
-  // (el test comprueba que el atributo viaja).
+  // ⚠️ El motor NO conoce los ids de la UI (`sensor_antenna_scanner`): si se
+  // mandaran tal cual los declararía `unmapped` y no aplicaría nada. De ahí
+  // `toCanonicalTraits` (el puente entre los dos vocabularios).
   const [persisted, setPersisted] = useState<{
     baseForm?: string;
     traits?: string[];
+    traitIntensities?: Record<string, number>;
     outfitId?: string | null;
   } | null>(null);
 
@@ -148,10 +149,11 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
         setPersisted({
           baseForm: config.baseForm,
           traits: config.traits,
+          traitIntensities: config.traitIntensities,
           outfitId: config.outfitId ?? null,
         });
       } catch {
-        // Sin perfil persistido: se usa el del行了TraitRegistry/props.
+        // Sin perfil persistido: se usa el del TraitRegistry/props.
       }
     })();
     return () => {
@@ -163,6 +165,11 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   const effectiveBaseForm = baseForm ?? persisted?.baseForm;
   const effectiveOutfitId = outfitId ?? persisted?.outfitId ?? undefined;
   const effectiveTraits = persisted?.traits ?? [];
+  // Ola 12 (A4): la forma CANÓNICA que el motor aplica (kind + intensidad).
+  const canonicalTraits = toCanonicalTraits({
+    traits: effectiveTraits,
+    traitIntensities: persisted?.traitIntensities,
+  });
 
   // Inicializar TraitRegistry para obtener el nombre canónico si no se provee title
   TraitRegistry.initialize();
@@ -261,11 +268,14 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
         size: String(displaySize),
         mode: effectiveMode,
         preset: studioPreset,
-        // EGO-FIND-116: el perfil persistido viaja al motor. El elemento
-        // todavia no los observa (API nueva, zona de A6) -> el cableado
-        // queda listo y el test verifica que los atributos viajan.
+        // EGO-FIND-116 / Ola 12 (A4): el perfil persistido viaja al motor en
+        // la FORMA CANÓNICA (`{kind, intensity}`) — el motor sólo entiende el
+        // `TraitKind`, no los ids de la UI.
         "base-form": effectiveBaseForm,
-        traits: effectiveTraits.length > 0 ? JSON.stringify(effectiveTraits) : undefined,
+        traits:
+          canonicalTraits.entries.length > 0
+            ? JSON.stringify(canonicalTraits.entries)
+            : undefined,
         outfit: effectiveOutfitId,
         "pointer-follow": animated ? "true" : "false",
         sound: "false",

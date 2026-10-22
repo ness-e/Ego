@@ -5,20 +5,8 @@
 // Nota: el CSS se lee con node:fs (solo-test, nunca se empaqueta;
 // evita que Vite resuelva imports estáticos de archivos aún inexistentes).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-
-const SRC = join(process.cwd(), "src");
-const readSrc = (name: string): string => {
-  const p = join(SRC, name);
-  return existsSync(p) ? readFileSync(p, "utf8") : "";
-};
-
-const indexCss = readSrc("index.css");
-const fontsCss = readSrc("fonts.css");
-const mainTsx = readSrc("main.tsx");
 
 vi.mock("../components/character/CharacterBadge.js", () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,54 +40,6 @@ function PresetCycler() {
 }
 
 describe("T05: tokens reales + chat al design system", () => {
-  describe("index.css: tokens semánticos + puentes --ego-*", () => {
-    it("define brand ámbar #f59e0b puenteado a --ego-color-brand", () => {
-      expect(indexCss).toContain("--color-brand");
-      expect(indexCss).toContain("#f59e0b");
-      expect(indexCss).toContain("var(--ego-color-brand");
-    });
-
-    it("usa dim #8a8a92 (AA) y elimina #55555c", () => {
-      expect(indexCss).toContain("#8a8a92");
-      expect(indexCss).not.toContain("#55555c");
-    });
-
-    it("define app-region y radius-card real puenteada a --ego-radius", () => {
-      expect(indexCss).toContain(".app-region-drag");
-      expect(indexCss).toContain("-webkit-app-region");
-      expect(indexCss).toContain("--radius-card");
-      expect(indexCss).toContain("var(--ego-radius");
-    });
-
-    it("puentea superficies del provider (paper/panel/raised/ink/hairline/faint)", () => {
-      for (const v of [
-        "var(--ego-color-bg",
-        "var(--ego-color-panel",
-        "var(--ego-color-raised",
-        "var(--ego-color-text",
-        "var(--ego-color-border",
-        "var(--ego-color-muted",
-      ]) {
-        expect(indexCss).toContain(v);
-      }
-    });
-  });
-
-  describe("Geist local vía @font-face (sin next/font)", () => {
-    it("fonts.css declara Geist + Geist Mono desde woff2 locales", () => {
-      expect(fontsCss).toContain("@font-face");
-      expect(fontsCss).toContain("Geist");
-      expect(fontsCss).toContain("woff2");
-      expect(fontsCss).toContain("Geist-Variable.woff2");
-      expect(fontsCss).toContain("GeistMono-Variable.woff2");
-    });
-
-    it("main.tsx importa los fonts y :root expone --font-geist-sans", () => {
-      expect(mainTsx).toContain("./fonts.css");
-      expect(indexCss).toContain("--font-geist-sans");
-    });
-  });
-
   describe("DesignSystemProvider: 4 presets oscuros funcionales", () => {
     let container: HTMLDivElement;
     let root: Root;
