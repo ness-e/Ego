@@ -1,0 +1,83 @@
+{
+  "$comment": [
+    "Manifiesto de procedencia de `packages/tools/` (EGO-FIND-82).",
+    "",
+    "Es el DENOMINADOR de la puerta de atribución del paquete:",
+    "  · `scripts/check-attribution.mjs` — cada fichero DERIVADO lleva la",
+    "    cabecera canónica `// Adapted from <upstream> (<LICENCIA>), <ruta de",
+    "    origen>` y aviso en el `LICENSE.md`; cada NATIVO no la lleva",
+    "    (inventarla sería una atribución falsa: precedente EGO-FIND-83).",
+    "",
+    "La clasificación NO se ha hecho leyendo el comentario: se ha MEDIDO",
+    "contra los clones de `repos-referencia/` (residuo verbatim de shingles de",
+    "48 caracteres y racha de forma compartida con el fichero de origen).",
+    "Ver `docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis-ola10.md`.",
+    "",
+    "Un fichero NATIVO lleva el texto veraz del plano 2:",
+    "  \"Implementación propia de Ego; patrón asimilado de <upstream>,",
+    "   sin traducción de código.\"",
+    "",
+    "`coverage: attributable` — todo fichero que AFIRMA una derivación o que",
+    "menciona un upstream declarado tiene que estar clasificado aquí. Los",
+    "demás ficheros del paquete son código original de Ego sin atribución."
+  ],
+  "version": 1,
+  "package": "@ego/tools",
+  "headerForm": "Adapted from <upstream> (<LICENCIA>), <ruta de origen>",
+  "coverage": "attributable",
+  "sourceRoots": ["src"],
+  "exclude": ["test/attribution.test.ts", "scripts/check-attribution.mjs"],
+  "upstreams": {
+    "coucou": {
+      "license": "MIT",
+      "human": "Coucou",
+      "copyright": "Copyright (c) 2026 Louis Raillard",
+      "reference": "repos-referencia/coucou",
+      "note": "ChangeSet atómico y diffs (COUC-04/05)."
+    },
+    "openclaw": {
+      "license": "MIT",
+      "human": "OpenClaw",
+      "copyright": "Copyright (c) 2026 OpenClaw Foundation",
+      "reference": "repos-referencia/openclaw",
+      "note": "Sesiones, diffs por sesión y parseo de Unidiff (OCLW-07/08)."
+    },
+    "career-ops": {
+      "license": "MIT",
+      "human": "Career-Ops",
+      "copyright": "Copyright (c) 2026 Career-Ops contributors",
+      "reference": "repos-referencia/career-ops",
+      "note": "Escrituras atómicas con lock de fichero y cuarentena (CARP-02)."
+    }
+  },
+  "derived": [
+    {
+      "path": "src/native/git/ChangeSetService.ts",
+      "upstream": "coucou",
+      "origin": "NotchBuddy/Sources/CoucouKit/DiffEngine.swift",
+      "evidence": "Port real. Medido contra `repos-referencia/coucou/NotchBuddy/Sources/CoucouKit/DiffEngine.swift`: mejor coincidencia = EL ORIGEN DECLARADO, racha `shape` 24 tokens y racha `strict` 21 (nombres de identificadores incluidos). Es una traducción a TypeScript del motor de diff: por eso el residuo verbatim de shingles de 48 caracteres es 0 (el renombrado y el reformateo rompen la coincidencia literal).",
+      "verbatim": { "maxShingles": 0, "note": "El port es una traducción a TypeScript: el residuo de shingles de 48 caracteres es 0 (renombrado y reformateado); la evidencia es la racha `strict` (21 tokens) contra el ORIGEN DECLARADO." },
+      "measured": { "shapeTokens": 24, "strictTokens": 21, "bestMatchIsOrigin": true }
+    }
+  ],
+  "native": [
+    {
+      "path": "src/native/git/GitParser.ts",
+      "upstream": "openclaw",
+      "reason": "Implementación propia de Ego; patrón asimilado de OpenClaw · OCLW-08 (parser de Unidiff y `porcelain status`): el parser es propio. Sin traducción de código.",
+      "evidence": "Medido contra TODO el clon: mejor coincidencia = un fichero ajeno (un test de aceptación), racha `shape` 25 tokens pero `strict` 10 → idioma universal (`split`/`map`/`filter`), no una copia. Sin cabecera canónica."
+    },
+    {
+      "path": "src/native/git/SessionDiffRevisions.ts",
+      "upstream": "openclaw",
+      "reason": "Implementación propia de Ego; patrón asimilado de OpenClaw · OCLW-07 (`src/sessions/session-diff-revisions.ts`): allí se resuelve el *merge-base* de una rama; aquí se registra el SHA base de la sesión y se listan sus revisiones. Sin traducción de código.",
+      "evidence": "Medido contra TODO el clon: mejor coincidencia = un fichero ajeno, racha `shape` 18 tokens y `strict` 14. Sin cabecera canónica."
+    },
+    {
+      "path": "src/native/fs/FileLockManager.ts",
+      "upstream": "career-ops",
+      "reason": "Implementación propia de Ego; patrón asimilado de Career-Ops · CARP-02 (lock de fichero con escritura atómica): la API y la estrategia de recuperación son propias. Sin traducción de código.",
+      "evidence": "Medido contra TODO el clon: mejor coincidencia = un fichero ajeno, racha `shape` 21 tokens y `strict` 8. Sin cabecera canónica."
+    }
+  ]
+}

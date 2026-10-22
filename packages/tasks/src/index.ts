@@ -12,6 +12,7 @@ export * from './ProactivityEngine.js';
 // API pública de `@ego/tasks`.
 export { DreamConsolidator, type DreamConsolidationStats } from '@ego/memory';
 export * from './MemoryCurator.js';
+export * from './CurationSettings.js';
 export * from './WorkerTaskPool.js';
 export * from './RunRecorder.js';
 export * from './ContextProvider.js';

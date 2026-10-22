@@ -1,0 +1,69 @@
+{
+  "$comment": [
+    "Manifiesto de procedencia de `packages/tool-call-repair/` (EGO-FIND-82).",
+    "",
+    "Es el DENOMINADOR de la puerta de atribución del paquete:",
+    "  · `scripts/check-attribution.mjs` — cada fichero DERIVADO lleva la",
+    "    cabecera canónica `// Adapted from <upstream> (<LICENCIA>), <ruta de",
+    "    origen>` y aviso en el `LICENSE.md`; cada NATIVO no la lleva",
+    "    (inventarla sería una atribución falsa: precedente EGO-FIND-83).",
+    "",
+    "La clasificación NO se ha hecho leyendo el comentario: se ha MEDIDO.",
+    "Dos medidas complementarias contra el clon `repos-referencia/openclaw`:",
+    "  · `verbatim`: residuo de shingles de 48 caracteres (código copiado tal",
+    "    cual). Un port renombrado da 0 aquí.",
+    "  · `shape` / `strict`: racha más larga de la SECUENCIA DE FORMA",
+    "    compartida con el fichero de origen del clon. `shape` reduce los",
+    "    identificadores a un marcador (delata el port renombrado); `strict`",
+    "    exige además los nombres de los identificadores (delata la copia",
+    "    literal). Regla de clasificación: un fichero es DERIVADO cuando su",
+    "    mejor coincidencia es el ORIGEN DECLARADO y la racha `strict` es alta",
+    "    (>= 21 tokens). Una coincidencia de forma con `strict` baja es un",
+    "    idioma universal (p. ej. `Math.round(x + (w - width) / 2)` para",
+    "    centrar un rect), no una copia.",
+    "Ver `docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis-ola10.md`.",
+    "",
+    "Un fichero NATIVO lleva el texto veraz del plano 2:",
+    "  \"Implementación propia de Ego; patrón asimilado de <upstream>,",
+    "   sin traducción de código.\""
+  ],
+  "version": 1,
+  "package": "@ego/tool-call-repair",
+  "headerForm": "Adapted from <upstream> (<LICENCIA>), <ruta de origen>",
+  "sourceRoots": ["src"],
+  "exclude": ["test/attribution.test.ts", "scripts/check-attribution.mjs"],
+  "upstreams": {
+    "openclaw": {
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 OpenClaw Foundation",
+      "reference": "repos-referencia/openclaw",
+      "note": "Autorreparación de tool calls y normalización de texto (OCLW-03)."
+    }
+  },
+  "derived": [
+    {
+      "path": "src/grammar.ts",
+      "upstream": "openclaw",
+      "origin": "packages/tool-call-repair/src/grammar.ts",
+      "evidence": "Port real. Medido contra `repos-referencia/openclaw/packages/tool-call-repair/src/grammar.ts`: mejor coincidencia = EL ORIGEN DECLARADO, racha `shape` 31 tokens y racha `strict` 26 (nombres de identificadores incluidos), y residuo verbatim de 176 shingles de 48 caracteres (racha contigua de 223 caracteres). Los marcadores `END_TOOL_REQUEST` y `HARMONY_*` y el escáner de sintaxis proceden de ahí.",
+      "verbatim": { "maxShingles": 176 },
+      "measured": { "shapeTokens": 31, "strictTokens": 26, "bestMatchIsOrigin": true }
+    },
+    {
+      "path": "src/balanced-json.ts",
+      "upstream": "openclaw",
+      "origin": "packages/normalization-core/src/balanced-json.ts",
+      "evidence": "Port real. Medido contra `repos-referencia/openclaw/packages/normalization-core/src/balanced-json.ts`: mejor coincidencia = EL ORIGEN DECLARADO, racha `shape` 74 tokens y racha `strict` 66, y residuo verbatim de 631 shingles de 48 caracteres (rachas contiguas de 224 y 197 caracteres, esta última en `.../src/shared/text/downgraded-tool-call-text.ts`).",
+      "verbatim": { "maxShingles": 631 },
+      "measured": { "shapeTokens": 74, "strictTokens": 66, "bestMatchIsOrigin": true }
+    }
+  ],
+  "native": [
+    {
+      "path": "src/coercion.ts",
+      "upstream": "openclaw",
+      "reason": "Implementación propia de Ego; patrón asimilado de OpenClaw `packages/normalization-core`, sin traducción de código. Las heurísticas (booleanos `yes/y/on/no/n/off`, números como cadenas, la exención de las claves de contenido `content/body/code/script/query/message/prompt`) no tienen equivalente en el upstream.",
+      "evidence": "Medido contra TODO el clon: mejor coincidencia = un fichero ajeno (`.agents/skills/openclaw-live-updater/scripts/update-main.mjs`), racha `shape` 28 tokens pero `strict` 11 → idioma universal (`trim`/`startsWith`/`endsWith`), no una copia. Sin cabecera canónica."
+    }
+  ]
+}

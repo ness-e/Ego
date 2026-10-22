@@ -4,21 +4,28 @@ Este paquete contiene código **derivado** de un proyecto de terceros. La cláus
 atribución de la licencia original se reproduce aquí para que el aviso de copyright sea
 resoluble dentro de este repositorio, tal como exige la licencia MIT.
 
+> **El denominador del contrato es `provenance.manifest.json`** (en este paquete):
+> declara fichero a fichero qué es derivado y qué es nativo, con el upstream, la
+> licencia, la ruta de origen y la **evidencia medida**. La puerta
+> `scripts/check-attribution.mjs` verifica este fichero contra el manifiesto (y
+> `NOTICE` recoge el aviso por upstream). Un fichero sin clasificar, un derivado
+> sin cabecera canónica o un nativo con cabecera canónica ⇒ **exit 1**.
+
 ## Código derivado
 
 Un fichero **realmente derivado** (un port literal) lleva la cabecera canónica
 `// Adapted from <upstream> (<LICENCIA>), <ruta de origen>`.
 
-| Fichero de este paquete | Origen | Ruta de origen | Licencia | Copyright |
-|---|---|---|---|---|
-| `src/grammar.ts` | OpenClaw | `packages/tool-call-repair/src/grammar.ts` | MIT | Copyright (c) 2026 OpenClaw Foundation |
-| `src/balanced-json.ts` | OpenClaw | `packages/normalization-core/src/balanced-json.ts` | MIT | Copyright (c) 2026 OpenClaw Foundation |
+| Fichero de este paquete | Origen | Ruta de origen | Licencia | Copyright | Evidencia (medida) |
+|---|---|---|---|---|---|
+| `src/grammar.ts` | `openclaw` (OpenClaw) | `packages/tool-call-repair/src/grammar.ts` | MIT | Copyright (c) 2026 OpenClaw Foundation | Racha de forma de 31 tokens contra el fichero de origen del clon + residuo verbatim de 176 shingles (racha de 223 caracteres) |
+| `src/balanced-json.ts` | `openclaw` (OpenClaw) | `packages/normalization-core/src/balanced-json.ts` | MIT | Copyright (c) 2026 OpenClaw Foundation | Racha de forma de 74 tokens contra el fichero de origen del clon + residuo verbatim de 631 shingles (rachas de 224 y 197 caracteres) |
 
 ## Código nativo (asimilación de patrón, sin código derivado)
 
 | Fichero de este paquete | Patrón estudiado | Nota |
 |---|---|---|
-| `src/coercion.ts` | OpenClaw `packages/normalization-core` | **Implementación propia de Ego**: las heurísticas (`yes/y/on/no/n/off` como booleanos, números como cadenas, la exención de las claves de contenido `content/body/code/script/query/message/prompt`) no tienen equivalente en el upstream. Sin atribución de código derivado. |
+| `src/coercion.ts` | `openclaw` (OpenClaw) `packages/normalization-core` | **Implementación propia de Ego; patrón asimilado de OpenClaw, sin traducción de código.** Las heurísticas (`yes/y/on/no/n/off` como booleanos, números como cadenas, la exención de las claves de contenido `content/body/code/script/query/message/prompt`) no tienen equivalente en el upstream. |
 
 El resto de ficheros del paquete son código original de Ego.
 

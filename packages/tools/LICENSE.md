@@ -4,14 +4,29 @@ Este paquete contiene código **derivado** de un proyecto de terceros. La cláus
 atribución de la licencia original se reproduce aquí para que el aviso de copyright sea
 resoluble dentro de este repositorio, tal como exige la licencia MIT.
 
+> **El denominador del contrato es `provenance.manifest.json`** (en este paquete):
+> declara fichero a fichero qué es derivado y qué es nativo, con el upstream, la
+> licencia, la ruta de origen y la **evidencia medida**. La puerta
+> `scripts/check-attribution.mjs` verifica este fichero contra el manifiesto (y
+> `NOTICE` recoge el aviso por upstream). Un fichero sin clasificar, un derivado
+> sin cabecera canónica o un nativo con cabecera canónica ⇒ **exit 1**.
+
 ## Código derivado
 
 Un fichero **realmente derivado** (un port literal) lleva la cabecera canónica
 `// Adapted from <upstream> (<LICENCIA>), <ruta de origen>`.
 
-| Fichero de este paquete | Origen | Ruta de origen | Licencia | Copyright |
-|---|---|---|---|---|
-| `src/native/git/ChangeSetService.ts` | Coucou | `NotchBuddy/Sources/CoucouKit/DiffEngine.swift` | MIT | Copyright (c) 2026 Louis Raillard |
+| Fichero de este paquete | Origen | Ruta de origen | Licencia | Copyright | Evidencia (medida) |
+|---|---|---|---|---|---|
+| `src/native/git/ChangeSetService.ts` | `coucou` (Coucou) | `NotchBuddy/Sources/CoucouKit/DiffEngine.swift` | MIT | Copyright (c) 2026 Louis Raillard | Racha de forma compartida con el fichero de origen del clon (el `DiffEngine.swift` de Coucou) |
+
+## Código nativo (asimilación de patrón, sin código derivado)
+
+| Fichero de este paquete | Patrón estudiado | Nota |
+|---|---|---|
+| `src/native/git/GitParser.ts` | `openclaw` (OpenClaw) · OCLW-08 | **Implementación propia de Ego; patrón asimilado de OpenClaw, sin traducción de código.** El parser de Unidiff y `porcelain status` es propio. |
+| `src/native/git/SessionDiffRevisions.ts` | `openclaw` (OpenClaw) · OCLW-07 | **Implementación propia de Ego; patrón asimilado de OpenClaw, sin traducción de código.** Allí se resuelve el *merge-base* de una rama; aquí se registra el SHA base de la sesión. |
+| `src/native/fs/FileLockManager.ts` | `career-ops` (Career-Ops) · CARP-02 | **Implementación propia de Ego; patrón asimilado de Career-Ops, sin traducción de código.** La API y la estrategia de recuperación son propias. |
 
 El resto de ficheros del paquete son código original de Ego. Los ficheros que
 implementan un **patrón** estudiado en un upstream (sin traducción de código) llevan

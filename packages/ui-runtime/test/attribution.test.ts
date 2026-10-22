@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 /**
  * Puerta de atribución de código derivado (plano 1: CÓDIGO).
@@ -14,11 +15,19 @@ import { fileURLToPath } from "node:url";
  *   verdad ("implementación propia de Ego", sin `Adapted from`).
  * - Todo fichero derivado está listado en el `LICENSE.md` del paquete, con el
  *   aviso de licencia de su upstream.
+ *
+ * Ola 10 (A2-bis): el contrato tiene DENOMINADOR — el
+ * `provenance.manifest.json` del paquete. La puerta de `scripts/
+ * check-attribution.mjs` (implementación genérica compartida, alojada en
+ * `@ego/tool-call-repair`) clasifica fichero a fichero y MUERDE: un derivado
+ * sin cabecera ⇒ exit 1; un nativo con cabecera ⇒ exit 1.
  */
 
 const PKG = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = path.join(PKG, "src");
 const LICENSE_MD = path.join(PKG, "LICENSE.md");
+const MANIFEST = path.join(PKG, "provenance.manifest.json");
+const GATE = path.join(PKG, "scripts", "check-attribution.mjs");
 
 const CANONICAL = /^\s*(?:\/\/|\/\*\*?)?\s*Adapted from\s+([^(]+?)\s*\(([^)]+)\),\s*(.+)$/m;
 const CLAIMS_DERIVATION =
@@ -101,5 +110,33 @@ describe("Puerta de atribución de código derivado", () => {
       expect(license, `falta la licencia ${d.license}`).toContain(d.license);
       expect(license, `falta la ruta de origen ${d.origin}`).toContain(d.origin);
     }
+  });
+
+  it("el MANIFIESTO de procedencia clasifica todo lo atribuible y la puerta pasa", () => {
+    // El denominador del contrato: sin manifiesto no hay cobertura auditable.
+    expect(fs.existsSync(MANIFEST), "falta provenance.manifest.json").toBe(true);
+    const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
+    expect(manifest.derived.length, "el paquete declara sus derivados").toBeGreaterThan(0);
+
+    // La puerta (genérica, compartida) debe pasar sobre el paquete real.
+    let out = "";
+    let code = 0;
+    try {
+      out = execFileSync(process.execPath, [GATE, "--root", PKG, "--json"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (e) {
+      code = (e as { status?: number }).status ?? 1;
+      out = (e as { stdout?: string }).stdout ?? "";
+    }
+    let report: { ok?: boolean; problems?: string[] } | null = null;
+    try {
+      report = JSON.parse(out);
+    } catch {
+      /* la puerta pudo fallar antes de emitir el informe */
+    }
+    expect(code, `la puerta debe pasar; problemas: ${JSON.stringify(report?.problems)}`).toBe(0);
+    expect(report?.ok).toBe(true);
   });
 });

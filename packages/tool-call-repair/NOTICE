@@ -1,0 +1,40 @@
+Ego - Tool Call Repair (@ego/tool-call-repair)
+Copyright (c) 2026 Ego Project
+
+This product includes software developed as part of the Ego project and
+derived, in part, from the following third-party work. The complete,
+per-file derivation table is in `LICENSE.md`; the canonical machine-readable
+register is `provenance.manifest.json`.
+
+--------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------
+
+1. openclaw - autoreparación de tool calls y normalización de texto
+   MIT License - (c) 2026 OpenClaw Foundation
+   Upstream: https://github.com/openclaw/openclaw
+   Reference: repos-referencia/openclaw (clon de referencia; está en
+               .gitignore, no forma parte del repositorio)
+   Usage:
+             - `src/grammar.ts`: los marcadores `END_TOOL_REQUEST` y
+               `HARMONY_*` y el escáner de sintaxis de tool calls en texto
+               plano (port de `packages/tool-call-repair/src/grammar.ts`);
+             - `src/balanced-json.ts`: el equilibrador de JSON truncado
+               (port de `packages/normalization-core/src/balanced-json.ts`).
+
+--------------------------------------------------------------------------
+Notes
+--------------------------------------------------------------------------
+
+* The remaining files of this package are original Ego code. Files that
+  implement a *pattern* studied in the upstream (without translating code)
+  say so explicitly in their header ("implementación propia de Ego") and do
+  NOT carry the canonical attribution header: inventing one would be a false
+  attribution (precedent EGO-FIND-83).
+* `scripts/check-attribution.mjs` verifies, against
+  `provenance.manifest.json`, that every derived file carries its canonical
+  header with the right upstream, licence and origin path; that no native
+  file carries one; and that the package keeps a licence notice for every
+  upstream in use.
+* The upstream is not redistributed: only the derived portions are, under
+  the terms of its MIT licence (see `LICENSE.md`).

@@ -1,0 +1,93 @@
+{
+  "$comment": [
+    "Manifiesto de procedencia de `packages/ui-runtime/` (EGO-FIND-82).",
+    "",
+    "Es el DENOMINADOR de la puerta de atribución del paquete:",
+    "  · `scripts/check-attribution.mjs` — cada fichero DERIVADO lleva la",
+    "    cabecera canónica `// Adapted from <upstream> (<LICENCIA>), <ruta de",
+    "    origen>` y aviso en el `LICENSE.md`; cada NATIVO no la lleva",
+    "    (inventarla sería una atribución falsa: precedente EGO-FIND-83).",
+    "",
+    "La clasificación NO se ha hecho leyendo el comentario: se ha MEDIDO",
+    "contra el clon `repos-referencia/hermes-agent` (racha de forma compartida",
+    "con el fichero de origen: 41 tokens en AnsiParser, 45 en FuzzySearch).",
+    "Ver `docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A2bis-ola10.md`.",
+    "",
+    "Un fichero NATIVO lleva el texto veraz del plano 2:",
+    "  \"Implementación propia de Ego; patrón asimilado de <upstream>,",
+    "   sin traducción de código.\""
+  ],
+  "version": 1,
+  "package": "@ego/ui-runtime",
+  "headerForm": "Adapted from <upstream> (<LICENCIA>), <ruta de origen>",
+  "coverage": "attributable",
+  "sourceRoots": ["src"],
+  "exclude": ["test/attribution.test.ts", "scripts/check-attribution.mjs"],
+  "upstreams": {
+    "hermes-agent": {
+      "license": "MIT",
+      "human": "Hermes Agent",
+      "copyright": "Copyright (c) 2025 Nous Research",
+      "reference": "repos-referencia/hermes-agent",
+      "note": "Parser ANSI y búsqueda difusa compartida (HERM-11/12)."
+    },
+    "openclaw": {
+      "license": "MIT",
+      "human": "OpenClaw",
+      "copyright": "Copyright (c) 2026 OpenClaw Foundation",
+      "reference": "repos-referencia/openclaw",
+      "note": "Renderizador Mermaid y validación de directivas (OCLW-11)."
+    },
+    "coucou": {
+      "license": "MIT",
+      "human": "Coucou",
+      "copyright": "Copyright (c) 2026 Louis Raillard",
+      "reference": "repos-referencia/coucou",
+      "note": "Puente de eventos y ACK del widget (COUC-15)."
+    }
+  },
+  "derived": [
+    {
+      "path": "src/AnsiParser.ts",
+      "upstream": "hermes-agent",
+      "origin": "apps/desktop/src/lib/ansi.ts",
+      "evidence": "Port real. Medido contra `repos-referencia/hermes-agent/apps/desktop/src/lib/ansi.ts`: mejor coincidencia = EL ORIGEN DECLARADO, racha `shape` 41 tokens y racha `strict` 39 (el tipo `AnsiSegment`, la paleta `AnsiColor`, el mapa de códigos y el escáner SGR). El port renombra identificadores (`FG_BY_CODE`→`FG_MAP`, `CSI_RE`→`CSI_REGEX`, `OTHER_ESCAPE_RE`→`NON_CSI_REGEX`), por lo que el residuo verbatim de 48 caracteres es 0.",
+      "verbatim": { "maxShingles": 0, "note": "Port renombrado: el residuo verbatim es 0; la evidencia es la racha `strict` (39 tokens) contra el ORIGEN DECLARADO." },
+      "measured": { "shapeTokens": 41, "strictTokens": 39, "bestMatchIsOrigin": true }
+    },
+    {
+      "path": "src/FuzzySearch.ts",
+      "upstream": "hermes-agent",
+      "origin": "apps/shared/src/fuzzy.ts",
+      "evidence": "Port real. Medido contra `repos-referencia/hermes-agent/apps/shared/src/fuzzy.ts`: mejor coincidencia = EL ORIGEN DECLARADO, racha `shape` 45 tokens y racha `strict` 35 (la firma `fuzzyRank<T>`, el recorte de la consulta y la puntuación por subcadena).",
+      "verbatim": { "maxShingles": 0, "note": "Port renombrado: el residuo verbatim es 0; la evidencia es la racha `strict` (35 tokens) contra el ORIGEN DECLARADO." },
+      "measured": { "shapeTokens": 45, "strictTokens": 35, "bestMatchIsOrigin": true }
+    }
+  ],
+  "native": [
+    {
+      "path": "src/MermaidRenderer.ts",
+      "upstream": "openclaw",
+      "reason": "Implementación propia de Ego; patrón asimilado de OpenClaw · OCLW-11: el renderer valida el diagrama, lo sanea anti-XSS y genera las directivas de tema. Sin traducción de código.",
+      "evidence": "Medido contra TODO el clon: mejor coincidencia = un fichero ajeno, racha `shape` 32 tokens pero `strict` 9 → idioma universal (`split`/`map`/`filter`/`length`), no una copia. Sin cabecera canónica."
+    },
+    {
+      "path": "src/MermaidComponent.ts",
+      "upstream": "openclaw",
+      "reason": "Implementación propia de Ego; patrón asimilado de OpenClaw · OCLW-11: aquí se declara el tipo de componente del Canvas y su preparador de props (validación + saneado + directivas de tema). Sin traducción de código.",
+      "evidence": "Sin cabecera canónica; el renderer que lo sostiene es un nativo declarado en este mismo manifiesto."
+    },
+    {
+      "path": "src/MockIPCBridge.ts",
+      "upstream": "coucou",
+      "reason": "Implementación propia de Ego; patrón asimilado de Coucou · COUC-15: el puente de IPC de pruebas implementa el contrato de eventos del widget, no el código del upstream. Sin traducción de código.",
+      "evidence": "Medido contra TODO el clon: mejor coincidencia = un fichero ajeno, racha `shape` 13 tokens y `strict` 9. Sin cabecera canónica."
+    },
+    {
+      "path": "src/WindowState.ts",
+      "upstream": "hermes-agent",
+      "reason": "Implementación propia de Ego; patrón asimilado de Hermes · HERM-08: la geometría y la restauración de ventanas son propias. Sin traducción de código.",
+      "evidence": "Medido contra TODO el clon: mejor coincidencia = `apps/desktop/electron/pet-overlay.ts` con racha `shape` 51 tokens PERO `strict` 11 → es el idioma universal de centrar un rect (`Math.round(x + (w - width) / 2)`), no una copia. Sin cabecera canónica."
+    }
+  ]
+}

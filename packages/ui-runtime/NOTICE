@@ -1,0 +1,61 @@
+Ego - UI Runtime (@ego/ui-runtime)
+Copyright (c) 2026 Ego Project
+
+This product includes software developed as part of the Ego project and
+derived, in part, from the following third-party works. The complete,
+per-file derivation table is in `LICENSE.md`; the canonical machine-readable
+register is `provenance.manifest.json`.
+
+--------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------
+
+1. hermes-agent - parser ANSI y búsqueda difusa compartida
+   MIT License - (c) 2025 Nous Research
+   Upstream: https://github.com/nousresearch/hermes-agent
+   Reference: repos-referencia/hermes-agent (clon de referencia; está en
+               .gitignore, no forma parte del repositorio)
+   Usage:
+             - `src/AnsiParser.ts`: el parser de secuencias ANSI SGR (tipo
+               `AnsiSegment`, paleta `AnsiColor`, mapa de códigos y escáner)
+               procede de `apps/desktop/src/lib/ansi.ts`;
+             - `src/FuzzySearch.ts`: la búsqueda difusa y su puntuación
+               proceden de `apps/shared/src/fuzzy.ts`.
+
+2. openclaw - renderizador Mermaid y validación de directivas
+   MIT License - (c) 2026 OpenClaw Foundation
+   Upstream: https://github.com/openclaw/openclaw
+   Reference: repos-referencia/openclaw (clon de referencia; está en
+               .gitignore, no forma parte del repositorio)
+   Usage:
+             - patrón de estudio (NO código copiado): el renderer Mermaid
+               con saneado anti-XSS y directivas de tema (OCLW-11). Los
+               ficheros correspondientes son código propio de Ego y NO
+               llevan cabecera de atribución.
+
+3. coucou - puente de eventos y ACK del widget
+   MIT License - (c) 2026 Louis Raillard
+   Upstream: https://github.com/Louis-CFM/coucou
+   Reference: repos-referencia/coucou (clon de referencia; está en
+               .gitignore, no forma parte del repositorio)
+   Usage:
+             - patrón de estudio (NO código copiado): el contrato de eventos
+               del widget con ACK (COUC-15). La implementación es propia de
+               Ego y NO lleva cabecera de atribución.
+
+--------------------------------------------------------------------------
+Notes
+--------------------------------------------------------------------------
+
+* Only two files of this package are real ports (`src/AnsiParser.ts` and
+  `src/FuzzySearch.ts`). The files that implement a *pattern* studied in an
+  upstream (without translating code) say so explicitly in their header
+  ("implementación propia de Ego") and do NOT carry the canonical attribution
+  header: inventing one would be a false attribution (precedent EGO-FIND-83).
+* `scripts/check-attribution.mjs` verifies, against
+  `provenance.manifest.json`, that every derived file carries its canonical
+  header with the right upstream, licence and origin path; that no native
+  file carries one; and that the package keeps a licence notice for every
+  upstream in use.
+* The upstreams are not redistributed: only the derived portions are, under
+  the terms of their MIT licences (see `LICENSE.md`).

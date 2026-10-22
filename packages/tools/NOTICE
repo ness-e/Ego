@@ -1,0 +1,59 @@
+Ego - Tools (@ego/tools)
+Copyright (c) 2026 Ego Project
+
+This product includes software developed as part of the Ego project and
+derived, in part, from the following third-party works. The complete,
+per-file derivation table is in `LICENSE.md`; the canonical machine-readable
+register is `provenance.manifest.json`.
+
+--------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------
+
+1. coucou - motor de la isla (ChangeSet atómico y diffs)
+   MIT License - (c) 2026 Louis Raillard
+   Upstream: https://github.com/Louis-CFM/coucou
+   Reference: repos-referencia/coucou (clon de referencia; está en
+               .gitignore, no forma parte del repositorio)
+   Usage:
+             - `src/native/git/ChangeSetService.ts`: el servicio de ChangeSet
+               (aplicar/revertir un conjunto de cambios de forma atómica)
+               procede del `DiffEngine.swift` de Coucou (port a TypeScript).
+
+2. openclaw - sesiones, diffs por sesión y parseo de Unidiff
+   MIT License - (c) 2026 OpenClaw Foundation
+   Upstream: https://github.com/openclaw/openclaw
+   Reference: repos-referencia/openclaw (clon de referencia; está en
+               .gitignore, no forma parte del repositorio)
+   Usage:
+             - patrón de estudio (NO código copiado): diffs acumulados por
+               sesión (OCLW-07) y parseo de Unidiff / `porcelain status`
+               (OCLW-08). Los ficheros correspondientes son código
+               propio de Ego y NO llevan cabecera de atribución.
+
+3. career-ops - escrituras atómicas con lock de fichero
+   MIT License - (c) 2026 Career-Ops contributors
+   Upstream: https://github.com/anthropics/career-ops
+   Reference: repos-referencia/career-ops (clon de referencia; está en
+               .gitignore, no forma parte del repositorio)
+   Usage:
+             - patrón de estudio (NO código copiado): el lock de fichero con
+               escritura atómica y cuarentena (CARP-02). La implementación
+               es propia de Ego y NO lleva cabecera de atribución.
+
+--------------------------------------------------------------------------
+Notes
+--------------------------------------------------------------------------
+
+* Only one file of this package is a real port (`src/native/git/
+  ChangeSetService.ts`). The files that implement a *pattern* studied in an
+  upstream (without translating code) say so explicitly in their header
+  ("implementación propia de Ego") and do NOT carry the canonical attribution
+  header: inventing one would be a false attribution (precedent EGO-FIND-83).
+* `scripts/check-attribution.mjs` verifies, against
+  `provenance.manifest.json`, that every derived file carries its canonical
+  header with the right upstream, licence and origin path; that no native
+  file carries one; and that the package keeps a licence notice for every
+  upstream in use.
+* The upstreams are not redistributed: only the derived portions are, under
+  the terms of their MIT licences (see `LICENSE.md`).

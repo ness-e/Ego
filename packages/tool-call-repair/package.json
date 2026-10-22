@@ -14,7 +14,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "attribution:check": "node scripts/check-attribution.mjs",
+    "attribution:check:ci": "node scripts/check-attribution.mjs --check"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",
