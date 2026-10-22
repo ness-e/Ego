@@ -18,7 +18,12 @@ import type {
 } from "./types.js";
 import { ErrorHandler } from "./ErrorHandler.js";
 import { ToolCallRepairEngine } from "@ego/tool-call-repair";
-import { assembleTrustedPrompt, isTainted } from "./TrustBoundary.js";
+import { assembleTrustedPrompt, isTainted, screenUntrustedContent } from "./TrustBoundary.js";
+import {
+  resolveVisibleTool,
+  toolViewFor,
+  visibleToolNames,
+} from "./ToolVisibility.js";
 
 /** Error de cancelación cooperativa (DOM AbortError de fetch/AI SDK). */
 function isAbortError(err: unknown): boolean {
@@ -275,6 +280,11 @@ export class ToolExecutionLoop {
     const correlationMeta = correlationId ? { correlationId } : undefined;
     const loopStartTime = Date.now();
 
+    // Ola 9 (A4): la VISTA filtrada del registro de tools por Sub-Ego.
+    // Sin Sub-Ego (turno del usuario/app) es `null` ⇒ se usa el registro
+    // global: es la vista del usuario, no la de un Sub-Ego.
+    const toolView = toolViewFor(this.registry, options.context.subEgoId);
+
     // STAB-05: enforcement del prefijo cacheado (deuda `types.ts:77-87`).
     // Si hay fingerprint fijado (opción > config) y el system difiere, el
     // turno se rechaza SIN llamar al modelo — salvo rebuild explícito por
@@ -322,8 +332,12 @@ export class ToolExecutionLoop {
         details: { messageCount: messages.length, role }
       });
 
-      // Exportar herramientas declaradas en el registro
-      const toolSchemas = this.registry.exportJsonSchemas().map((t) => ({
+      // Superficie del modelo: la VISTA del Sub-Ego del turno (Ola 9). Sin
+      // Sub-Ego es el registro global (el usuario ve todo).
+      const toolSchemas = (toolView
+        ? toolView.exportJsonSchemas()
+        : this.registry.exportJsonSchemas()
+      ).map((t) => ({
         name: t.name,
         description: t.description,
         parameters: t.parameters
@@ -453,7 +467,15 @@ export class ToolExecutionLoop {
             : undefined;
           const toolMeta = toolCorrelationId ? { correlationId: toolCorrelationId } : correlationMeta;
 
-          const tool = this.registry.get(call.name);
+          // Punto 2 (Ola 9): la resolución de la ejecución va contra la
+          // VISTA del Sub-Ego, no contra el global. Una tool de otro Sub-Ego
+          // NO se ejecuta: es un error tipado ("no es tuya" ≠ "no existe").
+          const resolvedTool = resolveVisibleTool(
+            this.registry,
+            call.name,
+            options.context.subEgoId
+          );
+          const tool = resolvedTool.tool;
           eventBus?.emit("tool.started", {
             callId: call.id,
             toolName: call.name,
@@ -468,10 +490,13 @@ export class ToolExecutionLoop {
           });
 
           if (!tool) {
+            const notVisible = resolvedTool.notVisible;
             eventBus?.emit("tool.failed", {
               callId: call.id,
               toolName: call.name,
-              error: `Herramienta '${call.name}' no encontrada.`,
+              error: notVisible
+                ? notVisible.message
+                : `Herramienta '${call.name}' no encontrada.`,
               durationMs: 0
             }, {
               source: "runtime.tool_loop",
@@ -481,10 +506,25 @@ export class ToolExecutionLoop {
               metadata: toolMeta
             });
 
-            const enriched = errorHandler.handleToolNotFound(
-              call,
-              this.registry.list().map((t) => t.name)
-            );
+            // "No es tuya" ⇒ error TIPADO (TOOL_NOT_VISIBLE) con el dueño:
+            // el modelo debe entender que la tool existe pero no le
+            // corresponde, y no pedirla otra vez. Y el catálogo que se le
+            // sugiere es el de SU vista (no el global: no se filtra).
+            const enriched = notVisible
+              ? {
+                  status: "error" as const,
+                  category: "TOOL_NOT_VISIBLE" as const,
+                  toolName: call.name,
+                  callId: call.id,
+                  message: notVisible.message,
+                  remedyHint:
+                    `Usa una de las herramientas disponibles para "${options.context.subEgoId ?? "este turno"}".`,
+                  rawError: notVisible.name,
+                }
+              : errorHandler.handleToolNotFound(
+                  call,
+                  visibleToolNames(this.registry, options.context.subEgoId)
+                );
             plans.push({
               kind: "message",
               message: {
@@ -851,14 +891,48 @@ export class ToolExecutionLoop {
               severity: "info",
               metadata: planMeta
             });
+            const toolContent =
+              typeof execRes.output === "string"
+                ? execRes.output
+                : JSON.stringify(execRes.output);
+            // Ola 9: la salida de una herramienta es contenido EXTERNO. Se
+            // detecta en el punto de ingesta: si es sospechosa, el mensaje
+            // queda marcado como no confiable ⇒ viaja por el canal sin
+            // privilegios (ADR-0019) y no puede alterar instrucciones.
+            // Fail-open: si el detector falla, se degrada (nunca se bloquea).
+            const screened = this.config.injectionPolicy
+              ? screenUntrustedContent(toolContent, {
+                  ...this.config.injectionPolicy,
+                  scope: "all-except-trusted",
+                })
+              : null;
+            if (screened?.verdict === "suspicious") {
+              this.config.injectionPolicy?.onDetect?.({
+                verdict: "suspicious",
+                action: "degrade",
+                affected: 1,
+                signals: screened.signals,
+                detectorFailed: screened.detectorFailed,
+              });
+              eventBus?.emit("tool.executed", {
+                callId: call.id,
+                toolName: tool.name,
+                durationMs: execRes.durationMs,
+                result: { injectionSuspected: true, signals: screened.signals.length }
+              }, {
+                source: "runtime.tool_loop",
+                sessionId,
+                traceId,
+                severity: "warn",
+                metadata: planMeta
+              });
+            }
             messages.push({
               role: "tool",
               toolCallId: call.id,
               name: tool.name,
-              content:
-                typeof execRes.output === "string"
-                  ? execRes.output
-                  : JSON.stringify(execRes.output)
+              content: toolContent,
+              ...(screened?.verdict === "suspicious" ? { trust: "untrusted" as const } : {}),
             });
           } else {
             const errorMsg = execRes.error || "Fallo durante la ejecución.";
@@ -977,7 +1051,14 @@ export class ToolExecutionLoop {
     options: LoopRunOptions
   ): Promise<LoopExecutionResult> {
     const messages = [...options.messages];
-    const tool = this.registry.get(pendingApproval.toolName);
+    // Ola 9: la reanudación tras aprobación también resuelve contra la VISTA
+    // del Sub-Ego (fail-closed): si la tool dejó de ser visible (o nunca lo
+    // fue), no se ejecuta.
+    const tool = resolveVisibleTool(
+      this.registry,
+      pendingApproval.toolName,
+      pendingApproval.subEgoId ?? options.context.subEgoId
+    ).tool;
     const eventBus = options.eventBus ?? this.eventBus;
     const sessionId = options.context.sessionId;
     const traceId = options.traceId ?? sessionId;

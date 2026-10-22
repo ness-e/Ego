@@ -79,3 +79,15 @@ export {
 export type { SSRFCheck } from "./netPolicy.js";
 export { NetPolicy } from "./ssrfPolicy.js";
 export type { NetPolicyOptions, NetPolicyDnsOptions } from "./ssrfPolicy.js";
+export {
+  detectPromptInjection,
+  normalizeForInjectionScan,
+} from "./PromptInjectionDetector.js";
+export type {
+  InjectionDetection,
+  InjectionDetectionLike,
+  InjectionSignal,
+  InjectionSignalKind,
+  InjectionVerdict,
+  PromptInjectionDetectorOptions,
+} from "./PromptInjectionDetector.js";

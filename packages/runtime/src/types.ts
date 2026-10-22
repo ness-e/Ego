@@ -70,6 +70,7 @@ export interface LoopStepEvent {
 import type { ExecutionManager, ApprovalEngine } from "@ego/execution";
 import type { EventBus } from "@ego/events";
 import type { ErrorHandler } from "./ErrorHandler.js";
+import type { TrustPolicyOptions } from "./TrustBoundary.js";
 
 /**
  * Configuración para instanciar el ToolExecutionLoop.
@@ -115,6 +116,22 @@ export interface ToolExecutionLoopConfig {
    * Inyección por callbacks: evita aristas runtime→security/events-valor.
    */
   governance?: LoopGovernanceGates;
+  /**
+   * Política de detección de inyección de prompt (Ola 9 · hueco de capacidad
+   * de `UntrustedContentSanitizer`).
+   *
+   * Sin configurar = **sin cambio de comportamiento** (compatibilidad).
+   * Con configurar: la **salida de cada herramienta** se detecta en el punto
+   * de ingesta; si es sospechosa, el mensaje queda **marcado como no
+   * confiable** ⇒ viaja por el canal sin privilegios (ADR-0019) y se
+   * registra. **No bloquea** el turno por defecto (la política es
+   * configurable: `onSuspicious: "block"` lo activa).
+   *
+   * Inyección por callback (DIP): `packages/runtime` **no** importa
+   * `@ego/security`; la implementación real (`PromptInjectionDetector`) la
+   * inyecta quien cablea el bucle.
+   */
+  injectionPolicy?: TrustPolicyOptions;
   onStep?: (event: LoopStepEvent) => void;
   onToolCall?: (call: ToolCall) => void;
   onToolResult?: (result: ToolExecutionResult) => void;
@@ -234,6 +251,13 @@ export interface LoopExecutionResult {
  */
 export type CausalErrorCategory =
   | "TOOL_NOT_FOUND"
+  /**
+   * Ola 9 (A4 → A2-bis): la tool **existe** pero pertenece a **otro**
+   * Sub-Ego ⇒ no es visible para quien la pide. Distinguido de
+   * `TOOL_NOT_FOUND` a propósito: el modelo debe entender que no la invoque
+   * (y no buscar otro nombre).
+   */
+  | "TOOL_NOT_VISIBLE"
   | "VALIDATION_FAILED"
   | "REPAIRABLE_SYNTAX_ERROR"
   | "FILE_NOT_FOUND"
