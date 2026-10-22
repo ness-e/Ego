@@ -39,7 +39,17 @@ import {
   resumeAllTasks,
   type EgoTrayStatus,
 } from "../tray-status.js";
-import { approvalEngine, win, backgroundEngine, tray, trayStatus, floatMgr, attentionFsm, llmAbortControllers } from "../state/app-context.js";
+import {
+  approvalEngine,
+  win,
+  backgroundEngine,
+  tray,
+  trayStatus,
+  floatMgr,
+  attentionFsm,
+  llmAbortControllers,
+  publishAttentionState,
+} from "../state/app-context.js";
 import { setTray, setTrayStatus, setFloatMgr, setAttentionFsm } from "../state/app-context.js";
 
 export function ensureFloatMgr(options?: FloatingWindowManagerOptions): FloatingWindowManager {
@@ -135,6 +145,10 @@ export function getAttentionFsm(): AttentionStateMachine {
       onTransition: (ev) => {
         try {
           ensureFloatMgr().updateState({ attentionState: syncFromAttention(ev.currentState) });
+          // Ola 11 · A4 (EGO-FIND-119): el canvas tambien necesita el estado
+          // real de atencion (no un idle fijo) -> se publica por el relay
+          // que ya existe (ipc.event), sin canal nuevo.
+          publishAttentionState(syncFromAttention(ev.currentState));
         } catch {
           // noop
         }
@@ -177,6 +191,8 @@ export function recomputeFloatingAttention(): void {
 
     const state = fsm.getState();
     ensureFloatMgr().updateState({ attentionState: syncFromAttention(state) });
+    // Ola 11 · A4 (EGO-FIND-119): idem, en el recompute explicito.
+    publishAttentionState(syncFromAttention(state));
   } catch {
     // noop: defensivo contra fallos en cálculo de atención
   }

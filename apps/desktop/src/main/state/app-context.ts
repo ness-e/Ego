@@ -342,6 +342,29 @@ export function setDecisionsFeed(value: DecisionsFeed): void {
 
 export let win: BrowserWindow | null = null;
 
+/**
+ * Ola 11 · A4 (EGO-FIND-119) — Publica el estado de atención REAL al
+ * renderer de la ventana principal.
+ *
+ * ## Por qué este canal y no otro
+ * - **Reutiliza el relay que ya existe** (`ipc.event`, el mismo que los
+ *   pushes de la isla y del terminal) → **cero canales IPC nuevos** ✓.
+ * - El estado es el de la `AttentionStateMachine` canónica (la que ya usan
+ *   la isla y el tray) → el canvas y la isla **no pueden divergir** ✓
+ *   (derivar el estado en el renderer sería inventar un segundo verdad ✗).
+ *
+ * El renderer lo recibe en `useUiStore.attentionState` y lo pasa al
+ * `CharacterPresence`.
+ */
+export function publishAttentionState(state: string): void {
+  if (!win || win.isDestroyed()) return;
+  try {
+    win.webContents.send("ipc.event", { kind: "attention.state", state });
+  } catch {
+    // noop: el push al renderer nunca tumba el main
+  }
+}
+
 /** Asigna `win` (único punto de escritura del estado). */
 export function setWin(value: BrowserWindow | null): void {
   win = value;

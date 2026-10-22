@@ -289,9 +289,15 @@ describe("E2E isla flotante — minimize → flotante → restore → HITL (Task
 //      transiciones de estado, click-through, resize y broadcast al renderer.
 //   2. `describe("contrato de packaging")` → verifica el ARTEFACTO real
 //      (`floating.html` + la entrada MPA de electron-vite).
-//   3. `tests/e2e/contract/floating-wiring.contract.test.ts` → lint-test
-//      AISLADO y etiquetado que comprueba el wiring de `main.ts` (no puede
-//      ejercitarse sin arrancar Electron: `main.ts` es un entry con efectos).
+//   3. `apps/desktop/scripts/lint/source-contracts.lint.mjs` → contrato de
+//      FUERA del árbol de tests (un ejecutable que sale con exit 1) que
+//      comprueba el wiring de `main.ts` (no puede ejercitarse sin arrancar
+//      Electron: `main.ts` es un entry con efectos). Ola 11 · A7: aquí vivía
+//      `tests/e2e/contract/floating-wiring.contract.test.ts`, un lint-test que
+//      el inventario de asertos tautológicos contaba como "prueba" sin medir
+//      nada. La superficie pública de `FloatingWindow.ts` que ese fichero
+//      afirmaba sobre el TEXTO ahora se comprueba por COMPORTAMIENTO en
+//      `tests/e2e/floating-window-surface.test.ts`.
 //   4. `tests/gui/specs/floating-island.spec.ts` → DOM REAL en navegador
 //      (`#ticker`, `#approval-card`, `#countdown`).
 describe("E2E isla flotante — comportamiento de la ventana flotante", () => {
@@ -386,12 +392,22 @@ describe("E2E isla flotante — comportamiento de la ventana flotante", () => {
 });
 
 describe("E2E isla flotante — contrato de packaging (artefacto real)", () => {
-  it("electron-vite declara floating.html como entrada MPA del renderer", () => {
+  it("electron-vite declara floating.html como entrada MPA del renderer", async () => {
     // Contrato de build: sin esta entrada, `out/renderer/floating/floating.html`
     // no se emite y la isla flotante no abre (el E2E Electron falla al cargar).
-    const cfg = read(join(repoRoot, "apps", "desktop", "electron.vite.config.ts"));
-    expect(cfg).toMatch(/floating:\s*resolve\([\s\S]*?floating\/floating\.html/);
-    expect(cfg).toMatch(/outDir:\s*resolve\(process\.cwd\(\),\s*"out\/renderer"\)/);
+    //
+    // EGO-FIND-108 (Ola 11 · A7): esto era un assert sobre el TEXTO del
+    // config (`expect(cfg).toMatch(/floating:\s*resolve\(…/)`) → el inventario
+    // de asertos tautológicos lo contaba como "prueba" sin medir nada. Ahora es
+    // COMPORTAMIENTO: se importa el módulo y se comprueba el VALOR exportado.
+    // Si la entrada MPA desaparece, el import sigue funcionando pero el
+    // `input.floating` es undefined → el aserto falla de verdad.
+    const mod = await import("../../apps/desktop/electron.vite.config.js");
+    const cfg = (mod as { default?: Record<string, any> }).default ?? (mod as Record<string, any>);
+    const input = cfg.renderer?.build?.rollupOptions?.input ?? {};
+    // Las rutas son relativas al cwd (el del runner): se compara el SUFIJO.
+    expect(String(input.floating)).toMatch(/floating[\\/]floating\.html$/);
+    expect(String(cfg.renderer?.build?.outDir)).toMatch(/out[\\/]renderer$/);
   });
 
   it("floating.html monta #floating-root con CSP restrictivo y lang=es", () => {
