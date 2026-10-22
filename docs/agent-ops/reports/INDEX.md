@@ -9,6 +9,7 @@
 | 2026-10-20 | Cierre de ola | wave 2 | 🟡 PARTIAL | docs/agent-ops/reports/reviews/remediation-wave2-2026-10-20.md | vigente |
 | 2026-10-20 | Cierre de ola | waves 3-6 | ✅ VERDE | docs/agent-ops/reports/reviews/remediation-waves3-6-2026-10-20.md | vigente |
 | 2026-10-21 | Cierre de ola | waves 7-8 | ✅ VERDE | docs/agent-ops/reports/reviews/remediation-waves7-8-2026-10-21.md | vigente |
+| 2026-10-21 | Cierre de ola | waves 9-10 | ✅ VERDE | docs/agent-ops/reports/reviews/remediation-waves9-10-2026-10-21.md | vigente |
 
 **Review full 2026-10-19** — 8 auditores Flash (documentación, núcleo cognitivo, capas de ejecución, desktop app,
 extracción de repos de referencia, avatar, calidad/CI/seguridad, documento maestro) + verificación del orquestador.
