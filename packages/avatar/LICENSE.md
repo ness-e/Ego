@@ -97,10 +97,10 @@ atribuido era propio).
 
 ## 3. Derivacion fichero a fichero
 
-**57 ficheros derivados.** Cada uno lleva su cabecera canonica
+**58 ficheros derivados.** Cada uno lleva su cabecera canonica
 con el upstream, la licencia y la ruta de origen de esta tabla.
 
-### agent-robot-avatar (6 ficheros)
+### agent-robot-avatar (7 ficheros)
 
 | Fichero | Ruta de origen | Evidencia |
 |---|---|---|
@@ -110,6 +110,7 @@ con el upstream, la licencia y la ruta de origen de esta tabla.
 | `src/runtime/fx-eyes.js` | `vendor/agent-robot-avatar/actions.js` | Port de los efectos oculares de agent-robot-avatar/actions.js (barrido, warnings) mas CORE:999-1037, inspect.js, love.js, waiting.js y failure.js. |
 | `src/runtime/pointer.js` | `vendor/agent-robot-avatar/core.js` | Port con constantes literales del original (CORE:368-383 puntero, CORE:922-948 wander, CORE:955-1043 springs de cabeza). |
 | `src/runtime/policy.js` | `vendor/agent-robot-avatar/runtime.js` | Port de la capa de politica de agent-robot-avatar/runtime.js (requestedMotion/reducedMotion, action records, scheduleAutoSleep). |
+| `src/runtime/avatar-element.js` | `vendor/agent-robot-avatar/core.js` | Port real del web component de agent-robot-avatar (el elemento, el rig ocular y la maquina de atributos): medido con el detector de verbatim, 342 shingles en rachas de 107 caracteres identicos seguidos contra vendor/agent-robot-avatar/core.js. La clasificacion como "nativo" era incorrecta (la corrigio la puerta de la Ola 10). |
 
 ### coucou (6 ficheros)
 
@@ -204,7 +205,6 @@ patron. No llevan cabecera canonica, y esta es la razon.
 | `src/render/builder.js` | Helper minimo para construir SVG como string, sin DOM. Codigo propio de Ego. |
 | `src/render/parts.js` | Aura, apendice, insignia y particulas. Codigo propio de Ego. |
 | `src/render/shell.js` | Ensamblaje del SVG completo. Asimilacion de patron: la estructura del rig (cabeza + ojos recortados + grupo de movimiento) procede de agent-robot-avatar; el ensamblaje es propio. |
-| `src/runtime/avatar-element.js` | Web component <ego-avatar>. Codigo propio de Ego: el elemento orquesta modulos derivados (ara-head, poses, eyes), pero su implementacion es propia. |
 | `src/runtime/studio-bridge.js` | Pegamento elemento <-> motor canvas, extraido del elemento en la Ola 1. Codigo propio de Ego. |
 | `src/runtime/svg-export.js` | Serializacion a SVG, extraida del elemento en la Ola 1. Codigo propio de Ego. |
 | `src/runtime/avatar-element.d.ts` | Declaracion de tipos publica del web component. Codigo propio de Ego. |
@@ -220,6 +220,7 @@ patron. No llevan cabecera canonica, y esta es la razon.
 | `tests/golden/geometry.json` | Golden generada por el propio motor de Ego (traza de operaciones de canvas). Dato, no codigo. |
 | `tests/no-verbatim.test.js` | Test propio de la Ola 9 (puerta de residuo verbatim con fixtures). |
 | `tests/d4-geometry.test.js` | Test propio de la Ola 9 (property test de la geometria propia: la silueta y la tabla de poses no pueden ser las del upstream). |
+| `tests/public-surface.test.js` | Test propio de la Ola 10 (la superficie publica declarada == la exportada real). |
 
 ## 5. Sustituciones de geometria propias (decision D4 del owner)
 

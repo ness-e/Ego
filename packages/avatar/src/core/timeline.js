@@ -29,7 +29,7 @@ export function createTimeline({ now = () => performance.now() } = {}) {
   /**
    * Un track por campo. `step` es el índice de la clave activa, `origin` el
    * valor del que parte el tramo actual y `began` el instante en que empezó.
-   * @type {Map<string, {prop: string, keys: Array<[number, number, (t:number)=>number]>, step: number, origin: number, began: number, done?: () => void}>}
+   * @type {Map<string, {prop: string, keys: Array<[number, number, ((t:number)=>number)?]>, step: number, origin: number, began: number, done?: () => void}>}
    */
   const tracks = new Map();
 
@@ -40,7 +40,7 @@ export function createTimeline({ now = () => performance.now() } = {}) {
      * campo (o de `fromValue` si se conoce por fuera) y, mientras dure, el
      * campo queda reservado: `set()` no lo puede pisar.
      * @param {string} prop
-     * @param {Array<[number, number, (t:number)=>number]>} keys
+     * @param {Array<[number, number, ((t:number)=>number)?]>} keys
      * @param {() => void} [onComplete]
      * @param {number} [fromValue]
      */

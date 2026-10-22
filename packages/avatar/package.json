@@ -37,7 +37,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:check": "node scripts/build.mjs --check",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "node scripts/typecheck.mjs",
     "test": "node --test tests/",
     "geometry:check": "node scripts/compare-geometry.mjs --check tests/golden/geometry.json src",
     "geometry:record": "node scripts/compare-geometry.mjs --record tests/golden/geometry.json src",

@@ -43,7 +43,7 @@
     "core/timeline.js": {
       "kind": "own",
       "reason": "Decision D4 (owner, 2026-10-21): implementacion PROPIA de Ego. El runner de tracks por campo (estado, avance del tiempo y reserva del campo) y las fases acumuladas se reescribieron; el upstream queda como patron asimilado (sin traduccion de codigo).",
-      "sha256": "cb62b7306fc6af3f40665140d827862b4ce3d5113bb4a25405f61874fd3a0d7b"
+      "sha256": "e1bab6346f1ed5e0d653653e2599bd9ce55c934aedcd6c8f1b82958f6fd1dbb9"
     },
     "render/builder.js": {
       "kind": "types",
@@ -68,7 +68,7 @@
     "runtime/avatar-element.js": {
       "kind": "feature",
       "reason": " atributo `hands` (modo del rig de manos: always|auto|hidden) con su ruta completa atributo -> setParam -> supervivencia al preset; `preset` pasa a ser atributo observado; `toSVGString()` y `setPointerFollow()` exponen API publica; el pegamento con el studio y el export SVG salen a modulos propios (`studio-bridge.js`, `svg-export.js`); la insignia `warn` se enciende; y la ruta de `hands` deja de ser un no-op cuando el host aun no existe (en el navegador los atributos se parsean antes de conectar el elemento).",
-      "sha256": "104c3b4030e95dc73c3bc79dbfcd8421ad7f121a011e8d8a07c78b5654a5303e"
+      "sha256": "6ebb58ddb69fe944a79b10a221611299736fe940c5927b743677b469d8544b31"
     },
     "runtime/fx-eyes.js": {
       "kind": "types",
@@ -220,7 +220,7 @@
     "runtime/avatar-element.d.ts": {
       "kind": "types",
       "reason": "Tipos del elemento (declaracion publica del paquete) exigidos por el typecheck del renderer, que consume el paquete como workspace.",
-      "sha256": "83f70b25e199894bfa143bdf02b62a8f4e8874af8f8e1f932e39b2e7211b4ed9"
+      "sha256": "df7190826b4b1cdfc18712cb500e97aded3324d235d6da5b6821b310ced1070a"
     },
     "runtime/sound.d.ts": {
       "kind": "types",

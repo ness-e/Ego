@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "//": [
+    "Typecheck de los TESTS del paquete.",
+    "",
+    "Por que un tsconfig aparte: los tests son dobles de prueba en blanco",
+    "(white-box) contra un motor JS plano (excepcion ADR-0018). Comprobarlos",
+    "con `checkJs` lleno produce decenas de errores de 'mi doble no coincide con",
+    "la declaracion', que son RUIDO: taparian los errores de verdad.",
+    "",
+    "Lo que SI se comprueba aqui (y es una puerta real):",
+    "  · que todos los ficheros de test PARSEAN (un error de sintaxis rompe el",
+    "    build),",
+    "  · que sus IMPORTaciones resuelven (un modulo inexistente o renombrado",
+    "    rompe el build),",
+    "  · que los tipos que EXPORTAN las librerias son coherentes.",
+    "",
+    "Lo que queda fuera: el tipado profundo del interior de los dobles. El",
+    "listado exacto de los errores que quedan (64 al medirlo el 2026-10-21) esta",
+    "en el handoff de la Ola 10.",
+    "",
+    "Este tsconfig lo invoca `pnpm --filter @ego/avatar typecheck` (encadena los",
+    "dos: el del codigo y este)."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "checkJs": false,
+    "noEmit": true
+  },
+  "include": ["tests/**/*.js"],
+  "exclude": ["node_modules", "dist", "captures"]
+}

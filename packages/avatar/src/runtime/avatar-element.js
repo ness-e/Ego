@@ -1,4 +1,5 @@
 // avatar-element.js — <ego-avatar>: web component cero-dependencias.
+// Adapted from agent-robot-avatar (MIT), vendor/agent-robot-avatar/core.js
 // Rig visual de agent-robot-avatar: cabeza redondeada + ojos blancos con
 // párpados (poses 100 % numéricas) + identidad determinista por semilla.
 //

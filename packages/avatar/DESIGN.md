@@ -635,6 +635,30 @@ seis ficheros de la decisión D4 tienen **presupuesto 0** — no pueden conserva
 ni 48 caracteres del upstream. Su test es `tests/no-verbatim.test.js` (5
 casos con *fixtures*).
 
+### La segunda puerta: el residuo verbatim, y por que el presupuesto son SHINGLES
+
+La puerta de atribucion responde a `¿de quien es este codigo?`. Esta responde
+a `¿queda codigo del upstream dentro?`.
+
+El presupuesto vive en el manifiesto (campo `verbatim`, por fichero) y se
+expresa en **shingles de 48 caracteres**, no en porcentaje: "1 shingle" es una
+coincidencia real, no un "100 %". Los nativos tienen presupuesto **0**.
+
+> **Por que se cuentan solo las RACHAS contiguas** (>= 60 shingles = 107
+> caracteres identicos seguidos): con "cualquier shingle coincidente" los
+> **idiomas universales** (`this._raf = requestAnimationFrame(this._loop)`,
+> `const SVG_NS = 'http://www.w3.org/2000/svg'`) contaban como codigo copiado
+> (409 falsos positivos en un fichero nativo). Una copia de verdad son decenas de
+> shingles seguidos.
+
+La puerta mide **todo** fichero del paquete (el manifiesto es total: la puerta
+de atribucion lo obliga) **y el espejo vendorizado**, y **falla si no mide
+nada**: una puerta que no mide nada no es una puerta (EGO-FIND-105). Los
+presupuestos se declaran con `scripts/measure-verbatim.mjs` (los nativos se
+dejan en 0 aunque tengan residuo, y se avisa) y la lupa
+`scripts/inspect-verbatim.mjs` dice **que** shingles coinciden y con cual
+referencia.
+
 ### La puerta
 
 `scripts/check-attribution.mjs` usa el manifiesto como denominador y falla si:

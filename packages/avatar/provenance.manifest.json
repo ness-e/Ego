@@ -21,7 +21,14 @@
     "La clasificacion se midio contra el clon de referencia `repos-referencia/avatar`",
     "con residuo de shingles de 48 caracteres, y contra los upstreams VERDADEROS",
     "(el corpus `vendor/` y el single-file HTML) con el detector de verbatim.",
-    "Ver `docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola9.md`."
+    "Ver `docs/agent-ops/plans/2026-10-19-remediation-wave1/handoff/A6-ola9.md`.",
+    "",
+    "El presupuesto de residuo verbatim va DENTRO de cada entrada",
+    "(`derived[].verbatim.maxShingles` / `native[].verbatim.maxShingles`), en",
+    "SHINGLES de 48 caracteres: los nativos a 0 (codigo propio de Ego: no pueden",
+    "conservar ni un shingle del upstream) y los derivados al residuo declarado.",
+    "Lo vigila `scripts/check-no-verbatim.mjs`; se (re)declara con",
+    "`node scripts/measure-verbatim.mjs`."
   ],
   "version": 1,
   "package": "@ego/avatar",
@@ -67,551 +74,889 @@
       "upstream": "coucou",
       "origin": "vendor/coucou/core/anim.ts",
       "via": "repos-referencia/avatar/src/core/anim.js",
-      "evidence": "Port del modulo de easings/spring de coucou (sub-stepping 240 Hz, Tracked). El LICENSE.md del clon lo declara \"adaptado de coucou/windows/src/core/anim.ts\"."
+      "evidence": "Port del modulo de easings/spring de coucou (sub-stepping 240 Hz, Tracked). El LICENSE.md del clon lo declara \"adaptado de coucou/windows/src/core/anim.ts\".",
+      "verbatim": {
+        "maxShingles": 613,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/core/config.js",
       "upstream": "agent-robot-avatar",
       "origin": "vendor/agent-robot-avatar/random.js",
       "via": "repos-referencia/avatar/src/core/config.js",
-      "evidence": "Port del patron Defaults/Bounds + clampConfig de agent-robot-avatar, con `parseSize` literal de core.js:63-68."
+      "evidence": "Port del patron Defaults/Bounds + clampConfig de agent-robot-avatar, con `parseSize` literal de core.js:63-68.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/render/eyes.js",
       "upstream": "agent-robot-avatar",
       "origin": "vendor/agent-robot-avatar/core.js",
       "via": "repos-referencia/avatar/src/render/eyes.js",
-      "evidence": "Port del rig ocular del robot (plantilla de core.js:270-285 y setEye de CORE:1046-1103)."
+      "evidence": "Port del rig ocular del robot (plantilla de core.js:270-285 y setEye de CORE:1046-1103).",
+      "verbatim": {
+        "maxShingles": 88,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/render/projection.js",
       "upstream": "coucou",
       "origin": "vendor/coucou/mochi/engine.ts",
       "via": "repos-referencia/avatar/src/render/projection.js",
-      "evidence": "Port de drawEyes() de coucou/mochi/engine.ts:749-784 (eyeYaw, foreshortening, umbral 0.04, piso 0.18)."
+      "evidence": "Port de drawEyes() de coucou/mochi/engine.ts:749-784 (eyeYaw, foreshortening, umbral 0.04, piso 0.18).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/render/static.js",
       "upstream": "coucou-swift",
       "origin": "vendor/coucou-swift/MochiStill.swift",
       "via": "repos-referencia/avatar/src/render/static.js",
-      "evidence": "Port de la pose estatica por hash djb2 de coucou-swift/MochiStill.swift."
+      "evidence": "Port de la pose estatica por hash djb2 de coucou-swift/MochiStill.swift.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/runtime/extension-host.js",
       "upstream": "agent-robot-avatar",
       "origin": "vendor/agent-robot-avatar/extension-host.js",
       "via": "repos-referencia/avatar/src/runtime/extension-host.js",
-      "evidence": "Port del sistema de extensiones de agent-robot-avatar (runner de funciones con registro)."
+      "evidence": "Port del sistema de extensiones de agent-robot-avatar (runner de funciones con registro).",
+      "verbatim": {
+        "maxShingles": 375,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/runtime/fx-eyes.js",
       "upstream": "agent-robot-avatar",
       "origin": "vendor/agent-robot-avatar/actions.js",
       "via": "repos-referencia/avatar/src/runtime/fx-eyes.js",
-      "evidence": "Port de los efectos oculares de agent-robot-avatar/actions.js (barrido, warnings) mas CORE:999-1037, inspect.js, love.js, waiting.js y failure.js."
+      "evidence": "Port de los efectos oculares de agent-robot-avatar/actions.js (barrido, warnings) mas CORE:999-1037, inspect.js, love.js, waiting.js y failure.js.",
+      "verbatim": {
+        "maxShingles": 955,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/runtime/micro.js",
       "upstream": "coucou",
       "origin": "vendor/coucou/mochi/engine.ts",
       "via": "repos-referencia/avatar/src/runtime/micro.js",
-      "evidence": "Port de las tablas de keyframe de micro-animacion de coucou/mochi/engine.ts con la semantica `locks`."
+      "evidence": "Port de las tablas de keyframe de micro-animacion de coucou/mochi/engine.ts con la semantica `locks`.",
+      "verbatim": {
+        "maxShingles": 89,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/runtime/pointer.js",
       "upstream": "agent-robot-avatar",
       "origin": "vendor/agent-robot-avatar/core.js",
       "via": "repos-referencia/avatar/src/runtime/pointer.js",
-      "evidence": "Port con constantes literales del original (CORE:368-383 puntero, CORE:922-948 wander, CORE:955-1043 springs de cabeza)."
+      "evidence": "Port con constantes literales del original (CORE:368-383 puntero, CORE:922-948 wander, CORE:955-1043 springs de cabeza).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/runtime/policy.js",
       "upstream": "agent-robot-avatar",
       "origin": "vendor/agent-robot-avatar/runtime.js",
       "via": "repos-referencia/avatar/src/runtime/policy.js",
-      "evidence": "Port de la capa de politica de agent-robot-avatar/runtime.js (requestedMotion/reducedMotion, action records, scheduleAutoSleep)."
+      "evidence": "Port de la capa de politica de agent-robot-avatar/runtime.js (requestedMotion/reducedMotion, action records, scheduleAutoSleep).",
+      "verbatim": {
+        "maxShingles": 1225,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/runtime/presence.js",
       "upstream": "coucou",
       "origin": "vendor/coucou/island/fsm.ts",
       "via": "repos-referencia/avatar/src/runtime/presence.js",
-      "evidence": "Port de la FSM de presencia IslandStateMachine de coucou/island/fsm.ts (hidden/compact/home/greet con sus temporizadores)."
+      "evidence": "Port de la FSM de presencia IslandStateMachine de coucou/island/fsm.ts (hidden/compact/home/greet con sus temporizadores).",
+      "verbatim": {
+        "maxShingles": 70,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/runtime/sound.js",
       "upstream": "coucou",
       "origin": "vendor/coucou/core/sound.ts",
       "via": "repos-referencia/avatar/src/runtime/sound.js",
-      "evidence": "Port del catalogo de sonidos y del envelope de coucou/core/sound.ts (28 nombres, volumen 0.12, idle 1500 ms)."
+      "evidence": "Port del catalogo de sonidos y del envelope de coucou/core/sound.ts (28 nombres, volumen 0.12, idle 1500 ms).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/runtime/states.js",
       "upstream": "coucou",
       "origin": "vendor/coucou/mochi/engine.ts",
       "via": "repos-referencia/avatar/src/runtime/states.js",
-      "evidence": "Port de la tabla estado -> configuracion visual de coucou/mochi/engine.ts:91-103 reorientada a los hooks de Ego."
+      "evidence": "Port de la tabla estado -> configuracion visual de coucou/mochi/engine.ts:91-103 reorientada a los hooks de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/avatar.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/avatar.js",
-      "evidence": "Port de HybridRobotAvatar (bucle de render, maquina de estados del canvas, catalogo de estados y aplicacion de presets) desde el single-file HTML de origen."
+      "evidence": "Port de HybridRobotAvatar (bucle de render, maquina de estados del canvas, catalogo de estados y aplicacion de presets) desde el single-file HTML de origen.",
+      "verbatim": {
+        "maxShingles": 19777,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/config.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/config.js",
-      "evidence": "Port de DATOS: los literales de STUDIO_DEFAULTS, de los presets de applyPreset y del mapa estado -> acento proceden del constructor del single-file HTML de origen (verificado: cada valor literal -#1e222d, #dbf59d, cx-faithful, cx-led, eyeSpacing, squircleN...- aparece en el fichero de origen)."
+      "evidence": "Port de DATOS: los literales de STUDIO_DEFAULTS, de los presets de applyPreset y del mapa estado -> acento proceden del constructor del single-file HTML de origen (verificado: cada valor literal -#1e222d, #dbf59d, cx-faithful, cx-led, eyeSpacing, squircleN...- aparece en el fichero de origen).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/render/body.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/render/body.js",
-      "evidence": "Port de drawBody del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4)."
+      "evidence": "Port de drawBody del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4).",
+      "verbatim": {
+        "maxShingles": 1543,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/render/ears.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/render/ears.js",
-      "evidence": "Port de drawEars del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4)."
+      "evidence": "Port de drawEars del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4).",
+      "verbatim": {
+        "maxShingles": 443,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/render/eyes.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/render/eyes.js",
-      "evidence": "Port de drawEyes del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4)."
+      "evidence": "Port de drawEyes del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4).",
+      "verbatim": {
+        "maxShingles": 7442,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/render/helpers.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/render/helpers.js",
-      "evidence": "Port de las primitivas de canvas (rectangulo redondeado, superelipse, acento) del single-file HTML de origen."
+      "evidence": "Port de las primitivas de canvas (rectangulo redondeado, superelipse, acento) del single-file HTML de origen.",
+      "verbatim": {
+        "maxShingles": 1170,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/render/mouth.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/render/mouth.js",
-      "evidence": "Port de drawMouth y del lip-sync del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4)."
+      "evidence": "Port de drawMouth y del lip-sync del single-file HTML de origen, con la geometria sustituida por la propia de Ego (decision D4).",
+      "verbatim": {
+        "maxShingles": 1325,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/render/overlays.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/render/overlays.js",
-      "evidence": "Port de las imagenes de estado del single-file HTML de origen."
+      "evidence": "Port de las imagenes de estado del single-file HTML de origen.",
+      "verbatim": {
+        "maxShingles": 2488,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/render/particles.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/render/particles.js",
-      "evidence": "Port de spawnParticles del single-file HTML de origen (codigo identico al del clon: 100% de shingles)."
+      "evidence": "Port de spawnParticles del single-file HTML de origen (codigo identico al del clon: 100% de shingles).",
+      "verbatim": {
+        "maxShingles": 593,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/render/visor.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/render/visor.js",
-      "evidence": "Port de drawInnerVisor del single-file HTML de origen (codigo identico al del clon: 100% de shingles)."
+      "evidence": "Port de drawInnerVisor del single-file HTML de origen (codigo identico al del clon: 100% de shingles).",
+      "verbatim": {
+        "maxShingles": 1011,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/rig/eyes.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/rig/eyes.js",
-      "evidence": "Port de updateEyeRig del single-file HTML de origen (79% de shingles contra el HTML)."
+      "evidence": "Port de updateEyeRig del single-file HTML de origen (79% de shingles contra el HTML).",
+      "verbatim": {
+        "maxShingles": 3907,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "src/studio/rig/hands.js",
       "upstream": "ego-avatar-studio",
       "origin": "repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html",
       "via": "repos-referencia/avatar/src/studio/rig/hands.js",
-      "evidence": "Port de updateHandsRig, drawHands y drawSingleHand del single-file HTML de origen (70% de shingles contra el HTML)."
+      "evidence": "Port de updateHandsRig, drawHands y drawSingleHand del single-file HTML de origen (70% de shingles contra el HTML).",
+      "verbatim": {
+        "maxShingles": 8208,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/anim.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/anim.test.js",
       "via": "repos-referencia/avatar/tests/anim.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/config.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/config.test.js",
       "via": "repos-referencia/avatar/tests/config.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/element.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/element.test.js",
       "via": "repos-referencia/avatar/tests/element.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/emotes.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/emotes.test.js",
       "via": "repos-referencia/avatar/tests/emotes.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/fx-eyes.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/fx-eyes.test.js",
       "via": "repos-referencia/avatar/tests/fx-eyes.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/genome.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/genome.test.js",
       "via": "repos-referencia/avatar/tests/genome.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/guards.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/guards.test.js",
       "via": "repos-referencia/avatar/tests/guards.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/head.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/head.test.js",
       "via": "repos-referencia/avatar/tests/head.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/micro.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/micro.test.js",
       "via": "repos-referencia/avatar/tests/micro.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/morph.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/morph.test.js",
       "via": "repos-referencia/avatar/tests/morph.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/palette.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/palette.test.js",
       "via": "repos-referencia/avatar/tests/palette.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/pointer.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/pointer.test.js",
       "via": "repos-referencia/avatar/tests/pointer.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/policy.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/policy.test.js",
       "via": "repos-referencia/avatar/tests/policy.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/presence.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/presence.test.js",
       "via": "repos-referencia/avatar/tests/presence.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/projection.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/projection.test.js",
       "via": "repos-referencia/avatar/tests/projection.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/render.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/render.test.js",
       "via": "repos-referencia/avatar/tests/render.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/sound.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/sound.test.js",
       "via": "repos-referencia/avatar/tests/sound.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/states.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/states.test.js",
       "via": "repos-referencia/avatar/tests/states.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/still.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/still.test.js",
       "via": "repos-referencia/avatar/tests/still.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-adapter.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-adapter.test.js",
       "via": "repos-referencia/avatar/tests/studio-adapter.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-avatar.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-avatar.test.js",
       "via": "repos-referencia/avatar/tests/studio-avatar.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-body.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-body.test.js",
       "via": "repos-referencia/avatar/tests/studio-body.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-config.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-config.test.js",
       "via": "repos-referencia/avatar/tests/studio-config.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-element.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-element.test.js",
       "via": "repos-referencia/avatar/tests/studio-element.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-eyes.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-eyes.test.js",
       "via": "repos-referencia/avatar/tests/studio-eyes.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 103,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-integration.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-integration.test.js",
       "via": "repos-referencia/avatar/tests/studio-integration.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-mouth-hands.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-mouth-hands.test.js",
       "via": "repos-referencia/avatar/tests/studio-mouth-hands.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/studio-sound.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/studio-sound.test.js",
       "via": "repos-referencia/avatar/tests/studio-sound.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "tests/timeline.test.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/tests/timeline.test.js",
       "via": "repos-referencia/avatar/tests/timeline.test.js",
-      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego)."
+      "evidence": "Port literal del fichero de test del repo de referencia `ego-avatar` (identico al 89-100% de los shingles; los que difieren lo hacen por las aserciones adaptadas al catalogo de Ego).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "demo/robot-studio/index.html",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/demo/robot-studio/index.html",
       "via": "repos-referencia/avatar/demo/robot-studio/index.html",
-      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo."
+      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "demo/robot-studio/studio.css",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/demo/robot-studio/studio.css",
       "via": "repos-referencia/avatar/demo/robot-studio/studio.css",
-      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo."
+      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     },
     {
       "path": "demo/robot-studio/studio.js",
       "upstream": "ego-avatar",
       "origin": "repos-referencia/avatar/demo/robot-studio/studio.js",
       "via": "repos-referencia/avatar/demo/robot-studio/studio.js",
-      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo."
+      "evidence": "Port literal del fichero del repo de referencia `ego-avatar` (100% de shingles). NO es un port de los bloques del single-file HTML: medido 0% de shingles contra el HTML completo.",
+      "verbatim": {
+        "maxShingles": 71,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
+    },
+    {
+      "path": "src/runtime/avatar-element.js",
+      "upstream": "agent-robot-avatar",
+      "origin": "vendor/agent-robot-avatar/core.js",
+      "via": "repos-referencia/avatar/src/runtime/avatar-element.js",
+      "evidence": "Port real del web component de agent-robot-avatar (el elemento, el rig ocular y la maquina de atributos): medido con el detector de verbatim, 342 shingles en rachas de 107 caracteres identicos seguidos contra vendor/agent-robot-avatar/core.js. La clasificacion como \"nativo\" era incorrecta (la corrigio la puerta de la Ola 10).",
+      "reason": "Web component <ego-avatar>. Codigo propio de Ego: el elemento orquesta modulos derivados (ara-head, poses, eyes), pero su implementacion es propia.",
+      "verbatim": {
+        "maxShingles": 342,
+        "note": "port atribuido: el presupuesto es su residuo declarado; si le crecen los prestamos, la puerta lo ve"
+      }
     }
   ],
   "native": [
     {
       "path": "src/render/ara-head.js",
-      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. La silueta es una cupula de exponente propio (3.4) con la corona plana y el menton estrecho, generada por una regla y normalizada a la caja canonica 20-220 (Ola 9, decision D4)."
+      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. La silueta es una cupula de exponente propio (3.4) con la corona plana y el menton estrecho, generada por una regla y normalizada a la caja canonica 20-220 (Ola 9, decision D4).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/render/body.js",
-      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. El pipeline (parsear -> aplanar -> mezclar el redondeo -> serializar) y sus constantes son de Ego (Ola 9, decision D4)."
+      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. El pipeline (parsear -> aplanar -> mezclar el redondeo -> serializar) y sus constantes son de Ego (Ola 9, decision D4).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/runtime/poses.js",
-      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. Las poses se declaran con INTENCIONES (abrir, cerrar por debajo, inclinar, estirar, achatar) y las cifras del rig las produce una regla propia (Ola 9, decision D4)."
+      "reason": "Implementacion propia de Ego; patron asimilado de `agent-robot-avatar` (MIT), sin traduccion de codigo. Las poses se declaran con INTENCIONES (abrir, cerrar por debajo, inclinar, estirar, achatar) y las cifras del rig las produce una regla propia (Ola 9, decision D4).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/core/timeline.js",
-      "reason": "Implementacion propia de Ego; patron asimilado de `coucou` (MIT), sin traduccion de codigo. El runner de tracks por campo (estado, avance del tiempo y reserva del campo) y las fases acumuladas son de Ego (Ola 9, decision D4)."
+      "reason": "Implementacion propia de Ego; patron asimilado de `coucou` (MIT), sin traduccion de codigo. El runner de tracks por campo (estado, avance del tiempo y reserva del campo) y las fases acumuladas son de Ego (Ola 9, decision D4).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/studio/sound.js",
-      "reason": "Implementacion propia de Ego; patron asimilado del Avatar Studio (single-file HTML; su licencia no esta declarada en el origen), sin traduccion de codigo. El catalogo de gestos sonoros (raiz tonal, patron en semitonos y envolvente) y el renderizador generico son de Ego (Ola 9, decision D4)."
+      "reason": "Implementacion propia de Ego; patron asimilado del Avatar Studio (single-file HTML; su licencia no esta declarada en el origen), sin traduccion de codigo. El catalogo de gestos sonoros (raiz tonal, patron en semitonos y envolvente) y el renderizador generico son de Ego (Ola 9, decision D4).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/studio/render/accessories.js",
-      "reason": "Implementacion propia de Ego; patron asimilado del Avatar Studio (single-file HTML; su licencia no esta declarada en el origen), sin traduccion de codigo. El catalogo de accesorios es dato y las piezas (antena, banda, lentes, gorro, orejas, corona, halo, brote) son geometria propia sobre una capa de primitivas (Ola 9, decision D4)."
+      "reason": "Implementacion propia de Ego; patron asimilado del Avatar Studio (single-file HTML; su licencia no esta declarada en el origen), sin traduccion de codigo. El catalogo de accesorios es dato y las piezas (antena, banda, lentes, gorro, orejas, corona, halo, brote) son geometria propia sobre una capa de primitivas (Ola 9, decision D4).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/index.js",
-      "reason": "Barrel publico del paquete (registra el custom element). Codigo propio de Ego."
+      "reason": "Barrel publico del paquete (registra el custom element). Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/version.js",
-      "reason": "Version del paquete. Codigo propio de Ego."
+      "reason": "Version del paquete. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/core/genome.js",
-      "reason": "Genoma -> identidad. Asimilacion de patron: usa los traits `roundness`/`ratio` del robot de agent-robot-avatar, pero el codigo (semilla, genes, rangos) es propio."
+      "reason": "Genoma -> identidad. Asimilacion de patron: usa los traits `roundness`/`ratio` del robot de agent-robot-avatar, pero el codigo (semilla, genes, rangos) es propio.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/core/morph.js",
-      "reason": "Geometria procedural de la silueta. Asimilacion de patron: la superelipse (formula matematica) y su uso como shape language proceden de ambos repos; la implementacion es propia."
+      "reason": "Geometria procedural de la silueta. Asimilacion de patron: la superelipse (formula matematica) y su uso como shape language proceden de ambos repos; la implementacion es propia.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/core/palette.js",
-      "reason": "Genoma -> paleta CSS. Codigo propio de Ego (deriva la tinta del hue del genoma)."
+      "reason": "Genoma -> paleta CSS. Codigo propio de Ego (deriva la tinta del hue del genoma).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/core/prng.js",
-      "reason": "PRNG determinista (xmur3 + mulberry32). Codigo propio de Ego; la referencia conceptual es externa (DiceBear / boring-avatars) y no es un repo de referencia."
+      "reason": "PRNG determinista (xmur3 + mulberry32). Codigo propio de Ego; la referencia conceptual es externa (DiceBear / boring-avatars) y no es un repo de referencia.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/render/builder.js",
-      "reason": "Helper minimo para construir SVG como string, sin DOM. Codigo propio de Ego."
+      "reason": "Helper minimo para construir SVG como string, sin DOM. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/render/parts.js",
-      "reason": "Aura, apendice, insignia y particulas. Codigo propio de Ego."
+      "reason": "Aura, apendice, insignia y particulas. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/render/shell.js",
-      "reason": "Ensamblaje del SVG completo. Asimilacion de patron: la estructura del rig (cabeza + ojos recortados + grupo de movimiento) procede de agent-robot-avatar; el ensamblaje es propio."
-    },
-    {
-      "path": "src/runtime/avatar-element.js",
-      "reason": "Web component <ego-avatar>. Codigo propio de Ego: el elemento orquesta modulos derivados (ara-head, poses, eyes), pero su implementacion es propia."
+      "reason": "Ensamblaje del SVG completo. Asimilacion de patron: la estructura del rig (cabeza + ojos recortados + grupo de movimiento) procede de agent-robot-avatar; el ensamblaje es propio.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/runtime/studio-bridge.js",
-      "reason": "Pegamento elemento <-> motor canvas, extraido del elemento en la Ola 1. Codigo propio de Ego."
+      "reason": "Pegamento elemento <-> motor canvas, extraido del elemento en la Ola 1. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/runtime/svg-export.js",
-      "reason": "Serializacion a SVG, extraida del elemento en la Ola 1. Codigo propio de Ego."
+      "reason": "Serializacion a SVG, extraida del elemento en la Ola 1. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/runtime/avatar-element.d.ts",
-      "reason": "Declaracion de tipos publica del web component. Codigo propio de Ego."
+      "reason": "Declaracion de tipos publica del web component. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/runtime/sound.d.ts",
-      "reason": "Declaracion de tipos del motor de sonido. Codigo propio de Ego."
+      "reason": "Declaracion de tipos del motor de sonido. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/studio/adapter.js",
-      "reason": "Puente del vocabulario Ego (15 estados) con el studio (26 estados). Codigo propio de Ego."
+      "reason": "Puente del vocabulario Ego (15 estados) con el studio (26 estados). Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/studio/element-host.js",
-      "reason": "Host canvas de <ego-avatar mode=\"studio\">: conduce el motor HybridRobotAvatar. Codigo propio de Ego."
+      "reason": "Host canvas de <ego-avatar mode=\"studio\">: conduce el motor HybridRobotAvatar. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/studio/index.js",
-      "reason": "Barrel del motor Avatar Studio. Codigo propio de Ego."
+      "reason": "Barrel del motor Avatar Studio. Codigo propio de Ego.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "src/studio/render/geometry.js",
-      "reason": "Proporciones canonicas del robot de Ego. Codigo propio de Ego: sustituye las medidas heredadas de Mochi (decision D4) y no contiene codigo del origen."
+      "reason": "Proporciones canonicas del robot de Ego. Codigo propio de Ego: sustituye las medidas heredadas de Mochi (decision D4) y no contiene codigo del origen.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "tests/hands-attribute.test.js",
-      "reason": "Test propio de la Ola 4b (ruta del atributo hands)."
+      "reason": "Test propio de la Ola 4b (ruta del atributo hands).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "tests/attribution.test.js",
-      "reason": "Test propio de la Ola 8 (puerta de atribucion con fixtures)."
+      "reason": "Test propio de la Ola 8 (puerta de atribucion con fixtures).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "tests/studio-roundtrip.test.js",
-      "reason": "Test propio de la Ola 2 (contrato del puente Ego <-> studio)."
+      "reason": "Test propio de la Ola 2 (contrato del puente Ego <-> studio).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "tests/warning.test.js",
-      "reason": "Test propio de la Ola 2 (estado warning)."
+      "reason": "Test propio de la Ola 2 (estado warning).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "tests/golden/geometry.json",
-      "reason": "Golden generada por el propio motor de Ego (traza de operaciones de canvas). Dato, no codigo."
+      "reason": "Golden generada por el propio motor de Ego (traza de operaciones de canvas). Dato, no codigo.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "tests/no-verbatim.test.js",
-      "reason": "Test propio de la Ola 9 (puerta de residuo verbatim con fixtures)."
+      "reason": "Test propio de la Ola 9 (puerta de residuo verbatim con fixtures).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     },
     {
       "path": "tests/d4-geometry.test.js",
-      "reason": "Test propio de la Ola 9 (property test de la geometria propia: la silueta y la tabla de poses no pueden ser las del upstream)."
+      "reason": "Test propio de la Ola 9 (property test de la geometria propia: la silueta y la tabla de poses no pueden ser las del upstream).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
+    },
+    {
+      "path": "tests/public-surface.test.js",
+      "reason": "Test propio de la Ola 10 (la superficie publica declarada == la exportada real).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     }
-  ],
-  "verbatim": {
-    "src/render/ara-head.js": {
-      "maxResidue": 0,
-      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
-    },
-    "src/render/body.js": {
-      "maxResidue": 0,
-      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
-    },
-    "src/runtime/poses.js": {
-      "maxResidue": 0,
-      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
-    },
-    "src/core/timeline.js": {
-      "maxResidue": 0,
-      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
-    },
-    "src/studio/sound.js": {
-      "maxResidue": 0,
-      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
-    },
-    "src/studio/render/accessories.js": {
-      "maxResidue": 0,
-      "note": "Decision D4 (owner, 2026-10-21): este fichero no conserva codigo verbatim del upstream. El presupuesto lo vigila `scripts/check-no-verbatim.mjs`."
-    }
-  }
+  ]
 }

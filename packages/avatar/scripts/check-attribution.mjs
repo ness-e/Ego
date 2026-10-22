@@ -43,8 +43,14 @@
 //   --root <dir>  raíz del paquete a comprobar (por defecto, el propio). Es lo
 //                 que permite ejercitar la puerta con fixtures.
 //   --json        informe machine por stdout.
-//   --fix         escribe la cabecera canónica que falte (reproducible: el
-//                 resultado no depende de una edición manual).
+//   --fix         NO muta el repositorio: escribe una PROPUESTA
+//                 (`provenance.proposed.json`) con la cabecera canonica que
+//                 cada fichero derivado deberia llevar. Escribirla no cambia
+//                 el estado que la puerta verifica, asi que **la puerta no
+//                 puede aprobarse a si misma** (el principio del repo: "una
+//                 puerta que puede aprobarse a si misma no es una puerta").
+//   --fix --apply  aplica la propuesta al arbol (doble opt-in explicito:
+//                 hace falta decir las dos palabras).
 //
 // Salida: 0 = conforme; 1 = hay problemas; 2 = error de uso.
 
@@ -62,6 +68,8 @@ const REFERENCE_CLONE = join(REPO, 'repos-referencia', 'avatar');
 const args = process.argv.slice(2);
 const asJson = args.includes('--json');
 const fix = args.includes('--fix');
+/** Aplicar de verdad exige las DOS palabras: `--fix --apply`. */
+const apply = fix && args.includes('--apply');
 const rootIdx = args.indexOf('--root');
 if (rootIdx >= 0 && !args[rootIdx + 1]) {
   console.error('--root necesita un directorio');
@@ -508,42 +516,73 @@ if (IS_REAL && manifest) {
   }
 }
 
-/* ── --fix: escribe la cabecera canonica que falte ───────────────────────── */
+/* ── --fix: PROPUESTA (no muta el repositorio) ─────────────────────────── */
+
+/**
+ * Calcula el cambio de cabecera de un fichero (sin escribirlo).
+ * @returns {{path: string, action: 'replace'|'insert', line: string, index: number}|null}
+ */
+function planHeaderChange(d, up, text, style) {
+  const found = findCanonical(text, style);
+  const line = canonicalLine(style, d.upstream, up.license, d.origin);
+  if (found) {
+    if (found.line.trim() === line.trim()) return null;
+    return { path: d.path, action: 'replace', line, index: found.index };
+  }
+  // Sustituye una atribucion previa si la hay (forma no canonica); si no,
+  // inserta al final del primer parrafo de comentario.
+  const lines = text.split('\n');
+  let legacy = -1;
+  const limit = Math.min(HEADER_WINDOW, lines.length);
+  for (let i = 0; i < limit; i++) {
+    const t = lines[i].trim();
+    if (LEGACY_CANONICAL.test(lines[i]) || (LEGACY_STATEMENT.test(lines[i]) && t.endsWith('.'))) {
+      legacy = i;
+      break;
+    }
+  }
+  if (legacy >= 0) return { path: d.path, action: 'replace', line, index: legacy };
+  return { path: d.path, action: 'insert', line, index: insertionIndex(lines, style) };
+}
 
 let fixed = 0;
 if (fix && manifest) {
+  const cambios = [];
   for (const d of derivedList) {
     const abs = join(ROOT, d.path);
     if (!existsSync(abs)) continue;
     const up = manifest.upstreams[d.upstream];
     if (!up) continue;
     const style = styleFor(extOf(d.path));
-    const text = readFileSync(abs, 'utf8');
-    const found = findCanonical(text, style);
-    const line = canonicalLine(style, d.upstream, up.license, d.origin);
-    const lines = text.split('\n');
-    if (found) {
-      if (found.line.trim() === line.trim()) continue;
-      lines[found.index] = line;
-    } else {
-      // Sustituye una atribucion previa si la hay (forma no canonica); si no,
-      // inserta al final del primer parrafo de comentario.
-      let legacy = -1;
-      const limit = Math.min(HEADER_WINDOW, lines.length);
-      for (let i = 0; i < limit; i++) {
-        const t = lines[i].trim();
-        if (LEGACY_CANONICAL.test(lines[i]) || (LEGACY_STATEMENT.test(lines[i]) && t.endsWith('.'))) {
-          legacy = i;
-          break;
-        }
-      }
-      if (legacy >= 0) lines[legacy] = line;
-      else lines.splice(insertionIndex(lines, style), 0, line);
-    }
-    writeFileSync(abs, lines.join('\n'), 'utf8');
-    fixed++;
+    const change = planHeaderChange(d, up, readFileSync(abs, 'utf8'), style);
+    if (change) cambios.push(change);
   }
-  console.error(`--fix: ${fixed} cabecera(s) canonica(s) escrita(s).`);
+
+  if (!apply) {
+    // SOLO PROPUESTA: no se toca ningun fichero del paquete.
+    const propuesta = {
+      nota:
+        'Propuesta de cabeceras canonicas. NO se ha modificado ningun fichero. ' +
+        'Para aplicarla: node scripts/check-attribution.mjs --fix --apply',
+      cambios,
+    };
+    const destino = join(ROOT, 'provenance.proposed.json');
+    writeFileSync(destino, JSON.stringify(propuesta, null, 2) + '\n', 'utf8');
+    console.error(
+      `--fix: ${cambios.length} cabecera(s) propuesta(s) en ${relative(ROOT, destino)}. ` +
+        'NO se ha modificado el repositorio (para aplicar: --fix --apply).',
+    );
+  } else {
+    for (const c of cambios) {
+      const abs = join(ROOT, c.path);
+      const lines = readFileSync(abs, 'utf8').split('\n');
+      if (c.action === 'replace') lines[c.index] = c.line;
+      else lines.splice(c.index, 0, c.line);
+      writeFileSync(abs, lines.join('\n'), 'utf8');
+      fixed++;
+    }
+    console.error(`--fix --apply: ${fixed} cabecera(s) canonica(s) escrita(s).`);
+  }
 }
 
 /* ── informe ──────────────────────────────────────────────────────────────── */

@@ -18,7 +18,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,11 +28,11 @@ const PKG = resolve(HERE, '..');
 const GATE = join(PKG, 'scripts', 'check-attribution.mjs');
 
 /** Ejecuta la puerta contra un paquete raiz y devuelve {code, report}. */
-function runGate(root) {
+function runGate(root, extra = []) {
   let out = '';
   let code = 0;
   try {
-    out = execFileSync(process.execPath, [GATE, '--root', root, '--json'], {
+    out = execFileSync(process.execPath, [GATE, '--root', root, '--json', ...extra], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -224,6 +224,34 @@ test('un nativo CON cabecera canonica falla: seria una atribucion falsa (exit 1)
   }
 });
 
+test('--fix NO muta el repositorio: la puerta no puede aprobarse a si misma', () => {
+  // EGO-FIND-109: antes, `--fix` reescribia el repo, asi que correr la puerta
+  // dejaba el arbol en el estado que la puerta quiere: la puerta se aprobaba
+  // a si misma. Ahora `--fix` escribe una PROPUESTA y no toca nada; el arbol
+  // sigue sin la cabecera, asi que la puerta sigue fallando.
+  const root = makePackage({ derivedHeader: '// anim.js - easings y springs.\nexport const ease = 1;\n' });
+  try {
+    const antes = readFileSync(join(root, 'src', 'anim.js'), 'utf8');
+
+    // 1) la puerta, con --fix, falla igual (no se auto-aprueba)
+    const fix = runGate(root, ['--fix']);
+    assert.equal(fix.code, 1, 'con --fix la puerta debe seguir fallando');
+
+    // 2) el fichero NO ha cambiado
+    const despues = readFileSync(join(root, 'src', 'anim.js'), 'utf8');
+    assert.equal(despues, antes, '--fix no puede reescribir el repositorio');
+
+    // 3) lo que deja es una PROPUESTA, en un fichero aparte
+    const propuesta = join(root, 'provenance.proposed.json');
+    assert.ok(existsSync(propuesta), '--fix debe escribir la propuesta');
+    const doc = JSON.parse(readFileSync(propuesta, 'utf8'));
+    assert.ok(Array.isArray(doc.cambios) && doc.cambios.length >= 1, 'la propuesta lista los cambios');
+    assert.match(doc.cambios[0].line, /Adapted from coucou \(MIT\), vendor\/coucou\/anim\.ts/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('un nativo con una cabecera "Adapted from" en la forma VIEJA tambien falla', () => {
   // La forma vieja (upstream con "/" y licencia entre parentesis) no casa con
   // el matcher del manifiesto, pero en un nativo sigue siendo una atribucion
@@ -307,6 +335,10 @@ test('la puerta real del paquete pasa (exit 0)', () => {
   // Baseline HONESTO tras la Ola 9 (decision D4): los seis ficheros
   // sustituidos (silueta, cuerpo, poses, timeline, sonido del studio y
   // accesorios) pasaron de derivados a nativos, asi que el reparto es 57/31.
-  assert.equal(report.derived.length, 57, `derivados declarados: ${report.derived.length}`);
+  // Baseline HONESTO tras la Ola 10: el detector de verbatim corrigio una
+  // clasificacion equivocada (`runtime/avatar-element.js` es un port real de
+  // agent-robot-avatar: 342 shingles en rachas de 107 caracteres), asi que paso
+  // de nativo a derivado. Reparto: 58 derivados + 31 nativos.
+  assert.equal(report.derived.length, 58, `derivados declarados: ${report.derived.length}`);
   assert.equal(report.native.length, 31, `nativos declarados: ${report.native.length}`);
 });

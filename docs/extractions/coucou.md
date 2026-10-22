@@ -2121,10 +2121,10 @@ verificable por puerta.
 
 | | Ficheros de `packages/avatar/src/` | Nota |
 |---|:---:|---|
-| **Derivados** (llevan cabecera canonica `Adapted from <upstream> (<LIC>), <ruta>`) | **25** | 8 con cabecera desde la Ola 1 + 17 normalizadas en la Ola 9 |
-| **Nativos** (implementacion propia de Ego; **sin** cabecera) | **24** | 18 en `src/` + 2 `.d.ts` + los 6 sustituidos por D4 |
+| **Derivados** (llevan cabecera canonica `Adapted from <upstream> (<LIC>), <ruta>`) | **26** | 8 con cabecera desde la Ola 1 + 17 normalizadas en la Ola 9 + `runtime/avatar-element.js`, que el detector de verbatim de la Ola 10 demostro ser un port real (342 shingles contra `vendor/agent-robot-avatar/core.js`) |
+| **Nativos** (implementacion propia de Ego; **sin** cabecera) | **23** | 17 en `src/` + 2 `.d.ts` + los 6 sustituidos por D4 - `runtime/avatar-element.js`, que paso a derivado |
 
-> El reparto **definitivo** de los 86 ficheros del paquete (63 -> 57 derivados
+> El reparto **definitivo** de los 89 ficheros del paquete (63 -> 58 derivados
 > tras D4, mas 31 nativos) vive en el manifiesto
 > `packages/avatar/provenance.manifest.json`, que es el **denominador** de la
 > puerta `packages/avatar/scripts/check-attribution.mjs`. La clasificacion se

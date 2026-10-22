@@ -1,50 +1,71 @@
 #!/usr/bin/env node
-// scripts/check-no-verbatim.mjs — puerta de "no hay codigo verbatim del upstream".
+// scripts/check-no-verbatim.mjs — puerta de la decision D4: CERO codigo
+// verbatim del upstream en el codigo propio de Ego.
 //
-// Por que existe: la decision D4 del owner (2026-10-19, ejecutada el 2026-10-21)
-// es que **el motor de personaje de Ego no lleva codigo verbatim de los repos de
-// referencia**: donde el port existia, se escribe geometria (o tablas, o
-// sintesis) propia. La atribucion (plano 1) dice DE QUIEN es el codigo; esta
-// puerta dice SI LO ES.
+// POR QUE EXISTE: la decision D4 del owner (2026-10-21) es que el motor de
+// personaje no lleva codigo verbatim de los repos de referencia. El riesgo
+// real de esa decision es la **reversion silenciosa**: alguien "optimiza" un
+// fichero, pega un trozo del original, o restaura un fichero entero desde el
+// clon. Nada lo detectaria: los tests siguen verdes y la cabecera canonica
+// sigue siendo correcta.
 //
-// El riesgo real es la **reversion silenciosa**: alguien "optimiza" un fichero
-// y vuelve a pegar un trozo del original, o restaura un fichero entero desde el
-// clon. Nada lo detectaria: los tests siguen verdes, la cabecera canonica
-// sigue siendo correcta (el fichero sigue siendo derivado... o deja de serlo).
+// QUE MIDE: el **residuo verbatim**, con el metodo de la Ola 8 (shingles de
+// 48 caracteres sobre el texto normalizado, sin comentarios), comparado contra
+// los upstreams VERDADEROS:
 //
-// Esta puerta mide el **residuo verbatim** con el mismo metodo de la Ola 8:
-// shingles de 48 caracteres sobre el texto normalizado (sin comentarios,
-// espacios colapsados). El residuo es la fraccion del fichero que sigue
-// siendo texto del upstream, tomada como el MAXIMO sobre todas las fuentes
-// de referencia:
+//   · el corpus `vendor/` del paquete (los originales MIT), y
+//   · el single-file HTML del motor canvas (`avatar_studio_cx_artlab_mochi_2_0.html`).
 //
-//   - el clon de referencia `repos-referencia/avatar/src/**` (el port);
-//   - el single-file `repos-referencia/avatar/avatar_studio_cx_artlab_mochi_2_0.html`;
-//   - el corpus `vendor/**` del paquete (los originales MIT).
+// > **Por que NO se mide contra el clon de referencia**
+// (`repos-referencia/avatar/`): ese clon es el paquete de Ego de una iteracion
+// anterior y MEZCLA codigo propio con ports. Medir contra el responderia a
+// "¿queda codigo de la iteracion anterior?", no a "¿queda codigo del
+// upstream?" — y un fichero totalmente propio seguiria dando residuo por sus
+// funciones propias.
 //
-// El presupuesto vive en `provenance.manifest.json` (campo `verbatim`): por
-// fichero, el residuo maximo admisible y por que. Un fichero con presupuesto
-// 0 no puede conservar ni 48 caracteres del upstream.
+// EL PRESUPUESTO vive en `provenance.manifest.json` y esta **en SHINGLES**, no
+// en porcentaje: "1 shingle de 48 caracteres" es una coincidencia real, no un
+// 100 %.
+//
+//   · un fichero **nativo** (codigo propio de Ego) tiene presupuesto **0**:
+//     no puede conservar NI UN shingle del upstream;
+//   · un fichero **derivado** (un port atribuido) tiene como presupuesto su
+//     residuo declarado: si le crecen los prestamos, la puerta lo ve.
+//
+// COBERTURA COMPLETA: se mide **todo** fichero del paquete (src, tests, demo),
+// no solo los listados a mano. La lista de ficheros medidos sale del
+// manifiesto, que la puerta de atribucion obliga a mantener TOTAL.
+//
+// Y la espejo vendorizado (`apps/desktop/renderer/floating/vendor/avatar/`) se
+// mide con el MISMO presupuesto: si el paquete esta limpio pero la copia no,
+// el producto tiene lo mismo.
+//
+// ADEMAS: una puerta que no mide nada debe FALLAR, no pasar (si el manifiesto
+// no trae presupuestos, o no hay ficheros que medir, la puerta dice que no
+// esta midiendo y sale con 1).
 //
 // Uso:
 //   node scripts/check-no-verbatim.mjs [--root <dir>] [--json] [--all]
 //
-//   --root <dir>  raiz del paquete a comprobar (por defecto, el propio). Es lo
-//                 que permite ejercitar la puerta con fixtures.
+//   --root <dir>  raiz del paquete a comprobar (por defecto, el propio).
 //   --json        informe machine.
-//   --all         incluye en el informe el residuo de TODOS los ficheros
-//                 (no solo los que tienen presupuesto), para ver el mapa.
+//   --all         incluye en el informe el residuo de los ficheros SIN
+//                 presupuesto (informativo).
 //
-// Salida: 0 = sin residuo fuera de presupuesto; 1 = hay residuo; 2 = error de uso.
+// Salida: 0 = sin residuo fuera de presupuesto; 1 = hay residuo, o la puerta
+// no ha podido medir.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { N, MIN_RUN, stripComments, shingleSet, residueOf } from './verbatim-lib.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = resolve(HERE, '..');
 const REPO = resolve(PKG, '..', '..');
 const REFERENCE_CLONE = join(REPO, 'repos-referencia', 'avatar');
+const VENDORED = join(REPO, 'apps', 'desktop', 'renderer', 'floating', 'avatar');
 
 const args = process.argv.slice(2);
 const asJson = args.includes('--json');
@@ -56,53 +77,7 @@ if (rootIdx >= 0 && !args[rootIdx + 1]) {
 }
 const ROOT = rootIdx >= 0 ? resolve(args[rootIdx + 1]) : PKG;
 
-/** Longitud del shingle (48 caracteres): el metodo de la Ola 8. */
-const N = 48;
-
-/** Normaliza: quita comentarios y colapsa espacios (el codigo, no la prosa). */
-export function stripComments(text) {
-  let out = '';
-  let inBlock = false;
-  let inStr = null;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    const n = text[i + 1];
-    if (inBlock) {
-      if (c === '*' && n === '/') { inBlock = false; i++; out += ' '; continue; }
-      continue;
-    }
-    if (inStr) {
-      out += c;
-      if (c === '\\') { out += n ?? ''; i++; continue; }
-      if (c === inStr) inStr = null;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === '`') { inStr = c; out += c; continue; }
-    if (c === '/' && n === '*') { inBlock = true; i++; out += ' '; continue; }
-    if (c === '/' && n === '/') {
-      const prev = out[out.length - 1];
-      if (prev !== ':') { while (i < text.length && text[i] !== '\n') i++; out += '\n'; continue; }
-    }
-    out += c;
-  }
-  return out.replace(/\s+/g, ' ').trim();
-}
-
-/** Conjunto de shingles de un texto normalizado. */
-function shingles(normalized) {
-  const set = new Set();
-  for (let i = 0; i + N <= normalized.length; i++) set.add(normalized.slice(i, i + N));
-  return set;
-}
-
-/** Fraccion de los shingles de `norm` que aparecen en `set`. */
-function residue(norm, set) {
-  const sh = shingles(norm);
-  if (!sh.size) return 0;
-  let hit = 0;
-  for (const x of sh) if (set.has(x)) hit++;
-  return hit / sh.size;
-}
+/** El metrico (shingles + rachas contiguas) vive en `verbatim-lib.mjs`. */
 
 function readIf(p) {
   try { return readFileSync(p, 'utf8'); } catch { return null; }
@@ -119,48 +94,33 @@ function walk(dir, base = dir) {
   return out;
 }
 
-/* ── fuentes de referencia ───────────────────────────────────────────────── */
+/* ── referencias: los upstreams verdaderos ─────────────────────────────── */
 
-/**
- * Las referencias son los **upstreams verdaderos**, NO el clon de referencia.
- *
- * El clon `repos-referencia/avatar/` es el paquete de Ego de una iteracion
- * anterior: mezcla codigo PROPIO de Ego con ports de los upstreams. Medir
- * contra el clon no responderia a la pregunta de D4 ("¿queda codigo del
- * upstream?"), sino a otra ("¿queda codigo de la iteracion anterior?").
- * Por eso el clon NO es referencia: si lo fuera, un fichero con codigo
- * totalmente propio (p. ej. `runtime/poses.js` tras la sustitucion) seguira
- * dando residuo por sus funciones propias.
- *
- * Las referencias son, entonces:
- *   1. el corpus `vendor/**` del paquete (los originales MIT, byte a byte);
- *   2. el single-file `avatar_studio_cx_artlab_mochi_2_0.html` (origen del
- *      motor canvas), si el clon de referencia esta presente.
- */
 const references = [];   // { label, set }
 
 function addReference(label, text) {
   if (!text) return;
   const norm = stripComments(text);
   if (norm.length < N) return;
-  references.push({ label, set: shingles(norm) });
+  references.push({ label, set: shingleSet(norm) });
 }
 
 // 1) El single-file HTML (origen del motor canvas).
 if (existsSync(REFERENCE_CLONE)) {
-  const html = readIf(join(REFERENCE_CLONE, 'avatar_studio_cx_artlab_mochi_2_0.html'));
-  if (html) addReference('vendor/ego-avatar-studio/avatar_studio_cx_artlab_mochi_2_0.html', html);
+  addReference(
+    'vendor/ego-avatar-studio/avatar_studio_cx_artlab_mochi_2_0.html',
+    readIf(join(REFERENCE_CLONE, 'avatar_studio_cx_artlab_mochi_2_0.html')),
+  );
 } else {
-  console.error('  nota: el clon de referencia no esta presente; solo se mide contra el corpus vendor/.');
+  console.error('  nota: el clon de referencia no esta presente; el HTML no es comparable.');
 }
 
 // 2) El corpus de atribucion del paquete (los originales MIT).
 for (const f of walk(join(ROOT, 'vendor'))) {
-  const t = readIf(join(ROOT, 'vendor', f));
-  if (t) addReference(`vendor/${f}`, t);
+  addReference(`vendor/${f}`, readIf(join(ROOT, 'vendor', f)));
 }
 
-/* ── manifiesto: el presupuesto ──────────────────────────────────────────── */
+/* ── manifiesto: el presupuesto ─────────────────────────────────────────── */
 
 const manifestPath = join(ROOT, 'provenance.manifest.json');
 if (!existsSync(manifestPath)) {
@@ -174,94 +134,139 @@ try {
   console.error(`provenance.manifest.json no parsea: ${e.message}`);
   process.exit(2);
 }
-const budgets = manifest.verbatim ?? {};
 
-/* ── medicion ────────────────────────────────────────────────────────────── */
+/**
+ * El presupuesto: por fichero, el numero MAXIMO de shingles del upstream que
+ * puede conservar. Viene del manifiesto:
+ *   · `native`   → 0 (codigo propio: ni un shingle);
+ *   · `derived` → el residuo declarado (su valor en el momento de declararse:
+ *     si le crecen los prestamos, la puerta lo ve).
+ */
+const budgets = new Map();
+for (const d of manifest.derived ?? []) {
+  const b = d.verbatim?.maxShingles;
+  budgets.set(d.path, Number.isFinite(b) ? b : null);
+}
+for (const n of manifest.native ?? []) {
+  const b = n.verbatim?.maxShingles;
+  budgets.set(n.path, Number.isFinite(b) ? b : null);
+}
 
-/** Residuo maximo de un fichero contra todas las referencias. */
-function measure(absPath) {
+if (budgets.size === 0) {
+  console.error(
+    'el manifiesto no declara ningun presupuesto de residuo: la puerta no mediria nada. ' +
+      'Ejecuta `node scripts/measure-verbatim.mjs` para declararlos.',
+  );
+  process.exit(1);
+}
+
+/* ── medicion ───────────────────────────────────────────────────────────── */
+
+/** Los shingles del fichero que coinciden con alguna referencia. */
+function matchingShingles(absPath) {
   const text = readIf(absPath);
-  if (text === null) return { residue: 0, source: null };
+  if (text === null) return { count: 0, source: null };
   const norm = stripComments(text);
-  let best = { residue: 0, source: null };
-  for (const r of references) {
-    const v = residue(norm, r.set);
-    if (v > best.residue) best = { residue: v, source: r.label };
+  if (norm.length < N) return { count: 0, source: null };
+  const m = residueOf(norm, references);
+  return { count: m.count, source: m.source };
+}
+
+/** Los ficheros de codigo del paquete (src, tests, demo). */
+function codeFiles(root) {
+  const out = [];
+  for (const sub of ['src', 'tests', 'demo']) {
+    for (const f of walk(join(root, sub))) {
+      if (/\.(js|mjs|cjs|ts|tsx|html|css)$/.test(f)) out.push(`${sub}/${f}`);
+    }
   }
-  return best;
+  return out.sort();
 }
 
 const problems = [];
 const report = [];
 
-// (a) Los ficheros con presupuesto: el contrato de D4.
-for (const [file, budget] of Object.entries(budgets)) {
-  const abs = join(ROOT, file);
-  if (!existsSync(abs)) {
-    problems.push(`presupuesto de ${file}: el fichero no existe`);
-    report.push({ file, budget: budget.maxResidue ?? 0, measured: null, source: null, ok: false });
+const enDisco = codeFiles(ROOT);
+let medidos = 0;
+
+for (const file of enDisco) {
+  const budget = budgets.get(file);
+  if (budget === undefined) {
+    problems.push(`fichero SIN clasificar en el manifiesto (sin presupuesto): ${file}`);
     continue;
   }
-  const m = measure(abs);
-  const max = budget.maxResidue ?? 0;
-  const ok = m.residue <= max;
-  report.push({ file, budget: max, measured: Number(m.residue.toFixed(4)), source: m.source, ok });
+  const m = matchingShingles(join(ROOT, file));
+  medidos++;
+  const ok = m.count <= budget;
+  report.push({ file, budget, measured: m.count, source: m.source, ok });
   if (!ok) {
     problems.push(
-      `residuo verbatim en ${file}: ${(m.residue * 100).toFixed(1)}% > presupuesto ${(max * 100).toFixed(1)}% ` +
-        `(fuente mas cercana: ${m.source})`,
+      `residuo verbatim en ${file}: ${m.count} shingles > presupuesto ${budget}` +
+        (m.source ? ` (fuente mas cercana: ${m.source})` : ''),
     );
   }
 }
 
-// (b) Informacion: el residuo de todos los ficheros (para ver el mapa).
-if (showAll) {
-  const all = [];
-  for (const sub of ['src', 'tests', 'demo']) {
-    for (const f of walk(join(ROOT, sub))) {
-      if (!/\.(js|mjs|cjs|ts|tsx|html|css)$/.test(f)) continue;
-      const rel = `${sub}/${f}`;
-      const m = measure(join(ROOT, sub, f));
-      all.push({ file: rel, measured: Number(m.residue.toFixed(4)), source: m.source });
-    }
+// Los ficheros del manifiesto que no existen en disco (solo los de CODIGO:
+// el manifiesto tambien clasifica datos, como el golden, que no se miden).
+const CODE_FILE = /\.(js|mjs|cjs|ts|tsx|html|css)$/;
+for (const file of budgets.keys()) {
+  if (!CODE_FILE.test(file)) continue;
+  if (!enDisco.includes(file)) {
+    problems.push(`el manifiesto declara presupuesto de ${file}, pero ese fichero no existe`);
   }
-  all.sort((a, b) => b.measured - a.measured);
-  report.push(...all.map((x) => ({ ...x, informational: true })));
 }
 
-const result = {
+// El espejo vendorizado: mismo presupuesto (el producto tiene lo mismo).
+if (ROOT === PKG && existsSync(VENDORED)) {
+  for (const file of codeFiles(VENDORED)) {
+    const budget = budgets.get(file);
+    if (budget === undefined) continue;   // el espejo no lleva tests/demo
+    const m = matchingShingles(join(VENDORED, file));
+    medidos++;
+    const ok = m.count <= budget;
+    report.push({ file: `vendorizado:${file}`, budget, measured: m.count, source: m.source, ok });
+    if (!ok) {
+      problems.push(
+        `residuo verbatim en la COPIA VENDORIZADA ${file}: ${m.count} shingles > presupuesto ${budget}`,
+      );
+    }
+  }
+}
+
+// Una puerta que no mide nada NO es una puerta.
+if (medidos === 0) {
+  problems.push('la puerta no ha medido NINGUN fichero: no es una puerta');
+}
+
+const resultado = {
   ok: problems.length === 0,
   root: ROOT,
   shingleLength: N,
   references: references.length,
-  budgets: Object.keys(budgets).length,
+  budgets: budgets.size,
+  medidos,
   report,
   problems,
 };
 
 if (asJson) {
-  console.info(JSON.stringify(result, null, 2));
-  process.exit(result.ok ? 0 : 1);
+  console.info(JSON.stringify(resultado, null, 2));
+  process.exit(resultado.ok ? 0 : 1);
 }
 
 console.info(
-  `residuo verbatim: ${references.length} referencias, ${Object.keys(budgets).length} ficheros con presupuesto ` +
-    `(shingles de ${N} caracteres)`,
+  `residuo verbatim: ${references.length} referencias, ${budgets.size} ficheros con presupuesto, ` +
+    `${medidos} medidos (shingles de ${N} caracteres, rachas de >= ${MIN_RUN})`,
 );
-for (const r of report.filter((x) => !x.informational)) {
+for (const r of report.filter((x) => !x.file.startsWith('vendorizado:'))) {
   const mark = r.ok ? 'ok ' : 'FALLA';
   console.info(
-    `  ${mark} ${r.file.padEnd(38)} medido=${String((r.measured * 100).toFixed(1) + '%').padStart(6)} ` +
-      `presupuesto=${String((r.budget * 100).toFixed(1) + '%').padStart(5)}  ${r.source ?? ''}`,
+    `  ${mark} ${r.file.padEnd(38)} medido=${String(r.measured).padStart(4)} ` +
+      `presupuesto=${String(r.budget).padStart(4)}  ${r.source ?? ''}`,
   );
 }
-if (showAll) {
-  console.info('  --- mapa completo (informativo) ---');
-  for (const r of report.filter((x) => x.informational).slice(0, 25)) {
-    console.info(`       ${String((r.measured * 100).toFixed(1) + '%').padStart(6)}  ${r.file.padEnd(38)} ${r.source ?? ''}`);
-  }
-}
-if (result.ok) {
+if (resultado.ok) {
   console.info('  SIN RESIDUO VERBATIM fuera de presupuesto.');
   process.exit(0);
 }

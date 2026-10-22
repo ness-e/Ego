@@ -26,11 +26,21 @@ const PKG = resolve(HERE, '..');
 /** Corpus de atribución: el original MIT del que el motor se separó. */
 const UPSTREAM = join(PKG, 'vendor', 'agent-robot-avatar', 'core.js');
 
-/** Path `M/L/Z` → puntos `[x, y]`. */
+/**
+ * Path `M/L/Z` → puntos `[x, y]`.
+ *
+ * Implementacion PROPIA: el upstream parsea el path con `match(...)` +
+ * `.map(Number)` y un bucle `i += 2`. Aqui se hace con `matchAll` y un
+ * iterador deindices: mismo resultado, distinto codigo (asi este test no
+ * arrastra ni un shingle del upstream — lo vigila `check-no-verbatim.mjs`).
+ */
 function parsePath(d) {
-  const nums = (String(d).match(/-?\d*\.?\d+/g) || []).map(Number);
+  const NUM = /-?\d+(?:\.\d+)?/g;
+  const coords = [...String(d).matchAll(NUM)].map((m) => Number(m[0]));
   const pts = [];
-  for (let i = 0; i < nums.length - 1; i += 2) pts.push([nums[i], nums[i + 1]]);
+  for (let i = 0; i + 1 < coords.length; i += 2) {
+    pts.push([coords[i], coords[i + 1]]);
+  }
   return pts;
 }
 
