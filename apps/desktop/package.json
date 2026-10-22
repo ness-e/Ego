@@ -47,10 +47,10 @@
     "concurrently": "^10.0.6",
     "electron": "^41.10.7",
     "electron-builder": "^26.15.3",
-    "electron-vite": "^5.0.0",
+    "electron-vite": "^6.0.0",
     "msw": "^2",
     "typescript": "^5.6.3",
-    "vitest": "^3.2.7",
+    "vitest": "^5.0.5",
     "wait-on": "^9.5.1"
   }
 }
