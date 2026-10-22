@@ -27,6 +27,6 @@
     "@ego/tools": "workspace:*",
     "@types/node": "^22.8.0",
     "typescript": "^5.6.3",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.5"
   }
 }
