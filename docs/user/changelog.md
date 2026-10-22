@@ -87,8 +87,9 @@ Dos cambios **sí** requieren atención:
   antiguas siguen arrancando, aunque sin las correcciones de seguridad del
   motor.
 - **El servidor MCP de Ego escucha solo en `127.0.0.1`** y exige una clave.
-  El canal para obtener esa clave (variable de entorno o fichero protegido en
-  el directorio de datos de la app) **todavía se está documentando**: hasta
-  que se cierre, un cliente MCP externo no puede autenticarse de forma
-  soportada. Ver `EGO-FIND-81` en el Backlog y
-  [ADR-0021](../adr/0021-mcp-server-transporte-y-token.md).
+  El canal para obtener esa clave está **documentado y soportado**: la clave se
+  guarda en el almacén seguro del sistema y se entrega con el comando local
+  `ego mcp token` (usa `--out <fichero>` para consumos automatizados). Nunca
+  pasa por la ventana de la app. Ver `docs/user/configuration.md` §Conectar un
+  cliente MCP externo, [ADR-0021](../adr/0021-mcp-server-transporte-y-token.md)
+  y [ADR-0027](../adr/0027-vista-filtrada-del-registro-de-tools.md).

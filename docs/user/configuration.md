@@ -69,6 +69,49 @@ muestran sin máscara en el panel.
   `OLLAMA_BASE_URL`) sirven como arranque inicial; lo que guardes en
   la interfaz tiene precedencia sobre ellas.
 
+## Conectar un cliente MCP externo (el token del servidor MCP)
+
+Ego puede actuar **como servidor MCP** para que otros programas (un IDE, un
+agente, una herramienta) lo consulten. Ese servidor escucha **solo en
+`127.0.0.1`** y **exige un token**.
+
+### Cómo se obtiene el token
+
+El token se guarda en el **almacén seguro del sistema** (Keychain en macOS,
+DPAPI en Windows, Secret Service en Linux), nunca en un fichero en claro, y
+**no** se muestra en la interfaz. Para obtenerlo hay un **comando local**:
+
+```bash
+ego mcp token                  # imprime el token por stdout
+ego mcp token --out <fichero>  # lo escribe en un fichero 0600 (recomendado)
+ego mcp token --json           # { "token": "...", "url": "..." }
+```
+
+**Usa `--out <fichero>`** si el token lo consume otro proceso. Un token
+impreso por stdout puede acabar en el **scrollback** del terminal, en una
+grabadora de terminal o en el log del proceso que lo invoca; el fichero con
+modo `0600` solo lo lee tu usuario y puedes borrarlo en el acto. El comando
+sin `--out` es para uso manual.
+
+El token **nunca pasa por la ventana de la aplicación**: el comando corre en
+el proceso principal, sin interfaz. Por eso un cliente MCP externo puede
+autenticarse sin exponer la clave a la UI.
+
+### Configurar el cliente
+
+Con el token a mano, apunta tu cliente MCP al servidor local de Ego y
+envíale el token en la cabecera `Authorization: Bearer <token>`. Un token
+incorrecto se rechaza con **401**. La URL exacta y el modo de arranque del
+servidor están en el log de arranque de la app.
+
+### Si algo falla
+
+| Síntoma | Causa probable |
+|---|---|
+| El comando no imprime nada | La app no está arrancada: el token se pide al proceso principal en ejecución |
+| El cliente recibe **401** | Token caducado o de otra instancia: vuelve a ejecutar `ego mcp token` |
+| El cliente no conecta | El servidor MCP no está habilitado o el puerto cambió al reiniciar |
+
 ## Variables de entorno (arranque inicial)
 
 | Variable | Efecto |
