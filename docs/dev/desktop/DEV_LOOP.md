@@ -45,3 +45,38 @@ Vite ni Electron colgados.
   follow-up si el equipo lo pide).
 - Producción/empaquetado no usa este loop: `electron-builder` sirve
   `renderer/dist/index.html` compilado (`win.loadFile`).
+
+## Smoke test del bundle (EGO-FIND-122)
+
+`pnpm build` deja el bundle real en `apps/desktop/out/{main,preload}`. El
+smoke test lo comprueba sin necesidad de la VM limpia del owner:
+
+```bash
+pnpm run verify:bundle      # smoke test (fail-soft si no hay bundle)
+pnpm run verify:bundle:test # 6 casos con fixtures
+```
+
+Qué comprueba:
+
+1. **No resuelve Node/Rust/Python**: el bundle es de Electron; si invoca un
+   toolchain del sistema (`node`, `python3`, `cargo`, `rustc`, `npm`…), la app
+   funciona en la máquina del developer y se rompe en la del usuario.
+2. **Los `.node` de VantaDB se cargan desde `asarUnpack`**: dentro del `.asar`
+   el linker no puede cargarlos. Se verifican los 3 patrones de
+   `apps/desktop/electron-builder.config.cjs` y, si hay app desempaquetada, que
+   el binario está fuera del `.asar`.
+3. **No hay DLLs ausentes** en el paquete (en Windows: `vcruntime140.dll`,
+   `vcruntime140_1.dll`, `msvcp140.dll`).
+
+**Fail-soft**: sin bundle (`apps/desktop/out/main/main.js`) no hay nada que
+comprobar y el script sale 0 diciendo qué se ha omitido. Para las dos
+comprobaciones que necesitan la app desempaquetada:
+
+```bash
+pnpm --filter @ego/desktop dist   # genera apps/desktop/release/**
+```
+
+**Lo que esto NO cubre**: la prueba en la VM limpia del owner (`DIST-06`) sigue
+siendo necesaria para la instalación real en Windows (registro, firma, arranque
+en frío). El smoke test deja de ser la única línea de defensa, no la
+sustituye.

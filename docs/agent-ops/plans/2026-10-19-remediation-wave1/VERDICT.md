@@ -350,9 +350,9 @@ handoff de A4 la negaba.
 
 | Estado | Filas | % |
 |---|---:|---:|
-| ✅ Completada | **115** | 93,5 % |
-| 🟡 Parcial | **5** | 4,1 % |
-| 🆕 Pendiente | **3** | 2,4 % |
+| ✅ Completada | **121** | 98,4 % |
+| 🟡 Parcial | **1** | 0,8 % |
+| 🆕 Pendiente | **1** | 0,8 % |
 
 > Las **12 tareas canónicas** del roadmap (12 fases + 03.1) están en **149 de 151**
 > (las 2 que faltan, `DIST-04` y `DIST-06`, son **bloqueo del owner**: certificados
@@ -363,18 +363,17 @@ handoff de A4 la negaba.
 > hallazgos más) y las olas 9-10 los han cerrado casi todos. **Lo que no cambia es
 > el criterio**: una fila sólo pasa a ✅ con **evidencia verificable** (fichero:línea o test).
 
-### 7.6.1 Las 8 que quedan abiertas, con su motivo en una línea #
+### 7.6.1 Las 2 que quedan abiertas, con su motivo en una línea #
 
 | Id | Estado | Qué falta exactamente |
 |---|---|---|
-| `EGO-FIND-63` | 🟡 | 1 fichero / 3 asserts en la zona de A7 (`tests/e2e/contract/floating-wiring.contract.test.ts`); el inventario de la zona de A4 bajó de 11 a **0** |
-| `EGO-FIND-82` | 🟡 | Las **3** puertas nuevas de paquete (`tool-call-repair`, `tools`, `ui-runtime`) no están cableadas en CI → zona de A7 |
-| `EGO-FIND-87` | 🆕 | `VDB-REQ-14` (**upstream**): 320,03 MB de pre-reserva por store, no parametrizable |
-| `EGO-FIND-94` | 🟡 | La parte de Ego está cerrada (puente HybridRuntime + puerta `vantadb:check` bloqueante); queda **upstream** (`VDB-REQ-16a`) |
-| `EGO-FIND-108` | 🆕 | El detector de tests tautológicos exige `readFileSync` **en la misma línea** ⇒ no ve las lecturas envueltas en un helper → zona de A7 |
-| `EGO-FIND-116` | 🟡 | El renderer ya pasa `base-form`/`traits`/`outfit` al `<ego-avatar>`; falta que **el motor los observe** → zona de A6 |
-| `EGO-FIND-119` | 🟡 | Falta el **canal main→canvas** de la atención para que `CharacterPresence` exprese el contexto real |
-| `EGO-FIND-122` | 🆕 | El smoke test del **bundle real**: que no resuelva Node/Rust/Python, que los `.node` carguen desde `asarUnpack` y que no falten DLLs → zona de A7 |
+| `EGO-FIND-87` | 🆕 | `VDB-REQ-14` (**upstream**): 320,03 MB de pre-reserva por store, no parametrizable. No hay vía agent-side |
+| `EGO-FIND-94` | 🟡 | La parte de Ego está cerrada (puente HybridRuntime + puerta `vantadb:check` bloqueante); queda **upstream** (`VDB-REQ-16a`: que el wrapper `vantadb@0.9.0` re-exponga las APIs cognitivas) |
+
+> Las **121** filas cerradas incluyen las **19** que abrió la auditoría paralela
+> (`EGO-FIND-104..122`): los 8 visuales del renderer, los 8 del motor de personaje,
+> los 4 de la curaduría de memoria, los 4 de las puertas sin cablear y el resto.
+> Las 2 que quedan **no son trabajo de Ego**: son peticiones al upstream de VantaDB.
 
 ### 7.6.2 Las 7 decisiones de producto que esperan al owner #
 
