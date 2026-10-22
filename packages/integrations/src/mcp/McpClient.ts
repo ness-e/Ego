@@ -421,7 +421,15 @@ export class McpClient extends EventEmitter {
         }
       };
 
-      registry.register(toolDef, { allowOverride: true });
+      registry.register(toolDef, {
+        allowOverride: true,
+        // Ola 9 · vista filtrada por Sub-Ego: el dueño viaja con la tool.
+        // `undefined` ⇒ GLOBAL (la conexión la abre la app: sus servers MCP
+        // son infraestructura compartida, no artefactos de un Sub-Ego).
+        ...(options.ownerSubEgoId !== undefined
+          ? { ownerSubEgoId: options.ownerSubEgoId }
+          : {}),
+      });
       registeredCount++;
 
       if (!existing) {
@@ -460,17 +468,36 @@ export class McpClient extends EventEmitter {
     this.stdoutBuffer = "";
     this.stderrBuffer = "";
 
-    this.process.stdout?.on("data", (chunk: Buffer) => {
+    // Ola 9 (A3): los handlers se ligation al subproceso que los registra.
+    //
+    // BUG PREEXISTENTE (arreglado aquí): `cleanupProcess()` mata al hijo pero
+    // **no espera** a que termine. Su evento `exit` llega DESPUÉS de que se
+    // haya spawneado el hijo nuevo (reconexión) ⇒ el handler del hijo VIEJO
+    // ejecutaba `rejectAllPending()` sobre el mapa **compartido** y rechazaba
+    // el handshake (`initialize`) del hijo NUEVO con el error del viejo
+    // ("El subproceso MCP terminó inesperadamente (código: null, señal:
+    // SIGTERM)"). Resultado: **reconectar un servidor MCP tras apagarlo
+    // fallaba siempre** (toggle off/on en la UI) ⇒ las tools no volvían al
+    // registro.
+    //
+    // El guard `this.process !== child` hace que un subproceso **obsoleto**
+    // no toque ni el estado ni las peticiones pendientes del actual.
+    const child = this.process;
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      if (this.process !== child) return;
       this.handleStdoutData(chunk);
     });
 
-    this.process.stderr?.on("data", (chunk: Buffer) => {
+    child.stderr?.on("data", (chunk: Buffer) => {
+      if (this.process !== child) return;
       const text = chunk.toString("utf8");
       this.stderrBuffer = (this.stderrBuffer + text).slice(-8192); // Mantener últimos 8KB
       this.emit("stderr", text);
     });
 
-    this.process.on("error", (err: Error) => {
+    child.on("error", (err: Error) => {
+      if (this.process !== child) return; // subproceso obsoleto: ignora
       this.setStatus("error");
       if (this.listenerCount("error") > 0) {
         this.emit("error", err);
@@ -478,7 +505,8 @@ export class McpClient extends EventEmitter {
       this.rejectAllPending(new Error(`Error en subproceso MCP: ${err.message}`));
     });
 
-    this.process.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+    child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+      if (this.process !== child) return; // subproceso obsoleto: ignora
       if (this.status !== "disconnected") {
         this.setStatus("error");
       }

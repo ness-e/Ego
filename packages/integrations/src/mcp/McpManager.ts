@@ -51,12 +51,58 @@ export interface McpManagerOptions {
   eventBus?: EventBus;
 }
 
+/**
+ * Ámbito de propiedad de las tools que importa un servidor MCP (Ola 9).
+ *
+ * ## Por qué un tipo y no un parámetro suelto
+ *
+ * La vista filtrada del registro (A4, `packages/tools/src/subEgoView.ts`)
+ * aplica la regla *"sin dueño ⇒ global"*: una tool sin `ownerSubEgoId` la ven
+ * **todos** los Sub-Egos. Esa regla es segura **si** quien registra una tool
+ * privada declara su dueño; es un agujero si no.
+ *
+ * Por eso el ámbito se declara **explícitamente** en la API y no se deduce:
+ *
+ * - `{ scope: "app" }` ⇒ la conexión la abre **la app** ⇒ las tools son
+ *   **GLOBALES** (las configuró el usuario en los ajustes: son
+ *   infraestructura compartida). **No es un olvido**: es la decisión.
+ * - `{ scope: "sub-ego", ownerSubEgoId }` ⇒ la conexión la abre **un
+ *   Sub-Ego** ⇒ sus tools son **privadas** de ese Sub-Ego.
+ *
+ * ## El caso real (a 2026-10-21)
+ *
+ * **No existe ningún camino en el que un Sub-Ego abra una conexión MCP**:
+ * - `apps/desktop/src/main/ipc/domains/mcp.ts:49` → el handler IPC
+ *   `ipc.mcp.addServer`, que dispara el **usuario** al configurar un servidor
+ *   MCP externo (el esquema `AddMcpServerSchema` no tiene campo de Sub-Ego);
+ * - `apps/desktop/src/main/window/create-window.ts:701` → la app **restaura**
+ *   sus servidores MCP persistidos al arrancar;
+ * - `packages/integrations/src/mcp/**` tiene **0** referencias a `subEgoId`.
+ *
+ * ⇒ el ámbito por defecto es `app` (global) y el camino privado queda
+ * **disponible y probado** para cuando exista (o para un Sub-Ego que
+ * registre su propio servidor).
+ */
+export type McpToolOwnership =
+  | { readonly scope: "app" }
+  | { readonly scope: "sub-ego"; readonly ownerSubEgoId: string };
+
+/** Ámbito por defecto: la conexión la abre la app ⇒ tools globales. */
+export const APP_SCOPE_TOOL_OWNERSHIP: McpToolOwnership = Object.freeze({
+  scope: "app",
+});
+
 interface ManagedServerEntry {
   config: McpServerConfig;
   client: McpClient;
   enabled: boolean;
   lastError?: string;
   importedToolNames: Set<string>;
+  /**
+   * Ámbito de las tools importadas de este servidor (Ola 9). Se guarda en la
+   * entrada para que una **reconexión** conserve el dueño.
+   */
+  ownership: McpToolOwnership;
 }
 
 export class McpManager {
@@ -83,10 +129,18 @@ export class McpManager {
   /**
    * Registra o actualiza la configuración de un servidor MCP.
    * Aplica SafeConfigMutation (COUC-10): desconexión atómica de la versión previa si existía.
+   *
+   * @param ownership Ámbito de las tools importadas (Ola 9). Por defecto
+   * `{ scope: "app" }` ⇒ **GLOBAL**: la conexión la abre la app (el usuario
+   * configura el servidor MCP en los ajustes, o la app lo restaura al
+   * arrancar) ⇒ sus tools son infraestructura compartida y las ven todos
+   * los Sub-Egos. No es un olvido: es la decisión documentada en
+   * `McpToolOwnership`.
    */
   public async registerServer(
     config: McpServerConfig,
-    enabled: boolean = true
+    enabled: boolean = true,
+    ownership: McpToolOwnership = APP_SCOPE_TOOL_OWNERSHIP
   ): Promise<McpServerRuntimeState> {
     // STAB-12: validación SSRF fail-closed ANTES de crear estado (la URL de
     // un http remoto es input del renderer; `assertSafeMcpHttpUrl` lanza).
@@ -106,6 +160,7 @@ export class McpManager {
       client,
       enabled,
       importedToolNames: new Set<string>(),
+      ownership,
     };
 
     this.servers.set(config.id, entry);
@@ -119,8 +174,15 @@ export class McpManager {
 
   /**
    * Conecta un servidor MCP e importa dinámicamente sus herramientas al ToolRegistry.
+   *
+   * @param ownership Ámbito de las tools importadas. Si se omite, se usa el
+   * ámbito con el que se **registró** el servidor (así una reconexión
+   * conserva el dueño). `app` ⇒ tools GLOBALES.
    */
-  public async connectServer(id: string): Promise<McpServerRuntimeState> {
+  public async connectServer(
+    id: string,
+    ownership?: McpToolOwnership
+  ): Promise<McpServerRuntimeState> {
     const entry = this.servers.get(id);
     if (!entry) {
       throw new Error(`[McpManager] Servidor MCP con ID '${id}' no encontrado.`);
@@ -128,6 +190,10 @@ export class McpManager {
 
     entry.enabled = true;
     entry.lastError = undefined;
+    const scope = ownership ?? entry.ownership;
+    // El ámbito efectivo se recuerda en la entrada: una reconexión posterior
+    // (toggle) no puede perder el dueño.
+    entry.ownership = scope;
 
     try {
       await entry.client.connect();
@@ -147,6 +213,11 @@ export class McpManager {
         const result = entry.client.importIntoRegistryDetailed(this.registry, {
           prefix,
           overrideExisting: entry.config.allowOverride === true,
+          // Ola 9: el dueño viaja con la tool importada. `scope: "app"` ⇒ sin
+          // dueño ⇒ GLOBAL (la conexión la abre la app).
+          ...(scope.scope === "sub-ego"
+            ? { ownerSubEgoId: scope.ownerSubEgoId }
+            : {}),
         });
 
         for (const decision of result.decisions) {

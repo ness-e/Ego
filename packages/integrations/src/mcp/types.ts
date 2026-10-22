@@ -238,6 +238,20 @@ export interface McpImportOptions {
    */
   overrideExisting?: boolean;
   defaultRiskLevel?: ToolRiskLevel;
+  /**
+   * Ola 9 · vista filtrada por Sub-Ego: **dueño** de las tools importadas.
+   *
+   * - `undefined` ⇒ la tool es **GLOBAL**: la ven todas las vistas de
+   *   Sub-Ego (la regla documentada en `packages/tools/src/subEgoView.ts`).
+   * - `X` ⇒ la tool es **privada** de `X`: ninguna otra vista la expone.
+   *
+   * ⚠️ **Cuándo se declara**: la conexión MCP la abre **la app** (el usuario
+   * configura un servidor MCP externo en los ajustes, o la app restaura los
+   * servidores persistidos al arrancar) ⇒ sus tools son **infraestructura de
+   * la app** y **no** tienen dueño. Sólo un Sub-Ego que **propio** abre la
+   * conexión declararía un dueño.
+   */
+  ownerSubEgoId?: string;
 }
 
 /**

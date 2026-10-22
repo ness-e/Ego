@@ -32,29 +32,30 @@ import {
   startEgoMcpHttpServer,
   type EgoMcpHttpServerHandle,
 } from "./mcp-http-server.js";
+import {
+  startMcpTokenBroker,
+  type McpTokenBrokerHandle,
+} from "./mcp-token-broker.js";
+import {
+  McpTokenKeychain,
+  MCP_TOKEN_KEYCHAIN_SERVICE,
+  MCP_TOKEN_KEYCHAIN_ACCOUNT,
+  type McpTokenVault,
+} from "../credentials/mcp-token-keychain.js";
 
-/** Servicio y cuenta del token en el almacén de credenciales. */
-export const MCP_SERVER_TOKEN_SERVICE = "mcp";
-export const MCP_SERVER_TOKEN_ACCOUNT = "ego-mcp-server";
+export type { McpTokenVault } from "../credentials/mcp-token-keychain.js";
 
-/** Almacén de credenciales mínimo (el `CredentialManager` del main lo cumple). */
-export interface McpTokenVault {
-  getSecret(service: string, account: string): Promise<string | null>;
-  storeSecret(
-    service: string,
-    account: string,
-    secret: string
-  ): Promise<void> | void;
-  /**
-   * Borra el secreto. **Opcional**: un almacén que no sepa borrar simply
-   * no revoca (el token caduca con el proceso), pero el `CredentialManager`
-   * real sí lo hace (`deleteSecret` es síncrono y devuelve `boolean`).
-   */
-  deleteSecret?(
-    service: string,
-    account: string
-  ): boolean | void | Promise<boolean | void>;
-}
+/**
+ * Servicio y cuenta del token en el keychain del SO.
+ *
+ * Ola 9 (A3): la clave es **namespacada** (`mcp.server` / `token`) para que
+ * el token del servidor MCP no pueda colisionar con un secreto de proveedor
+ * (servicio = nombre del proveedor) ni con los secretos de env MCP
+ * (`mcp/<serverId>/env`). Antes era `mcp` / `ego-mcp-server`.
+ */
+export const MCP_SERVER_TOKEN_SERVICE = MCP_TOKEN_KEYCHAIN_SERVICE;
+export const MCP_SERVER_TOKEN_ACCOUNT = MCP_TOKEN_KEYCHAIN_ACCOUNT;
+
 
 export interface StartEgoMcpServerOptions {
   /** Catálogo real de tools que se expone. */
@@ -77,14 +78,33 @@ export interface StartEgoMcpServerOptions {
   };
   /** Nombre del servidor MCP. */
   serverName?: string;
+  /**
+   * Ruta del pipe del broker local del token (Ola 9 / EGO-FIND-81).
+   * Por defecto, la ruta determinista por usuario.
+   */
+  tokenBrokerPath?: string;
 }
 
 /**
- * Obtiene (o crea) el token bearer del servidor MCP de Ego.
+ * Genera el token bearer del servidor MCP y lo guarda en el keychain del SO.
  *
- * Se persiste **cifrado** en el keychain del SO: no está en claro en disco
- * ni en el renderer. Se reutiliza entre arranques para que un cliente MCP
- * externo pueda cachearlo.
+ * Ola 9 (A3) — **ROTACIÓN POR ARRANQUE**.
+ *
+ * Antes (Ola 1c) el token se **reutilizaba** si ya estaba en el almacén
+ * ("así un cliente puede cachearlo"). Eso es un fallo de seguridad:
+ *
+ * 1. el token es un bearer de un servidor en loopback y **se revoca al
+ *    cerrar** (ADR-0021 §3). Si sobrevive entre arranques, una credencial
+ *    capturada sigue autenticando contra un servidor posterior — la
+ *    revocación deja de ser una garantía;
+ * 2. el almacén de credenciales del main (`CredentialManager`) tiene su vault
+ *    **en memoria** (`packages/security/src/CredentialManager.ts:337`), así
+ *    que en la práctica el token **no** sobrevivía a un reinicio: la
+ *    reutilización era una promesa que el almacenamiento no cumplía.
+ *
+ * ⇒ **Decisión: el token rota en cada arranque.** Se genera uno nuevo, se
+ * sobrescribe la entrada del keychain y se revoca al cerrar. Un cliente
+ * emparejado lo obtiene con `ego mcp token` mientras Ego está en ejecución.
  *
  * ## Fail-soft (bug corregido 2026-10-20)
  * `startEgoMcpServer` se espera DENTRO de `createWindow`: si esta función
@@ -102,19 +122,16 @@ export interface StartEgoMcpServerOptions {
  * pierde es la reutilización entre arranques.
  */
 export async function resolveMcpServerToken(store: McpTokenVault): Promise<string> {
-  const existing = await store.getSecret(
-    MCP_SERVER_TOKEN_SERVICE,
-    MCP_SERVER_TOKEN_ACCOUNT
-  );
-  if (typeof existing === "string" && existing.length >= 32) {
-    return existing;
-  }
+  const keychain = new McpTokenKeychain(store);
+  // Ola 9 (A3) — ROTACIÓN POR ARRANQUE: nunca se reutiliza el token de una
+  // sesión anterior (ver el docstring). Se genera uno nuevo y se sobrescribe
+  // la entrada del keychain.
   const token = randomBytes(32).toString("base64url");
   try {
-    await store.storeSecret(MCP_SERVER_TOKEN_SERVICE, MCP_SERVER_TOKEN_ACCOUNT, token);
+    await keychain.write(token);
   } catch (err) {
     // Fail-soft: el token vive solo en memoria durante esta sesión. La app
-    // arranca; lo que se pierde es la persistencia entre arranques.
+    // arranca; lo que se pierde es su presencia en el keychain.
     console.warn(
       "[MCP] No se pudo persistir el token del servidor MCP en el keychain del SO; " +
         "seguirá siendo válido solo en memoria durante esta sesión.",
@@ -128,34 +145,38 @@ export async function resolveMcpServerToken(store: McpTokenVault): Promise<strin
  * Revoca el token bearer del servidor MCP.
  *
  * T4 (Ola 1c): cerrar el servidor debe **revocar** su token. Si el token
- * sobreviviera en el keychain, el siguiente arranque lo reutilizaría y un
- * cliente externo que lo hubiera cacheado seguiría autenticando contra un
- * servidor que el usuario cree apagado. Con la revocación, el token viejo
- * devuelve 401 y el arranque siguiente genera uno nuevo.
+ * sobreviviera en el keychain, un cliente externo que lo hubiera cacheado
+ * seguiría autenticando contra un servidor que el usuario cree apagado. Con
+ * la revocación, el token viejo devuelve 401 y el arranque siguiente genera
+ * uno nuevo (rotación por arranque, Ola 9).
  */
 export async function revokeMcpServerToken(store: McpTokenVault): Promise<void> {
-  if (typeof store.deleteSecret !== "function") return;
-  try {
-    await store.deleteSecret(
-      MCP_SERVER_TOKEN_SERVICE,
-      MCP_SERVER_TOKEN_ACCOUNT
-    );
-  } catch {
-    // Fail-soft: si el almacén no puede borrar, el token caduca con el
-    // proceso (no se filtra a ningún sitio).
-  }
+  await new McpTokenKeychain(store).revoke();
+}
+
+/**
+ * Handle del servidor MCP de Ego con el broker local del token (Ola 9).
+ */
+export interface EgoMcpServerHandle extends EgoMcpHttpServerHandle {
+  /**
+   * Ruta del pipe del broker local del token. Es el **único** canal por el
+   * que un cliente MCP externo puede obtener el token (`ego mcp token`).
+   */
+  readonly tokenBrokerPath: string;
 }
 
 /**
  * Arranca el servidor MCP de Ego (HTTP streamable en loopback).
  *
- * Devuelve el handle (URL, puerto y cierre) para que el main lo cierre en
- * `before-quit`. El `close()` **revoca además el token bearer**.
+ * Devuelve el handle (URL, puerto, broker y cierre) para que el main lo
+ * cierre en `before-quit`. El `close()` **cierra el broker, revoca el token
+ * bearer** y libera el puerto.
  */
 export async function startEgoMcpServer(
   options: StartEgoMcpServerOptions
-): Promise<EgoMcpHttpServerHandle> {
+): Promise<EgoMcpServerHandle> {
   const token = await resolveMcpServerToken(options.credentialStore);
+  const keychain = new McpTokenKeychain(options.credentialStore);
 
   const server = new EgoMcpServer({
     toolRegistry: options.toolRegistry,
@@ -179,15 +200,41 @@ export async function startEgoMcpServer(
     port: 0,
   });
 
-  // `close()` cierra el listener Y revoca el token. Es idempotente: cerrar dos
-  // veces no lanza ni revoca dos veces.
+  // Ola 9 (A3) / EGO-FIND-81: el broker local del token. Es el canal por el
+  // que `ego mcp token` obtiene el token vigente **y** la URL del endpoint
+  // (el puerto es efímero: sin ella, el token no basta para conectar).
+  // El token se lee del keychain en cada petición ⇒ si se revoca, el broker
+  // deja de servirlo.
+  let broker: McpTokenBrokerHandle | null = null;
+  try {
+    broker = await startMcpTokenBroker({
+      ...(options.tokenBrokerPath ? { path: options.tokenBrokerPath } : {}),
+      readToken: async () => keychain.read(),
+      describeEndpoint: () => handle.url,
+    });
+  } catch (err) {
+    // Fail-soft: el servidor MCP sigue funcionando (el token se puede
+    // obtener por otra vía), pero sin canal local ⇒ se avisa.
+    console.warn(
+      "[MCP] No se pudo arrancar el broker local del token MCP; los clientes " +
+        "externos no podrán obtenerlo con `ego mcp token`.",
+      err instanceof Error ? err.message : err
+    );
+  }
+
+  // `close()` cierra el listener, cierra el broker Y revoca el token. Es
+  // idempotente: cerrar dos veces no lanza ni revoca dos veces.
   let closed = false;
   const close = async (): Promise<void> => {
     if (closed) return;
     closed = true;
+    if (broker) {
+      await broker.close();
+    }
     await handle.close();
     await revokeMcpServerToken(options.credentialStore);
   };
 
-  return { ...handle, close };
+  return { ...handle, close, tokenBrokerPath: broker?.path ?? "" };
+
 }

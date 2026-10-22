@@ -83,6 +83,31 @@ describe("McpManager (Orquestación multicliente MCP y SafeConfigMutation - COUC
     expect(registry.has("mock_get_issue")).toBe(false);
   });
 
+  it("RECONEXIÓN: apagar y volver a encender deja el servidor operativo (Ola 9 / A3)", async () => {
+    // BUG PREEXISTENTE (arreglado por A3 en la Ola 9): `cleanupProcess()` mata
+    // al subproceso pero no espera a que termine. El evento `exit` del hijo
+    // VIEJO llegaba después de spawnear el hijo NUEVO y su
+    // `rejectAllPending()` (mapa compartido) rechazaba el handshake
+    // `initialize` del hijo nuevo con el error del viejo ⇒ **reconectar
+    // siempre fallaba** y las tools no volvían al registro.
+    //
+    // Es un camino de usuario real: apagar y volver a encender un servidor
+    // MCP en los ajustes.
+    await manager.registerServer(validConfig, true);
+    expect(registry.has("mock_get_issue")).toBe(true);
+
+    await manager.toggleServer(validConfig.id, false);
+    expect(registry.has("mock_get_issue")).toBe(false);
+
+    const onState = await manager.toggleServer(validConfig.id, true);
+    expect(onState.status, `la reconexión falló: ${onState.lastError ?? ""}`).toBe(
+      "connected"
+    );
+    expect(onState.lastError).toBeUndefined();
+    expect(registry.has("mock_get_issue")).toBe(true);
+    expect(registry.has("mock_delete_repository")).toBe(true);
+  });
+
   it("debe eliminar completamente un servidor con removeServer", async () => {
     await manager.registerServer(validConfig, true);
     expect(manager.listServers()).toHaveLength(1);

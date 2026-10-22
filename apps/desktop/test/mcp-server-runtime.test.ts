@@ -71,19 +71,26 @@ describe("T2 (R1): arranque del EgoMcpServer desde el main", () => {
     expect(handle!.url.startsWith("http://127.0.0.1:")).toBe(true);
     // El token está en el almacén de credenciales (keychain), no en la URL.
     expect(handle!.url).not.toContain("token");
-    const persisted = vault.store.get("mcp/ego-mcp-server");
+    const persisted = vault.store.get("mcp.server/token");
     expect(typeof persisted).toBe("string");
     expect((persisted ?? "").length).toBeGreaterThanOrEqual(32);
     await handle!.close();
   });
 
-  it("reutiliza el token persistido entre arranques (el cliente puede cachearlo)", async () => {
+  it("el token ROTA por arranque: no se reutiliza el de la sesión anterior", async () => {
+    // Ola 9 (A3) — ANTES este test afirmaba lo contrario ("se reutiliza el
+    // token persistido entre arranques (el cliente puede cachearlo)"). Eso
+    // era un fallo de seguridad: el token es un bearer de un servidor en
+    // loopback que se revoca al cerrar (ADR-0021 §3); si sobreviviera entre
+    // arranques, una credencial capturada seguiría autenticando contra un
+    // servidor posterior. La línea base del test se actualiza aquí y el
+    // guard nuevo es explícito: el token nuevo es DISTINTO.
     const first = await startEgoMcpServer({
       toolRegistry: buildRegistry(),
       credentialStore: vault,
       approvalGate: async () => true,
     });
-    const firstToken = vault.store.get("mcp/ego-mcp-server");
+    const firstToken = vault.store.get("mcp.server/token");
     await first!.close();
 
     const second = await startEgoMcpServer({
@@ -91,7 +98,9 @@ describe("T2 (R1): arranque del EgoMcpServer desde el main", () => {
       credentialStore: vault,
       approvalGate: async () => true,
     });
-    expect(vault.store.get("mcp/ego-mcp-server")).toBe(firstToken);
+    const secondToken = vault.store.get("mcp.server/token");
+    expect(typeof secondToken).toBe("string");
+    expect(secondToken).not.toBe(firstToken);
     await second!.close();
   });
 
@@ -101,7 +110,7 @@ describe("T2 (R1): arranque del EgoMcpServer desde el main", () => {
       credentialStore: vault,
       approvalGate: async () => true,
     });
-    const token = vault.store.get("mcp/ego-mcp-server")!;
+    const token = vault.store.get("mcp.server/token")!;
     const res = await fetch(handle!.url, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
@@ -122,7 +131,7 @@ describe("T2 (R1): arranque del EgoMcpServer desde el main", () => {
       credentialStore: vault,
       approvalGate: async () => false,
     });
-    const token = vault.store.get("mcp/ego-mcp-server")!;
+    const token = vault.store.get("mcp.server/token")!;
     const res = await fetch(handle!.url, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },

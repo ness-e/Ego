@@ -3,6 +3,7 @@ import { createWindow, type CreateWindowDeps } from "./main/window/create-window
 
 import { app, screen } from "electron";
 import { join, resolve as resolveFsPath, isAbsolute as isAbsoluteFsPath, relative as relativeFsPath } from "node:path";
+import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 
 import { type ChildProcess } from "node:child_process";
@@ -869,7 +870,20 @@ export function createIpcDeps() {
 }
 
 
-if (app && typeof app.whenReady === "function") {
+// Ola 9 (A3) — EGO-FIND-81: comando CLI local del token del servidor MCP.
+// El token NUNCA pasa por el renderer: se entrega por un pipe local del
+// usuario, y el CLI es su único cliente soportado.
+import { isMcpTokenCliRequest, runMcpTokenCli } from "./cli/mcp-token-cli.js";
+
+if (isMcpTokenCliRequest(process.argv)) {
+  // Modo CLI: sin ventana, sin renderer y sin perfil de Chromium (el perfil
+  // pertenece a la app que está corriendo: si el CLI lo abriera, pelearían
+  // por el mismo `userData`).
+  app.setPath("userData", join(tmpdir(), `ego-cli-${process.pid}`));
+  void runMcpTokenCli(process.argv).then((code) => {
+    app.exit(code);
+  });
+} else if (app && typeof app.whenReady === "function") {
   void app.whenReady().then(async () => {
     try {
 /** Dependencias que `createWindow` recibe del compositor (E6). */
