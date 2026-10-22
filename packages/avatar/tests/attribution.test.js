@@ -224,6 +224,25 @@ test('un nativo CON cabecera canonica falla: seria una atribucion falsa (exit 1)
   }
 });
 
+test('sin manifiesto, la puerta falla con un error ACCIONABLE (no un TypeError)', () => {
+  // EGO-FIND-116: la puerta no puede reventar con un `TypeError` de una
+  // propiedad undefined: dice qué falta y cómo arreglarlo.
+  const root = makePackage();
+  try {
+    rmSync(join(root, 'provenance.manifest.json'), { force: true });
+    const { code, report, out } = runGate(root);
+    assert.equal(code, 1, 'sin manifiesto la puerta falla');
+    assert.ok(report, 'debe emitir informe: ' + out.slice(0, 300));
+    const problema = report.problems.find((p) => /manifiesto/i.test(p));
+    assert.ok(problema, `debe señalar el manifiesto ausente: ${JSON.stringify(report.problems)}`);
+    assert.match(problema, /denominador/i, 'el mensaje explica para que sirve el manifiesto');
+    assert.match(problema, /measure-verbatim|genera/i, 'el mensaje dice como arreglarlo');
+    assert.ok(!/TypeError|undefined/.test(out), 'no debe haber un TypeError: ' + out.slice(0, 200));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('--fix NO muta el repositorio: la puerta no puede aprobarse a si misma', () => {
   // EGO-FIND-109: antes, `--fix` reescribia el repo, asi que correr la puerta
   // dejaba el arbol en el estado que la puerta quiere: la puerta se aprobaba
@@ -339,6 +358,9 @@ test('la puerta real del paquete pasa (exit 0)', () => {
   // clasificacion equivocada (`runtime/avatar-element.js` es un port real de
   // agent-robot-avatar: 342 shingles en rachas de 107 caracteres), asi que paso
   // de nativo a derivado. Reparto: 58 derivados + 31 nativos.
+  // Baseline HONESTO tras la Ola 11: el perfil declarativo (EGO-FIND-116) adds
+  // dos ficheros PROPIOS (el modulo de perfil y su test) => 58 derivados +
+  // 33 nativos.
   assert.equal(report.derived.length, 58, `derivados declarados: ${report.derived.length}`);
-  assert.equal(report.native.length, 31, `nativos declarados: ${report.native.length}`);
+  assert.equal(report.native.length, 36, `nativos declarados: ${report.native.length}`);
 });

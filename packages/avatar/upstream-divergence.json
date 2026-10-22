@@ -63,12 +63,12 @@
     "render/static.js": {
       "kind": "attribution",
       "reason": "Cabeceras normalizadas a `vendor/coucou-swift/MochiStill.swift` y `vendor/coucou/mochi/engine.ts`; ademas, el SVG estatico enciende la insignia `warn`.",
-      "sha256": "fc91e21064963473223543225eecf9f7a8f00580f901c334e26e28b1d046e844"
+      "sha256": "6ccaab01b2e4f9693d73aa165b39da13ff1adc1611035bc1b32e74d7667490f6"
     },
     "runtime/avatar-element.js": {
       "kind": "feature",
       "reason": " atributo `hands` (modo del rig de manos: always|auto|hidden) con su ruta completa atributo -> setParam -> supervivencia al preset; `preset` pasa a ser atributo observado; `toSVGString()` y `setPointerFollow()` exponen API publica; el pegamento con el studio y el export SVG salen a modulos propios (`studio-bridge.js`, `svg-export.js`); la insignia `warn` se enciende; y la ruta de `hands` deja de ser un no-op cuando el host aun no existe (en el navegador los atributos se parsean antes de conectar el elemento).",
-      "sha256": "6ebb58ddb69fe944a79b10a221611299736fe940c5927b743677b469d8544b31"
+      "sha256": "33bb975a05c294b68aee1dca7527754f2caedacb099a1f29fc3c5044a8ded734"
     },
     "runtime/fx-eyes.js": {
       "kind": "types",
@@ -241,6 +241,16 @@
       "kind": "geometry",
       "reason": "Proporciones canonicas del robot de Ego (chasis, reactor, vaina auditiva, accesorio, rubor, metricas de boca): un solo hogar para las medidas que antes vivian dispersas como numeros magicos heredados.",
       "sha256": "f3396ca2fb2c4dce32015b8096255c1080f55427e2c3f88919b544908ecc2843"
+    },
+    "runtime/profile.js": {
+      "kind": "feature",
+      "reason": "SIN MOTIVO — completar antes de comitear.",
+      "sha256": "159a370809be9b6f4a723f2f1afc8cd0d38101495762b553e52efe71b594a650"
+    },
+    "runtime/profile.d.ts": {
+      "kind": "feature",
+      "reason": "SIN MOTIVO — completar antes de comitear.",
+      "sha256": "c7a01d4ebd47e0039e2d3ebf7ae0495c24228c9aaeef7449ae5044266527daab"
     }
   },
   "removedFiles": {}

@@ -957,6 +957,46 @@
         "maxShingles": 0,
         "note": "codigo propio de Ego: no puede conservar shingles del upstream"
       }
+    },
+    {
+      "path": "src/runtime/profile.js",
+      "reason": "Implementacion PROPIA de Ego (Ola 11, EGO-FIND-116): traduce el perfil declarativo del personaje (baseForm / traits / outfitId, el vocabulario canonico del renderer) a las palancas que el motor ya expresa (silueta, apendice, marca, aura y accesorio del studio). No inventa geometria: lo que el motor no puede expresar se declara en UNMAPPED_TRAITS.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
+    },
+    {
+      "path": "tests/profile.test.js",
+      "reason": "Test propio de la Ola 11 (EGO-FIND-116): el perfil declarativo cambia el RENDER (se compara el SVG real, no un aceptador de atributos).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
+    },
+    {
+      "path": "src/runtime/profile.d.ts",
+      "reason": "Declaracion de tipos del modulo de perfil (propia de Ego, Ola 12): la consume el renderer para cotejar vocabularios en un test TIPADO (sin ella el import falla con TS2307) y la puerta build-types.mjs para generar el .d.ts raiz.",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
+    },
+    {
+      "path": "tests/profile-intensity.test.js",
+      "reason": "Test propio de la Ola 12: la INTENSIDAD del rasgo cambia el RENDER (se compara el SVG real del render estatico, no un aceptador de atributos).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
+    },
+    {
+      "path": "tests/profile-outfit.test.js",
+      "reason": "Test propio de la Ola 13: el outfit del renderer LLEGA al motor (se comprueba que la pieza se DIBUJA, contando las operaciones del ctx de canvas, y que el elemento la deja puesta en el studio).",
+      "verbatim": {
+        "maxShingles": 0,
+        "note": "codigo propio de Ego: no puede conservar shingles del upstream"
+      }
     }
   ]
 }

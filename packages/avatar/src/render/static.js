@@ -29,12 +29,16 @@ export function poseForSeed(seed) {
 /**
  * Genera el SVG de un avatar en un estado dado (sin animación).
  * @param {string} seed
- * @param {{state?: string, emote?: string, pose?: string}} [opts]
+ * @param {{state?: string, emote?: string, pose?: string, genome?: object}} [opts]
  *   pose: nombre de pose o 'hash' (selección determinista djb2)
+ *   genome: genoma concreto a renderizar (si no, el que sale de la semilla)
  * @returns {string} SVG completo
  */
 export function staticSVG(seed, opts = {}) {
-  const genome = generateGenome(seed);
+  // `opts.genome` permite renderizar un genoma concreto (el perfil del
+  // personaje, por ejemplo) en vez del que sale de la semilla. Es aditivo: sin
+  // él, el comportamiento es el de siempre.
+  const genome = opts.genome || generateGenome(seed);
   const palette = buildPalette(genome);
   const uid = uidFor(seed);
   const stateName = STATES[opts.state] ? opts.state : 'idle';

@@ -16,6 +16,7 @@
 //  · sonido procedural (28 recetas, cero assets)          → runtime/sound.js      (vendor/coucou/core/sound.ts)
 
 import { generateGenome, temperamentProfile } from '../core/genome.js';
+import { resolveProfile, applyProfileToGenome } from './profile.js';
 import { buildPalette, lerpHsl } from '../core/palette.js';
 import { xmur3 } from '../core/prng.js';
 import { clamp, lerp } from '../core/morph.js';
@@ -227,7 +228,16 @@ function normalizeHandsMode(value) {
 
 export class EgoAvatar extends ElementBase {
   static get observedAttributes() {
-    return ['seed', 'state', 'size', 'motion', 'auto-sleep', 'presence', 'pointer-follow', 'sound', 'mode', 'preset', 'hands'];
+    return [
+      'seed', 'state', 'size', 'motion', 'auto-sleep', 'presence', 'pointer-follow', 'sound',
+      'mode', 'preset', 'hands',
+      // EGO-FIND-116 (Ola 10: A4 cablea, A6 implementa): la identidad
+      // declarativa del personaje (baseForm / traits / outfitId) llega desde
+      // el renderer como atributos. Sin esto, el perfil persiste y hace
+      // round-trip pero NO alimenta el render: el avatar sigue pintando
+      // el del generador.
+      'base-form', 'traits', 'outfit',
+    ];
   }
 
   constructor() {
@@ -238,6 +248,10 @@ export class EgoAvatar extends ElementBase {
     this._uid = 'ego';
     this._genome = null;
     this._palette = null;
+    // EGO-FIND-116: el perfil declarativo que el renderer persiste.
+    this._profileAttrs = { baseForm: null, traits: null, outfit: null };
+    this._profileOverrides = null;   // genes resueltos del perfil
+    this._profileAccessory = null;   // accesorio del studio resuelto del perfil
     this._profile = null;
     this._eyeGeo = null;
     this._mounted = false;
@@ -540,6 +554,16 @@ export class EgoAvatar extends ElementBase {
       this._applySoundEnabled(newV === null ? true : newV !== 'false' && newV !== '0');
     }
     // Manos flotantes articuladas: el atributo manda sobre el motor.
+      // EGO-FIND-116: la identidad declarativa del personaje. El perfil se
+      // resuelve y se aplica AL GENOMA (y al accesorio del studio): el
+      // render cambia con el perfil, no solo se acepta el atributo.
+      if (name === 'base-form' || name === 'traits' || name === 'outfit') {
+        if (name === 'base-form') this._profileAttrs.baseForm = newV;
+        else if (name === 'traits') this._profileAttrs.traits = newV;
+        else this._profileAttrs.outfit = newV;
+        this._applyProfile();
+        return;
+      }
     if (name === 'hands') {
       this._handsMode = normalizeHandsMode(newV);
       // `_studio()` (y no `this._studioHost`) a propósito: en el navegador
@@ -568,6 +592,29 @@ export class EgoAvatar extends ElementBase {
   /* ─── construcción ──────────────────────────────────────────── */
 
   /**
+   * Aplica el perfil declarativo (EGO-FIND-116).
+   *
+   * Traduce `base-form` / `traits` / `outfit` a las palancas del motor
+   * (silueta, apendice, marca, aura y accesorio del studio) y repinta.
+   *
+   * @returns {boolean} si el perfil se aplico
+   */
+  _applyProfile() {
+    const resolved = resolveProfile({
+      baseForm: this._profileAttrs.baseForm,
+      traits: this._profileAttrs.traits,
+      outfit: this._profileAttrs.outfit,
+    });
+    this._profileOverrides = resolved;
+    this._profileAccessory = resolved.accessory;
+    // El accesorio del studio viaja como parametro (no es un gen): el outfit
+    // y los rasgos que piden pieza compiten por el unico hueco.
+    this._studioHost?.setParam('accessory', resolved.accessory);
+    this._remountWithGenome();
+    return true;
+  }
+
+  /**
    * Regenera el genoma desde la semilla y aplica encima los overrides de
    * `setGene`/`patchGenome` (generateGenome devuelve uno congelado: se clona
    * antes de mezclar y se vuelve a congelar el resultado).
@@ -576,9 +623,14 @@ export class EgoAvatar extends ElementBase {
     // getAttribute?.(): en Node (tests sin DOM) el elemento no es un HTMLElement
     this._seed = this.getAttribute?.('seed') || this._seed || 'ego';
     const base = generateGenome(this._seed);
-    this._genome = Object.keys(this._geneOverrides).length
-      ? deepFreeze(deepMergeInto(cloneGenome(base), this._geneOverrides))
+    // EGO-FIND-116: el perfil va DEBAJO de los overrides manuales (un
+    // `setGene` explicito del usuario gana al perfil persistido).
+    const withProfile = this._profileOverrides
+      ? applyProfileToGenome(base, this._profileOverrides)
       : base;
+    this._genome = Object.keys(this._geneOverrides).length
+      ? deepFreeze(deepMergeInto(cloneGenome(withProfile), this._geneOverrides))
+      : deepFreeze(withProfile);
     this._palette = buildPalette(this._genome);
     this._profile = temperamentProfile(this._genome.temperament);
     this._eyeGeo = eyeGeometry(this._genome);

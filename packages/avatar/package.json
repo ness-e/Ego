@@ -20,7 +20,8 @@
     "./static": "./src/render/static.js",
     "./studio": "./src/studio/index.js",
     "./runtime/avatar-element.js": "./src/runtime/avatar-element.js",
-    "./runtime/sound.js": "./src/runtime/sound.js"
+    "./runtime/sound.js": "./src/runtime/sound.js",
+    "./runtime/profile.js": "./src/runtime/profile.js"
   },
   "files": [
     "src",

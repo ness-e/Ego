@@ -286,7 +286,14 @@ for (const f of REQUIRED) {
 const manifestPath = join(ROOT, 'provenance.manifest.json');
 let manifest = null;
 if (!existsSync(manifestPath)) {
-  problem('no existe provenance.manifest.json (el denominador de la puerta)');
+  // Error ACCIONABLE, no un TypeError de una propiedad undefined: la puerta
+  // dice QUE falta y COMO arreglarlo (EGO-FIND-116). El manifiesto es el
+  // DENOMINADOR: sin el, la puerta no puede classificar nada.
+  problem(
+    'falta el manifiesto de procedencia: ' + relative(ROOT, manifestPath) +
+      ' — es el DENOMINADOR de la puerta (declara que ficheros son derivados y ' +
+      'cuales nativos). Genera sus presupuestos con: node scripts/measure-verbatim.mjs',
+  );
 } else {
   try {
     manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
