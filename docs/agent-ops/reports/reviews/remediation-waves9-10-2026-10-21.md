@@ -118,23 +118,42 @@ cablear y sin exención con motivo.
 
 | Ámbito | Estado |
 |---|---|
-| Hallazgos de la auditoría (`EGO-FIND`) | **123** · **115 ✅** · 5 🟡 · 3 🆕 |
+| Hallazgos de la auditoría (`EGO-FIND`) | **123** · **121 ✅** · 1 🟡 · 1 🆕 |
 | Tareas canónicas (12 fases + 03.1) | **149 de 151** (las 2 pendientes son **bloqueo del owner**: `DIST-04`, `DIST-06`) |
 | Catálogo de extracción (25 repos) | **289** tareas · **0 en el limbo** |
 | ADRs | **27** |
-| Puertas | **27** verificadas, **26 pasos** en el job `verify` |
-### Las 8 que quedan abiertas
+| Puertas | **30 pasos** en el job `verify` + el inventario que falla si aparece una puerta sin cablear |
+
+### Las 2 que quedan abiertas
 
 | Id | Estado | Qué falta exactamente |
 |---|---|---|
-| `EGO-FIND-63` | 🟡 | 1 fichero (3 asserts) en la zona de A7 · el inventario de la zona de A4 bajó de 11 a **0** |
-| `EGO-FIND-82` | 🟡 | Las **3** puertas nuevas de paquete (`tool-call-repair`, `tools`, `ui-runtime`) no están cableadas en CI |
-| `EGO-FIND-87` | 🆕 | `VDB-REQ-14` (**upstream**): 320,03 MB de pre-reserva por store |
-| `EGO-FIND-94` | 🟡 | La parte de Ego está cerrada; queda **upstream** (`VDB-REQ-16a`) |
-| `EGO-FIND-108` | 🆕 | El detector de tests tautológicos exige `readFileSync` **en la misma línea** ⇒ no ve las lecturas en un helper |
-| `EGO-FIND-116` | 🟡 | El renderer ya pasa `base-form`/`traits`/`outfit`; falta que **el motor los observe** |
-| `EGO-FIND-119` | 🟡 | Falta el **canal main→canvas** de la atención |
-| `EGO-FIND-122` | 🆕 | El smoke test del **bundle real**: que no resuelva Node/Rust/Python, que los `.node` carguen desde `asarUnpack` y que no falten DLLs |
+| `EGO-FIND-87` | 🆕 | `VDB-REQ-14` (**upstream**): 320,03 MB de pre-reserva por store, no parametrizable. **No hay vía agent-side** |
+| `EGO-FIND-94` | 🟡 | La parte de Ego está cerrada (puente HybridRuntime + puerta `vantadb:check` bloqueante); queda **upstream** (`VDB-REQ-16a`) |
+
+> Las **121** filas cerradas incluyen las **19** que abrió la auditoría paralela
+> (`EGO-FIND-104..122`): los 8 visuales del renderer, los 8 del motor de personaje, los 4 de la
+> curaduría de memoria, los 4 de las puertas sin cablear y el resto. **Las 2 que quedan no son
+> trabajo de Ego**: son peticiones al upstream de VantaDB.
+
+### Lo que cerraron las olas 11 y 12
+
+- **El perfil del personaje ya llega al motor y se aplica**: `packages/avatar/src/runtime/profile.js`
+  traduce el vocabulario canónico; el motor observa `base-form`/`traits`/`outfit` y **repinta**
+  (comprobado contra el SVG real, no contra un aceptador de atributos). El bug era de fondo: el
+  renderer mandaba **ids de la UI** que el motor no conoce ⇒ todo caía en `unmapped` y **no se
+  aplicaba nada**. Lo que el motor **no** expresa (6 rasgos sin palanca de magnitud,
+  `beanie`/`scarf`/`bow`) se **declara**, no se inventa.
+- **El canal de la atención**: el estado real de la `AttentionStateMachine` del proceso main llega al
+  canvas por el relay `ipc.event` **que ya existía** ⇒ **cero canales IPC nuevos**.
+- **Los tautológicos: 0**. El detector viejo no veía las lecturas en un helper ⇒ el recuento real era
+  **34** (no 0). Con el detector arreglado, todos pasan a **comportamiento** o a **contratos de forma**
+  con exit 1 (`lint:source-contracts`).
+- **Las 3 puertas de paquete** (`tool-call-repair`, `tools`, `ui-runtime`) ya están **en CI**; el
+  delegador pasó de 1 a 4 puertas.
+- **Smoke test del bundle real** en CI: que no resuelva Node/Rust/Python, que los `.node` carguen
+  desde `asarUnpack` y que no falten DLLs. **No sustituye** a la VM limpia del owner (`DIST-06`):
+  deja de ser la única línea de defensa.
 
 ## 5. Publicación
 
