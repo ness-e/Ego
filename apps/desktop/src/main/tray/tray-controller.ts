@@ -64,6 +64,11 @@ export function ensureFloatMgr(options?: FloatingWindowManagerOptions): Floating
 }
 
 export function createTrayIcon(status: EgoTrayStatus): Electron.NativeImage {
+  // PERF: hay solo 3 estados y esta funcion codifica un PNG (deflate) + crea
+  // una NativeImage. `refreshTrayStatus` corre en rutas calientes (cada evento
+  // de tarea) => sin cache se re-codificaba el icono en cada evento.
+  const cached = TRAY_ICON_CACHE.get(status);
+  if (cached) return cached;
   const [r, g, b] = TRAY_COLORS[status];
   const width = 16;
   const height = 16;
@@ -88,8 +93,13 @@ export function createTrayIcon(status: EgoTrayStatus): Electron.NativeImage {
     pngChunk("IDAT", deflateSync(raw)),
     pngChunk("IEND", Buffer.alloc(0)),
   ]);
-  return nativeImage.createFromBuffer(png);
+  const image = nativeImage.createFromBuffer(png);
+  TRAY_ICON_CACHE.set(status, image);
+  return image;
 }
+
+/** Cache de iconos del tray (3 estados) — evita re-codificar PNG en caliente. */
+const TRAY_ICON_CACHE = new Map<EgoTrayStatus, Electron.NativeImage>();
 
 export function refreshTrayStatus(): void {
   let next: EgoTrayStatus = "idle";

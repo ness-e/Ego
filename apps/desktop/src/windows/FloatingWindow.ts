@@ -318,7 +318,20 @@ export class FloatingWindowManager {
   }
 
   public updateState(partial: Partial<FloatingWindowState>): void {
-    this.state = { ...this.state, ...partial };
+    // PERF: el recompute de atencion corre en rutas calientes (cada evento de
+    // tarea). Sin esta guarda, cada evento reenviaba el estado a la isla (un
+    // IPC) aunque NADA hubiera cambiado. El estado es plano (todo primitivos)
+    // => la comparacion superficial es exacta.
+    //
+    // ⚠️ La guarda es SOLO del push: los efectos (resize, click-through) deben
+    // aplicarse SIEMPRE, aunque el estado no cambie (p. ej. el estado inicial
+    // ya es "hidden" y hay que re-afirmar el click-through).
+    const previous = this.state;
+    const next: FloatingWindowState = { ...previous, ...partial };
+    const changed = (Object.keys(next) as (keyof FloatingWindowState)[]).some(
+      (k) => next[k] !== previous[k],
+    );
+    this.state = next;
 
     const win = this.prototype.getWindow();
     if (!win || win.isDestroyed()) return;
@@ -340,7 +353,9 @@ export class FloatingWindowManager {
     }
 
     // Push del estado (canal único; `pushState` no-op si la ventana murió).
-    this.pushState();
+    // Solo si el estado CAMBIÓ: el push es un IPC al renderer de la isla y
+    // esta vía es caliente (cada evento de tarea).
+    if (changed) this.pushState();
   }
 
   public resizeForState(attentionState: string): void {

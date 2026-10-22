@@ -356,8 +356,26 @@ export let win: BrowserWindow | null = null;
  * El renderer lo recibe en `useUiStore.attentionState` y lo pasa al
  * `CharacterPresence`.
  */
+/** Último estado de atención publicado (para no repetir el push). */
+export let lastPublishedAttentionState: string | null = null;
+
+/**
+ * Asigna el último estado de atención publicado (único punto de escritura).
+ * Lo usa `setWin` para resetear la memoria cuando hay una ventana nueva.
+ */
+export function setLastPublishedAttentionState(value: string | null): void {
+  lastPublishedAttentionState = value;
+}
+
 export function publishAttentionState(state: string): void {
   if (!win || win.isDestroyed()) return;
+  // PERF (Ola 11): el recompute de atencion corre en rutas calientes (cada
+  // evento de tarea) pero el estado cambia POCAS VECES. Publicar sin comparar
+  // inundaba el renderer de eventos `ipc.event` identicos; cada uno hacia un
+  // `set()` del store => re-render de la app entera y los `<ego-avatar>` sin
+  // CPU. Aqui solo se publica cuando el valor cambia de verdad.
+  if (state === lastPublishedAttentionState) return;
+  lastPublishedAttentionState = state;
   try {
     win.webContents.send("ipc.event", { kind: "attention.state", state });
   } catch {
@@ -368,6 +386,8 @@ export function publishAttentionState(state: string): void {
 /** Asigna `win` (único punto de escritura del estado). */
 export function setWin(value: BrowserWindow | null): void {
   win = value;
+  // Una ventana nueva tiene su propio renderer: hay que volver a publicar.
+  setLastPublishedAttentionState(null);
 }
 
 export let backgroundEngine: BackgroundEngine;

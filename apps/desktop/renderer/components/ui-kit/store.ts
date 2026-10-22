@@ -73,7 +73,16 @@ export const useUiStore = create<UiKitState>()((set) => ({
   openSessionPicker: () => set({ sessionPickerOpen: true }),
   closeSessionPicker: () => set({ sessionPickerOpen: false }),
   setActiveModelId: (id) => set({ activeModelId: id }),
-  setAttentionState: (state) => set({ attentionState: state }),
+  // Ola 11 (EGO-FIND-119) - el estado de atencion llega por el relay `ipc.event`.
+  //
+  // PERF: `set({ attentionState })` crea un objeto de estado NUEVO => Zustand
+  // notifica a TODOS los suscriptores aunque el valor sea identico. El relay
+  // puede llegar con mucha frecuencia (cada evento de tarea recomputa la
+  // atencion) => la app entera se re-renderiza en bucle y los `<ego-avatar>`
+  // se quedan sin CPU (su rAF no llega). Aqui solo se notifica cuando el
+  // valor cambia de verdad: `set` con el MISMO objeto de estado no emite.
+  setAttentionState: (state) =>
+    set((s) => (s.attentionState === state ? s : { attentionState: state })),
   setActiveSessionId: (id: string | null) => {
     set({ activeSessionId: id });
     // La sesión activa sobrevive recargas (hilo continuo entre arranques).
