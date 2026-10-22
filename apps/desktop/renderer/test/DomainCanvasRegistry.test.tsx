@@ -11,28 +11,27 @@
 //  2. Un `componentKind` NO hardcodeado se renderiza (hot-swap: el registry
 //     dinámico es la única puerta de entrada).
 //  3. El componente NO contiene ramas por `domainId`.
+//
+// ## EGO-FIND-63 (Ola 10)
+// El punto 3 era un **aserto de texto de fuente** (no falla cuando el
+// producto se rompe, sólo cuando alguien reescribe el fichero) y el
+// inventario de asertos tautológicos lo contaba como un test. Es un
+// contrato de FORMA, no de comportamiento -> vive ahora en el lint-test:
+// `node apps/desktop/scripts/lint/source-contracts.lint.mjs`.
 import { describe, it, expect, afterEach } from "vitest";
 import type React from "react";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { getCanvasComponentRegistry } from "@ego/ui-runtime";
 import { DomainCanvasView } from "../components/domains/DomainCanvasView.js";
 import { DOMAIN_COMPONENT_KINDS } from "../components/domains/views.js";
 import { resolveDomainView } from "../components/domains/domain-registry.js";
 
-const SRC = join(process.cwd(), "components", "domains", "DomainCanvasView.tsx");
-const source = readFileSync(SRC, "utf-8");
 
 describe("T4 (R3): DomainCanvasView resuelve por componentKind contra el registry", () => {
   afterEach(() => {
     cleanup();
   });
 
-  it("el componente NO tiene ramas hardcodeadas por domainId", () => {
-    expect(source).not.toMatch(/domainId\s*===\s*"/);
-    expect(source).not.toMatch(/domainId\s*===\s*'/);
-  });
 
   it("los 5 dominios canónicos tienen componentKind y renderer registrado", () => {
     for (const domain of ["engineering", "product", "knowledge", "analytics", "crm"]) {

@@ -4,11 +4,9 @@ import { EgoChat } from "../components/ego-chat";
 import { Omnibar } from "../components/omnibar";
 import { DesignSystemProvider } from "../components/canvas/DesignSystemProvider";
 import { Sidebar } from "../components/sidebar";
-import { SubEgoSelector } from "../components/SubEgoSelector";
 import { ModelPicker, CANONICAL_MODELS, type ModelOption } from "../components/ModelPicker";
 import { SplitPane } from "../components/PaneShell";
 import { useUiStore, mintSessionId, loadPersistedSessionId } from "../components/ui-kit/store.js";
-import { Select } from "../components/ui-kit/Select.js";
 import { Button } from "../components/ui-kit/Button.js";
 import { ego } from "../lib/ego";
 import { ActivityWidget } from "../components/activity-widget/ActivityWidget";
@@ -156,59 +154,6 @@ const CANONICAL_DOMAINS: DomainMeta[] = [
  * · chat    → "Modelo de esta sesión" (el mismo valor, en el ámbito del hilo)
  * · composer→ "Modelo con el que se ejecutará el próximo turno"
  */
-function ChatPanelHeader({
-  activeSubEgo,
-  onSelectSubEgo,
-  activeModelId,
-  onSelectModel,
-}: {
-  activeSubEgo: string;
-  onSelectSubEgo: (id: string) => void;
-  activeModelId: string;
-  onSelectModel: (model: ModelOption) => void;
-}) {
-  const modelValue = CANONICAL_MODELS.some((m) => m.id === activeModelId)
-    ? activeModelId
-    : `custom:${activeModelId}`;
-  const modelOptions = [
-    ...CANONICAL_MODELS.map((m) => ({ value: m.id, label: m.name })),
-    ...(!CANONICAL_MODELS.some((m) => m.id === activeModelId)
-      ? [{ value: `custom:${activeModelId}`, label: `${activeModelId} (custom)` }]
-      : []),
-  ];
-  return (
-    <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-hairline bg-paper px-3.5 text-xs text-faint">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="text-xs font-semibold text-ink">Chat</span>
-        <SubEgoSelector
-          activeSubEgoId={activeSubEgo}
-          onSelectSubEgo={(id) => onSelectSubEgo(id)}
-        />
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Select
-          ariaLabel="Modelo de esta sesión"
-          title="Modelo de esta sesión — el mismo que el modelo activo global (Model Router)"
-          value={modelValue}
-          onValueChange={(val) => {
-            const found = CANONICAL_MODELS.find((m) => m.id === val);
-            if (found) onSelectModel(found);
-          }}
-          // T1.4 (Ola 4): el recorte del valor lo hace el KIT (`Select`
-          // renderiza su valor en un `<span className="min-w-0 truncate">`),
-          // así que el hack `[&>span]:truncate` del consumidor era
-          // redundante Y acoplaba al DOM interno del kit. Aquí sólo queda
-          // el ancho máximo y el `whitespace-nowrap` del trigger.
-          // 190 px es lo que necesita "Claude 3.7 Sonnet" en mono 12 px con
-          // el caret: la cabecera del chat mide 560 px por defecto, así que
-          // el nombre se lee COMPLETO sin recortarse.
-          className="min-h-11 min-w-11 max-w-[190px] whitespace-nowrap rounded-full font-mono text-xs text-dim hover:text-ink"
-          options={modelOptions}
-        />
-      </div>
-    </div>
-  );
-}
 
 export function App() {
   const [activeProject, setActiveProject] = useState("default");
@@ -530,12 +475,6 @@ export function App() {
                 aria-label="Chat"
                 className="flex h-full min-w-0 flex-col bg-paper"
               >
-                <ChatPanelHeader
-                  activeSubEgo={activeSubEgo}
-                  onSelectSubEgo={setActiveSubEgo}
-                  activeModelId={activeModelId}
-                  onSelectModel={(m) => void handleSelectModel(m)}
-                />
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   <EgoChat
                     key={sessionNonce}
@@ -551,12 +490,6 @@ export function App() {
               aria-label="Chat"
               className="flex flex-1 min-w-0 flex-col bg-paper"
             >
-              <ChatPanelHeader
-                activeSubEgo={activeSubEgo}
-                onSelectSubEgo={setActiveSubEgo}
-                activeModelId={activeModelId}
-                onSelectModel={(m) => void handleSelectModel(m)}
-              />
               <div className="flex-1 min-h-0 overflow-y-auto">
                 <EgoChat
                   key={sessionNonce}

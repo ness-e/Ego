@@ -85,7 +85,7 @@ export function Popover({
           aria-label={ariaLabel}
           className={cn(
             "z-50 w-72 max-w-[calc(100vw-2rem)] rounded-[var(--radius-card)] border border-hairline bg-raised p-3 text-xs text-ink shadow-[var(--ego-elevation-l2)]",
-            "transition-[opacity,transform] duration-150 ease-[var(--motion-ease-out)] starting:opacity-0 starting:scale-95 data-[state=open]:opacity-100 data-[state=open]:scale-100",
+            "transition-[opacity,transform] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] starting:opacity-0 starting:scale-95 data-[state=open]:opacity-100 data-[state=open]:scale-100",
             contentClassName,
           )}
         >

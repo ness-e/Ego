@@ -32,7 +32,6 @@ import {
   Robot,
   CaretDown,
   Check,
-  Sparkle,
   Lightning,
   ShieldCheck,
   Stop,
@@ -63,7 +62,6 @@ import {
 import { useChatTranscript, type Msg } from "./chat/chat-transcript-store.js";
 import { Button } from "./ui-kit/Button.js";
 import { Menu, type MenuItem } from "./ui-kit/Menu.js";
-import { useUiStore } from "./ui-kit/store.js";
 
 /**
  * Niveles de intensidad de razonamiento del composer.
@@ -539,22 +537,6 @@ async function getByokBlockReason(): Promise<string | null> {
   return null;
 }
 
-function formatModelName(id: string): string {
-  const lower = id.toLowerCase();
-  if (lower.includes("3-7-sonnet") || lower.includes("3.7-sonnet")) return "Claude 3.7 Sonnet";
-  if (lower.includes("3-5-sonnet") || lower.includes("3.5-sonnet") || lower.includes("sonnet-4")) return "Claude 3.5 Sonnet";
-  if (lower.includes("3-5-haiku") || lower.includes("3.5-haiku")) return "Claude 3.5 Haiku";
-  if (lower.includes("gemini-2.5-pro") || lower.includes("gemini-pro")) return "Gemini 2.5 Pro";
-  if (lower.includes("gemini-2.5-flash") || lower.includes("gemini-3.8-flash") || lower.includes("gemini-flash")) return "Gemini Flash";
-  if (lower.includes("gpt-4o-mini")) return "GPT-4o Mini";
-  if (lower.includes("gpt-4o")) return "GPT-4o";
-  if (lower.includes("o3-mini")) return "o3 Mini";
-  if (lower.includes("deepseek-reasoner") || lower.includes("r1")) return "DeepSeek R1";
-  if (lower.includes("deepseek-chat")) return "DeepSeek Chat";
-  if (lower.includes("llama")) return "Llama 3.2 Local";
-  if (lower.includes("qwen")) return "Qwen 2.5 Local";
-  return id.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export interface EgoChatProps {
   projectId?: string;
@@ -634,14 +616,9 @@ export function EgoChat({
    * de la app (el mismo valor que pintan las dos cabeceras). El catálogo
    * pasa a ser sólo el contenido del MENÚ: ya no puede cambiar la selección.
    */
-  const activeModelId = useUiStore((s) => s.activeModelId);
-  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; provider: string }>>([
-    { id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet", provider: "anthropic" },
-    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "google" },
-    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "google" },
-    { id: "gpt-4o", name: "GPT-4o", provider: "openai" },
-    { id: "deepseek-r1", name: "DeepSeek R1", provider: "deepseek" },
-  ]);
+  // EGO-FIND-97 (Ola 10): el chat ya NO elige el modelo (esa decisión es
+  // global y vive en la barra superior → `useUiStore.activeModelId` + el
+  // `ModelPicker`). Se retiran el estado y el catálogo propios del chat.
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>("auto");
   const [executionMode, setExecutionMode] = useState<"manual" | "auto">("manual");
   const [availableSubEgos, setAvailableSubEgos] = useState<Array<{ id: string; name: string }>>([
@@ -650,37 +627,15 @@ export function EgoChat({
     { id: "ego.copywriter", name: "Ego Copywriter" },
   ]);
 
-  // Carga de modelos disponibles desde el bridge
+  // Carga de Sub-Egos desde el bridge.
+  //
+  // EGO-FIND-97 (Ola 10): el chat ya no puebla un menú de modelos (el
+  // modelo es global → su catálogo vive en el `ModelPicker`), así que la
+  // carga de modelos se retira de aquí.
   useEffect(() => {
     let cancelled = false;
     async function initCatalog() {
       try {
-        const provRes = await ego().models?.listProviders?.();
-        const configuredProviders = provRes?.providers?.filter((p) => p.configured) ?? [];
-        const loaded: Array<{ id: string; name: string; provider: string }> = [];
-
-        for (const prov of configuredProviders) {
-          if (prov.id === "mock") continue;
-          try {
-            const mRes = await ego().models?.listModels?.({ provider: prov.id as "openai" | "anthropic" | "google" | "deepseek" | "ollama" });
-            if (mRes && mRes.models) {
-              for (const m of mRes.models) {
-                loaded.push({ id: m, name: formatModelName(m), provider: prov.id });
-              }
-            }
-          } catch {
-            // Ignorar fallos de red por proveedor
-          }
-        }
-
-        if (!cancelled && loaded.length > 0) {
-          // D12: el catálogo sólo puebla el MENÚ. Antes hacía además
-          // `setSelectedModel(loaded[0].id)`, que pisaba el modelo activo del
-          // usuario y hacía que el composer anunciara un modelo distinto al
-          // de las cabeceras.
-          setAvailableModels(loaded);
-        }
-
         // Cargar Sub-Egos
         const subRes = await ego().subegos?.list?.();
         if (!cancelled && subRes && subRes.length > 0) {
@@ -694,20 +649,6 @@ export function EgoChat({
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const handleSelectModel = useCallback((modelId: string) => {
-    // D12: el composer escribe en la MISMA fuente de verdad que las cabeceras
-    // (`useUiStore.activeModelId`). Con una sola variable, los tres
-    // indicadores de modelo no pueden divergir.
-    useUiStore.getState().setActiveModelId(modelId);
-    try {
-      const win = window as unknown as { ego?: { models?: { setActiveModel?: (m: string) => void }; settings?: { setConfig?: (c: { key: string; value: unknown }) => void } } };
-      win.ego?.models?.setActiveModel?.(modelId);
-      win.ego?.settings?.setConfig?.({ key: "defaultModel", value: modelId });
-    } catch {
-      // Ignorar
-    }
   }, []);
 
   const handleSelectEffort = useCallback((eff: "auto" | "low" | "medium" | "high") => {
@@ -1416,11 +1357,6 @@ export function EgoChat({
     high: "Alto",
   };
 
-  const currentModelDisplayName = useMemo(() => {
-    const found = availableModels.find((m) => m.id === activeModelId);
-    return found ? found.name : formatModelName(activeModelId);
-  }, [availableModels, activeModelId]);
-
   const assistantMessageComponent = useCallback(
     () => <AssistantMessage subEgoId={subEgoId ?? "ego.nucleus"} onRetry={handleRetry} />,
     [subEgoId, handleRetry]
@@ -1509,19 +1445,6 @@ export function EgoChat({
         onSelect: () => {},
       })),
     [availableSubEgos, activeSubEgoId]
-  );
-
-  const modelMenuItems = useMemo<MenuItem[]>(
-    () =>
-      availableModels.map((m) => ({
-        label: m.name,
-        // El proveedor viaja en el slot informativo de la derecha (antes era
-        // una segunda línea en el ítem).
-        shortcut: m.provider,
-        icon: selectedMark(m.id === activeModelId),
-        onSelect: () => handleSelectModel(m.id),
-      })),
-    [availableModels, activeModelId, handleSelectModel]
   );
 
   const effortMenuItems = useMemo<MenuItem[]>(
@@ -1617,7 +1540,7 @@ export function EgoChat({
           <ThreadPrimitive.Empty>
             <div className="h-full min-h-[440px] flex flex-col items-center justify-center p-6 text-center text-faint max-w-2xl w-full mx-auto my-auto select-none">
               {/* Recuadro de estudio grande de alta calidad */}
-              <div className="w-28 h-28 rounded-[var(--radius-card)] bg-raised border border-hairline shadow-[var(--ego-elevation-l2)] flex items-center justify-center mx-auto mb-5 p-2 transition-transform hover:scale-105 duration-300">
+              <div className="w-28 h-28 rounded-[var(--radius-card)] bg-raised border border-hairline shadow-[var(--ego-elevation-l2)] flex items-center justify-center mx-auto mb-5 p-2 transition-transform hover:scale-105 duration-[var(--motion-duration-surface)]">
                 <CharacterBadge
                   subEgoId={subEgoId ?? "ego.nucleus"}
                   size={104}
@@ -2016,33 +1939,13 @@ export function EgoChat({
                 />
               </div>
 
-              {/* Derecha: Selector de Modelo (SOLO disponibles), Intensidad, Modo, Voz y Envío */}
+              {/* Derecha: Intensidad, Modo, Voz y Envío.
+                  EGO-FIND-97 (Ola 10): el selector de MODELO desaparece de
+                  aquí — el modelo es un ajuste GLOBAL de la app (el Model
+                  Router) y su sitio es la barra superior (una sola
+                  superficie). Aquí sólo viven los ajustes DEL TURNO. */}
               <div className="flex items-center gap-1.5 flex-wrap">
-                {/* 1. Selector de Modelo (SOLO disponibles) */}
-                <Menu
-                  trigger={
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      title="Modelo con el que se ejecutará el próximo turno — el mismo que el modelo activo global (Model Router)"
-                      aria-label="Modelo activo del chat"
-                      icon={<Sparkle size={13} className="text-brand" />}
-                    >
-                      <span className="inline-flex min-w-0 items-center gap-1.5">
-                        <span className="truncate max-w-[110px]">{currentModelDisplayName}</span>
-                        <CaretDown size={11} className="shrink-0 text-faint" />
-                      </span>
-                    </Button>
-                  }
-                  items={modelMenuItems}
-                  align="end"
-                  side="top"
-                  sideOffset={6}
-                  ariaLabel="Modelos disponibles"
-                  contentClassName="shadow-[var(--ego-elevation-l2)]"
-                />
-
-                {/* 2. Selector de Intensidad / Razonamiento */}
+                {/* 1. Selector de Intensidad / Razonamiento */}
                 <Menu
                   trigger={
                     <Button
@@ -2066,7 +1969,7 @@ export function EgoChat({
                   contentClassName="shadow-[var(--ego-elevation-l2)]"
                 />
 
-                {/* 3. Selector de Modo (Manual / Auto) */}
+                {/* 2. Selector de Modo (Manual / Auto) */}
                 <Menu
                   trigger={
                     <Button
@@ -2167,7 +2070,7 @@ export function EgoChat({
                           combinaciones prohibidas (§7 #7). */}
                       <ComposerPrimitive.Send
                         aria-label="Enviar mensaje"
-                        className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-brand text-on-brand shadow-[var(--ego-elevation-l1)] transition-colors hover:bg-brand/90"
+                        className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-brand text-on-brand shadow-[var(--ego-elevation-l1)] transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-raised disabled:text-dim disabled:shadow-none"
                       >
                         <ArrowUp size={16} weight="bold" aria-hidden />
                         <span className="sr-only">Enviar</span>

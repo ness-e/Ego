@@ -75,7 +75,7 @@ export function Tooltip({
             collisionPadding={8}
             className={cn(
               "z-50 max-w-xs rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-1 text-xs text-ink shadow-[var(--ego-elevation-l2)]",
-              "transition-[opacity,transform] duration-150 ease-[var(--motion-ease-out)] motion-reduce:transition-none starting:opacity-0 starting:scale-95 data-[state=delayed-open]:opacity-100 data-[state=delayed-open]:scale-100 data-[state=closed]:opacity-0",
+              "transition-[opacity,transform] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] motion-reduce:transition-none starting:opacity-0 starting:scale-95 data-[state=delayed-open]:opacity-100 data-[state=delayed-open]:scale-100 data-[state=closed]:opacity-0",
               contentClassName,
             )}
           >

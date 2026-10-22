@@ -10,6 +10,7 @@ import {
 import { BrowserView } from "./BrowserView.js";
 import { FilePreviewView } from "./FilePreviewView.js";
 import { ThemeIO } from "./ThemeIO.js";
+import { EmptyState } from "./EmptyState.js";
 import { CronPanel } from "./CronPanel.js";
 import { ShortcutsPanel } from "./ShortcutsPanel.js";
 import { NotifyCenter } from "./NotifyCenter.js";
@@ -440,25 +441,32 @@ export const WorkbenchView: React.FC<WorkbenchViewProps> = ({
           </>
         ) : (
           <div className="flex flex-col gap-3">
-            <p role="status" className="text-xs text-faint">
-              Sin archivo seleccionado: el preview read-only aparece cuando un
-              Sub-Ego o el inspector proveen `filePath` + contenido o seleccionas un archivo del árbol.
-            </p>
+            {/* EGO-FIND-98 (Ola 10): el estado vacío dice QUÉ es, PARA QUÉ
+                sirve y QUÉ hacer ahora — en vez de dejar la superficie
+                abandonada con un texto suelto. */}
+            <EmptyState
+              icon={<FileText size={18} />}
+              title="Vista previa de archivos"
+              description="Esta columna muestra el contenido de un archivo del workspace en modo lectura. Elige un archivo del árbol de la izquierda, usa los accesos rápidos, o escribe una ruta para abrirlo directamente."
+              action={
+                <>
+                  {QUICK_WORKSPACE_FILES.map((f) => (
+                    <Button
+                      key={f.path}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleLoadFile(f.path)}
+                    >
+                      {f.label}
+                    </Button>
+                  ))}
+                </>
+              }
+              hint="También puedes abrir un archivo desde el chat: los Sub-Egos lo proveen."
+            />
             <div className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-hairline bg-panel p-3">
-              <span className="text-xs font-semibold text-ink">Archivos Rápidos del Proyecto</span>
-              <div className="flex flex-wrap gap-1.5">
-                {QUICK_WORKSPACE_FILES.map((f) => (
-                  <Button
-                    key={f.path}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleLoadFile(f.path)}
-                  >
-                    {f.label}
-                  </Button>
-                ))}
-              </div>
+              <span className="text-xs font-semibold text-ink">Abrir por ruta</span>
               <div className="mt-2 flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <Input

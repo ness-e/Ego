@@ -25,7 +25,7 @@ export interface DomainCharacterPreset {
   bodyColors: [string, string]; // [top, bottom] gradiente en hex
   accentColor: RGB;
   eyeShape: "pill" | "wide" | "dot" | "line" | "flat" | "happy" | "cup";
-  baseForm?: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron" | "coucou-mochi"; // Silueta geométrica procedural
+  baseForm?: "delta-core" | "quantum-monolith" | "energy-core" | "fractal-polyhedron"; // Silueta geométrica procedural
   outfitId?: string | null;      // Cero ropa humana (default: null)
   traits: string[];              // IDs de traits activos
   description: string;

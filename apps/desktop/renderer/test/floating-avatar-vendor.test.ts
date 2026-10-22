@@ -48,13 +48,18 @@ describe("FIND-12-01: avatar vendorizado dentro del root", () => {
     }
   });
 
-  it("el motor canónico es el paquete @ego/avatar (A6, Ola 1b)", () => {
-    for (const file of ["floating-avatar.tsx", "floating-sound.ts"]) {
-      const raw = readFileSync(join(floatingDir, file), "utf8");
-      expect(raw, `${file} debe cargar el motor desde el paquete`).toContain(
-        '"@ego/avatar/runtime/'
-      );
-    }
+  it("el motor canónico es el paquete @ego/avatar (A6, Ola 1b)", async () => {
+    // EGO-FIND-63 (Ola 10): era un aserto de TEXTO de fuente ("el
+    // fichero contiene el specifier"). Ahora es COMPORTAMIENTO: el módulo
+    // del paquete se importa de verdad y tiene que exportar el elemento.
+    // (El specifier exacto lo vigila el lint-test de contratos de fuente:
+    // `node apps/desktop/scripts/lint/source-contracts.lint.mjs`.)
+    const mod = (await import(
+      "@ego/avatar/runtime/avatar-element.js"
+    )) as { EgoAvatar?: unknown };
+    expect(typeof mod.EgoAvatar, "el paquete @ego/avatar no exporta el elemento").toBe(
+      "function"
+    );
   });
 
   it("entries vendorizados existen (elemento + sonido + shim studio)", () => {

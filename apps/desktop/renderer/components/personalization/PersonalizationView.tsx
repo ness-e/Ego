@@ -440,7 +440,7 @@ export function PersonalizationView() {
                   return (
                     <div
                       key={s.id}
-                      className={`${CARD} group flex flex-col justify-between bg-raised hover:bg-raised transition-colors duration-150 hover:border-strong`}
+                      className={`${CARD} group flex flex-col justify-between bg-raised hover:bg-raised transition-colors duration-[var(--motion-duration-micro)] hover:border-strong`}
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2 mb-2.5">
@@ -530,7 +530,7 @@ export function PersonalizationView() {
                   return (
                     <div
                       key={m.id}
-                      className={`${CARD} group flex flex-col justify-between bg-raised hover:bg-raised transition-colors duration-150 hover:border-strong`}
+                      className={`${CARD} group flex flex-col justify-between bg-raised hover:bg-raised transition-colors duration-[var(--motion-duration-micro)] hover:border-strong`}
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2 mb-2.5">

@@ -85,7 +85,7 @@ export const ToolExecutionCard: React.FC<ToolExecutionCardProps> = ({ event }) =
           {hasDetails && (
             <CaretRight
               size={12}
-              className={`text-dim transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+              className={`text-dim transition-transform duration-[var(--motion-duration-ui)] ${isOpen ? "rotate-90" : ""}`}
             />
           )}
         </div>

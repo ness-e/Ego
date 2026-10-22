@@ -119,7 +119,9 @@ export function JournalView({
           {onInsertDailyDecisions && (
             <Button
               size="md"
-              variant="secondary"
+              // Ola 10 · EGO-FIND-100: el primario del journal ("Decisiones").
+              // "Editar"/"Preview" son un toggle y "Guardar" un `ghost`.
+              variant="accent"
               onClick={handleInsertDecisions}
               title="Insertar decisiones acordadas en el texto"
             >

@@ -205,7 +205,20 @@ export function SplitPane({
       // persiste en localStorage: es un valor de runtime, no una clase fija.
       // design-lint: allow
       style={{ width }}
-      className={`relative flex h-full shrink-0 flex-col overflow-hidden bg-panel transition-[width] duration-75 ${className}`}
+      // Ola 10 · EGO-FIND-102: el ancho **no** se transiciona.
+      //
+      // Por qué: un panel redimensionable tiene que **refluir** (su
+      // contenido cambia de tamaño), y `width` no es una propiedad
+      // compositable → la transición fuerza un reflow por frame (la única
+      // transición no-composited de la app).
+      //
+      // ¿Y `scaleX`? Deformaría el contenido (el texto se estira) → no
+      // sirve. La técnica correcta para un *splitter* es la **manipulación
+      // directa**: el panel sigue al puntero sin transición (el propio
+      // arrastre ES la animación, y sin latencia). Por eso aquí no hay
+      // `transition-[width]`: la_UNICA_ transición que queda es la del
+      // color del divisor, que sí es compositable.
+      className={`relative flex h-full shrink-0 flex-col overflow-hidden bg-panel ${className}`}
       data-pane-id={id}
     >
       <div className="flex-1 overflow-hidden min-h-0 min-w-0">{children}</div>

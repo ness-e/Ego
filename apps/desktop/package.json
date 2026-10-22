@@ -15,7 +15,8 @@
     "pretest": "node ../../scripts/ensure-fresh-dist.cjs",
     "smoke:native": "node scripts/smoke-native-packaged.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint:source-contracts": "node scripts/lint/source-contracts.lint.mjs"
   },
   "dependencies": {
     "@ego/avatar": "workspace:*",

@@ -3,9 +3,10 @@
 // Reemplaza el antiguo triángulo plano por el Robot Studio 2.5D (HybridRobotAvatar) con visor oscuro,
 // ojos LED expresivos, accesorios tácticos y micro-animaciones interactivas al clic.
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { TraitRegistry } from "./traits/TraitRegistry.js";
+import { loadCharacterConfig } from "./wardrobe/characterProfileBridge.js";
 import type { CharacterState } from "./state/character-state.js";
 import { MOTION } from "../canvas/DesignSystemProvider.js";
 
@@ -114,7 +115,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
   size = 28,
   animated = false,
   baseForm,
-  outfitId: _outfitId,
+  outfitId,
   className = "",
   title,
   mode,
@@ -123,6 +124,45 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
 }) => {
   const avatarRef = useRef<HTMLElement | null>(null);
   const reduceMotion = useReducedMotion() ?? false;
+
+  // EGO-FIND-116 (Ola 10): el perfil de personaje PERSISTE y hace
+  // round-trip, pero no alimentaba el render. Aquí se carga el perfil
+  // guardado (traits / baseForm / outfitId) y se le pasa al elemento.
+  //
+  // El elemento `<ego-avatar>` todavía no observa estos atributos (eso es
+  // API nueva del motor, zona de A6 → handoff), así que hasta que llegue,
+  // pasarlos no cambia el render pero deja el cableado **listo** y verificable
+  // (el test comprueba que el atributo viaja).
+  const [persisted, setPersisted] = useState<{
+    baseForm?: string;
+    traits?: string[];
+    outfitId?: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const config = await loadCharacterConfig(subEgoId);
+        if (cancelled || !config) return;
+        setPersisted({
+          baseForm: config.baseForm,
+          traits: config.traits,
+          outfitId: config.outfitId ?? null,
+        });
+      } catch {
+        // Sin perfil persistido: se usa el del行了TraitRegistry/props.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [subEgoId]);
+
+  // El prop es un override explícito; si no, gana el perfil persistido.
+  const effectiveBaseForm = baseForm ?? persisted?.baseForm;
+  const effectiveOutfitId = outfitId ?? persisted?.outfitId ?? undefined;
+  const effectiveTraits = persisted?.traits ?? [];
 
   // Inicializar TraitRegistry para obtener el nombre canónico si no se provee title
   TraitRegistry.initialize();
@@ -134,7 +174,7 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
 
   // Modo por defecto: Robot Studio siempre (salvo que explícitamente mode === "svg" o baseForm === "delta-core")
   const effectiveMode: "svg" | "studio" =
-    mode ?? (baseForm === "delta-core" ? "svg" : "studio");
+    mode ?? (effectiveBaseForm === "delta-core" ? "svg" : "studio");
   const studioPreset = subEgoIdToStudioPreset(subEgoId);
   const avatarState = mapCharacterStateToAvatarState(state);
 
@@ -221,6 +261,12 @@ export const CharacterBadge: React.FC<CharacterBadgeProps> = ({
         size: String(displaySize),
         mode: effectiveMode,
         preset: studioPreset,
+        // EGO-FIND-116: el perfil persistido viaja al motor. El elemento
+        // todavia no los observa (API nueva, zona de A6) -> el cableado
+        // queda listo y el test verifica que los atributos viajan.
+        "base-form": effectiveBaseForm,
+        traits: effectiveTraits.length > 0 ? JSON.stringify(effectiveTraits) : undefined,
+        outfit: effectiveOutfitId,
         "pointer-follow": animated ? "true" : "false",
         sound: "false",
         // Rig de manos flotantes articuladas (5 dedos) del Robot Studio: el

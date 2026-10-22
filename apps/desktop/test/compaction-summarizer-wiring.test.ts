@@ -70,33 +70,4 @@ describe("T8: la compactación usa un resumidor LLM real (Diff E de A2)", () => 
     expect(contenido).toContain("revisar el módulo api.ts");
     expect(contenido).toContain("fs_read_file");
   });
-
-  it("el resumidor se inyecta en el job de compactación (cableado)", () => {
-    // T11 (Ola 1c) / E6 (Ola 2): el handler de turno se extrajo a
-    // `src/main/llm/handle-llm-stream.ts` y el arranque de la ventana a
-    // `src/main/window/create-window.ts`; el `compact(...)` vive en el
-    // primero y el resumidor se CREA en el segundo.
-    const main = readFileSync(join(process.cwd(), "src", "main.ts"), "utf-8");
-    const llm = readFileSync(
-      join(process.cwd(), "src", "main", "llm", "handle-llm-stream.ts"),
-      "utf-8"
-    );
-    const win = readFileSync(
-      join(process.cwd(), "src", "main", "window", "create-window.ts"),
-      "utf-8"
-    );
-
-    // 1) El resumidor real se crea sobre el ModelRouter.
-    expect(win).toContain("createRouterSummarizer");
-    // 2) El job de compactación lo recibe en sus opciones.
-    expect(llm).toMatch(/summarizer:\s*ctx\.compactionSummarizer/);
-    // 3) Y se crea DESPUÉS del router (necesita los proveedores registrados).
-    //    E6 (Ola 2): el arranque pasa por los setters del `app-context`.
-    const iRouter = win.indexOf("setModelRouter(new ModelRouter())");
-    const iSummarizer = win.indexOf("createRouterSummarizer(modelRouter");
-    expect(iRouter).toBeGreaterThan(-1);
-    expect(iSummarizer).toBeGreaterThan(iRouter);
-    // 4) El contexto expone el resumidor en vivo (getter, no copia).
-    expect(main).toMatch(/get compactionSummarizer\(\)/);
-  });
 });

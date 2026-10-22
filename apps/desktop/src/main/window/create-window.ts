@@ -100,7 +100,7 @@ import { app, BrowserWindow, screen, session } from "electron";
 import { join } from "node:path";
 import { EgoMemoryAdapter, EgoMemoryLifecycle } from "@ego/memory";
 import { ModelRouter, createRouterSummarizer } from "@ego/models";
-import { ToolRegistry, registerNativeTools } from "@ego/tools";
+import { ToolRegistry, registerNativeTools, subEgoToolsView, resolveSubEgoToolSurface } from "@ego/tools";
 // E13 (Ola 5 · T1): registro de los metatools de divulgación progresiva.
 import { registerProgressiveMetaTools } from "../tools/meta-tools.js";
 // Ola 9 (A4): curaduría programada de memoria (CFG-08) — marca stale.
@@ -440,11 +440,28 @@ export async function createWindow(deps: CreateWindowDeps): Promise<void> {
     executor: async (instance) => {
       // Ejecuta un turno del Sub-Ego destino con el modelo.
       // Sin modelo disponible, devuelve la salida estructurada mínima.
+      //
+      // Ola 9 · vista filtrada: el turno del hijo se hace sobre SU vista del
+      // registro (las tools privadas de otro Sub-Ego no aparecen) y su
+      // presupuesto de tools es el de esa vista ∩ lo que declara el manifiesto
+      // — no el registro global.
+      const view = subEgoToolsView(toolRegistry, instance.manifest.id);
+      const surface = resolveSubEgoToolSurface({
+        subEgoId: instance.manifest.id,
+        declaredTools: instance.manifest.tools ?? [],
+        view,
+      });
       return {
         summary: `Turno de ${instance.manifest.id} ejecutado`,
         findings: [],
         files: [],
         issues: [],
+        // La superficie efectiva del hijo (su presupuesto de tools).
+        toolSurface: {
+          tools: [...surface.tools],
+          missing: [...surface.missing],
+          budget: surface.budget,
+        },
       };
     },
     routerOptions: {

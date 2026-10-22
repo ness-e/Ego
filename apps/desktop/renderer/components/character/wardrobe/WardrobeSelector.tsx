@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { TraitRegistry, type DomainCharacterPreset, type CharacterTrait } from "../traits/TraitRegistry.js";
-import { Sparkle, Check, ArrowClockwise, FloppyDisk, Eye, Lightbulb, Lightning, MagnifyingGlass, Warning, XCircle, Triangle, Robot, Hexagon, Diamond, type Icon } from "@phosphor-icons/react";
+import { Sparkle, Check, ArrowClockwise, FloppyDisk, Eye, Lightbulb, Lightning, MagnifyingGlass, Warning, XCircle, Triangle, Hexagon, Diamond, type Icon } from "@phosphor-icons/react";
 import {
   loadCharacterConfig,
   saveCharacterConfig,
@@ -15,8 +15,7 @@ export type BaseFormType =
   | "delta-core"
   | "quantum-monolith"
   | "energy-core"
-  | "fractal-polyhedron"
-  | "coucou-mochi";
+  | "fractal-polyhedron";
 
 export type StudioPresetType =
   | "cx-faithful"
@@ -106,7 +105,6 @@ const TEST_STATES: Array<{ id: string; label: string; icon: Icon }> = [
  */
 const BASE_FORM_OPTIONS: Array<{ id: BaseFormType; label: string; icon: Icon }> = [
   { id: "delta-core", label: "Delta Core (Triangular)", icon: Triangle },
-  { id: "coucou-mochi", label: "Robot Studio CX (Squircle / Superelipse)", icon: Robot },
   { id: "fractal-polyhedron", label: "Fractal Polyhedron (Hexagonal)", icon: Hexagon },
   { id: "quantum-monolith", label: "Quantum Monolith", icon: Diamond },
 ];
@@ -276,7 +274,7 @@ export const WardrobeSelector: React.FC<WardrobeSelectorProps> = ({
       ...defaultPreset,
       bodyColors: currentConfig.bodyColors,
       eyeShape: currentConfig.eyeShape,
-      baseForm: currentConfig.baseForm === "delta-core" ? "delta-core" : "coucou-mochi",
+      baseForm: currentConfig.baseForm === "delta-core" ? "delta-core" : "quantum-monolith",
       outfitId: null,
       traits: currentConfig.traits,
     };

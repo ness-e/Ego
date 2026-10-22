@@ -487,7 +487,10 @@ export function DailyDashboard({ onNavigateToCanvas }: DailyDashboardProps) {
             </div>
 
             <Button
-              variant="secondary"
+              // Ola 10 · EGO-FIND-100: el primario de esta pantalla es "Ir al
+              // Canvas" (ámbar). Este es una acción secundaria → `ghost`
+              // (sin chrome), para que no compita con el primario.
+              variant="ghost"
               size="md"
               icon={<Sparkle size={13} className="text-brand" />}
               onClick={handleRefineGoalsWithAI}

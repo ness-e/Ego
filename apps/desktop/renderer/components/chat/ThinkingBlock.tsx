@@ -46,7 +46,7 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
         </div>
         <CaretRight
           size={12}
-          className={`text-dim transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+          className={`text-dim transition-transform duration-[var(--motion-duration-ui)] ${isOpen ? "rotate-90" : ""}`}
         />
       </button>
 

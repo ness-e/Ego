@@ -278,6 +278,8 @@ describe("CFG-13: cron + workbench agregador (IPC existente)", () => {
   it("WorkbenchView expone 6 tabs y preview vacío honesto", async () => {
     const el = await mount(<WorkbenchView initialTab="preview" />);
     expect(el.querySelectorAll('[role="tab"]')).toHaveLength(6);
-    expect(el.textContent).toContain("Sin archivo seleccionado");
+    // EGO-FIND-98 (Ola 10): el estado vacío ahora es un EmptyState con
+    // guía (qué es / para qué / qué hacer) en vez de un texto suelto.
+    expect(el.textContent).toContain("Vista previa de archivos");
   });
 });

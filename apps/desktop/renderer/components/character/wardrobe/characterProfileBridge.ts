@@ -17,7 +17,6 @@ export const BridgeBaseFormSchema = z.enum([
   "energy-core",
   "fractal-polyhedron",
   "delta-core",
-  "coucou-mochi",
 ]);
 
 const BridgeColorSchema = z

@@ -97,7 +97,7 @@ function squeezeX(t: number): number {
 
 /**
  * Curva de progreso de la barra: rápido al 60 %, tramo medio pausado y
- * empujón final. Un ease-out plano se lee como otra animación (sequence.ts:88-92).
+ * empujón final. Un ease-[var(--motion-ease-out)] plano se lee como otra animación (sequence.ts:88-92).
  */
 export function uploadProgressCurve(u: number): number {
   if (u < 0.4) return 0.6 * eOut(u / 0.4);

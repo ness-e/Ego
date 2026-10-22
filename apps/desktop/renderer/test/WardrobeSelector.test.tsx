@@ -42,14 +42,16 @@ describe("CHAR-10: WardrobeSelector — Personalización y persistencia de avata
       root.render(<WardrobeSelector subEgoId="ego.nucleus" onSave={handleSave} />);
     });
 
-    // Encontrar botón de geometría Superelipse
-    const superellipseBtn = Array.from(container.querySelectorAll("button")).find(
-      (b) => b.textContent?.includes("Superelipse")
+    // Encontrar botón de geometría.
+    // EGO-FIND-117 (Ola 10): la geometría "Superelipse" (coucou-mochi) ya no
+    // existe en el motor (D4) → el test usa una geometría REAL.
+    const geometryBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("Quantum Monolith")
     );
-    expect(superellipseBtn).toBeDefined();
+    expect(geometryBtn).toBeDefined();
 
     await act(async () => {
-      superellipseBtn?.click();
+      geometryBtn?.click();
     });
 
     // Encontrar botón de guardar
@@ -65,11 +67,11 @@ describe("CHAR-10: WardrobeSelector — Personalización y persistencia de avata
     expect(handleSave).toHaveBeenCalledTimes(1);
     const savedConfig = handleSave.mock.calls[0]?.[0];
     expect(savedConfig.subEgoId).toBe("ego.nucleus");
-    expect(savedConfig.baseForm).toBe("coucou-mochi");
+    expect(savedConfig.baseForm).toBe("quantum-monolith");
 
     // Verificar que TraitRegistry fue actualizado
     const updatedPreset = TraitRegistry.getPreset("ego.nucleus");
-    expect(updatedPreset.baseForm).toBe("coucou-mochi");
+    expect(updatedPreset.baseForm).toBe("quantum-monolith");
   });
 
   it("debe restaurar a los valores predeterminados", async () => {

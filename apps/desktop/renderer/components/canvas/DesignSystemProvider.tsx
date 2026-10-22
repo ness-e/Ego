@@ -424,7 +424,7 @@ export const DesignSystemProvider: React.FC<DesignSystemProviderProps> = ({
       <div
         id="ego-design-system-root"
         style={cssVariables}
-        className="h-full w-full transition-colors duration-200"
+        className="h-full w-full transition-colors duration-[var(--motion-duration-ui)]"
       >
         {children}
       </div>

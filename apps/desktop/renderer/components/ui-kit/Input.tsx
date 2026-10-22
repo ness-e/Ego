@@ -88,7 +88,13 @@ export function Input({
           "flex items-center gap-2 rounded-[var(--radius-card)] border bg-panel px-2.5 transition-colors",
           size === "sm" ? "h-7" : "h-8",
           "hover:border-dim",
-          "focus-within:border-brand focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-brand",
+          // Ola 10 · EGO-FIND-101: el foco es **UN** anillo (el outline del
+          // sistema, `focus-visible:outline-brand` → `--ego-color-focus-ring`).
+          // Antes el borde ALSO se volvía `brand` → dos anillos ámbar
+          // superpuestos (denso y confuso). Ahora el borde conserva su
+          // token (`border-strong` / `border-error`) y sólo el outline
+          // marca el foco.
+          "focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-brand",
           "active:border-dim",
           error ? "border-error/50" : "border-strong",
           isDisabled && "cursor-not-allowed opacity-50",

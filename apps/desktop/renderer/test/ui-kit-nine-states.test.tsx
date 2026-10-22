@@ -117,9 +117,12 @@ describe("T16 FIND-12: Input — 9 estados P22", () => {
     expect(el.innerHTML).toContain("active:border-dim");
   });
 
-  it("focus: wrapper expone anillo focus-within:border-brand", async () => {
+  it("focus: el wrapper expone UN solo anillo (el outline del sistema)", async () => {
     const el = await mount(<Input aria-label="q" />);
-    expect(el.innerHTML).toContain("focus-within:border-brand");
+    // EGO-FIND-101 (Ola 10): el foco es UN anillo (el outline). El borde ya
+    // no se vuelve brand al enfocar (si lo hiciera habría dos anillos).
+    expect(el.innerHTML).toContain("focus-within:outline-brand");
+    expect(el.innerHTML).not.toContain("focus-within:border-brand");
   });
 
   it("disabled: disabled=true deshabilita el input", async () => {

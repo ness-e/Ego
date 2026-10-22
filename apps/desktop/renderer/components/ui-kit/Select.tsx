@@ -158,7 +158,7 @@ export function Select({
           <SelectPrimitive.Icon asChild>
             <CaretDown
               size={14}
-              className="shrink-0 text-faint transition-transform duration-150"
+              className="shrink-0 text-faint transition-transform duration-[var(--motion-duration-micro)]"
               aria-hidden
             />
           </SelectPrimitive.Icon>
@@ -173,7 +173,7 @@ export function Select({
               // (`@starting-style`): sin plugin de animación externo y
               // respetando `prefers-reduced-motion` (index.css desactiva las
               // transiciones globales).
-              "transition-[opacity,transform] duration-150 ease-[var(--motion-ease-out)] starting:opacity-0 starting:scale-95 data-[state=open]:opacity-100 data-[state=open]:scale-100",
+              "transition-[opacity,transform] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] starting:opacity-0 starting:scale-95 data-[state=open]:opacity-100 data-[state=open]:scale-100",
               contentClassName,
             )}
           >

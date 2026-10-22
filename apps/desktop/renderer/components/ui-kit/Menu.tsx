@@ -238,7 +238,7 @@ export function Menu({
           {...labelProps}
           className={cn(
             "z-50 max-h-60 min-w-[10rem] overflow-y-auto rounded-[var(--radius-card)] border border-hairline bg-raised p-1 text-xs text-ink shadow-[var(--ego-elevation-l2)]",
-            "transition-[opacity,transform] duration-150 ease-[var(--motion-ease-out)] starting:opacity-0 starting:scale-95 data-[state=open]:opacity-100 data-[state=open]:scale-100",
+            "transition-[opacity,transform] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] starting:opacity-0 starting:scale-95 data-[state=open]:opacity-100 data-[state=open]:scale-100",
             contentClassName,
           )}
         >

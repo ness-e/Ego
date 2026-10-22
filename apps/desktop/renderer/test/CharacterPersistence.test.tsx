@@ -16,7 +16,7 @@ const CONFIG: CustomCharacterConfig = {
   name: "Mi Núcleo",
   bodyColors: ["#06b6d4", "#083344"],
   eyeShape: "happy",
-  baseForm: "coucou-mochi",
+  baseForm: "quantum-monolith",
   outfitId: null,
   traits: ["sensor_antenna_scanner", "trait_desconocido_xyz"],
 };
@@ -42,7 +42,7 @@ describe("CHAR-10: persistencia UI de personalización a VantaDB", () => {
       expect(CHARACTER_KEY).toBe("character");
       expect(payload.id).toBe("char_nucleus");
       expect(payload.name).toBe("Mi Núcleo");
-      expect(payload.baseForm).toBe("coucou-mochi");
+      expect(payload.baseForm).toBe("quantum-monolith");
       expect(payload.palette.primary).toBe("#06b6d4");
       expect(payload.palette.secondary).toBe("#083344");
       expect(payload.defaultEye).toBe("happy");

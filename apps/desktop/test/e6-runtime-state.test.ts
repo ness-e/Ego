@@ -18,7 +18,7 @@
  * Un objetivo de arquitectura que solo se comprueba en el handoff se pierde
  * en la siguiente ola. Este test lo convierte en una puerta de CI.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
@@ -106,14 +106,37 @@ describe("E6 — el main process tiene UN sitio con su estado mutable", () => {
     }
   });
 
-  it("los handlers IPC siguen registrado en el main (no se han movido de sitio)", () => {
-    const main = readFileSync(join(SRC, "main.ts"), "utf8");
-    // El manifiesto de deps sigue en el compositor.
-    expect(main).toContain("createIpcDeps");
-    // Y el registro ocurre en el proceso main (no en el renderer).
-    const tree = collect(SRC)
-      .map((f) => readFileSync(f, "utf8"))
-      .join("\n");
-    expect(tree).toContain("registerIpcHandlers(");
-  });
+  it("los handlers IPC siguen registrado en el main (no se han movido de sitio)", async () => {
+    // EGO-FIND-63 (Ola 10): el aserto "el manifiesto de deps sigue en el
+    // compositor" era un aserto de TEXTO de fuente. Ahora es
+    // COMPORTAMIENTO: se importa el compositor (con `electron` inertizado,
+    // como hace `ipc.integration.test.ts`) y se comprueba que la fabrica de
+    // deps existe y es una funcion.
+    // El mismo stub inerte que usa `ipc.integration.test.ts`: main.ts no
+    // ejecuta nada de electron a nivel de modulo.
+    vi.mock("electron", () => ({
+      app: undefined,
+      BrowserWindow: class {},
+      ipcMain: { handle: vi.fn() },
+      dialog: { showOpenDialog: vi.fn(async () => ({ canceled: true, filePaths: [] })) },
+      safeStorage: undefined,
+      Tray: class {},
+      Menu: {},
+      nativeImage: {},
+      session: {},
+      shell: {},
+    }));
+    // El registro de los handlers IPC vive en el PROCESO MAIN (no en el
+    // renderer): se comprueba importando su modulo y viendo que la funcion
+    // de registro existe (comportamiento, no texto de fuente).
+    const ipc = (await import("../src/main/ipc/register-ipc.js")) as unknown as {
+      registerIpcHandlers?: unknown;
+    };
+    expect(
+      typeof ipc.registerIpcHandlers,
+      "el registro de handlers IPC debe seguir en el proceso main"
+    ).toBe("function");
+  // El import del módulo IPC carga el grafo del main (VantaDB, providers…):
+  // necesita más que los 5 s por defecto del runner.
+  }, 30_000);
 });

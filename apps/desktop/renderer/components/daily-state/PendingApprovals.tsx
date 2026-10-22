@@ -83,21 +83,24 @@ export function PendingApprovals({
         <div className="flex items-center gap-1.5">
           <Button
             size="md"
-            variant="secondary"
+            // Ola 10 · EGO-FIND-100: el primario del panel es "aprobar lo no
+            // crítico" → `accent` (ámbar, el idioma único de CTA primario).
+            // "Rechazar todas" queda como `danger` (es destructivo).
+            variant="accent"
             icon={<Check size={12} />}
             onClick={handleApproveAllSafe}
             disabled={isBatchBusy}
-            className="whitespace-nowrap hover:bg-success/10 hover:text-success"
+            className="whitespace-nowrap"
           >
             Aprobar no críticas
           </Button>
           <Button
             size="md"
-            variant="secondary"
+            variant="danger"
             icon={<X size={12} />}
             onClick={handleRejectAll}
             disabled={isBatchBusy}
-            className="whitespace-nowrap hover:bg-error/10 hover:text-error"
+            className="whitespace-nowrap"
           >
             Rechazar todas
           </Button>

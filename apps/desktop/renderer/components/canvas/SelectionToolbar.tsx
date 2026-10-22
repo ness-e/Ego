@@ -28,7 +28,7 @@ export const SelectionToolbar: React.FC = () => {
       // medido en runtime; Tailwind no puede expresar coordenadas dinámicas.
       // La supresión la hace la entrada de la lista blanca, no este comentario.
       style={{ top: `${top}px`, left: `${left}px` }}
-      className="fixed z-50 flex animate-in items-center gap-1 rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-1 text-xs text-ink shadow-[var(--ego-elevation-l2)] fade-in zoom-in-95 select-none duration-150"
+      className="fixed z-50 flex animate-in items-center gap-1 rounded-[var(--radius-card)] border border-hairline bg-raised px-2 py-1 text-xs text-ink shadow-[var(--ego-elevation-l2)] fade-in zoom-in-95 select-none duration-[var(--motion-duration-micro)]"
     >
       <Button
         type="button"

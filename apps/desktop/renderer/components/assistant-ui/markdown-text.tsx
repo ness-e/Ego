@@ -184,7 +184,7 @@ function ExplainabilityAccordion({ content }: { content: string }) {
         </div>
         <CaretRight
           size={12}
-          className={`transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+          className={`transition-transform duration-[var(--motion-duration-ui)] ${isOpen ? "rotate-90" : ""}`}
         />
       </button>
 

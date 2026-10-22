@@ -14,7 +14,7 @@ export interface MorphTarget {
 }
 
 /**
- * Función de aceleración cúbica (ease-in-out) para morfismos visuales naturales
+ * Función de aceleración cúbica (ease-[var(--motion-ease-in)]-out) para morfismos visuales naturales
  */
 export function easeInOutCubic(t: number): number {
   const clamped = Math.max(0, Math.min(1, t));
